@@ -626,6 +626,18 @@ public struct SNMPSwitchPoller: Sendable {
         }
     }
 
+    /// Table facultative (ajoutée par certains équipements seulement) : une erreur de l'agent ou un
+    /// délai dépassé donne une liste vide au lieu de faire échouer tout le relevé.
+    private func optionalColumn(_ root: SNMPOID) async throws -> [SNMPVarBind] {
+        do {
+            return try await client.walk(root)
+        } catch SNMPError.agent {
+            return []
+        } catch SNMPError.timeout {
+            return []
+        }
+    }
+
     private func intColumn(_ root: SNMPOID) async throws -> [Int: SNMPValue] {
         var result: [Int: SNMPValue] = [:]
         for bind in try await column(root) {
@@ -706,7 +718,7 @@ public struct SNMPSwitchPoller: Sendable {
     /// fdbId → VLAN qui l'utilisent (dot1qVlanFdbId) ; vide si la table manque.
     func vlanByFdbId() async throws -> [Int: Set<Int>] {
         var result: [Int: Set<Int>] = [:]
-        for bind in try await column(SNMPOIDs.dot1qVlanFdbId) {
+        for bind in try await optionalColumn(SNMPOIDs.dot1qVlanFdbId) {
             guard let suffix = bind.oid.suffix(after: SNMPOIDs.dot1qVlanFdbId), suffix.count == 2,
                   let fdbId = bind.value.intValue else { continue }
             result[Int(fdbId), default: []].insert(Int(suffix[1]))
@@ -744,6 +756,7 @@ public struct SNMPSwitchPoller: Sendable {
         guard !vlans.isEmpty else { return [] }
         var entries: [SNMPFDBEntry] = []
         var answered = false
+        var silent = 0
         for vlan in vlans.prefix(limit) {
             try Task.checkCancellation()
             var target = client.target
@@ -756,11 +769,15 @@ public struct SNMPSwitchPoller: Sendable {
                 }
                 entries += try await bridgeFdb(client: context, bridgePorts: ports, vlan: vlan)
                 answered = true
+                silent = 0
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
                 // Le premier VLAN muet : l'indexation par communauté n'est pas prise en charge, inutile d'insister.
                 if !answered { return [] }
+                // Chaque VLAN muet coûte le délai et les renvois : trois de suite, on garde ce qu'on a.
+                silent += 1
+                if silent >= 3 { break }
             }
         }
         return entries
@@ -863,7 +880,7 @@ public struct SNMPSwitchPoller: Sendable {
                   let mac = SNMPParse.arpMAC(bind.value) else { continue }
             result[index.ip] = mac
         }
-        for bind in try await column(SNMPOIDs.ipNetToPhysicalPhysAddress) {
+        for bind in try await optionalColumn(SNMPOIDs.ipNetToPhysicalPhysAddress) {
             guard let suffix = bind.oid.suffix(after: SNMPOIDs.ipNetToPhysicalPhysAddress), let index = SNMPParse.arpPhysicalIndex(suffix),
                   let mac = SNMPParse.arpMAC(bind.value), result[index.ip] == nil else { continue }
             result[index.ip] = mac

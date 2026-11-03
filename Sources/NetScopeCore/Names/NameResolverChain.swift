@@ -101,27 +101,70 @@ public struct NameResolverChain: ScanNameResolving {
     private func resolve(_ ip: IPv4Address, timeout: Duration, waitForAll: Bool) async -> NameDetails {
         let effective = min(timeout, maxTimeout)
         let reverseDNS = reverseDNS, mdns = mdns, netbios = netbios
-        return await withCheckedContinuation { (continuation: CheckedContinuation<NameDetails, Never>) in
-            let race = NamesRace(ip: ip, waitForAll: waitForAll) { continuation.resume(returning: $0) }
-            if let reverseDNS {
-                Task { race.setDNS(await reverseDNS.name(for: ip, timeout: effective)) }
-            } else {
-                race.setDNS(nil)
+        let tasks = NamesTasks()
+        // L'annulation (« Arrêter ») rend tout de suite ce qui est arrivé et arrête les trois méthodes.
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { (continuation: CheckedContinuation<NameDetails, Never>) in
+                let race = NamesRace(ip: ip, waitForAll: waitForAll) { continuation.resume(returning: $0) }
+                tasks.set(race)
+                if let reverseDNS {
+                    tasks.add(Task { race.setDNS(await reverseDNS.name(for: ip, timeout: effective)) })
+                } else {
+                    race.setDNS(nil)
+                }
+                if let mdns {
+                    tasks.add(Task { race.setMDNS(await mdns.name(for: ip, timeout: effective)) })
+                } else {
+                    race.setMDNS(nil)
+                }
+                if let netbios {
+                    tasks.add(Task { race.setNetBIOS(await netbios.status(for: ip, timeout: effective)) })
+                } else {
+                    race.setNetBIOS(nil)
+                }
+                // Filet de sécurité : rend ce qui est arrivé, même si une méthode dépasse son délai.
+                let grace = Int(min((effective + .milliseconds(250)).scanNanoseconds, UInt64(Int.max)))
+                Self.timerQueue.asyncAfter(deadline: .now() + .nanoseconds(grace)) { race.finishNow() }
+                if Task.isCancelled { tasks.cancelAll() }
             }
-            if let mdns {
-                Task { race.setMDNS(await mdns.name(for: ip, timeout: effective)) }
-            } else {
-                race.setMDNS(nil)
-            }
-            if let netbios {
-                Task { race.setNetBIOS(await netbios.status(for: ip, timeout: effective)) }
-            } else {
-                race.setNetBIOS(nil)
-            }
-            // Filet de sécurité : rend ce qui est arrivé, même si une méthode dépasse son délai.
-            let grace = Int(min((effective + .milliseconds(250)).scanNanoseconds, UInt64(Int.max)))
-            Self.timerQueue.asyncAfter(deadline: .now() + .nanoseconds(grace)) { race.finishNow() }
+        } onCancel: {
+            tasks.cancelAll()
         }
+    }
+}
+
+/// Tâches des trois méthodes d'une résolution, annulables ensemble (même avant leur création).
+private final class NamesTasks: @unchecked Sendable {
+    private let lock = NSLock()
+    private var tasks: [Task<Void, Never>] = []
+    private var race: NamesRace?
+    private var cancelled = false
+
+    func set(_ race: NamesRace) {
+        lock.lock()
+        self.race = race
+        let late = cancelled
+        lock.unlock()
+        if late { race.finishNow() }
+    }
+
+    func add(_ task: Task<Void, Never>) {
+        lock.lock()
+        let late = cancelled
+        if !late { tasks.append(task) }
+        lock.unlock()
+        if late { task.cancel() }
+    }
+
+    func cancelAll() {
+        lock.lock()
+        cancelled = true
+        let list = tasks
+        let race = self.race
+        tasks = []
+        lock.unlock()
+        list.forEach { $0.cancel() }
+        race?.finishNow()
     }
 }
 

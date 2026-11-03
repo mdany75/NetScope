@@ -235,7 +235,7 @@ private final class NamesBox<Value>: @unchecked Sendable {
 }
 
 /// Faux répondeur UDP sur 127.0.0.1 : répond à chaque datagramme par `handler` (rien si `nil`).
-private final class NamesResponder: @unchecked Sendable {
+final class NamesResponder: @unchecked Sendable {
     let port: UInt16
     private let fd: Int32
     private let stopped = NamesBox(false)

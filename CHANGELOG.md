@@ -36,6 +36,31 @@ Le Scanner se remplit tout seul : noms, ports, switchs, ports de switch et VLAN,
 - Le type switch ne reposait que sur un « port 161 TCP » qui n’existe pas (SNMP passe par
   UDP) : le type vient maintenant de la découverte SNMP (switch, routeur, imprimante).
 - Les appareils sans enregistrement DNS inverse n’avaient aucun nom.
+- Relecture du scan automatique :
+  - le scan Rapide n’efface plus les ports trouvés par un scan approfondi, et la colonne
+    Ports ne clignote plus vide pendant le scan ;
+  - la découverte SNMP part dès la fin de l’ARP, en parallèle des noms et des ports, et le
+    délai TCP du profil Rapide passe à 400 ms : le scan Rapide reste court sur un /24 plein ;
+  - DNS inverse limité à 8 requêtes bloquantes à la fois et plafond de descripteurs relevé à
+    4 096 au lancement (aucun port déclaré fermé à tort quand le DNS ne répond pas) ;
+  - un switch de niveau 3 n’est ajouté qu’une fois, même s’il répond sur plusieurs VLAN ;
+  - seuls les relevés réussis pendant le scan servent à localiser les appareils ; le bilan
+    distingue switchs relevés, relevés impossibles et scan interrompu, et l’ancien bilan
+    disparaît au scan suivant et après « Effacer » ;
+  - un délai dépassé sur une table facultative (dot1qVlanFdbId, ipNetToPhysicalTable) ne fait
+    plus échouer tout le relevé ; trois VLAN Cisco muets de suite arrêtent la lecture par VLAN ;
+  - la découverte n’interroge que les adresses privées, et « Confirmer avant de scanner une
+    plage publique » est enfin demandé au lancement du scan ;
+  - un switch retiré n’est plus rajouté au scan suivant (liste « Switchs écartés ») ;
+  - « Oublier les communautés retenues » dans Réglages › Switchs ; effacer la communauté des
+    Identifiants efface aussi la copie retenue par switch ;
+  - communautés à essayer masquées (bouton « Afficher ») et une par ligne (« , » et « ; »
+    sont permis dans une communauté) ; interrupteur « Lire la table ARP de la passerelle » ;
+  - le Trousseau n’est plus lu sur le fil principal (plus de gel à l’ouverture) ;
+  - « Arrêter » pendant l’étape SNMP marque quand même hors ligne les appareils absents,
+    interrompt aussitôt la résolution de noms et n’inscrit plus d’erreur sur les switchs ;
+  - une interrogation manuelle ne peut plus tourner en même temps que la découverte ;
+  - en démonstration, « Lancer le scan » et « Scanner les ports » n’envoient plus rien.
 
 ## 0.1.0 — 2026-11-03
 

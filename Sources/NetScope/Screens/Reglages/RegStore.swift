@@ -130,6 +130,7 @@ final class RegPrefs: ObservableObject {
         static let defaultProfile = "reglages.scan.profilParDefaut"
         static let confirmPublic = "reglages.general.confirmerPlagePublique"
         static let autoSwitches = "reglages.switchs.decouverteAuto"
+        static let gatewayARP = "reglages.switchs.arpPasserelle"
     }
 
     private let defaults: UserDefaults?
@@ -139,6 +140,8 @@ final class RegPrefs: ObservableObject {
     @Published var confirmPublicRanges: Bool { didSet { defaults?.set(confirmPublicRanges, forKey: Key.confirmPublic) } }
     /// Découverte SNMP des switchs à la fin de chaque scan (activée par défaut).
     @Published var autoDiscoverSwitches: Bool { didSet { defaults?.set(autoDiscoverSwitches, forKey: Key.autoSwitches) } }
+    /// Lecture SNMP de la table ARP de la passerelle et des routeurs découverts (activée par défaut).
+    @Published var readGatewayARP: Bool { didSet { defaults?.set(readGatewayARP, forKey: Key.gatewayARP) } }
 
     /// Ouverture de session (SMAppService) : état lu au système, erreur éventuelle.
     @Published private(set) var launchAtLogin = false
@@ -151,6 +154,7 @@ final class RegPrefs: ObservableObject {
         defaultProfile = defaults?.string(forKey: Key.defaultProfile).flatMap(ScanProfile.init(rawValue:)) ?? .rapide
         confirmPublicRanges = defaults?.object(forKey: Key.confirmPublic) as? Bool ?? true
         autoDiscoverSwitches = defaults?.object(forKey: Key.autoSwitches) as? Bool ?? true
+        readGatewayARP = defaults?.object(forKey: Key.gatewayARP) as? Bool ?? true
         refreshLaunchAtLogin()
     }
 
@@ -228,6 +232,8 @@ struct RegSNMPCredentials: Codable, Equatable {
     static func erase() throws {
         guard !RegEnvironment.isSandboxed else { return }
         try keychain.delete(account)
+        // La communauté effacée ne doit pas survivre dans la copie retenue par switch.
+        RegSNMPDiscoveryVault.forgetHostCommunities()
     }
 
     /// Nombre d'identifiants renseignés (v2c, v3).
@@ -272,10 +278,17 @@ enum RegSNMPDiscoveryVault {
         try? RegSNMPCredentials.keychain.set(String(decoding: data, as: UTF8.self), for: hostsAccount)
     }
 
-    /// « public, lecture-ro » ou une par ligne → liste sans vide ni doublon.
+    /// Efface les communautés retenues par switch (compte « communautes-par-hote »).
+    static func forgetHostCommunities() {
+        guard !RegEnvironment.isSandboxed else { return }
+        try? RegSNMPCredentials.keychain.delete(hostsAccount)
+    }
+
+    /// Une communauté par ligne → liste sans vide ni doublon. Seul le saut de ligne sépare :
+    /// « , » et « ; » sont permis dans une communauté SNMP.
     static func parse(_ text: String) -> [String] {
         var seen = Set<String>()
-        return text.split(whereSeparator: { $0 == "," || $0 == "\n" || $0 == ";" })
+        return text.split(whereSeparator: { $0 == "\n" || $0 == "\r" })
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty && seen.insert($0).inserted }
     }

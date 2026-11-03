@@ -7,11 +7,23 @@ enum Launcher {
     @MainActor
     static func main() {
         let arguments = CommandLine.arguments
+        raiseFileLimit()
         // Outil de développement : captures de chaque écran, hors écran, puis sortie.
         if arguments.contains("--snapshot") {
             Snapshots.run(arguments: arguments)
         }
         NetScopeApp.main()
+    }
+
+    /// Une app graphique n'a que 256 descripteurs par défaut ; un scan ouvre jusqu'à 128 sockets TCP,
+    /// plus les sockets UDP des noms et du SNMP. On monte à 4096 (dans la limite permise).
+    private static func raiseFileLimit() {
+        var limit = rlimit()
+        guard getrlimit(RLIMIT_NOFILE, &limit) == 0 else { return }
+        let wanted = min(rlim_t(4096), limit.rlim_max)
+        guard limit.rlim_cur < wanted else { return }
+        limit.rlim_cur = wanted
+        _ = setrlimit(RLIMIT_NOFILE, &limit)
     }
 
     /// Mode démonstration (« --demo ») : appareils fictifs des croquis, rien d'enregistré sur le disque.

@@ -68,6 +68,8 @@ struct SwitchScreen: View {
             .padding(.vertical, 16)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+        // Communautés lues au Trousseau à l'ouverture de l'écran, hors du fil principal.
+        .task { await store.loadVault() }
         .screenToolbar {
             Button { showAdd = true } label: { Label("Ajouter un switch", systemImage: "plus") }
                 .buttonStyle(.secondary)

@@ -8,7 +8,7 @@ struct SwitchAutoResult: Equatable {
     var date: Date
     /// Appareils qui ont répondu en SNMP (switchs, routeurs, imprimantes…).
     var responded: Int
-    /// Noms des switchs découverts ou relevés.
+    /// Noms des switchs relevés avec succès pendant ce scan.
     var switchNames: [String]
     /// Appareils dont le switch et le port sont connus.
     var located: Int
@@ -16,6 +16,16 @@ struct SwitchAutoResult: Equatable {
     var filledMACs: Int
     /// Aucune communauté à essayer (liste vide et rien dans les Identifiants).
     var noCommunity = false
+    /// Hôtes interrogés par la découverte (adresses privées, hors switchs écartés).
+    var queried = 0
+    /// Nombre de communautés essayées (jamais leur valeur).
+    var communitiesTried = 0
+    /// Switchs découverts dans ce scan (un par équipement, même s'il a plusieurs adresses).
+    var discovered = 0
+    /// Switchs dont le relevé complet a échoué pendant ce scan (nom ou adresse).
+    var failed: [String] = []
+    /// Scan arrêté pendant l'étape SNMP : bilan partiel.
+    var interrupted = false
 
     var foundSwitch: Bool { !switchNames.isEmpty }
 }
@@ -25,7 +35,7 @@ struct SwitchAutoResult: Equatable {
 /// Les switchs sont découverts automatiquement à la fin de chaque scan (`autoDiscover`) ou
 /// ajoutés à la main. La communauté saisie ici est préremplie depuis le Trousseau (Réglages ›
 /// Identifiants) ; celle qui a répondu pour chaque switch découvert est gardée au Trousseau,
-/// jamais dans les préférences.
+/// jamais dans les préférences. Le Trousseau n'est lu qu'au premier besoin, hors du fil principal.
 @MainActor
 final class SwitchStore: ObservableObject {
     static let shared = SwitchStore()
@@ -38,6 +48,8 @@ final class SwitchStore: ObservableObject {
     @Published private(set) var snapshots: [String: SNMPSwitchSnapshot] = [:]
     @Published private(set) var errors: [String: String] = [:]
     @Published private(set) var isPolling = false
+    /// Découverte automatique en cours (fin de scan) : l'interrogation manuelle attend.
+    @Published private(set) var isDiscovering = false
     @Published private(set) var pollingHost: String?
     @Published private(set) var lastPoll: Date?
     @Published var selectedHost: String?
@@ -51,10 +63,18 @@ final class SwitchStore: ObservableObject {
     @Published private(set) var autoHosts: Set<String> {
         didSet { if !isDemo { UserDefaults.standard.set(Array(autoHosts).sorted(), forKey: Self.autoHostsKey) } }
     }
-    /// Bilan de la dernière découverte automatique.
+    /// Switchs retirés par l'utilisateur : la découverte automatique ne les interroge plus.
+    @Published private(set) var ignoredHosts: Set<String> {
+        didSet { if !isDemo { UserDefaults.standard.set(Array(ignoredHosts).sorted(), forKey: Self.ignoredKey) } }
+    }
+    /// Bilan de la dernière découverte automatique (nil pendant un scan et après « Effacer »).
     @Published private(set) var autoResult: SwitchAutoResult?
+    /// Nombre de communautés retenues par switch (pour Réglages › Switchs).
+    @Published private(set) var rememberedCommunities = 0
     /// Communauté qui a répondu, par switch (adresse IP → communauté), lue au Trousseau.
-    private var hostCommunities: [String: String] = [:]
+    private var hostCommunities: [String: String] = [:] {
+        didSet { rememberedCommunities = hostCommunities.count }
+    }
 
     /// Noms d'hôte des postes fictifs de la démonstration (absents d'AppState).
     private(set) var demoNames: [MACAddress: String] = [:]
@@ -62,20 +82,60 @@ final class SwitchStore: ObservableObject {
     let isDemo: Bool
     private static let hostsKey = "NetScope.switchs.hotes"
     private static let autoHostsKey = "NetScope.switchs.decouverts"
+    private static let ignoredKey = "NetScope.switchs.ignores"
+    /// Écritures au Trousseau, dans l'ordre, hors du fil principal.
+    private static let vaultQueue = DispatchQueue(label: "netscope.switchs.trousseau")
     private var pollTask: Task<Void, Never>?
+    private var vaultTask: Task<Void, Never>?
 
     init(demo: Bool = Launcher.isDemo) {
         isDemo = demo
         if demo {
             hosts = []
             autoHosts = []
+            ignoredHosts = []
             loadDemo()
         } else {
             hosts = UserDefaults.standard.stringArray(forKey: Self.hostsKey) ?? []
             autoHosts = Set(UserDefaults.standard.stringArray(forKey: Self.autoHostsKey) ?? [])
-            hostCommunities = RegSNMPDiscoveryVault.hostCommunities()
-            community = RegSNMPCredentials.load()?.community ?? ""
+            ignoredHosts = Set(UserDefaults.standard.stringArray(forKey: Self.ignoredKey) ?? [])
         }
+    }
+
+    /// Lit au Trousseau (une seule fois, hors du fil principal) la communauté des Identifiants et
+    /// celles retenues par switch. Une demande d'autorisation de macOS ne gèle donc pas l'app.
+    func loadVault() async {
+        guard !isDemo else { return }
+        if vaultTask == nil {
+            vaultTask = Task { [weak self] in
+                let (map, saved) = await Task.detached(priority: .userInitiated) {
+                    (RegSNMPDiscoveryVault.hostCommunities(), RegSNMPCredentials.load()?.community ?? "")
+                }.value
+                guard let self else { return }
+                // Ce qui a été appris pendant la lecture l'emporte sur le Trousseau.
+                self.hostCommunities = map.merging(self.hostCommunities) { _, new in new }
+                if self.community.isEmpty { self.community = saved }
+            }
+        }
+        await vaultTask?.value
+    }
+
+    private func saveHostCommunities() {
+        let copy = hostCommunities
+        Self.vaultQueue.async { RegSNMPDiscoveryVault.saveHostCommunities(copy) }
+    }
+
+    /// Oublie les communautés retenues par switch (mémoire et Trousseau).
+    func forgetCommunities() {
+        hostCommunities = [:]
+        guard !isDemo else { return }
+        Self.vaultQueue.async { RegSNMPDiscoveryVault.forgetHostCommunities() }
+    }
+
+    /// La communauté des Identifiants vient d'être effacée : elle ne sert plus pour les relevés.
+    func credentialsErased() {
+        community = ""
+        forgetCommunities()
     }
 
     private func loadDemo() {
@@ -90,7 +150,8 @@ final class SwitchStore: ObservableObject {
         selectedPort = 12
         let located = DemoData.devices().filter { $0.switchName != nil && $0.switchPort != "Wi-Fi" }.count
         autoResult = SwitchAutoResult(date: lastPoll ?? Date(), responded: 4, switchNames: demo.snapshots.map(\.displayName),
-                                      located: located, filledMACs: 3)
+                                      located: located, filledMACs: 3, queried: 214, communitiesTried: 2,
+                                      discovered: demo.snapshots.count)
     }
 
     /// Vrai si le switch a été trouvé par la découverte automatique.
@@ -125,18 +186,27 @@ final class SwitchStore: ObservableObject {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
         guard let ip = IPv4Address(trimmed) else { return "Adresse IPv4 invalide\u{00A0}: «\u{00A0}\(trimmed)\u{00A0}»." }
         let key = ip.description
+        ignoredHosts.remove(key)
         if !hosts.contains(key) { hosts.append(key) }
         if selectedHost == nil { selectedHost = key }
         return nil
     }
 
+    /// Retire un switch ; la découverte automatique ne l'interrogera plus (« Ne plus ignorer » dans
+    /// Réglages › Switchs, ou l'ajouter à la main, le rétablit).
     func removeHost(_ host: String) {
         hosts.removeAll { $0 == host }
         autoHosts.remove(host)
-        if hostCommunities.removeValue(forKey: host) != nil { RegSNMPDiscoveryVault.saveHostCommunities(hostCommunities) }
+        ignoredHosts.insert(host)
+        if hostCommunities.removeValue(forKey: host) != nil { saveHostCommunities() }
         snapshots[host] = nil
         errors[host] = nil
         if selectedHost == host { selectedHost = hosts.first }
+    }
+
+    /// Rend un switch écarté à la découverte automatique.
+    func unignore(_ host: String) {
+        ignoredHosts.remove(host)
     }
 
     func select(host: String, port: Int? = nil) {
@@ -158,7 +228,7 @@ final class SwitchStore: ObservableObject {
 
     // MARK: Interrogation
 
-    var canPoll: Bool { !isPolling && hosts.contains { !community(for: $0).isEmpty } }
+    var canPoll: Bool { !isPolling && !isDiscovering && hosts.contains { !community(for: $0).isEmpty } }
 
     func poll(state: AppState) {
         guard canPoll else { return }
@@ -178,12 +248,15 @@ final class SwitchStore: ObservableObject {
             applyLocations(to: state)
             return
         }
-        await pollHosts(hosts)
-        _ = complete(state, routerTables: [])
+        await loadVault()
+        let fresh = await pollHosts(hosts)
+        guard !Task.isCancelled else { return }
+        _ = complete(state, fresh: fresh, routerTables: [])
     }
 
-    /// Relève les switchs donnés (quatre à la fois), chacun avec sa communauté.
-    private func pollHosts(_ list: [String]) async {
+    /// Relève les switchs donnés (quatre à la fois), chacun avec sa communauté. Renvoie les
+    /// adresses relevées avec succès : seuls ces relevés servent à localiser les appareils.
+    private func pollHosts(_ list: [String]) async -> Set<String> {
         isPolling = true
         defer {
             isPolling = false
@@ -194,6 +267,7 @@ final class SwitchStore: ObservableObject {
             guard let ip = IPv4Address(host), !community.isEmpty else { return nil }
             return (host, SNMPTarget(host: ip, community: community, timeout: 2, retries: 1))
         }
+        var fresh = Set<String>()
         var next = 0
         await withTaskGroup(of: (String, Result<SNMPSwitchSnapshot, Error>).self) { group in
             func launch() {
@@ -207,30 +281,38 @@ final class SwitchStore: ObservableObject {
             }
             for _ in 0..<min(4, jobs.count) { launch() }
             for await (host, result) in group {
+                // Switch retiré pendant le relevé : son résultat est ignoré.
+                guard hosts.contains(host) else { continue }
                 switch result {
                 case .success(let snapshot):
                     snapshots[host] = snapshot
                     errors[host] = nil
+                    fresh.insert(host)
                 case .failure(let error):
-                    errors[host] = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    // « Arrêter » n'est pas une panne du switch.
+                    if error is CancellationError || Task.isCancelled { break }
+                    errors[host] = (error as? LocalizedError)?.errorDescription ?? "Relevé SNMP impossible."
                 }
                 pollingHost = host
                 if !Task.isCancelled { launch() }
             }
         }
-        lastPoll = Date()
+        if !fresh.isEmpty { lastPoll = Date() }
         if selectedHost == nil || snapshots[selectedHost!] == nil {
             selectedHost = hosts.first { snapshots[$0] != nil } ?? hosts.first
         }
         if let current, selectedPort == nil || current.interface(selectedPort!) == nil {
             selectedPort = current.physicalPorts.first(where: \.isUp)?.index
         }
+        return fresh
     }
 
     /// Après les relevés : MAC manquantes complétées par l'ARP SNMP (routeurs, switchs de niveau 3),
-    /// switchs relevés marqués comme tels, puis emplacement de chaque appareil.
-    private func complete(_ state: AppState, routerTables: [[IPv4Address: MACAddress]]) -> (located: Int, filled: Int) {
-        let all = orderedSnapshots
+    /// switchs relevés marqués comme tels, puis emplacement de chaque appareil. Seuls les relevés
+    /// réussis de ce passage (`fresh`) servent : une table MAC périmée donnerait un faux port.
+    private func complete(_ state: AppState, fresh: Set<String>,
+                          routerTables: [[IPv4Address: MACAddress]]) -> (located: Int, filled: Int) {
+        let all = hosts.filter(fresh.contains).compactMap { snapshots[$0] }
         let arp = SNMPAutoLocate.mergedARP(routers: routerTables, snapshots: all)
         var (devices, filled) = SNMPAutoLocate.fillMACs(state.devices, from: arp)
         let switchHosts = Set(all.map(\.host))
@@ -253,29 +335,74 @@ final class SwitchStore: ObservableObject {
 
     // MARK: Découverte automatique (fin de scan)
 
-    /// Découverte SNMP des hôtes en ligne du scan, ajout des switchs trouvés, relevé complet de
-    /// chaque switch, ARP SNMP des routeurs, puis emplacement des appareils. `phase` annonce le
-    /// passage à l'étape « Emplacements ». Rien n'est envoyé en démonstration.
-    func autoDiscover(state: AppState, hosts online: [IPv4Address], communities: [String],
-                      phase: (ScanPhase) -> Void) async -> SwitchAutoResult {
-        guard !isDemo else { return autoResult ?? SwitchAutoResult(date: Date(), responded: 0, switchNames: [], located: 0, filledMACs: 0) }
-        guard !communities.isEmpty else {
-            phase(.locations)
-            let located = applyLocations(to: state)
-            let result = SwitchAutoResult(date: Date(), responded: 0, switchNames: orderedSnapshots.map(\.displayName),
-                                          located: located, filledMACs: 0, noCommunity: true)
-            autoResult = result
-            return result
-        }
-        let discovered = await SNMPDiscovery(communities: communities).discover(online)
-        guard !Task.isCancelled else {
-            return SwitchAutoResult(date: Date(), responded: discovered.count, switchNames: [], located: 0, filledMACs: 0)
-        }
-        state.devices = SNMPAutoLocate.applyDiscovery(discovered, to: state.devices)
+    /// Hôtes à sonder en SNMP parmi ceux en ligne : adresses privées seulement (la communauté
+    /// circule en clair, elle ne part jamais vers Internet) et hors switchs écartés.
+    func discoveryTargets(_ online: [IPv4Address]) -> [IPv4Address] {
+        online.filter { AddressScope.of($0) == .privee && !ignoredHosts.contains($0.description) }
+    }
 
-        // Switchs : ajoutés à la liste, communauté retenue au Trousseau.
+    /// Un scan commence : l'ancien bilan n'est plus d'actualité.
+    func scanStarted(discovers: Bool) {
+        guard !isDemo else { return }
+        autoResult = nil
+        isDiscovering = discovers
+    }
+
+    /// Le scan s'arrête avant l'étape SNMP (ou sans elle).
+    func scanEnded(interrupted: Bool, planned: Bool) {
+        isDiscovering = false
+        guard !isDemo, planned, interrupted, autoResult == nil else { return }
+        autoResult = SwitchAutoResult(date: Date(), responded: 0, switchNames: [], located: 0, filledMACs: 0, interrupted: true)
+    }
+
+    /// Efface le bilan (bouton « Effacer » du scanner).
+    func clearResult() {
+        guard !isDemo else { return }
+        autoResult = nil
+    }
+
+    /// Un seul équipement par switch : un switch de niveau 3 répond sur chacune de ses adresses
+    /// (une par VLAN). On garde l'adresse déjà connue, sinon la première qui a répondu.
+    static func deduplicated(_ list: [SNMPDiscovered], known: Set<String>) -> [SNMPDiscovered] {
+        var byKey: [String: SNMPDiscovered] = [:]
+        var order: [String] = []
+        for item in list {
+            let key = item.sysName.isEmpty
+                ? item.host.description
+                : [item.sysName.lowercased(), item.sysObjectID ?? "", item.sysDescr].joined(separator: "|")
+            if let existing = byKey[key] {
+                if !known.contains(existing.host.description), known.contains(item.host.description) { byKey[key] = item }
+            } else {
+                byKey[key] = item
+                order.append(key)
+            }
+        }
+        return order.compactMap { byKey[$0] }
+    }
+
+    /// Après la découverte SNMP (faite pendant le scan) : ajout des switchs trouvés, ARP SNMP des
+    /// routeurs, relevé complet de chaque switch, puis emplacement des appareils. `phase` annonce le
+    /// passage à l'étape « Emplacements ». Rien n'est envoyé en démonstration.
+    func autoDiscover(state: AppState, discovered found: [SNMPDiscovered], queried: Int, communitiesTried: Int,
+                      readGatewayARP: Bool, phase: (ScanPhase) -> Void) async -> SwitchAutoResult {
+        guard !isDemo else { return autoResult ?? SwitchAutoResult(date: Date(), responded: 0, switchNames: [], located: 0, filledMACs: 0) }
+        isDiscovering = true
+        defer { isDiscovering = false }
+        await loadVault()
+        // Une interrogation manuelle lancée juste avant : on attend sa fin plutôt que de doubler le trafic.
+        await pollTask?.value
+
+        var result = SwitchAutoResult(date: Date(), responded: found.count, switchNames: [], located: 0, filledMACs: 0,
+                                      noCommunity: communitiesTried == 0, queried: queried, communitiesTried: communitiesTried)
+        guard !Task.isCancelled else { return interrupted(result) }
+        if !found.isEmpty { state.devices = SNMPAutoLocate.applyDiscovery(found, to: state.devices) }
+
+        // Switchs : un par équipement, ajoutés à la liste, communauté retenue au Trousseau.
+        let switches = Self.deduplicated(found.filter { $0.kind == .switch && !ignoredHosts.contains($0.host.description) },
+                                         known: Set(hosts))
+        result.discovered = switches.count
         var vaultChanged = false
-        for item in discovered where item.kind == .switch {
+        for item in switches {
             let key = item.host.description
             if !hosts.contains(key) {
                 hosts.append(key)
@@ -286,27 +413,44 @@ final class SwitchStore: ObservableObject {
                 vaultChanged = true
             }
         }
-        if vaultChanged { RegSNMPDiscoveryVault.saveHostCommunities(hostCommunities) }
+        if vaultChanged { saveHostCommunities() }
         if selectedHost == nil { selectedHost = hosts.first }
 
         // ARP des routeurs (et de la passerelle) qui répondent : MAC des appareils des autres VLAN.
-        let gateway = state.activeInterface?.gateway
-        let routers = discovered.filter { $0.kind == .routeur || $0.host == gateway }
-        let routerTables: [[IPv4Address: MACAddress]] = await withTaskGroup(of: [IPv4Address: MACAddress].self) { group in
-            for router in routers.prefix(8) {
-                group.addTask { await SNMPDiscovery.routerARP(host: router.host, community: router.community) }
+        var routerTables: [[IPv4Address: MACAddress]] = []
+        if readGatewayARP {
+            let gateway = state.activeInterface?.gateway
+            let routers = Self.deduplicated(found.filter { $0.kind == .routeur || $0.host == gateway }, known: [])
+            routerTables = await withTaskGroup(of: [IPv4Address: MACAddress].self) { group in
+                for router in routers.prefix(8) {
+                    group.addTask { await SNMPDiscovery.routerARP(host: router.host, community: router.community) }
+                }
+                var tables: [[IPv4Address: MACAddress]] = []
+                for await table in group where !table.isEmpty { tables.append(table) }
+                return tables
             }
-            var tables: [[IPv4Address: MACAddress]] = []
-            for await table in group where !table.isEmpty { tables.append(table) }
-            return tables
         }
+        guard !Task.isCancelled else { return interrupted(result) }
 
         // Relevé complet des switchs (découverts et ajoutés à la main), puis emplacements.
-        await pollHosts(hosts)
+        let polled = hosts.filter { !community(for: $0).isEmpty }
+        let fresh = await pollHosts(polled)
+        guard !Task.isCancelled else { return interrupted(result) }
         phase(.locations)
-        let (located, filled) = complete(state, routerTables: routerTables)
-        let result = SwitchAutoResult(date: Date(), responded: discovered.count, switchNames: orderedSnapshots.map(\.displayName),
-                                      located: located, filledMACs: filled)
+        let (located, filled) = complete(state, fresh: fresh, routerTables: routerTables)
+        result.switchNames = hosts.filter(fresh.contains).compactMap { snapshots[$0]?.displayName }
+        result.failed = polled.filter { !fresh.contains($0) }.map { snapshots[$0]?.displayName ?? $0 }
+        result.located = located
+        result.filledMACs = filled
+        result.date = Date()
+        autoResult = result
+        return result
+    }
+
+    private func interrupted(_ partial: SwitchAutoResult) -> SwitchAutoResult {
+        var result = partial
+        result.interrupted = true
+        result.date = Date()
         autoResult = result
         return result
     }

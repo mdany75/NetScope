@@ -202,6 +202,7 @@ struct RegCredentialsSection: View {
     private func erase() {
         do {
             try RegSNMPCredentials.erase()
+            SwitchStore.shared.credentialsErased()
             saved = nil
             draft = RegSNMPCredentials()
             message = ("Identifiants effacés du Trousseau.", .success)

@@ -25,13 +25,26 @@ public struct ScanReverseDNS: ScanNameDetailResolving {
     /// fils globaux, les délais tombent quand même à l'heure.
     private static let timerQueue = DispatchQueue(label: "netscope.rdns.timer")
 
+    /// getnameinfo bloque un fil jusqu'à la réponse du DNS, même après le délai : au plus 8 à la fois,
+    /// sur une file à part, pour ne jamais épuiser les fils GCD partagés (sondes, minuteries, sockets)
+    /// quand le DNS ne répond pas aux requêtes PTR.
+    private static let lookupQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "netscope.rdns.lookup"
+        queue.maxConcurrentOperationCount = 8
+        queue.qualityOfService = .utility
+        return queue
+    }()
+
     public init() {}
 
     public func name(for ip: IPv4Address, timeout: Duration = .seconds(2)) async -> String? {
         await withCheckedContinuation { (continuation: CheckedContinuation<String?, Never>) in
             let once = OnceFlag()
             // getnameinfo est bloquant : il tourne à part ; s'il dépasse le délai, son résultat est ignoré.
-            DispatchQueue.global(qos: .utility).async {
+            ScanReverseDNS.lookupQueue.addOperation {
+                // Délai déjà écoulé pendant l'attente dans la file : inutile d'interroger le DNS.
+                guard !once.isClaimed else { return }
                 let name = ScanReverseDNS.lookup(ip)
                 if once.claim() { continuation.resume(returning: name) }
             }

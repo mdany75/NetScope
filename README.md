@@ -16,12 +16,15 @@ en construction.
   sysName SNMP, avec leur source), 20 ports essentiels sondés à chaque scan, fabricant, type
   d’appareil ; étapes visibles (Ping → Table ARP → Noms et ports → Switchs (SNMP) →
   Emplacements), filtres, tri, panneau de détail, export CSV.
-- **Découverte automatique des switchs** (activée par défaut) : à la fin de chaque scan,
-  NetScope interroge en SNMP v2c lecture seule les appareils en ligne (communauté des
+- **Découverte automatique des switchs** (activée par défaut) : pendant chaque scan,
+  NetScope interroge en SNMP v2c lecture seule les appareils en ligne aux adresses privées
+  (jamais vers Internet ; communauté des
   Identifiants, puis « public » ou la liste de Réglages › Switchs), ajoute les switchs qui
   répondent, relève leurs tables MAC, complète les MAC des autres VLAN par l’ARP SNMP de la
   passerelle et des switchs de niveau 3, puis remplit les colonnes **Switch / Port** et
-  **VLAN** de chaque appareil.
+  **VLAN** de chaque appareil. Un switch retiré à la main n’est plus interrogé (« Ne plus
+  ignorer » dans Réglages › Switchs). Limite : mDNS ne répond pas d’un VLAN à l’autre ; sur
+  les autres VLAN, les noms viennent du DNS inverse, de NetBIOS (Windows) et du sysName SNMP.
 - **Ping continu** multi-cibles (intervalle, taille de paquet pour le test MTU), statistiques
   (min, moyenne, max, gigue, perte, P95), graphes, journal des coupures, **traceroute et MTR**.
 - **Switchs et ports** : client SNMP v2c intégré (table MAC BRIDGE-MIB / Q-BRIDGE-MIB, LLDP,

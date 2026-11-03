@@ -157,8 +157,11 @@ struct ScanDetailLocation: View {
         guard let result = switches.autoResult else {
             return "Emplacement non relevé\u{00A0}: les switchs sont découverts en SNMP à la fin du scan."
         }
+        if result.interrupted {
+            return "Découverte des switchs interrompue\u{00A0}: relancez le scan pour localiser cet appareil."
+        }
         if !result.foundSwitch {
-            return "Aucun switch n’a répondu en SNMP\u{00A0}: activez SNMP v2c en lecture ou saisissez la communauté dans Réglages › Identifiants."
+            return "Aucun switch relevé au dernier scan\u{00A0}: voyez le bilan sous les plages à scanner."
         }
         if device.mac == nil { return "Adresse MAC inconnue\u{00A0}: impossible de retrouver le port dans les tables MAC." }
         return "Adresse MAC vue sur aucun port d’accès des switchs relevés (appareil derrière un switch non interrogé\u{00A0}?)."

@@ -135,3 +135,44 @@ struct ScanFakeDetails: ScanNameDetailResolving {
     func name(for ip: IPv4Address, timeout: Duration) async -> String? { details[ip]?.hostname }
     func details(for ip: IPv4Address, timeout: Duration) async -> NameDetails { details[ip] ?? NameDetails() }
 }
+
+// Corrections de relecture : ports sondés signalés à part, délai Rapide, annulation des noms.
+func registerAutoScanReviewTests(_ suite: TestSuite) {
+    suite.add("Scanner auto : résultat des ports signalé par « portsProbed », délai Rapide de 400 ms") {
+        try expectEqual(ScanOptions().portTimeout, .milliseconds(400), "Rapide : 400 ms par port")
+        try expectEqual(ScanOptions(profile: .complet).portTimeout, .milliseconds(800), "Complet : 800 ms")
+        let bureau = ScanTarget(label: "Bureau", range: try IPRange(parsing: "10.0.0.1-3"))
+        let pinger = ScanFakePinger(replies: [IPv4Address("10.0.0.2")!: 1.0, IPv4Address("10.0.0.3")!: 1.0])
+        let ports = ScanFakePorts(open: [IPv4Address("10.0.0.2")!: [22, 9100]])
+        let engine = ScanEngine(pinger: pinger, arp: ScanFakeARP(table: [:]), ports: ports, names: ScanNoNames())
+        var probed: [IPv4Address: [UInt16]] = [:]
+        var lastUpdate: [IPv4Address: [UInt16]] = [:]
+        for await event in engine.scan([bureau], options: ScanOptions()) {
+            switch event {
+            case .deviceFound(let device, _), .deviceUpdated(let device, _): lastUpdate[device.ip] = device.openPorts
+            case .portsProbed(let ip, let open, _):
+                try expectEqual(lastUpdate[ip], open, "portsProbed suit le deviceUpdated qui porte les mêmes ports")
+                probed[ip] = open
+            default: break
+            }
+        }
+        try expectEqual(probed[IPv4Address("10.0.0.2")!], [22, 9100], "ports ouverts signalés")
+        try expectEqual(probed[IPv4Address("10.0.0.3")!], [], "aucun port ouvert : signalé quand même (liste vide)")
+        try expectEqual(probed.count, 2, "un seul signalement par hôte en ligne")
+    }
+
+    suite.add("Noms : « Arrêter » rend la main tout de suite") {
+        let silent = try NamesResponder { _ in nil }
+        defer { silent.stop() }
+        let chain = NameResolverChain(reverseDNS: nil, mdns: NamesMDNS(unicastPort: silent.port, multicast: nil),
+                                      netbios: NamesNetBIOS(port: silent.port), maxTimeout: .seconds(3))
+        let start = Date()
+        let task = Task { await chain.details(for: IPv4Address(127, 0, 0, 1), timeout: .seconds(3)) }
+        try? await Task.sleep(nanoseconds: 150_000_000)
+        task.cancel()
+        let details = await task.value
+        let elapsed = Date().timeIntervalSince(start)
+        try expect(details.hostname == nil, "aucun nom")
+        try expect(elapsed < 1.0, "rendu en \(elapsed) s au lieu d'attendre le délai de 3 s")
+    }
+}

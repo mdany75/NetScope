@@ -72,6 +72,11 @@ final class ScanController: ObservableObject {
 
     func start(_ state: AppState) {
         guard !isRunning else { return }
+        // Démonstration : les plages sont fictives mais pourraient exister sur le vrai réseau.
+        guard !Launcher.isDemo else {
+            show("Démonstration\u{00A0}: aucun scan réel n’est lancé, les résultats affichés sont fictifs.", tone: .neutral)
+            return
+        }
         let enabled = state.ranges.filter(\.isEnabled)
         var targets: [ScanTarget] = []
         var invalid: [String] = []
@@ -82,22 +87,25 @@ final class ScanController: ObservableObject {
             show(enabled.isEmpty ? "Cochez au moins une plage à scanner." : "Aucune plage valide à scanner.", tone: .warning)
             return
         }
+        let prefs = RegPrefs.shared
+        let publicRanges = targets.filter(Self.hasPublicAddresses)
+        if prefs.confirmPublicRanges, !publicRanges.isEmpty, !confirmPublic(publicRanges) { return }
         if !invalid.isEmpty {
-            show("Plage ignorée (invalide) : \(invalid.joined(separator: ", "))", tone: .warning)
+            show("Plage ignorée (invalide) : \(invalid.joined(separator: ", "))", tone: .warning)
         }
 
         let customPorts = ScanProfile.parsePorts(customPortsText) ?? []
         let options = ScanOptions(profile: state.scanProfile, customPorts: customPorts)
-        // Découverte SNMP des switchs en fin de scan : réglage automatique (activé par défaut) ou profil Complet.
-        let discoversSwitches = !Launcher.isDemo && (RegPrefs.shared.autoDiscoverSwitches || state.scanProfile.alwaysDiscoversSwitches)
-        let communities = discoversSwitches ? RegSNMPDiscoveryVault.communities() : []
-        let probesPorts = !options.ports.isEmpty
+        // Découverte SNMP des switchs : réglage automatique (activé par défaut) ou profil Complet.
+        let discoversSwitches = prefs.autoDiscoverSwitches || state.scanProfile.alwaysDiscoversSwitches
+        let readGatewayARP = prefs.readGatewayARP
+        let probed = Set(options.ports)
         let pinger: any ScanPinging
         if let icmp = self.pinger {
             pinger = icmp
         } else {
             pinger = ScanNullPinger()
-            show("Ping ICMP indisponible : seuls les appareils de la table ARP seront trouvés.", tone: .warning)
+            show("Ping ICMP indisponible : seuls les appareils de la table ARP seront trouvés.", tone: .warning)
         }
 
         let baseline = Set(state.devices.map(\.id))
@@ -112,10 +120,13 @@ final class ScanController: ObservableObject {
         isRunning = true
         phase = .ping
         plannedPhases = discoversSwitches ? ScanPhase.allCases : [.ping, .arp, .details]
+        let switches = SwitchStore.shared
+        switches.scanStarted(discovers: discoversSwitches)
 
         let stream = ScanEngine(pinger: pinger).scan(targets, options: options)
         scanTask = Task { [weak self] in
             var foundIDs = Set<Device.ID>()
+            var sweep: Task<SNMPSweep, Never>?
             for await event in stream {
                 guard let self else { return }
                 switch event {
@@ -123,11 +134,18 @@ final class ScanController: ObservableObject {
                     for range in ranges { self.status[range.rangeID]?.progress = range }
                 case .phase(let phase):
                     self.phase = phase
+                    // Les hôtes en ligne sont connus après l'ARP : la découverte SNMP part tout de suite,
+                    // en parallèle des noms et des ports.
+                    if phase == .details, discoversSwitches, sweep == nil {
+                        sweep = Self.startSweep(switches.discoveryTargets(Self.addresses(foundIDs)))
+                    }
                 case .deviceFound(let device, _), .deviceUpdated(let device, _):
                     if case .deviceFound = event, let latency = device.latencyMs { self.appendLatency(latency, for: device.id) }
                     foundIDs.insert(device.id)
-                    self.absorb(device, into: state, probedPorts: probesPorts)
+                    self.absorb(device, into: state)
                     if marksNew, !baseline.contains(device.id) { self.newIDs.insert(device.id) }
+                case .portsProbed(let ip, let open, _):
+                    self.applyPorts(open, probed: probed, to: ip.description, in: state)
                 case .rangeProgress(let progress):
                     self.status[progress.rangeID]?.progress = progress
                 case .finished:
@@ -135,25 +153,72 @@ final class ScanController: ObservableObject {
                 }
             }
             guard let self else { return }
-            var switches: SwitchAutoResult?
-            if discoversSwitches, !Task.isCancelled {
+            // Arrêt pendant le ping, l'ARP, les noms ou les ports : seul ce cas empêche de marquer
+            // hors ligne les appareils qui n'ont pas répondu.
+            let engineCancelled = Task.isCancelled
+            if discoversSwitches, !engineCancelled {
                 self.phase = .switches
-                let online = state.devices.filter { device in
-                    device.isOnline && foundIDs.contains(device.id)
-                }.map(\.ip)
-                switches = await SwitchStore.shared.autoDiscover(state: state, hosts: online, communities: communities) { phase in
+                let pending = sweep ?? Self.startSweep(switches.discoveryTargets(Self.addresses(foundIDs)))
+                let swept = await withTaskCancellationHandler { await pending.value } onCancel: { pending.cancel() }
+                _ = await switches.autoDiscover(state: state, discovered: swept.found, queried: swept.queried,
+                                                communitiesTried: swept.communities, readGatewayARP: readGatewayARP) { phase in
                     self.phase = phase
                 }
+            } else {
+                sweep?.cancel()
             }
-            self.finish(state, targets: targets, found: foundIDs, cancelled: Task.isCancelled, switches: switches)
+            switches.scanEnded(interrupted: Task.isCancelled, planned: discoversSwitches)
+            self.finish(state, targets: targets, found: foundIDs, engineCancelled: engineCancelled, snmpCancelled: Task.isCancelled)
         }
+    }
+
+    /// Résultat de la découverte SNMP faite pendant le scan.
+    struct SNMPSweep: Sendable {
+        var found: [SNMPDiscovered] = []
+        var queried = 0
+        var communities = 0
+    }
+
+    /// Découverte SNMP des hôtes donnés, hors du fil principal (communautés lues au Trousseau à ce
+    /// moment-là, pas au clic sur « Scanner »).
+    private static func startSweep(_ hosts: [IPv4Address]) -> Task<SNMPSweep, Never> {
+        Task.detached(priority: .userInitiated) {
+            let communities = RegSNMPDiscoveryVault.communities()
+            guard !communities.isEmpty, !hosts.isEmpty else { return SNMPSweep(queried: hosts.count, communities: communities.count) }
+            let found = await SNMPDiscovery(communities: communities).discover(hosts)
+            return SNMPSweep(found: found, queried: hosts.count, communities: communities.count)
+        }
+    }
+
+    private static func addresses(_ ids: Set<Device.ID>) -> [IPv4Address] {
+        ids.compactMap(IPv4Address.init).sorted()
+    }
+
+    /// Vrai si une partie de la plage est faite d'adresses publiques (Internet).
+    private static func hasPublicAddresses(_ target: ScanTarget) -> Bool {
+        target.range.segments.contains { segment in
+            let bounds = segment.bounds
+            return AddressScope.of(bounds.first) == .publique || AddressScope.of(bounds.last) == .publique
+        }
+    }
+
+    /// Réglages › Général › « Confirmer avant de scanner une plage publique ».
+    private func confirmPublic(_ targets: [ScanTarget]) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = "Scanner une plage publique\u{00A0}?"
+        let list = targets.map { $0.range.description }.joined(separator: ", ")
+        alert.informativeText = "Ces adresses sont sur Internet\u{00A0}: \(list). Ne scannez que des réseaux qui vous appartiennent ou que vous êtes autorisé à analyser. La découverte SNMP des switchs n’est jamais faite sur les adresses publiques."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Scanner quand même")
+        alert.addButton(withTitle: "Annuler")
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     func stop() {
         scanTask?.cancel()
     }
 
-    /// Efface les résultats (appareils, avancement, nouveautés).
+    /// Efface les résultats (appareils, avancement, nouveautés, bilan des switchs).
     func clear(_ state: AppState) {
         stop()
         state.devices = []
@@ -163,11 +228,13 @@ final class ScanController: ObservableObject {
         latencyHistory = [:]
         startedAt = nil
         finishedAt = nil
+        SwitchStore.shared.clearResult()
     }
 
-    /// Fusionne un appareil du scan avec ce qu'on savait déjà (emplacement de switch, ports d'un
-    /// scan plus complet, nom d'hôte) ; `firstSeen` et le nom personnalisé sont gardés par AppState.
-    private func absorb(_ incoming: Device, into state: AppState, probedPorts: Bool) {
+    /// Fusionne un appareil du scan avec ce qu'on savait déjà (emplacement de switch, ports, nom
+    /// d'hôte) ; `firstSeen` et le nom personnalisé sont gardés par AppState. Les ports connus sont
+    /// toujours gardés ici : seul `.portsProbed` les remplace.
+    private func absorb(_ incoming: Device, into state: AppState) {
         var device = incoming
         if let known = state.device(withID: incoming.id) {
             device.mac = incoming.mac ?? known.mac
@@ -182,18 +249,32 @@ final class ScanController: ObservableObject {
             device.switchPort = known.switchPort
             device.vlan = known.vlan ?? incoming.vlan
             device.rangeLabel = incoming.rangeLabel ?? known.rangeLabel
-            if !probedPorts, incoming.openPorts.isEmpty { device.openPorts = known.openPorts }
+            device.openPorts = known.openPorts
             let guessed = ScanDeviceClassifier.guess(device)
             device.deviceType = guessed == .inconnu ? known.deviceType : guessed
         }
         state.merge([device])
     }
 
-    private func finish(_ state: AppState, targets: [ScanTarget], found: Set<Device.ID>, cancelled: Bool,
-                        switches: SwitchAutoResult?) {
+    /// Ports fraîchement sondés : ils remplacent ceux de la liste sondée ; les ports connus hors de
+    /// cette liste (scan approfondi, profil plus large) sont gardés.
+    private func applyPorts(_ open: [UInt16], probed: Set<UInt16>, to id: Device.ID, in state: AppState) {
+        guard var device = state.device(withID: id) else { return }
+        device.openPorts = Self.mergedPorts(open, probed: probed, known: device.openPorts)
+        let guessed = ScanDeviceClassifier.guess(device)
+        if guessed != .inconnu { device.deviceType = guessed }
+        state.merge([device])
+    }
+
+    static func mergedPorts(_ open: [UInt16], probed: Set<UInt16>, known: [UInt16]) -> [UInt16] {
+        Array(Set(open).union(known.filter { !probed.contains($0) })).sorted()
+    }
+
+    private func finish(_ state: AppState, targets: [ScanTarget], found: Set<Device.ID>, engineCancelled: Bool,
+                        snmpCancelled: Bool) {
         let end = Date()
         // Appareils connus des plages scannées qui n'ont pas répondu : hors ligne.
-        if !cancelled {
+        if !engineCancelled {
             let missing = state.devices.filter { device in
                 device.isOnline && !found.contains(device.id) && targets.contains { $0.range.contains(device.ip) }
             }
@@ -211,10 +292,12 @@ final class ScanController: ObservableObject {
         scanTask = nil
         let online = state.devices.filter { device in device.isOnline && targets.contains { $0.range.contains(device.ip) } }.count
         let seconds = ScanFormat.seconds(end.timeIntervalSince(startedAt ?? end))
-        if cancelled {
-            show("Scan arrêté après \(seconds) : \(online) appareils en ligne.", tone: .warning)
+        if engineCancelled {
+            show("Scan arrêté après \(seconds) : \(online) appareils en ligne.", tone: .warning)
+        } else if snmpCancelled {
+            show("Scan terminé en \(seconds) : \(online) appareils en ligne, \(newIDs.count) nouveaux (étape SNMP arrêtée).", tone: .warning)
         } else {
-            show("Scan terminé en \(seconds) : \(online) appareils en ligne, \(newIDs.count) nouveaux.")
+            show("Scan terminé en \(seconds) : \(online) appareils en ligne, \(newIDs.count) nouveaux.")
         }
     }
 
@@ -251,6 +334,10 @@ final class ScanController: ObservableObject {
     /// Scan approfondi des ports d'un seul appareil (environ 1000 ports TCP, profil Complet).
     func probePorts(of device: Device, state: AppState) {
         guard !probing.contains(device.id) else { return }
+        guard !Launcher.isDemo else {
+            show("Démonstration\u{00A0}: aucun port n’est sondé sur cet appareil fictif.", tone: .neutral, place: .actions)
+            return
+        }
         probing.insert(device.id)
         let ip = device.ip
         let id = device.id
@@ -259,7 +346,7 @@ final class ScanController: ObservableObject {
             guard let self else { return }
             self.probing.remove(id)
             if var current = state.device(withID: id) {
-                current.openPorts = open
+                current.openPorts = Self.mergedPorts(open, probed: Set(ScanProfile.extendedPorts), known: current.openPorts)
                 current.lastSeen = Date()
                 let guessed = ScanDeviceClassifier.guess(current)
                 if guessed != .inconnu { current.deviceType = guessed }

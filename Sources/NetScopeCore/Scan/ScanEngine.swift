@@ -35,13 +35,14 @@ public struct ScanOptions: Sendable {
     public var useARP: Bool
 
     public init(profile: ScanProfile = .rapide, customPorts: [UInt16] = [], concurrency: Int = 128,
-                pingTimeout: Duration = .milliseconds(1000), portTimeout: Duration = .milliseconds(800),
+                pingTimeout: Duration = .milliseconds(1000), portTimeout: Duration? = nil,
                 resolveNames: Bool = true, nameTimeout: Duration = .seconds(2), useARP: Bool = true) {
         self.profile = profile
         self.customPorts = customPorts
         self.concurrency = max(1, concurrency)
         self.pingTimeout = pingTimeout
-        self.portTimeout = portTimeout
+        // Rapide : 400 ms suffisent sur un réseau local (un port filtré coûte ce délai à chaque hôte).
+        self.portTimeout = portTimeout ?? (profile == .rapide ? .milliseconds(400) : .milliseconds(800))
         self.resolveNames = resolveNames
         self.nameTimeout = nameTimeout
         self.useARP = useARP
@@ -108,6 +109,9 @@ public enum ScanEvent: Sendable {
     case phase(ScanPhase)
     case deviceFound(Device, rangeID: UUID)
     case deviceUpdated(Device, rangeID: UUID)
+    /// Résultat du sondage des ports d'un hôte (émis juste après le `deviceUpdated` qui le porte) :
+    /// seul cet événement dit que `ports` est une réponse fraîche, les autres reprennent ce qu'on savait.
+    case portsProbed(IPv4Address, open: [UInt16], rangeID: UUID)
     case rangeProgress(ScanRangeProgress)
     case finished(ScanSummary)
 }
@@ -306,6 +310,7 @@ public actor ScanEngine {
         device.deviceType = ScanDeviceClassifier.guess(device)
         found[ip] = device
         continuation.yield(.deviceUpdated(device, rangeID: rangeID))
+        continuation.yield(.portsProbed(ip, open: openPorts, rangeID: rangeID))
     }
 
     private func makeDevice(_ ip: IPv4Address, rangeID: UUID, latency: Double?, mac: MACAddress?) -> Device {

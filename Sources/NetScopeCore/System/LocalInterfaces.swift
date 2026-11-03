@@ -124,4 +124,11 @@ final class OnceFlag: @unchecked Sendable {
         done = true
         return true
     }
+
+    /// Vrai si `claim()` a déjà réussi.
+    var isClaimed: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return done
+    }
 }

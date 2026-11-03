@@ -168,6 +168,7 @@ func registerScanTests(_ suite: TestSuite) {
             case .phase(let phase): phases.append(phase)
             case .deviceFound(let device, _), .deviceUpdated(let device, _): found[device.ip] = device
             case .rangeProgress(let progress): lastProgress[progress.rangeID] = progress
+            case .portsProbed: break
             case .finished(let result): summary = result
             }
         }
