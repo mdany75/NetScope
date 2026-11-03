@@ -15,6 +15,7 @@ registerToolsTests(suite)
 registerUpdateTests(suite)
 registerSpeedRemoteTests(suite)
 registerSNMPTests(suite)
+registerInventoryTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)
