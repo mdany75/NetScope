@@ -31,6 +31,8 @@ final class ScanController: ObservableObject {
 
     @Published private(set) var isRunning = false
     @Published private(set) var phase: ScanPhase?
+    /// Étapes prévues pour le scan en cours (les deux dernières seulement si la découverte SNMP est active).
+    @Published private(set) var plannedPhases: [ScanPhase] = []
     @Published private(set) var startedAt: Date?
     @Published private(set) var finishedAt: Date?
     @Published private(set) var status: [UUID: RangeStatus] = [:]
@@ -86,6 +88,9 @@ final class ScanController: ObservableObject {
 
         let customPorts = ScanProfile.parsePorts(customPortsText) ?? []
         let options = ScanOptions(profile: state.scanProfile, customPorts: customPorts)
+        // Découverte SNMP des switchs en fin de scan : réglage automatique (activé par défaut) ou profil Complet.
+        let discoversSwitches = !Launcher.isDemo && (RegPrefs.shared.autoDiscoverSwitches || state.scanProfile.alwaysDiscoversSwitches)
+        let communities = discoversSwitches ? RegSNMPDiscoveryVault.communities() : []
         let probesPorts = !options.ports.isEmpty
         let pinger: any ScanPinging
         if let icmp = self.pinger {
@@ -106,6 +111,7 @@ final class ScanController: ObservableObject {
         finishedAt = nil
         isRunning = true
         phase = .ping
+        plannedPhases = discoversSwitches ? ScanPhase.allCases : [.ping, .arp, .details]
 
         let stream = ScanEngine(pinger: pinger).scan(targets, options: options)
         scanTask = Task { [weak self] in
@@ -128,7 +134,18 @@ final class ScanController: ObservableObject {
                     break
                 }
             }
-            self?.finish(state, targets: targets, found: foundIDs, cancelled: Task.isCancelled)
+            guard let self else { return }
+            var switches: SwitchAutoResult?
+            if discoversSwitches, !Task.isCancelled {
+                self.phase = .switches
+                let online = state.devices.filter { device in
+                    device.isOnline && foundIDs.contains(device.id)
+                }.map(\.ip)
+                switches = await SwitchStore.shared.autoDiscover(state: state, hosts: online, communities: communities) { phase in
+                    self.phase = phase
+                }
+            }
+            self.finish(state, targets: targets, found: foundIDs, cancelled: Task.isCancelled, switches: switches)
         }
     }
 
@@ -155,18 +172,25 @@ final class ScanController: ObservableObject {
         if let known = state.device(withID: incoming.id) {
             device.mac = incoming.mac ?? known.mac
             device.vendor = incoming.vendor ?? known.vendor
-            device.hostname = incoming.hostname ?? known.hostname
+            if incoming.hostname == nil, known.hostname != nil {
+                device.hostname = known.hostname
+                device.nameSource = known.nameSource
+                device.nameDomain = known.nameDomain
+            }
+            device.snmpKind = incoming.snmpKind ?? known.snmpKind
             device.switchName = known.switchName
             device.switchPort = known.switchPort
             device.vlan = known.vlan ?? incoming.vlan
             device.rangeLabel = incoming.rangeLabel ?? known.rangeLabel
             if !probedPorts, incoming.openPorts.isEmpty { device.openPorts = known.openPorts }
-            if device.deviceType == .inconnu { device.deviceType = known.deviceType }
+            let guessed = ScanDeviceClassifier.guess(device)
+            device.deviceType = guessed == .inconnu ? known.deviceType : guessed
         }
         state.merge([device])
     }
 
-    private func finish(_ state: AppState, targets: [ScanTarget], found: Set<Device.ID>, cancelled: Bool) {
+    private func finish(_ state: AppState, targets: [ScanTarget], found: Set<Device.ID>, cancelled: Bool,
+                        switches: SwitchAutoResult?) {
         let end = Date()
         // Appareils connus des plages scannées qui n'ont pas répondu : hors ligne.
         if !cancelled {
@@ -224,24 +248,24 @@ final class ScanController: ObservableObject {
         }
     }
 
-    /// Scan des ports courants d'un seul appareil.
+    /// Scan approfondi des ports d'un seul appareil (environ 1000 ports TCP, profil Complet).
     func probePorts(of device: Device, state: AppState) {
         guard !probing.contains(device.id) else { return }
         probing.insert(device.id)
         let ip = device.ip
         let id = device.id
         Task { [weak self] in
-            let open = await PortProber().openPorts(ip, ports: ScanProfile.commonPorts, timeout: .milliseconds(800), concurrency: 32)
+            let open = await PortProber().openPorts(ip, ports: ScanProfile.extendedPorts, timeout: .milliseconds(800), concurrency: 64)
             guard let self else { return }
             self.probing.remove(id)
             if var current = state.device(withID: id) {
                 current.openPorts = open
                 current.lastSeen = Date()
-                let guessed = ScanDeviceClassifier.guess(ports: open, vendor: current.vendor, hostname: current.hostname, mac: current.mac)
+                let guessed = ScanDeviceClassifier.guess(current)
                 if guessed != .inconnu { current.deviceType = guessed }
                 state.merge([current])
             }
-            self.show(open.isEmpty ? "Aucun port courant ouvert sur \(ip)." : "\(open.count) ports ouverts sur \(ip).", place: .actions)
+            self.show(open.isEmpty ? "Aucun port ouvert sur \(ip) (\(ScanProfile.extendedPorts.count) ports sondés)." : "\(open.count) ports ouverts sur \(ip) (\(ScanProfile.extendedPorts.count) ports sondés).", place: .actions)
         }
     }
 

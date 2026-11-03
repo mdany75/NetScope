@@ -8,17 +8,26 @@ surveillance, rapports et accès distant, le tout en français.
 
 ## Fonctions
 
-Version 0.1.0 : douze écrans sur quatorze fonctionnent ; Surveillance et Rapports sont encore
+Version 0.2.0 : douze écrans sur quatorze fonctionnent ; Surveillance et Rapports sont encore
 en construction.
 
-- **Scanner multi-plages** : plusieurs plages à la fois, ping ICMP sans droits administrateur,
-  table ARP, nom d’hôte (DNS inverse), ports courants, fabricant, type d’appareil deviné ;
-  filtres (en ligne, hors ligne, nouveaux, ports web), tri, panneau de détail, export CSV.
+- **Scanner multi-plages qui se remplit tout seul** : plusieurs plages à la fois, ping ICMP
+  sans droits administrateur, table ARP, noms d’hôte (DNS inverse, mDNS/Bonjour, NetBIOS,
+  sysName SNMP, avec leur source), 20 ports essentiels sondés à chaque scan, fabricant, type
+  d’appareil ; étapes visibles (Ping → Table ARP → Noms et ports → Switchs (SNMP) →
+  Emplacements), filtres, tri, panneau de détail, export CSV.
+- **Découverte automatique des switchs** (activée par défaut) : à la fin de chaque scan,
+  NetScope interroge en SNMP v2c lecture seule les appareils en ligne (communauté des
+  Identifiants, puis « public » ou la liste de Réglages › Switchs), ajoute les switchs qui
+  répondent, relève leurs tables MAC, complète les MAC des autres VLAN par l’ARP SNMP de la
+  passerelle et des switchs de niveau 3, puis remplit les colonnes **Switch / Port** et
+  **VLAN** de chaque appareil.
 - **Ping continu** multi-cibles (intervalle, taille de paquet pour le test MTU), statistiques
   (min, moyenne, max, gigue, perte, P95), graphes, journal des coupures, **traceroute et MTR**.
 - **Switchs et ports** : client SNMP v2c intégré (table MAC BRIDGE-MIB / Q-BRIDGE-MIB, LLDP,
   interfaces, PoE) pour savoir **sur quel port de quel switch** chaque appareil est branché ;
-  façade du switch dessinée, recherche par IP ou MAC.
+  switchs découverts automatiquement ou ajoutés à la main, façade du switch dessinée,
+  recherche par IP ou MAC.
 - **Wi-Fi** : connexion actuelle (RSSI, bruit, SNR, canal, débit), analyse des réseaux
   voisins, graphe des canaux 2,4 / 5 / 6 GHz, recommandations.
 - **Fiche appareil** : réseau, matériel, emplacement physique, ports et services avec

@@ -1,5 +1,42 @@
 # Changements
 
+## 0.2.0 — 2026-11-03
+
+Le Scanner se remplit tout seul : noms, ports, switchs, ports de switch et VLAN, sans clic droit.
+
+### Ajouté
+- Découverte automatique des switchs (activée par défaut) : à la fin de chaque scan, NetScope
+  envoie des requêtes SNMP v2c en lecture seule aux appareils en ligne des plages scannées,
+  ajoute les switchs qui répondent à « Switchs et ports » (mention « Découvert
+  automatiquement »), relève leurs tables MAC et remplit les colonnes Switch / Port et VLAN.
+- MAC des appareils des autres VLAN complétées par l’ARP SNMP de la passerelle et des switchs
+  de niveau 3, avant la localisation.
+- Noms d’hôte par mDNS (Bonjour) et NetBIOS en plus du DNS inverse, et sysName SNMP pour les
+  équipements réseau ; la source du nom est affichée dans le panneau de détail
+  (« mDNS (Bonjour) », « NetBIOS · groupe WORKGROUP »…).
+- Étapes visibles pendant le scan : Ping → Table ARP → Noms et ports → Switchs (SNMP) →
+  Emplacements, puis un bilan « Switchs : 2 découverts (…) · N appareils localisés ».
+- Message clair quand aucun switch ne répond en SNMP, avec un bouton vers Réglages ›
+  Identifiants.
+- Réglages › Switchs : interrupteur « Découvrir les switchs automatiquement (SNMP) », liste des
+  communautés à essayer (« public » par défaut) et switchs connus.
+
+### Modifié
+- Le profil Rapide (par défaut) sonde maintenant 20 ports essentiels (SSH, Telnet, web, SMB,
+  RDP, VNC, impression, RTSP, MQTT…) : la colonne Ports se remplit sans clic droit. Un ancien
+  réglage « Rapide » prend ce nouveau comportement.
+- Le profil Complet sonde environ 1 000 ports et fait toujours la découverte SNMP.
+- Le clic droit « Scanner les ports » devient un scan approfondi d’un appareil (environ
+  1 000 ports).
+- La communauté SNMP de « Switchs et ports » est préremplie depuis le Trousseau ; celle qui a
+  répondu pour chaque switch découvert y est aussi gardée (jamais dans les préférences).
+- Les noms Bonjour s’affichent sans « .local ».
+
+### Corrigé
+- Le type switch ne reposait que sur un « port 161 TCP » qui n’existe pas (SNMP passe par
+  UDP) : le type vient maintenant de la découverte SNMP (switch, routeur, imprimante).
+- Les appareils sans enregistrement DNS inverse n’avaient aucun nom.
+
 ## 0.1.0 — 2026-11-03
 
 Première version publiée.

@@ -4,9 +4,9 @@ import SwiftUI
 
 /// Informations sur l'application.
 enum AppInfo {
-    /// Version lue dans Info.plist ; « 0.1.0 » quand l'exécutable tourne hors de son paquet (.build/).
+    /// Version lue dans Info.plist ; « 0.2.0 » quand l'exécutable tourne hors de son paquet (.build/).
     static var version: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.0"
     }
 }
 

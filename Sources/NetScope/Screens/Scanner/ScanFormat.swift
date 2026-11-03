@@ -102,8 +102,16 @@ enum ScanFormat {
         var methods: [String] = []
         if device.mac != nil { methods.append("ARP") }
         if device.latencyMs != nil { methods.append("ping ICMP") }
-        if device.hostname != nil { methods.append("nom d’hôte") }
+        if device.hostname != nil {
+            switch device.nameSource {
+            case .mdns?: methods.append("mDNS")
+            case .netbios?: methods.append("NetBIOS")
+            case .dns?: methods.append("DNS inverse")
+            case .snmp?, nil: methods.append("nom d’hôte")
+            }
+        }
         if !device.openPorts.isEmpty { methods.append("ports TCP") }
+        if device.snmpKind != nil { methods.append("SNMP") }
         if device.switchName != nil { methods.append("table MAC du switch") }
         return methods.isEmpty ? "—" : methods.joined(separator: ", ")
     }
@@ -117,7 +125,7 @@ enum ScanFormat {
 
 extension Device {
     var scanSortName: String { customName ?? "" }
-    var scanSortHostname: String { hostname ?? "" }
+    var scanSortHostname: String { hostnameLabel ?? "" }
     var scanSortVendor: String { vendorLabel }
     var scanSortMAC: UInt64 { mac?.value ?? .max }
     /// Sans réponse : en dernier.

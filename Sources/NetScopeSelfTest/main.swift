@@ -18,6 +18,7 @@ registerSNMPTests(suite)
 registerSNMPDiscoveryTests(suite)
 registerInventoryTests(suite)
 registerNamesTests(suite)
+registerAutoScanTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

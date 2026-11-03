@@ -50,7 +50,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .sites: return "cidr plage vlan site passerelle début-fin"
         case .profils: return "threads délai tentatives ports rapide complet personnalisé"
         case .identifiants: return "snmp v2c v3 communauté utilisateur authentification trousseau mot de passe"
-        case .switchs: return "switch snmp lldp cdp port vlan"
+        case .switchs: return "switch snmp lldp cdp port vlan découverte automatique communauté public"
         case .notifications: return "alerte notification surveillance courriel"
         case .interface: return "en0 wi-fi ethernet masque passerelle getifaddrs"
         case .export: return "export sauvegarde csv json restauration"
@@ -129,6 +129,7 @@ final class RegPrefs: ObservableObject {
         static let ports = "reglages.scan.ports"
         static let defaultProfile = "reglages.scan.profilParDefaut"
         static let confirmPublic = "reglages.general.confirmerPlagePublique"
+        static let autoSwitches = "reglages.switchs.decouverteAuto"
     }
 
     private let defaults: UserDefaults?
@@ -136,6 +137,8 @@ final class RegPrefs: ObservableObject {
     @Published var tuning: RegScanTuning { didSet { saveTuning() } }
     @Published var defaultProfile: ScanProfile { didSet { defaults?.set(defaultProfile.rawValue, forKey: Key.defaultProfile) } }
     @Published var confirmPublicRanges: Bool { didSet { defaults?.set(confirmPublicRanges, forKey: Key.confirmPublic) } }
+    /// Découverte SNMP des switchs à la fin de chaque scan (activée par défaut).
+    @Published var autoDiscoverSwitches: Bool { didSet { defaults?.set(autoDiscoverSwitches, forKey: Key.autoSwitches) } }
 
     /// Ouverture de session (SMAppService) : état lu au système, erreur éventuelle.
     @Published private(set) var launchAtLogin = false
@@ -147,6 +150,7 @@ final class RegPrefs: ObservableObject {
         tuning = RegEnvironment.isSandboxed ? RegScanTuning() : RegScanTuning.current
         defaultProfile = defaults?.string(forKey: Key.defaultProfile).flatMap(ScanProfile.init(rawValue:)) ?? .rapide
         confirmPublicRanges = defaults?.object(forKey: Key.confirmPublic) as? Bool ?? true
+        autoDiscoverSwitches = defaults?.object(forKey: Key.autoSwitches) as? Bool ?? true
         refreshLaunchAtLogin()
     }
 
@@ -229,5 +233,59 @@ struct RegSNMPCredentials: Codable, Equatable {
     /// Nombre d'identifiants renseignés (v2c, v3).
     var configuredCount: Int {
         (community.isEmpty ? 0 : 1) + (v3User.isEmpty ? 0 : 1)
+    }
+}
+
+// MARK: - Communautés de la découverte automatique (Trousseau)
+
+/// Communautés SNMP v2c de la découverte automatique des switchs, gardées dans le Trousseau
+/// (service com.danymenard.netscope.snmp) comme les autres identifiants, jamais dans les
+/// préférences ni dans un fichier JSON en clair :
+/// - compte « communautes-a-essayer » : liste réglable dans Réglages › Switchs (« public » par défaut) ;
+/// - compte « communautes-par-hote » : la communauté qui a répondu, pour chaque switch découvert.
+enum RegSNMPDiscoveryVault {
+    static let defaultTryList = ["public"]
+    private static let tryAccount = "communautes-a-essayer"
+    private static let hostsAccount = "communautes-par-hote"
+
+    /// Liste des communautés à essayer (dans l'ordre), « public » si rien n'est enregistré.
+    static func tryList() -> [String] {
+        guard !RegEnvironment.isSandboxed, let text = RegSNMPCredentials.keychain.string(for: tryAccount) else { return defaultTryList }
+        return parse(text)
+    }
+
+    static func saveTryList(_ list: [String]) throws {
+        guard !RegEnvironment.isSandboxed else { return }
+        // Liste vide : un simple saut de ligne, pour la distinguer de « rien d'enregistré » (→ « public »).
+        try RegSNMPCredentials.keychain.set(list.isEmpty ? "\n" : list.joined(separator: "\n"), for: tryAccount)
+    }
+
+    /// Communauté retenue par switch (adresse IP → communauté).
+    static func hostCommunities() -> [String: String] {
+        guard !RegEnvironment.isSandboxed, let json = RegSNMPCredentials.keychain.string(for: hostsAccount),
+              let map = try? JSONDecoder().decode([String: String].self, from: Data(json.utf8)) else { return [:] }
+        return map
+    }
+
+    static func saveHostCommunities(_ map: [String: String]) {
+        guard !RegEnvironment.isSandboxed, let data = try? JSONEncoder().encode(map) else { return }
+        try? RegSNMPCredentials.keychain.set(String(decoding: data, as: UTF8.self), for: hostsAccount)
+    }
+
+    /// « public, lecture-ro » ou une par ligne → liste sans vide ni doublon.
+    static func parse(_ text: String) -> [String] {
+        var seen = Set<String>()
+        return text.split(whereSeparator: { $0 == "," || $0 == "\n" || $0 == ";" })
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && seen.insert($0).inserted }
+    }
+
+    /// Communautés à essayer pour une découverte : celle des Identifiants d'abord, puis la liste.
+    static func communities() -> [String] {
+        var list: [String] = []
+        if let saved = RegSNMPCredentials.load()?.community, !saved.isEmpty { list.append(saved) }
+        list += tryList()
+        var seen = Set<String>()
+        return list.filter { seen.insert($0).inserted }
     }
 }

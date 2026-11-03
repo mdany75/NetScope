@@ -77,7 +77,7 @@ struct DeviceOverviewTab: View {
                 DeviceKVRow(key: "Passerelle", value: gatewayText)
                 DeviceKVRow(key: "DNS", value: state.dnsServers.isEmpty ? "—" : state.dnsServers.map(\.description).joined(separator: ", "))
                 DeviceKVRow(key: "Plage", value: [device.rangeLabel, device.vlan.map { "VLAN \($0)" }].compactMap { $0 }.joined(separator: " · ").toolIfEmpty("—"), mono: false)
-                DeviceKVRow(key: "Nom d’hôte", value: device.hostname ?? "—")
+                DeviceKVRow(key: "Nom d’hôte", value: device.hostnameLabel.map { name in device.nameSourceLabel.map { "\(name) · \($0)" } ?? name } ?? "—")
             }
         }
     }

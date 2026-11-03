@@ -25,8 +25,8 @@ struct RegProfilesSection: View {
 
     private func tags(for profile: ScanProfile) -> [String] {
         switch profile {
-        case .rapide: return ["ICMP", "ARP", "DNS inverse"]
-        case .complet: return ["ICMP", "ARP", "\(ScanProfile.extendedPorts.count) ports TCP", "mDNS"]
+        case .rapide: return ["ICMP", "ARP", "DNS · mDNS · NetBIOS", "TCP \(ScanProfile.essentialPorts.count) ports"]
+        case .complet: return ["ICMP", "ARP", "\(ScanProfile.extendedPorts.count) ports TCP", "SNMP"]
         case .portsCourants: return ["ICMP", "ARP", "TCP \(ScanProfile.commonPorts.count) ports"]
         case .personnalise: return ["ICMP", "ARP", "\(tuning.ports.count) ports"]
         }

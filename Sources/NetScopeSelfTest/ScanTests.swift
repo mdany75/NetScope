@@ -215,7 +215,7 @@ func registerScanTests(_ suite: TestSuite) {
         try expectEqual(ScanDeviceClassifier.guess(ports: [80, 631], vendor: nil, hostname: nil, mac: nil), .imprimante, "IPP")
         try expectEqual(ScanDeviceClassifier.guess(ports: [80, 554], vendor: nil, hostname: nil, mac: nil), .camera, "RTSP")
         try expectEqual(ScanDeviceClassifier.guess(ports: [135, 445, 3389], vendor: "Dell", hostname: "WKS346", mac: nil), .poste, "RDP")
-        try expectEqual(ScanDeviceClassifier.guess(ports: [22, 161, 443], vendor: "Cisco", hostname: nil, mac: nil), .switch, "SNMP + Cisco")
+        try expectEqual(ScanDeviceClassifier.guess(ports: [22, 443], vendor: "Cisco", hostname: nil, mac: nil, snmpKind: .switch), .switch, "découverte SNMP + Cisco")
         try expectEqual(ScanDeviceClassifier.guess(ports: [22, 443, 541], vendor: "Fortinet", hostname: "FortiGate-60F", mac: nil), .routeur, "pare-feu")
         try expectEqual(ScanDeviceClassifier.guess(ports: [22, 443], vendor: "Fortinet", hostname: "FortiAP-231F", mac: nil), .pointAcces, "borne")
         try expectEqual(ScanDeviceClassifier.guess(ports: [], vendor: nil, hostname: "Android_89UM1WTN", mac: nil), .telephone, "téléphone")

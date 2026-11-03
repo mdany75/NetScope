@@ -69,20 +69,27 @@ public struct ScanRangeProgress: Sendable, Equatable {
     public var isComplete: Bool { done >= total }
 }
 
-/// Étape du scan en cours.
-public enum ScanPhase: String, Sendable {
+/// Étape du scan en cours. Les trois premières sont celles du moteur ; les deux dernières
+/// (découverte SNMP des switchs, puis emplacement des appareils) sont menées par l'application.
+public enum ScanPhase: String, Sendable, CaseIterable {
     /// Ping de toutes les adresses.
     case ping
     /// Lecture de la table ARP.
     case arp
     /// Noms et ports des hôtes en ligne.
     case details
+    /// Découverte SNMP des switchs parmi les hôtes en ligne, puis relevé de leurs tables.
+    case switches
+    /// Emplacement (switch, port, VLAN) de chaque appareil d'après les tables MAC.
+    case locations
 
     public var label: String {
         switch self {
-        case .ping: return "Ping ICMP"
+        case .ping: return "Ping"
         case .arp: return "Table ARP"
         case .details: return "Noms et ports"
+        case .switches: return "Switchs (SNMP)"
+        case .locations: return "Emplacements"
         }
     }
 }
@@ -125,7 +132,7 @@ public actor ScanEngine {
     private var progressStep: [UUID: Int] = [:]
 
     public init(pinger: any ScanPinging, arp: any ScanARPReading = ARPTable(),
-                ports: any ScanPortProbing = PortProber(), names: any ScanNameResolving = ScanReverseDNS(),
+                ports: any ScanPortProbing = PortProber(), names: any ScanNameResolving = NameResolverChain(),
                 vendors: OUIDatabase = .builtIn, now: @escaping @Sendable () -> Date = { Date() }) {
         self.pinger = pinger
         self.arp = arp
@@ -191,23 +198,38 @@ public actor ScanEngine {
             recordARP(arp.read(), continuation: continuation)
         }
 
-        // 3. Noms et ports des hôtes en ligne.
+        // 3. Noms et ports des hôtes en ligne, en parallèle : les noms (DNS inverse, mDNS, NetBIOS)
+        // passent par deux sockets partagés, les ports par des connexions TCP plafonnées.
         let ports = options.ports
         if !Task.isCancelled, options.resolveNames || !ports.isEmpty {
             continuation.yield(.phase(.details))
-            let perHost = ports.isEmpty ? 1 : min(32, options.concurrency)
-            let hostLimit = max(1, options.concurrency / perHost)
             let addresses = found.keys.sorted()
             let prober = portProber
             let names = self.names
-            await ScanConcurrency.forEach(addresses, limit: hostLimit) { ip in
-                async let name: String? = options.resolveNames ? names.name(for: ip, timeout: options.nameTimeout) : nil
-                async let open: [UInt16] = ports.isEmpty
-                    ? [] : prober.openPorts(ip, ports: ports, timeout: options.portTimeout, concurrency: perHost)
-                let (hostname, openPorts) = await (name, open)
-                await self.recordDetails(ip, hostname: hostname, openPorts: ports.isEmpty ? nil : openPorts,
-                                         continuation: continuation)
-            }
+            let nameLimit = max(1, min(64, options.concurrency))
+            let perHost = max(1, min(ports.count, 32, options.concurrency))
+            let hostLimit = max(1, options.concurrency / perHost)
+            async let namesDone: Void = {
+                guard options.resolveNames else { return }
+                await ScanConcurrency.forEach(addresses, limit: nameLimit) { ip in
+                    let details: NameDetails
+                    if let rich = names as? any ScanNameDetailResolving {
+                        details = await rich.details(for: ip, timeout: options.nameTimeout)
+                    } else {
+                        let name = await names.name(for: ip, timeout: options.nameTimeout)
+                        details = NameDetails(hostname: name)
+                    }
+                    await self.recordName(ip, details: details, continuation: continuation)
+                }
+            }()
+            async let portsDone: Void = {
+                guard !ports.isEmpty else { return }
+                await ScanConcurrency.forEach(addresses, limit: hostLimit) { ip in
+                    let open = await prober.openPorts(ip, ports: ports, timeout: options.portTimeout, concurrency: perHost)
+                    await self.recordPorts(ip, openPorts: open, continuation: continuation)
+                }
+            }()
+            _ = await (namesDone, portsDone)
         }
 
         let devices = found.values.sorted { $0.ip < $1.ip }
@@ -242,8 +264,7 @@ public actor ScanEngine {
                 guard device.mac == nil else { continue }
                 device.mac = mac
                 device.vendor = vendors.vendor(for: mac)
-                device.deviceType = ScanDeviceClassifier.guess(ports: device.openPorts, vendor: device.vendor,
-                                                               hostname: device.hostname, mac: mac)
+                device.deviceType = ScanDeviceClassifier.guess(device)
                 found[ip] = device
                 continuation.yield(.deviceUpdated(device, rangeID: rangeID))
             } else {
@@ -260,14 +281,29 @@ public actor ScanEngine {
         }
     }
 
-    private func recordDetails(_ ip: IPv4Address, hostname: String?, openPorts: [UInt16]?,
-                               continuation: AsyncStream<ScanEvent>.Continuation) {
+    private func recordName(_ ip: IPv4Address, details: NameDetails, continuation: AsyncStream<ScanEvent>.Continuation) {
         guard var device = found[ip], let rangeID = rangeOf[ip] else { return }
-        if let hostname { device.hostname = hostname }
-        if let openPorts { device.openPorts = openPorts }
+        if let hostname = details.hostname {
+            device.hostname = hostname
+            device.nameSource = details.source
+        }
+        if let domain = details.netbiosDomain { device.nameDomain = domain }
+        // NetBIOS annonce la MAC : utile quand l'ARP ne l'a pas (hôte d'un autre réseau).
+        if device.mac == nil, let mac = details.netbiosMAC, mac.value != 0, !mac.isMulticast {
+            device.mac = mac
+            device.vendor = vendors.vendor(for: mac)
+        }
         device.lastSeen = now()
-        device.deviceType = ScanDeviceClassifier.guess(ports: device.openPorts, vendor: device.vendor,
-                                                       hostname: device.hostname, mac: device.mac)
+        device.deviceType = ScanDeviceClassifier.guess(device)
+        found[ip] = device
+        continuation.yield(.deviceUpdated(device, rangeID: rangeID))
+    }
+
+    private func recordPorts(_ ip: IPv4Address, openPorts: [UInt16], continuation: AsyncStream<ScanEvent>.Continuation) {
+        guard var device = found[ip], let rangeID = rangeOf[ip] else { return }
+        device.openPorts = openPorts
+        device.lastSeen = now()
+        device.deviceType = ScanDeviceClassifier.guess(device)
         found[ip] = device
         continuation.yield(.deviceUpdated(device, rangeID: rangeID))
     }
@@ -305,11 +341,27 @@ public enum ScanDeviceClassifier {
     static let iotVendors = ["espressif", "tuya", "sonos", "shelly", "brightsign", "amazon", "google", "roku", "raspberry"]
     static let phoneHints = ["android", "iphone", "ipad", "galaxy", "pixel", "redmi", "oneplus"]
 
-    public static func guess(ports: [UInt16], vendor: String?, hostname: String?, mac: MACAddress?) -> DeviceType {
+    /// Type d'un appareil d'après tout ce qu'on en sait (ports, fabricant, nom, découverte SNMP).
+    public static func guess(_ device: Device) -> DeviceType {
+        guess(ports: device.openPorts, vendor: device.vendor, hostname: device.hostname, mac: device.mac,
+              snmpKind: device.snmpKind)
+    }
+
+    /// La découverte SNMP fait foi quand elle a répondu (switch, routeur, imprimante) ; sinon
+    /// ports, fabricant et nom. SNMP passe par UDP : aucun port TCP ne le révèle.
+    public static func guess(ports: [UInt16], vendor: String?, hostname: String?, mac: MACAddress?,
+                             snmpKind: SNMPDeviceKind? = nil) -> DeviceType {
+        switch snmpKind {
+        case .switch?: return .switch
+        case .routeur?: return .routeur
+        case .imprimante?: return .imprimante
+        case .autre?, nil: break
+        }
         let open = Set(ports)
         let vendor = (vendor ?? "").lowercased()
         let host = (hostname ?? "").lowercased()
         let vendorIs: ([String]) -> Bool = { names in names.contains { vendor.contains($0) } }
+        let switchName = host.hasPrefix("sw") || host.contains("switch")
 
         if !open.isDisjoint(with: printerPorts) || vendorIs(printerVendors) { return .imprimante }
         if !open.isDisjoint(with: cameraPorts) || vendorIs(cameraVendors) { return .camera }
@@ -317,7 +369,7 @@ public enum ScanDeviceClassifier {
         if host.hasPrefix("fortiap") || host.contains("-ap-") || host.hasPrefix("uap") { return .pointAcces }
         if open.contains(541) || vendor.contains("fortinet") || host.hasPrefix("fortigate") { return .routeur }
         if open.contains(8291) { return .routeur }
-        if open.contains(161) && (vendorIs(networkVendors) || host.hasPrefix("sw")) { return .switch }
+        if vendorIs(networkVendors) && switchName { return .switch }
         if open.contains(3389) { return .poste }
         if phoneHints.contains(where: { host.contains($0) }) { return .telephone }
         if open.contains(1883) || open.contains(8883) || vendorIs(iotVendors) { return .iot }
@@ -325,7 +377,7 @@ public enum ScanDeviceClassifier {
         if vendor.contains("apple") || vendor.contains("dell") || vendor.contains("lenovo") || vendor.contains("intel") {
             return .poste
         }
-        if vendorIs(networkVendors) { return open.contains(161) ? .switch : .routeur }
+        if vendorIs(networkVendors) { return .routeur }
         _ = mac
         return .inconnu
     }

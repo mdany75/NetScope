@@ -275,7 +275,8 @@ struct ScanDeviceTable: View {
             .width(min: 100, ideal: 125)
 
             TableColumn("HOSTNAME", value: \Device.scanSortHostname) { device in
-                ScanCellText(device.hostname ?? "—", dimmed: device.hostname == nil)
+                ScanCellText(device.hostnameLabel ?? "—", dimmed: device.hostname == nil)
+                    .help(device.nameSourceLabel.map { "Nom obtenu par \($0)" } ?? "")
             }
             .width(min: 100, ideal: 135)
 
@@ -349,7 +350,7 @@ struct ScanDeviceMenu: View {
         Button("Ping continu") { state.sendToPing(device.ip.description) }
         Button("Ouvrir dans le navigateur (http)") { ScanFormat.open(URL(string: "http://\(device.ip)")!) }
         Button("Ouvrir dans le navigateur (https)") { ScanFormat.open(URL(string: "https://\(device.ip)")!) }
-        Button("Scanner les ports courants") { scan.probePorts(of: device, state: state) }
+        Button("Scanner les ports (approfondi, \(ScanProfile.extendedPorts.count) ports)") { scan.probePorts(of: device, state: state) }
         Button("Wake-on-LAN") { scan.wake(device, state: state) }.disabled(device.mac == nil)
         Divider()
         Button("Voir la fiche complète") { state.showDevice(device.id) }

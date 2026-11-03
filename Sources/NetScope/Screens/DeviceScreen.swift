@@ -79,7 +79,7 @@ private struct DeviceDetailView: View {
                 .frame(width: 56, height: 56)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 10) {
-                        TextField("", text: $nameDraft, prompt: Text(device.hostname ?? device.ip.description).foregroundStyle(Theme.textTertiary))
+                        TextField("", text: $nameDraft, prompt: Text(device.hostnameLabel ?? device.ip.description).foregroundStyle(Theme.textTertiary))
                             .textFieldStyle(.plain)
                             .font(.system(size: 20, weight: .bold))
                             .foregroundStyle(Theme.text)
@@ -130,7 +130,7 @@ private struct DeviceDetailView: View {
 
     private var metaRow: some View {
         HStack(spacing: 16) {
-            if let host = device.hostname { meta("Hostname", host) }
+            if let host = device.hostnameLabel { meta("Hostname", host + (device.nameSourceLabel.map { " · \($0)" } ?? "")) }
             meta("IP", device.ip.description)
             if let mac = device.mac { meta("MAC", mac.formatted(.upperColon)) }
             Text(device.vendorLabel)

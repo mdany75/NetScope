@@ -135,7 +135,7 @@ struct SwitchSourcesPanel: View {
 
     private var pollHelp: String {
         if store.hosts.isEmpty { return "Ajoutez d’abord un switch." }
-        if store.community.isEmpty { return "Saisissez la communauté SNMP en lecture seule." }
+        if !store.canPoll, !store.isPolling { return "Saisissez la communauté SNMP en lecture seule." }
         return "Interroge chaque switch en SNMP v2c (UDP 161)."
     }
 
@@ -192,7 +192,12 @@ struct SwitchCard: View {
                         HStack(spacing: 8) {
                             Text(snapshot?.displayName ?? host).font(Theme.mono(14, weight: .semibold)).foregroundStyle(Theme.text)
                             statusChip(snapshot)
-                            if let role = snapshot?.system.location { Chip(text: role, tone: .neutral) }
+                            if store.isAutoDiscovered(host) {
+                                Chip(text: "Découvert automatiquement", tone: .accent)
+                                    .help("Trouvé par la découverte SNMP à la fin du scan ; la communauté qui a répondu est gardée au Trousseau.")
+                            } else if let role = snapshot?.system.location {
+                                Chip(text: role, tone: .neutral)
+                            }
                         }
                         Group {
                             if let snapshot {
@@ -299,7 +304,7 @@ struct SwitchCandidates: View {
                         .foregroundStyle(Theme.accentStrong)
                     }
                     .buttonStyle(.plain)
-                    .help(device.openPorts.contains(161) ? "Port 161 (SNMP) ouvert" : "Fabricant d’équipement réseau")
+                    .help(device.snmpKind == .switch ? "Reconnu comme switch en SNMP" : "Fabricant d’équipement réseau")
                 }
                 Spacer()
             }
@@ -745,7 +750,7 @@ struct SwitchTopology: View {
                     .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Color(hex: 0x9CA3AF), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
                     link(nil, color: Color(hex: 0x9CA3AF), width: 2)
                     if let gateway = gatewayDevice {
-                        node(title: gateway.hostname ?? gateway.displayName, subtitle: "\(gateway.id) · passerelle", mono: false, active: false, muted: true) {}
+                        node(title: gateway.hostnameLabel ?? gateway.displayName, subtitle: "\(gateway.id) · passerelle", mono: false, active: false, muted: true) {}
                         link(gatewayLink(chain.first), color: Theme.accent, width: 2)
                     }
                     ForEach(Array(chain.enumerated()), id: \.element.id) { position, snapshot in

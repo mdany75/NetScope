@@ -31,7 +31,17 @@ func registerModelTests(_ suite: TestSuite) {
         try expectEqual(ScanRangeConfig(text: "10.0.0.1, 10.0.0.2", label: "x").kindLabel, "Liste", "liste")
         try expectEqual(ScanRangeConfig(text: "n'importe quoi", label: "x").kindLabel, "Invalide", "invalide")
         try expectEqual(try ScanRangeConfig(text: "10.10.0.1-50", label: "Serveurs").parsed().count, 50, "plage lue")
-        try expectEqual(ScanProfile.rapide.ports(), [], "rapide : aucun port")
+        // Profil Rapide (défaut) : sonde maintenant les ports essentiels, sans clic droit.
+        let rapide = ScanProfile.rapide.ports()
+        try expectEqual(rapide, ScanProfile.essentialPorts.sorted(), "rapide : ports essentiels, triés")
+        for port: UInt16 in [22, 23, 80, 443, 445, 3389, 5900, 8080, 8443, 9100, 631, 554, 515, 139, 135, 53, 21, 1883, 5000, 5001] {
+            try expect(rapide.contains(port), "rapide : port \(port)")
+        }
+        try expectEqual(rapide.count, 20, "rapide : 20 ports")
+        try expectEqual(ScanProfile(rawValue: "rapide"), .rapide, "ancien réglage enregistré « rapide » relu")
+        try expect(!ScanProfile.commonPorts.contains(161), "161 n'est pas un port TCP à sonder (SNMP = UDP)")
+        try expect(ScanProfile.complet.alwaysDiscoversSwitches && !ScanProfile.rapide.alwaysDiscoversSwitches, "SNMP forcé en Complet")
+        try expect(Set(rapide).isSubset(of: Set(ScanProfile.complet.ports())), "complet contient les essentiels")
         try expect(ScanProfile.portsCourants.ports().contains(9100), "ports courants : 9100")
         let extended = ScanProfile.complet.ports()
         try expect(extended.count >= 1000 && extended.count <= 1200, "complet : environ 1000 ports (\(extended.count))")

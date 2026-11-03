@@ -71,7 +71,10 @@ struct ScanDetailIdentity: View {
                     Spacer(minLength: 0)
                 }
                 VStack(spacing: 0) {
-                    KeyValueRow(key: "Hostname", value: device.hostname ?? "—", keyWidth: 110)
+                    KeyValueRow(key: "Hostname", value: device.hostnameLabel ?? "—", keyWidth: 110)
+                    if let source = device.nameSourceLabel {
+                        KeyValueRow(key: "Source du nom", value: source, keyWidth: 110)
+                    }
                     KeyValueRow(key: "MAC", value: device.mac?.formatted(.upperColon) ?? "—", mono: true, keyWidth: 110)
                     KeyValueRow(key: "OUI", value: ouiLabel, keyWidth: 110)
                     KeyValueRow(key: "Découverte", value: ScanFormat.discovery(device), keyWidth: 110)
@@ -126,6 +129,7 @@ struct ScanPill: View {
 
 struct ScanDetailLocation: View {
     let device: Device
+    @ObservedObject private var switches = SwitchStore.shared
 
     var body: some View {
         Panel {
@@ -146,8 +150,18 @@ struct ScanDetailLocation: View {
 
     private var detail: String {
         if device.switchPort == "Wi-Fi", let name = device.switchName { return "Client sans fil associé à \(name)" }
-        if let name = device.switchName { return "\(name) · table MAC des switchs" }
-        return "Emplacement non relevé : la découverte LLDP/SNMP se fait dans « Switchs et ports »."
+        if let name = device.switchName {
+            let auto = switches.hosts.contains { switches.isAutoDiscovered($0) && switches.snapshots[$0]?.displayName == name }
+            return "\(name) · table MAC SNMP" + (auto ? " · switch découvert automatiquement" : "")
+        }
+        guard let result = switches.autoResult else {
+            return "Emplacement non relevé\u{00A0}: les switchs sont découverts en SNMP à la fin du scan."
+        }
+        if !result.foundSwitch {
+            return "Aucun switch n’a répondu en SNMP\u{00A0}: activez SNMP v2c en lecture ou saisissez la communauté dans Réglages › Identifiants."
+        }
+        if device.mac == nil { return "Adresse MAC inconnue\u{00A0}: impossible de retrouver le port dans les tables MAC." }
+        return "Adresse MAC vue sur aucun port d’accès des switchs relevés (appareil derrière un switch non interrogé\u{00A0}?)."
     }
 
     private func box(_ title: String, _ value: String) -> some View {
@@ -207,7 +221,7 @@ struct ScanDetailLatency: View {
 
                 ScanCardTitle(text: "Ports ouverts").padding(.top, 8).padding(.bottom, 8)
                 if device.openPorts.isEmpty {
-                    Text(scan.probing.contains(device.id) ? "Scan des ports courants…" : "Aucun port ouvert détecté (profil \(profileLabel)).")
+                    Text(scan.probing.contains(device.id) ? "Scan approfondi des ports…" : "Aucun port ouvert détecté (profil \(profileLabel)).")
                         .font(Theme.small)
                         .foregroundStyle(Theme.textSecondary)
                 } else {

@@ -39,6 +39,7 @@ struct ScanRangesPanel: View {
                     }
                     ScanAddRangeCard()
                 }
+                ScanPipelineBar(scan: scan)
             }
         }
         .animation(.easeOut(duration: 0.15), value: scan.toast)
@@ -53,6 +54,97 @@ struct ScanRangesPanel: View {
                     .foregroundStyle(Theme.accentStrong)
             }
         }
+    }
+}
+
+/// Étapes du scan pendant qu'il tourne (Ping → Table ARP → Noms et ports → Switchs (SNMP) →
+/// Emplacements), puis le bilan de la découverte automatique des switchs.
+struct ScanPipelineBar: View {
+    @EnvironmentObject private var state: AppState
+    @ObservedObject var scan: ScanController
+    @ObservedObject private var switches = SwitchStore.shared
+    @ObservedObject private var prefs = RegPrefs.shared
+
+    var body: some View {
+        if scan.isRunning, let current = scan.phase {
+            phases(current: current)
+        } else if let result = switches.autoResult {
+            if result.foundSwitch {
+                found(result)
+            } else {
+                RegNotice(text: missingText(result), tone: .warning) {
+                    Button { openCredentials() } label: { Label("Ouvrir les Réglages", systemImage: "gearshape") }
+                        .buttonStyle(.secondary)
+                }
+            }
+        } else if !prefs.autoDiscoverSwitches, state.scanProfile != .complet {
+            HStack(spacing: 6) {
+                Image(systemName: "rectangle.connected.to.line.below").font(.system(size: 11))
+                Text("Découverte automatique des switchs désactivée (Réglages › Switchs).")
+            }
+            .font(Theme.small)
+            .foregroundStyle(Theme.textSecondary)
+        }
+    }
+
+    private func phases(current: ScanPhase) -> some View {
+        let list = scan.plannedPhases.isEmpty ? ScanPhase.allCases : scan.plannedPhases
+        let position = list.firstIndex(of: current) ?? 0
+        return HStack(spacing: 8) {
+            ForEach(Array(list.enumerated()), id: \.element) { index, phase in
+                if index > 0 {
+                    Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.textTertiary)
+                }
+                HStack(spacing: 5) {
+                    if index < position {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.success)
+                    } else if index == position {
+                        ScanPulseDot()
+                    } else {
+                        Image(systemName: "circle").foregroundStyle(Theme.textTertiary)
+                    }
+                    Text(phase.label)
+                        .font(.system(size: 12, weight: index == position ? .semibold : .regular))
+                        .foregroundStyle(index == position ? Theme.accentStrong : (index < position ? Theme.text : Theme.textSecondary))
+                }
+                .font(.system(size: 11))
+                .fixedSize()
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func found(_ result: SwitchAutoResult) -> some View {
+        let count = result.switchNames.count
+        let names = result.switchNames.prefix(4).joined(separator: ", ") + (count > 4 ? "…" : "")
+        var text = "Switchs\u{00A0}: \(count) découvert\(count > 1 ? "s" : "") (\(names)) · \(result.located) appareil\(result.located > 1 ? "s" : "") localisé\(result.located > 1 ? "s" : "")"
+        if result.filledMACs > 0 { text += " · \(result.filledMACs) MAC complétée\(result.filledMACs > 1 ? "s" : "") par l’ARP SNMP" }
+        return HStack(spacing: 8) {
+            Image(systemName: "rectangle.connected.to.line.below").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.success)
+            Text(text).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.middle)
+            Spacer(minLength: 8)
+            Button { state.open(.switchs) } label: {
+                HStack(spacing: 4) {
+                    Text("Voir les switchs")
+                    Image(systemName: "arrow.right").font(.system(size: 10, weight: .semibold))
+                }
+                .font(Theme.small.weight(.semibold))
+                .foregroundStyle(Theme.accent)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func missingText(_ result: SwitchAutoResult) -> String {
+        if result.noCommunity {
+            return "Aucune communauté SNMP à essayer\u{00A0}: saisissez la communauté dans Réglages › Identifiants pour découvrir vos switchs."
+        }
+        return "Aucun switch n’a répondu en SNMP. Activez SNMP v2c en lecture sur vos switchs ou saisissez la communauté dans Réglages › Identifiants."
+    }
+
+    private func openCredentials() {
+        RegNavigation.shared.section = .identifiants
+        state.open(.reglages)
     }
 }
 

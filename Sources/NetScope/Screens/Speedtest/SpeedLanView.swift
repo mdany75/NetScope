@@ -375,7 +375,7 @@ struct SpeedLanView: View {
             steps.append(PathStep(name: switchName, detail: "switch d’accès (relevé du scan)"))
         }
         if isRouted, let gateway = interface?.gateway {
-            let name = state.device(withID: gateway.description)?.hostname ?? "Passerelle"
+            let name = state.device(withID: gateway.description)?.hostnameLabel ?? "Passerelle"
             steps.append(PathStep(name: name, detail: "\(gateway) · routage vers un autre réseau"))
         }
         let host = model.lanHost.isEmpty ? "Serveur iperf3" : model.lanHost

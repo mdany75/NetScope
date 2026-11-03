@@ -47,7 +47,7 @@ final class ToolWakeModel: ObservableObject {
         }
         error = nil
         let device = state.devices.first { $0.mac == mac }
-        let name = device?.hostname ?? device?.displayName ?? "Manuel"
+        let name = device?.hostnameLabel ?? device?.displayName ?? "Manuel"
         store.record(command: command)
         let destination = "\(broadcast):" + port.ports.map(String.init).joined(separator: ",")
         do {
@@ -116,7 +116,7 @@ struct WakeOnLANView: View {
                 ToolFlowLayout(spacing: 6) {
                     Text("Postes connus\u{00A0}:").font(Theme.small).foregroundStyle(Theme.textSecondary).frame(height: 28)
                     ForEach(knownTargets) { device in
-                        ToolChoiceChip(label: device.hostname ?? device.displayName,
+                        ToolChoiceChip(label: device.hostnameLabel ?? device.displayName,
                                        isSelected: device.mac.map { MACAddress(model.macText) == $0 } ?? false) {
                             model.macText = device.mac?.formatted(.upperColon) ?? ""
                         }

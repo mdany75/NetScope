@@ -332,7 +332,7 @@ struct SpeedInternetView: View {
 
     private var gatewayLabel: String {
         guard let gateway = state.activeInterface?.gateway else { return "—" }
-        if let device = state.device(withID: gateway.description), let name = device.hostname ?? device.customName {
+        if let device = state.device(withID: gateway.description), let name = device.hostnameLabel ?? device.customName {
             return "\(gateway) · \(name)"
         }
         return gateway.description

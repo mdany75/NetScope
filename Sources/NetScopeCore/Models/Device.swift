@@ -41,12 +41,19 @@ public struct Device: Identifiable, Codable, Hashable, Sendable {
     /// Libellé de la plage où l'appareil a été trouvé (« Bureau »).
     public var rangeLabel: String?
     public var deviceType: DeviceType
+    /// Origine du nom d'hôte (DNS inverse, mDNS, NetBIOS, SNMP) ; nil si inconnue.
+    public var nameSource: NameDetails.Source?
+    /// Groupe de travail ou domaine NetBIOS (« WORKGROUP »).
+    public var nameDomain: String?
+    /// Nature de l'appareil d'après la découverte SNMP (switch, routeur, imprimante…), si elle a répondu.
+    public var snmpKind: SNMPDeviceKind?
 
     public init(ip: IPv4Address, mac: MACAddress? = nil, vendor: String? = nil, hostname: String? = nil,
                 customName: String? = nil, isOnline: Bool = true, latencyMs: Double? = nil,
                 openPorts: [UInt16] = [], switchName: String? = nil, switchPort: String? = nil,
                 vlan: Int? = nil, firstSeen: Date = Date(), lastSeen: Date = Date(),
-                rangeLabel: String? = nil, deviceType: DeviceType = .inconnu) {
+                rangeLabel: String? = nil, deviceType: DeviceType = .inconnu,
+                nameSource: NameDetails.Source? = nil, nameDomain: String? = nil, snmpKind: SNMPDeviceKind? = nil) {
         self.ip = ip
         self.mac = mac
         self.vendor = vendor
@@ -62,12 +69,28 @@ public struct Device: Identifiable, Codable, Hashable, Sendable {
         self.lastSeen = lastSeen
         self.rangeLabel = rangeLabel
         self.deviceType = deviceType
+        self.nameSource = nameSource
+        self.nameDomain = nameDomain
+        self.snmpKind = snmpKind
+    }
+
+    /// Nom d'hôte à afficher, sans le suffixe « .local » de mDNS.
+    public var hostnameLabel: String? {
+        guard let hostname, !hostname.isEmpty else { return nil }
+        return NamesFormat.display(hostname)
+    }
+
+    /// Origine du nom à afficher : « mDNS », « NetBIOS · groupe WORKGROUP », « SNMP (sysName) »…
+    public var nameSourceLabel: String? {
+        guard hostname != nil, let nameSource else { return nil }
+        if nameSource == .netbios, let nameDomain, !nameDomain.isEmpty { return "\(nameSource.label) · groupe \(nameDomain)" }
+        return nameSource.label
     }
 
     /// Nom à afficher : nom personnalisé, sinon nom d'hôte, sinon l'adresse IP.
     public var displayName: String {
         if let name = customName, !name.isEmpty { return name }
-        if let name = hostname, !name.isEmpty { return name }
+        if let name = hostnameLabel { return name }
         return ip.description
     }
 

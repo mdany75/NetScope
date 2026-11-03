@@ -36,6 +36,9 @@ public struct ScanRangeConfig: Identifiable, Codable, Hashable, Sendable {
 }
 
 /// Profil de scan : ce qui est sondé, et sur quels ports TCP.
+///
+/// Les valeurs brutes ne changent jamais (elles sont enregistrées dans les préférences) :
+/// un ancien réglage « rapide » prend simplement le nouveau comportement (ports essentiels).
 public enum ScanProfile: String, Codable, CaseIterable, Identifiable, Sendable {
     case rapide, complet, portsCourants, personnalise
 
@@ -52,16 +55,23 @@ public enum ScanProfile: String, Codable, CaseIterable, Identifiable, Sendable {
 
     public var summary: String {
         switch self {
-        case .rapide: return "ARP + ping ICMP, résolution des noms"
-        case .complet: return "Rapide + SNMP, LLDP/CDP, 1000 ports TCP"
+        case .rapide: return "Ping, ARP, noms (DNS, mDNS, NetBIOS) et \(ScanProfile.essentialPorts.count) ports essentiels"
+        case .complet: return "Rapide + environ 1000 ports TCP et SNMP toujours actif"
         case .portsCourants: return "22, 80, 443, 445, 3389, 554, 9100…"
         case .personnalise: return "Délais, ports et sondes à votre choix"
         }
     }
 
-    /// Ports courants du technicien : administration, web, partage, impression, vidéo.
+    /// Ports essentiels, sondés à chaque scan (profil Rapide) : administration, web, partage,
+    /// impression, vidéo, domotique.
+    public static let essentialPorts: [UInt16] = [
+        21, 22, 23, 53, 80, 135, 139, 443, 445, 515, 554, 631, 1883, 3389, 5000, 5001, 5900, 8080, 8443, 9100,
+    ]
+
+    /// Ports courants du technicien : les essentiels et les services de messagerie, annuaire et bases de données.
+    /// (SNMP passe par UDP 161 : la découverte SNMP s'en charge, pas le sondage TCP.)
     public static let commonPorts: [UInt16] = [
-        21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 161, 389, 443, 445, 515, 554, 631, 993, 995,
+        21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 389, 443, 445, 515, 554, 631, 993, 995,
         1433, 1883, 3306, 3389, 5000, 5001, 5900, 8000, 8080, 8443, 9100,
     ]
 
@@ -74,13 +84,17 @@ public enum ScanProfile: String, Codable, CaseIterable, Identifiable, Sendable {
             8088, 8123, 8291, 8443, 8554, 8728, 8729, 8883, 8888, 9000, 9090, 9100, 9200, 9443, 10000, 10443,
             11211, 27017, 32400, 37777, 49152, 50000,
         ]
-        return Array(Set((1...1024).map { UInt16($0) } + high)).sorted()
+        return Array(Set((1...1024).map { UInt16($0) } + high + essentialPorts)).sorted()
     }()
 
-    /// Ports TCP sondés. `custom` sert au profil personnalisé ; le profil rapide ne sonde aucun port.
+    /// Vrai si la découverte SNMP des switchs est toujours faite avec ce profil, même quand
+    /// l'option automatique est coupée dans les Réglages.
+    public var alwaysDiscoversSwitches: Bool { self == .complet }
+
+    /// Ports TCP sondés. `custom` sert au profil personnalisé.
     public func ports(custom: [UInt16] = []) -> [UInt16] {
         switch self {
-        case .rapide: return []
+        case .rapide: return ScanProfile.essentialPorts
         case .complet: return ScanProfile.extendedPorts
         case .portsCourants: return ScanProfile.commonPorts
         case .personnalise: return Array(Set(custom)).sorted()

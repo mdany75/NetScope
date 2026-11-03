@@ -19,7 +19,7 @@ struct SwitchScreen: View {
                     Panel(padding: 0) {
                         EmptyState(systemImage: "rectangle.connected.to.line.below",
                                    title: "Aucun switch à interroger",
-                                   message: "Ajoutez un switch par son adresse IP, ou choisissez un appareil trouvé par le scan (port 161 ouvert ou fabricant Cisco, Aruba, HPE, Juniper, Ubiquiti). Saisissez ensuite la communauté SNMP en lecture seule.") {
+                                   message: "Les switchs qui répondent en SNMP v2c sont ajoutés automatiquement à la fin de chaque scan (communauté des Réglages › Identifiants, puis «\u{00A0}public\u{00A0}»). Vous pouvez aussi ajouter un switch par son adresse IP.") {
                             Button { showAdd = true } label: { Label("Ajouter un switch", systemImage: "plus") }
                                 .buttonStyle(.primary)
                         }

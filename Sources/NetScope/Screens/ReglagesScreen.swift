@@ -123,7 +123,9 @@ struct ReglagesScreen: View {
             }
         case .majs:
             if state.updateAvailable != nil { CountBadge(count: 1) }
-        case .switchs, .notifications, .export, .raccourcis:
+        case .switchs:
+            Text("\(SwitchStore.shared.hosts.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+        case .notifications, .export, .raccourcis:
             Text("bientôt").font(Theme.caption).foregroundStyle(Theme.textTertiary)
         default:
             EmptyView()
@@ -141,7 +143,8 @@ struct ReglagesScreen: View {
         case .interface: RegInterfaceSection()
         case .majs: RegUpdatesSection()
         case .apropos: RegAboutSection()
-        case .switchs, .notifications, .export, .raccourcis:
+        case .switchs: RegSwitchesSection()
+        case .notifications, .export, .raccourcis:
             RegPanel(title: navigation.section.label) {
                 RegNotice("Section prévue au croquis, pas encore disponible dans cette version de NetScope.", tone: .neutral)
             }
