@@ -257,7 +257,7 @@ final class SwitchStore: ObservableObject {
                 let fields = [snapshot.displayName, iface?.name ?? "\(entry.bridgePort)", iface?.alias ?? "",
                               (entry.vlan ?? snapshot.pvid[i]).map(String.init) ?? "", entry.mac.formatted(.upperColon),
                               info.ip, info.name, info.vendor, uplinks.contains(i) ? "oui" : "non"]
-                lines.append(fields.map { $0.replacingOccurrences(of: ";", with: ",") }.joined(separator: ";"))
+                lines.append(fields.map(CSVText.field).joined(separator: ";"))
             }
         }
         return lines.joined(separator: "\n") + "\n"
@@ -281,4 +281,17 @@ struct SwitchFindResult: Equatable {
     var text: String
     var host: String? = nil
     var ifIndex: Int? = nil
+}
+
+/// Champ CSV sûr : sans séparateur ni saut de ligne, et neutralisé s'il ressemble à une formule
+/// (un alias de port ou un SSID peut commencer par « = », « + », « - » ou « @ »).
+enum CSVText {
+    static func field(_ text: String) -> String {
+        var value = text.replacingOccurrences(of: ";", with: ",")
+            .replacingOccurrences(of: "\r", with: " ")
+            .replacingOccurrences(of: "\n", with: " ")
+        let isNumber = Double(value.replacingOccurrences(of: ",", with: ".")) != nil
+        if let first = value.first, "=+-@\t".contains(first), !isNumber { value = "'" + value }
+        return value
+    }
 }

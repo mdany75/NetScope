@@ -171,10 +171,19 @@ public struct SNMPInterface: Hashable, Sendable, Codable, Identifiable {
     /// Port physique Ethernet (ethernetCsmacd, gigabitEthernet…), hors interfaces virtuelles.
     public var isPhysical: Bool {
         // « Vlan1 », « Po1 », « lo0 », « Trk1 » : interfaces logiques (sans « / » dans le nom).
-        let virtualPrefixes = ["vlan", "vl", "port-channel", "po", "lo", "null", "tunnel", "stack", "trk", "lag", "ae",
-                               "bond", "br", "cpu", "mgmt", "dynamic", "default", "nve", "irb"]
+        // Les préfixes courts ne comptent que suivis d'un chiffre : « Port 1 » reste un port physique.
+        let virtualWords = ["vlan", "port-channel", "loopback", "null", "tunnel", "stack", "bridge", "dynamic", "default"]
+        let virtualShort = ["vl", "po", "lo", "trk", "lag", "ae", "bond", "br", "cpu", "mgmt", "nve", "irb"]
         let lower = name.lowercased()
-        if !lower.contains("/"), virtualPrefixes.contains(where: { lower.hasPrefix($0) }) { return false }
+        if !lower.contains("/") {
+            if virtualWords.contains(where: { lower.hasPrefix($0) }) { return false }
+            let isVirtual = virtualShort.contains { prefix in
+                guard lower.hasPrefix(prefix) else { return false }
+                let rest = lower.dropFirst(prefix.count).drop { $0 == " " }
+                return rest.isEmpty || rest.first!.isNumber
+            }
+            if isVirtual { return false }
+        }
         guard let type else { return true }
         // ethernetCsmacd, iso88023Csmacd, fastEther, fastEtherFX, gigabitEthernet.
         return [6, 7, 62, 69, 117].contains(type)
@@ -616,12 +625,13 @@ public struct SNMPSwitchPoller: Sendable {
 
     /// Voisins LLDP, rattachés aux interfaces locales (ifName/ifDescr, sinon ifIndex ou port de pont).
     public func lldpNeighbors(interfaces: [SNMPInterface], bridgePorts: [Int: Int]) async throws -> [SNMPLLDPNeighbor] {
-        typealias Key = Int  // localPortNum * 10_000 + remIndex
+        struct Key: Hashable { var localPort: Int; var remIndex: Int }
         var rows: [Key: SNMPLLDPNeighbor] = [:]
         func visit(_ root: SNMPOID, _ apply: (inout SNMPLLDPNeighbor, SNMPValue) -> Void) async throws {
             for bind in try await column(root) {
                 guard let suffix = bind.oid.suffix(after: root), let index = SNMPParse.lldpIndex(suffix) else { continue }
-                let key = index.localPort * 10_000 + index.remIndex
+                // Clé composée : remIndex peut dépasser 10 000 sur certains switchs.
+                let key = Key(localPort: index.localPort, remIndex: index.remIndex)
                 var row = rows[key] ?? SNMPLLDPNeighbor(localPortNum: index.localPort, sysName: "", portID: "")
                 apply(&row, bind.value)
                 rows[key] = row

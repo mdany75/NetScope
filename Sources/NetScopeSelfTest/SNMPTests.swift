@@ -145,6 +145,10 @@ func registerSNMPTests(_ suite: TestSuite) {
                         "client Wi-Fi localisé sur le port de l'AP")
         try expect(!SNMPInterface(index: 99, name: "Vlan1", type: 53).isPhysical, "Vlan1 n'est pas un port physique")
         try expect(!SNMPInterface(index: 98, name: "Po1", type: 6).isPhysical, "Po1 n'est pas un port physique")
+        try expect(SNMPInterface(index: 1, name: "Port 1", type: 6).isPhysical, "« Port 1 » est un port physique")
+        try expect(SNMPInterface(index: 2, name: "port12", type: 6).isPhysical, "« port12 » est un port physique")
+        try expect(!SNMPInterface(index: 97, name: "lo0", type: 24).isPhysical, "lo0 n'est pas un port physique")
+        try expect(!SNMPInterface(index: 96, name: "DEFAULT_VLAN", type: 6).isPhysical, "DEFAULT_VLAN n'est pas un port physique")
         try expect(SNMPInterface(index: 97, name: "Te1/1/1", type: 6).isModular, "Te1/1/1 est un port de module")
     }
 

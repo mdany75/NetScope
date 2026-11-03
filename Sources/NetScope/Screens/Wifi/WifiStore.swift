@@ -259,13 +259,13 @@ final class WifiStore: NSObject, ObservableObject {
                           String(network.channel), String(network.widthMHz), network.band.label, String(network.rssi),
                           network.noise.map(String.init) ?? "", network.security.label, network.standard ?? "",
                           network.isConnected ? "oui" : "non"]
-            lines.append(fields.map { $0.replacingOccurrences(of: ";", with: ",") }.joined(separator: ";"))
+            lines.append(fields.map(CSVText.field).joined(separator: ";"))
         }
         if !surveyPoints.isEmpty {
             lines.append("")
             lines.append("Relevé de couverture;RSSI (dBm);BSSID;Heure")
             for point in surveyPoints {
-                lines.append("\(point.room);\(point.rssi);\(point.bssid);\(WifiText.time(point.time))")
+                lines.append([point.room, String(point.rssi), point.bssid, WifiText.time(point.time)].map(CSVText.field).joined(separator: ";"))
             }
         }
         let panel = NSSavePanel()

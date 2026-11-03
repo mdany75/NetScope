@@ -104,6 +104,7 @@ public final class SNMPClient: Sendable {
     /// Envoie une PDU et attend la réponse correspondante (même request-id).
     public func request(_ pdu: SNMPPDU, checkStatus: Bool = true) async throws -> SNMPPDU {
         guard !target.community.isEmpty else { throw SNMPError.emptyCommunity }
+        try Task.checkCancellation()
         let message = SNMPMessage(community: target.community, pdu: pdu)
         let target = self.target
         let response: SNMPPDU = try await withCheckedThrowingContinuation { continuation in
@@ -140,10 +141,12 @@ public final class SNMPClient: Sendable {
         guard connected == 0 else { throw SNMPError.socket(String(cString: strerror(errno))) }
 
         var buffer = [UInt8](repeating: 0, count: 65_535)
-        for _ in 0...max(0, target.retries) {
+        for _ in 0...min(max(0, target.retries), 5) {
             let sent = bytes.withUnsafeBytes { send(fd, $0.baseAddress, $0.count, 0) }
+            if sent < 0, errno == ECONNREFUSED { throw SNMPError.unreachable(target.host.description) }
             guard sent == bytes.count else { throw SNMPError.socket(String(cString: strerror(errno))) }
-            let deadline = Date().addingTimeInterval(target.timeout)
+            // Délai borné (0,1 à 60 s) : jamais d'attente infinie ni de dépassement d'Int32 dans poll().
+            let deadline = Date().addingTimeInterval(min(max(target.timeout, 0.1), 60))
             while true {
                 let remaining = deadline.timeIntervalSinceNow
                 if remaining <= 0 { break }
