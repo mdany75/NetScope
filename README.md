@@ -8,12 +8,36 @@ surveillance, rapports et accès distant, le tout en français.
 
 ## Fonctions
 
-Version 0.1.0 : les fondations. Les écrans existent et affichent ce qu’ils feront ; le moteur
-d’adressage est en place et testé.
+Version 0.1.0 : douze écrans sur quatorze fonctionnent ; Surveillance et Rapports sont encore
+en construction.
 
-- Barre latérale à quatorze écrans : Scanner, Carte du réseau, Inventaire, Appareil, Ping
-  continu, Switchs et ports, Wi-Fi, Outils, Surveillance, Analyse, Rapports, Accès distant,
-  Speedtest et Réglages.
+- **Scanner multi-plages** : plusieurs plages à la fois, ping ICMP sans droits administrateur,
+  table ARP, nom d’hôte (DNS inverse), ports courants, fabricant, type d’appareil deviné ;
+  filtres (en ligne, hors ligne, nouveaux, ports web), tri, panneau de détail, export CSV.
+- **Ping continu** multi-cibles (intervalle, taille de paquet pour le test MTU), statistiques
+  (min, moyenne, max, gigue, perte, P95), graphes, journal des coupures, **traceroute et MTR**.
+- **Switchs et ports** : client SNMP v2c intégré (table MAC BRIDGE-MIB / Q-BRIDGE-MIB, LLDP,
+  interfaces, PoE) pour savoir **sur quel port de quel switch** chaque appareil est branché ;
+  façade du switch dessinée, recherche par IP ou MAC.
+- **Wi-Fi** : connexion actuelle (RSSI, bruit, SNR, canal, débit), analyse des réseaux
+  voisins, graphe des canaux 2,4 / 5 / 6 GHz, recommandations.
+- **Fiche appareil** : réseau, matériel, emplacement physique, ports et services avec
+  bannières, sonde web, notes.
+- **Boîte à outils** : calculateur de sous-réseaux avec découpage, convertisseur MAC/OUI,
+  scan de ports, DNS (A, AAAA, MX, PTR, TXT, NS, CNAME), Whois, Wake-on-LAN.
+- **Inventaire permanent** : tous les appareils jamais vus, champs éditables (local, prise,
+  responsable…), chronologie des changements (IP, port de switch, hors ligne), import et
+  export CSV.
+- **Analyse** : indicateurs, carte d’occupation de la plage, répartition par fabricant et par
+  type, alertes (nouvel appareil, conflit IP…), comparaison de deux scans.
+- **Carte du réseau** construite à partir du scan (passerelle, switchs, groupes d’appareils).
+- **Accès distant** : connexions SSH, Telnet, console série, RDP et VNC enregistrées par site,
+  ouvertes dans Terminal, Windows App ou Partage d’écran ; import depuis le scan.
+- **Speedtest** : débit Internet (multi-flux, latence au repos et en charge, gigue),
+  débit local avec iperf3, historique.
+- **Mise à jour automatique** depuis les Releases GitHub (canal Stable ou Bêta, vérification
+  de la signature avant installation), menu « Rechercher les mises à jour… ».
+- Barre latérale à quatorze écrans, fidèle aux croquis.
 - Interface active affichée en bas de la barre latérale (« en0 · 10.182.122.135 · Wi-Fi »),
   avec la version et une pastille quand une mise à jour est disponible.
 - Recherche globale par IP, MAC, nom, fabricant ou port de switch.
@@ -55,7 +79,7 @@ swift build && ./.build/debug/NetScope --snapshot /tmp/netscope-snap --demo
 swift build && ./.build/debug/NetScopeSelfTest
 ```
 
-Les tests portent sur le moteur (adresses, plages, sous-réseaux, MAC, fabricants, modèles). Ils
+Les tests portent sur le moteur (adresses, plages, sous-réseaux, MAC, fabricants, scan, ping, SNMP, DNS, mise à jour, inventaire, Speedtest, accès distant). Ils
 n’envoient rien sur le réseau : aucun scan, aucune requête, sauf éventuellement vers 127.0.0.1.
 
 ## Organisation

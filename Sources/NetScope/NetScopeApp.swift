@@ -45,10 +45,14 @@ struct NetScopeApp: App {
                 .environmentObject(state)
                 .frame(minWidth: 1100, minHeight: 700)
                 .task {
-                    if !Launcher.isDemo { await state.detectInterface() }
+                    guard !Launcher.isDemo else { return }
+                    await state.detectInterface()
+                    // Vérification des mises à jour (Releases GitHub) selon la fréquence choisie.
+                    await UpdController.shared.applicationDidLaunch(state)
                 }
         }
         .defaultSize(width: 1440, height: 900)
         .windowResizability(.contentMinSize)
+        .commands { UpdCommands(state: state) }
     }
 }
