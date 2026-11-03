@@ -1,0 +1,255 @@
+import NetScopeCore
+import SwiftUI
+
+/// Panneau de détails de la connexion choisie : identité, sécurité, actions.
+struct RemoteDetailPanel: View {
+    @ObservedObject var model: RemoteModel
+    let connection: RemoteConnection
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                identityCard
+                securityCard
+                actionsCard
+            }
+        }
+    }
+
+    private var reach: RemoteReachability { model.state(of: connection.id) }
+
+    private var identityCard: some View {
+        Panel {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 10) {
+                    RemoteProtoIcon(proto: connection.proto, size: 40)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(connection.name).font(Theme.panelTitle).lineLimit(1)
+                        if !connection.note.isEmpty {
+                            Text(connection.note).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                        }
+                        HStack(spacing: 6) {
+                            Chip(text: reach.label, tone: reach.tone)
+                            Chip(text: connection.folderLabel, tone: .neutral)
+                        }
+                        .padding(.top, 4)
+                    }
+                    Spacer(minLength: 0)
+                    Button {
+                        model.showDetails = false
+                    } label: {
+                        Image(systemName: "sidebar.right").font(.system(size: 12))
+                    }
+                    .buttonStyle(.ghost)
+                    .help("Replier le panneau de détails")
+                }
+                if connection.proto.isInsecure {
+                    SpeedBanner(text: "Protocole non chiffré : le mot de passe circule en clair.")
+                }
+                VStack(spacing: 0) {
+                    KeyValueRow(key: "Protocole", value: connection.proto.fullName, keyWidth: 92)
+                    KeyValueRow(key: connection.proto == .serie ? "Périphérique" : "Hôte", value: connection.host, mono: true, keyWidth: 92)
+                    KeyValueRow(key: connection.proto == .serie ? "Paramètres" : "Port",
+                                value: connection.proto == .serie ? "\(connection.port) bauds · 8N1" : String(connection.port),
+                                mono: true, keyWidth: 92)
+                    KeyValueRow(key: "Utilisateur", value: connection.username.isEmpty ? "—" : connection.username, mono: true, keyWidth: 92)
+                    KeyValueRow(key: "Dernière", value: RemoteFormat.relative(connection.lastConnected), keyWidth: 92)
+                }
+            }
+        }
+    }
+
+    private var securityCard: some View {
+        Panel {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(title: "Authentification") {
+                    Chip(text: "Bientôt", tone: .neutral)
+                }
+                Text(authText).font(Theme.small).foregroundStyle(Theme.neutralText)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Clés, Trousseau, hôte de rebond, tunnels et vérification d’empreinte dans NetScope : prochaine version.")
+                    .font(Theme.caption).foregroundStyle(Theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var authText: String {
+        switch connection.proto {
+        case .ssh: return "Géré par ssh : clés de ~/.ssh et agent SSH ; l’empreinte de la clé d’hôte est comparée à ~/.ssh/known_hosts."
+        case .telnet: return "Identifiant et mot de passe demandés par l’appareil, en clair."
+        case .rdp: return "Identifiants demandés par Windows App à l’ouverture (NLA)."
+        case .vnc: return "Mot de passe demandé par Partage d’écran (compte macOS ou mot de passe VNC)."
+        case .serie: return "Aucune : accès physique par le port console."
+        }
+    }
+
+    private var actionsCard: some View {
+        let plan = model.plan(for: connection)
+        return Panel {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    Button {
+                        model.connect(connection)
+                    } label: {
+                        Label("Connecter", systemImage: "play.fill").labelStyle(RemoteCompactLabelStyle())
+                    }
+                    .buttonStyle(RemoteSmallButtonStyle(primary: true, tint: reach == .unreachable ? Theme.textSecondary : Theme.accent))
+                    .speedDisabled((try? plan.get()) == nil)
+                    Button("Modifier") { model.startEditing() }.buttonStyle(RemoteSmallButtonStyle())
+                    Button("Dupliquer") { model.duplicateSelected() }.buttonStyle(RemoteSmallButtonStyle())
+                }
+                HStack(spacing: 6) {
+                    Button {
+                        model.checkReachability(only: connection.id)
+                    } label: {
+                        Label("Vérifier", systemImage: "dot.radiowaves.left.and.right").labelStyle(RemoteCompactLabelStyle())
+                    }
+                    .buttonStyle(.ghost)
+                    Spacer()
+                    Button {
+                        model.pendingDeletion = connection
+                    } label: {
+                        Label("Supprimer", systemImage: "trash").labelStyle(RemoteCompactLabelStyle())
+                    }
+                    .buttonStyle(GhostButtonStyle(color: Theme.critical))
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    SpeedFieldLabel("Ouvrir dans l’app externe")
+                    switch plan {
+                    case .success(let plan):
+                        Text(plan.appName).font(.system(size: 12, weight: .semibold))
+                        Text(plan.preview)
+                            .font(Theme.mono(11))
+                            .foregroundStyle(Theme.neutralText)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 8).padding(.vertical, 6)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
+                            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+                    case .failure(let error):
+                        SpeedBanner(text: (error as? LocalizedError)?.errorDescription ?? error.localizedDescription,
+                                    tone: .critical, systemImage: "xmark.octagon")
+                    }
+                }
+                .padding(.top, 10)
+                .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
+            }
+        }
+    }
+}
+
+/// Fenêtre d'import des appareils du scan (ports 22, 23, 3389 ou 5900 ouverts).
+struct RemoteImportOverlay: View {
+    @EnvironmentObject private var state: AppState
+    @ObservedObject var model: RemoteModel
+
+    var body: some View {
+        let candidates = model.importCandidates(from: state.devices)
+        ZStack(alignment: .top) {
+            Color(hex: 0x0F172A, opacity: 0.45)
+                .ignoresSafeArea()
+                .onTapGesture { model.showImport = false }
+            VStack(spacing: 0) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Importer depuis le scan").font(Theme.panelTitle)
+                        Text(subtitle).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    }
+                    Spacer()
+                    Button {
+                        model.showImport = false
+                    } label: {
+                        Image(systemName: "xmark").font(.system(size: 12, weight: .semibold))
+                    }
+                    .buttonStyle(.ghost)
+                    .help("Fermer l’import")
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+
+                TableHeader(columns: [
+                    .init(title: "Appareil"),
+                    .init(title: "IP", width: 130),
+                    .init(title: "Ports détectés", width: 150),
+                    .init(title: "Proposé", width: 110),
+                    .init(title: "Action", width: 130, alignment: .trailing),
+                ])
+                ScrollView {
+                    VStack(spacing: 0) {
+                        if candidates.isEmpty {
+                            EmptyState(systemImage: "dot.radiowaves.left.and.right", title: "Aucun appareil à importer",
+                                       message: "Lancez un scan avec le profil « Ports courants » : les appareils avec 22, 23, 3389 ou 5900 ouverts apparaîtront ici.")
+                                .frame(height: 180)
+                        }
+                        ForEach(candidates) { candidate in row(candidate) }
+                    }
+                }
+                .frame(height: candidates.isEmpty ? 180 : min(CGFloat(candidates.count) * 38, 420))
+
+                HStack(spacing: 10) {
+                    let fresh = candidates.filter { !$0.alreadySaved }.count
+                    Text("\(candidates.count) appareil\(candidates.count > 1 ? "s" : "") · \(fresh) nouveau\(fresh > 1 ? "x" : "")")
+                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    Spacer()
+                    Button("Ajouter toutes les nouvelles") { _ = model.addAll(candidates) }
+                        .buttonStyle(.secondary)
+                        .speedDisabled(fresh == 0)
+                    Button("Terminé") { model.showImport = false }
+                        .buttonStyle(.primary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Theme.panelMuted)
+                .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
+            }
+            .frame(maxWidth: 760)
+            .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
+            .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+            .shadow(color: Color(hex: 0x0F172A, opacity: 0.25), radius: 20, y: 16)
+            .padding(.top, 60)
+            .padding(.horizontal, 16)
+        }
+    }
+
+    private var subtitle: String {
+        let ranges = state.ranges.filter(\.isEnabled).map(\.text).joined(separator: " et ")
+        let base = state.devices.isEmpty ? "Aucun appareil scanné" : "\(state.devices.count) appareils scannés"
+        return "\(base)\(ranges.isEmpty ? "" : " · \(ranges)") · appareils avec 22, 23, 3389 ou 5900 ouverts"
+    }
+
+    private func row(_ candidate: RemoteImportCandidate) -> some View {
+        HStack(spacing: 0) {
+            HStack(spacing: 4) {
+                Text(candidate.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                Text("· \(candidate.vendor)").font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            }
+            .padding(.horizontal, 8).frame(maxWidth: .infinity, alignment: .leading)
+            Text(candidate.ip).font(Theme.mono(12)).padding(.horizontal, 8).frame(width: 130, alignment: .leading)
+            HStack(spacing: 3) {
+                ForEach(candidate.ports, id: \.self) { port in
+                    let proto = RemoteProtocol.forPort(port) ?? .vnc
+                    RemoteProtoBadge(proto: proto, text: String(port))
+                }
+            }
+            .padding(.horizontal, 8).frame(width: 150, alignment: .leading)
+            RemoteProtoBadge(proto: candidate.proto, text: "\(candidate.proto.badge) \(candidate.port)")
+                .padding(.horizontal, 8).frame(width: 110, alignment: .leading)
+            Group {
+                if candidate.alreadySaved {
+                    Text("Déjà enregistrée").font(Theme.small).foregroundStyle(Theme.textSecondary)
+                } else {
+                    Button("Ajouter") { model.add(candidate) }
+                        .buttonStyle(RemoteSmallButtonStyle())
+                        .help("Ajouter \(candidate.name) en \(candidate.proto.label)")
+                }
+            }
+            .padding(.horizontal, 8).frame(width: 130, alignment: .trailing)
+        }
+        .frame(height: 38)
+        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+    }
+}
