@@ -135,6 +135,9 @@ func registerPingTests(_ suite: TestSuite) {
                                             interval: 1, thresholdMs: 15, subject: "a")
         try expectEqual(slow.map(\.level), [.alerte], "latence élevée")
         try expect(slow.first?.message.hasPrefix("latence élevée 17,4") == true, "valeur à la française : \(slow.first?.message ?? "")")
+        let still = PingEventDetector.events(for: PingSample(sequence: 10, date: now, rttMs: 18), previousLosses: 0,
+                                             interval: 1, thresholdMs: 15, subject: "a", previousAboveThreshold: true)
+        try expect(still.isEmpty, "latence toujours élevée : pas de nouvelle alerte")
         try expectEqual(PingEventDetector.defaultThreshold(for: IPv4Address("10.0.0.1")), 20, "seuil local")
         try expectEqual(PingEventDetector.defaultThreshold(for: IPv4Address("1.1.1.1")), 50, "seuil Internet")
     }

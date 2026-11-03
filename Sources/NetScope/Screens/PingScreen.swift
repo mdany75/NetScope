@@ -193,7 +193,7 @@ struct PingScreen: View {
     private var modeNote: String? {
         guard controller.payloadSize > 1000 else { return nil }
         if controller.dontFragmentRefused {
-            return "Test MTU : le système a refusé le bit DF, les paquets de 1500 octets peuvent être fragmentés ; le résultat n’est pas fiable."
+            return "Test MTU : le système a refusé le bit DF, les paquets de 1500 octets peuvent être fragmentés ; le résultat n’est pas fiable."
         }
         return "Test MTU : 1472 octets de données + 28 octets d’en-tête IP/ICMP = 1500 octets, bit DF activé. Une perte franche signale un MTU réduit sur le chemin (tunnel, PPPoE)."
     }

@@ -35,8 +35,10 @@ public struct PingEvent: Identifiable, Equatable, Sendable {
 /// retour en ligne, pertes isolées, latence au-dessus du seuil.
 public enum PingEventDetector {
     /// `previousLosses` : pertes consécutives avant cette mesure.
+    /// `previousAboveThreshold` : la mesure précédente dépassait déjà le seuil ; l'alerte de latence
+    /// n'est émise qu'au franchissement, pour ne pas noyer le journal sous une latence durablement élevée.
     public static func events(for sample: PingSample, previousLosses: Int, interval: TimeInterval,
-                              thresholdMs: Double, subject: String) -> [PingEvent] {
+                              thresholdMs: Double, subject: String, previousAboveThreshold: Bool = false) -> [PingEvent] {
         let offline = PingTargetStatus.offlineThreshold
         if sample.isLost {
             guard previousLosses + 1 == offline else { return [] }
@@ -55,7 +57,7 @@ public enum PingEventDetector {
                                           : "1 paquet perdu (seq \(first))"
             result.append(PingEvent(date: sample.date, level: .alerte, subject: subject, message: text))
         }
-        if let rtt = sample.rttMs, rtt > thresholdMs {
+        if let rtt = sample.rttMs, rtt > thresholdMs, !previousAboveThreshold {
             result.append(PingEvent(date: sample.date, level: .alerte, subject: subject,
                                     message: "latence élevée \(PingFormat.ms(rtt)) (seuil \(PingFormat.decimal(thresholdMs, digits: 0)) ms)"))
         }

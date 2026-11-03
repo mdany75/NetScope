@@ -258,10 +258,12 @@ final class PingController: ObservableObject {
     private func apply(_ sample: PingSample, to id: PingTarget.ID) {
         guard let index = targets.firstIndex(where: { $0.id == id }) else { return }
         let previous = targets[index].history.consecutiveLosses
+        let wasAbove = (targets[index].history.last?.rttMs).map { $0 > targets[index].thresholdMs } ?? false
         targets[index].history.append(sample)
         let target = targets[index]
         let found = PingEventDetector.events(for: sample, previousLosses: previous, interval: interval,
-                                             thresholdMs: target.thresholdMs, subject: target.addressLabel)
+                                             thresholdMs: target.thresholdMs, subject: target.addressLabel,
+                                             previousAboveThreshold: wasAbove)
         for event in found {
             let suffix = event.level == .coupure && soundOnLoss ? " · alerte sonore" : ""
             insert(PingEvent(date: event.date, level: event.level, subject: event.subject, message: event.message + suffix))
@@ -353,12 +355,21 @@ final class PingController: ObservableObject {
         for target in targets {
             for sample in target.history.samples {
                 let rtt = sample.rttMs.map { PingFormat.decimal($0, digits: 3) } ?? ""
-                lines.append([iso.string(from: sample.date), target.name.replacingOccurrences(of: ";", with: ","),
-                              target.addressLabel, "\(sample.sequence)", rtt, sample.isLost ? "1" : "0",
-                              sample.failure?.label ?? ""].joined(separator: ";"))
+                lines.append([iso.string(from: sample.date), Self.csvField(target.name),
+                              Self.csvField(target.addressLabel), "\(sample.sequence)", rtt, sample.isLost ? "1" : "0",
+                              Self.csvField(sample.failure?.label ?? "")].joined(separator: ";"))
             }
         }
         return lines.joined(separator: "\n") + "\n"
+    }
+
+    /// Champ texte sûr : ni séparateur ni saut de ligne, et pas de formule interprétée par le tableur.
+    static func csvField(_ text: String) -> String {
+        var clean = text.replacingOccurrences(of: ";", with: ",")
+            .replacingOccurrences(of: "\r", with: " ")
+            .replacingOccurrences(of: "\n", with: " ")
+        if let first = clean.first, "=+-@".contains(first) { clean = "'" + clean }
+        return clean
     }
 
     func exportCSV() {
@@ -372,7 +383,7 @@ final class PingController: ObservableObject {
         do {
             try csv().write(to: url, atomically: true, encoding: .utf8)
             let count = targets.reduce(0) { $0 + $1.history.samples.count }
-            log(.info, "Export", "CSV enregistré : \(targets.count) cibles, \(count) mesures (\(url.lastPathComponent))")
+            log(.info, "Export", "CSV enregistré : \(targets.count) cibles, \(count) mesures (\(url.lastPathComponent))")
         } catch {
             log(.alerte, "Export", "échec de l’enregistrement : \(error.localizedDescription)")
         }

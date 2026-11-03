@@ -39,7 +39,7 @@ struct PingMTRPanel: View {
                     .buttonStyle(PingSmallButtonStyle(prominent: true))
                     .disabled(target.address == nil)
                 }
-                Button("Résolution DNS : \(controller.resolveHopNames ? "oui" : "non")") {
+                Button("Résolution DNS : \(controller.resolveHopNames ? "oui" : "non")") {
                     controller.resolveHopNames.toggle()
                 }
                 .buttonStyle(PingSmallButtonStyle())
@@ -180,7 +180,7 @@ struct PingMTRPanel: View {
             return "Le MTR envoie un Echo Request par saut et par cycle (TTL croissant) ; chaque routeur répond par « Time Exceeded »."
         }
         if report.hops.count == 1 {
-            return "Même sous-réseau : 1 seul saut L3. Le chemin L2 (switchs et ports) se lit sur l’écran Switchs et ports."
+            return "Même sous-réseau : 1 seul saut L3. Le chemin L2 (switchs et ports) se lit sur l’écran Switchs et ports."
         }
         if report.hops.count == 2 {
             return "Routage par la passerelle. Une perte sur le dernier saut seulement pointe vers l’appareil ou son port de switch, pas vers le cœur."

@@ -132,6 +132,16 @@ public final class PingMonitor: @unchecked Sendable {
         let error = socket.send(packet, to: address)
         if error == 0 {
             pending[sequence] = Pending(sentMs: sentMs, date: date)
+            // Sans cela, avec un intervalle plus long que le délai (5 s), la perte ne serait
+            // constatée qu'au prochain envoi et une réponse tardive serait encore acceptée.
+            let timeout = options.effectiveTimeout
+            if timeout < options.interval {
+                queue.asyncAfter(deadline: .now() + timeout + 0.01) { [weak self] in
+                    guard let self, self.socket != nil else { return }
+                    self.expire()
+                    self.flush()
+                }
+            }
         } else {
             let failure: PingFailure = error == EMSGSIZE ? .messageTooLong : .sendFailed(errno: error)
             resolved[sequence] = PingSample(sequence: sequence, date: date, rttMs: nil, failure: failure)
