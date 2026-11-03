@@ -162,7 +162,10 @@ struct AnalyseScreen: View {
         let recentOffline = records.filter { !$0.isOnline && now.timeIntervalSince($0.lastSeen) <= 7 * 86_400 }.count
         let conflicts = Set(records.filter(\.hasConflict).map(\.ip)).sorted()
         let pending = alerts.filter { $0.status == .aTraiter && $0.severity != .info }.count
-        let occupancy = chosen.map { InvOccupancy(network: $0, records: records, now: now) }
+        // Même fenêtre « vu récemment » que la carte d'occupation affichée dessous.
+        let occupancy = chosen.map {
+            InvOccupancy(network: $0, records: records, now: now, recentWindow: max(period.seconds, 7 * 86_400))
+        }
 
         return HStack(alignment: .top, spacing: 12) {
             InvTile(title: "Appareils", value: "\(records.count)", subtitle: "+\(added) / −\(lost) sur \(period.label)", valueSize: 26)
@@ -213,10 +216,6 @@ struct AnalyseScreen: View {
 }
 
 enum AnaCSV {
-    static func quote(_ field: String) -> String {
-        if field.contains(";") || field.contains("\"") || field.contains("\n") {
-            return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\""
-        }
-        return field
-    }
+    /// Même protection que l'export d'inventaire (guillemets, sauts de ligne, formules).
+    static func quote(_ field: String) -> String { InvCSV.quote(field, ";") }
 }

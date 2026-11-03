@@ -53,7 +53,7 @@ public struct TopoGraph: Sendable {
 
     /// Liens parent → enfant.
     public var links: [(parent: TopoNode, child: TopoNode)] {
-        let index = Dictionary(uniqueKeysWithValues: nodes.map { ($0.id, $0) })
+        let index = Dictionary(nodes.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         return nodes.compactMap { node in
             guard let parent = node.parentID.flatMap({ index[$0] }) else { return nil }
             return (parent, node)
@@ -79,7 +79,21 @@ public struct TopoGraph: Sendable {
     private static let typeOrder: [DeviceType] = [.serveur, .poste, .telephone, .imprimante, .camera, .iot, .routeur, .inconnu, .switch, .pointAcces]
 
     /// Construit la carte. `gateway` : passerelle de l'interface active, si connue.
-    public static func build(devices: [Device], gateway: IPv4Address?, conflictIPs: Set<IPv4Address> = []) -> TopoGraph {
+    public static func build(devices input: [Device], gateway: IPv4Address?, conflictIPs: Set<IPv4Address> = []) -> TopoGraph {
+        // Un nœud par Device.id (l'IP) : en cas de doublon, on garde la vue en ligne la plus récente.
+        var devices: [Device] = []
+        var position: [String: Int] = [:]
+        for device in input {
+            if let index = position[device.id] {
+                let other = devices[index]
+                if (device.isOnline && !other.isOnline) || (device.isOnline == other.isOnline && device.lastSeen > other.lastSeen) {
+                    devices[index] = device
+                }
+            } else {
+                position[device.id] = devices.count
+                devices.append(device)
+            }
+        }
         var nodes: [TopoNode] = []
         let internet = TopoNode(id: "internet", kind: .internet, title: "Internet", subtitle: "WAN · FAI", parentID: nil,
                                 uplinkLabel: nil, deviceIDs: [], deviceType: nil, onlineCount: 0, status: .ok, isInferred: false)
@@ -113,6 +127,7 @@ public struct TopoGraph: Sendable {
         var inferred: [String] = []
         for device in devices {
             guard let name = device.switchName, !name.isEmpty, nameIndex[name.lowercased()] == nil else { continue }
+            guard name != "?" else { continue }   // « sw:? » est réservé au nœud « Switchs » des ports inconnus
             let id = "sw:" + name.lowercased()
             nameIndex[name.lowercased()] = id
             inferred.append(name)
@@ -207,8 +222,9 @@ public struct TopoGraph: Sendable {
     }
 
     private static func split(_ groupKey: String) -> (String, DeviceType) {
-        let parts = groupKey.split(separator: "|", maxSplits: 1).map(String.init)
-        return (parts[0], DeviceType(rawValue: parts.count > 1 ? parts[1] : "") ?? .inconnu)
+        // Le type est après le dernier « | » (un nom de switch peut en contenir un).
+        guard let bar = groupKey.lastIndex(of: "|") else { return (groupKey, .inconnu) }
+        return (String(groupKey[..<bar]), DeviceType(rawValue: String(groupKey[groupKey.index(after: bar)...])) ?? .inconnu)
     }
 
     private static func status(of device: Device, conflicts: Set<IPv4Address>) -> TopoStatus {

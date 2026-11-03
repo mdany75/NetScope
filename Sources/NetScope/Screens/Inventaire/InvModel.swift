@@ -159,10 +159,14 @@ final class InvModel: ObservableObject {
         store.events.filter { $0.isAlert && $0.date >= since }.sorted { $0.date > $1.date }
     }
 
-    /// Compteur de la barre latérale (Analyse) : alertes critiques ou importantes à traiter sur 24 h.
-    func updateBadge(_ state: AppState) {
-        let count = alerts(since: Date().addingTimeInterval(-86_400))
+    /// Alertes critiques ou importantes à traiter sur 24 h (compteur de la barre latérale, Analyse).
+    var pendingAlertCount: Int {
+        alerts(since: Date().addingTimeInterval(-86_400))
             .filter { $0.status == .aTraiter && $0.severity != .info }.count
+    }
+
+    func updateBadge(_ state: AppState) {
+        let count = pendingAlertCount
         if state.sidebarBadges[.analyse] != (count > 0 ? count : nil) {
             state.sidebarBadges[.analyse] = count > 0 ? count : nil
         }
@@ -181,7 +185,9 @@ extension View {
         .onChange(of: state.devices) { _, devices in
             model.observe(devices, immediately: false)
         }
-        .onChange(of: model.store.events.count) { _, _ in
+        // Le nombre d'événements plafonne à `maxEvents` et ne bouge pas quand une alerte est acceptée :
+        // on suit directement le compteur.
+        .onChange(of: model.pendingAlertCount) { _, _ in
             model.updateBadge(state)
         }
     }

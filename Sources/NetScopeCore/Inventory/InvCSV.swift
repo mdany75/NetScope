@@ -84,11 +84,24 @@ public enum InvCSV {
         return lines.joined(separator: "\r\n") + "\r\n"
     }
 
-    static func quote(_ field: String, _ separator: Character) -> String {
+    /// Caractères qui font lire une cellule comme une formule par Excel ou Numbers.
+    static let formulaPrefixes: Set<Character> = ["=", "+", "-", "@", "\t", "\r"]
+
+    /// Protège un champ : guillemets si besoin, et apostrophe devant un texte qui serait pris pour une formule
+    /// (un nom d'hôte annoncé sur le réseau comme « =HYPERLINK(…) » ne doit pas s'exécuter à l'ouverture).
+    public static func quote(_ field: String, _ separator: Character = ";") -> String {
+        var field = field
+        if let first = field.first, formulaPrefixes.contains(first) { field = "'" + field }
         if field.contains(separator) || field.contains("\"") || field.contains("\n") || field.contains("\r") {
             return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\""
         }
         return field
+    }
+
+    /// Retire l'apostrophe de protection ajoutée par `quote`.
+    static func unprotect(_ text: String) -> String {
+        guard text.hasPrefix("'"), let second = text.dropFirst().first, formulaPrefixes.contains(second) else { return text }
+        return String(text.dropFirst())
     }
 
     // MARK: Import
@@ -178,7 +191,7 @@ public enum InvCSV {
         return table.dropFirst().compactMap { cells -> InvCSVRow? in
             func value(_ field: String) -> String? {
                 guard let position = index[field], position < cells.count else { return nil }
-                let text = cells[position].trimmingCharacters(in: .whitespacesAndNewlines)
+                let text = unprotect(cells[position].trimmingCharacters(in: .whitespacesAndNewlines))
                 return text.isEmpty ? nil : text
             }
             var row = InvCSVRow()

@@ -313,4 +313,22 @@ func registerInventoryTests(_ suite: TestSuite) {
         try expectEqual(bare.node("passerelle")?.subtitle, "Non détectée", "passerelle inconnue")
         try expectEqual(bare.node("dev:10.0.0.9")?.parentID, "sw:?", "rattaché au groupe « Switchs »")
     }
+    suite.add("Relecture : CSV protégé contre les formules, carte sans nœud en double") {
+        var store = InventoryStore()
+        store.merge([dev("10.0.0.10", macA, host: "=HYPERLINK(\"http://x\")"), dev("10.0.0.11", macB, host: "poste")], at: t0)
+        var notes = store.record(InventoryStore.key(mac: MACAddress(macA)!))!.annotations
+        notes.notes = "-liste"
+        store.setAnnotations(notes, for: InventoryStore.key(mac: MACAddress(macA)!))
+        let csv = InvCSV.export(store.sortedRecords, now: t0)
+        try expect(!csv.contains(";=") && !csv.contains(";\"=") && !csv.contains(";-liste"), "aucune cellule ne commence par une formule")
+        try expectEqual(InvCSV.quote("+1;2"), "\"'+1;2\"", "apostrophe puis guillemets")
+        let rows = try InvCSV.parse(csv)
+        try expectEqual(rows[0].hostname, "=HYPERLINK(\"http://x\")", "valeur d'origine relue")
+        try expectEqual(rows[0].notes, "-liste", "apostrophe retirée à l'import")
+
+        let twice = [dev("10.0.0.5", macA, type: .poste), dev("10.0.0.5", macB, type: .imprimante, seen: t0.addingTimeInterval(5))]
+        let graph = TopoGraph.build(devices: twice, gateway: nil)
+        try expectEqual(Set(graph.nodes.map(\.id)).count, graph.nodes.count, "identifiants uniques")
+        try expectEqual(graph.links.count, graph.nodes.count - 1, "liens cohérents")
+    }
 }
