@@ -79,11 +79,14 @@ public enum HTTPProbe {
 
     /// Requête HTTP/1.0 brute par NWConnection (sans redirection).
     static func probeRaw(_ url: URL, timeout: TimeInterval) async throws -> HTTPProbeResult {
-        guard let host = url.host, let port = NWEndpoint.Port(rawValue: UInt16(url.port ?? 80)) else {
+        guard let host = url.host, !host.contains(where: { $0.isNewline || $0 == " " }),
+              let rawPort = UInt16(exactly: url.port ?? 80), let port = NWEndpoint.Port(rawValue: rawPort) else {
             throw ToolError.invalidInput("Adresse web invalide : \(url.absoluteString)")
         }
         let start = Date()
-        let path = url.path.isEmpty ? "/" : url.path + (url.query.map { "?\($0)" } ?? "")
+        // Chemin et requête encodés tels quels : un « %0D%0A » ne doit pas devenir un saut de ligne dans la requête.
+        let encodedPath = url.path(percentEncoded: true)
+        let path = (encodedPath.isEmpty ? "/" : encodedPath) + (url.query(percentEncoded: true).map { "?\($0)" } ?? "")
         let request = "GET \(path) HTTP/1.0\r\nHost: \(host)\r\nUser-Agent: NetScope\r\nAccept: */*\r\nConnection: close\r\n\r\n"
         let connection = NWConnection(host: NWEndpoint.Host(host), port: port, using: .tcp)
         let queue = DispatchQueue(label: "netscope.httpprobe")

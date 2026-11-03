@@ -12,6 +12,8 @@ final class ToolDNSModel: ObservableObject {
     @Published private(set) var isRunning = false
     @Published private(set) var result: DNSLookupResult?
     @Published var error: String?
+    /// Numéro de la dernière requête : une réponse plus ancienne arrivée en retard est ignorée.
+    private var generation = 0
 
     var effectiveServer: IPv4Address? { useCustom ? IPv4Address(customServer) : server }
 
@@ -26,15 +28,19 @@ final class ToolDNSModel: ObservableObject {
         let server = effectiveServer
         error = nil
         isRunning = true
+        generation += 1
+        let run = generation
         store.record(command: DNSLookup.command(for: text, type: type, server: server))
         Task {
             do {
                 let result = try await DNSLookup.resolve(text, type: type, server: server)
+                guard run == self.generation else { return }
                 self.result = result
                 let first = result.records.first.map { "\($0.typeLabel) \($0.value)" } ?? result.rcode
                 store.record(ToolRecent(tool: .dns, target: text, summary: first,
                                         status: result.rcode == "NOERROR" ? .ok : .warning))
             } catch {
+                guard run == self.generation else { return }
                 self.result = nil
                 self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                 store.record(ToolRecent(tool: .dns, target: text, summary: self.error ?? "Échec", status: .failure))

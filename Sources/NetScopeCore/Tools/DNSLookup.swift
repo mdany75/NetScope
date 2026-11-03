@@ -316,6 +316,8 @@ public enum DNSLookup {
     public static func resolve(_ text: String, type: DNSRecordType, server: IPv4Address? = nil, port: UInt16 = 53,
                                timeout: TimeInterval = 3) async throws -> DNSLookupResult {
         let name = queryName(for: text, type: type)
+        // Le nom est repassé à dig/host en repli : jamais d'option déguisée (« -f… »).
+        guard !name.hasPrefix("-") else { throw DNSError.invalidName(name) }
         _ = try DNSMessageCodec.encodeName(name)
         do {
             return try await Task.detached(priority: .userInitiated) {

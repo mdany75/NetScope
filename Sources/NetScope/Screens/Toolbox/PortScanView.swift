@@ -45,6 +45,8 @@ final class ToolPortScanModel: ObservableObject {
     @Published var error: String?
 
     private var task: Task<Void, Never>?
+    /// Numéro du scan en cours : un scan annulé et remplacé ne doit plus toucher à l'état.
+    private var generation = 0
 
     init(target: String = "") {
         self.target = target
@@ -78,6 +80,8 @@ final class ToolPortScanModel: ObservableObject {
         }
         error = nil
         task?.cancel()
+        generation += 1
+        let run = generation
         isRunning = true
         done = 0
         total = ports.count
@@ -89,10 +93,10 @@ final class ToolPortScanModel: ObservableObject {
         task = Task { [weak self] in
             let result = await PortScanner.scan(host: host, ports: ports, options: options) { finished, count, latest in
                 guard latest.state == .open || finished % 32 == 0 || finished == count else { return }
-                Task { @MainActor in model.progress(finished, latest) }
+                Task { @MainActor in model.progress(finished, latest, run: run) }
             }
             await MainActor.run { [weak self] in
-                guard let self else { return }
+                guard let self, self.generation == run else { return }
                 self.isRunning = false
                 self.done = result.scannedCount
                 self.summary = result
@@ -107,8 +111,8 @@ final class ToolPortScanModel: ObservableObject {
         }
     }
 
-    private func progress(_ finished: Int, _ latest: PortScanResult) {
-        guard isRunning else { return }
+    private func progress(_ finished: Int, _ latest: PortScanResult, run: Int) {
+        guard isRunning, run == generation else { return }
         done = max(done, finished)
         if latest.state == .open, !openResults.contains(where: { $0.port == latest.port }) {
             openResults.append(latest)

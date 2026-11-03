@@ -36,7 +36,7 @@ final class DeviceWebModel: ObservableObject {
         }
         error = nil
         isRunning = true
-        store.record(command: "curl -skI \(text)")
+        store.record(command: "curl -skI '\(text.replacingOccurrences(of: "'", with: "'\\''"))'")
         Task {
             do {
                 let result = try await HTTPProbe.probe(url)

@@ -252,8 +252,9 @@ struct SubnetCalculatorView: View {
     private func splitBlock(_ subnet: Subnet) -> some View {
         let p = subnet.prefix
         let canSplit = p <= 30
-        let sp = (p + 1...30).contains(model.splitPrefix) ? model.splitPrefix : min(p + 2, 30)
         let maxChip = min(30, p + 6)
+        // Préfixe gardé d'un bloc précédent : ramené dans les choix proposés (sinon découpage vide).
+        let sp = canSplit && (p + 1...maxChip).contains(model.splitPrefix) ? model.splitPrefix : min(p + 2, 30)
         let pieces = canSplit ? ((try? subnet.split(into: sp)) ?? []) : []
         let hosts = canSplit ? Subnet(address: subnet.network, prefix: sp).hostCount : 0
         let summary = canSplit

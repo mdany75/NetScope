@@ -120,7 +120,7 @@ enum ToolSocket {
         while result.count < count {
             let n = recv(fd, &buffer, count - result.count, 0)
             if n < 0 {
-                if errno == EAGAIN || errno == EWOULDBLOCK { throw ToolError.timeout(0) }
+                if errno == EAGAIN || errno == EWOULDBLOCK { throw ToolError.socket("délai de lecture dépassé") }
                 throw lastError("lecture")
             }
             if n == 0 { throw ToolError.socket("connexion fermée par le serveur") }

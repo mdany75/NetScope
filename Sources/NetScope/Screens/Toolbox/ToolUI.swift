@@ -308,7 +308,9 @@ enum ToolActions {
     }
 
     static func open(_ text: String) {
-        guard let url = URL(string: text) else { return }
+        // Adresse saisie par l'utilisateur : seulement http, https et ssh (pas de file://, d'applications…).
+        guard let url = URL(string: text.trimmingCharacters(in: .whitespaces)),
+              let scheme = url.scheme?.lowercased(), ["http", "https", "ssh"].contains(scheme) else { return }
         NSWorkspace.shared.open(url)
     }
 }
