@@ -48,12 +48,15 @@ public enum OUIRegistry {
         "inc", "incorporated", "corp", "corporation", "corporate", "co", "company", "ltd", "ltda",
         "limited", "llc", "lp", "llp", "plc", "gmbh", "mbh", "ag", "kg", "sa", "sas", "sarl", "spa",
         "srl", "sl", "slu", "bv", "nv", "oy", "oyj", "ab", "as", "aps", "asa", "pte", "pty", "kk",
-        "sdn", "bhd", "cv", "de", "jsc", "ooo", "zao", "sro", "sp", "z", "o", "ou", "ulc",
+        "sdn", "bhd", "cv", "de", "jsc", "ooo", "zao", "sro", "sp", "z", "o", "ou", "ulc", "pvt",
     ]
     static let gluedSuffixes: Set<String> = ["coltd", "colimited", "coinc", "cokg", "a/s", "ag&co", "oo"]
 
     /// Après l'un de ces suffixes, « Technology » est retiré aussi (« Technology Co., Ltd »).
     static let companyWords: Set<String> = ["co", "coltd", "colimited", "company", "corp", "corporation"]
+
+    /// Après l'un de ces suffixes, « Private » est retiré aussi (« Private Limited », Inde).
+    static let limitedWords: Set<String> = ["limited", "ltd"]
 
     /// Mots laissés seuls en fin de nom une fois les suffixes retirés.
     static let danglingWords: Set<String> = ["and", "&", "und", "et"]
@@ -168,6 +171,8 @@ public enum OUIRegistry {
                 let removed = key(last)
                 words.removeLast()
                 if companyWords.contains(removed), words.count > 1, key(words[words.count - 1]) == "technology" {
+                    words.removeLast()
+                } else if limitedWords.contains(removed), words.count > 1, key(words[words.count - 1]) == "private" {
                     words.removeLast()
                 }
                 continue
@@ -340,7 +345,9 @@ public enum OUIRegistry {
     /// Préfixes (« HEX » en majuscules) → nom court d'un fichier du registre. Vérifie l'en-tête et,
     /// avec `minimumRows`, le nombre de préfixes.
     public static func entries(fromCSV data: Data, digits: Int, fileName: String, minimumRows: Int = 0) throws -> [(String, String)] {
-        let rows = parseCSV(data)
+        // Marque d'ordre des octets UTF-8 éventuelle (Python : « utf-8-sig »).
+        let bom = Data([0xEF, 0xBB, 0xBF])
+        let rows = parseCSV(data.starts(with: bom) ? data.dropFirst(3) : data)
         guard let first = rows.first,
               first.count >= 4,
               Array(first.prefix(4)).map({ $0.trimmingCharacters(in: .whitespaces) }) == header

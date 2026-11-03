@@ -8,6 +8,7 @@ import Foundation
 /// 2. `oui.tsv` dans les ressources de l'application installée ;
 /// 3. en développement (`swift run`, `.build/debug`), `Resources/oui.tsv` du dépôt ;
 /// 4. sinon, la petite table intégrée ci-dessous, seule.
+/// Le fichier dont l'en-tête est le plus récent l'emporte ; à date égale, l'ordre ci-dessus.
 ///
 /// La recherche prend le plus long préfixe connu : 36 bits, puis 28, puis 24. La petite table
 /// intégrée prime sur l'IEEE pour les préfixes de 24 bits (noms courts). Les rares préfixes IEEE
@@ -112,7 +113,7 @@ public final class OUIDatabase: @unchecked Sendable {
         candidates = nil
     }
 
-    private init(candidates: @escaping @Sendable () -> [(URL, Source.Kind)]) {
+    init(candidates: @escaping @Sendable () -> [(URL, Source.Kind)]) {
         self.candidates = candidates
     }
 
@@ -163,11 +164,16 @@ public final class OUIDatabase: @unchecked Sendable {
         return tables
     }
 
-    /// Premier fichier lisible parmi les candidats, sinon la petite table. Appelé sous le verrou.
+    /// Fichier le plus récent (date de l'en-tête) parmi les candidats lisibles, l'ordre départageant
+    /// les égalités ; sinon la petite table. Appelé sous le verrou. Ainsi, une base téléchargée
+    /// autrefois ne masque pas la base plus récente d'une nouvelle version de l'application.
     private func resolve() -> Tables {
-        for (url, kind) in candidates?() ?? [] {
-            guard FileManager.default.isReadableFile(atPath: url.path) else { continue }
-            if let tables = try? OUIDatabase.load(url: url, kind: kind, overlayBuiltIn: true) { return tables }
+        let readable = (candidates?() ?? []).filter { FileManager.default.isReadableFile(atPath: $0.0.path) }
+        let ordered = readable.enumerated()
+            .map { (offset: $0.offset, url: $0.element.0, kind: $0.element.1, date: OUIDatabase.headerDate(of: $0.element.0) ?? "") }
+            .sorted { $0.date != $1.date ? $0.date > $1.date : $0.offset < $1.offset }
+        for candidate in ordered {
+            if let tables = try? OUIDatabase.load(url: candidate.url, kind: candidate.kind, overlayBuiltIn: true) { return tables }
         }
         var tables = Tables(source: Source(kind: .builtIn, count: 0))
         for (value, name) in OUIDatabase.smallTable { tables.t24[value] = name }
@@ -268,6 +274,18 @@ public final class OUIDatabase: @unchecked Sendable {
         tables.source.count = tables.count
         guard tables.count > 0 else { throw LoadError.empty(path) }
         return tables
+    }
+
+    /// Date « AAAA-MM-JJ » à la fin de la première ligne du fichier (« # … converti le 2026-11-03 »).
+    static func headerDate(of url: URL) -> String? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        guard let head = try? handle.read(upToCount: 256),
+              let line = String(decoding: head, as: UTF8.self).split(separator: "\n", maxSplits: 1).first,
+              line.hasPrefix("#") else { return nil }
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        let tail = String(trimmed.suffix(10))
+        return isISODay(tail) ? tail : nil
     }
 
     static func isISODay(_ text: String) -> Bool {

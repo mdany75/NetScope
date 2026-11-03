@@ -34,11 +34,14 @@ LEGAL_SUFFIXES = {
     "inc", "incorporated", "corp", "corporation", "corporate", "co", "company", "ltd", "ltda",
     "limited", "llc", "lp", "llp", "plc", "gmbh", "mbh", "ag", "kg", "sa", "sas", "sarl", "spa",
     "srl", "sl", "slu", "bv", "nv", "oy", "oyj", "ab", "as", "aps", "asa", "pte", "pty", "kk",
-    "sdn", "bhd", "cv", "de", "jsc", "ooo", "zao", "sro", "sp", "z", "o", "ou", "ulc",
+    "sdn", "bhd", "cv", "de", "jsc", "ooo", "zao", "sro", "sp", "z", "o", "ou", "ulc", "pvt",
 }
 
 # Après l'un de ces suffixes, « Technology » est retiré aussi (« Technology Co., Ltd »).
 COMPANY_WORDS = {"co", "coltd", "colimited", "company", "corp", "corporation"}
+
+# Après l'un de ces suffixes, « Private » est retiré aussi (« Private Limited », Inde).
+LIMITED_WORDS = {"limited", "ltd"}
 
 # Mots laissés seuls en fin de nom une fois les suffixes retirés (« Science and Technology Co. »).
 DANGLING_WORDS = {"and", "&", "und", "et"}
@@ -196,6 +199,8 @@ def clean_name(raw):
             words.pop()
             if removed in COMPANY_WORDS and len(words) > 1 and _key(words[-1]) == "technology":
                 words.pop()
+            elif removed in LIMITED_WORDS and len(words) > 1 and _key(words[-1]) == "private":
+                words.pop()
             continue
         if _key(last) in DANGLING_WORDS:
             words.pop()
@@ -223,7 +228,7 @@ def clean_name(raw):
 def read_registry(path, digits):
     """Lignes (préfixe, nom) d'un fichier CSV du registre."""
     rows = []
-    with open(path, encoding="utf-8", newline="") as handle:
+    with open(path, encoding="utf-8-sig", newline="") as handle:
         reader = csv.reader(handle)
         header = next(reader, None)
         if header is None or [h.strip() for h in header[:4]] != HEADER:

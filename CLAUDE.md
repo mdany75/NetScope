@@ -80,8 +80,8 @@ Dans cet ordre :
   `scripts/oui-name-examples.tsv` ; `NETSCOPE_IEEE_CSV_DIR=<dossier> ./.build/debug/NetScopeSelfTest`
   vérifie que les deux conversions donnent le même fichier
 - `Resources/oui.tsv` : base des fabricants (donnée commitée), copiée dans l’app par `build.sh` ;
-  `OUIDatabase.builtIn` lit d’abord `~/Library/Application Support/NetScope/oui.tsv`, puis
-  l’app, puis le dépôt, sinon la petite table intégrée
+  `OUIDatabase.builtIn` lit la plus récente (date de l’en-tête) de `~/Library/Application Support/NetScope/oui.tsv`,
+  de l’app et du dépôt (à date égale, dans cet ordre), sinon la petite table intégrée
 - `Resources/Info.plist` : identité et autorisations (réseau local, Bonjour, localisation)
 - `docs/` : `capture.png`, `croquis/` (quatorze croquis HTML et `canvas.json`)
 - `build.sh` : construction, signature, image disque, installation

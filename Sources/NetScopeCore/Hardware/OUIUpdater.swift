@@ -31,6 +31,9 @@ public struct OUIUpdater: Sendable {
         }
     }
 
+    /// Taille maximale acceptée par fichier (le plus gros, oui.csv, fait environ 4 Mo).
+    static let maximumFileSize = 64 * 1_048_576
+
     public var destination: URL
     public var timeout: TimeInterval
 
@@ -60,6 +63,7 @@ public struct OUIUpdater: Sendable {
                                   step: "Téléchargement de \(file.name)…"))
             }
         }
+        try Task.checkCancellation()
         progress(Progress(fileName: "", fraction: 1, step: "Conversion du registre…"))
         let source = try install(csv: downloaded)
         database.reload()
@@ -124,6 +128,7 @@ public struct OUIUpdater: Sendable {
             throw Failure.http(file.name, http.statusCode)
         }
         let expected = max(response.expectedContentLength, 0)
+        if expected > OUIUpdater.maximumFileSize { throw Failure.registry("\(file.name) est anormalement volumineux : téléchargement refusé.") }
         var data = Data()
         data.reserveCapacity(expected > 0 ? Int(expected) : 4_000_000)
         var buffer: [UInt8] = []
@@ -133,6 +138,9 @@ public struct OUIUpdater: Sendable {
                 buffer.append(byte)
                 if buffer.count == 65_536 {
                     data.append(contentsOf: buffer)
+                    if data.count > OUIUpdater.maximumFileSize {
+                        throw Failure.registry("\(file.name) est anormalement volumineux : téléchargement refusé.")
+                    }
                     buffer.removeAll(keepingCapacity: true)
                     if expected > 0 { part(min(Double(data.count) / Double(expected), 1)) }
                     try Task.checkCancellation()
@@ -140,6 +148,8 @@ public struct OUIUpdater: Sendable {
             }
         } catch is CancellationError {
             throw CancellationError()
+        } catch let failure as Failure {
+            throw failure
         } catch {
             throw Failure.network(file.name, error.localizedDescription)
         }

@@ -1,5 +1,5 @@
 import Foundation
-import NetScopeCore
+@testable import NetScopeCore
 
 // Base des fabricants : registre IEEE (MA-L, MA-M, MA-S), nettoyage des noms, chargement.
 // Aucun accès réseau : les fichiers CSV sont fabriqués ici, la base réelle est lue dans le dépôt.
@@ -153,6 +153,29 @@ func registerOUITests(_ suite: TestSuite) {
         let custom = OUIDatabase(entries: ["AA-BB-CC": "Essai"])
         try expectEqual(custom.reload(), custom.source, "une table fournie ne se recharge pas")
         try expectEqual(custom.source.description, "Table fournie, 1 préfixes", "description d'une table fournie")
+    }
+
+    suite.add("OUI : la base la plus récente l’emporte (Application Support ou application)") {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("netscope-oui-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let user = folder.appendingPathComponent("user.tsv")
+        let bundle = folder.appendingPathComponent("bundle.tsv")
+        try "# Registre IEEE, converti le 2025-01-10\n0CBBCC\tAncien\n".write(to: user, atomically: true, encoding: .utf8)
+        try "# Registre IEEE, converti le 2026-11-03\n0CBBCC\tRécent\n".write(to: bundle, atomically: true, encoding: .utf8)
+        let mac = MACAddress("0c:bb:cc:01:02:03")!
+        let db = OUIDatabase(candidates: { [(user, .user), (bundle, .bundle)] })
+        try expectEqual(db.vendor(for: mac), "Récent", "base de l'application plus récente")
+        try expectEqual(db.source.kind, .bundle, "provenance")
+        try "# Registre IEEE, converti le 2026-11-03\n0CBBCC\tMis à jour\n".write(to: user, atomically: true, encoding: .utf8)
+        try expectEqual(db.reload().kind, .user, "à date égale, la base mise à jour")
+        try expectEqual(db.vendor(for: mac), "Mis à jour", "après rechargement")
+        try "<html>erreur</html>".write(to: user, atomically: true, encoding: .utf8)
+        try expectEqual(db.reload().kind, .bundle, "fichier illisible ignoré")
+        try expectEqual(OUIDatabase.headerDate(of: bundle), "2026-11-03", "date de l'en-tête")
+
+        let bom = Data([0xEF, 0xBB, 0xBF]) + Data("Registry,Assignment,Organization Name,Organization Address\nMA-L,3C22FB,\"Apple, Inc.\",\n".utf8)
+        try expectEqual(try OUIRegistry.entries(fromCSV: bom, digits: 6, fileName: "oui.csv").map(\.1), ["Apple"], "marque BOM tolérée")
     }
 
     suite.add("OUI : type d'appareil d'après des mots entiers du fabricant") {

@@ -19,6 +19,9 @@ final class OUIController: ObservableObject {
     @Published private(set) var hasUserFile = false
 
     private var task: Task<Void, Never>?
+    /// Numéro de l'opération en cours : une mise à jour annulée qui se termine plus tard ne
+    /// touche plus à l'état d'une opération lancée depuis.
+    private var generation = 0
 
     private init() {}
 
@@ -45,30 +48,39 @@ final class OUIController: ObservableObject {
             return
         }
         guard task == nil else { return }
+        generation += 1
+        let current = generation
         phase = .working(step: "Connexion à standards-oui.ieee.org…", fraction: 0)
         task = Task { [weak self] in
+            let result: Result<OUIDatabase.Source, Error>
             do {
-                let source = try await OUIUpdater().update { progress in
+                result = .success(try await OUIUpdater().update { progress in
                     Task { @MainActor in
-                        guard let self, self.isWorking else { return }
+                        guard let self, self.generation == current, self.isWorking else { return }
                         self.phase = .working(step: progress.step, fraction: progress.fraction)
                     }
-                }
-                guard let self else { return }
+                })
+            } catch {
+                result = .failure(error)
+            }
+            guard let self, self.generation == current else { return }
+            self.task = nil
+            switch result {
+            case .success(let source):
                 self.source = source
                 self.hasUserFile = true
                 self.phase = .done("Base mise à jour : \(source.description).")
                 state?.objectWillChange.send()
-            } catch is CancellationError {
-                self?.phase = .idle
-            } catch {
-                self?.phase = .failed("\(error)")
+            case .failure(is CancellationError):
+                self.phase = .idle
+            case .failure(let error):
+                self.phase = .failed("\(error)")
             }
-            self?.task = nil
         }
     }
 
     func cancel() {
+        generation += 1
         task?.cancel()
         task = nil
         phase = .idle
@@ -79,14 +91,26 @@ final class OUIController: ObservableObject {
             phase = .failed("Indisponible en mode démonstration.")
             return
         }
-        do {
-            let source = try OUIUpdater().revert()
-            self.source = source
-            hasUserFile = false
-            phase = .done("Retour à la base intégrée : \(source.description).")
-            state?.objectWillChange.send()
-        } catch {
-            phase = .failed("\(error)")
+        guard task == nil else { return }
+        generation += 1
+        let current = generation
+        phase = .working(step: "Retour à la base fournie avec l’application…", fraction: 1)
+        // Le rechargement lit et analyse la base : hors du fil principal.
+        task = Task { [weak self] in
+            let result = await Task.detached(priority: .userInitiated) { () -> Result<OUIDatabase.Source, Error> in
+                Result { try OUIUpdater().revert() }
+            }.value
+            guard let self, self.generation == current else { return }
+            self.task = nil
+            switch result {
+            case .success(let source):
+                self.source = source
+                self.hasUserFile = false
+                self.phase = .done("Retour à la base intégrée : \(source.description).")
+                state?.objectWillChange.send()
+            case .failure(let error):
+                self.phase = .failed("\(error)")
+            }
         }
     }
 }

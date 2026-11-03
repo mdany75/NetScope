@@ -11,6 +11,8 @@ Les fabricants viennent maintenant du registre IEEE complet.
   (aléatoire) ».
 - Le type d’appareil deviné d’après le fabricant compare des mots entiers (« Intelbras » n’est
   plus pris pour Intel, ni « Amazonia » pour Amazon).
+- Une base téléchargée autrefois depuis l’IEEE ne masque plus la base plus récente fournie
+  avec une nouvelle version de l’application : la plus récente l’emporte.
 
 ### Ajouté
 - Base complète des fabricants du registre IEEE (MA-L, MA-M et MA-S : environ 53 700
