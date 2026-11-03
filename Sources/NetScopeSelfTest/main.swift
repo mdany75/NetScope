@@ -9,6 +9,7 @@ let suite = TestSuite()
 registerAddressingTests(suite)
 registerHardwareTests(suite)
 registerModelTests(suite)
+registerInventoryTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)
