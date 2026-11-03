@@ -1,7 +1,7 @@
 import NetScopeCore
 import SwiftUI
 
-/// Réglages › Général : langue, thème, ouverture de session, barre de menus.
+/// Réglages › Général : langue, thème, ouverture de session, barre de menus, base des fabricants.
 struct RegGeneralSection: View {
     @ObservedObject private var prefs = RegPrefs.shared
     @State private var language = "fr"
@@ -9,6 +9,13 @@ struct RegGeneralSection: View {
     @State private var menuBar = false
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            general
+            RegOUISection()
+        }
+    }
+
+    private var general: some View {
         RegPanel(title: "Général", subtitle: "Langue, apparence et comportement de l’application au démarrage.") {
             HStack(alignment: .top, spacing: 14) {
                 VStack(alignment: .leading, spacing: 6) {

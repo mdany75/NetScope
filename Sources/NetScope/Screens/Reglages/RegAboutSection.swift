@@ -6,6 +6,7 @@ import SwiftUI
 struct RegAboutSection: View {
     @ObservedObject private var navigation = RegNavigation.shared
     @ObservedObject private var updates = UpdController.shared
+    @ObservedObject private var oui = OUIController.shared
 
     var body: some View {
         Panel(padding: 16) {
@@ -35,7 +36,8 @@ struct RegAboutSection: View {
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
                     row("macOS requis") { Text("macOS 14 ou ultérieur") }
                     row("Base OUI (IEEE)") {
-                        Text("\(OUIDatabase.builtIn.count) préfixes intégrés · mise à jour en ligne : bientôt")
+                        Text(oui.source.map { "\($0.description) · \($0.place)" } ?? "Chargement…")
+                            .onAppear { oui.refresh() }
                     }
                     row("Mises à jour") {
                         HStack(spacing: 0) {

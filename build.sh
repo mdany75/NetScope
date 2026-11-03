@@ -15,7 +15,8 @@
 #   1. swift build -c release --product NetScope
 #   2. icône : Resources/AppIcon.icns est régénérée seulement si elle manque
 #      ou si scripts/make-icon.swift est plus récent
-#   3. assemblage de « NetScope.app » dans un dossier temporaire
+#   3. assemblage de « NetScope.app » dans un dossier temporaire (avec Resources/oui.tsv,
+#      la base des fabricants)
 #   4. signature : Developer ID et runtime durci (ad hoc sans certificat), puis vérification
 #   5. installation dans /Applications, seulement avec --install
 #   6. image disque « build/NetScope.dmg » (application + raccourci vers Applications)
@@ -40,6 +41,7 @@ INFO_PLIST="${RESOURCES_DIR}/Info.plist"
 ICON_SCRIPT="${SCRIPT_DIR}/make-icon.swift"
 ICON_FILE="${RESOURCES_DIR}/AppIcon.icns"
 LPROJ_DIR="${RESOURCES_DIR}/fr.lproj"
+OUI_FILE="${RESOURCES_DIR}/oui.tsv"
 
 DIST_DIR="${ROOT_DIR}/build"
 
@@ -71,6 +73,7 @@ trap cleanup EXIT
 [[ -f "${ROOT_DIR}/Package.swift" ]] || die "Package.swift introuvable dans ${ROOT_DIR}"
 [[ -f "${INFO_PLIST}" ]]             || die "fichier manquant : ${INFO_PLIST}"
 [[ -f "${ICON_SCRIPT}" ]]            || die "fichier manquant : ${ICON_SCRIPT}"
+[[ -s "${OUI_FILE}" ]]               || die "base des fabricants manquante : ${OUI_FILE} (python3 -I scripts/make-oui.py, voir CLAUDE.md)"
 
 for tool in swift iconutil codesign plutil hdiutil ditto security xcrun spctl; do
     command -v "${tool}" >/dev/null 2>&1 || die "outil introuvable : ${tool}"
@@ -205,6 +208,10 @@ cp "${INFO_PLIST}" "${CONTENTS_DIR}/Info.plist"
 printf 'APPL????' > "${CONTENTS_DIR}/PkgInfo"
 
 cp "${ICON_FILE}" "${CONTENTS_DIR}/Resources/AppIcon.icns"
+
+# Base des fabricants (registre IEEE), lue par OUIDatabase depuis les ressources de l'application.
+cp "${OUI_FILE}" "${CONTENTS_DIR}/Resources/oui.tsv"
+[[ -s "${CONTENTS_DIR}/Resources/oui.tsv" ]] || die "oui.tsv absent de l'application"
 
 # fr.lproj : sa présence suffit pour que les panneaux système s'affichent en français.
 if [[ -d "${LPROJ_DIR}" ]]; then

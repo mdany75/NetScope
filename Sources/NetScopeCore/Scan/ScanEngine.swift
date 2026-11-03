@@ -365,21 +365,24 @@ public enum ScanDeviceClassifier {
         let open = Set(ports)
         let vendor = (vendor ?? "").lowercased()
         let host = (hostname ?? "").lowercased()
-        let vendorIs: ([String]) -> Bool = { names in names.contains { vendor.contains($0) } }
+        // Mots entiers du fabricant : la base IEEE complète contient « Intelbras », « Amazonia »,
+        // « Stereotaxis »… qui ne sont ni Intel, ni Amazon, ni Axis.
+        let vendorWords = Set(vendor.split(whereSeparator: { !($0.isLetter || $0.isNumber || $0 == "-") }).map(String.init))
+        let vendorIs: ([String]) -> Bool = { names in names.contains(where: vendorWords.contains) }
         let switchName = host.hasPrefix("sw") || host.contains("switch")
 
         if !open.isDisjoint(with: printerPorts) || vendorIs(printerVendors) { return .imprimante }
         if !open.isDisjoint(with: cameraPorts) || vendorIs(cameraVendors) { return .camera }
         if open.contains(88) && open.contains(389) || open.contains(53) && open.contains(389) { return .serveur }
         if host.hasPrefix("fortiap") || host.contains("-ap-") || host.hasPrefix("uap") { return .pointAcces }
-        if open.contains(541) || vendor.contains("fortinet") || host.hasPrefix("fortigate") { return .routeur }
+        if open.contains(541) || vendorIs(["fortinet"]) || host.hasPrefix("fortigate") { return .routeur }
         if open.contains(8291) { return .routeur }
         if vendorIs(networkVendors) && switchName { return .switch }
         if open.contains(3389) { return .poste }
         if phoneHints.contains(where: { host.contains($0) }) { return .telephone }
         if open.contains(1883) || open.contains(8883) || vendorIs(iotVendors) { return .iot }
         if open.contains(445) || open.contains(135) || open.contains(5900) { return .poste }
-        if vendor.contains("apple") || vendor.contains("dell") || vendor.contains("lenovo") || vendor.contains("intel") {
+        if vendorIs(["apple", "dell", "lenovo", "intel"]) {
             return .poste
         }
         if vendorIs(networkVendors) { return .routeur }

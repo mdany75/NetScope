@@ -57,6 +57,8 @@ struct NetScopeApp: App {
                 .environmentObject(state)
                 .frame(minWidth: 1100, minHeight: 700)
                 .task {
+                    // Base des fabricants (registre IEEE) : chargée en arrière-plan dès le lancement.
+                    Task.detached(priority: .utility) { _ = OUIDatabase.builtIn.count }
                     guard !Launcher.isDemo else { return }
                     await state.detectInterface()
                     // Vérification des mises à jour (Releases GitHub) selon la fréquence choisie.

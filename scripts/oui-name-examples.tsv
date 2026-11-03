@@ -1,0 +1,35 @@
+# Exemples de noms du registre IEEE et leur nom court (nom brut<TAB>nom attendu ; vide : ligne ignorée).
+# Vérifiés par « python3 -I scripts/make-oui.py --self-test » et par NetScopeSelfTest (OUITests).
+Apple, Inc.	Apple
+HUAWEI TECHNOLOGIES CO.,LTD	Huawei
+Cisco Systems, Inc	Cisco
+Samsung Electronics Co.,Ltd	Samsung
+zte corporation	ZTE
+Intel Corporate	Intel
+Hangzhou Hikvision Digital Technology Co.,Ltd.	Hikvision
+ASUSTek COMPUTER INC.	ASUS
+TP-LINK TECHNOLOGIES CO.,LTD.	TP-Link
+Hewlett Packard Enterprise	HPE
+Hewlett Packard	HP
+Brother industries, LTD.	Brother
+Fortinet, Inc.	Fortinet
+Raspberry Pi Trading Ltd	Raspberry Pi
+Nokia Shanghai Bell Co., Ltd.	Nokia
+DATA ELECTRONIC DEVICES, INC	Data Electronic Devices
+QUERCUS TECHNOLOGIES, S.L.	Quercus Technologies
+SYNERGY SYSTEMS AND SOLUTIONS	Synergy Systems and Solutions
+Shenzhen Skyworth Digital  Technology  CO., Ltd	Shenzhen Skyworth Digital
+Motorola Mobility LLC, a Lenovo Company	Motorola
+INVENTIA Sp. z o.o.	Inventia
+Samsung Electro-Mechanics(Thailand)	Samsung
+D-Link International	D-Link
+NXP SEMICONDUCTOR (TIANJIN) LTD.	NXP Semiconductor
+X-RITE, INC.	X-Rite
+Wurm GmbH & Co. KG Elektronische Systeme	Wurm GmbH & Co. KG Elektronische Systeme
+Private	
+IEEE Registration Authority	
+AVM Audiovisuelles Marketing und Computersysteme GmbH	AVM
+Ubiquiti Inc	Ubiquiti
+Synology Incorporated	Synology
+Espressif Inc.	Espressif
+Zhejiang Dahua Technology Co., Ltd.	Dahua

@@ -8,7 +8,7 @@ surveillance, rapports et accès distant, le tout en français.
 
 ## Fonctions
 
-Version 0.2.0 : douze écrans sur quatorze fonctionnent ; Surveillance et Rapports sont encore
+Version 0.2.1 : douze écrans sur quatorze fonctionnent ; Surveillance et Rapports sont encore
 en construction.
 
 - **Scanner multi-plages qui se remplit tout seul** : plusieurs plages à la fois, ping ICMP
@@ -16,6 +16,9 @@ en construction.
   sysName SNMP, avec leur source), 20 ports essentiels sondés à chaque scan, fabricant, type
   d’appareil ; étapes visibles (Ping → Table ARP → Noms et ports → Switchs (SNMP) →
   Emplacements), filtres, tri, panneau de détail, export CSV.
+- **Fabricants d’après le registre IEEE complet** : environ 53 700 préfixes MAC (MA-L, MA-M
+  et MA-S, plus long préfixe d’abord) fournis avec l’application ; Réglages › Général › Base
+  des fabricants affiche la source et met la base à jour depuis l’IEEE, seulement sur demande.
 - **Découverte automatique des switchs** (activée par défaut) : pendant chaque scan,
   NetScope interroge en SNMP v2c lecture seule les appareils en ligne aux adresses privées
   (jamais vers Internet ; communauté des
@@ -103,6 +106,11 @@ n’envoient rien sur le réseau : aucun scan, aucune requête, sauf éventuelle
   `DevTools/` (captures, démonstration)
 - `Sources/NetScopeSelfTest/` : tests du moteur (exécutable, sans XCTest)
 - `scripts/make-icon.swift` : dessine l’icône (radar bleu sur fond bleu nuit)
+- `scripts/make-oui.py` : convertit le registre IEEE (oui.csv, mam.csv, oui36.csv) en
+  `Resources/oui.tsv` ; ses règles de noms courts sont aussi écrites en Swift
+  (`OUIRegistry.swift`) et vérifiées sur les mêmes exemples (`scripts/oui-name-examples.tsv`)
+- `Resources/oui.tsv` : base des fabricants (« préfixe<TAB>nom », une donnée, pas un fichier
+  produit), copiée dans l’application par `build.sh`
 - `Resources/Info.plist` : identité de l’application et autorisations (réseau local, Bonjour, localisation)
 - `docs/capture.png` : capture de la fenêtre
 - `docs/croquis/` : croquis de conception des quatorze écrans (`Main.dc.html` pour le Scanner,

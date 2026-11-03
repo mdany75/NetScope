@@ -16,6 +16,7 @@ Ce projet suit le standard commun des projets de Dany (`/standard-projet` le vé
 | Construire | `./build.sh` (produit `build/NetScope.dmg`) |
 | Construire et installer | `./build.sh --install` (remplace aussi `/Applications/NetScope.app`) |
 | Tester le moteur | `swift build && ./.build/debug/NetScopeSelfTest` |
+| Régénérer la base des fabricants | télécharger `oui.csv`, `mam.csv`, `oui36.csv` (standards-oui.ieee.org) dans un dossier vide, puis `python3 -I scripts/make-oui.py <dossier> Resources/oui.tsv` et `python3 -I scripts/make-oui.py --self-test` |
 | Captures hors écran | `./.build/debug/NetScope --snapshot <dossier> --demo` (un PNG 1440 × 900 par écran, aucune fenêtre visible) |
 
 `build/` et `.build/` sont ignorés par git : rien de compilé n’est commité. Le `.dmg` est une
@@ -66,7 +67,7 @@ Dans cet ordre :
 ## Organisation
 
 - `Sources/NetScopeCore/` : moteur sans interface ; `Addressing/` (IPv4Address, IPRange,
-  Subnet), `Hardware/` (MACAddress, OUIDatabase), `Models/` (Device, ScanRangeConfig,
+  Subnet), `Hardware/` (MACAddress, OUIDatabase, OUIRegistry, OUIUpdater), `Models/` (Device, ScanRangeConfig,
   ScanProfile), `System/` (interfaces locales)
 - `Sources/NetScope/` : application SwiftUI ; `NetScopeApp.swift` (lancement, `--snapshot`,
   `--demo`), `AppState.swift`, `Screen.swift`, `ContentView.swift`, `Sidebar.swift`,
@@ -74,6 +75,13 @@ Dans cet ordre :
   (captures, données de démonstration)
 - `Sources/NetScopeSelfTest/` : tests du moteur (exécutable, car XCTest n’est pas disponible sans Xcode)
 - `scripts/make-icon.swift` : dessine l’icône
+- `scripts/make-oui.py` : registre IEEE → `Resources/oui.tsv` ; les règles des noms courts sont
+  écrites deux fois (Python et `NetScopeCore/Hardware/OUIRegistry.swift`) : modifier les deux et
+  `scripts/oui-name-examples.tsv` ; `NETSCOPE_IEEE_CSV_DIR=<dossier> ./.build/debug/NetScopeSelfTest`
+  vérifie que les deux conversions donnent le même fichier
+- `Resources/oui.tsv` : base des fabricants (donnée commitée), copiée dans l’app par `build.sh` ;
+  `OUIDatabase.builtIn` lit d’abord `~/Library/Application Support/NetScope/oui.tsv`, puis
+  l’app, puis le dépôt, sinon la petite table intégrée
 - `Resources/Info.plist` : identité et autorisations (réseau local, Bonjour, localisation)
 - `docs/` : `capture.png`, `croquis/` (quatorze croquis HTML et `canvas.json`)
 - `build.sh` : construction, signature, image disque, installation

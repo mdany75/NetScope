@@ -1,5 +1,26 @@
 # Changements
 
+## 0.2.1 — 2026-11-03
+
+Les fabricants viennent maintenant du registre IEEE complet.
+
+### Corrigé
+- Beaucoup d’appareils affichaient « Inconnu » comme fabricant : la table intégrée ne comptait
+  qu’environ 230 préfixes. Le Scanner, l’Inventaire, la fiche appareil et la Boîte à outils
+  utilisent désormais la base complète ; les adresses aléatoires restent « Adresse privée
+  (aléatoire) ».
+- Le type d’appareil deviné d’après le fabricant compare des mots entiers (« Intelbras » n’est
+  plus pris pour Intel, ni « Amazonia » pour Amazon).
+
+### Ajouté
+- Base complète des fabricants du registre IEEE (MA-L, MA-M et MA-S : environ 53 700
+  préfixes, plus long préfixe d’abord), fournie avec l’application, avec des noms courts
+  lisibles (« Huawei », « TP-Link », « HPE Aruba »…).
+- Réglages › Général › Base des fabricants : source, nombre de préfixes, bouton « Mettre à
+  jour depuis l’IEEE » (téléchargement des trois fichiers du registre, vérification,
+  conversion, seulement sur demande) et « Revenir à la base intégrée ».
+- `scripts/make-oui.py` pour régénérer `Resources/oui.tsv` à partir du registre.
+
 ## 0.2.0 — 2026-11-03
 
 Le Scanner se remplit tout seul : noms, ports, switchs, ports de switch et VLAN, sans clic droit.

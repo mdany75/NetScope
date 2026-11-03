@@ -45,7 +45,7 @@ func registerHardwareTests(_ suite: TestSuite) {
             try expectEqual(db.vendor(for: MACAddress(text)!), vendor, text)
         }
         try expectEqual(db.label(for: MACAddress("3a:1f:c7:02:9b:e4")!), "Adresse privée (aléatoire)", "MAC aléatoire")
-        try expectEqual(db.label(for: MACAddress("00:00:01:00:00:01")!), "Inconnu", "préfixe absent")
+        try expectEqual(db.label(for: MACAddress("00:ff:ff:00:00:01")!), "Inconnu", "préfixe absent")
         try expectEqual(db.label(for: MACAddress("52:54:00:12:34:56")!), "QEMU / KVM", "préfixe local connu : la table d'abord")
         let custom = OUIDatabase(entries: ["AA-BB-CC": "Essai", "zz": "ignoré"])
         try expectEqual(custom.count, 1, "préfixe illisible ignoré")

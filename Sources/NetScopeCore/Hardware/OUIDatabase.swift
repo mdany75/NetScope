@@ -1,33 +1,147 @@
 import Foundation
 
-/// Table des préfixes constructeurs (OUI, 24 bits) → fabricant.
+/// Préfixes constructeurs (OUI) → fabricant.
 ///
-/// La table intégrée est courte (préfixes courants en entreprise et à la maison) ; une base
-/// complète pourra être chargée plus tard avec `init(entries:)`.
-public struct OUIDatabase: Sendable {
+/// `builtIn` charge, au premier usage, la base complète du registre IEEE (MA-L 24 bits, MA-M
+/// 28 bits, MA-S 36 bits) depuis un fichier « HEX<TAB>Nom », dans cet ordre :
+/// 1. `~/Library/Application Support/NetScope/oui.tsv` (base mise à jour depuis Réglages) ;
+/// 2. `oui.tsv` dans les ressources de l'application installée ;
+/// 3. en développement (`swift run`, `.build/debug`), `Resources/oui.tsv` du dépôt ;
+/// 4. sinon, la petite table intégrée ci-dessous, seule.
+///
+/// La recherche prend le plus long préfixe connu : 36 bits, puis 28, puis 24. La petite table
+/// intégrée prime sur l'IEEE pour les préfixes de 24 bits (noms courts). Les rares préfixes IEEE
+/// au bit « administrée localement » sont ignorés : une adresse aléatoire reste « Adresse privée
+/// (aléatoire) », sauf préfixe local connu de la petite table (QEMU).
+///
+/// Chargement paresseux et protégé par un verrou : utilisable depuis n'importe quel fil.
+public final class OUIDatabase: @unchecked Sendable {
     /// Libellé d'une adresse aléatoire (bit « administrée localement »).
     public static let randomizedLabel = "Adresse privée (aléatoire)"
     /// Libellé d'un préfixe absent de la table.
     public static let unknownLabel = "Inconnu"
 
-    private let table: [UInt32: String]
-
-    /// `entries` : préfixe (« 3c:22:fb », « 3C-22-FB » ou « 3C22FB ») → fabricant. Les préfixes illisibles sont ignorés.
-    public init(entries: [String: String]) {
-        var table: [UInt32: String] = [:]
-        for (prefix, vendor) in entries {
-            if let value = OUIDatabase.parsePrefix(prefix) { table[value] = vendor }
+    /// Provenance de la base chargée.
+    public struct Source: Sendable, Equatable, CustomStringConvertible {
+        public enum Kind: Sendable, Equatable {
+            /// Base mise à jour par l'utilisateur (Application Support).
+            case user
+            /// Ressource de l'application installée.
+            case bundle
+            /// `Resources/oui.tsv` du dépôt (développement).
+            case repository
+            /// Fichier choisi explicitement (`init(contentsOf:)`).
+            case file
+            /// Petite table intégrée seule.
+            case builtIn
+            /// Table fournie par le code (`init(entries:)`).
+            case custom
         }
-        self.table = table
+
+        public var kind: Kind
+        /// Nombre de préfixes (IEEE et table intégrée réunis).
+        public var count: Int
+        /// Date de conversion du registre (« 2026-11-03 »), d'après l'en-tête du fichier.
+        public var date: String?
+        public var url: URL?
+
+        /// « IEEE, 54 312 préfixes, 2026-11-03 » ou « Table intégrée, 230 préfixes ».
+        public var description: String {
+            let number = OUIDatabase.formatCount(count)
+            switch kind {
+            case .builtIn: return "Table intégrée, \(number) préfixes"
+            case .custom: return "Table fournie, \(number) préfixes"
+            default:
+                if let date { return "IEEE, \(number) préfixes, \(date)" }
+                return "IEEE, \(number) préfixes"
+            }
+        }
+
+        /// Emplacement en clair (« base mise à jour », « base fournie avec l'application »…).
+        public var place: String {
+            switch kind {
+            case .user: return "base mise à jour depuis l’IEEE"
+            case .bundle: return "base fournie avec l’application"
+            case .repository: return "base du dépôt (développement)"
+            case .file: return "fichier choisi"
+            case .builtIn: return "table intégrée seule"
+            case .custom: return "table fournie"
+            }
+        }
     }
 
-    public static let builtIn = OUIDatabase(entries: OUIDatabase.builtInEntries)
+    public enum LoadError: Error, Equatable, CustomStringConvertible {
+        case unreadable(String)
+        case empty(String)
 
-    public var count: Int { table.count }
+        public var description: String {
+            switch self {
+            case .unreadable(let path): return "Base des fabricants illisible : \(path)"
+            case .empty(let path): return "Base des fabricants vide : \(path)"
+            }
+        }
+    }
 
-    /// Fabricant d'après le préfixe, ou nil.
+    struct Tables {
+        var t24: [UInt64: String] = [:]
+        var t28: [UInt64: String] = [:]
+        var t36: [UInt64: String] = [:]
+        var source: Source
+    }
+
+    private let lock = NSLock()
+    private var loaded: Tables?
+    /// nil : table figée (`init(entries:)`, `init(contentsOf:)`) ; sinon, fichiers candidats.
+    private let candidates: (@Sendable () -> [(URL, Source.Kind)])?
+
+    /// `entries` : préfixe (« 3c:22:fb », « 3C-22-FB » ou « 3C22FB » ; 7 ou 9 chiffres pour
+    /// MA-M et MA-S) → fabricant. Les préfixes illisibles sont ignorés.
+    public init(entries: [String: String]) {
+        var tables = Tables(source: Source(kind: .custom, count: 0))
+        for (prefix, vendor) in entries {
+            if let (digits, value) = OUIDatabase.parsePrefix(prefix) { tables.insert(digits: digits, value: value, name: vendor) }
+        }
+        tables.source.count = tables.count
+        loaded = tables
+        candidates = nil
+    }
+
+    /// Base lue dans un fichier TSV ; `overlayBuiltIn` : la petite table intégrée prime sur 24 bits.
+    public init(contentsOf url: URL, overlayBuiltIn: Bool = true) throws {
+        loaded = try OUIDatabase.load(url: url, kind: .file, overlayBuiltIn: overlayBuiltIn)
+        candidates = nil
+    }
+
+    private init(candidates: @escaping @Sendable () -> [(URL, Source.Kind)]) {
+        self.candidates = candidates
+    }
+
+    /// Base partagée, chargée au premier usage (voir l'ordre des sources plus haut).
+    public static let builtIn = OUIDatabase(candidates: { OUIDatabase.defaultCandidates() })
+
+    /// Nombre de préfixes connus.
+    public var count: Int { tables.source.count }
+
+    /// Provenance de la base (charge la base si ce n'est pas encore fait).
+    public var source: Source { tables.source }
+
+    /// Relit la base depuis les sources (après une mise à jour, par exemple) ; renvoie la provenance.
+    @discardableResult
+    public func reload() -> Source {
+        guard candidates != nil else { return source }
+        lock.lock()
+        defer { lock.unlock() }
+        let tables = resolve()
+        loaded = tables
+        return tables.source
+    }
+
+    /// Fabricant d'après le plus long préfixe connu, ou nil.
     public func vendor(for mac: MACAddress) -> String? {
-        table[mac.ouiValue]
+        let tables = self.tables
+        if let name = tables.t36[mac.value >> 12] { return name }
+        if let name = tables.t28[mac.value >> 20] { return name }
+        return tables.t24[mac.value >> 24]
     }
 
     /// Libellé à afficher : fabricant, « Adresse privée (aléatoire) » ou « Inconnu ».
@@ -38,11 +152,156 @@ public struct OUIDatabase: Sendable {
         return OUIDatabase.unknownLabel
     }
 
-    static func parsePrefix(_ text: String) -> UInt32? {
-        let digits = text.lowercased().filter { $0.isHexDigit }
-        guard digits.count == 6 else { return nil }
-        return UInt32(digits, radix: 16)
+    // MARK: Chargement
+
+    private var tables: Tables {
+        lock.lock()
+        defer { lock.unlock() }
+        if let loaded { return loaded }
+        let tables = resolve()
+        loaded = tables
+        return tables
     }
+
+    /// Premier fichier lisible parmi les candidats, sinon la petite table. Appelé sous le verrou.
+    private func resolve() -> Tables {
+        for (url, kind) in candidates?() ?? [] {
+            guard FileManager.default.isReadableFile(atPath: url.path) else { continue }
+            if let tables = try? OUIDatabase.load(url: url, kind: kind, overlayBuiltIn: true) { return tables }
+        }
+        var tables = Tables(source: Source(kind: .builtIn, count: 0))
+        for (value, name) in OUIDatabase.smallTable { tables.t24[value] = name }
+        tables.source.count = tables.count
+        return tables
+    }
+
+    /// Base mise à jour par l'utilisateur : `~/Library/Application Support/NetScope/oui.tsv`.
+    public static var userFileURL: URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
+        return base.appendingPathComponent("NetScope", isDirectory: true).appendingPathComponent("oui.tsv")
+    }
+
+    /// `Resources/oui.tsv` du dépôt, d'après l'emplacement de ce fichier source.
+    public static var repositoryFileURL: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent() // Hardware
+            .deletingLastPathComponent() // NetScopeCore
+            .deletingLastPathComponent() // Sources
+            .deletingLastPathComponent() // dépôt
+            .appendingPathComponent("Resources/oui.tsv")
+    }
+
+    static func defaultCandidates() -> [(URL, Source.Kind)] {
+        var list: [(URL, Source.Kind)] = [(userFileURL, .user)]
+        if let bundled = Bundle.main.url(forResource: "oui", withExtension: "tsv") { list.append((bundled, .bundle)) }
+        list.append((repositoryFileURL, .repository))
+        return list
+    }
+
+    /// Lit un fichier « HEX<TAB>Nom » (lignes « # » : commentaires ; la date vient de l'en-tête).
+    static func load(url: URL, kind: Source.Kind, overlayBuiltIn: Bool) throws -> Tables {
+        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { throw LoadError.unreadable(url.path) }
+        var tables = try parse(data, kind: kind, path: url.path)
+        tables.source.url = url
+        if overlayBuiltIn {
+            for (value, name) in smallTable { tables.t24[value] = name }
+            tables.source.count = tables.count
+        }
+        return tables
+    }
+
+    /// Analyse rapide, octet par octet (~54 000 lignes).
+    static func parse(_ data: Data, kind: Source.Kind, path: String) throws -> Tables {
+        var tables = Tables(source: Source(kind: kind, count: 0))
+        tables.t24.reserveCapacity(40_000)
+        tables.t28.reserveCapacity(8_000)
+        tables.t36.reserveCapacity(8_000)
+        var names: [String: String] = [:]
+        data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+            let bytes = raw.bindMemory(to: UInt8.self)
+            let count = bytes.count
+            var index = 0
+            while index < count {
+                var lineEnd = index
+                while lineEnd < count, bytes[lineEnd] != 0x0A { lineEnd += 1 }
+                var end = lineEnd
+                if end > index, bytes[end - 1] == 0x0D { end -= 1 }
+                defer { index = lineEnd + 1 }
+                guard end > index else { continue }
+                if bytes[index] == 0x23 { // « # »
+                    if tables.source.date == nil, end - index >= 10 {
+                        let tail = String(decoding: UnsafeBufferPointer(rebasing: bytes[(end - 10)..<end]), as: UTF8.self)
+                        if OUIDatabase.isISODay(tail) { tables.source.date = tail }
+                    }
+                    continue
+                }
+                var value: UInt64 = 0
+                var digits = 0
+                var cursor = index
+                var valid = true
+                while cursor < end, bytes[cursor] != 0x09 {
+                    let byte = bytes[cursor]
+                    let nibble: UInt64
+                    switch byte {
+                    case 0x30...0x39: nibble = UInt64(byte - 0x30)
+                    case 0x41...0x46: nibble = UInt64(byte - 0x41 + 10)
+                    case 0x61...0x66: nibble = UInt64(byte - 0x61 + 10)
+                    default: nibble = 0; valid = false
+                    }
+                    value = value << 4 | nibble
+                    digits += 1
+                    cursor += 1
+                }
+                guard valid, cursor < end, cursor + 1 < end, [6, 7, 9].contains(digits) else { continue }
+                // Quelques très vieux préfixes IEEE ont le bit « administrée localement » : ignorés,
+                // pour qu'une adresse aléatoire reste « Adresse privée (aléatoire) ».
+                if (value >> UInt64(4 * digits - 8)) & 0x02 != 0 { continue }
+                let nameBytes = UnsafeBufferPointer(rebasing: bytes[(cursor + 1)..<end])
+                let decoded = String(decoding: nameBytes, as: UTF8.self)
+                // Un même nom (« Apple », « Huawei ») est partagé par des centaines de préfixes.
+                let name: String
+                if let known = names[decoded] { name = known } else { names[decoded] = decoded; name = decoded }
+                tables.insert(digits: digits, value: value, name: name)
+            }
+        }
+        tables.source.count = tables.count
+        guard tables.count > 0 else { throw LoadError.empty(path) }
+        return tables
+    }
+
+    static func isISODay(_ text: String) -> Bool {
+        let chars = Array(text.utf8)
+        guard chars.count == 10, chars[4] == 0x2D, chars[7] == 0x2D else { return false }
+        return chars.enumerated().allSatisfy { $0.offset == 4 || $0.offset == 7 || (0x30...0x39).contains($0.element) }
+    }
+
+    /// « 54 312 » (espace fine insécable entre les milliers).
+    static func formatCount(_ count: Int) -> String {
+        var digits = Array(String(count))
+        var index = digits.count - 3
+        while index > 0 {
+            digits.insert("\u{202F}", at: index)
+            index -= 3
+        }
+        return String(digits)
+    }
+
+    /// Préfixe de 6, 7 ou 9 chiffres hexadécimaux (séparateurs ignorés) → (chiffres, valeur).
+    static func parsePrefix(_ text: String) -> (Int, UInt64)? {
+        let digits = text.lowercased().filter { $0.isHexDigit && $0.isASCII }
+        guard [6, 7, 9].contains(digits.count), let value = UInt64(digits, radix: 16) else { return nil }
+        return (digits.count, value)
+    }
+
+    /// Petite table intégrée, sur 24 bits.
+    static let smallTable: [UInt64: String] = {
+        var table: [UInt64: String] = [:]
+        for (prefix, vendor) in builtInEntries {
+            if let (digits, value) = parsePrefix(prefix), digits == 6 { table[value] = vendor }
+        }
+        return table
+    }()
 
     /// Préfixes courants, regroupés par fabricant.
     static let builtInGroups: [(String, [String])] = [
@@ -103,5 +362,18 @@ public struct OUIDatabase: Sendable {
             for prefix in prefixes { entries[prefix] = vendor }
         }
         return entries
+    }
+}
+
+extension OUIDatabase.Tables {
+    var count: Int { t24.count + t28.count + t36.count }
+
+    mutating func insert(digits: Int, value: UInt64, name: String) {
+        switch digits {
+        case 6: t24[value] = name
+        case 7: t28[value] = name
+        case 9: t36[value] = name
+        default: break
+        }
     }
 }
