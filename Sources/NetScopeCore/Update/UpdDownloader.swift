@@ -15,6 +15,8 @@ public final class UpdDownloader: NSObject, URLSessionDownloadDelegate, @uncheck
     private var expectedSize: Int64 = 0
     private var originalHost: String?
     private var hasToken = false
+    /// Annulation demandée (éventuellement avant le démarrage de la tâche).
+    private var isCancelled = false
 
     public override init() {}
 
@@ -39,6 +41,11 @@ public final class UpdDownloader: NSObject, URLSessionDownloadDelegate, @uncheck
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
                 lock.lock()
+                if self.isCancelled {
+                    lock.unlock()
+                    continuation.resume(throwing: UpdError.cancelled)
+                    return
+                }
                 self.continuation = continuation
                 self.progress = progress
                 self.expectedSize = asset.size
@@ -60,6 +67,7 @@ public final class UpdDownloader: NSObject, URLSessionDownloadDelegate, @uncheck
 
     public func cancel() {
         lock.lock()
+        isCancelled = true
         let task = self.task
         lock.unlock()
         task?.cancel()
@@ -108,7 +116,12 @@ public final class UpdDownloader: NSObject, URLSessionDownloadDelegate, @uncheck
         lock.lock()
         let host = originalHost
         lock.unlock()
-        if request.url?.host != host { next.setValue(nil, forHTTPHeaderField: "Authorization") }
+        guard request.url?.scheme?.lowercased() == "https" else {
+            // Jamais de repli en HTTP clair : la redirection est refusée.
+            completionHandler(nil)
+            return
+        }
+        if request.url?.host?.lowercased() != host?.lowercased() { next.setValue(nil, forHTTPHeaderField: "Authorization") }
         completionHandler(next)
     }
 

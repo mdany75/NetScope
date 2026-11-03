@@ -24,9 +24,20 @@ enum UpdShell {
         } catch {
             return UpdShellResult(status: -1, output: "", errorOutput: error.localizedDescription)
         }
-        // Lecture avant waitUntilExit : un tuyau plein bloquerait la commande.
+        // Les deux tuyaux sont lus en parallèle avant waitUntilExit : un tuyau plein (sortie
+        // d'erreur bavarde de codesign --deep, par exemple) bloquerait sinon la commande.
+        final class Box: @unchecked Sendable { var data = Data() }
+        let errBox = Box()
+        let group = DispatchGroup()
+        let errHandle = err.fileHandleForReading
+        group.enter()
+        DispatchQueue.global(qos: .utility).async {
+            errBox.data = errHandle.readDataToEndOfFile()
+            group.leave()
+        }
         let outData = out.fileHandleForReading.readDataToEndOfFile()
-        let errData = err.fileHandleForReading.readDataToEndOfFile()
+        group.wait()
+        let errData = errBox.data
         process.waitUntilExit()
         return UpdShellResult(status: process.terminationStatus,
                               output: String(decoding: outData, as: UTF8.self),
@@ -186,6 +197,11 @@ public enum UpdInstaller {
     /// dossier temporaire. L'image est toujours démontée. Lève une erreur si une vérification échoue.
     public static func prepare(diskImage: URL, expectedVersion: UpdVersion?) throws -> UpdPrepared {
         var checks = UpdSignature.verifyDiskImage(at: diskImage)
+        // Une image non signée ou refusée par Gatekeeper n'est même pas montée.
+        guard checks.allSatisfy(\.passed) else {
+            let failed = checks.filter { !$0.passed }.map { "\($0.label) (\($0.detail))" }.joined(separator: ", ")
+            throw UpdError.verification("Vérification refusée, rien n’a été installé : \(failed).")
+        }
         let mount = try attach(diskImage)
         defer { detach(mount) }
 

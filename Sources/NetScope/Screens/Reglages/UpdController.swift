@@ -91,7 +91,10 @@ final class UpdController: ObservableObject {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 3600 * 1_000_000_000)
                 guard let self, !Task.isCancelled else { return }
-                if self.prefs.isCheckDue(atLaunch: false), !self.isBusy { await self.check(userInitiated: false) }
+                // Une mise à jour déjà téléchargée et vérifiée (.ready) n'est pas écrasée.
+                if self.prefs.isCheckDue(atLaunch: false), !self.isBusy, self.phase != .ready {
+                    await self.check(userInitiated: false)
+                }
             }
         }
     }
@@ -167,7 +170,8 @@ final class UpdController: ObservableObject {
                 let file = try await downloader.download(asset, token: token) { received, expected in
                     Task { @MainActor in
                         let controller = UpdController.shared
-                        guard case .downloading = controller.phase else { return }
+                        // Les tâches peuvent arriver dans le désordre : la progression ne recule jamais.
+                        guard case .downloading(let shown, _) = controller.phase, received >= shown else { return }
                         controller.phase = .downloading(received: received, expected: expected)
                     }
                 }
@@ -185,7 +189,8 @@ final class UpdController: ObservableObject {
                     self.phase = .failed(error.localizedDescription)
                 }
             } catch UpdError.cancelled {
-                self?.phase = .available
+                // « Plus tard » et « Ignorer » annulent aussi : leur état est conservé.
+                if case .downloading = self?.phase { self?.phase = .available }
             } catch {
                 self?.phase = .failed(error.localizedDescription)
             }

@@ -7,7 +7,7 @@ import ServiceManagement
 
 /// Sections de la colonne de gauche, dans l'ordre du croquis (docs/croquis/Reglages.dc.html).
 enum RegSection: String, CaseIterable, Identifiable {
-    case general, sites, profils, identifiants, interface, majs, apropos
+    case general, sites, profils, identifiants, switchs, notifications, interface, export, majs, raccourcis, apropos
 
     var id: String { rawValue }
 
@@ -17,8 +17,12 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .sites: return "Sites et plages"
         case .profils: return "Profils de scan"
         case .identifiants: return "Identifiants"
+        case .switchs: return "Switchs"
+        case .notifications: return "Notifications"
         case .interface: return "Interface réseau"
+        case .export: return "Export et sauvegarde"
         case .majs: return "Mises à jour"
+        case .raccourcis: return "Raccourcis"
         case .apropos: return "À propos"
         }
     }
@@ -29,8 +33,12 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .sites: return "mappin.and.ellipse"
         case .profils: return "dial.medium"
         case .identifiants: return "key"
+        case .switchs: return "rectangle.connected.to.line.below"
+        case .notifications: return "bell"
         case .interface: return "network"
+        case .export: return "square.and.arrow.up"
         case .majs: return "arrow.triangle.2.circlepath"
+        case .raccourcis: return "command"
         case .apropos: return "info.circle"
         }
     }
@@ -42,7 +50,11 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .sites: return "cidr plage vlan site passerelle début-fin"
         case .profils: return "threads délai tentatives ports rapide complet personnalisé"
         case .identifiants: return "snmp v2c v3 communauté utilisateur authentification trousseau mot de passe"
+        case .switchs: return "switch snmp lldp cdp port vlan"
+        case .notifications: return "alerte notification surveillance courriel"
         case .interface: return "en0 wi-fi ethernet masque passerelle getifaddrs"
+        case .export: return "export sauvegarde csv json restauration"
+        case .raccourcis: return "raccourcis clavier touches"
         case .majs: return "version github release bêta stable signature télécharger installer jeton"
         case .apropos: return "version licence oui journaux"
         }
