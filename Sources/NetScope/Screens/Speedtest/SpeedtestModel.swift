@@ -96,6 +96,8 @@ final class SpeedtestModel: ObservableObject {
 
     private var internetTask: Task<Void, Never>?
     private var lanTask: Task<Void, Never>?
+    /// Numéro du test iperf3 en cours : une tâche arrêtée ne modifie plus l'état.
+    private var lanGeneration = 0
     private let store: SpeedHistoryStore?
     private var loading = true
 
@@ -249,10 +251,12 @@ final class SpeedtestModel: ObservableObject {
         lanRunning = true
         lanStartedAt = Date()
         lanResult = nil
+        lanGeneration += 1
+        let generation = lanGeneration
         lanTask = Task { [weak self] in
             do {
                 let result = try await IperfRunner.run(options, executable: path)
-                guard let self else { return }
+                guard let self, self.lanGeneration == generation else { return }
                 self.lanResult = result
                 self.lanRunning = false
                 let record = SpeedTestRecord(
@@ -263,7 +267,7 @@ final class SpeedtestModel: ObservableObject {
                 self.addToHistory(record)
                 self.toast = "Test iperf3 terminé et ajouté à l’historique"
             } catch {
-                guard let self else { return }
+                guard let self, self.lanGeneration == generation else { return }
                 self.lanRunning = false
                 if !Task.isCancelled { self.lanError = error.localizedDescription }
             }
@@ -271,6 +275,7 @@ final class SpeedtestModel: ObservableObject {
     }
 
     func stopLan() {
+        lanGeneration += 1
         lanTask?.cancel()
         lanTask = nil
         lanRunning = false

@@ -66,12 +66,12 @@ func registerSpeedRemoteTests(_ suite: TestSuite) {
 
     suite.add("iperf3 : options et ligne de commande") {
         var options = IperfOptions(host: "10.10.0.20", duration: 10, streams: 4)
-        try expectEqual(try options.arguments(), ["-c", "10.10.0.20", "-p", "5201", "-t", "10", "-P", "4", "-J"], "TCP normal")
+        try expectEqual(try options.arguments(), ["-c", "10.10.0.20", "-p", "5201", "-t", "10", "-P", "4", "--connect-timeout", "5000", "-J"], "TCP normal")
         options.transport = .udp
         options.direction = .bidir
-        try expectEqual(try options.arguments(), ["-c", "10.10.0.20", "-p", "5201", "-t", "10", "-P", "4", "-u", "-b", "1G", "--bidir", "-J"], "UDP bidirectionnel")
+        try expectEqual(try options.arguments(), ["-c", "10.10.0.20", "-p", "5201", "-t", "10", "-P", "4", "-u", "-b", "1G", "--bidir", "--connect-timeout", "5000", "-J"], "UDP bidirectionnel")
         options = IperfOptions(host: "nas.local", direction: .reverse)
-        try expectEqual(options.commandLine, "iperf3 -c nas.local -p 5201 -t 10 -P 4 -R -J", "commande affichée")
+        try expectEqual(options.commandLine, "iperf3 -c nas.local -p 5201 -t 10 -P 4 -R --connect-timeout 5000 -J", "commande affichée")
         try expectThrows(IperfError.invalidHost("-oProxy"), "hôte commençant par un tiret") {
             _ = try IperfOptions(host: "-oProxy").arguments()
         }
@@ -146,7 +146,7 @@ func registerSpeedRemoteTests(_ suite: TestSuite) {
             try expectEqual(try RemoteValidator.validateHost(host), host, "hôte valide \(host)")
         }
         try expectEqual(try RemoteValidator.validateHost("  10.0.0.1 "), "10.0.0.1", "espaces retirés")
-        for host in ["-oProxyCommand=sh", "a b", "10.0.0.1;reboot", "$(id)", "`id`", "a'b", "a\"b", "host\nx", "..", ".hidden", "a|b", "a&b"] {
+        for host in ["-oProxyCommand=sh", "a b", "10.0.0.1;reboot", "$(id)", "`id`", "a'b", "a\"b", "host\nx", "..", ".hidden", "a|b", "a&b", "10.0.0.1:22", "nas:5201", "fe80:::1"] {
             try expectThrows(RemoteValidationError.invalidHost(host.trimmingCharacters(in: .whitespaces)), "hôte refusé \(host)") {
                 try RemoteValidator.validateHost(host)
             }

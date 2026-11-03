@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// Erreurs de validation d'une connexion.
@@ -41,6 +42,11 @@ public enum RemoteValidator {
         guard host.count <= 253, host.allSatisfy({ hostCharacters.contains($0) }),
               let first = host.first, first != "-", first != ".", !host.contains("..") else {
             throw RemoteValidationError.invalidHost(host)
+        }
+        // « hôte:22 » n'est pas un hôte : un deux-points n'est permis que dans une IPv6 valide.
+        if host.contains(":") {
+            var address = in6_addr()
+            guard inet_pton(AF_INET6, host, &address) == 1 else { throw RemoteValidationError.invalidHost(host) }
         }
         return host
     }

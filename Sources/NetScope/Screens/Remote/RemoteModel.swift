@@ -308,7 +308,9 @@ enum RemoteExecutor {
 
         var errorDescription: String? {
             switch self {
-            case .noApplication(let kind): return "Aucune application installée pour ouvrir \(kind). Installez Windows App depuis le Mac App Store."
+            case .noApplication(let kind):
+                let hint = kind.contains(".rdp") ? " Installez Windows App depuis le Mac App Store." : ""
+                return "Aucune application installée pour ouvrir \(kind).\(hint)"
             case .terminalMissing: return "Terminal est introuvable."
             }
         }
@@ -332,7 +334,7 @@ enum RemoteExecutor {
             guard workspace.urlForApplication(toOpen: url) != nil else { throw Failure.noApplication("les fichiers .rdp") }
             workspace.open(url)
         case .url(let url):
-            guard workspace.urlForApplication(toOpen: url) != nil else { throw Failure.noApplication(url.scheme ?? "cette adresse") }
+            guard workspace.urlForApplication(toOpen: url) != nil else { throw Failure.noApplication(url.scheme.map { "les adresses \($0)://" } ?? "cette adresse") }
             workspace.open(url)
         }
     }

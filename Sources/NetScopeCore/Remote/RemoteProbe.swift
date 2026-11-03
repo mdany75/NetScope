@@ -5,8 +5,8 @@ import Network
 public enum RemoteProbe {
     /// Vrai si une connexion TCP s'établit avant `timeout` secondes (elle est refermée aussitôt).
     public static func tcp(host: String, port: Int, timeout: TimeInterval = 2) async -> Bool {
-        guard (try? RemoteValidator.validateHost(host)) != nil,
-              let nwPort = NWEndpoint.Port(rawValue: UInt16(clamping: port)), port > 0 else { return false }
+        guard (try? RemoteValidator.validateHost(host)) != nil, (1...65_535).contains(port),
+              let nwPort = NWEndpoint.Port(rawValue: UInt16(port)) else { return false }
         return await withCheckedContinuation { continuation in
             let connection = NWConnection(host: NWEndpoint.Host(host), port: nwPort, using: .tcp)
             let once = OnceFlag()

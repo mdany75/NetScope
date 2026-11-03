@@ -93,7 +93,8 @@ public struct IperfOptions: Hashable, Sendable {
         case .reverse: arguments.append("-R")
         case .bidir: arguments.append("--bidir")
         }
-        arguments.append("-J")
+        // Délai de connexion borné (5 s) : sans lui, un serveur muet bloque ~75 s.
+        arguments += ["--connect-timeout", "5000", "-J"]
         return arguments
     }
 
@@ -296,28 +297,72 @@ public enum IperfRunner {
         process.arguments = arguments
         let output = Pipe()
         process.standardOutput = output
-        process.standardError = Pipe()
+        // Erreurs déjà dans le JSON (-J) ; un tube jamais lu pourrait bloquer iperf3.
+        process.standardError = FileHandle.nullDevice
         process.standardInput = FileHandle.nullDevice
 
+        let cancel = IperfCancellation()
         let data: Data = try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 // Lecture sur un fil à part : la sortie JSON peut dépasser la mémoire tampon du tube.
                 DispatchQueue.global(qos: .userInitiated).async {
+                    guard cancel.launch(process) else {
+                        continuation.resume(throwing: IperfError.cancelled)
+                        return
+                    }
                     do {
                         try process.run()
                     } catch {
+                        cancel.finishLaunch()
                         continuation.resume(throwing: IperfError.server(error.localizedDescription))
                         return
                     }
+                    cancel.finishLaunch()
                     let data = output.fileHandleForReading.readDataToEndOfFile()
                     process.waitUntilExit()
                     continuation.resume(returning: data)
                 }
             }
         } onCancel: {
-            if process.isRunning { process.terminate() }
+            cancel.cancel()
         }
         if Task.isCancelled { throw IperfError.cancelled }
         return try IperfParser.parse(data)
+    }
+}
+
+/// Annulation sûre même si elle arrive avant ou pendant `process.run()`.
+private final class IperfCancellation: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+    private var launching = false
+    private var process: Process?
+
+    /// Faux si le test est déjà annulé : ne pas lancer le processus.
+    func launch(_ process: Process) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !cancelled else { return false }
+        self.process = process
+        launching = true
+        return true
+    }
+
+    /// Fin du lancement : applique une annulation reçue entre-temps.
+    func finishLaunch() {
+        lock.lock()
+        launching = false
+        let terminate = cancelled
+        let process = self.process
+        lock.unlock()
+        if terminate, let process, process.isRunning { process.terminate() }
+    }
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        let process = launching ? nil : self.process
+        lock.unlock()
+        if let process, process.isRunning { process.terminate() }
     }
 }

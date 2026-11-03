@@ -342,8 +342,10 @@ public final class SpeedTester: @unchecked Sendable {
             var lost = 0
             try? await Task.sleep(nanoseconds: 1_000_000_000)
             while !Task.isCancelled {
+                let rtt = try? await self.probe(session)
+                if Task.isCancelled { break }
                 sent += 1
-                if let rtt = try? await self.probe(session) { values.append(rtt) } else if !Task.isCancelled { lost += 1 }
+                if let rtt { values.append(rtt) } else { lost += 1 }
                 try? await Task.sleep(nanoseconds: 500_000_000)
             }
             return (values, sent, lost)
