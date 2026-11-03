@@ -1,0 +1,794 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Surveillance</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F4F6}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+.nav{display:flex;align-items:center;gap:10px;padding:0 10px;height:32px;border-radius:6px;color:#E2E8F0;text-decoration:none;font-size:13px;font-weight:500}
+.nav:hover{background:#1E293B;color:#FFFFFF}
+.nav.act{background:#1E293B;color:#FFFFFF}
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:6px;border:1px solid #E5E7EB;background:#FFFFFF;color:#111827;font:500 13px Inter,system-ui,sans-serif;cursor:pointer}
+.btn:hover{background:#F9FAFB;border-color:#D1D5DB}
+.btn:focus-visible,.chip:focus-visible,.nav:focus-visible,input:focus-visible,select:focus-visible,.sw:focus-visible{outline:2px solid #2563EB;outline-offset:2px}
+.btnp{border:1px solid transparent;color:#FFFFFF}
+.btnp:hover{filter:brightness(0.88)}
+.chip{cursor:pointer}
+.chip:hover{border-color:#9CA3AF}
+.row{cursor:pointer}
+.row td{background:#FFFFFF}
+.row:hover td{background:#F9FAFB}
+.row.sel td{background:#EFF6FF}
+.sw{cursor:pointer}
+.lnk{border:0;background:transparent;color:#1D4ED8;font:600 12px Inter,system-ui,sans-serif;cursor:pointer;padding:0}
+.lnk:hover{color:#1E40AF;text-decoration:underline}
+.danger:hover{background:#FEF2F2;border-color:#FCA5A5}
+@keyframes pulse{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
+.pulse{animation:pulse 1.2s ease-in-out infinite}
+@media (max-width: 760px){.side{max-width:none !important}}
+@media (max-width: 1180px){.detail{max-width:none !important}}
+</style>
+</helmet>
+<div style="width:100%; min-height:1000px; display:flex; flex-wrap:wrap; font-family:Inter, system-ui, sans-serif; color:#111827; background:#F3F4F6; box-sizing:border-box; font-size:13px">
+
+  <!-- BARRE LATÉRALE -->
+  <nav class="side" aria-label="Navigation principale" style="flex:1 1 220px; max-width:220px; background:#0F172A; color:#E2E8F0; display:flex; flex-direction:column; padding:16px 12px; box-sizing:border-box; gap:18px">
+    <div style="display:flex; align-items:center; gap:10px; padding:4px 6px">
+      <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#E2E8F0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><path d="M12 12l6-6"></path><circle cx="12" cy="12" r="1.2"></circle></svg>
+      <div>
+        <div style="font-weight:700; font-size:15px; color:#FFFFFF">NetScope</div>
+        <div style="font-size:11px; color:#94A3B8">Boîte à outils réseau</div>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:2px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:0 10px 4px">Découverte</div>
+      <a class="nav" href="Main.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>Scanner</a>
+      <a class="nav" href="Topologie.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="5" rx="1"></rect><rect x="3" y="16" width="6" height="5" rx="1"></rect><rect x="15" y="16" width="6" height="5" rx="1"></rect><path d="M12 8v4M6 16v-4h12v4"></path></svg>Carte du réseau</a>
+      <a class="nav" href="Inventaire.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h1M4 12h1M4 18h1"></path></svg>Inventaire</a>
+      <a class="nav" href="Device.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="12" rx="1.5"></rect><path d="M9 20h6M12 16v4"></path></svg>Appareil</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Diagnostic</div>
+      <a class="nav" href="Ping.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Ping continu</a>
+      <a class="nav" href="Switch.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="1.5"></rect><path d="M7 11v2M10 11v2M13 11v2M16 11v2"></path></svg>Switchs et ports</a>
+      <a class="nav" href="Wifi.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5a15 15 0 0 1 20 0"></path><path d="M5 12a10.5 10.5 0 0 1 14 0"></path><path d="M8.5 15.5a5.5 5.5 0 0 1 7 0"></path><circle cx="12" cy="19" r="1"></circle></svg>Wi-Fi</a>
+      <a class="nav" href="Toolbox.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"></path></svg>Outils</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Suivi</div>
+      <a class="nav act" href="Surveillance.dc.html" aria-current="page">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>Surveillance<span style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#DC2626; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center" aria-label="3 alertes">3</span></a>
+      <a class="nav" href="Analyse.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>Analyse<span style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#2563EB; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center" aria-label="1 nouveau résultat">1</span></a>
+      <a class="nav" href="Rapport.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>Rapports</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Accès</div>
+      <a class="nav" href="Remote.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="1.5"></rect><path d="M7 9l3 2.5L7 14M12 14h4M9 21h6"></path></svg>Accès distant</a>
+      <a class="nav" href="Speedtest.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 18a9 9 0 1 1 15 0"></path><path d="M12 14l4-5"></path><circle cx="12" cy="14" r="1.2"></circle></svg>Speedtest</a>
+    </div>
+    <div style="border-top:1px solid #1E293B; padding-top:12px; display:flex; flex-direction:column; gap:6px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; padding:0 6px">Plages enregistrées</div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>10.182.122.0/24</span><span style="color:#94A3B8">Bureau</span></div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>192.168.50.0/24</span><span style="color:#94A3B8">Caméras</span></div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>10.10.0.1-50</span><span style="color:#94A3B8">Serveurs</span></div>
+    </div>
+    <div style="margin-top:auto; border-top:1px solid #1E293B; padding-top:10px; display:flex; flex-direction:column">
+      <a class="nav" href="Reglages.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>Réglages</a>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px; padding:10px; border:1px solid #1E293B; border-radius:8px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8">Interface active</div>
+      <div style="display:flex; align-items:center; gap:8px">
+        <span style="width:8px; height:8px; border-radius:50%; background:#22C55E; flex:none"></span>
+        <span style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#E2E8F0">en0 · 10.182.122.135 · Wi-Fi</span>
+      </div>
+      <div style="font-size:11px; color:#94A3B8">Passerelle 10.182.122.1 · DNS 10.182.122.1</div>
+      <div style="font-size:11px; color:#94A3B8">Version 2.0.0 (maquette)</div>
+    </div>
+  </nav>
+
+  <!-- CONTENU -->
+  <main style="flex:999 1 560px; min-width:0; display:flex; flex-direction:column; box-sizing:border-box">
+
+    <!-- Barre d'outils -->
+    <header style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:12px 20px; background:#FFFFFF; border-bottom:1px solid #E5E7EB">
+      <h1 style="margin:0; font-size:17px; font-weight:700; margin-right:6px">Surveillance</h1>
+      <div role="status" aria-live="polite" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:13px">
+        <span style="display:inline-flex; align-items:center; gap:6px; font-weight:600; color:#111827"><span style="width:8px; height:8px; border-radius:50%; background:#15803D"></span>{{ activeLabel }}</span>
+        <span style="color:#6B7280">·</span>
+        <span style="{{ alertPillStyle }}">{{ alertLabel }}</span>
+        <span style="color:#6B7280">·</span>
+        <span style="{{ downPillStyle }}">{{ downLabel }}</span>
+      </div>
+      <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#4B5563"><span class="pulse" style="width:7px; height:7px; border-radius:50%; background:#2563EB"></span>Surveillance en arrière-plan · {{ engineLabel }}</span>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-left:auto">
+        <button type="button" class="btn" onClick="{{ onPauseAll }}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5v14M15 5v14"></path></svg>{{ pauseAllLabel }}</button>
+        <button type="button" class="btn" onClick="{{ onExport }}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>Exporter le journal</button>
+        <button type="button" class="btn btnp" style="{{ primaryStyle }}" onClick="{{ onNew }}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>Nouvelle sonde</button>
+      </div>
+    </header>
+
+    <div style="padding:16px 20px; display:flex; flex-direction:column; gap:14px">
+
+      <!-- Ligne 1 : sondes + éditeur -->
+      <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:flex-start">
+
+        <section aria-labelledby="h-sondes" style="flex:999 1 560px; min-width:0; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; display:flex; flex-direction:column">
+          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 12px; border-bottom:1px solid #E5E7EB">
+            <h2 id="h-sondes" style="margin:0 6px 0 0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Sondes</h2>
+            <div role="group" aria-label="Filtrer les sondes" style="display:flex; flex-wrap:wrap; gap:6px">
+              <sc-for list="{{ pchips }}" as="c" hint-placeholder-count="4">
+                <button type="button" class="chip" aria-pressed="{{ c.on }}" onClick="{{ c.pick }}" style="{{ c.style }}"><span style="{{ c.dotStyle }}"></span>{{ c.label }}<span style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#4B5563">{{ c.count }}</span></button>
+              </sc-for>
+            </div>
+            <label style="position:relative; display:flex; align-items:center; flex:0 1 220px; min-width:160px; margin-left:auto">
+              <span style="position:absolute; left:8px; color:#4B5563; display:flex">
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
+              </span>
+              <input type="search" aria-label="Rechercher une sonde" placeholder="Nom, IP, type…" value="{{ pq }}" onChange="{{ onPq }}" style="width:100%; height:30px; box-sizing:border-box; padding:0 8px 0 28px; border:1px solid #E5E7EB; border-radius:6px; font:12px Inter, system-ui, sans-serif; color:#111827">
+            </label>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%; min-width:780px; border-collapse:collapse; font-size:12px">
+              <thead>
+                <tr style="height:32px; background:#F9FAFB; border-bottom:1px solid #E5E7EB">
+                  <th scope="col" style="width:46px; padding:0 0 0 12px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Actif</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Sonde · cible</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Type</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Intervalle</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">État</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Dernière valeur</th>
+                  <th scope="col" style="padding:0 12px 0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Disponibilité 24 h</th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ rows }}" as="p" hint-placeholder-count="14">
+                  <tr class="{{ p.cls }}" style="{{ p.rowStyle }}" onClick="{{ p.pick }}" aria-selected="{{ p.isSel }}">
+                    <td style="padding:0 0 0 12px">
+                      <button type="button" class="sw" role="switch" aria-checked="{{ p.enStr }}" aria-label="{{ p.swAria }}" onClick="{{ p.toggle }}" style="{{ p.trackStyle }}"><span style="{{ p.knobStyle }}"></span></button>
+                    </td>
+                    <td style="padding:4px 8px; min-width:0; max-width:240px">
+                      <div style="font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#111827">{{ p.name }}</div>
+                      <div style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#4B5563; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ p.targetLabel }}</div>
+                    </td>
+                    <td style="padding:0 8px; white-space:nowrap"><span style="font-size:11px; font-weight:600; padding:2px 6px; border-radius:4px; background:#F3F4F6; color:#374151">{{ p.tl }}</span></td>
+                    <td style="padding:0 8px; white-space:nowrap; font-family:'JetBrains Mono', monospace; color:#374151">{{ p.ivText }}</td>
+                    <td style="padding:0 8px; white-space:nowrap"><span style="{{ p.stStyle }}">{{ p.stLabel }}</span></td>
+                    <td style="{{ p.lastStyle }}">{{ p.lastLabel }}</td>
+                    <td style="padding:0 12px 0 8px; white-space:nowrap">
+                      <div style="display:flex; align-items:center; gap:8px">
+                        <div role="img" aria-label="{{ p.histAria }}" style="display:flex; gap:2px; align-items:center">
+                          <sc-for list="{{ p.hist }}" as="hc" hint-placeholder-count="24">
+                            <span style="{{ hc.style }}"></span>
+                          </sc-for>
+                        </div>
+                        <span style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#374151">{{ p.upLabel }}</span>
+                      </div>
+                    </td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+            <sc-if value="{{ emptyProbes }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:24px; text-align:center; color:#4B5563; font-size:13px">Aucune sonde ne correspond aux filtres actifs.</div>
+            </sc-if>
+          </div>
+          <footer style="display:flex; flex-wrap:wrap; gap:14px; align-items:center; padding:9px 12px; border-top:1px solid #E5E7EB; font-size:12px; color:#4B5563; background:#F9FAFB; border-radius:0 0 8px 8px">
+            <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:8px; height:10px; border-radius:1px; background:#15803D"></span>Disponible</span>
+            <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:8px; height:10px; border-radius:1px; background:#C2410C"></span>Seuil dépassé</span>
+            <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:8px; height:10px; border-radius:1px; background:#B91C1C"></span>Hors ligne</span>
+            <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:8px; height:10px; border-radius:1px; background:#E5E7EB; border:1px solid #D1D5DB; box-sizing:border-box"></span>Aucune donnée</span>
+            <span style="margin-left:auto">{{ shownLabel }}</span>
+          </footer>
+        </section>
+
+        <!-- Éditeur -->
+        <aside class="detail" aria-labelledby="h-ed" style="flex:1 1 340px; max-width:380px; min-width:0; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px; box-sizing:border-box; display:flex; flex-direction:column; gap:11px">
+          <div style="display:flex; align-items:center; gap:8px">
+            <h2 id="h-ed" style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Éditeur de sonde</h2>
+            <span style="{{ ed.stStyle }}">{{ ed.stLabel }}</span>
+            <span style="margin-left:auto; font-size:11px; color:#4B5563; font-family:'JetBrains Mono', monospace">{{ ed.nextLabel }}</span>
+          </div>
+          <label style="display:flex; flex-direction:column; gap:4px">
+            <span style="font-size:12px; color:#4B5563">Nom</span>
+            <input type="text" value="{{ ed.name }}" onChange="{{ onName }}" style="height:32px; box-sizing:border-box; padding:0 8px; border:1px solid #E5E7EB; border-radius:6px; font:600 13px Inter, system-ui, sans-serif; color:#111827; width:100%">
+          </label>
+          <div style="display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:8px">
+            <label style="display:flex; flex-direction:column; gap:4px">
+              <span style="font-size:12px; color:#4B5563">Type</span>
+              <select value="{{ ed.kind }}" onChange="{{ onKind }}" style="height:30px; border:1px solid #E5E7EB; border-radius:6px; padding:0 6px; font:12px Inter, system-ui, sans-serif; color:#111827; background:#FFFFFF">
+                <option value="Ping">Ping (ICMP)</option>
+                <option value="TCP">TCP</option>
+                <option value="HTTP(S)">HTTP(S)</option>
+                <option value="DNS">DNS</option>
+                <option value="SNMP">SNMP</option>
+                <option value="Port de switch">Port de switch</option>
+                <option value="Scan planifié">Scan planifié</option>
+              </select>
+            </label>
+            <label style="display:flex; flex-direction:column; gap:4px">
+              <span style="font-size:12px; color:#4B5563">Intervalle</span>
+              <select value="{{ ed.iv }}" onChange="{{ onIv }}" style="height:30px; border:1px solid #E5E7EB; border-radius:6px; padding:0 6px; font:12px Inter, system-ui, sans-serif; color:#111827; background:#FFFFFF">
+                <option value="10">Toutes les 10 s</option>
+                <option value="30">Toutes les 30 s</option>
+                <option value="60">Toutes les 60 s</option>
+                <option value="300">Toutes les 5 min</option>
+                <option value="900">Toutes les 15 min</option>
+                <option value="3600">Toutes les heures</option>
+                <option value="43200">Toutes les 12 h</option>
+              </select>
+            </label>
+          </div>
+          <label style="display:flex; flex-direction:column; gap:4px">
+            <span style="font-size:12px; color:#4B5563">Cible</span>
+            <input type="text" value="{{ ed.target }}" onChange="{{ onTarget }}" placeholder="[À COMPLÉTER]" style="height:30px; box-sizing:border-box; padding:0 8px; border:1px solid #E5E7EB; border-radius:6px; font:12px 'JetBrains Mono', monospace; color:#111827; width:100%">
+          </label>
+          <label style="display:flex; flex-direction:column; gap:4px">
+            <span style="font-size:12px; color:#4B5563">Condition d'alerte propre au type</span>
+            <input type="text" value="{{ ed.cond }}" onChange="{{ onCond }}" placeholder="Aucune condition supplémentaire" style="height:30px; box-sizing:border-box; padding:0 8px; border:1px solid #E5E7EB; border-radius:6px; font:12px Inter, system-ui, sans-serif; color:#111827; width:100%">
+          </label>
+          <fieldset style="border:1px solid #E5E7EB; border-radius:6px; margin:0; padding:8px 10px 10px">
+            <legend style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600; padding:0 4px">Seuils</legend>
+            <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px">
+              <label style="display:flex; flex-direction:column; gap:3px">
+                <span style="font-size:11px; color:#4B5563">Latence &gt; (ms)</span>
+                <input type="number" min="1" value="{{ ed.lat }}" onChange="{{ onLat }}" style="height:28px; box-sizing:border-box; padding:0 6px; border:1px solid #E5E7EB; border-radius:6px; font:12px 'JetBrains Mono', monospace; color:#111827; width:100%">
+              </label>
+              <label style="display:flex; flex-direction:column; gap:3px">
+                <span style="font-size:11px; color:#4B5563">Perte &gt; (%)</span>
+                <input type="number" min="0" max="100" value="{{ ed.loss }}" onChange="{{ onLoss }}" style="height:28px; box-sizing:border-box; padding:0 6px; border:1px solid #E5E7EB; border-radius:6px; font:12px 'JetBrains Mono', monospace; color:#111827; width:100%">
+              </label>
+              <label style="display:flex; flex-direction:column; gap:3px">
+                <span style="font-size:11px; color:#4B5563">Échecs consécutifs</span>
+                <input type="number" min="1" max="20" value="{{ ed.fails }}" onChange="{{ onFails }}" style="height:28px; box-sizing:border-box; padding:0 6px; border:1px solid #E5E7EB; border-radius:6px; font:12px 'JetBrains Mono', monospace; color:#111827; width:100%">
+              </label>
+            </div>
+          </fieldset>
+          <label style="display:flex; flex-direction:column; gap:4px">
+            <span style="font-size:12px; color:#4B5563">Plage horaire des alertes</span>
+            <select value="{{ ed.hours }}" onChange="{{ onHours }}" style="height:30px; border:1px solid #E5E7EB; border-radius:6px; padding:0 6px; font:12px Inter, system-ui, sans-serif; color:#111827; background:#FFFFFF">
+              <option value="24/7">Toujours (24 h sur 24, 7 j sur 7)</option>
+              <option value="bureau">Heures ouvrables (lun.–ven., 7 h – 18 h)</option>
+              <option value="hors">Hors heures ouvrables seulement</option>
+            </select>
+          </label>
+          <label style="display:flex; align-items:flex-start; gap:8px; font-size:12px; cursor:pointer">
+            <input type="checkbox" checked="{{ ed.dep }}" onChange="{{ onDep }}" style="margin:1px 0 0; width:15px; height:15px; accent-color:#2563EB">
+            <span><strong style="font-weight:600">Dépendance :</strong> ignorer si la passerelle 10.182.122.1 est hors ligne</span>
+          </label>
+          <fieldset style="border:1px solid #E5E7EB; border-radius:6px; margin:0; padding:8px 10px 10px; display:flex; flex-direction:column; gap:7px">
+            <legend style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600; padding:0 4px">Actions d'alerte</legend>
+            <div style="display:flex; flex-wrap:wrap; gap:14px">
+              <label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer"><input type="checkbox" checked="{{ ed.aMac }}" onChange="{{ onAMac }}" style="margin:0; width:15px; height:15px; accent-color:#2563EB">Notification macOS</label>
+              <label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer"><input type="checkbox" checked="{{ ed.aSound }}" onChange="{{ onASound }}" style="margin:0; width:15px; height:15px; accent-color:#2563EB">Son</label>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px">
+              <label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer; flex:0 0 118px"><input type="checkbox" checked="{{ ed.aMail }}" onChange="{{ onAMail }}" style="margin:0; width:15px; height:15px; accent-color:#2563EB">Courriel</label>
+              <input type="email" aria-label="Adresse courriel pour les alertes" placeholder="[ADRESSE]" value="{{ ed.mail }}" onChange="{{ onMail }}" style="{{ ed.mailStyle }}">
+            </div>
+            <div style="display:flex; align-items:center; gap:8px">
+              <label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer; flex:0 0 118px"><input type="checkbox" checked="{{ ed.aHook }}" onChange="{{ onAHook }}" style="margin:0; width:15px; height:15px; accent-color:#2563EB">Webhook</label>
+              <input type="url" aria-label="URL du webhook Teams ou Slack" placeholder="[URL] Teams / Slack" value="{{ ed.hook }}" onChange="{{ onHook }}" style="{{ ed.hookStyle }}">
+            </div>
+            <div style="display:flex; align-items:center; gap:8px">
+              <label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer; flex:0 0 118px"><input type="checkbox" checked="{{ ed.aScript }}" onChange="{{ onAScript }}" style="margin:0; width:15px; height:15px; accent-color:#2563EB">Exécuter un script</label>
+              <input type="text" aria-label="Chemin du script à exécuter" placeholder="~/Scripts/…" value="{{ ed.script }}" onChange="{{ onScript }}" style="{{ ed.scriptStyle }}">
+            </div>
+          </fieldset>
+          <div style="display:flex; flex-wrap:wrap; gap:8px">
+            <button type="button" class="btn btnp" style="{{ primaryStyle }}" onClick="{{ onTest }}">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5l12 7-12 7z"></path></svg>Tester maintenant</button>
+            <button type="button" class="btn" onClick="{{ onSave }}">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"></path></svg>Enregistrer</button>
+            <button type="button" class="btn danger" onClick="{{ onDelete }}" style="color:#B91C1C; margin-left:auto">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg>Supprimer</button>
+          </div>
+          <sc-if value="{{ ed.hasTest }}" hint-placeholder-val="{{ false }}">
+            <div role="status" style="{{ ed.testStyle }}">{{ ed.lastTest }}</div>
+          </sc-if>
+          <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+            <div role="status" style="font-size:12px; color:#15803D; background:#DCFCE7; border-radius:6px; padding:6px 8px">{{ toast }}</div>
+          </sc-if>
+        </aside>
+      </div>
+
+      <!-- Ligne 2 : journal + maquettes macOS -->
+      <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:flex-start">
+
+        <section aria-labelledby="h-journal" style="flex:999 1 560px; min-width:0; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; display:flex; flex-direction:column">
+          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 12px; border-bottom:1px solid #E5E7EB">
+            <h2 id="h-journal" style="margin:0 6px 0 0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Journal des alertes</h2>
+            <div role="group" aria-label="Filtrer le journal" style="display:flex; flex-wrap:wrap; gap:6px">
+              <sc-for list="{{ jchips }}" as="c" hint-placeholder-count="3">
+                <button type="button" class="chip" aria-pressed="{{ c.on }}" onClick="{{ c.pick }}" style="{{ c.style }}">{{ c.label }}<span style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#4B5563">{{ c.count }}</span></button>
+              </sc-for>
+            </div>
+            <span style="font-size:12px; color:#4B5563">{{ unackLabel }}</span>
+            <button type="button" class="btn" onClick="{{ onAckAll }}" style="margin-left:auto; height:30px; font-size:12px">
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13l4 4L16 7M10 15l2 2 10-10"></path></svg>Tout accuser réception</button>
+          </div>
+          <div style="overflow-x:auto; max-height:330px; overflow-y:auto">
+            <table style="width:100%; min-width:720px; border-collapse:collapse; font-size:12px">
+              <thead>
+                <tr style="height:30px; background:#F9FAFB; border-bottom:1px solid #E5E7EB">
+                  <th scope="col" style="padding:0 8px 0 12px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Horodatage</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Gravité</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Sonde</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Événement</th>
+                  <th scope="col" style="padding:0 12px 0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Suivi</th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ logRows }}" as="l" hint-placeholder-count="8">
+                  <tr style="border-bottom:1px solid #E5E7EB; vertical-align:top">
+                    <td style="padding:8px 8px 8px 12px; font-family:'JetBrains Mono', monospace; white-space:nowrap; color:#374151">{{ l.time }}</td>
+                    <td style="padding:7px 8px; white-space:nowrap"><span style="{{ l.sevStyle }}">{{ l.sevLabel }}</span></td>
+                    <td style="padding:8px; white-space:nowrap; font-weight:600">{{ l.probe }}</td>
+                    <td style="padding:8px; color:#111827; line-height:1.4">{{ l.msg }}</td>
+                    <td style="padding:7px 12px 7px 8px; white-space:nowrap">
+                      <sc-if value="{{ l.isResolved }}" hint-placeholder-val="{{ false }}">
+                        <span style="font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; background:#DCFCE7; color:#15803D; margin-right:6px">Résolue</span>
+                      </sc-if>
+                      <sc-if value="{{ l.showAck }}" hint-placeholder-val="{{ true }}">
+                        <button type="button" class="btn" onClick="{{ l.ack }}" style="height:26px; padding:0 8px; font-size:12px">Accuser réception</button>
+                      </sc-if>
+                      <sc-if value="{{ l.showAcked }}" hint-placeholder-val="{{ false }}">
+                        <span style="font-size:11px; color:#4B5563">{{ l.ackLabel }}</span>
+                      </sc-if>
+                    </td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+            <sc-if value="{{ emptyLog }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:24px; text-align:center; color:#4B5563; font-size:13px">Aucune entrée pour ce filtre.</div>
+            </sc-if>
+          </div>
+        </section>
+
+        <aside class="detail" aria-label="Maquettes macOS" style="flex:1 1 340px; max-width:380px; min-width:0; display:flex; flex-direction:column; gap:14px">
+
+          <!-- Barre de menus -->
+          <section aria-labelledby="h-menubar" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:12px 14px 14px">
+            <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:8px">
+              <h2 id="h-menubar" style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Barre de menus</h2>
+              <span style="font-size:11px; color:#4B5563">Maquette du mini-widget</span>
+            </div>
+            <div style="background:#F3F4F6; border:1px solid #E5E7EB; border-radius:8px; overflow:hidden; padding-bottom:10px">
+              <div style="height:26px; background:#E5E7EB; display:flex; align-items:center; justify-content:flex-end; gap:12px; padding:0 10px; font-size:12px; color:#111827">
+                <span style="position:relative; display:inline-flex; align-items:center; justify-content:center; width:26px; height:20px; border-radius:4px; background:#CBD5E1">
+                  <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><path d="M12 12l6-6"></path></svg>
+                  <span style="position:absolute; top:-2px; right:-4px; min-width:13px; height:13px; padding:0 3px; box-sizing:border-box; border-radius:7px; background:#B91C1C; color:#FFFFFF; font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center">{{ alertsTotal }}</span>
+                </span>
+                <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5a15 15 0 0 1 20 0"></path><path d="M5 12a10.5 10.5 0 0 1 14 0"></path><path d="M8.5 15.5a5.5 5.5 0 0 1 7 0"></path><circle cx="12" cy="19" r="1"></circle></svg>
+                <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="6" rx="3"></rect><rect x="3" y="13" width="18" height="6" rx="3"></rect><circle cx="16" cy="8" r="1.5"></circle><circle cx="8" cy="16" r="1.5"></circle></svg>
+                <span style="font-weight:500; white-space:nowrap">mar. 3 nov. 14:32</span>
+              </div>
+              <div style="margin:6px 10px 0 auto; width:290px; max-width:calc(100% - 20px); background:#FFFFFF; border:1px solid #D1D5DB; border-radius:10px; box-shadow:0 10px 28px rgba(15,23,42,.16); padding:10px; box-sizing:border-box; display:flex; flex-direction:column; gap:8px">
+                <div style="display:flex; align-items:center; gap:8px">
+                  <span style="font-weight:700; font-size:13px">NetScope</span>
+                  <span style="{{ netStyle }}">{{ netLabel }}</span>
+                </div>
+                <dl style="margin:0; display:grid; grid-template-columns:96px minmax(0, 1fr); row-gap:4px; column-gap:6px; font-size:12px">
+                  <dt style="color:#4B5563">Passerelle</dt><dd style="margin:0; font-family:'JetBrains Mono', monospace">10.182.122.1 · {{ gwLabel }}</dd>
+                  <dt style="color:#4B5563">Interface</dt><dd style="margin:0; font-family:'JetBrains Mono', monospace">en0 · 10.182.122.135</dd>
+                  <dt style="color:#4B5563">IP publique</dt><dd style="margin:0; font-family:'JetBrains Mono', monospace">[À COMPLÉTER]</dd>
+                </dl>
+                <div style="border-top:1px solid #E5E7EB; padding-top:7px">
+                  <div style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600; margin-bottom:5px">{{ alertsCountLabel }}</div>
+                  <sc-for list="{{ menuAlerts }}" as="m" hint-placeholder-count="3">
+                    <div style="display:flex; align-items:center; gap:7px; font-size:12px; padding:3px 0">
+                      <span style="{{ m.dotStyle }}"></span>
+                      <span style="font-weight:600; white-space:nowrap">{{ m.name }}</span>
+                      <span style="color:#4B5563; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0">{{ m.detail }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <sc-if value="{{ quickOn }}" hint-placeholder-val="{{ false }}">
+                  <div>
+                    <div style="height:5px; border-radius:3px; background:#E5E7EB; overflow:hidden" role="progressbar" aria-label="Progression du scan rapide" aria-valuenow="{{ quick }}" aria-valuemin="0" aria-valuemax="100"><div style="{{ quickBarStyle }}"></div></div>
+                    <div role="status" style="font-size:11px; color:#374151; margin-top:4px">{{ quickLabel }}</div>
+                  </div>
+                </sc-if>
+                <div style="display:flex; gap:6px">
+                  <button type="button" class="btn btnp" style="{{ quickBtnStyle }}" onClick="{{ onQuick }}">
+                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>Scan rapide</button>
+                  <a href="Main.dc.html" class="btn" style="height:28px; font-size:12px; text-decoration:none; flex:1; justify-content:center">Ouvrir NetScope</a>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Notification -->
+          <section aria-labelledby="h-notif" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:12px 14px 14px">
+            <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:8px">
+              <h2 id="h-notif" style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Notification macOS</h2>
+              <span style="font-size:11px; color:#4B5563">Maquette de la bannière</span>
+            </div>
+            <sc-if value="{{ notifShown }}" hint-placeholder-val="{{ true }}">
+              <div style="background:#F9FAFB; border:1px solid #D1D5DB; border-radius:14px; box-shadow:0 6px 18px rgba(15,23,42,.10); padding:10px 12px; display:flex; gap:10px">
+                <div style="width:34px; height:34px; border-radius:8px; background:#0F172A; display:flex; align-items:center; justify-content:center; flex:none">
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E2E8F0" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><path d="M12 12l6-6"></path><circle cx="12" cy="12" r="1.2"></circle></svg>
+                </div>
+                <div style="min-width:0; flex:1">
+                  <div style="display:flex; justify-content:space-between; gap:8px; font-size:11px; color:#4B5563"><span style="text-transform:uppercase; letter-spacing:.04em; font-weight:600">NetScope</span><span>maintenant</span></div>
+                  <div style="font-weight:700; font-size:13px; margin-top:2px">Caméra-Quai hors ligne</div>
+                  <div style="font-size:12px; color:#374151; margin-top:1px; line-height:1.4">192.168.50.21 ne répond plus depuis 3 tentatives</div>
+                  <div style="display:flex; gap:6px; margin-top:8px">
+                    <button type="button" class="btn" onClick="{{ onNotifOpen }}" style="height:26px; padding:0 10px; font-size:12px">Ouvrir la sonde</button>
+                    <button type="button" class="btn" onClick="{{ onNotifHide }}" style="height:26px; padding:0 10px; font-size:12px">Ignorer</button>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ notifHidden }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:#4B5563; padding:10px; border:1px dashed #D1D5DB; border-radius:8px">Notification ignorée.<button type="button" class="lnk" onClick="{{ onNotifShow }}">Réafficher</button></div>
+            </sc-if>
+            <div style="font-size:11px; color:#4B5563; margin-top:8px">Envoyée après 3 échecs consécutifs · regroupée par sonde · sans son pendant le mode Concentration.</div>
+          </section>
+        </aside>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000},"compact":false,"accent":"#2563EB"}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const H = (o, r) => {
+      const a = [];
+      for (let i = 0; i < 24; i++) a.push(r.indexOf(i) >= 0 ? 'r' : (o.indexOf(i) >= 0 ? 'o' : 'g'));
+      return a;
+    };
+    const mk = (o) => Object.assign({
+      en: true, lat: 50, loss: 5, fails: 3, hours: '24/7', dep: true,
+      aMac: true, aSound: false, aMail: false, aHook: false, aScript: false,
+      mail: '', hook: '', script: '', lastTest: '', lastTestSev: 'ok', cond: ''
+    }, o);
+    this.state = {
+      sel: 'p2',
+      pfilter: 'all',
+      pq: '',
+      jfilter: 'all',
+      sec: 0,
+      quick: 0,
+      notifHidden: false,
+      toast: '',
+      nextId: 100,
+      probes: [
+        mk({ id: 'p1', name: 'Ping passerelle', tl: 'Ping', kind: 'Ping', target: '10.182.122.1', sub: 'FortiGate-60F', iv: 10, state: 'ok', last: '', hist: H([19], []), dep: false, aSound: true, cond: '' }),
+        mk({ id: 'p2', name: 'Caméra-Quai', tl: 'Ping', kind: 'Ping', target: '192.168.50.21', sub: 'Hikvision · VLAN 40', iv: 30, state: 'down', last: 'Hors ligne depuis 2 h 04', hist: H([], [21, 22, 23]), aSound: true, aMail: true, aHook: true, aScript: true, script: '~/Scripts/poe-cycle-core-gi1-0-33.sh', cond: 'ICMP puis TCP 554 (RTSP) en repli' }),
+        mk({ id: 'p3', name: 'Interface imprimante', tl: 'HTTP(S)', kind: 'HTTP(S)', target: 'https://10.182.122.111', sub: 'Brother DCP-L2640DW', iv: 60, state: 'ok', last: '200 OK · 184 ms', hist: H([], []), lat: 500, hours: 'bureau', cond: 'Code HTTP attendu : 200' }),
+        mk({ id: 'p4', name: 'TCP 443 FortiGate', tl: 'TCP', kind: 'TCP', target: '10.182.122.1:443', sub: 'FortiGate-60F', iv: 30, state: 'ok', last: 'Ouvert · 2,1 ms', hist: H([], []), dep: false, cond: 'Port attendu : ouvert' }),
+        mk({ id: 'p5', name: 'Résolution intranet.local', tl: 'DNS', kind: 'DNS', target: 'intranet.local @ 10.182.122.1', sub: '', iv: 60, state: 'ok', last: 'A [À COMPLÉTER] · 4 ms', hist: H([], []), cond: 'Réponse attendue : [À COMPLÉTER]' }),
+        mk({ id: 'p6', name: 'SW-CORE-01 température et PoE', tl: 'SNMP', kind: 'SNMP', target: '10.182.122.2', sub: 'Catalyst 9300-48P', iv: 300, state: 'ok', last: '41 °C · PoE 186 / 437 W', hist: H([16], []), aMail: true, cond: 'Alerte si température > 45 °C ou PoE > 90 %' }),
+        mk({ id: 'p7', name: 'Port de WKS346', tl: 'Port', kind: 'Port de switch', target: 'B0:7B:25:44:A1:6C', sub: 'WKS346 · Dell', iv: 300, state: 'ok', last: 'SW-CORE-01 Gi1/0/22', hist: H([20], []), hours: 'bureau', cond: 'Alerte si WKS346 change de port' }),
+        mk({ id: 'p8', name: 'Nouveaux appareils', tl: 'Découverte', kind: 'Scan planifié', target: '10.182.122.0/24', sub: '', iv: 900, state: 'ok', last: '0 nouveau · 182 en ligne', hist: H([18], []), cond: 'Alerte à chaque nouvelle adresse MAC' }),
+        mk({ id: 'p9', name: 'DHCP non autorisé', tl: 'DHCP', kind: 'Scan planifié', target: '10.182.122.0/24', sub: 'Serveur attendu 10.182.122.1', iv: 300, state: 'alert', last: 'Offre reçue de 10.182.122.250', hist: H([23], []), aSound: true, aMail: true, cond: 'Alerte si un serveur DHCP autre que 10.182.122.1 répond' }),
+        mk({ id: 'p10', name: 'Certificat TLS', tl: 'TLS', kind: 'HTTP(S)', target: 'https://10.182.122.1', sub: 'FortiGate-60F', iv: 43200, state: 'alert', last: 'Expire dans 21 j (24 nov. 2026)', hist: H([22, 23], []), hours: 'bureau', aMail: true, cond: 'Alerte si le certificat expire dans moins de 30 jours' }),
+        mk({ id: 'p11', name: 'Scan complet planifié', tl: 'Scan', kind: 'Scan planifié', target: '10.182.122.0/24 + 192.168.50.0/24', sub: '', iv: 3600, state: 'ok', last: '203 appareils · 14:00', hist: H([8], []), aMac: false, cond: 'Rapport si un appareil apparaît ou disparaît' }),
+        mk({ id: 'p12', name: 'Wi-Fi AP-ETG2 RSSI', tl: 'Wi-Fi', kind: 'SNMP', target: '10.182.122.104', sub: 'FortiAP-231F · AP-ETG2', iv: 60, state: 'ok', last: 'RSSI moyen -67 dBm', hist: H([17], []), cond: 'Alerte si RSSI moyen < -75 dBm' }),
+        mk({ id: 'p13', name: 'Ping SW-ETG2-01', tl: 'Ping', kind: 'Ping', target: '10.182.122.3', sub: 'Aruba 2930F-24G', iv: 30, state: 'ok', last: '1,6 ms · perte 0 %', hist: H([], []), cond: '' }),
+        mk({ id: 'p14', name: 'Ping FortiAP-231F', tl: 'Ping', kind: 'Ping', target: '10.182.122.102', sub: 'Gi1/0/12 · VLAN 20', iv: 30, state: 'ok', last: '2,3 ms · perte 0 %', hist: H([], []), cond: '' })
+      ],
+      log: [
+        { id: 'l1', time: "Aujourd'hui 14:30:10", sev: 'warn', probe: 'DHCP non autorisé', msg: 'Offre DHCP reçue de 10.182.122.250 (MAC 00:E0:4C:68:02:1A) ; serveur attendu : 10.182.122.1.', resolved: false, acked: false },
+        { id: 'l2', time: "Aujourd'hui 13:05:44", sev: 'warn', probe: 'Certificat TLS', msg: 'Le certificat de https://10.182.122.1 expire le 24 nov. 2026 (dans 21 jours).', resolved: false, acked: false },
+        { id: 'l3', time: "Aujourd'hui 12:28:03", sev: 'crit', probe: 'Caméra-Quai', msg: '192.168.50.21 ne répond plus depuis 3 tentatives (ICMP et TCP 554). Script PoE exécuté : sans effet.', resolved: false, acked: false },
+        { id: 'l4', time: "Aujourd'hui 11:47:20", sev: 'warn', probe: 'Port de WKS346', msg: 'WKS346 vu sur SW-CORE-01 Gi1/0/24 au lieu de Gi1/0/22, revenu sur Gi1/0/22 à 11:52.', resolved: true, acked: true, ackLabel: 'Accusé par Dany · 11:49' },
+        { id: 'l5', time: "Aujourd'hui 10:15:02", sev: 'warn', probe: 'Ping passerelle', msg: 'Latence moyenne 63 ms > 50 ms pendant 2 min, revenue à 1,1 ms.', resolved: true, acked: false },
+        { id: 'l6', time: "Aujourd'hui 09:02:11", sev: 'info', probe: 'Nouveaux appareils', msg: 'Nouvel appareil 10.182.122.133 Android_89UM1WTN (MAC aléatoire D6:4E:81:7A:33:C0).', resolved: false, acked: true, ackLabel: 'Accusé par Dany · 09:10' },
+        { id: 'l7', time: "Aujourd'hui 08:40:37", sev: 'warn', probe: 'Wi-Fi AP-ETG2 RSSI', msg: 'RSSI moyen -78 dBm < -75 dBm sur AP-ETG2 (10.182.122.104), revenu à -67 dBm.', resolved: true, acked: false },
+        { id: 'l8', time: "Aujourd'hui 07:12:55", sev: 'warn', probe: 'SW-CORE-01 température et PoE', msg: 'Température 46 °C > 45 °C, revenue à 41 °C.', resolved: true, acked: true, ackLabel: 'Accusé par Dany · 07:30' },
+        { id: 'l9', time: 'Hier 23:00:41', sev: 'crit', probe: 'Scan complet planifié', msg: 'Conflit IP sur 10.182.122.140 : deux MAC répondent (00:1A:2B:44:10:EE et 5C:F9:38:02:7A:41).', resolved: false, acked: true, ackLabel: 'Accusé par Dany · hier 23:05' }
+      ]
+    };
+  }
+
+  componentDidMount() {
+    this.timer = setInterval(() => {
+      const q = this.state.quick;
+      this.setState({ sec: this.state.sec + 1, quick: q > 0 && q < 100 ? Math.min(100, q + 12) : q });
+    }, 1000);
+  }
+
+  componentWillUnmount() {
+    clearInterval(this.timer);
+  }
+
+  upd(id, patch) {
+    this.setState({ probes: this.state.probes.map(x => x.id === id ? Object.assign({}, x, patch) : x) });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const props = this.props || {};
+    const accent = props.accent || '#2563EB';
+    const rh = props.compact ? 34 : 40;
+    const pad = n => (n < 10 ? '0' : '') + n;
+    const nowTime = () => { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
+    const ivLabel = { 10: '10 s', 30: '30 s', 60: '60 s', 300: '5 min', 900: '15 min', 3600: '1 h', 43200: '12 h' };
+
+    const gwLat = 1.1 + 0.35 * Math.sin(s.sec * 0.9) + 0.15 * Math.cos(s.sec * 2.3);
+    const gwLabel = gwLat.toFixed(1).replace('.', ',') + ' ms';
+    const lastOf = p => p.id === 'p1' ? gwLabel + ' · perte 0 %' : p.last;
+
+    const stDefs = {
+      ok: { label: 'OK', bg: '#DCFCE7', fg: '#15803D' },
+      alert: { label: 'En alerte', bg: '#FFEDD5', fg: '#C2410C' },
+      down: { label: 'Hors ligne', bg: '#FEE2E2', fg: '#B91C1C' },
+      paused: { label: 'Inactive', bg: '#F3F4F6', fg: '#4B5563' }
+    };
+    const eff = p => p.en ? p.state : 'paused';
+    const pill = st => 'font-size:11px; font-weight:600; padding:2px 8px; border-radius:10px; background:' + stDefs[st].bg + '; color:' + stDefs[st].fg + ';';
+
+    const probes = s.probes;
+    const nActive = probes.filter(p => p.en).length;
+    const nAlert = probes.filter(p => p.en && p.state === 'alert').length;
+    const nDown = probes.filter(p => p.en && p.state === 'down').length;
+    const nPaused = probes.length - nActive;
+
+    const q = (s.pq || '').trim().toLowerCase();
+    const filtered = probes.filter(p => {
+      if (s.pfilter !== 'all' && eff(p) !== s.pfilter) return false;
+      if (!q) return true;
+      return [p.name, p.target, p.sub, p.tl, p.kind].join(' ').toLowerCase().indexOf(q) >= 0;
+    });
+
+    const histCol = { g: '#15803D', o: '#C2410C', r: '#B91C1C', n: '#E5E7EB' };
+    const rows = filtered.map(p => {
+      const st = eff(p);
+      const selected = p.id === s.sel;
+      const reds = p.hist.filter(c => c === 'r').length;
+      const nones = p.hist.filter(c => c === 'n').length;
+      const up = nones === 24 ? null : ((24 - nones - reds) / (24 - nones)) * 100;
+      const upLabel = up === null ? '—' : up.toFixed(1).replace('.', ',') + ' %';
+      return {
+        id: p.id,
+        name: p.name,
+        tl: p.tl,
+        targetLabel: p.sub ? p.target + ' · ' + p.sub : (p.target || '[À COMPLÉTER]'),
+        ivText: ivLabel[p.iv] || p.iv + ' s',
+        cls: selected ? 'row sel' : 'row',
+        isSel: selected ? 'true' : 'false',
+        rowStyle: 'height:' + rh + 'px; border-bottom:1px solid #E5E7EB;' + (p.en ? '' : ' opacity:.62;'),
+        stLabel: stDefs[st].label,
+        stStyle: pill(st),
+        lastLabel: lastOf(p),
+        lastStyle: 'padding:0 8px; white-space:nowrap; font-family:JetBrains Mono, monospace; font-size:12px; color:' + (st === 'down' ? '#B91C1C' : (st === 'alert' ? '#C2410C' : '#111827')) + ';' + (st === 'down' || st === 'alert' ? ' font-weight:600;' : ''),
+        hist: p.hist.map(c => ({ style: 'display:block; width:4px; height:14px; border-radius:1px; background:' + (p.en ? histCol[c] : '#D1D5DB') + ';' })),
+        histAria: 'Disponibilité sur 24 h de ' + p.name + ' : ' + upLabel + (reds ? ', ' + reds + ' h hors ligne' : ''),
+        upLabel: upLabel,
+        enStr: p.en ? 'true' : 'false',
+        swAria: 'Sonde ' + p.name + ' active',
+        trackStyle: 'position:relative; display:block; width:30px; height:18px; border-radius:9px; border:0; padding:0; background:' + (p.en ? accent : '#9CA3AF') + ';',
+        knobStyle: 'position:absolute; top:2px; left:' + (p.en ? '14px' : '2px') + '; width:14px; height:14px; border-radius:50%; background:#FFFFFF; box-shadow:0 1px 2px rgba(15,23,42,.3);',
+        pick: () => this.setState({ sel: p.id, toast: '' }),
+        toggle: (e) => {
+          if (e && e.stopPropagation) e.stopPropagation();
+          this.upd(p.id, { en: !p.en });
+        }
+      };
+    });
+
+    const chipStyle = on => 'display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 10px; border-radius:14px; font:500 12px Inter, system-ui, sans-serif; ' + (on ? 'background:#EFF6FF; border:1px solid ' + accent + '; color:#1D4ED8;' : 'background:#FFFFFF; border:1px solid #E5E7EB; color:#111827;');
+    const pchipDefs = [
+      { id: 'all', label: 'Toutes', dot: '', n: probes.length },
+      { id: 'alert', label: 'En alerte', dot: '#C2410C', n: nAlert },
+      { id: 'down', label: 'Hors ligne', dot: '#B91C1C', n: nDown },
+      { id: 'paused', label: 'Inactives', dot: '#6B7280', n: nPaused }
+    ];
+    const pchips = pchipDefs.map(c => ({
+      label: c.label,
+      count: String(c.n),
+      on: s.pfilter === c.id ? 'true' : 'false',
+      style: chipStyle(s.pfilter === c.id),
+      dotStyle: c.dot ? 'width:7px; height:7px; border-radius:50%; background:' + c.dot + ';' : 'display:none;',
+      pick: () => this.setState({ pfilter: c.id })
+    }));
+
+    // Éditeur
+    const sel = probes.find(p => p.id === s.sel) || probes[0];
+    const id = sel ? sel.id : '';
+    const u = patch => this.upd(id, patch);
+    const est = sel ? eff(sel) : 'paused';
+    let nextLabel = 'Sonde inactive';
+    if (sel && sel.en) {
+      const left = sel.iv - (s.sec % sel.iv);
+      nextLabel = 'Prochaine vérif. ' + (left <= 90 ? left + ' s' : Math.ceil(left / 60) + ' min');
+    }
+    const fieldStyle = on => 'flex:1; min-width:0; height:28px; box-sizing:border-box; padding:0 8px; border:1px solid #E5E7EB; border-radius:6px; font:12px JetBrains Mono, monospace; color:#111827; background:' + (on ? '#FFFFFF' : '#F9FAFB') + ';';
+    const testCol = { ok: 'background:#DCFCE7; color:#15803D;', warn: 'background:#FFEDD5; color:#C2410C;', crit: 'background:#FEE2E2; color:#B91C1C;' };
+    const ed = sel ? {
+      name: sel.name,
+      kind: sel.kind,
+      iv: String(sel.iv),
+      target: sel.target,
+      cond: sel.cond,
+      lat: String(sel.lat),
+      loss: String(sel.loss),
+      fails: String(sel.fails),
+      hours: sel.hours,
+      dep: !!sel.dep,
+      aMac: !!sel.aMac,
+      aSound: !!sel.aSound,
+      aMail: !!sel.aMail,
+      aHook: !!sel.aHook,
+      aScript: !!sel.aScript,
+      mail: sel.mail,
+      hook: sel.hook,
+      script: sel.script,
+      mailStyle: fieldStyle(sel.aMail),
+      hookStyle: fieldStyle(sel.aHook),
+      scriptStyle: fieldStyle(sel.aScript),
+      stLabel: stDefs[est].label,
+      stStyle: pill(est),
+      nextLabel: nextLabel,
+      hasTest: !!sel.lastTest,
+      lastTest: sel.lastTest,
+      testStyle: 'font-size:12px; border-radius:6px; padding:6px 8px; ' + (testCol[sel.lastTestSev] || testCol.ok)
+    } : { name: '', hasTest: false };
+
+    const onTest = () => {
+      if (!sel) return;
+      const t = nowTime();
+      let sev = 'ok';
+      let msg = 'Test manuel réussi : ' + lastOf(sel) + '.';
+      if (sel.state === 'down') { sev = 'crit'; msg = 'Test manuel : échec, aucune réponse après ' + sel.fails + ' tentatives (délai 1 000 ms).'; }
+      else if (sel.state === 'alert') { sev = 'warn'; msg = 'Test manuel : condition toujours présente (' + lastOf(sel) + ').'; }
+      const entry = { id: 'l' + s.nextId, time: "Aujourd'hui " + t, sev: sev, probe: sel.name, msg: msg, resolved: false, acked: sev === 'ok', ackLabel: sev === 'ok' ? 'Aucune action requise' : '' };
+      this.setState({
+        nextId: s.nextId + 1,
+        log: [entry].concat(s.log),
+        jfilter: s.jfilter === 'res' ? 'all' : s.jfilter,
+        toast: '',
+        probes: probes.map(x => x.id === sel.id ? Object.assign({}, x, { lastTest: t + ' · ' + msg, lastTestSev: sev }) : x)
+      });
+    };
+
+    // Journal
+    const sevDefs = {
+      crit: { label: 'Critique', bg: '#FEE2E2', fg: '#B91C1C' },
+      warn: { label: 'Alerte', bg: '#FFEDD5', fg: '#C2410C' },
+      info: { label: 'Info', bg: '#F3F4F6', fg: '#374151' },
+      ok: { label: 'Réussi', bg: '#DCFCE7', fg: '#15803D' }
+    };
+    const log = s.log;
+    const jMatch = l => s.jfilter === 'crit' ? l.sev === 'crit' : (s.jfilter === 'res' ? !!l.resolved : true);
+    const ackNow = () => 'Accusé par Dany · ' + nowTime().slice(0, 5);
+    const logRows = log.filter(jMatch).map(l => ({
+      time: l.time,
+      probe: l.probe,
+      msg: l.msg,
+      sevLabel: sevDefs[l.sev].label,
+      sevStyle: 'font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; background:' + sevDefs[l.sev].bg + '; color:' + sevDefs[l.sev].fg + ';',
+      isResolved: !!l.resolved,
+      showAck: !l.acked,
+      showAcked: !!l.acked,
+      ackLabel: l.ackLabel || 'Accusé',
+      ack: () => this.setState({ log: s.log.map(x => x.id === l.id ? Object.assign({}, x, { acked: true, ackLabel: ackNow() }) : x) })
+    }));
+    const unack = log.filter(l => !l.acked).length;
+    const jchipDefs = [
+      { id: 'all', label: 'Toutes', n: log.length },
+      { id: 'crit', label: 'Critiques', n: log.filter(l => l.sev === 'crit').length },
+      { id: 'res', label: 'Résolues', n: log.filter(l => l.resolved).length }
+    ];
+    const jchips = jchipDefs.map(c => ({
+      label: c.label,
+      count: String(c.n),
+      on: s.jfilter === c.id ? 'true' : 'false',
+      style: chipStyle(s.jfilter === c.id),
+      pick: () => this.setState({ jfilter: c.id })
+    }));
+
+    // Barre de menus
+    const alerting = probes.filter(p => p.en && (p.state === 'alert' || p.state === 'down'));
+    const menuAlerts = alerting.slice(0, 4).map(p => ({
+      name: p.name,
+      detail: lastOf(p),
+      dotStyle: 'width:8px; height:8px; border-radius:50%; flex:none; background:' + (p.state === 'down' ? '#B91C1C' : '#C2410C') + ';'
+    }));
+    const netKey = nDown > 0 ? 'down' : (nAlert > 0 ? 'alert' : 'ok');
+    const netText = { down: 'Réseau dégradé', alert: 'Attention requise', ok: 'Réseau OK' };
+    const quick = s.quick;
+
+    const plural = (n, one, many) => n + ' ' + (n > 1 ? many : one);
+
+    return {
+      activeLabel: plural(nActive, 'sonde active', 'sondes actives'),
+      alertLabel: nAlert + ' en alerte',
+      downLabel: nDown + ' hors ligne',
+      alertPillStyle: 'font-weight:600; color:' + (nAlert ? '#C2410C' : '#4B5563') + ';',
+      downPillStyle: 'font-weight:600; color:' + (nDown ? '#B91C1C' : '#4B5563') + ';',
+      engineLabel: 'cycle ' + pad(Math.floor(s.sec / 60)) + ':' + pad(s.sec % 60),
+      pauseAllLabel: nActive > 0 ? 'Tout suspendre' : 'Tout reprendre',
+      onPauseAll: () => { const on = nActive === 0; this.setState({ probes: probes.map(p => Object.assign({}, p, { en: on })) }); },
+      onExport: () => this.setState({ toast: 'Journal exporté : alertes-2026-11-03.csv (' + log.length + ' entrées)' }),
+      primaryStyle: 'background:' + accent + ';',
+      onNew: () => {
+        const nid = 'n' + s.nextId;
+        const blank = [];
+        for (let i = 0; i < 24; i++) blank.push('n');
+        const np = { id: nid, name: 'Nouvelle sonde', tl: 'Ping', kind: 'Ping', target: '', sub: '', iv: 60, state: 'ok', last: 'En attente du premier test', hist: blank, en: true, lat: 50, loss: 5, fails: 3, hours: '24/7', dep: true, aMac: true, aSound: false, aMail: false, aHook: false, aScript: false, mail: '', hook: '', script: '', lastTest: '', lastTestSev: 'ok', cond: '' };
+        this.setState({ probes: probes.concat([np]), sel: nid, nextId: s.nextId + 1, pfilter: 'all', pq: '', toast: '' });
+      },
+      pchips: pchips,
+      pq: s.pq,
+      onPq: (e) => this.setState({ pq: e.target.value }),
+      rows: rows,
+      emptyProbes: rows.length === 0,
+      shownLabel: rows.length + ' affichées sur ' + probes.length + ' sondes',
+      ed: ed,
+      onName: (e) => u({ name: e.target.value }),
+      onKind: (e) => u({ kind: e.target.value }),
+      onIv: (e) => u({ iv: parseInt(e.target.value, 10) || 60 }),
+      onTarget: (e) => u({ target: e.target.value }),
+      onCond: (e) => u({ cond: e.target.value }),
+      onLat: (e) => u({ lat: e.target.value }),
+      onLoss: (e) => u({ loss: e.target.value }),
+      onFails: (e) => u({ fails: e.target.value }),
+      onHours: (e) => u({ hours: e.target.value }),
+      onDep: () => u({ dep: !(sel && sel.dep) }),
+      onAMac: () => u({ aMac: !(sel && sel.aMac) }),
+      onASound: () => u({ aSound: !(sel && sel.aSound) }),
+      onAMail: () => u({ aMail: !(sel && sel.aMail) }),
+      onAHook: () => u({ aHook: !(sel && sel.aHook) }),
+      onAScript: () => u({ aScript: !(sel && sel.aScript) }),
+      onMail: (e) => u({ mail: e.target.value }),
+      onHook: (e) => u({ hook: e.target.value }),
+      onScript: (e) => u({ script: e.target.value }),
+      onTest: onTest,
+      onSave: () => this.setState({ toast: sel ? 'Sonde « ' + sel.name + ' » enregistrée.' : '' }),
+      onDelete: () => {
+        if (!sel) return;
+        const rest = probes.filter(p => p.id !== sel.id);
+        this.setState({ probes: rest, sel: rest.length ? rest[0].id : '', toast: 'Sonde « ' + sel.name + ' » supprimée.' });
+      },
+      toast: s.toast,
+      hasToast: !!s.toast,
+      jchips: jchips,
+      logRows: logRows,
+      emptyLog: logRows.length === 0,
+      unackLabel: unack ? plural(unack, 'non accusée', 'non accusées') : 'Tout est accusé',
+      onAckAll: () => { const lbl = ackNow(); this.setState({ log: s.log.map(x => x.acked ? x : Object.assign({}, x, { acked: true, ackLabel: lbl })) }); },
+      alertsTotal: String(alerting.length),
+      alertsCountLabel: plural(alerting.length, 'alerte', 'alertes'),
+      menuAlerts: menuAlerts,
+      netLabel: netText[netKey],
+      netStyle: pill(netKey === 'down' ? 'down' : (netKey === 'alert' ? 'alert' : 'ok')),
+      gwLabel: gwLabel,
+      quick: String(quick),
+      quickOn: quick > 0,
+      quickBarStyle: 'height:5px; width:' + quick + '%; background:' + (quick >= 100 ? '#15803D' : accent) + ';',
+      quickLabel: quick >= 100 ? 'Terminé : 182 en ligne sur 10.182.122.0/24, aucun nouvel appareil.' : 'Scan rapide de 10.182.122.0/24… ' + quick + ' %',
+      quickBtnStyle: 'height:28px; font-size:12px; background:' + accent + ';',
+      onQuick: () => this.setState({ quick: 1 }),
+      notifShown: !s.notifHidden,
+      notifHidden: !!s.notifHidden,
+      onNotifOpen: () => this.setState({ sel: 'p2', pfilter: 'all', pq: '' }),
+      onNotifHide: () => this.setState({ notifHidden: true }),
+      onNotifShow: () => this.setState({ notifHidden: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

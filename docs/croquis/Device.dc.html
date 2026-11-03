@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Fiche appareil</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F4F6}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+.nav a{color:#E2E8F0;text-decoration:none}
+.nav a:hover{background:#1E293B;color:#FFFFFF}
+.btn:hover{background:#F9FAFB;border-color:#D1D5DB}
+.btn:focus-visible,.tab:focus-visible,.pbtn:focus-visible{outline:2px solid #2563EB;outline-offset:2px}
+.pbtn:hover{background:#1D4ED8 !important}
+.tab:hover{color:#111827 !important;background:#F9FAFB}
+.row:hover{background:#F9FAFB}
+.inp:focus{outline:2px solid #2563EB;outline-offset:-1px;border-color:#2563EB}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(21,128,61,.45)}70%{box-shadow:0 0 0 6px rgba(21,128,61,0)}100%{box-shadow:0 0 0 0 rgba(21,128,61,0)}}
+.live{animation:pulse 1.8s infinite}
+@media (max-width: 760px){.side{max-width:none !important;flex-basis:100% !important}}
+</style>
+</helmet>
+<div style="width:100%; min-height:1000px; display:flex; flex-wrap:wrap; font-family:Inter, system-ui, sans-serif; color:#111827; background:#F3F4F6; box-sizing:border-box; font-size:13px">
+
+  <aside class="side" style="flex:1 1 220px; max-width:220px; background:#0F172A; color:#E2E8F0; display:flex; flex-direction:column; padding:16px 12px; box-sizing:border-box; gap:20px">
+    <div style="display:flex; align-items:center; gap:10px; padding:4px 8px">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><path d="M12 12l6-6"></path><circle cx="12" cy="12" r="1.2"></circle></svg>
+      <span style="font-weight:700; font-size:15px; color:#FFFFFF">NetScope</span>
+    </div>
+    <nav class="nav" aria-label="Navigation principale" style="display:flex; flex-direction:column; gap:2px">
+      <span style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#94A3B8; font-weight:600; padding:0 10px 4px">Découverte</span>
+      <a href="Main.dc.html" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>Scanner</a>
+      <a href="Topologie.dc.html" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="2"></circle><circle cx="5" cy="19" r="2"></circle><circle cx="19" cy="19" r="2"></circle><path d="M12 7v5M12 12l-5.5 5.5M12 12l5.5 5.5"></path></svg>Carte du réseau</a>
+      <a href="Inventaire.dc.html" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h1M4 12h1M4 18h1"></path></svg>Inventaire</a>
+      <a href="Device.dc.html" aria-current="page" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px; background:#1E293B; color:#FFFFFF; font-weight:600">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path></svg>Appareil</a>
+      <span style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#94A3B8; font-weight:600; padding:8px 10px 4px">Diagnostic</span>
+      <a href="Ping.dc.html" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"></path></svg>Ping continu</a>
+      <a href="Switch.dc.html" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="2"></rect><path d="M7 12h1M11 12h1M15 12h1"></path></svg>Switchs et ports</a>
+      <a href="Wifi.dc.html" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9a15 15 0 0 1 20 0"></path><path d="M5.5 12.5a10 10 0 0 1 13 0"></path><path d="M9 16a5 5 0 0 1 6 0"></path><circle cx="12" cy="19.5" r="0.8"></circle></svg>Wi-Fi</a>
+      <a href="Toolbox.dc.html" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-2.5z"></path></svg>Outils</a>
+      <span style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#94A3B8; font-weight:600; padding:8px 10px 4px">Suivi</span>
+      <a href="Surveillance.dc.html" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>Surveillance<span style="margin-left:auto; min-width:18px; padding:1px 6px; border-radius:9px; background:#DC2626; color:#FFFFFF; font-size:11px; font-weight:600; text-align:center; box-sizing:border-box">3</span></a>
+      <a href="Analyse.dc.html" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>Analyse<span style="margin-left:auto; min-width:18px; padding:1px 6px; border-radius:9px; background:#334155; color:#FFFFFF; font-size:11px; font-weight:600; text-align:center; box-sizing:border-box">1</span></a>
+      <a href="Rapport.dc.html" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>Rapports</a>
+      <span style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#94A3B8; font-weight:600; padding:8px 10px 4px">Accès</span>
+      <a href="Remote.dc.html" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"></rect><path d="M7 9l3 2.5L7 14M12 14h5M9 21h6"></path></svg>Accès distant</a>
+      <a href="Speedtest.dc.html" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 18a9 9 0 1 1 15 0"></path><path d="M12 14l4-5"></path><circle cx="12" cy="14" r="1.2"></circle><path d="M6.5 12h1M12 6.5v1M16.5 12h1"></path></svg>Speedtest</a>
+      <a href="Reglages.dc.html" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px; margin-top:12px; border-top:1px solid #1E293B; border-top-left-radius:0; border-top-right-radius:0; padding-top:12px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"></path></svg>Réglages</a>
+    </nav>
+    <div style="border-top:1px solid #1E293B; padding:12px 8px 0; display:flex; flex-direction:column; gap:6px">
+      <span style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#CBD5E1; font-weight:600">Récents</span>
+      <span style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#FFFFFF">10.182.122.111</span>
+      <span style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#E2E8F0">10.182.122.102</span>
+      <span style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#E2E8F0">10.182.122.135</span>
+    </div>
+    <div style="margin-top:auto; padding:10px 8px; border-top:1px solid #1E293B; display:flex; flex-direction:column; gap:4px; font-size:12px">
+      <span style="display:flex; align-items:center; gap:6px"><span style="width:7px; height:7px; border-radius:50%; background:#22C55E"></span><span style="font-family:'JetBrains Mono', monospace">en0 · 10.182.122.135 · Wi-Fi</span></span>
+      <span style="color:#CBD5E1">Version 2.0.0 (maquette)</span>
+    </div>
+  </aside>
+
+  <main style="flex:999 1 560px; min-width:0; display:flex; flex-direction:column">
+    <header style="display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:12px 20px; background:#FFFFFF; border-bottom:1px solid #E5E7EB">
+      <nav aria-label="Fil d’Ariane" style="display:flex; align-items:center; gap:6px; font-size:13px">
+        <a href="Main.dc.html" style="text-decoration:none">Scanner</a>
+        <span style="color:#4B5563">/</span>
+        <h1 style="margin:0; font-size:15px; font-weight:600">Appareil</h1>
+      </nav>
+      <div style="flex:1 1 320px; display:flex; align-items:center; gap:8px; border:1px solid #E5E7EB; border-radius:6px; padding:0 10px; height:32px; background:#F9FAFB; color:#4B5563">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+        <input class="inp" type="search" aria-label="Recherche globale" placeholder="Rechercher IP, MAC, hostname, fabricant, port de switch…" value="{{q}}" onChange="{{onQ}}" style="flex:1; border:0; background:transparent; font:inherit; font-size:13px; color:#111827; min-width:0; height:30px">
+        <span style="font-family:'JetBrains Mono', monospace; font-size:11px; border:1px solid #E5E7EB; border-radius:4px; padding:1px 5px; background:#FFFFFF">⌘K</span>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
+        <button type="button" class="btn" aria-label="Appareil précédent" style="height:32px; width:32px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; display:flex; align-items:center; justify-content:center; cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+        <button type="button" class="btn" aria-label="Appareil suivant" style="height:32px; width:32px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; display:flex; align-items:center; justify-content:center; cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+        <button type="button" class="btn" style="height:32px; padding:0 12px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; font:inherit; font-size:13px; display:flex; align-items:center; gap:6px; cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>Exporter la fiche</button>
+      </div>
+    </header>
+
+    <div style="padding:16px 20px; display:flex; flex-direction:column; gap:14px">
+
+      <section aria-label="Identité de l’appareil" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start">
+          <div style="width:56px; height:56px; border-radius:8px; background:#EFF6FF; color:#2563EB; display:flex; align-items:center; justify-content:center; flex:none">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9V3h10v6"></path><rect x="3" y="9" width="18" height="8" rx="2"></rect><path d="M7 14h10v7H7z"></path><path d="M17 12h.01"></path></svg>
+          </div>
+          <div style="flex:1 1 360px; min-width:0; display:flex; flex-direction:column; gap:6px">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px">
+              <label for="devname" style="position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)">Nom personnalisé</label>
+              <input id="devname" class="inp" type="text" value="{{name}}" onChange="{{onName}}" style="font:inherit; font-size:20px; font-weight:700; color:#111827; border:1px dashed #D1D5DB; border-radius:6px; padding:2px 8px; min-width:0; width:260px; background:#FFFFFF">
+              <span style="display:inline-flex; align-items:center; gap:6px; background:#DCFCE7; color:#15803D; font-weight:600; font-size:12px; padding:3px 9px; border-radius:999px"><span class="live" style="width:7px; height:7px; border-radius:50%; background:#15803D"></span>En ligne · {{liveMs}} ms</span>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px 16px; color:#4B5563; font-size:13px">
+              <span>Hostname <span style="font-family:'JetBrains Mono', monospace; color:#111827">BRW94DDF818157D.local</span></span>
+              <span>IP <span style="font-family:'JetBrains Mono', monospace; color:#111827">10.182.122.111</span></span>
+              <span>MAC <span style="font-family:'JetBrains Mono', monospace; color:#111827">94:DD:F8:18:15:7D</span></span>
+              <span>Brother DCP-L2640DW</span>
+              <span>Vu il y a 4 s</span>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:2px">
+              <span style="font-size:12px; padding:2px 8px; border-radius:999px; background:#F3F4F6; border:1px solid #E5E7EB; color:#111827">Imprimante</span>
+              <span style="font-size:12px; padding:2px 8px; border-radius:999px; background:#EFF6FF; border:1px solid #BFDBFE; color:#1D4ED8; font-family:'JetBrains Mono', monospace">VLAN 30</span>
+              <button type="button" onClick="{{toggleFav}}" aria-pressed="{{favPressed}}" style="{{favStyle}}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"></path></svg>{{favLabel}}</button>
+              <button type="button" class="btn" style="font:inherit; font-size:12px; padding:2px 8px; border-radius:999px; background:#FFFFFF; border:1px dashed #D1D5DB; color:#4B5563; cursor:pointer">+ Étiquette</button>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; border-top:1px solid #E5E7EB; padding-top:12px">
+          <a href="Ping.dc.html" class="pbtn" style="{{primaryBtn}}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"></path></svg>Ping continu</a>
+          <button type="button" class="btn" style="height:32px; padding:0 12px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; font:inherit; font-size:13px; display:flex; align-items:center; gap:6px; cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="18" r="2"></circle><circle cx="19" cy="6" r="2"></circle><path d="M7 18h6a3 3 0 0 0 0-6h-2a3 3 0 0 1 0-6h6"></path></svg>Traceroute</button>
+          <button type="button" class="btn" style="height:32px; padding:0 12px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; font:inherit; font-size:13px; display:flex; align-items:center; gap:6px; cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M7 9h2M11 9h2M15 9h2M7 13h2M11 13h2"></path></svg>Scanner les ports</button>
+          <button type="button" class="btn" style="height:32px; padding:0 12px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; font:inherit; font-size:13px; display:flex; align-items:center; gap:6px; cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v9"></path><path d="M6.3 7.5a8 8 0 1 0 11.4 0"></path></svg>Wake-on-LAN</button>
+          <button type="button" class="btn" style="height:32px; padding:0 12px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; font:inherit; font-size:13px; display:flex; align-items:center; gap:6px; cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M15.5 8.5l-2 5-5 2 2-5z"></path></svg>Ouvrir dans Safari</button>
+          <button type="button" class="btn" style="height:32px; padding:0 12px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; font:inherit; font-size:13px; display:flex; align-items:center; gap:6px; cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M7 10l3 2-3 2M12 15h5"></path></svg>SSH</button>
+          <button type="button" class="btn" onClick="{{doCopy}}" style="height:32px; padding:0 12px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; font:inherit; font-size:13px; display:flex; align-items:center; gap:6px; cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"></rect><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"></path></svg>{{copyLabel}}</button>
+        </div>
+      </section>
+
+      <div role="tablist" aria-label="Sections de la fiche" style="display:flex; flex-wrap:wrap; gap:2px; border-bottom:1px solid #E5E7EB">
+        <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="6">
+          <button type="button" role="tab" class="tab" aria-selected="{{ tab.selected }}" onClick="{{ tab.pick }}" style="{{ tab.style }}">{{ tab.label }}<span style="{{ tab.countStyle }}">{{ tab.count }}</span></button>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ isApercu }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:14px">
+
+          <section style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px 16px">
+            <h2 style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600; display:flex; align-items:center; gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path></svg>Réseau</h2>
+            <dl style="margin:0; display:grid; grid-template-columns:auto 1fr; gap:0 12px">
+              <sc-for list="{{ netRows }}" as="r" hint-placeholder-count="7">
+                <dt style="{{ r.dtStyle }}">{{ r.k }}</dt>
+                <dd style="{{ r.ddStyle }}">{{ r.v }}</dd>
+              </sc-for>
+            </dl>
+          </section>
+
+          <section style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px 16px">
+            <h2 style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600; display:flex; align-items:center; gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"></rect><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"></path></svg>Matériel</h2>
+            <dl style="margin:0; display:grid; grid-template-columns:auto 1fr; gap:0 12px">
+              <sc-for list="{{ hwRows }}" as="r" hint-placeholder-count="6">
+                <dt style="{{ r.dtStyle }}">{{ r.k }}</dt>
+                <dd style="{{ r.ddStyle }}">{{ r.v }}</dd>
+              </sc-for>
+            </dl>
+          </section>
+
+          <section style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px 16px; display:flex; flex-direction:column; gap:10px">
+            <h2 style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600; display:flex; align-items:center; gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="2"></rect><path d="M7 12h1M11 12h1M15 12h1"></path></svg>Emplacement physique</h2>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12px">
+              <span style="border:1px solid #E5E7EB; border-radius:6px; padding:6px 8px; background:#F9FAFB"><span style="display:block; font-weight:600">SW-CORE-01</span><span style="font-family:'JetBrains Mono', monospace; color:#4B5563">10.182.122.2</span></span>
+              <span style="color:#4B5563; font-family:'JetBrains Mono', monospace; font-size:11px">Gi1/0/48 ─ 49</span>
+              <span style="border:1px solid #2563EB; border-radius:6px; padding:6px 8px; background:#EFF6FF"><span style="display:block; font-weight:600">SW-ETG2-01</span><span style="font-family:'JetBrains Mono', monospace; color:#1D4ED8">port 1/14</span></span>
+              <span style="color:#4B5563">─</span>
+              <span style="border:1px solid #E5E7EB; border-radius:6px; padding:6px 8px"><span style="display:block; font-weight:600">DCP-L2640DW</span><span style="font-family:'JetBrains Mono', monospace; color:#4B5563">.111</span></span>
+            </div>
+            <div role="img" aria-label="Façade du switch SW-ETG2-01, 24 ports, port 1/14 mis en évidence" style="display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:3px; background:#0F172A; padding:6px; border-radius:6px">
+              <sc-for list="{{ swPorts }}" as="p" hint-placeholder-count="24">
+                <span style="{{ p.style }}">{{ p.n }}</span>
+              </sc-for>
+            </div>
+            <dl style="margin:0; display:grid; grid-template-columns:auto 1fr; gap:0 12px">
+              <sc-for list="{{ locRows }}" as="r" hint-placeholder-count="6">
+                <dt style="{{ r.dtStyle }}">{{ r.k }}</dt>
+                <dd style="{{ r.ddStyle }}">{{ r.v }}</dd>
+              </sc-for>
+            </dl>
+            <a href="Switch.dc.html" style="font-size:12px; text-decoration:none">Voir le port dans Switchs et ports →</a>
+          </section>
+
+          <section style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px 16px; display:flex; flex-direction:column; gap:10px">
+            <h2 style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600; display:flex; align-items:center; gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Disponibilité</h2>
+            <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px">
+              <div style="background:#F9FAFB; border:1px solid #E5E7EB; border-radius:6px; padding:8px"><div style="font-size:11px; color:#4B5563">Uptime (SNMP)</div><div style="font-family:'JetBrains Mono', monospace; font-weight:600; font-size:14px">12 j 4 h 37 min</div></div>
+              <div style="background:#F9FAFB; border:1px solid #E5E7EB; border-radius:6px; padding:8px"><div style="font-size:11px; color:#4B5563">Latence moy.</div><div style="font-family:'JetBrains Mono', monospace; font-weight:600; font-size:14px">2,1 ms</div></div>
+              <div style="background:#F9FAFB; border:1px solid #E5E7EB; border-radius:6px; padding:8px"><div style="font-size:11px; color:#4B5563">Dispo. 24 h</div><div style="font-family:'JetBrains Mono', monospace; font-weight:600; font-size:14px">98,4 %</div></div>
+            </div>
+            <div role="img" aria-label="Disponibilité sur 24 heures : en ligne toute la journée sauf 23 minutes hors ligne vers 14 h" style="display:flex; align-items:flex-end; gap:3px; height:64px; border-bottom:1px solid #E5E7EB; padding-bottom:2px">
+              <sc-for list="{{ availBars }}" as="b" hint-placeholder-count="24">
+                <span title="{{ b.title }}" style="{{ b.style }}"></span>
+              </sc-for>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-family:'JetBrains Mono', monospace; font-size:11px; color:#4B5563"><span>hier 11:00</span><span>17:00</span><span>23:00</span><span>05:00</span><span>maintenant</span></div>
+            <div style="display:flex; gap:14px; font-size:12px; color:#4B5563; flex-wrap:wrap">
+              <span style="display:flex; align-items:center; gap:5px"><span style="width:10px; height:10px; background:#15803D; border-radius:2px"></span>En ligne</span>
+              <span style="display:flex; align-items:center; gap:5px"><span style="width:10px; height:10px; background:#C2410C; border-radius:2px"></span>Partielle</span>
+              <span style="display:flex; align-items:center; gap:5px">Perte de paquets 0,2 % · gigue 0,4 ms</span>
+            </div>
+          </section>
+
+          <section style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px 16px; grid-column:1 / -1; min-width:0">
+            <h2 style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600; display:flex; align-items:center; gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3a9 9 0 0 0-9 9M12 7a5 5 0 0 0-5 5c0 3 1 5 2 7M12 11v3c0 3 1 5 2 6M17 12a5 5 0 0 0-5-5M21 12a9 9 0 0 0-9-9M17 14c0 2-.5 4-1 5"></path></svg>Détection OS / type</h2>
+            <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px">
+              <span style="font-weight:600">Imprimante multifonction réseau</span>
+              <span style="font-size:12px; background:#DCFCE7; color:#15803D; padding:2px 8px; border-radius:999px; font-weight:600">Confiance 96 %</span>
+              <span style="font-size:12px; color:#4B5563">4 sources concordantes</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:8px">
+              <sc-for list="{{ osRows }}" as="o" hint-placeholder-count="4">
+                <div style="border:1px solid #E5E7EB; border-radius:6px; padding:8px 10px; display:flex; flex-direction:column; gap:3px">
+                  <span style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#4B5563; font-weight:600">{{ o.src }}</span>
+                  <span style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#111827; word-break:break-all">{{ o.val }}</span>
+                  <span style="font-size:12px; color:#4B5563">{{ o.note }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isPorts }}" hint-placeholder-val="{{ false }}">
+        <section style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px">
+          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:12px 16px; border-bottom:1px solid #E5E7EB">
+            <h2 style="margin:0; font-size:14px; font-weight:600">6 ports ouverts</h2>
+            <span style="font-size:12px; color:#4B5563">Dernier scan : aujourd’hui 09:42 · TCP 1–65535 + 100 UDP courants · 38 s</span>
+            <span style="flex:1"></span>
+            <button type="button" class="btn" style="height:30px; padding:0 10px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; font:inherit; font-size:12px; cursor:pointer">Exporter CSV</button>
+            <button type="button" class="pbtn" style="{{primaryBtnSm}}">Relancer le scan</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%; border-collapse:collapse; font-size:12.5px; min-width:760px">
+              <thead>
+                <tr style="background:#F9FAFB; text-align:left">
+                  <th scope="col" style="padding:8px 16px; font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; border-bottom:1px solid #E5E7EB">Port</th>
+                  <th scope="col" style="padding:8px; font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; border-bottom:1px solid #E5E7EB">Proto</th>
+                  <th scope="col" style="padding:8px; font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; border-bottom:1px solid #E5E7EB">Service</th>
+                  <th scope="col" style="padding:8px; font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; border-bottom:1px solid #E5E7EB">Version</th>
+                  <th scope="col" style="padding:8px; font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; border-bottom:1px solid #E5E7EB">Bannière</th>
+                  <th scope="col" style="padding:8px; font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; border-bottom:1px solid #E5E7EB">Délai</th>
+                  <th scope="col" style="padding:8px 16px; font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; border-bottom:1px solid #E5E7EB; text-align:right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ ports }}" as="p" hint-placeholder-count="6">
+                  <tr class="row" style="{{ p.rowStyle }}">
+                    <td style="padding:0 16px; font-family:'JetBrains Mono', monospace; font-weight:600">{{ p.port }}</td>
+                    <td style="padding:0 8px; font-family:'JetBrains Mono', monospace">{{ p.proto }}</td>
+                    <td style="padding:0 8px"><span style="{{ p.svcStyle }}">{{ p.svc }}</span></td>
+                    <td style="padding:0 8px; color:#111827">{{ p.ver }}</td>
+                    <td style="padding:0 8px; font-family:'JetBrains Mono', monospace; color:#4B5563; font-size:11.5px">{{ p.banner }}</td>
+                    <td style="padding:0 8px; font-family:'JetBrains Mono', monospace">{{ p.rtt }}</td>
+                    <td style="padding:0 16px; text-align:right">
+                      <sc-if value="{{ p.openable }}" hint-placeholder-val="{{ true }}">
+                        <button type="button" class="btn" style="height:26px; padding:0 10px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#2563EB; font:inherit; font-size:12px; font-weight:500; cursor:pointer">Ouvrir</button>
+                      </sc-if>
+                      <sc-if value="{{ p.notOpenable }}" hint-placeholder-val="{{ false }}">
+                        <span style="font-size:12px; color:#4B5563">{{ p.alt }}</span>
+                      </sc-if>
+                    </td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:10px; padding:12px 16px; border-top:1px solid #E5E7EB; font-size:12px; color:#4B5563">
+            <span style="background:#FFEDD5; color:#C2410C; padding:2px 8px; border-radius:999px; font-weight:600">À vérifier</span>
+            <span>SNMP v2c répond à la communauté par défaut « public ». Envisager SNMPv3 ou une communauté propre.</span>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ isWeb }}" hint-placeholder-val="{{ false }}">
+        <section style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px 16px; display:flex; flex-direction:column; gap:12px">
+          <div style="display:flex; gap:10px; align-items:flex-start; background:#FFEDD5; color:#9A3412; border-radius:6px; padding:10px 12px; font-size:12.5px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none; margin-top:1px"><path d="M12 3l10 18H2z"></path><path d="M12 10v5M12 18h.01"></path></svg>
+            <span><strong>Certificat auto-signé.</strong> Émis par « Brother Industries, Ltd. » pour BRW94DDF818157D, valide jusqu’au 2045-06-30, SHA-256 2A:91:7C:…:E4. Non approuvé par le trousseau macOS.</span>
+          </div>
+          <div style="border:1px solid #E5E7EB; border-radius:8px; overflow:hidden">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px 10px; background:#F3F4F6; border-bottom:1px solid #E5E7EB">
+              <span style="display:flex; gap:5px"><span style="width:10px; height:10px; border-radius:50%; background:#D1D5DB"></span><span style="width:10px; height:10px; border-radius:50%; background:#D1D5DB"></span><span style="width:10px; height:10px; border-radius:50%; background:#D1D5DB"></span></span>
+              <div style="flex:1 1 240px; display:flex; align-items:center; gap:6px; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:6px; height:28px; padding:0 10px; font-family:'JetBrains Mono', monospace; font-size:12px">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C2410C" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0"></path><path d="M4 4l16 16"></path></svg>
+                <span style="color:#C2410C">https</span><span>://10.182.122.111/general/status.html</span>
+              </div>
+              <button type="button" class="btn" aria-label="Recharger l’aperçu" style="height:28px; width:28px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; display:flex; align-items:center; justify-content:center; cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"></path></svg></button>
+              <button type="button" class="pbtn" style="{{primaryBtnSm}}">Ouvrir dans Safari</button>
+            </div>
+            <div aria-label="Aperçu dessiné de la page web de l’imprimante" style="display:flex; flex-wrap:wrap; min-height:360px; background:#FFFFFF">
+              <div style="flex:1 1 180px; max-width:200px; background:#F8FAFC; border-right:1px solid #E5E7EB; padding:12px; display:flex; flex-direction:column; gap:4px; font-size:12px">
+                <span style="font-weight:700; color:#0F172A; font-size:13px; margin-bottom:6px">brother</span>
+                <span style="padding:5px 8px; border-radius:4px; background:#E0E7FF; color:#1E3A8A; font-weight:600">État</span>
+                <span style="padding:5px 8px; color:#374151">Notification d’état</span>
+                <span style="padding:5px 8px; color:#374151">Rapport</span>
+                <span style="padding:5px 8px; color:#374151">Paramètres réseau</span>
+                <span style="padding:5px 8px; color:#374151">Sécurité</span>
+                <span style="padding:5px 8px; color:#374151">Administrateur</span>
+              </div>
+              <div style="flex:1 1 360px; padding:16px 20px; display:flex; flex-direction:column; gap:14px">
+                <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; border-bottom:2px solid #1E3A8A; padding-bottom:8px">
+                  <span style="font-size:16px; font-weight:700; color:#1E3A8A">DCP-L2640DW · État</span>
+                  <span style="font-size:12px; color:#4B5563">BRW94DDF818157D</span>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; font-size:12.5px">
+                  <div><div style="color:#4B5563; font-size:11px">État de l’appareil</div><div style="font-weight:600; color:#15803D">Prêt</div></div>
+                  <div><div style="color:#4B5563; font-size:11px">Rafraîchissement auto</div><div style="font-weight:600">Désactivé</div></div>
+                  <div><div style="color:#4B5563; font-size:11px">Format papier (bac)</div><div style="font-weight:600">Lettre · 112 feuilles</div></div>
+                  <div><div style="color:#4B5563; font-size:11px">Pages imprimées</div><div style="font-weight:600; font-family:'JetBrains Mono', monospace">8 431</div></div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px">
+                  <span style="font-size:12px; font-weight:600">Niveau de toner</span>
+                  <div style="display:flex; align-items:center; gap:10px">
+                    <span style="font-family:'JetBrains Mono', monospace; font-size:12px; width:24px">BK</span>
+                    <div role="img" aria-label="Toner noir à 35 pour cent" style="flex:1; height:14px; background:#F3F4F6; border:1px solid #D1D5DB; border-radius:3px; overflow:hidden"><div style="width:35%; height:12px; background:#111827"></div></div>
+                    <span style="font-family:'JetBrains Mono', monospace; font-size:12px">35 %</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:10px">
+                    <span style="font-family:'JetBrains Mono', monospace; font-size:12px; width:24px">DR</span>
+                    <div role="img" aria-label="Tambour à 72 pour cent de durée restante" style="flex:1; height:14px; background:#F3F4F6; border:1px solid #D1D5DB; border-radius:3px; overflow:hidden"><div style="width:72%; height:12px; background:#4B5563"></div></div>
+                    <span style="font-family:'JetBrains Mono', monospace; font-size:12px">72 %</span>
+                  </div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:4px; font-size:12px">
+                  <span style="font-weight:600">Emplacement du périphérique</span>
+                  <span style="color:#4B5563">Contact : TI · Emplacement : Accueil, 2e étage</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:16px; font-size:12px; color:#4B5563">
+            <span>Serveur : <span style="font-family:'JetBrains Mono', monospace; color:#111827">debut/1.30</span></span>
+            <span>Titre HTML : <span style="color:#111827">Brother DCP-L2640DW series</span></span>
+            <span>HTTP 80 → redirection 301 vers HTTPS</span>
+            <span>Capture : il y a 6 min</span>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ isSnmp }}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:14px">
+          <section style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px 16px">
+            <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px">
+              <h2 style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Système (MIB-II)</h2>
+              <span style="font-size:12px; font-family:'JetBrains Mono', monospace; background:#F3F4F6; border:1px solid #E5E7EB; padding:1px 6px; border-radius:4px">v2c · public · 161/udp</span>
+              <span style="flex:1"></span>
+              <button type="button" class="btn" style="height:28px; padding:0 10px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; font:inherit; font-size:12px; cursor:pointer">Parcourir (walk)</button>
+            </div>
+            <div style="display:flex; flex-direction:column">
+              <sc-for list="{{ snmpRows }}" as="s" hint-placeholder-count="7">
+                <div class="row" style="display:grid; grid-template-columns:120px 1fr; gap:10px; padding:7px 0; border-bottom:1px solid #F3F4F6; align-items:baseline">
+                  <span style="display:flex; flex-direction:column"><span style="font-weight:600; font-size:12.5px">{{ s.k }}</span><span style="font-family:'JetBrains Mono', monospace; font-size:10.5px; color:#4B5563">{{ s.oid }}</span></span>
+                  <span style="font-family:'JetBrains Mono', monospace; font-size:12px; word-break:break-word">{{ s.v }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+          <div style="display:flex; flex-direction:column; gap:14px; min-width:0">
+            <section style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px 16px">
+              <h2 style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Consommables (Printer-MIB)</h2>
+              <div style="display:flex; flex-direction:column; gap:10px">
+                <sc-for list="{{ supplies }}" as="c" hint-placeholder-count="2">
+                  <div style="display:flex; flex-direction:column; gap:4px">
+                    <div style="display:flex; justify-content:space-between; font-size:12.5px"><span style="font-weight:600">{{ c.name }}</span><span style="font-family:'JetBrains Mono', monospace">{{ c.pct }}</span></div>
+                    <div style="height:10px; background:#F3F4F6; border-radius:3px; overflow:hidden"><div style="{{ c.barStyle }}"></div></div>
+                    <span style="font-size:11.5px; color:#4B5563">{{ c.note }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </section>
+            <section style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; min-width:0">
+              <h2 style="margin:0; padding:12px 16px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600; border-bottom:1px solid #E5E7EB">ifTable (résumé)</h2>
+              <div style="overflow-x:auto">
+                <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:460px">
+                  <thead><tr style="text-align:left; background:#F9FAFB">
+                    <th scope="col" style="padding:6px 16px; font-size:11px; color:#4B5563; text-transform:uppercase">ifIndex</th>
+                    <th scope="col" style="padding:6px 8px; font-size:11px; color:#4B5563; text-transform:uppercase">ifDescr</th>
+                    <th scope="col" style="padding:6px 8px; font-size:11px; color:#4B5563; text-transform:uppercase">Vitesse</th>
+                    <th scope="col" style="padding:6px 8px; font-size:11px; color:#4B5563; text-transform:uppercase">État</th>
+                    <th scope="col" style="padding:6px 16px; font-size:11px; color:#4B5563; text-transform:uppercase">In / Out</th>
+                  </tr></thead>
+                  <tbody>
+                    <sc-for list="{{ ifRows }}" as="i" hint-placeholder-count="3">
+                      <tr style="border-top:1px solid #F3F4F6; height:32px">
+                        <td style="padding:0 16px; font-family:'JetBrains Mono', monospace">{{ i.idx }}</td>
+                        <td style="padding:0 8px; font-family:'JetBrains Mono', monospace">{{ i.descr }}</td>
+                        <td style="padding:0 8px; font-family:'JetBrains Mono', monospace">{{ i.speed }}</td>
+                        <td style="padding:0 8px"><span style="{{ i.stStyle }}">{{ i.st }}</span></td>
+                        <td style="padding:0 16px; font-family:'JetBrains Mono', monospace">{{ i.io }}</td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isHist }}" hint-placeholder-val="{{ false }}">
+        <section style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px 16px">
+          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px">
+            <h2 style="margin:0; font-size:14px; font-weight:600">Chronologie</h2>
+            <span style="font-size:12px; color:#4B5563">Suivi depuis le 2026-03-18 · 7 événements</span>
+            <span style="flex:1"></span>
+            <button type="button" class="btn" style="height:28px; padding:0 10px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; font:inherit; font-size:12px; cursor:pointer">Exporter JSON</button>
+          </div>
+          <ol style="list-style:none; margin:0; padding:0; display:flex; flex-direction:column">
+            <sc-for list="{{ history }}" as="h" hint-placeholder-count="7">
+              <li style="display:grid; grid-template-columns:150px 22px 1fr; gap:10px; align-items:start">
+                <span style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#4B5563; padding-top:2px">{{ h.when }}</span>
+                <span style="display:flex; flex-direction:column; align-items:center; align-self:stretch"><span style="{{ h.dotStyle }}"></span><span style="flex:1; width:1px; background:#E5E7EB; min-height:28px"></span></span>
+                <span style="display:flex; flex-direction:column; gap:2px; padding-bottom:14px">
+                  <span style="display:flex; gap:8px; align-items:center; flex-wrap:wrap"><span style="font-weight:600">{{ h.title }}</span><span style="{{ h.tagStyle }}">{{ h.tag }}</span></span>
+                  <span style="font-size:12.5px; color:#4B5563; font-family:'JetBrains Mono', monospace">{{ h.detail }}</span>
+                </span>
+              </li>
+            </sc-for>
+          </ol>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ isNotes }}" hint-placeholder-val="{{ false }}">
+        <section style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px 16px; display:flex; flex-direction:column; gap:10px">
+          <label for="notes" style="font-size:14px; font-weight:600">Notes du technicien</label>
+          <textarea id="notes" class="inp" value="{{notes}}" onChange="{{onNotes}}" rows="10" style="font:inherit; font-size:13px; line-height:1.5; border:1px solid #E5E7EB; border-radius:6px; padding:10px 12px; resize:vertical; color:#111827; min-height:200px"></textarea>
+          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; font-size:12px; color:#4B5563">
+            <span>{{notesCount}} caractères · enregistré localement</span>
+            <span style="flex:1"></span>
+            <button type="button" class="btn" style="height:30px; padding:0 10px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; font:inherit; font-size:12px; cursor:pointer">Ajouter l’horodatage</button>
+            <button type="button" class="pbtn" style="{{primaryBtnSm}}">Enregistrer</button>
+          </div>
+        </section>
+      </sc-if>
+
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000},"compact":false,"accent":"#2563EB"}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      tab: 'apercu',
+      q: '',
+      name: 'Imprimante accueil',
+      fav: true,
+      copied: false,
+      liveMs: '2,1',
+      notes: "2026-10-14 — Toner BK remplacé (TN-2620). Prochain prévu vers janvier.\n2026-09-02 — Déplacée du 1er étage vers l'accueil (2e). Nouveau câble vers SW-ETG2-01 port 1/14, VLAN 30.\nRéservation DHCP créée sur le FortiGate-60F pour 94:DD:F8:18:15:7D.\nÀ faire : passer SNMP en v3 et désactiver la communauté public."
+    };
+  }
+  componentDidMount() {
+    this.timer = setInterval(() => {
+      const v = (1.6 + Math.random() * 1.1).toFixed(1).replace('.', ',');
+      this.setState({ liveMs: v });
+    }, 1000);
+  }
+  componentWillUnmount() { clearInterval(this.timer); clearTimeout(this.copyTimer); }
+
+  renderVals() {
+    const s = this.state;
+    const p = this.props || {};
+    const accent = p.accent || '#2563EB';
+    const compact = !!p.compact;
+    const rowH = compact ? 30 : 34;
+    const mono = "font-family:'JetBrains Mono', monospace;";
+
+    const tabDefs = [
+      { id: 'apercu', label: 'Aperçu', count: '' },
+      { id: 'ports', label: 'Ports et services', count: '6' },
+      { id: 'web', label: 'Web', count: '' },
+      { id: 'snmp', label: 'SNMP', count: '' },
+      { id: 'hist', label: 'Historique', count: '7' },
+      { id: 'notes', label: 'Notes', count: '' }
+    ];
+    const tabs = tabDefs.map(t => {
+      const sel = s.tab === t.id;
+      return {
+        ...t,
+        selected: sel ? 'true' : 'false',
+        pick: () => this.setState({ tab: t.id }),
+        style: 'font:inherit; font-size:13px; font-weight:' + (sel ? '600' : '500') + '; color:' + (sel ? '#111827' : '#4B5563') + '; background:transparent; border:0; border-bottom:2px solid ' + (sel ? accent : 'transparent') + '; padding:9px 12px; margin-bottom:-1px; cursor:pointer; display:flex; align-items:center; gap:6px; border-radius:6px 6px 0 0',
+        countStyle: t.count ? 'font-size:11px; ' + mono + ' background:#F3F4F6; border:1px solid #E5E7EB; color:#4B5563; padding:0 5px; border-radius:999px' : 'display:none'
+      };
+    });
+
+    const rowDt = 'font-size:12px; color:#4B5563; padding:5px 0; border-bottom:1px solid #F3F4F6';
+    const rowDd = 'margin:0; font-size:12.5px; ' + mono + ' padding:5px 0; border-bottom:1px solid #F3F4F6; text-align:right; word-break:break-all';
+
+    const netRows = [
+      { k: 'Adresse IPv4', v: '10.182.122.111' },
+      { k: 'Masque', v: '255.255.255.0 (/24)' },
+      { k: 'Passerelle', v: '10.182.122.1 · FortiGate-60F' },
+      { k: 'DNS', v: '10.182.122.1, 1.1.1.1' },
+      { k: 'Attribution', v: 'DHCP (réservation) · bail 23 h 12 min' },
+      { k: 'IPv6 lien local', v: 'fe80::96dd:f8ff:fe18:157d' },
+      { k: 'Domaine / mDNS', v: 'BRW94DDF818157D.local' }
+    ];
+    const hwRows = [
+      { k: 'MAC', v: '94:DD:F8:18:15:7D', ddStyle: rowDd },
+      { k: 'Fabricant (OUI)', v: 'Brother Industries, Ltd. · 94:DD:F8', ddStyle: rowDd },
+      { k: 'Modèle', v: 'DCP-L2640DW', ddStyle: rowDd },
+      { k: 'Numéro de série', v: 'E78415K4N203117', ddStyle: rowDd },
+      { k: 'Firmware', v: 'Main 1.07 · Sub 1.03', ddStyle: rowDd },
+      { k: 'Carte réseau', v: '10/100/1000BASE-T + Wi-Fi 2,4 GHz (désactivé)', ddStyle: rowDd }
+    ];
+    const locRows = [
+      { k: 'Switch', v: 'SW-ETG2-01 · Aruba 2930F-24G' },
+      { k: 'Port', v: '1/14' },
+      { k: 'VLAN', v: '30 (non étiqueté)' },
+      { k: 'Lien', v: '1 Gb/s full duplex' },
+      { k: 'PoE', v: 'non' },
+      { k: 'Source', v: 'LLDP · confirmé table MAC SNMP' }
+    ];
+    const kv = (r) => ({ ...r, dtStyle: rowDt, ddStyle: r.ddStyle || rowDd });
+    const swPorts = [];
+    for (let i = 1; i <= 24; i++) {
+      const target = i === 14;
+      const up = [1, 2, 3, 5, 6, 8, 9, 11, 14, 15, 17, 18, 20, 22, 24].indexOf(i) >= 0;
+      const bg = target ? accent : (up ? '#15803D' : '#334155');
+      swPorts.push({
+        n: String(i),
+        style: 'height:20px; border-radius:3px; background:' + bg + '; color:#FFFFFF; font-size:9.5px; ' + mono + ' display:flex; align-items:center; justify-content:center;' + (target ? ' outline:2px solid #FFFFFF; outline-offset:-2px; font-weight:700' : '')
+      });
+    }
+    const availBars = [];
+    const hours = ['11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10'];
+    hours.forEach((h, i) => {
+      const partial = i === 3;
+      const hpx = partial ? 37 : 60;
+      availBars.push({
+        title: h + ':00 · ' + (partial ? '62 % (hors ligne 23 min)' : '100 %'),
+        style: 'flex:1; height:' + hpx + 'px; min-height:4px; background:' + (partial ? '#C2410C' : '#15803D') + '; border-radius:2px 2px 0 0'
+      });
+    });
+    const osRows = [
+      { src: 'Empreinte TCP/IP', val: 'TTL 64 · fenêtre 5840 · MSS 1460', note: 'Pile embarquée Brother (proche Linux 2.6)' },
+      { src: 'mDNS / Bonjour', val: '_ipp._tcp · _ipps._tcp · _pdl-datastream._tcp', note: 'ty=Brother DCP-L2640DW series' },
+      { src: 'NetBIOS', val: 'BRW94DDF818157D <00> · WORKGROUP', note: 'Réponse nbstat 137/udp' },
+      { src: 'SSDP / UPnP', val: 'urn:schemas-upnp-org:device:Printer:1', note: 'Server: debut/1.30 UPnP/1.0' }
+    ];
+
+    const portDefs = [
+      { port: '80', proto: 'tcp', svc: 'http', ver: 'Brother embedded web server', banner: 'Server: debut/1.30 · 301 → https', rtt: '1,8 ms', openable: true },
+      { port: '443', proto: 'tcp', svc: 'https', ver: 'debut/1.30 · TLS 1.2', banner: 'CN=BRW94DDF818157D (auto-signé)', rtt: '2,0 ms', openable: true },
+      { port: '631', proto: 'tcp', svc: 'ipp', ver: 'IPP 2.0 · AirPrint', banner: 'printer-make-and-model: Brother DCP-L2640DW', rtt: '2,2 ms', openable: true },
+      { port: '9100', proto: 'tcp', svc: 'jetdirect', ver: 'Raw / PDL datastream', banner: '@PJL INFO ID → "Brother DCP-L2640DW"', rtt: '1,9 ms', openable: false, alt: 'Envoi brut' },
+      { port: '161', proto: 'udp', svc: 'snmp', ver: 'SNMP v1/v2c', banner: 'community public · sysObjectID 1.3.6.1.4.1.2435', rtt: '3,1 ms', openable: false, alt: 'Onglet SNMP' },
+      { port: '5353', proto: 'udp', svc: 'mdns', ver: 'Bonjour', banner: '_ipp._tcp.local · _http._tcp.local', rtt: '2,4 ms', openable: false, alt: 'Diffusion' }
+    ];
+    const ports = portDefs.map(x => ({
+      ...x,
+      notOpenable: !x.openable,
+      alt: x.alt || '',
+      rowStyle: 'height:' + rowH + 'px; border-top:1px solid #F3F4F6',
+      svcStyle: mono + ' font-size:12px; padding:1px 7px; border-radius:4px; background:' + (x.svc === 'snmp' ? '#FFEDD5' : '#EFF6FF') + '; color:' + (x.svc === 'snmp' ? '#C2410C' : '#1D4ED8')
+    }));
+
+    const snmpRows = [
+      { k: 'sysName', oid: '1.3.6.1.2.1.1.5.0', v: 'BRW94DDF818157D' },
+      { k: 'sysDescr', oid: '1.3.6.1.2.1.1.1.0', v: 'Brother NC-8300w, Firmware Ver.1.07  (24.05.21),MID 8CE-H13,FID 2' },
+      { k: 'sysObjectID', oid: '1.3.6.1.2.1.1.2.0', v: '1.3.6.1.4.1.2435.2.3.9.1' },
+      { k: 'sysLocation', oid: '1.3.6.1.2.1.1.6.0', v: 'Accueil, 2e étage' },
+      { k: 'sysContact', oid: '1.3.6.1.2.1.1.4.0', v: 'TI · poste 2210' },
+      { k: 'sysUpTime', oid: '1.3.6.1.2.1.1.3.0', v: '105222800 (12 j 4:17:08)' },
+      { k: 'prtGeneralSerialNumber', oid: '1.3.6.1.2.1.43.5.1.1.17.1', v: 'E78415K4N203117' }
+    ];
+    const supplies = [
+      { name: 'Toner noir (BK) · TN-2620', pct: '35 %', note: 'prtMarkerSuppliesLevel 35 / 100 · environ 1 050 pages restantes', barStyle: 'width:35%; height:10px; background:#111827' },
+      { name: 'Tambour · DR-2600', pct: '72 %', note: 'Durée restante estimée 8 600 pages', barStyle: 'width:72%; height:10px; background:#4B5563' }
+    ];
+    const ifRows = [
+      { idx: '1', descr: 'NC-8300w (eth0)', speed: '1 Gb/s', st: 'up', io: '412 Mo / 38 Mo', stStyle: 'font-size:11.5px; font-weight:600; background:#DCFCE7; color:#15803D; padding:1px 7px; border-radius:999px' },
+      { idx: '2', descr: 'wlan0', speed: '—', st: 'down', io: '0 / 0', stStyle: 'font-size:11.5px; font-weight:600; background:#F3F4F6; color:#4B5563; padding:1px 7px; border-radius:999px' },
+      { idx: '3', descr: 'lo', speed: '—', st: 'up', io: '2,1 Mo / 2,1 Mo', stStyle: 'font-size:11.5px; font-weight:600; background:#DCFCE7; color:#15803D; padding:1px 7px; border-radius:999px' }
+    ];
+
+    const tagStyle = (bg, fg) => 'font-size:11px; font-weight:600; padding:1px 7px; border-radius:999px; background:' + bg + '; color:' + fg;
+    const dot = (c) => 'width:11px; height:11px; border-radius:50%; background:#FFFFFF; border:2px solid ' + c + '; margin-top:3px; box-sizing:border-box';
+    const history = [
+      { when: 'Auj. 09:42', title: 'Scan de ports', detail: '6 ports ouverts (inchangé)', tag: 'Info', tagStyle: tagStyle('#F3F4F6', '#4B5563'), dotStyle: dot('#6B7280') },
+      { when: 'Hier 14:07', title: 'Retour en ligne', detail: 'Hors ligne 23 min (13:44 → 14:07) · lien 1/14 down/up', tag: 'Disponibilité', tagStyle: tagStyle('#FEE2E2', '#B91C1C'), dotStyle: dot('#B91C1C') },
+      { when: '2026-10-14 10:20', title: 'Niveau de toner bas', detail: 'BK 8 % → remplacé (100 %)', tag: 'SNMP', tagStyle: tagStyle('#FFEDD5', '#C2410C'), dotStyle: dot('#C2410C') },
+      { when: '2026-09-02 08:55', title: 'Changement de port de switch', detail: 'SW-CORE-01 Gi1/0/31 · VLAN 1 → SW-ETG2-01 1/14 · VLAN 30', tag: 'Port', tagStyle: tagStyle('#EFF6FF', '#1D4ED8'), dotStyle: dot(accent) },
+      { when: '2026-09-02 08:56', title: 'Changement d’IP', detail: '10.182.122.57 → 10.182.122.111 (réservation DHCP)', tag: 'IP', tagStyle: tagStyle('#EFF6FF', '#1D4ED8'), dotStyle: dot(accent) },
+      { when: '2026-05-11 16:30', title: 'Mise à jour firmware', detail: 'Main 1.05 → 1.07', tag: 'Info', tagStyle: tagStyle('#F3F4F6', '#4B5563'), dotStyle: dot('#6B7280') },
+      { when: '2026-03-18 11:02', title: 'Première détection', detail: '10.182.122.57 · 94:DD:F8:18:15:7D · Brother', tag: 'Nouveau', tagStyle: tagStyle('#DCFCE7', '#15803D'), dotStyle: dot('#15803D') }
+    ];
+
+    const primaryBase = 'background:' + accent + '; color:#FFFFFF; border:1px solid ' + accent + '; border-radius:6px; font:inherit; font-weight:500; display:inline-flex; align-items:center; gap:6px; cursor:pointer; text-decoration:none;';
+
+    return {
+      q: s.q,
+      onQ: (e) => this.setState({ q: e.target.value }),
+      name: s.name,
+      onName: (e) => this.setState({ name: e.target.value }),
+      liveMs: s.liveMs,
+      favPressed: s.fav ? 'true' : 'false',
+      favLabel: s.fav ? 'Favori' : 'Ajouter aux favoris',
+      favStyle: 'font:inherit; font-size:12px; padding:2px 8px; border-radius:999px; display:inline-flex; align-items:center; gap:4px; cursor:pointer; ' + (s.fav ? 'background:#FFEDD5; border:1px solid #FED7AA; color:#C2410C' : 'background:#FFFFFF; border:1px solid #E5E7EB; color:#4B5563'),
+      toggleFav: () => this.setState({ fav: !s.fav }),
+      copyLabel: s.copied ? 'Copié' : 'Copier',
+      doCopy: () => { this.setState({ copied: true }); clearTimeout(this.copyTimer); this.copyTimer = setTimeout(() => this.setState({ copied: false }), 1500); },
+      primaryBtn: primaryBase + ' height:32px; padding:0 12px; font-size:13px; box-sizing:border-box',
+      primaryBtnSm: primaryBase + ' height:30px; padding:0 10px; font-size:12px',
+      tabs,
+      isApercu: s.tab === 'apercu',
+      isPorts: s.tab === 'ports',
+      isWeb: s.tab === 'web',
+      isSnmp: s.tab === 'snmp',
+      isHist: s.tab === 'hist',
+      isNotes: s.tab === 'notes',
+      rowDt, rowDd,
+      netRows: netRows.map(kv), hwRows: hwRows.map(kv), locRows: locRows.map(kv), swPorts, availBars, osRows,
+      ports, snmpRows, supplies, ifRows, history,
+      notes: s.notes,
+      notesCount: String(s.notes.length),
+      onNotes: (e) => this.setState({ notes: e.target.value })
+    };
+  }
+}
+</script>
+</body>
+</html>

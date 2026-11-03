@@ -1,0 +1,940 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Carte du réseau</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F4F6}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+.nav{display:flex;align-items:center;gap:10px;padding:0 10px;height:32px;border-radius:6px;color:#E2E8F0;text-decoration:none;font-size:13px;font-weight:500}
+.nav:hover{background:#1E293B;color:#FFFFFF}
+.nav.act{background:#1E293B;color:#FFFFFF}
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:6px;border:1px solid #E5E7EB;background:#FFFFFF;color:#111827;font:500 13px Inter,system-ui,sans-serif;cursor:pointer;box-sizing:border-box}
+.btn:hover{background:#F9FAFB;border-color:#D1D5DB}
+.btn:focus-visible,.chip:focus-visible,.nav:focus-visible,input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid #2563EB;outline-offset:2px}
+.btnp{border:1px solid transparent;color:#FFFFFF}
+.btnp:hover{filter:brightness(0.88)}
+.chip{cursor:pointer}
+.chip:hover{border-color:#9CA3AF}
+.nd:hover{filter:brightness(0.97)}
+.lnk:hover span{filter:brightness(0.8)}
+.lbl:hover{border-color:#9CA3AF}
+.prob{display:flex;align-items:flex-start;gap:8px;width:100%;text-align:left;padding:8px;border:1px solid #E5E7EB;border-radius:6px;background:#FFFFFF;cursor:pointer;font:13px Inter,system-ui,sans-serif;color:#111827;box-sizing:border-box;text-decoration:none}
+.prob:hover{background:#F9FAFB;border-color:#D1D5DB;color:#111827}
+.menu-item{display:block;width:100%;text-align:left;padding:7px 10px;border:0;background:#FFFFFF;border-radius:4px;font:500 13px Inter,system-ui,sans-serif;color:#111827;cursor:pointer}
+.menu-item:hover{background:#F3F4F6}
+.zb{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #E5E7EB;background:#FFFFFF;border-radius:6px;color:#111827;cursor:pointer;padding:0}
+.zb:hover{background:#F3F4F6}
+@keyframes pulse{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
+.pulse{animation:pulse 1.2s ease-in-out infinite}
+@media (max-width: 760px){.side{max-width:none !important}}
+@media (max-width: 1180px){.detail{max-width:none !important}}
+</style>
+</helmet>
+<div style="width:100%; min-height:1000px; display:flex; flex-wrap:wrap; font-family:Inter, system-ui, sans-serif; color:#111827; background:#F3F4F6; box-sizing:border-box; font-size:13px">
+
+  <!-- BARRE LATÉRALE -->
+  <nav class="side" aria-label="Navigation principale" style="flex:1 1 220px; max-width:220px; background:#0F172A; color:#E2E8F0; display:flex; flex-direction:column; padding:16px 12px; box-sizing:border-box; gap:18px">
+    <div style="display:flex; align-items:center; gap:10px; padding:4px 6px">
+      <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#E2E8F0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><path d="M12 12l6-6"></path><circle cx="12" cy="12" r="1.2"></circle></svg>
+      <div>
+        <div style="font-weight:700; font-size:15px; color:#FFFFFF">NetScope</div>
+        <div style="font-size:11px; color:#94A3B8">Boîte à outils réseau</div>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:2px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:0 10px 4px">Découverte</div>
+      <a class="nav" href="Main.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>Scanner</a>
+      <a class="nav act" href="Topologie.dc.html" aria-current="page">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="5" rx="1"></rect><rect x="3" y="16" width="6" height="5" rx="1"></rect><rect x="15" y="16" width="6" height="5" rx="1"></rect><path d="M12 8v4M6 16v-4h12v4"></path></svg>Carte du réseau</a>
+      <a class="nav" href="Inventaire.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h1M4 12h1M4 18h1"></path></svg>Inventaire</a>
+      <a class="nav" href="Device.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="12" rx="1.5"></rect><path d="M9 20h6M12 16v4"></path></svg>Appareil</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Diagnostic</div>
+      <a class="nav" href="Ping.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Ping continu</a>
+      <a class="nav" href="Switch.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="1.5"></rect><path d="M7 11v2M10 11v2M13 11v2M16 11v2"></path></svg>Switchs et ports</a>
+      <a class="nav" href="Wifi.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5a15 15 0 0 1 20 0"></path><path d="M5 12a10.5 10.5 0 0 1 14 0"></path><path d="M8.5 15.5a5.5 5.5 0 0 1 7 0"></path><circle cx="12" cy="19" r="1"></circle></svg>Wi-Fi</a>
+      <a class="nav" href="Toolbox.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"></path></svg>Outils</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Suivi</div>
+      <a class="nav" href="Surveillance.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>Surveillance<span style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#DC2626; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center" role="img" aria-label="3 alertes">3</span></a>
+      <a class="nav" href="Analyse.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>Analyse<span style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#2563EB; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center" role="img" aria-label="1 nouveau résultat">1</span></a>
+      <a class="nav" href="Rapport.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>Rapports</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Accès</div>
+      <a class="nav" href="Remote.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="1.5"></rect><path d="M7 9l3 2.5L7 14M12 14h5"></path><path d="M9 21h6"></path></svg>Accès distant</a>
+      <a class="nav" href="Speedtest.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 18a9 9 0 1 1 15 0"></path><path d="M12 14l4-5"></path><circle cx="12" cy="14" r="1.3"></circle></svg>Speedtest</a>
+    </div>
+    <div style="border-top:1px solid #1E293B; padding-top:12px; display:flex; flex-direction:column; gap:6px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; padding:0 6px">Plages enregistrées</div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>10.182.122.0/24</span><span style="color:#94A3B8">Bureau</span></div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>192.168.50.0/24</span><span style="color:#94A3B8">Caméras</span></div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>10.10.0.1-50</span><span style="color:#94A3B8">Serveurs</span></div>
+    </div>
+    <div style="margin-top:auto; border-top:1px solid #1E293B; padding-top:10px; display:flex; flex-direction:column">
+      <a class="nav" href="Reglages.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>Réglages</a>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px; padding:10px; border:1px solid #1E293B; border-radius:8px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8">Interface active</div>
+      <div style="display:flex; align-items:center; gap:8px">
+        <span style="width:8px; height:8px; border-radius:50%; background:#22C55E; flex:none"></span>
+        <span style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#E2E8F0">en0 · 10.182.122.135 · Wi-Fi</span>
+      </div>
+      <div style="font-size:11px; color:#94A3B8">Passerelle 10.182.122.1 · DNS 10.182.122.1</div>
+      <div style="font-size:11px; color:#94A3B8">Version 2.0.0 (maquette)</div>
+    </div>
+  </nav>
+
+  <!-- CONTENU -->
+  <main style="flex:999 1 560px; min-width:0; display:flex; flex-direction:column; box-sizing:border-box">
+
+    <!-- Barre d'outils -->
+    <header style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:12px 20px; background:#FFFFFF; border-bottom:1px solid #E5E7EB">
+      <div style="display:flex; flex-direction:column; margin-right:6px">
+        <h1 style="margin:0; font-size:17px; font-weight:700">Carte du réseau</h1>
+        <sc-if value="{{ discovering }}" hint-placeholder-val="{{ false }}">
+          <span role="status" style="display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#1D4ED8; font-weight:600"><span class="pulse" style="width:8px; height:8px; border-radius:50%; background:#2563EB"></span>Découverte LLDP/CDP + SNMP · {{ discLabel }}</span>
+        </sc-if>
+        <sc-if value="{{ idle }}" hint-placeholder-val="{{ true }}">
+          <span style="font-size:12px; color:#4B5563">Topologie automatique · LLDP/CDP, SNMP, ARP · dernière découverte {{ lastDisc }}</span>
+        </sc-if>
+      </div>
+      <label style="flex:1 1 260px; min-width:200px; position:relative; display:flex; align-items:center">
+        <span style="position:absolute; left:10px; color:#4B5563; display:flex">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
+        </span>
+        <input type="search" aria-label="Trouver un nœud sur la carte" placeholder="Trouver un nœud : nom, IP, MAC, port…" value="{{ q }}" onChange="{{ onQ }}" style="width:100%; height:32px; box-sizing:border-box; padding:0 10px 0 32px; border:1px solid #E5E7EB; border-radius:6px; background:#F9FAFB; font:13px Inter, system-ui, sans-serif; color:#111827">
+      </label>
+      <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}">
+        <span style="font-size:12px; color:#4B5563">{{ matchLabel }}</span>
+      </sc-if>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center">
+        <button type="button" class="btn btnp" style="{{ primaryStyle }}" onClick="{{ onRediscover }}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.7-4.4M4 4v4h4"></path><path d="M4 13a8 8 0 0 0 14.7 4.4M20 20v-4h-4"></path></svg>Redécouvrir</button>
+        <div style="position:relative">
+          <button type="button" class="btn" aria-haspopup="true" aria-expanded="{{ exportOpen }}" onClick="{{ onExportMenu }}">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>Exporter
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+          </button>
+          <sc-if value="{{ exportOpen }}" hint-placeholder-val="{{ false }}">
+            <div role="menu" style="position:absolute; top:38px; right:0; z-index:20; width:250px; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:6px; box-shadow:0 8px 24px rgba(15,23,42,.12)">
+              <sc-for list="{{ exportItems }}" as="ex" hint-placeholder-count="3">
+                <button type="button" role="menuitem" class="menu-item" onClick="{{ ex.pick }}">
+                  <span style="display:block; font-weight:600">{{ ex.label }}</span>
+                  <span style="display:block; font-size:11px; color:#4B5563; font-weight:400">{{ ex.desc }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+      <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+        <div role="status" style="flex:1 1 100%; display:flex; align-items:center; gap:8px; font-size:12px; color:#15803D; background:#DCFCE7; border-radius:6px; padding:6px 10px">
+          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg>{{ toast }}
+          <button type="button" aria-label="Fermer le message" onClick="{{ onCloseToast }}" style="margin-left:auto; border:0; background:transparent; color:#15803D; cursor:pointer; padding:0; display:flex">
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+          </button>
+        </div>
+      </sc-if>
+    </header>
+
+    <div style="padding:16px 20px; display:flex; flex-wrap:wrap; gap:14px; align-items:flex-start">
+
+      <!-- Colonne carte -->
+      <div style="flex:999 1 560px; min-width:0; display:flex; flex-direction:column; gap:14px">
+
+        <!-- Indicateurs -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px">
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:10px 12px">
+            <div style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Appareils agrégés</div>
+            <div style="font-size:19px; font-weight:700; margin-top:2px">203</div>
+            <div style="font-size:12px; color:#4B5563"><span style="color:#15803D; font-weight:600">182</span> vus récemment</div>
+          </div>
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:10px 12px">
+            <div style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Équipements réseau</div>
+            <div style="font-size:19px; font-weight:700; margin-top:2px">5</div>
+            <div style="font-size:12px; color:#4B5563">1 pare-feu · 2 switchs · 2 AP</div>
+          </div>
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:10px 12px">
+            <div style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Liens affichés</div>
+            <div style="font-size:19px; font-weight:700; margin-top:2px">{{ linkCount }}</div>
+            <div style="font-size:12px; color:#4B5563">{{ linkSplit }}</div>
+          </div>
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:10px 12px">
+            <div style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Liens en alerte</div>
+            <div style="font-size:19px; font-weight:700; margin-top:2px; color:#C2410C">1</div>
+            <div style="font-size:12px; color:#4B5563">CRC · SW-ETG2-01 1/20</div>
+          </div>
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:10px 12px">
+            <div style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Anomalies IP</div>
+            <div style="font-size:19px; font-weight:700; margin-top:2px; color:#B91C1C">2</div>
+            <div style="font-size:12px; color:#4B5563">Conflit .140 · DHCP .250</div>
+          </div>
+        </div>
+
+        <!-- Panneau carte -->
+        <section aria-labelledby="h-carte" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; display:flex; flex-direction:column; min-width:0">
+          <h2 id="h-carte" style="position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)">Canevas de la topologie</h2>
+          <!-- Sous-barre -->
+          <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:center; padding:10px 12px; border-bottom:1px solid #E5E7EB">
+            <div style="display:flex; align-items:center; gap:8px">
+              <span style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Disposition</span>
+              <div role="group" aria-label="Disposition de la carte" style="display:inline-flex; padding:2px; gap:2px; background:#F3F4F6; border:1px solid #E5E7EB; border-radius:6px">
+                <sc-for list="{{ layouts }}" as="ly" hint-placeholder-count="3">
+                  <button type="button" aria-pressed="{{ ly.on }}" onClick="{{ ly.pick }}" style="{{ ly.style }}">{{ ly.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div role="group" aria-label="Calques" style="display:flex; flex-wrap:wrap; align-items:center; gap:10px">
+              <span style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Calques</span>
+              <sc-for list="{{ layers }}" as="ca" hint-placeholder-count="4">
+                <span style="display:inline-flex; align-items:center; gap:5px">
+                  <input type="checkbox" id="{{ ca.cbId }}" checked="{{ ca.checked }}" onChange="{{ ca.toggle }}" style="margin:0; width:14px; height:14px; accent-color:#2563EB">
+                  <label for="{{ ca.cbId }}" style="display:inline-flex; align-items:center; gap:5px; font-size:12px; cursor:pointer"><span style="{{ ca.swatch }}"></span>{{ ca.label }}</label>
+                </span>
+              </sc-for>
+            </div>
+            <div role="group" aria-label="Zoom" style="display:flex; align-items:center; gap:4px; margin-left:auto">
+              <button type="button" class="zb" aria-label="Zoom arrière" onClick="{{ onZoomOut }}">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path></svg>
+              </button>
+              <span aria-live="polite" style="min-width:46px; text-align:center; font-family:'JetBrains Mono', monospace; font-size:12px; font-weight:600">{{ zoomLabel }}</span>
+              <button type="button" class="zb" aria-label="Zoom avant" onClick="{{ onZoomIn }}">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+              </button>
+              <button type="button" class="btn" onClick="{{ onFit }}" style="height:30px; padding:0 10px; font-size:12px">
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path></svg>Ajuster</button>
+            </div>
+          </div>
+
+          <!-- Canevas -->
+          <div style="position:relative; height:560px; background:#F9FAFB; overflow:hidden">
+            <div onScroll="{{ onScroll }}" style="position:absolute; left:0; top:0; right:0; bottom:0; overflow:auto">
+              <div style="{{ sizerStyle }}">
+                <div style="{{ worldStyle }}">
+
+                  <!-- Cadres VLAN -->
+                  <sc-for list="{{ frames }}" as="f" hint-placeholder-count="5">
+                    <div aria-hidden="true" style="{{ f.style }}"><span style="{{ f.labelStyle }}">{{ f.label }}</span></div>
+                  </sc-for>
+
+                  <!-- Liens -->
+                  <sc-for list="{{ links }}" as="l" hint-placeholder-count="11">
+                    <button type="button" class="lnk" aria-label="{{ l.aria }}" aria-pressed="{{ l.pressed }}" onClick="{{ l.pick }}" style="{{ l.hitStyle }}"><span style="{{ l.lineStyle }}"></span></button>
+                  </sc-for>
+
+                  <!-- Étiquettes de ports -->
+                  <sc-for list="{{ labels }}" as="lb" hint-placeholder-count="11">
+                    <div class="lbl" aria-hidden="true" onClick="{{ lb.pick }}" style="{{ lb.style }}">
+                      <span style="display:block">{{ lb.ports }}</span>
+                      <span style="{{ lb.metaStyle }}">{{ lb.meta }}</span>
+                    </div>
+                  </sc-for>
+
+                  <!-- Nœuds -->
+                  <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="12">
+                    <button type="button" class="nd" title="{{ n.title }}" aria-label="{{ n.aria }}" aria-pressed="{{ n.pressed }}" onClick="{{ n.pick }}" style="{{ n.style }}">
+                      <span style="{{ n.iconBox }}">
+                        <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{ n.icon }}"></path></svg>
+                      </span>
+                      <span style="min-width:0; flex:1; display:flex; flex-direction:column; gap:1px">
+                        <span style="font-size:12px; font-weight:600; color:#111827; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ n.name }}</span>
+                        <span style="font-family:'JetBrains Mono', monospace; font-size:10.5px; color:#4B5563; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ n.sub }}</span>
+                      </span>
+                      <span style="{{ n.dotStyle }}"></span>
+                      <sc-if value="{{ n.hasBadge }}" hint-placeholder-val="{{ false }}">
+                        <span style="position:absolute; top:-9px; right:10px; height:17px; padding:0 6px; border-radius:9px; background:#6D28D9; color:#FFFFFF; font:600 10px Inter, system-ui, sans-serif; display:inline-flex; align-items:center">{{ n.badge }}</span>
+                      </sc-if>
+                    </button>
+                  </sc-for>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- Mini-carte -->
+            <div style="position:absolute; right:12px; bottom:12px; width:180px; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:6px; box-shadow:0 4px 12px rgba(15,23,42,.08); z-index:10">
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#4B5563; margin-bottom:4px">
+                <span style="font-weight:600; text-transform:uppercase; letter-spacing:.05em">Aperçu</span>
+                <span style="font-family:'JetBrains Mono', monospace">{{ zoomLabel }}</span>
+              </div>
+              <div role="img" aria-label="{{ miniAria }}" style="position:relative; width:180px; height:108px; background:#F9FAFB; border-radius:4px; overflow:hidden">
+                <sc-for list="{{ miniLinks }}" as="ml" hint-placeholder-count="11">
+                  <div style="{{ ml.style }}"></div>
+                </sc-for>
+                <sc-for list="{{ miniNodes }}" as="mn" hint-placeholder-count="12">
+                  <div style="{{ mn.style }}"></div>
+                </sc-for>
+                <div style="{{ miniView }}"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Légende -->
+          <footer aria-label="Légende" style="display:flex; flex-wrap:wrap; gap:8px 18px; align-items:center; padding:10px 12px; border-top:1px solid #E5E7EB; background:#F9FAFB; border-radius:0 0 8px 8px; font-size:12px; color:#374151">
+            <span style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Légende</span>
+            <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:16px; height:16px; border-radius:4px; background:#F1F5F9; color:#475569; display:inline-flex; align-items:center; justify-content:center"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 9.1 4.5 4.5 0 0 0 7 18z"></path></svg></span>Internet</span>
+            <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:16px; height:16px; border-radius:4px; background:#E0E7FF; color:#4338CA; display:inline-flex; align-items:center; justify-content:center"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3zM3 12h18M9 5v7M15 12v7"></path></svg></span>Pare-feu</span>
+            <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:16px; height:16px; border-radius:4px; background:#DBEAFE; color:#1D4ED8; display:inline-flex; align-items:center; justify-content:center"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v10H3zM7 11v2M11 11v2M15 11v2"></path></svg></span>Switch</span>
+            <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:16px; height:16px; border-radius:4px; background:#EDE9FE; color:#6D28D9; display:inline-flex; align-items:center; justify-content:center"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9a10 10 0 0 1 14 0M8 12a5.5 5.5 0 0 1 8 0M12 15v5"></path></svg></span>Point d'accès</span>
+            <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:14px; height:12px; border-radius:3px; border:1px solid #9CA3AF; background:#FFFFFF; box-shadow:3px 3px 0 -1px #FFFFFF, 3px 3px 0 0 #9CA3AF"></span>&nbsp;Groupe agrégé</span>
+            <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:14px; height:12px; border-radius:3px; border:1px solid #9CA3AF; background:#FFFFFF"></span>Appareil final</span>
+            <span style="width:1px; height:16px; background:#E5E7EB"></span>
+            <span style="display:inline-flex; align-items:center; gap:6px"><span style="width:22px; height:6px; border-radius:2px; background:#16A34A"></span>10 Gb/s</span>
+            <span style="display:inline-flex; align-items:center; gap:6px"><span style="width:22px; height:3px; border-radius:2px; background:#16A34A"></span>1 Gb/s · charge &lt; 40 %</span>
+            <span style="display:inline-flex; align-items:center; gap:6px"><span style="width:22px; height:3px; border-radius:2px; background:#CA8A04"></span>40–70 %</span>
+            <span style="display:inline-flex; align-items:center; gap:6px"><span style="width:22px; height:3px; border-radius:2px; background:#B91C1C"></span>&gt; 70 %</span>
+            <span style="display:inline-flex; align-items:center; gap:6px"><span style="width:22px; height:3px; border-radius:2px; background:#C2410C"></span>Erreurs (CRC)</span>
+            <span style="display:inline-flex; align-items:center; gap:6px"><span style="width:22px; height:0; border-top:2px dashed #7C3AED"></span>Wi-Fi</span>
+          </footer>
+        </section>
+      </div>
+
+      <!-- Panneau droit -->
+      <aside class="detail" aria-label="Détail de la sélection" style="flex:1 1 300px; max-width:300px; min-width:0; display:flex; flex-direction:column; gap:12px">
+
+        <!-- Nœud sélectionné -->
+        <sc-if value="{{ isNode }}" hint-placeholder-val="{{ true }}">
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+            <div style="display:flex; align-items:flex-start; gap:10px">
+              <div style="{{ nd.iconBox }}">
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="{{ nd.icon }}"></path></svg>
+              </div>
+              <div style="min-width:0; flex:1">
+                <h2 style="margin:0; font-size:15px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ nd.name }}</h2>
+                <div style="font-family:'JetBrains Mono', monospace; font-size:13px; margin-top:2px">{{ nd.ip }}</div>
+                <div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap">
+                  <span style="{{ nd.statusStyle }}">{{ nd.statusLabel }}</span>
+                  <span style="font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; background:#F3F4F6; color:#374151">{{ nd.type }}</span>
+                </div>
+              </div>
+              <button type="button" aria-label="Effacer la sélection" onClick="{{ onClearSel }}" style="border:0; background:transparent; color:#4B5563; cursor:pointer; padding:0; display:flex">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+              </button>
+            </div>
+            <sc-if value="{{ nd.hasAlert }}" hint-placeholder-val="{{ false }}">
+              <div role="alert" style="{{ nd.alertStyle }}">{{ nd.alert }}</div>
+            </sc-if>
+            <dl style="margin:12px 0 0; display:grid; grid-template-columns:92px minmax(0, 1fr); row-gap:6px; column-gap:8px; font-size:12px">
+              <dt style="color:#4B5563">MAC</dt><dd style="margin:0; font-family:'JetBrains Mono', monospace">{{ nd.mac }}</dd>
+              <dt style="color:#4B5563">Modèle</dt><dd style="margin:0">{{ nd.model }}</dd>
+              <dt style="color:#4B5563">Fabricant</dt><dd style="margin:0">{{ nd.vendor }}</dd>
+              <dt style="color:#4B5563">VLAN</dt><dd style="margin:0; font-family:'JetBrains Mono', monospace">{{ nd.vlan }}</dd>
+              <dt style="color:#4B5563">Découverte</dt><dd style="margin:0">{{ nd.disc }}</dd>
+              <dt style="color:#4B5563">Emplacement</dt><dd style="margin:0">{{ nd.where }}</dd>
+            </dl>
+            <sc-if value="{{ nd.hasPorts }}" hint-placeholder-val="{{ true }}">
+              <div style="margin-top:12px">
+                <div style="display:flex; justify-content:space-between; font-size:12px"><span style="color:#4B5563">Ports utilisés</span><span style="font-family:'JetBrains Mono', monospace; font-weight:600">{{ nd.portsLabel }}</span></div>
+                <div role="progressbar" aria-label="Ports utilisés" aria-valuenow="{{ nd.portsPct }}" aria-valuemin="0" aria-valuemax="100" style="margin-top:5px; height:6px; border-radius:3px; background:#E5E7EB; overflow:hidden"><div style="{{ nd.portsBar }}"></div></div>
+              </div>
+            </sc-if>
+
+            <h3 style="margin:14px 0 6px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">{{ nd.nbTitle }}</h3>
+            <div style="overflow-x:auto">
+              <table style="width:100%; border-collapse:collapse; font-size:12px">
+                <thead>
+                  <tr style="background:#F9FAFB; border-bottom:1px solid #E5E7EB; height:26px">
+                    <th scope="col" style="padding:0 6px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563">{{ nd.h1 }}</th>
+                    <th scope="col" style="padding:0 6px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563">{{ nd.h2 }}</th>
+                    <th scope="col" style="padding:0 6px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563">{{ nd.h3 }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <sc-for list="{{ nd.nb }}" as="nb" hint-placeholder-count="3">
+                    <tr style="border-bottom:1px solid #F3F4F6; height:28px">
+                      <td style="padding:0 6px; font-family:'JetBrains Mono', monospace; white-space:nowrap">{{ nb.a }}</td>
+                      <td style="padding:0 6px; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ nb.b }}</td>
+                      <td style="padding:0 6px; font-family:'JetBrains Mono', monospace; white-space:nowrap; color:#374151">{{ nb.c }}</td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+
+            <h3 style="margin:14px 0 8px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Charge des uplinks</h3>
+            <div style="display:flex; flex-direction:column; gap:9px">
+              <sc-for list="{{ nd.up }}" as="u" hint-placeholder-count="2">
+                <div>
+                  <div style="display:flex; justify-content:space-between; gap:8px; font-size:12px">
+                    <span style="font-family:'JetBrains Mono', monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ u.label }}</span>
+                    <span style="{{ u.pctStyle }}">{{ u.pctLabel }}</span>
+                  </div>
+                  <div role="progressbar" aria-label="{{ u.aria }}" aria-valuenow="{{ u.pct }}" aria-valuemin="0" aria-valuemax="100" style="margin-top:4px; height:6px; border-radius:3px; background:#E5E7EB; overflow:hidden"><div style="{{ u.bar }}"></div></div>
+                  <div style="font-size:11px; color:#4B5563; margin-top:2px">{{ u.speed }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:14px">
+              <a class="btn btnp" href="Device.dc.html" style="{{ primaryLinkStyle }}">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="12" rx="1.5"></rect><path d="M9 20h6M12 16v4"></path></svg>Ouvrir la fiche</a>
+              <a class="btn" href="Switch.dc.html" style="text-decoration:none; color:#111827">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="1.5"></rect><path d="M7 11v2M10 11v2M13 11v2M16 11v2"></path></svg>Voir les ports</a>
+              <sc-if value="{{ nd.isGroup }}" hint-placeholder-val="{{ false }}">
+                <a class="btn" href="Inventaire.dc.html" style="text-decoration:none; color:#111827">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h1M4 12h1M4 18h1"></path></svg>Lister les membres</a>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- Lien sélectionné -->
+        <sc-if value="{{ isLink }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+            <div style="display:flex; align-items:flex-start; gap:10px">
+              <div style="width:40px; height:40px; border-radius:8px; background:#F3F4F6; display:flex; align-items:center; justify-content:center; color:#374151; flex:none">
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2.5"></circle><circle cx="19" cy="12" r="2.5"></circle><path d="M7.5 12h9"></path></svg>
+              </div>
+              <div style="min-width:0; flex:1">
+                <div style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Lien sélectionné</div>
+                <h2 style="margin:2px 0 0; font-size:15px; font-weight:700; font-family:'JetBrains Mono', monospace">{{ ld.ports }}</h2>
+                <div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap">
+                  <span style="{{ ld.stateStyle }}">{{ ld.stateLabel }}</span>
+                  <span style="font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; background:#F3F4F6; color:#374151">{{ ld.speedShort }}</span>
+                </div>
+              </div>
+              <button type="button" aria-label="Effacer la sélection" onClick="{{ onClearSel }}" style="border:0; background:transparent; color:#4B5563; cursor:pointer; padding:0; display:flex">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+              </button>
+            </div>
+            <sc-if value="{{ ld.alert }}" hint-placeholder-val="{{ false }}">
+              <div role="alert" style="margin-top:12px; padding:8px 10px; border-radius:6px; background:#FFEDD5; color:#9A3412; font-size:12px">1 412 erreurs CRC en 24 h sur SW-ETG2-01 1/20 (entrée). Cause probable : câble, connecteur RJ45 ou prise murale. Tester le câble depuis Outils.</div>
+            </sc-if>
+            <dl style="margin:12px 0 0; display:grid; grid-template-columns:96px minmax(0, 1fr); row-gap:6px; column-gap:8px; font-size:12px">
+              <dt style="color:#4B5563">Extrémité A</dt><dd style="margin:0; font-family:'JetBrains Mono', monospace">{{ ld.aEnd }}</dd>
+              <dt style="color:#4B5563">Extrémité B</dt><dd style="margin:0; font-family:'JetBrains Mono', monospace">{{ ld.bEnd }}</dd>
+              <dt style="color:#4B5563">Vitesse</dt><dd style="margin:0">{{ ld.speed }}</dd>
+              <dt style="color:#4B5563">Média</dt><dd style="margin:0">{{ ld.media }}</dd>
+              <dt style="color:#4B5563">Découvert par</dt><dd style="margin:0">{{ ld.disc }}</dd>
+              <dt style="color:#4B5563">VLAN</dt><dd style="margin:0; font-family:'JetBrains Mono', monospace">{{ ld.vlans }}</dd>
+              <dt style="color:#4B5563">Erreurs 24 h</dt><dd style="{{ ld.errStyle }}">{{ ld.errors }}</dd>
+            </dl>
+            <h3 style="margin:14px 0 8px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Charge · moyenne 5 min</h3>
+            <div style="display:flex; flex-direction:column; gap:9px">
+              <div>
+                <div style="display:flex; justify-content:space-between; font-size:12px"><span>Entrant (A ← B)</span><span style="{{ ld.inStyle }}">{{ ld.inLabel }}</span></div>
+                <div role="progressbar" aria-label="Charge entrante" aria-valuenow="{{ ld.inPct }}" aria-valuemin="0" aria-valuemax="100" style="margin-top:4px; height:6px; border-radius:3px; background:#E5E7EB; overflow:hidden"><div style="{{ ld.inBar }}"></div></div>
+              </div>
+              <div>
+                <div style="display:flex; justify-content:space-between; font-size:12px"><span>Sortant (A → B)</span><span style="{{ ld.outStyle }}">{{ ld.outLabel }}</span></div>
+                <div role="progressbar" aria-label="Charge sortante" aria-valuenow="{{ ld.outPct }}" aria-valuemin="0" aria-valuemax="100" style="margin-top:4px; height:6px; border-radius:3px; background:#E5E7EB; overflow:hidden"><div style="{{ ld.outBar }}"></div></div>
+              </div>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:14px">
+              <a class="btn btnp" href="Switch.dc.html" style="{{ primaryLinkStyle }}">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="1.5"></rect><path d="M7 11v2M10 11v2M13 11v2M16 11v2"></path></svg>Voir les ports</a>
+              <a class="btn" href="Ping.dc.html" style="text-decoration:none; color:#111827">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Ping continu</a>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- Aucune sélection -->
+        <sc-if value="{{ isNone }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+            <h2 style="margin:0; font-size:15px; font-weight:700">Vue d'ensemble</h2>
+            <p style="margin:6px 0 0; font-size:12px; color:#4B5563">Cliquez sur un nœud ou un lien de la carte pour afficher son détail, ses voisins LLDP/CDP et la charge de ses uplinks.</p>
+            <dl style="margin:12px 0 0; display:grid; grid-template-columns:1fr auto; row-gap:6px; font-size:12px">
+              <dt style="color:#4B5563">Nœuds affichés</dt><dd style="margin:0; font-family:'JetBrains Mono', monospace; font-weight:600">{{ nodeCount }}</dd>
+              <dt style="color:#4B5563">Liens affichés</dt><dd style="margin:0; font-family:'JetBrains Mono', monospace; font-weight:600">{{ linkCount }}</dd>
+              <dt style="color:#4B5563">Sous-réseaux</dt><dd style="margin:0; font-family:'JetBrains Mono', monospace">10.182.122.0/24 · 192.168.50.0/24</dd>
+              <dt style="color:#4B5563">VLAN</dt><dd style="margin:0; font-family:'JetBrains Mono', monospace">1 · 20 · 30 · 40</dd>
+            </dl>
+          </div>
+        </sc-if>
+
+        <!-- Problèmes -->
+        <section aria-labelledby="h-prob" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+          <h2 id="h-prob" style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Problèmes sur la carte</h2>
+          <div style="display:flex; flex-direction:column; gap:6px">
+            <sc-for list="{{ problems }}" as="p" hint-placeholder-count="3">
+              <button type="button" class="prob" onClick="{{ p.pick }}" aria-pressed="{{ p.on }}" style="{{ p.style }}">
+                <span style="{{ p.dot }}"></span>
+                <span style="min-width:0; flex:1">
+                  <span style="display:block; font-size:12px; font-weight:600">{{ p.title }}</span>
+                  <span style="display:block; font-size:11px; color:#4B5563; margin-top:1px">{{ p.desc }}</span>
+                </span>
+              </button>
+            </sc-for>
+            <a class="prob" href="Analyse.dc.html">
+              <span style="width:8px; height:8px; border-radius:50%; background:#B91C1C; flex:none; margin-top:4px"></span>
+              <span style="min-width:0; flex:1">
+                <span style="display:block; font-size:12px; font-weight:600">DHCP non autorisé · 10.182.122.250</span>
+                <span style="display:block; font-size:11px; color:#4B5563; margin-top:1px">Port d'accès inconnu, non placé sur la carte · ouvrir l'analyse</span>
+              </span>
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4B5563" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+            </a>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000},"showPortLabels":true,"accent":"#2563EB"}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      layout: 'h',
+      zoom: 0.86,
+      sx: 0,
+      sy: 0,
+      selK: 'node',
+      selId: 'etg2',
+      layers: { end: true, phys: true, vlan: true, wifi: true },
+      q: '',
+      exportOpen: false,
+      toast: '',
+      discovering: false,
+      discPct: 0,
+      lastDisc: 'il y a 4 min'
+    };
+  }
+
+  componentDidMount() {
+    this.timer = setInterval(() => {
+      if (!this.state.discovering) return;
+      const p = this.state.discPct + 9;
+      if (p >= 100) {
+        this.setState({ discovering: false, discPct: 100, lastDisc: "à l'instant", toast: 'Découverte terminée : 12 nœuds, 11 liens, aucun changement de topologie depuis la dernière passe.' });
+      } else {
+        this.setState({ discPct: p });
+      }
+    }, 350);
+  }
+
+  componentWillUnmount() {
+    clearInterval(this.timer);
+  }
+
+  renderVals() {
+    const s = this.state;
+    const props = this.props || {};
+    const accent = props.accent || '#2563EB';
+    const showLabels = props.showPortLabels !== false;
+    const W = 1000, H = 600, NW = 136, NH = 46, S = 0.18;
+    const FIT = 0.86;
+
+    const TY = {
+      cloud: { c: '#475569', bg: '#F1F5F9', icon: 'M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 9.1 4.5 4.5 0 0 0 7 18z' },
+      fw: { c: '#4338CA', bg: '#E0E7FF', icon: 'M3 5h18v14H3zM3 9.7h18M3 14.3h18M9 5v4.7M15 5v4.7M6 9.7v4.6M12 9.7v4.6M18 9.7v4.6M9 14.3V19M15 14.3V19' },
+      sw: { c: '#1D4ED8', bg: '#DBEAFE', icon: 'M3 7h18v10H3zM7 11v2M10 11v2M13 11v2M16 11v2' },
+      ap: { c: '#6D28D9', bg: '#EDE9FE', icon: 'M5 9a10 10 0 0 1 14 0M8 12a5.5 5.5 0 0 1 8 0M12 15v5M9 20h6' },
+      grp: { c: '#374151', bg: '#F3F4F6', icon: 'M3 4h13v9H3zM7 17h5M9.5 13v4M19 8v9h-6' },
+      prn: { c: '#0E7490', bg: '#CFFAFE', icon: 'M6 9V3h12v6M6 17H4v-7h16v7h-2M6 14h12v7H6z' },
+      cam: { c: '#92400E', bg: '#FEF3C7', icon: 'M3 7h12v10H3zM15 10l6-3v10l-6-3z' },
+      iot: { c: '#374151', bg: '#F3F4F6', icon: 'M7 7h10v10H7zM10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4' },
+      pc: { c: '#374151', bg: '#F3F4F6', icon: 'M3 8h18v8H3zM7 12h3M16 12h1' }
+    };
+
+    const NODES = [
+      { id: 'inet', t: 'cloud', name: 'Internet', sub: 'WAN · FAI', type: 'Internet / WAN', status: 'ok', ip: 'IP publique [À COMPLÉTER]', mac: '—', model: 'Lien FAI [À COMPLÉTER]', vendor: '—', vlan: '—', disc: 'Route par défaut de la passerelle', where: 'Derrière FortiGate-60F · wan1', nbTitle: 'Voisins', h: ['Port local', 'Voisin', 'Port distant'], nb: [{ a: '—', b: 'FortiGate-60F', c: 'wan1' }], up: [{ label: 'wan1 → FAI', speed: '1 Gb/s · contrat FAI [À COMPLÉTER]', pct: 38 }] },
+      { id: 'fw', t: 'fw', name: 'FortiGate-60F', sub: '10.182.122.1', type: 'Pare-feu · passerelle', status: 'ok', ip: '10.182.122.1', mac: '04:D5:90:3A:7B:11', model: 'FortiGate-60F', vendor: 'Fortinet', vlan: '1 (natif) · 20 · 30 · 40', disc: 'LLDP, SNMP v2c, ARP', where: 'Baie principale [À COMPLÉTER]', ports: [3, 10], nbTitle: 'Voisins LLDP', h: ['Port local', 'Voisin', 'Port distant'], nb: [{ a: 'internal1', b: 'SW-CORE-01', c: 'Gi1/0/1' }, { a: 'wan1', b: 'Modem FAI [À COMPLÉTER]', c: '—' }], up: [{ label: 'wan1 → Internet', speed: '1 Gb/s full', pct: 38 }, { label: 'internal1 → SW-CORE-01', speed: '1 Gb/s full · trunk 802.1Q', pct: 62 }] },
+      { id: 'core', t: 'sw', name: 'SW-CORE-01', sub: '10.182.122.2', type: 'Switch cœur', status: 'ok', ip: '10.182.122.2', mac: '70:0F:6A:91:4C:02', model: 'Catalyst 9300-48P', vendor: 'Cisco', vlan: '1 · 20 · 30 · 40', disc: 'CDP v2, LLDP, SNMP v3', where: 'Baie principale [À COMPLÉTER]', ports: [41, 52], nbTitle: 'Voisins LLDP / CDP', h: ['Port local', 'Voisin', 'Port distant'], nb: [{ a: 'Gi1/0/1', b: 'FortiGate-60F', c: 'internal1' }, { a: 'Te1/1/1', b: 'SW-ETG2-01', c: '1/25' }, { a: 'Gi1/0/12', b: 'FortiAP-231F', c: 'eth0' }, { a: 'Gi1/0/33', b: 'Caméra-Quai', c: 'eth0' }], up: [{ label: 'Gi1/0/1 → FortiGate-60F', speed: '1 Gb/s full', pct: 62 }, { label: 'Te1/1/1 → SW-ETG2-01', speed: '10 Gb/s full · SFP+ 10GBASE-SR', pct: 12 }] },
+      { id: 'etg2', t: 'sw', name: 'SW-ETG2-01', sub: '10.182.122.3', type: "Switch d'étage", status: 'ok', ip: '10.182.122.3', mac: '88:3A:30:5D:E1:40', model: 'Aruba 2930F-24G', vendor: 'HPE Aruba', vlan: '1 · 20 · 30', disc: 'LLDP, SNMP v2c', where: 'Local technique étage 2 [À COMPLÉTER]', ports: [19, 28], alert: '1 412 erreurs CRC en 24 h sur le port 1/20 (vers AP-ETG2).', sev: 'alert', nbTitle: 'Voisins LLDP', h: ['Port local', 'Voisin', 'Port distant'], nb: [{ a: '1/25', b: 'SW-CORE-01', c: 'Te1/1/1' }, { a: '1/20', b: 'AP-ETG2', c: 'eth0' }, { a: '1/14', b: 'Brother DCP-L2640DW', c: 'eth0' }, { a: '1/9', b: 'BrightSign-D1E876001191', c: 'eth0' }], up: [{ label: '1/25 → SW-CORE-01', speed: '10 Gb/s full · SFP+', pct: 12 }, { label: '1/20 → AP-ETG2', speed: '1 Gb/s full · erreurs CRC', pct: 9, warn: true }] },
+      { id: 'ap1', t: 'ap', name: 'FortiAP-231F', sub: '10.182.122.102', type: "Point d'accès Wi-Fi 6", status: 'ok', ip: '10.182.122.102', mac: '70:4C:A5:1E:22:9A', model: 'FortiAP-231F', vendor: 'Fortinet', vlan: '20 (SSID) · 1 (gestion)', disc: 'LLDP, CAPWAP (FortiGate)', where: 'Accueil · SW-CORE-01 Gi1/0/12', ports: [1, 2], clients: 37, nbTitle: 'Voisins LLDP', h: ['Port local', 'Voisin', 'Port distant'], nb: [{ a: 'eth0', b: 'SW-CORE-01', c: 'Gi1/0/12' }, { a: 'radio 2', b: 'Macmini-de-Dany', c: 'Wi-Fi 5 GHz' }], up: [{ label: 'eth0 → Gi1/0/12', speed: '1 Gb/s full · PoE+ 13,4 W', pct: 21 }] },
+      { id: 'ap2', t: 'ap', name: 'AP-ETG2', sub: '10.182.122.104', type: "Point d'accès Wi-Fi 6", status: 'warn', ip: '10.182.122.104', mac: '70:4C:A5:1E:3B:06', model: 'FortiAP-231F', vendor: 'Fortinet', vlan: '20 (SSID) · 1 (gestion)', disc: 'LLDP, CAPWAP (FortiGate)', where: 'Étage 2 · SW-ETG2-01 1/20', ports: [1, 2], clients: 22, alert: 'Uplink dégradé : erreurs CRC sur SW-ETG2-01 1/20. Les clients Wi-Fi de cet AP peuvent subir des pertes.', sev: 'alert', nbTitle: 'Voisins LLDP', h: ['Port local', 'Voisin', 'Port distant'], nb: [{ a: 'eth0', b: 'SW-ETG2-01', c: '1/20' }], up: [{ label: 'eth0 → SW-ETG2-01 1/20', speed: '1 Gb/s full · PoE+ · 1 412 CRC', pct: 9, warn: true }] },
+      { id: 'gPostes', t: 'grp', group: true, end: true, name: 'Postes ×64', sub: 'VLAN 1 · 58 en ligne', type: 'Groupe · postes de travail', status: 'ok', ip: '10.182.122.0/24 (DHCP)', mac: '64 adresses', model: 'Dell, Lenovo, HP, Apple', vendor: 'Multiples', vlan: '1 · Bureau', disc: 'ARP, NetBIOS, mDNS', where: 'SW-CORE-01 (20) · SW-ETG2-01 (12) · Wi-Fi (32)', nbTitle: 'Membres (extrait)', h: ['Appareil', 'IP', 'Port'], nb: [{ a: 'WKS346', b: '10.182.122.117', c: 'Gi1/0/22' }, { a: 'WKS341', b: '10.182.122.146', c: 'Gi1/0/23' }, { a: 'PF4L8M20', b: '10.182.122.113', c: '1/3' }], up: [{ label: 'Gi1/0/13–32 (agrégé)', speed: '20 ports · 1 Gb/s', pct: 18 }] },
+      { id: 'gCam', t: 'cam', group: true, end: true, name: 'Caméras ×18', sub: 'VLAN 40 · .50.0/24', type: 'Groupe · caméras IP', status: 'ok', ip: '192.168.50.0/24', mac: '18 adresses', model: 'Hikvision, Axis', vendor: 'Multiples', vlan: '40 · Caméras', disc: 'ARP, ONVIF, LLDP', where: 'SW-CORE-01 Gi1/0/33–46 (14) · [À COMPLÉTER] (4)', nbTitle: 'Membres (extrait)', h: ['Appareil', 'IP', 'Port'], nb: [{ a: 'Caméra-Quai', b: '192.168.50.21', c: 'Gi1/0/33' }, { a: 'axis-b8a44f2c19e0', b: '192.168.50.22', c: 'Gi1/0/34' }], up: [{ label: 'Gi1/0/33–46 (agrégé)', speed: '14 ports · 1 Gb/s · PoE', pct: 44 }] },
+      { id: 'gImp', t: 'prn', group: true, end: true, name: 'Imprimantes ×6', sub: 'VLAN 30 · 1 conflit', type: 'Groupe · imprimantes', status: 'crit', ip: '10.182.122.x (VLAN 30)', mac: '6 adresses', model: 'HP, Brother, [À COMPLÉTER]', vendor: 'Multiples', vlan: '30 · Imprimantes', disc: 'ARP, SNMP, mDNS (_ipp._tcp)', where: 'SW-ETG2-01 1/15–1/19 · [À COMPLÉTER] (1)', alert: 'Conflit IP sur 10.182.122.140 : 00:1A:2B:44:10:EE et 5C:F9:38:02:7A:41 répondent.', sev: 'crit', nbTitle: 'Membres (extrait)', h: ['Appareil', 'IP', 'Port'], nb: [{ a: 'NPI7A4410', b: '10.182.122.140', c: '1/18' }, { a: '[À COMPLÉTER]', b: '10.182.122.x', c: '1/15' }], up: [{ label: '1/15–1/19 (agrégé)', speed: '5 ports · 100 Mb/s – 1 Gb/s', pct: 3 }] },
+      { id: 'gIot', t: 'iot', group: true, end: true, name: 'IoT ×12', sub: 'VLAN 1 / 30', type: 'Groupe · objets connectés', status: 'ok', ip: '10.182.122.x', mac: '12 adresses', model: 'BrightSign, [À COMPLÉTER]', vendor: 'Multiples', vlan: '1 · 30', disc: 'ARP, mDNS, SSDP', where: 'SW-ETG2-01 1/9–1/12 · Wi-Fi', nbTitle: 'Membres (extrait)', h: ['Appareil', 'IP', 'Port'], nb: [{ a: 'BrightSign-D1E876001191', b: '10.182.122.106', c: '1/9' }, { a: '[À COMPLÉTER]', b: '10.182.122.x', c: '1/10' }], up: [{ label: '1/9–1/12 (agrégé)', speed: '4 ports · 1 Gb/s', pct: 6 }] },
+      { id: 'brother', t: 'prn', end: true, name: 'Brother DCP-L2640DW', sub: '10.182.122.111', type: 'Imprimante', status: 'ok', ip: '10.182.122.111', mac: '94:DD:F8:18:15:7D', model: 'DCP-L2640DW', vendor: 'Brother', vlan: '30 · Imprimantes', disc: 'LLDP-MED, SNMP, mDNS (_ipp._tcp)', where: 'SW-ETG2-01 · port 1/14', ports: [1, 1], nbTitle: 'Voisins LLDP', h: ['Port local', 'Voisin', 'Port distant'], nb: [{ a: 'eth0', b: 'SW-ETG2-01', c: '1/14' }], up: [{ label: 'eth0 → SW-ETG2-01 1/14', speed: '100 Mb/s full', pct: 1 }] },
+      { id: 'mac', t: 'pc', end: true, name: 'Macmini-de-Dany', sub: '10.182.122.135', type: 'Ordinateur · ce Mac', status: 'ok', ip: '10.182.122.135', mac: '3C:22:FB:7E:05:B1', model: 'Mac mini [À COMPLÉTER]', vendor: 'Apple', vlan: '20 · Wi-Fi', disc: 'Interface locale en0', where: 'Wi-Fi · FortiAP-231F (accueil)', nbTitle: 'Association Wi-Fi', h: ['Interface', 'AP', 'SSID'], nb: [{ a: 'en0', b: 'FortiAP-231F', c: '[À COMPLÉTER]' }], up: [{ label: 'en0 → FortiAP-231F', speed: '867 Mb/s · 5 GHz · −52 dBm', pct: 4 }] }
+    ];
+
+    const LINKS = [
+      { id: 'L1', a: 'inet', b: 'fw', kind: 'wired', ports: 'wan1 ↔ FAI', short: '1 Gb/s', aEnd: 'Internet · FAI', bEnd: 'FortiGate-60F · wan1', speed: '1 Gb/s full', media: '[À COMPLÉTER]', disc: 'Configuration passerelle (SNMP)', vlans: '—', errors: '0', inP: 38, outP: 9, t: { h: 0.5, r: 0.5, v: 0.5 } },
+      { id: 'L2', a: 'fw', b: 'core', kind: 'wired', ports: 'internal1 ↔ Gi1/0/1', short: '1 Gb/s', aEnd: 'FortiGate-60F · internal1', bEnd: 'SW-CORE-01 · Gi1/0/1', speed: '1 Gb/s full', media: 'Cuivre Cat6', disc: 'LLDP', vlans: '1, 20, 30, 40 (trunk)', errors: '0', inP: 62, outP: 41, t: { h: 0.5, r: 0.5, v: 0.5 } },
+      { id: 'L3', a: 'core', b: 'etg2', kind: 'wired', thick: true, ports: 'Te1/1/1 ↔ 1/25', short: '10 Gb/s', aEnd: 'SW-CORE-01 · Te1/1/1', bEnd: 'SW-ETG2-01 · 1/25', speed: '10 Gb/s full', media: 'Fibre multimode · SFP+ 10GBASE-SR', disc: 'CDP + LLDP', vlans: '1, 20, 30 (trunk)', errors: '0', inP: 12, outP: 8, t: { h: 0.5, r: 0.5, v: 0.5 } },
+      { id: 'L4', a: 'core', b: 'ap1', kind: 'wired', ports: 'Gi1/0/12 ↔ eth0', short: '1 Gb/s', aEnd: 'SW-CORE-01 · Gi1/0/12', bEnd: 'FortiAP-231F · eth0', speed: '1 Gb/s full · PoE+ 13,4 W', media: 'Cuivre Cat6', disc: 'LLDP', vlans: '1 (natif), 20', errors: '0', inP: 21, outP: 6, t: { h: 0.45, r: 0.5, v: 0.45 } },
+      { id: 'L5', a: 'core', b: 'gPostes', kind: 'wired', ports: 'Gi1/0/13–32', short: '20 × 1 Gb/s', aEnd: 'SW-CORE-01 · Gi1/0/13–32', bEnd: 'Postes ×64 (20 ports)', speed: '1 Gb/s par port', media: 'Cuivre', disc: 'Table MAC (SNMP)', vlans: '1', errors: '0', inP: 18, outP: 11, t: { h: 0.74, r: 0.5, v: 0.7 } },
+      { id: 'L6', a: 'core', b: 'gCam', kind: 'wired', ports: 'Gi1/0/33–46', short: '14 × 1 Gb/s', aEnd: 'SW-CORE-01 · Gi1/0/33–46', bEnd: 'Caméras ×18 (14 ports)', speed: '1 Gb/s par port · PoE', media: 'Cuivre', disc: 'LLDP + table MAC', vlans: '40', errors: '0', inP: 44, outP: 3, t: { h: 0.45, r: 0.5, v: 0.7 } },
+      { id: 'L7', a: 'etg2', b: 'ap2', kind: 'wired', alert: true, ports: '1/20 ↔ eth0', short: '1 Gb/s', aEnd: 'SW-ETG2-01 · 1/20', bEnd: 'AP-ETG2 · eth0', speed: '1 Gb/s full · PoE+', media: 'Cuivre Cat6', disc: 'LLDP', vlans: '1 (natif), 20', errors: '1 412 CRC (entrée)', inP: 9, outP: 4, t: { h: 0.74, r: 0.5, v: 0.7 } },
+      { id: 'L8', a: 'etg2', b: 'gImp', kind: 'wired', ports: '1/15–1/19', short: '5 ports', aEnd: 'SW-ETG2-01 · 1/15–1/19', bEnd: 'Imprimantes ×6 (5 ports)', speed: '100 Mb/s – 1 Gb/s', media: 'Cuivre', disc: 'Table MAC (SNMP)', vlans: '30', errors: '0', inP: 3, outP: 1, t: { h: 0.45, r: 0.5, v: 0.5 } },
+      { id: 'L9', a: 'etg2', b: 'gIot', kind: 'wired', ports: '1/9–1/12', short: '4 ports', aEnd: 'SW-ETG2-01 · 1/9–1/12', bEnd: 'IoT ×12 (4 ports filaires)', speed: '1 Gb/s par port', media: 'Cuivre', disc: 'LLDP + table MAC', vlans: '1, 30', errors: '0', inP: 6, outP: 2, t: { h: 0.74, r: 0.5, v: 0.3 } },
+      { id: 'L10', a: 'etg2', b: 'brother', kind: 'wired', ports: '1/14 ↔ eth0', short: '100 Mb/s', aEnd: 'SW-ETG2-01 · 1/14', bEnd: 'Brother DCP-L2640DW · eth0', speed: '100 Mb/s full', media: 'Cuivre Cat5e', disc: 'LLDP-MED', vlans: '30 (accès)', errors: '0', inP: 1, outP: 1, t: { h: 0.86, r: 0.5, v: 0.86 } },
+      { id: 'L11', a: 'ap1', b: 'mac', kind: 'wifi', ports: 'Wi-Fi 5 GHz', short: '867 Mb/s', aEnd: 'FortiAP-231F · radio 2', bEnd: 'Macmini-de-Dany · en0', speed: '867 Mb/s (2×2, 80 MHz)', media: 'Sans fil · canal 36 · −52 dBm', disc: 'Table des clients (FortiGate)', vlans: '20', errors: '0', inP: 4, outP: 2, t: { h: 0.5, r: 0.5, v: 0.5 } }
+    ];
+
+    const POS = {
+      h: { inet: [467, 36], fw: [467, 122], core: [280, 218], etg2: [654, 218], ap1: [76, 392], gPostes: [228, 392], gCam: [380, 392], ap2: [548, 392], gImp: [760, 392], gIot: [904, 392], mac: [76, 520], brother: [654, 520] },
+      r: { inet: [430, 44], fw: [430, 160], core: [430, 300], etg2: [670, 300], ap1: [220, 210], mac: [80, 120], gPostes: [220, 400], gCam: [430, 500], ap2: [730, 160], gImp: [880, 220], brother: [880, 380], gIot: [710, 480] },
+      v: { inet: [480, 36], fw: [480, 118], core: [300, 210], etg2: [658, 210], gPostes: [84, 420], ap1: [244, 400], ap2: [396, 400], mac: [244, 520], gImp: [556, 400], gIot: [752, 400], brother: [658, 520], gCam: [908, 420] }
+    };
+
+    const VC = {
+      '1': { b: '#64748B', bg: '#F8FAFC', t: '#334155' },
+      '20': { b: '#8B5CF6', bg: '#F5F3FF', t: '#5B21B6' },
+      '30': { b: '#0891B2', bg: '#ECFEFF', t: '#155E75' },
+      '40': { b: '#D97706', bg: '#FFFBEB', t: '#92400E' }
+    };
+    const FR = {
+      h: [
+        { v: '1', m: ['gPostes'], label: 'VLAN 1 · Bureau' },
+        { v: '40', m: ['gCam'], label: 'VLAN 40 · Caméras' },
+        { v: '20', m: ['ap1', 'mac'], label: 'VLAN 20 · Wi-Fi' },
+        { v: '20', m: ['ap2'], label: 'VLAN 20 · Wi-Fi' },
+        { v: '30', m: ['gImp'], label: 'VLAN 30 · Imprimantes' },
+        { v: '30', m: ['brother'], label: 'VLAN 30 · Imprimantes' }
+      ],
+      r: [
+        { v: '20', m: ['ap1', 'mac'], label: 'VLAN 20 · Wi-Fi' },
+        { v: '1', m: ['gPostes'], label: 'VLAN 1 · Bureau' },
+        { v: '40', m: ['gCam'], label: 'VLAN 40 · Caméras' },
+        { v: '20', m: ['ap2'], label: 'VLAN 20 · Wi-Fi' },
+        { v: '30', m: ['gImp', 'brother'], label: 'VLAN 30 · Imprimantes' }
+      ],
+      v: [
+        { v: '1', m: ['gPostes'], label: 'VLAN 1 · Bureau' },
+        { v: '20', m: ['ap1', 'ap2', 'mac'], label: 'VLAN 20 · Wi-Fi / AP' },
+        { v: '30', m: ['gImp', 'gIot', 'brother'], label: 'VLAN 30 · Imprimantes et IoT' },
+        { v: '40', m: ['gCam'], label: 'VLAN 40 · Caméras · 192.168.50.0/24' }
+      ]
+    };
+
+    const P = POS[s.layout] || POS.h;
+    const L = s.layers;
+    const byId = {};
+    NODES.forEach(n => { byId[n.id] = n; });
+    const nodeVisible = id => L.end || !byId[id].end;
+    const visNodes = NODES.filter(n => nodeVisible(n.id));
+    const visLinks = LINKS.filter(l => nodeVisible(l.a) && nodeVisible(l.b) && (l.kind === 'wifi' ? L.wifi : L.phys));
+
+    // Sélection et mise en évidence
+    let related = null;
+    let relLinks = null;
+    if (s.selK === 'node' && byId[s.selId]) {
+      related = {}; related[s.selId] = true; relLinks = {};
+      visLinks.forEach(l => { if (l.a === s.selId || l.b === s.selId) { related[l.a] = true; related[l.b] = true; relLinks[l.id] = true; } });
+    }
+    const selLink = s.selK === 'link' ? LINKS.find(l => l.id === s.selId) : null;
+    if (selLink) { related = {}; related[selLink.a] = true; related[selLink.b] = true; relLinks = {}; relLinks[selLink.id] = true; }
+
+    const q = (s.q || '').trim().toLowerCase();
+    const matches = {};
+    let matchCount = 0;
+    if (q) {
+      NODES.forEach(n => {
+        const hay = [n.name, n.sub, n.ip, n.mac, n.model, n.vendor, n.where, n.nb.map(x => x.a + ' ' + x.b + ' ' + x.c).join(' ')].join(' ').toLowerCase();
+        if (hay.indexOf(q) >= 0) { matches[n.id] = true; if (nodeVisible(n.id)) matchCount++; }
+      });
+    }
+
+    const loadColor = p => p > 70 ? '#B91C1C' : (p >= 40 ? '#CA8A04' : '#16A34A');
+    const loadText = p => p > 70 ? '#B91C1C' : (p >= 40 ? '#A16207' : '#15803D');
+    const linkColor = l => l.alert ? '#C2410C' : (l.kind === 'wifi' ? '#7C3AED' : loadColor(l.inP));
+    const linkText = l => l.alert ? '#C2410C' : (l.kind === 'wifi' ? '#6D28D9' : loadText(l.inP));
+    const sel = (k, id) => () => this.setState({ selK: k, selId: id, exportOpen: false });
+    const tr = 'transition:left .35s ease, top .35s ease, width .35s ease, height .35s ease, transform .35s ease, opacity .2s;';
+
+    const links = visLinks.map(l => {
+      const p1 = P[l.a], p2 = P[l.b];
+      const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
+      const len = Math.sqrt(dx * dx + dy * dy);
+      const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+      const col = linkColor(l);
+      const isSel = !!selLink && selLink.id === l.id;
+      const dim = relLinks && !relLinks[l.id];
+      const th = l.thick ? 6 : 3;
+      const ring = (isSel || (relLinks && relLinks[l.id] && s.selK === 'node')) ? ' box-shadow:0 0 0 3px rgba(37,99,235,.3);' : '';
+      const line = l.kind === 'wifi'
+        ? 'display:block; width:100%; height:0; border-top:2px dashed ' + col + ';'
+        : 'display:block; width:100%; height:' + th + 'px; border-radius:2px; background:' + col + ';';
+      return {
+        aria: 'Lien ' + l.ports + ' entre ' + byId[l.a].name + ' et ' + byId[l.b].name + ', ' + l.short + (l.alert ? ', erreurs CRC' : ', charge ' + l.inP + ' %'),
+        pressed: isSel ? 'true' : 'false',
+        pick: sel('link', l.id),
+        hitStyle: 'position:absolute; left:' + p1[0] + 'px; top:' + (p1[1] - 8) + 'px; width:' + len.toFixed(1) + 'px; height:16px; padding:0; margin:0; border:0; background:transparent; cursor:pointer; display:flex; align-items:center; transform-origin:0 50%; transform:rotate(' + ang.toFixed(2) + 'deg); z-index:1; opacity:' + (dim ? '0.22' : '1') + '; ' + tr,
+        lineStyle: line + ring
+      };
+    });
+
+    const labels = visLinks.filter(l => {
+      if (showLabels) return true;
+      return (selLink && selLink.id === l.id) || (relLinks && relLinks[l.id]);
+    }).map(l => {
+      const p1 = P[l.a], p2 = P[l.b];
+      const t = l.t[s.layout] || 0.5;
+      const mx = p1[0] + (p2[0] - p1[0]) * t;
+      const my = p1[1] + (p2[1] - p1[1]) * t;
+      const isSel = !!selLink && selLink.id === l.id;
+      const dim = relLinks && !relLinks[l.id];
+      const meta = l.alert ? l.short + ' · CRC 1 412' : (l.kind === 'wifi' ? l.short + ' · −52 dBm' : l.short + ' · ' + l.inP + ' %');
+      return {
+        ports: l.ports,
+        meta: meta,
+        pick: sel('link', l.id),
+        metaStyle: 'display:block; font-weight:600; color:' + linkText(l) + ';',
+        style: 'position:absolute; left:' + mx.toFixed(1) + 'px; top:' + my.toFixed(1) + 'px; transform:translate(-50%, -50%); z-index:4; background:#FFFFFF; border:1px solid ' + (isSel ? accent : (l.alert ? '#FDBA74' : '#E5E7EB')) + '; border-radius:4px; padding:2px 6px; text-align:center; line-height:1.3; white-space:nowrap; cursor:pointer; font-family:JetBrains Mono, monospace; font-size:10.5px; color:#111827; opacity:' + (dim ? '0.35' : '1') + '; transition:left .35s ease, top .35s ease, opacity .2s;' + (isSel ? ' box-shadow:0 0 0 2px rgba(37,99,235,.25);' : '')
+      };
+    });
+
+    const statusDot = st => st === 'crit' ? '#B91C1C' : (st === 'warn' ? '#C2410C' : '#15803D');
+    const nodes = visNodes.map(n => {
+      const ty = TY[n.t];
+      const p = P[n.id];
+      const isSel = s.selK === 'node' && s.selId === n.id;
+      const dim = related && !related[n.id];
+      const hit = !!matches[n.id];
+      const shadows = [];
+      if (isSel) shadows.push('0 0 0 3px rgba(37,99,235,.28)');
+      else if (hit) shadows.push('0 0 0 3px #FCD34D');
+      if (n.group) shadows.push('4px 4px 0 -1px #FFFFFF', '4px 4px 0 0 #CBD5E1');
+      if (!isSel && !n.group) shadows.push('0 1px 2px rgba(15,23,42,.06)');
+      const border = isSel ? '2px solid ' + accent : (n.t === 'cloud' ? '1px dashed #94A3B8' : '1px solid #D1D5DB');
+      const wifiBadge = L.wifi && n.clients;
+      return {
+        name: n.name,
+        sub: n.sub,
+        title: n.name + ' · ' + n.sub,
+        icon: ty.icon,
+        aria: n.name + ', ' + n.type + ', ' + n.sub + (n.status === 'crit' ? ', anomalie critique' : (n.status === 'warn' ? ', alerte' : '')),
+        pressed: isSel ? 'true' : 'false',
+        pick: sel('node', n.id),
+        hasBadge: !!wifiBadge,
+        badge: wifiBadge ? 'Wi-Fi ' + n.clients : '',
+        iconBox: 'width:26px; height:26px; border-radius:6px; flex:none; display:flex; align-items:center; justify-content:center; background:' + ty.bg + '; color:' + ty.c + ';',
+        dotStyle: 'position:absolute; top:6px; right:6px; width:7px; height:7px; border-radius:50%; background:' + statusDot(n.status) + ';',
+        style: 'position:absolute; left:' + (p[0] - NW / 2) + 'px; top:' + (p[1] - NH / 2) + 'px; width:' + NW + 'px; height:' + NH + 'px; box-sizing:border-box; display:flex; align-items:center; gap:7px; padding:0 12px 0 7px; border-radius:8px; text-align:left; cursor:pointer; font-family:Inter, system-ui, sans-serif; z-index:3; background:' + (n.t === 'cloud' ? '#F8FAFC' : '#FFFFFF') + '; border:' + border + '; box-shadow:' + (shadows.length ? shadows.join(', ') : 'none') + '; opacity:' + (dim ? '0.4' : '1') + '; ' + tr
+      };
+    });
+
+    // Cadres VLAN
+    const frames = [];
+    if (L.vlan) {
+      (FR[s.layout] || FR.h).forEach(f => {
+        const ms = f.m.filter(id => nodeVisible(id));
+        if (!ms.length) return;
+        const xs = ms.map(id => P[id][0]);
+        const ys = ms.map(id => P[id][1]);
+        const x0 = Math.min.apply(null, xs) - NW / 2 - 8;
+        const x1 = Math.max.apply(null, xs) + NW / 2 + 8;
+        const y0 = Math.min.apply(null, ys) - NH / 2 - 8;
+        const y1 = Math.max.apply(null, ys) + NH / 2 + 26;
+        const c = VC[f.v];
+        frames.push({
+          label: f.label,
+          style: 'position:absolute; left:' + x0 + 'px; top:' + y0 + 'px; width:' + (x1 - x0) + 'px; height:' + (y1 - y0) + 'px; box-sizing:border-box; border:1.5px solid ' + c.b + '; background:' + c.bg + '; border-radius:10px; z-index:0; display:flex; flex-direction:column; justify-content:flex-end; ' + tr,
+          labelStyle: 'align-self:flex-start; margin:0 0 3px 7px; font:600 10.5px Inter, system-ui, sans-serif; color:' + c.t + '; white-space:nowrap;'
+        });
+      });
+    }
+
+    // Mini-carte
+    const miniNodes = visNodes.map(n => {
+      const p = P[n.id];
+      const ty = TY[n.t];
+      const isSel = s.selK === 'node' && s.selId === n.id;
+      return { style: 'position:absolute; left:' + ((p[0] - NW / 2) * S).toFixed(1) + 'px; top:' + ((p[1] - NH / 2) * S).toFixed(1) + 'px; width:' + (NW * S).toFixed(1) + 'px; height:' + (NH * S).toFixed(1) + 'px; border-radius:2px; box-sizing:border-box; background:' + (isSel ? accent : ty.bg) + '; border:1px solid ' + (isSel ? accent : ty.c) + ';' };
+    });
+    const miniLinks = visLinks.map(l => {
+      const p1 = P[l.a], p2 = P[l.b];
+      const dx = (p2[0] - p1[0]) * S, dy = (p2[1] - p1[1]) * S;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+      return { style: 'position:absolute; left:' + (p1[0] * S).toFixed(1) + 'px; top:' + (p1[1] * S).toFixed(1) + 'px; width:' + len.toFixed(1) + 'px; height:' + (l.thick ? 2 : 1) + 'px; background:' + linkColor(l) + '; transform-origin:0 50%; transform:rotate(' + ang.toFixed(2) + 'deg);' };
+    });
+    const z = s.zoom;
+    const visW = Math.min(W, 864 / z), visH = Math.min(H, 560 / z);
+    const vx = Math.max(0, Math.min(W - visW, s.sx / z));
+    const vy = Math.max(0, Math.min(H - visH, s.sy / z));
+    const miniView = 'position:absolute; left:' + (vx * S).toFixed(1) + 'px; top:' + (vy * S).toFixed(1) + 'px; width:' + (visW * S - 2).toFixed(1) + 'px; height:' + (visH * S - 2).toFixed(1) + 'px; border:1px solid ' + accent + '; background:rgba(37,99,235,.06); border-radius:2px;';
+
+    // Barre : dispositions et calques
+    const layoutDefs = [{ id: 'h', label: 'Hiérarchique' }, { id: 'r', label: 'Radiale' }, { id: 'v', label: 'Par VLAN' }];
+    const layouts = layoutDefs.map(d => {
+      const on = s.layout === d.id;
+      return {
+        label: d.label,
+        on: on ? 'true' : 'false',
+        style: 'height:26px; padding:0 10px; border-radius:4px; cursor:pointer; font:500 12px Inter, system-ui, sans-serif; ' + (on ? 'background:#FFFFFF; border:1px solid ' + accent + '; color:#1D4ED8; box-shadow:0 1px 2px rgba(15,23,42,.08);' : 'background:transparent; border:1px solid transparent; color:#374151;'),
+        pick: () => this.setState({ layout: d.id, sx: 0, sy: 0 })
+      };
+    });
+    const layerDefs = [
+      { id: 'end', label: 'Appareils finaux', sw: 'width:10px; height:8px; border:1px solid #6B7280; border-radius:2px; background:#FFFFFF;' },
+      { id: 'phys', label: 'Liens physiques LLDP/CDP', sw: 'width:14px; height:3px; border-radius:2px; background:#16A34A;' },
+      { id: 'vlan', label: 'VLAN', sw: 'width:10px; height:8px; border:1.5px solid #8B5CF6; border-radius:2px; background:#F5F3FF;' },
+      { id: 'wifi', label: 'Wi-Fi', sw: 'width:14px; height:0; border-top:2px dashed #7C3AED;' }
+    ];
+    const layers = layerDefs.map(d => ({
+      cbId: 'cal-' + d.id,
+      label: d.label,
+      checked: !!L[d.id],
+      swatch: 'display:inline-block; ' + d.sw,
+      toggle: () => { const nl = { ...s.layers }; nl[d.id] = !nl[d.id]; this.setState({ layers: nl }); }
+    }));
+
+    // Panneau de détail : nœud
+    const barStyle = (p, col) => 'height:6px; width:' + Math.max(2, p) + '%; background:' + col + ';';
+    const selNode = s.selK === 'node' ? byId[s.selId] : null;
+    const n0 = selNode || byId.etg2;
+    const ty0 = TY[n0.t];
+    const stLabel = n0.status === 'crit' ? 'Anomalie critique' : (n0.status === 'warn' ? 'Alerte' : 'En ligne');
+    const stStyle = n0.status === 'crit' ? 'background:#FEE2E2; color:#B91C1C;' : (n0.status === 'warn' ? 'background:#FFEDD5; color:#C2410C;' : 'background:#DCFCE7; color:#15803D;');
+    const pp = n0.ports ? Math.round(n0.ports[0] / n0.ports[1] * 100) : 0;
+    const nd = {
+      name: n0.name,
+      ip: n0.ip,
+      type: n0.type,
+      icon: ty0.icon,
+      iconBox: 'width:40px; height:40px; border-radius:8px; flex:none; display:flex; align-items:center; justify-content:center; background:' + ty0.bg + '; color:' + ty0.c + ';',
+      statusLabel: stLabel,
+      statusStyle: 'font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; ' + stStyle,
+      hasAlert: !!n0.alert,
+      alert: n0.alert || '',
+      alertStyle: 'margin-top:12px; padding:8px 10px; border-radius:6px; font-size:12px; ' + (n0.sev === 'crit' ? 'background:#FEE2E2; color:#B91C1C;' : 'background:#FFEDD5; color:#9A3412;'),
+      mac: n0.mac,
+      model: n0.model,
+      vendor: n0.vendor,
+      vlan: n0.vlan,
+      disc: n0.disc,
+      where: n0.where,
+      hasPorts: !!n0.ports,
+      portsLabel: n0.ports ? n0.ports[0] + ' / ' + n0.ports[1] : '',
+      portsPct: String(pp),
+      portsBar: barStyle(pp, pp > 85 ? '#C2410C' : accent),
+      nbTitle: n0.nbTitle,
+      h1: n0.h[0], h2: n0.h[1], h3: n0.h[2],
+      nb: n0.nb,
+      isGroup: !!n0.group,
+      up: n0.up.map(u => ({
+        label: u.label,
+        speed: u.speed,
+        pct: String(u.pct),
+        pctLabel: u.pct + ' %',
+        aria: 'Charge ' + u.label,
+        pctStyle: 'font-family:JetBrains Mono, monospace; font-weight:600; color:' + (u.warn ? '#C2410C' : loadText(u.pct)) + ';',
+        bar: barStyle(u.pct, u.warn ? '#C2410C' : loadColor(u.pct))
+      }))
+    };
+
+    // Panneau de détail : lien
+    const l0 = selLink || LINKS[2];
+    const ld = {
+      ports: l0.ports,
+      speedShort: l0.short,
+      alert: !!l0.alert,
+      stateLabel: l0.alert ? 'Erreurs CRC' : (l0.inP >= 40 ? 'Charge soutenue' : 'Actif · normal'),
+      stateStyle: 'font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; ' + (l0.alert ? 'background:#FFEDD5; color:#C2410C;' : (l0.inP >= 40 ? 'background:#FEF9C3; color:#854D0E;' : 'background:#DCFCE7; color:#15803D;')),
+      aEnd: l0.aEnd,
+      bEnd: l0.bEnd,
+      speed: l0.speed,
+      media: l0.media,
+      disc: l0.disc,
+      vlans: l0.vlans,
+      errors: l0.errors,
+      errStyle: 'margin:0; font-family:JetBrains Mono, monospace; ' + (l0.alert ? 'color:#C2410C; font-weight:600;' : ''),
+      inPct: String(l0.inP), outPct: String(l0.outP),
+      inLabel: l0.inP + ' %', outLabel: l0.outP + ' %',
+      inStyle: 'font-family:JetBrains Mono, monospace; font-weight:600; color:' + loadText(l0.inP) + ';',
+      outStyle: 'font-family:JetBrains Mono, monospace; font-weight:600; color:' + loadText(l0.outP) + ';',
+      inBar: barStyle(l0.inP, loadColor(l0.inP)),
+      outBar: barStyle(l0.outP, loadColor(l0.outP))
+    };
+
+    // Problèmes
+    const probDefs = [
+      { k: 'link', id: 'L7', sev: '#C2410C', title: 'Erreurs CRC · SW-ETG2-01 1/20', desc: '1 412 erreurs en 24 h vers AP-ETG2 · vérifier le câble' },
+      { k: 'link', id: 'L2', sev: '#CA8A04', title: 'Charge soutenue · internal1 ↔ Gi1/0/1', desc: '62 % en moyenne sur 5 min (FortiGate-60F → SW-CORE-01)' },
+      { k: 'node', id: 'gImp', sev: '#B91C1C', title: 'Conflit IP · 10.182.122.140', desc: '2 MAC répondent · groupe Imprimantes ×6' }
+    ];
+    const problems = probDefs.map(p => {
+      const on = s.selK === p.k && s.selId === p.id;
+      return {
+        title: p.title,
+        desc: p.desc,
+        on: on ? 'true' : 'false',
+        dot: 'width:8px; height:8px; border-radius:50%; background:' + p.sev + '; flex:none; margin-top:4px;',
+        style: on ? 'border-color:' + accent + '; background:#EFF6FF;' : '',
+        pick: () => {
+          const ls = { ...s.layers };
+          ls.end = true; ls.phys = true;
+          this.setState({ selK: p.k, selId: p.id, layers: ls });
+        }
+      };
+    });
+
+    const exportDefs = [
+      { id: 'png', label: 'Image PNG', desc: 'Carte visible, 2× · carte-reseau-2026-11-03.png' },
+      { id: 'svg', label: 'Vectoriel SVG', desc: 'Nœuds, liens et étiquettes éditables' },
+      { id: 'vsdx', label: 'Microsoft Visio (.vsdx)', desc: 'Formes réseau standard, une page par VLAN' }
+    ];
+    const exportItems = exportDefs.map(e => ({
+      label: e.label,
+      desc: e.desc,
+      pick: () => this.setState({ exportOpen: false, toast: 'Exporté : carte-reseau-2026-11-03.' + e.id + ' (' + (s.layout === 'h' ? 'hiérarchique' : (s.layout === 'r' ? 'radiale' : 'par VLAN')) + ', ' + visNodes.length + ' nœuds)' })
+    }));
+
+    const wired = visLinks.filter(l => l.kind !== 'wifi').length;
+    const wifiN = visLinks.length - wired;
+
+    return {
+      q: s.q,
+      onQ: (e) => this.setState({ q: e.target.value }),
+      hasQ: !!q,
+      matchLabel: matchCount + (matchCount > 1 ? ' nœuds trouvés' : ' nœud trouvé'),
+      discovering: s.discovering,
+      idle: !s.discovering,
+      discLabel: s.discPct + ' %',
+      lastDisc: s.lastDisc,
+      onRediscover: () => this.setState({ discovering: true, discPct: 0, toast: '', exportOpen: false }),
+      primaryStyle: 'background:' + accent + ';',
+      primaryLinkStyle: 'background:' + accent + '; color:#FFFFFF; text-decoration:none;',
+      exportOpen: s.exportOpen,
+      onExportMenu: () => this.setState({ exportOpen: !s.exportOpen }),
+      exportItems: exportItems,
+      toast: s.toast,
+      hasToast: !!s.toast,
+      onCloseToast: () => this.setState({ toast: '' }),
+      layouts: layouts,
+      layers: layers,
+      zoomLabel: Math.round(z * 100) + ' %',
+      onZoomIn: () => this.setState({ zoom: Math.min(1.6, Math.round((s.zoom + 0.1) * 100) / 100) }),
+      onZoomOut: () => this.setState({ zoom: Math.max(0.5, Math.round((s.zoom - 0.1) * 100) / 100) }),
+      onFit: () => this.setState({ zoom: FIT, sx: 0, sy: 0 }),
+      onScroll: (e) => { if (e && e.target) this.setState({ sx: e.target.scrollLeft || 0, sy: e.target.scrollTop || 0 }); },
+      sizerStyle: 'position:relative; width:' + Math.round(W * z) + 'px; height:' + Math.round(H * z) + 'px; margin:0 auto;',
+      worldStyle: 'position:absolute; left:0; top:0; width:' + W + 'px; height:' + H + 'px; transform:scale(' + z + '); transform-origin:0 0; transition:transform .2s ease;',
+      frames: frames,
+      links: links,
+      labels: labels,
+      nodes: nodes,
+      miniNodes: miniNodes,
+      miniLinks: miniLinks,
+      miniView: miniView,
+      miniAria: 'Aperçu de la carte : ' + visNodes.length + ' nœuds, ' + visLinks.length + ' liens, zoom ' + Math.round(z * 100) + ' %',
+      linkCount: String(visLinks.length),
+      linkSplit: wired + ' filaires · ' + wifiN + ' Wi-Fi',
+      nodeCount: String(visNodes.length),
+      isNode: !!selNode,
+      isLink: !!selLink,
+      isNone: !selNode && !selLink,
+      onClearSel: () => this.setState({ selK: '', selId: '' }),
+      nd: nd,
+      ld: ld,
+      problems: problems
+    };
+  }
+}
+</script>
+</body>
+</html>

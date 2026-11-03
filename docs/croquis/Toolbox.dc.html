@@ -1,0 +1,1145 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Boîte à outils</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F4F6}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+.nav:hover{background:#1E293B !important;color:#FFFFFF !important}
+.btn:hover{background:#F9FAFB !important;border-color:#D1D5DB !important}
+.btnp:hover{background:#1D4ED8 !important}
+.btn:focus-visible,.btnp:focus-visible,.titem:focus-visible,.chip:focus-visible{outline:2px solid #2563EB;outline-offset:2px}
+.titem:hover{background:#F3F4F6 !important}
+.chip:hover{border-color:#2563EB !important}
+.row:hover{background:#F9FAFB}
+.fav:hover{background:#F3F4F6 !important}
+input:focus,select:focus{outline:2px solid #2563EB;outline-offset:-1px;border-color:#2563EB !important}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(21,128,61,.45)}70%{box-shadow:0 0 0 7px rgba(21,128,61,0)}100%{box-shadow:0 0 0 0 rgba(21,128,61,0)}}
+.live{animation:pulse 1.6s infinite}
+@media (max-width: 760px){.side{max-width:none !important; min-height:0 !important}}
+</style>
+</helmet>
+<div style="width:100%; min-height:1000px; display:flex; flex-wrap:wrap; font-family:Inter, system-ui, sans-serif; color:#111827; background:#F3F4F6; box-sizing:border-box; font-size:13px">
+
+  <!-- BARRE LATÉRALE -->
+  <nav class="side" aria-label="Navigation principale" style="flex:1 1 220px; max-width:220px; background:#0F172A; color:#E2E8F0; display:flex; flex-direction:column; justify-content:space-between; box-sizing:border-box; padding:16px 12px; min-height:1000px">
+    <div style="display:flex; flex-direction:column; gap:20px">
+      <div style="display:flex; align-items:center; gap:10px; padding:4px 8px">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><path d="M12 12l6-6"></path><circle cx="12" cy="12" r="1.2"></circle></svg>
+        <span style="font-size:15px; font-weight:700; color:#FFFFFF; letter-spacing:-0.01em">NetScope</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="display:flex; flex-direction:column; gap:2px">
+          <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:#94A3B8; padding:0 10px 4px">Découverte</div>
+          <a class="nav" href="Main.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; box-sizing:border-box; padding:0 10px; border-radius:6px; text-decoration:none; color:#E2E8F0; font-weight:500">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>Scanner</a>
+          <a class="nav" href="Topologie.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; box-sizing:border-box; padding:0 10px; border-radius:6px; text-decoration:none; color:#E2E8F0; font-weight:500">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"></circle><circle cx="5" cy="19" r="2"></circle><circle cx="19" cy="19" r="2"></circle><path d="M12 7v5M12 12l-5.6 5.6M12 12l5.6 5.6"></path></svg>Carte du réseau</a>
+          <a class="nav" href="Inventaire.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; box-sizing:border-box; padding:0 10px; border-radius:6px; text-decoration:none; color:#E2E8F0; font-weight:500">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h1M4 12h1M4 18h1"></path></svg>Inventaire</a>
+          <a class="nav" href="Device.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; box-sizing:border-box; padding:0 10px; border-radius:6px; text-decoration:none; color:#E2E8F0; font-weight:500">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="12" rx="2"></rect><path d="M9 20h6M12 16v4"></path></svg>Appareil</a>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px">
+          <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:#94A3B8; padding:0 10px 4px">Diagnostic</div>
+          <a class="nav" href="Ping.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; box-sizing:border-box; padding:0 10px; border-radius:6px; text-decoration:none; color:#E2E8F0; font-weight:500">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"></path></svg>Ping continu</a>
+          <a class="nav" href="Switch.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; box-sizing:border-box; padding:0 10px; border-radius:6px; text-decoration:none; color:#E2E8F0; font-weight:500">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="2"></rect><path d="M7 11v2M10 11v2M13 11v2M16 11v2"></path></svg>Switchs et ports</a>
+          <a class="nav" href="Wifi.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; box-sizing:border-box; padding:0 10px; border-radius:6px; text-decoration:none; color:#E2E8F0; font-weight:500">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5a15 15 0 0 1 20 0"></path><path d="M5 12a10 10 0 0 1 14 0"></path><path d="M8.5 15.5a5 5 0 0 1 7 0"></path><path d="M12 19h.01"></path></svg>Wi-Fi</a>
+          <a class="nav" href="Toolbox.dc.html" aria-current="page" style="display:flex; align-items:center; gap:10px; height:32px; box-sizing:border-box; padding:0 10px; border-radius:6px; text-decoration:none; color:#FFFFFF; background:#1E293B; font-weight:600">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"></path></svg>Outils</a>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px">
+          <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:#94A3B8; padding:0 10px 4px">Suivi</div>
+          <a class="nav" href="Surveillance.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; box-sizing:border-box; padding:0 10px; border-radius:6px; text-decoration:none; color:#E2E8F0; font-weight:500">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>Surveillance<span aria-label="3 alertes" style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#DC2626; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center">3</span></a>
+          <a class="nav" href="Analyse.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; box-sizing:border-box; padding:0 10px; border-radius:6px; text-decoration:none; color:#E2E8F0; font-weight:500">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>Analyse<span aria-label="1 nouvelle analyse" style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#334155; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center">1</span></a>
+          <a class="nav" href="Rapport.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; box-sizing:border-box; padding:0 10px; border-radius:6px; text-decoration:none; color:#E2E8F0; font-weight:500">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><path d="M14 3v6h6M8 13h8M8 17h5"></path></svg>Rapports</a>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px">
+          <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:#94A3B8; padding:0 10px 4px">Accès</div>
+          <a class="nav" href="Remote.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; box-sizing:border-box; padding:0 10px; border-radius:6px; text-decoration:none; color:#E2E8F0; font-weight:500">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M7 9l3 2-3 2M12 13h4M9 21h6M12 17v4"></path></svg>Accès distant</a>
+          <a class="nav" href="Speedtest.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; box-sizing:border-box; padding:0 10px; border-radius:6px; text-decoration:none; color:#E2E8F0; font-weight:500">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19a9 9 0 1 1 14.2 0"></path><path d="M12 14l4-5"></path><circle cx="12" cy="14" r="1.2"></circle></svg>Speedtest</a>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:12px">
+      <div style="display:flex; flex-direction:column; gap:2px">
+        <a class="nav" href="Reglages.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; box-sizing:border-box; padding:0 10px; border-radius:6px; text-decoration:none; color:#E2E8F0; font-weight:500">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M4.9 4.9L7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1"></path></svg>Réglages</a>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px; padding:10px; border-top:1px solid #1E293B">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#CBD5E1">Interface active</div>
+        <div style="display:flex; align-items:center; gap:8px">
+          <span style="width:8px; height:8px; border-radius:50%; background:#22C55E; flex:none"></span>
+          <span style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#E2E8F0">en0 · 10.182.122.135 · Wi-Fi</span>
+        </div>
+        <div style="font-size:12px; color:#CBD5E1">Version 2.4.0 (build 612)</div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- CONTENU -->
+  <main style="flex:999 1 560px; min-width:0; display:flex; flex-direction:column">
+
+    <!-- Barre d'outils -->
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:12px 20px; background:#FFFFFF; border-bottom:1px solid #E5E7EB">
+      <div style="display:flex; flex-direction:column; gap:2px; margin-right:8px">
+        <h1 style="margin:0; font-size:17px; font-weight:700">Boîte à outils</h1>
+        <span style="font-size:12px; color:#4B5563">15 outils du technicien · résultats liés à l’inventaire</span>
+      </div>
+      <div style="flex:1 1 320px; display:flex; align-items:center; gap:8px; height:34px; padding:0 10px; border:1px solid #E5E7EB; border-radius:6px; background:#F9FAFB; min-width:0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4B5563" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <input type="search" aria-label="Recherche globale" placeholder="Rechercher IP, MAC, hostname, fabricant, port de switch…" value="{{ q }}" onChange="{{ onQ }}" style="flex:1; min-width:0; border:0; background:transparent; font:inherit; font-size:13px; color:#111827; outline:none">
+        <span style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#4B5563; border:1px solid #E5E7EB; border-radius:4px; padding:1px 5px; background:#FFFFFF">⌘K</span>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px">
+        <button type="button" class="btn" style="height:34px; padding:0 12px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; font:inherit; font-weight:500; color:#111827; display:flex; align-items:center; gap:6px; cursor:pointer">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>Exporter les résultats</button>
+        <button type="button" class="btnp" style="height:34px; padding:0 14px; border:0; border-radius:6px; background:#2563EB; color:#FFFFFF; font:inherit; font-weight:600; display:flex; align-items:center; gap:6px; cursor:pointer">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Nouveau scan</button>
+      </div>
+    </div>
+
+    <div style="display:flex; flex-wrap:wrap; gap:16px; padding:16px 20px; align-items:flex-start">
+
+      <!-- LISTE DES OUTILS -->
+      <section aria-label="Liste des outils" style="flex:1 1 230px; max-width:250px; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:12px 8px; box-sizing:border-box; display:flex; flex-direction:column; gap:10px">
+        <div style="padding:0 4px">
+          <label for="tfilter" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Filtrer les outils</label>
+          <input id="tfilter" type="text" placeholder="ex. dhcp, mtu, lldp" value="{{ toolQ }}" onChange="{{ onToolQ }}" style="width:100%; box-sizing:border-box; height:30px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font:inherit; font-size:12px; color:#111827">
+        </div>
+        <sc-for list="{{ groups }}" as="g" hint-placeholder-count="5">
+          <div style="display:flex; flex-direction:column; gap:1px">
+            <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; padding:6px 8px 4px">{{ g.name }}</div>
+            <sc-for list="{{ g.items }}" as="t" hint-placeholder-count="3">
+              <button type="button" class="titem" onClick="{{ t.pick }}" style="{{ t.style }}">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{ t.icon }}"></path></svg>
+                <span style="flex:1; text-align:left">{{ t.label }}</span>
+                <sc-if value="{{ t.fav }}" hint-placeholder-val="{{ false }}"><svg aria-label="Favori" role="img" width="12" height="12" viewBox="0 0 24 24" fill="#C2410C" stroke="#C2410C" stroke-width="1.5" stroke-linejoin="round"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"></path></svg></sc-if>
+              </button>
+            </sc-for>
+          </div>
+        </sc-for>
+        <sc-if value="{{ noTool }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:8px; font-size:12px; color:#4B5563">Aucun outil ne correspond à « {{ toolQ }} ».</div>
+        </sc-if>
+      </section>
+
+      <!-- ZONE PRINCIPALE -->
+      <section aria-label="Outil sélectionné" style="flex:999 1 480px; min-width:0; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; box-sizing:border-box">
+        <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; padding:14px 18px; border-bottom:1px solid #E5E7EB">
+          <div style="display:flex; flex-direction:column; gap:3px; min-width:0">
+            <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">{{ toolGroup }}</div>
+            <h2 style="margin:0; font-size:16px; font-weight:700">{{ toolTitle }}</h2>
+            <div style="font-size:12px; color:#4B5563">{{ toolDesc }}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+            <code style="font-family:'JetBrains Mono', monospace; font-size:12px; background:#F3F4F6; border:1px solid #E5E7EB; border-radius:6px; padding:5px 8px; color:#111827">{{ toolCmd }}</code>
+            <button type="button" class="btn" aria-label="Ajouter aux favoris" style="width:32px; height:32px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; display:flex; align-items:center; justify-content:center; color:#4B5563; cursor:pointer">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"></path></svg>
+            </button>
+          </div>
+        </div>
+
+        <div style="padding:16px 18px; display:flex; flex-direction:column; gap:16px">
+
+          <!-- ============ CALCULATEUR DE SOUS-RÉSEAU ============ -->
+          <sc-if value="{{ isSubnet }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; flex-direction:column; gap:16px">
+              <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end">
+                <div style="flex:1 1 220px; min-width:0">
+                  <label for="cidr" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Adresse CIDR</label>
+                  <input id="cidr" type="text" spellcheck="false" value="{{ cidr }}" onChange="{{ onCidr }}" style="{{ cidrStyle }}">
+                </div>
+                <div>
+                  <label for="pfx" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Préfixe</label>
+                  <div style="display:flex; gap:4px">
+                    <button type="button" class="btn" aria-label="Préfixe plus court" onClick="{{ pDec }}" style="width:34px; height:36px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; font:inherit; font-size:16px; color:#111827; cursor:pointer">−</button>
+                    <select id="pfx" value="{{ prefixVal }}" onChange="{{ onPrefix }}" style="height:36px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font-family:'JetBrains Mono', monospace; font-size:12px; color:#111827; background:#FFFFFF">
+                      <sc-for list="{{ prefixOpts }}" as="o" hint-placeholder-count="5">
+                        <option value="{{ o.v }}">{{ o.label }}</option>
+                      </sc-for>
+                    </select>
+                    <button type="button" class="btn" aria-label="Préfixe plus long" onClick="{{ pInc }}" style="width:34px; height:36px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; font:inherit; font-size:16px; color:#111827; cursor:pointer">+</button>
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px">
+                <span style="font-size:12px; color:#4B5563; margin-right:4px">Plages récentes :</span>
+                <sc-for list="{{ quickRanges }}" as="r" hint-placeholder-count="4">
+                  <button type="button" class="chip" onClick="{{ r.pick }}" style="{{ r.style }}">{{ r.label }}</button>
+                </sc-for>
+              </div>
+
+              <sc-if value="{{ subnetInvalid }}" hint-placeholder-val="{{ false }}">
+                <div role="alert" style="display:flex; gap:10px; align-items:flex-start; background:#FEE2E2; color:#B91C1C; border:1px solid #FCA5A5; border-radius:8px; padding:10px 12px">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex:none; margin-top:1px"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 16.5v.5"></path></svg>
+                  <div><div style="font-weight:600">Entrée invalide</div><div style="font-size:12px; margin-top:2px">{{ subnetError }}</div></div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ subnetValid }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex; flex-direction:column; gap:16px">
+                  <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:8px; padding:9px 12px">
+                    <span style="color:#1E3A8A; font-weight:500">{{ invNote }}</span>
+                    <a href="Main.dc.html" style="font-weight:600; text-decoration:none">Scanner cette plage →</a>
+                  </div>
+                  <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:1px; background:#E5E7EB; border:1px solid #E5E7EB; border-radius:8px; overflow:hidden">
+                    <sc-for list="{{ calcCells }}" as="c" hint-placeholder-count="9">
+                      <div style="background:#FFFFFF; padding:10px 12px; min-width:0">
+                        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">{{ c.k }}</div>
+                        <div style="font-family:'JetBrains Mono', monospace; font-size:14px; font-weight:600; margin-top:4px; overflow-wrap:anywhere">{{ c.v }}</div>
+                        <div style="font-size:12px; color:#4B5563; margin-top:2px">{{ c.s }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+
+                  <div style="border:1px solid #E5E7EB; border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px">
+                    <div style="display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; align-items:center">
+                      <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">Représentation binaire</div>
+                      <div style="display:flex; gap:12px; font-size:12px; color:#4B5563">
+                        <span style="display:flex; align-items:center; gap:5px"><span style="width:10px; height:10px; border-radius:2px; background:#2563EB"></span>Bits réseau ({{ netBits }})</span>
+                        <span style="display:flex; align-items:center; gap:5px"><span style="width:10px; height:10px; border-radius:2px; background:#9CA3AF"></span>Bits hôte ({{ hostBits }})</span>
+                      </div>
+                    </div>
+                    <div style="overflow-x:auto">
+                      <div style="display:grid; grid-template-columns:120px auto; gap:6px 12px; font-family:'JetBrains Mono', monospace; font-size:12px; white-space:nowrap">
+                        <span style="font-family:Inter, sans-serif; color:#4B5563">Adresse</span>
+                        <span><span style="color:#1D4ED8; font-weight:600">{{ binIpNet }}</span><span style="color:#4B5563">{{ binIpHost }}</span></span>
+                        <span style="font-family:Inter, sans-serif; color:#4B5563">Masque</span>
+                        <span><span style="color:#1D4ED8; font-weight:600">{{ binMaskNet }}</span><span style="color:#4B5563">{{ binMaskHost }}</span></span>
+                        <span style="font-family:Inter, sans-serif; color:#4B5563">Masque inverse</span>
+                        <span><span style="color:#1D4ED8; font-weight:600">{{ binWildNet }}</span><span style="color:#4B5563">{{ binWildHost }}</span></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="border:1px solid #E5E7EB; border-radius:8px; overflow:hidden">
+                    <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border-bottom:1px solid #E5E7EB; background:#F9FAFB">
+                      <div>
+                        <div style="font-weight:600">Découpage en sous-réseaux</div>
+                        <div style="font-size:12px; color:#4B5563">{{ splitSummary }}</div>
+                      </div>
+                      <sc-if value="{{ canSplit }}" hint-placeholder-val="{{ true }}">
+                        <div role="group" aria-label="Préfixe de découpage" style="display:flex; flex-wrap:wrap; gap:4px">
+                          <sc-for list="{{ splitChips }}" as="s" hint-placeholder-count="6">
+                            <button type="button" class="chip" onClick="{{ s.pick }}" style="{{ s.style }}">{{ s.label }}</button>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                    <sc-if value="{{ canSplit }}" hint-placeholder-val="{{ true }}">
+                      <div style="overflow-x:auto">
+                        <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:560px">
+                          <thead>
+                            <tr style="text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">
+                              <th style="padding:8px 12px; font-weight:600; border-bottom:1px solid #E5E7EB">#</th>
+                              <th style="padding:8px 12px; font-weight:600; border-bottom:1px solid #E5E7EB">Sous-réseau</th>
+                              <th style="padding:8px 12px; font-weight:600; border-bottom:1px solid #E5E7EB">Plage d’hôtes</th>
+                              <th style="padding:8px 12px; font-weight:600; border-bottom:1px solid #E5E7EB">Broadcast</th>
+                              <th style="padding:8px 12px; font-weight:600; border-bottom:1px solid #E5E7EB; text-align:right">Hôtes</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <sc-for list="{{ splitRows }}" as="sr" hint-placeholder-count="4">
+                              <tr class="row" style="{{ sr.style }}">
+                                <td style="padding:0 12px; color:#4B5563">{{ sr.n }}</td>
+                                <td style="padding:0 12px; font-family:'JetBrains Mono', monospace; font-weight:600">{{ sr.net }}</td>
+                                <td style="padding:0 12px; font-family:'JetBrains Mono', monospace">{{ sr.range }}</td>
+                                <td style="padding:0 12px; font-family:'JetBrains Mono', monospace">{{ sr.bc }}</td>
+                                <td style="padding:0 12px; font-family:'JetBrains Mono', monospace; text-align:right">{{ sr.hosts }}</td>
+                              </tr>
+                            </sc-for>
+                          </tbody>
+                        </table>
+                      </div>
+                      <sc-if value="{{ splitMore }}" hint-placeholder-val="{{ false }}">
+                        <div style="padding:8px 12px; font-size:12px; color:#4B5563; border-top:1px solid #E5E7EB">{{ splitMoreText }}</div>
+                      </sc-if>
+                    </sc-if>
+                    <sc-if value="{{ cannotSplit }}" hint-placeholder-val="{{ false }}">
+                      <div style="padding:12px; font-size:12px; color:#4B5563">Un /31 ou /32 ne peut pas être découpé davantage.</div>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <!-- ============ CONVERTISSEUR MAC / OUI ============ -->
+          <sc-if value="{{ isOui }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:14px">
+              <div>
+                <label for="macin" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Adresse MAC (tout format)</label>
+                <input id="macin" type="text" spellcheck="false" value="{{ mac }}" onChange="{{ onMac }}" style="width:100%; box-sizing:border-box; height:36px; border:1px solid #E5E7EB; border-radius:6px; padding:0 10px; font-family:'JetBrains Mono', monospace; font-size:14px; color:#111827">
+              </div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center">
+                <span style="font-size:12px; color:#4B5563">Exemples de l’inventaire :</span>
+                <sc-for list="{{ macExamples }}" as="m" hint-placeholder-count="3">
+                  <button type="button" class="chip" onClick="{{ m.pick }}" style="height:26px; padding:0 9px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; font-family:'JetBrains Mono', monospace; font-size:11px; color:#111827; cursor:pointer">{{ m.label }}</button>
+                </sc-for>
+              </div>
+              <sc-if value="{{ macInvalid }}" hint-placeholder-val="{{ false }}">
+                <div role="alert" style="background:#FEE2E2; color:#B91C1C; border:1px solid #FCA5A5; border-radius:8px; padding:10px 12px; font-weight:500">MAC invalide : 12 caractères hexadécimaux attendus (reçu {{ macLen }}).</div>
+              </sc-if>
+              <sc-if value="{{ macValid }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex; flex-direction:column; gap:14px">
+                  <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:1px; background:#E5E7EB; border:1px solid #E5E7EB; border-radius:8px; overflow:hidden">
+                    <sc-for list="{{ macFormats }}" as="f" hint-placeholder-count="4">
+                      <div style="background:#FFFFFF; padding:10px 12px">
+                        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">{{ f.k }}</div>
+                        <div style="font-family:'JetBrains Mono', monospace; font-size:14px; font-weight:600; margin-top:4px">{{ f.v }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px">
+                    <div style="border:1px solid #E5E7EB; border-radius:8px; padding:12px">
+                      <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">Fabricant (OUI {{ ouiHex }})</div>
+                      <div style="font-weight:600; margin-top:6px">{{ macVendor }}</div>
+                    </div>
+                    <div style="border:1px solid #E5E7EB; border-radius:8px; padding:12px">
+                      <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">Type d’adresse</div>
+                      <div style="font-weight:600; margin-top:6px">{{ macKind }}</div>
+                      <div style="font-size:12px; color:#4B5563; margin-top:2px">{{ macCast }}</div>
+                    </div>
+                    <div style="border:1px solid #E5E7EB; border-radius:8px; padding:12px">
+                      <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">Dans l’inventaire</div>
+                      <div style="font-weight:600; margin-top:6px">{{ macInv }}</div>
+                      <div style="font-size:12px; color:#4B5563; margin-top:2px; font-family:'JetBrains Mono', monospace">{{ macInvPort }}</div>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <!-- ============ TRACEROUTE ============ -->
+          <sc-if value="{{ isTrace }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:14px">
+              <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end">
+                <div style="flex:1 1 220px"><label for="trt" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Cible</label><input id="trt" type="text" value="8.8.8.8" style="width:100%; box-sizing:border-box; height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 10px; font-family:'JetBrains Mono', monospace; font-size:13px"></div>
+                <div><label for="trp" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Protocole</label><select id="trp" style="height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font:inherit"><option>ICMP</option><option>UDP</option><option>TCP 443</option></select></div>
+                <div><label for="trh" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Sauts max</label><input id="trh" type="number" value="30" style="width:70px; height:34px; box-sizing:border-box; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font-family:'JetBrains Mono', monospace"></div>
+                <button type="button" class="btnp" style="height:34px; padding:0 14px; border:0; border-radius:6px; background:#2563EB; color:#FFFFFF; font:inherit; font-weight:600; cursor:pointer">Tracer (mode MTR)</button>
+              </div>
+              <div style="overflow-x:auto; border:1px solid #E5E7EB; border-radius:8px">
+                <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:560px">
+                  <thead><tr style="text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; background:#F9FAFB"><th style="padding:8px 12px">Saut</th><th style="padding:8px 12px">Hôte</th><th style="padding:8px 12px">Adresse</th><th style="padding:8px 12px; text-align:right">Perte</th><th style="padding:8px 12px; text-align:right">Moy.</th><th style="padding:8px 12px; text-align:right">Pire</th></tr></thead>
+                  <tbody>
+                    <sc-for list="{{ hops }}" as="h" hint-placeholder-count="6">
+                      <tr class="row" style="{{ rowBase }}"><td style="padding:0 12px; color:#4B5563">{{ h.n }}</td><td style="padding:0 12px">{{ h.name }}</td><td style="padding:0 12px; font-family:'JetBrains Mono', monospace">{{ h.ip }}</td><td style="{{ h.lossStyle }}">{{ h.loss }}</td><td style="padding:0 12px; text-align:right; font-family:'JetBrains Mono', monospace">{{ h.avg }}</td><td style="padding:0 12px; text-align:right; font-family:'JetBrains Mono', monospace">{{ h.worst }}</td></tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+              <div style="font-size:12px; color:#4B5563">Destination atteinte en 9 sauts · 100 sondes par saut · la perte au saut 4 n’est pas propagée (limitation ICMP du routeur, pas une vraie perte).</div>
+            </div>
+          </sc-if>
+
+          <!-- ============ SCAN DE PORTS ============ -->
+          <sc-if value="{{ isPorts }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:14px">
+              <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px">
+                <div><label for="pst" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Cible (IP, plage ou hostname)</label><input id="pst" type="text" value="10.182.122.111" style="width:100%; box-sizing:border-box; height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 10px; font-family:'JetBrains Mono', monospace; font-size:13px"></div>
+                <div><label for="psp" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Plage de ports</label><input id="psp" type="text" value="{{ portRange }}" style="width:100%; box-sizing:border-box; height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 10px; font-family:'JetBrains Mono', monospace; font-size:13px"></div>
+              </div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center">
+                <span style="font-size:12px; color:#4B5563; margin-right:4px">Profil :</span>
+                <sc-for list="{{ portProfiles }}" as="p" hint-placeholder-count="5">
+                  <button type="button" class="chip" onClick="{{ p.pick }}" style="{{ p.style }}">{{ p.label }}</button>
+                </sc-for>
+                <span style="flex:1"></span>
+                <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:#111827"><input type="checkbox" checked>Détection de services</label>
+                <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:#111827"><input type="checkbox">UDP</label>
+                <button type="button" class="btnp" style="height:32px; padding:0 14px; border:0; border-radius:6px; background:#2563EB; color:#FFFFFF; font:inherit; font-weight:600; cursor:pointer">Lancer le scan</button>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px">
+                <div style="display:flex; justify-content:space-between; font-size:12px; color:#4B5563"><span>Terminé · {{ portDone }}</span><span style="font-family:'JetBrains Mono', monospace">2,8 s · RTT 4 ms</span></div>
+                <div role="img" aria-label="Progression du scan : 100 %" style="height:6px; background:#E5E7EB; border-radius:3px; overflow:hidden"><div style="width:100%; height:6px; background:#15803D"></div></div>
+              </div>
+              <div style="overflow-x:auto; border:1px solid #E5E7EB; border-radius:8px">
+                <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:580px">
+                  <thead><tr style="text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; background:#F9FAFB"><th style="padding:8px 12px">Port</th><th style="padding:8px 12px">État</th><th style="padding:8px 12px">Service</th><th style="padding:8px 12px">Bannière / version</th><th style="padding:8px 12px">Action</th></tr></thead>
+                  <tbody>
+                    <sc-for list="{{ ports }}" as="pt" hint-placeholder-count="4">
+                      <tr class="row" style="{{ rowBase }}">
+                        <td style="padding:0 12px; font-family:'JetBrains Mono', monospace; font-weight:600">{{ pt.port }}</td>
+                        <td style="padding:0 12px"><span style="{{ pt.stateStyle }}">{{ pt.state }}</span></td>
+                        <td style="padding:0 12px; font-family:'JetBrains Mono', monospace">{{ pt.svc }}</td>
+                        <td style="padding:0 12px; color:#4B5563">{{ pt.banner }}</td>
+                        <td style="padding:0 12px"><a href="Device.dc.html" style="text-decoration:none; font-weight:500">{{ pt.act }}</a></td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+              <div style="font-size:12px; color:#4B5563">Hôte : <span style="font-family:'JetBrains Mono', monospace">10.182.122.111</span> · Brother DCP-L2640DW · <span style="font-family:'JetBrains Mono', monospace">94:DD:F8:18:15:7D</span> · SW-ETG2-01 port 1/14 · VLAN 30</div>
+            </div>
+          </sc-if>
+
+          <!-- ============ DNS LOOKUP ============ -->
+          <sc-if value="{{ isDns }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:14px">
+              <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end">
+                <div style="flex:1 1 240px"><label for="dnq" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Nom ou adresse</label><input id="dnq" type="text" value="{{ dnsQuery }}" style="width:100%; box-sizing:border-box; height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 10px; font-family:'JetBrains Mono', monospace; font-size:13px"></div>
+                <div><label for="dns" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Serveur DNS</label><select id="dns" style="height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font-family:'JetBrains Mono', monospace; font-size:12px"><option>10.182.122.1 (passerelle)</option><option>1.1.1.1</option><option>8.8.8.8</option></select></div>
+                <button type="button" class="btnp" style="height:34px; padding:0 14px; border:0; border-radius:6px; background:#2563EB; color:#FFFFFF; font:inherit; font-weight:600; cursor:pointer">Résoudre</button>
+              </div>
+              <div role="group" aria-label="Type d’enregistrement" style="display:flex; flex-wrap:wrap; gap:4px">
+                <sc-for list="{{ dnsTypes }}" as="d" hint-placeholder-count="5">
+                  <button type="button" class="chip" onClick="{{ d.pick }}" style="{{ d.style }}">{{ d.label }}</button>
+                </sc-for>
+              </div>
+              <div style="overflow-x:auto; border:1px solid #E5E7EB; border-radius:8px">
+                <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:540px">
+                  <thead><tr style="text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; background:#F9FAFB"><th style="padding:8px 12px">Nom</th><th style="padding:8px 12px">Type</th><th style="padding:8px 12px; text-align:right">TTL</th><th style="padding:8px 12px">Valeur</th></tr></thead>
+                  <tbody>
+                    <sc-for list="{{ dnsRows }}" as="dr" hint-placeholder-count="3">
+                      <tr class="row" style="{{ rowBase }}"><td style="padding:0 12px; font-family:'JetBrains Mono', monospace">{{ dr.name }}</td><td style="padding:0 12px"><span style="font-family:'JetBrains Mono', monospace; font-size:11px; font-weight:600; background:#EFF6FF; color:#1D4ED8; border-radius:4px; padding:2px 6px">{{ dr.type }}</span></td><td style="padding:0 12px; text-align:right; font-family:'JetBrains Mono', monospace">{{ dr.ttl }}</td><td style="padding:0 12px; font-family:'JetBrains Mono', monospace; font-weight:500">{{ dr.val }}</td></tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+              <div style="font-size:12px; color:#4B5563; font-family:'JetBrains Mono', monospace">{{ dnsMeta }}</div>
+            </div>
+          </sc-if>
+
+          <!-- ============ WHOIS ============ -->
+          <sc-if value="{{ isWhois }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:14px">
+              <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap">
+                <div style="flex:1 1 240px"><label for="whq" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Adresse IP, ASN ou domaine</label><input id="whq" type="text" value="8.8.8.8" style="width:100%; box-sizing:border-box; height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 10px; font-family:'JetBrains Mono', monospace"></div>
+                <button type="button" class="btnp" style="height:34px; padding:0 14px; border:0; border-radius:6px; background:#2563EB; color:#FFFFFF; font:inherit; font-weight:600; cursor:pointer">Interroger (ARIN)</button>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:1px; background:#E5E7EB; border:1px solid #E5E7EB; border-radius:8px; overflow:hidden">
+                <sc-for list="{{ whois }}" as="w" hint-placeholder-count="6">
+                  <div style="background:#FFFFFF; padding:10px 12px"><div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">{{ w.k }}</div><div style="font-family:'JetBrains Mono', monospace; font-weight:600; margin-top:4px">{{ w.v }}</div></div>
+                </sc-for>
+              </div>
+              <pre style="margin:0; background:#0F172A; color:#E2E8F0; border-radius:8px; padding:12px; font-family:'JetBrains Mono', monospace; font-size:12px; line-height:1.6; overflow-x:auto">NetRange:       8.8.8.0 - 8.8.8.255
+CIDR:           8.8.8.0/24
+NetName:        GOGL
+OriginAS:       AS15169
+Organization:   Google LLC (GOGL)
+RegDate:        2014-03-14
+Ref:            https://rdap.arin.net/registry/ip/8.8.8.0</pre>
+            </div>
+          </sc-if>
+
+          <!-- ============ TEST MTU ============ -->
+          <sc-if value="{{ isMtu }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:14px">
+              <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap">
+                <div style="flex:1 1 220px"><label for="mtt" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Cible</label><input id="mtt" type="text" value="10.182.122.1" style="width:100%; box-sizing:border-box; height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 10px; font-family:'JetBrains Mono', monospace"></div>
+                <button type="button" class="btnp" style="height:34px; padding:0 14px; border:0; border-radius:6px; background:#2563EB; color:#FFFFFF; font:inherit; font-weight:600; cursor:pointer">Rechercher la MTU (DF)</button>
+              </div>
+              <div style="display:flex; flex-wrap:wrap; gap:12px">
+                <div style="flex:1 1 160px; border:1px solid #E5E7EB; border-radius:8px; padding:12px"><div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">MTU du chemin</div><div style="font-family:'JetBrains Mono', monospace; font-size:22px; font-weight:600; margin-top:4px">1500</div><div style="font-size:12px; color:#4B5563">charge ICMP max 1472 octets</div></div>
+                <div style="flex:1 1 160px; border:1px solid #E5E7EB; border-radius:8px; padding:12px"><div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">Jumbo frames</div><div style="font-size:15px; font-weight:600; margin-top:6px; color:#C2410C">Non supportées</div><div style="font-size:12px; color:#4B5563">9000 rejeté au 1er saut</div></div>
+              </div>
+              <div style="overflow-x:auto; border:1px solid #E5E7EB; border-radius:8px">
+                <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:420px">
+                  <thead><tr style="text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; background:#F9FAFB"><th style="padding:8px 12px">Taille (octets)</th><th style="padding:8px 12px">Bit DF</th><th style="padding:8px 12px">Résultat</th></tr></thead>
+                  <tbody>
+                    <sc-for list="{{ mtuRows }}" as="mr" hint-placeholder-count="5">
+                      <tr class="row" style="{{ rowBase }}"><td style="padding:0 12px; font-family:'JetBrains Mono', monospace">{{ mr.size }}</td><td style="padding:0 12px">Activé</td><td style="padding:0 12px"><span style="{{ mr.style }}">{{ mr.res }}</span></td></tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- ============ IPERF3 ============ -->
+          <sc-if value="{{ isIperf }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:14px">
+              <div style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px">
+                <div><label for="ips" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Serveur</label><input id="ips" type="text" value="10.182.122.117" style="width:100%; box-sizing:border-box; height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font-family:'JetBrains Mono', monospace; font-size:12px"></div>
+                <div><label for="ipd" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Durée</label><select id="ipd" style="width:100%; height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font:inherit"><option>10 s</option><option>30 s</option><option>60 s</option></select></div>
+                <div><label for="ipf" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Flux parallèles</label><select id="ipf" style="width:100%; height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font:inherit"><option>4</option><option>1</option><option>8</option></select></div>
+                <div><label for="ipr" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Sens</label><select id="ipr" style="width:100%; height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font:inherit"><option>Envoi (TCP)</option><option>Réception (-R)</option><option>Bidirectionnel</option></select></div>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px">
+                <sc-for list="{{ iperfStats }}" as="is" hint-placeholder-count="4">
+                  <div style="border:1px solid #E5E7EB; border-radius:8px; padding:10px 12px"><div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">{{ is.k }}</div><div style="font-family:'JetBrains Mono', monospace; font-size:18px; font-weight:600; margin-top:4px">{{ is.v }}</div><div style="font-size:12px; color:#4B5563">{{ is.s }}</div></div>
+                </sc-for>
+              </div>
+              <div style="border:1px solid #E5E7EB; border-radius:8px; padding:12px">
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px"><span style="font-weight:600">Débit par seconde (Mbit/s)</span><span style="font-size:12px; color:#4B5563">en0 Wi-Fi 6 · canal 149 · 80 MHz</span></div>
+                <div style="overflow-x:auto">
+                  <svg role="img" aria-label="Graphe du débit iperf3 sur 10 secondes, entre 512 et 612 Mbit/s" viewBox="0 0 600 190" width="100%" height="190" style="min-width:420px; display:block">
+                    <g stroke="#E5E7EB" stroke-width="1"><line x1="44" y1="20" x2="590" y2="20"></line><line x1="44" y1="55" x2="590" y2="55"></line><line x1="44" y1="90" x2="590" y2="90"></line><line x1="44" y1="125" x2="590" y2="125"></line><line x1="44" y1="160" x2="590" y2="160"></line></g>
+                    <g font-family="JetBrains Mono, monospace" font-size="10" fill="#4B5563" text-anchor="end"><text x="38" y="24">1000</text><text x="38" y="59">750</text><text x="38" y="94">500</text><text x="38" y="129">250</text><text x="38" y="164">0</text></g>
+                    <g font-family="JetBrains Mono, monospace" font-size="10" fill="#4B5563" text-anchor="middle"><text x="50" y="178">1 s</text><text x="290" y="178">5 s</text><text x="584" y="178">10 s</text></g>
+                    <polygon points="{{ iperfArea }}" fill="#DBEAFE"></polygon>
+                    <polyline points="{{ iperfLine }}" fill="none" stroke="#2563EB" stroke-width="2" stroke-linejoin="round"></polyline>
+                  </svg>
+                </div>
+              </div>
+              <pre style="margin:0; background:#0F172A; color:#E2E8F0; border-radius:8px; padding:12px; font-family:'JetBrains Mono', monospace; font-size:12px; line-height:1.6; overflow-x:auto">[SUM]   0.00-10.00  sec   678 MBytes   569 Mbits/sec   41   sender
+[SUM]   0.00-10.01  sec   675 MBytes   566 Mbits/sec        receiver
+iperf Done.</pre>
+            </div>
+          </sc-if>
+
+          <!-- ============ TEST DE DÉBIT ============ -->
+          <sc-if value="{{ isSpeed }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:14px">
+              <div style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px">
+                <div style="border:1px solid #E5E7EB; border-radius:8px; padding:12px"><div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">Réception</div><div style="font-family:'JetBrains Mono', monospace; font-size:22px; font-weight:600; margin-top:4px">482</div><div style="font-size:12px; color:#4B5563">Mbit/s</div></div>
+                <div style="border:1px solid #E5E7EB; border-radius:8px; padding:12px"><div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">Envoi</div><div style="font-family:'JetBrains Mono', monospace; font-size:22px; font-weight:600; margin-top:4px">463</div><div style="font-size:12px; color:#4B5563">Mbit/s</div></div>
+                <div style="border:1px solid #E5E7EB; border-radius:8px; padding:12px"><div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">Latence (repos)</div><div style="font-family:'JetBrains Mono', monospace; font-size:22px; font-weight:600; margin-top:4px">7</div><div style="font-size:12px; color:#4B5563">ms</div></div>
+                <div style="border:1px solid #E5E7EB; border-radius:8px; padding:12px"><div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">Latence (charge)</div><div style="font-family:'JetBrains Mono', monospace; font-size:22px; font-weight:600; margin-top:4px; color:#C2410C">38</div><div style="font-size:12px; color:#4B5563">ms · bufferbloat modéré</div></div>
+              </div>
+              <div style="font-size:12px; color:#4B5563">Serveur de test : Montréal, QC · IP publique via FortiGate-60F (10.182.122.1) · test du 3 nov. à 09:12</div>
+              <button type="button" class="btnp" style="align-self:flex-start; height:34px; padding:0 14px; border:0; border-radius:6px; background:#2563EB; color:#FFFFFF; font:inherit; font-weight:600; cursor:pointer">Relancer le test</button>
+            </div>
+          </sc-if>
+
+          <!-- ============ TEST DHCP ============ -->
+          <sc-if value="{{ isDhcp }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:14px">
+              <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end">
+                <div><label for="dhi" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Interface</label><select id="dhi" style="height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font-family:'JetBrains Mono', monospace; font-size:12px"><option>en0 · Wi-Fi</option><option>en7 · Ethernet USB-C</option></select></div>
+                <div><label for="dhw" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Attente des offres</label><select id="dhw" style="height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font:inherit"><option>5 s</option><option>10 s</option></select></div>
+                <div><label for="dha" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Serveurs autorisés</label><input id="dha" type="text" value="10.182.122.1" style="height:34px; box-sizing:border-box; width:150px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font-family:'JetBrains Mono', monospace; font-size:12px"></div>
+                <button type="button" class="btnp" style="height:34px; padding:0 14px; border:0; border-radius:6px; background:#2563EB; color:#FFFFFF; font:inherit; font-weight:600; cursor:pointer">Envoyer DHCPDISCOVER</button>
+              </div>
+              <div role="alert" style="display:flex; gap:10px; align-items:flex-start; background:#FFEDD5; border:1px solid #FDBA74; border-radius:8px; padding:12px; color:#7C2D12">
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C2410C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none; margin-top:1px"><path d="M12 3l10 18H2z"></path><path d="M12 10v5M12 18v.5"></path></svg>
+                <div>
+                  <div style="font-weight:700; color:#9A3412">2 serveurs DHCP répondent : 10.182.122.1 (attendu) et 10.182.122.250 (NON AUTORISÉ)</div>
+                  <div style="font-size:12px; margin-top:4px">Le serveur non autorisé distribue 192.168.0.0/24 avec la passerelle 192.168.0.1 — probablement un routeur domestique branché à l’envers. Localisé sur SW-CORE-01 · Gi1/0/37 · VLAN 1.</div>
+                  <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
+                    <a href="Switch.dc.html" style="font-weight:600; text-decoration:none; color:#9A3412">Voir le port de switch →</a>
+                    <a href="Analyse.dc.html" style="font-weight:600; text-decoration:none; color:#9A3412">Créer une alerte →</a>
+                  </div>
+                </div>
+              </div>
+              <div style="overflow-x:auto; border:1px solid #E5E7EB; border-radius:8px">
+                <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:680px">
+                  <thead><tr style="text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; background:#F9FAFB"><th style="padding:8px 12px">Serveur</th><th style="padding:8px 12px">MAC / fabricant</th><th style="padding:8px 12px">IP offerte</th><th style="padding:8px 12px">Passerelle</th><th style="padding:8px 12px">DNS</th><th style="padding:8px 12px">Bail</th><th style="padding:8px 12px">Statut</th></tr></thead>
+                  <tbody>
+                    <sc-for list="{{ dhcpRows }}" as="dh" hint-placeholder-count="2">
+                      <tr class="row" style="{{ dh.rowStyle }}">
+                        <td style="padding:0 12px; font-family:'JetBrains Mono', monospace; font-weight:600">{{ dh.srv }}</td>
+                        <td style="padding:0 12px"><span style="font-family:'JetBrains Mono', monospace">{{ dh.mac }}</span><span style="color:#4B5563"> · {{ dh.vendor }}</span></td>
+                        <td style="padding:0 12px; font-family:'JetBrains Mono', monospace">{{ dh.offer }}</td>
+                        <td style="padding:0 12px; font-family:'JetBrains Mono', monospace">{{ dh.gw }}</td>
+                        <td style="padding:0 12px; font-family:'JetBrains Mono', monospace">{{ dh.dns }}</td>
+                        <td style="padding:0 12px">{{ dh.lease }}</td>
+                        <td style="padding:0 12px"><span style="{{ dh.badge }}">{{ dh.status }}</span></td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- ============ WAKE-ON-LAN ============ -->
+          <sc-if value="{{ isWol }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:14px">
+              <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px">
+                <div><label for="wm" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Adresse MAC</label><input id="wm" type="text" value="{{ wolMac }}" onChange="{{ onWolMac }}" style="width:100%; box-sizing:border-box; height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font-family:'JetBrains Mono', monospace; font-size:12px"></div>
+                <div><label for="wb" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Broadcast</label><input id="wb" type="text" value="10.182.122.255" style="width:100%; box-sizing:border-box; height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font-family:'JetBrains Mono', monospace; font-size:12px"></div>
+                <div><label for="wp" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Port UDP</label><select id="wp" value="{{ wolPort }}" onChange="{{ onWolPort }}" style="width:100%; height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font-family:'JetBrains Mono', monospace; font-size:12px"><option value="9">9 (discard)</option><option value="7">7 (echo)</option></select></div>
+              </div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center">
+                <span style="font-size:12px; color:#4B5563">Postes connus :</span>
+                <sc-for list="{{ wolTargets }}" as="wt" hint-placeholder-count="3">
+                  <button type="button" class="chip" onClick="{{ wt.pick }}" style="{{ wt.style }}">{{ wt.label }}</button>
+                </sc-for>
+                <span style="flex:1"></span>
+                <button type="button" class="btnp" onClick="{{ wake }}" style="height:34px; padding:0 16px; border:0; border-radius:6px; background:#2563EB; color:#FFFFFF; font:inherit; font-weight:600; display:flex; align-items:center; gap:6px; cursor:pointer">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v8M7.5 6.5a7 7 0 1 0 9 0"></path></svg>Réveiller</button>
+              </div>
+              <div style="font-size:12px; color:#4B5563">Paquet magique : 6 × <span style="font-family:'JetBrains Mono', monospace">FF</span> + 16 × MAC = 102 octets · un ping de vérification est lancé pendant 60 s après l’envoi.</div>
+              <div style="border:1px solid #E5E7EB; border-radius:8px; overflow:hidden">
+                <div style="padding:8px 12px; background:#F9FAFB; border-bottom:1px solid #E5E7EB; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">Historique des réveils</div>
+                <sc-for list="{{ wolLog }}" as="wl" hint-placeholder-count="3">
+                  <div class="row" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:8px 12px; border-bottom:1px solid #F3F4F6">
+                    <span style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#4B5563; width:64px">{{ wl.t }}</span>
+                    <span style="font-weight:600; min-width:70px">{{ wl.name }}</span>
+                    <span style="font-family:'JetBrains Mono', monospace; font-size:12px">{{ wl.mac }}</span>
+                    <span style="flex:1; font-size:12px; color:#4B5563; min-width:160px">{{ wl.res }}</span>
+                    <span style="{{ wl.badge }}">{{ wl.status }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- ============ SERVEUR TFTP ============ -->
+          <sc-if value="{{ isTftp }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:14px">
+              <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; border:1px solid #E5E7EB; border-radius:8px; padding:12px">
+                <span class="{{ tftpDotClass }}" style="{{ tftpDot }}"></span>
+                <div style="flex:1; min-width:200px"><div style="font-weight:600">{{ tftpStatus }}</div><div style="font-size:12px; color:#4B5563; font-family:'JetBrains Mono', monospace">udp/69 · 10.182.122.135 · racine ~/TFTP</div></div>
+                <button type="button" class="btnp" onClick="{{ toggleTftp }}" style="height:34px; padding:0 14px; border:0; border-radius:6px; background:#2563EB; color:#FFFFFF; font:inherit; font-weight:600; cursor:pointer">{{ tftpBtn }}</button>
+              </div>
+              <div style="overflow-x:auto; border:1px solid #E5E7EB; border-radius:8px">
+                <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:480px">
+                  <thead><tr style="text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; background:#F9FAFB"><th style="padding:8px 12px">Fichier</th><th style="padding:8px 12px; text-align:right">Taille</th><th style="padding:8px 12px">Dernier transfert</th></tr></thead>
+                  <tbody>
+                    <sc-for list="{{ tftpFiles }}" as="tf" hint-placeholder-count="3">
+                      <tr class="row" style="{{ rowBase }}"><td style="padding:0 12px; font-family:'JetBrains Mono', monospace">{{ tf.name }}</td><td style="padding:0 12px; text-align:right; font-family:'JetBrains Mono', monospace">{{ tf.size }}</td><td style="padding:0 12px; color:#4B5563">{{ tf.last }}</td></tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- ============ CONSOLE SÉRIE ============ -->
+          <sc-if value="{{ isSerial }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:12px">
+              <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end">
+                <div><label for="sp" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Port</label><select id="sp" style="height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font-family:'JetBrains Mono', monospace; font-size:12px"><option>/dev/cu.usbserial-A10K3Z</option></select></div>
+                <div><label for="sb" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Vitesse</label><select id="sb" style="height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font-family:'JetBrains Mono', monospace; font-size:12px"><option>9600 8N1</option><option>115200 8N1</option></select></div>
+                <button type="button" class="btn" style="height:34px; padding:0 12px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; font:inherit; font-weight:500; cursor:pointer">Envoyer BREAK</button>
+                <button type="button" class="btnp" style="height:34px; padding:0 14px; border:0; border-radius:6px; background:#2563EB; color:#FFFFFF; font:inherit; font-weight:600; cursor:pointer">Déconnecter</button>
+              </div>
+              <div role="log" aria-label="Sortie de la console série" style="background:#0F172A; color:#E2E8F0; border-radius:8px; padding:12px; font-family:'JetBrains Mono', monospace; font-size:12px; line-height:1.65; overflow-x:auto"><sc-for list="{{ serialLines }}" as="sl" hint-placeholder-count="6"><div style="white-space:pre">{{ sl.t }}</div></sc-for></div>
+            </div>
+          </sc-if>
+
+          <!-- ============ CAPTURE DE PAQUETS ============ -->
+          <sc-if value="{{ isPcap }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:12px">
+              <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end">
+                <div style="flex:1 1 260px"><label for="pf" style="display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:6px">Filtre BPF</label><input id="pf" type="text" value="port 67 or port 68 or arp" style="width:100%; box-sizing:border-box; height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 10px; font-family:'JetBrains Mono', monospace; font-size:12px"></div>
+                <button type="button" class="btn" style="height:34px; padding:0 12px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; font:inherit; font-weight:500; cursor:pointer">Enregistrer .pcapng</button>
+                <button type="button" class="btnp" style="height:34px; padding:0 14px; border:0; border-radius:6px; background:#B91C1C; color:#FFFFFF; font:inherit; font-weight:600; cursor:pointer">Arrêter</button>
+              </div>
+              <div style="overflow-x:auto; border:1px solid #E5E7EB; border-radius:8px">
+                <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:640px">
+                  <thead><tr style="text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; background:#F9FAFB"><th style="padding:8px 12px">Temps</th><th style="padding:8px 12px">Source</th><th style="padding:8px 12px">Destination</th><th style="padding:8px 12px">Proto</th><th style="padding:8px 12px">Info</th></tr></thead>
+                  <tbody>
+                    <sc-for list="{{ packets }}" as="pk" hint-placeholder-count="6">
+                      <tr class="row" style="{{ pk.style }}"><td style="padding:0 12px; font-family:'JetBrains Mono', monospace; color:#4B5563">{{ pk.t }}</td><td style="padding:0 12px; font-family:'JetBrains Mono', monospace">{{ pk.src }}</td><td style="padding:0 12px; font-family:'JetBrains Mono', monospace">{{ pk.dst }}</td><td style="padding:0 12px; font-weight:600">{{ pk.proto }}</td><td style="padding:0 12px">{{ pk.info }}</td></tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+              <div style="font-size:12px; color:#4B5563">1 284 paquets capturés sur en0 · 46 s · aucune perte du noyau</div>
+            </div>
+          </sc-if>
+
+          <!-- ============ ÉCOUTE LLDP / CDP ============ -->
+          <sc-if value="{{ isLldp }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:14px">
+              <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center">
+                <span class="live" style="width:10px; height:10px; border-radius:50%; background:#15803D"></span>
+                <span style="font-weight:600">Écoute en cours sur en7 · Ethernet USB-C</span>
+                <span style="font-size:12px; color:#4B5563">LLDP (01:80:C2:00:00:0E) et CDP (01:00:0C:CC:CC:CC)</span>
+                <span style="flex:1"></span>
+                <button type="button" class="btn" style="height:32px; padding:0 12px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; font:inherit; font-weight:500; cursor:pointer">Arrêter</button>
+              </div>
+              <div style="border:1px solid #BBF7D0; background:#F0FDF4; border-radius:8px; padding:16px; display:flex; flex-wrap:wrap; gap:16px; align-items:center">
+                <svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2"></rect><path d="M6 11v2M9 11v2M12 11v2M15 11v2M18 11v2"></path></svg>
+                <div style="flex:1; min-width:220px">
+                  <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#166534">Ce Mac est branché sur</div>
+                  <div style="font-family:'JetBrains Mono', monospace; font-size:20px; font-weight:600; color:#14532D; margin-top:4px">SW-ETG2-01 · port 1/22 · VLAN 1</div>
+                  <div style="font-size:12px; color:#166534; margin-top:2px">Reçu par LLDP il y a 12 s · prochaine trame dans 18 s</div>
+                </div>
+                <a href="Switch.dc.html" style="font-weight:600; text-decoration:none">Ouvrir le switch →</a>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:1px; background:#E5E7EB; border:1px solid #E5E7EB; border-radius:8px; overflow:hidden">
+                <sc-for list="{{ lldpFields }}" as="lf" hint-placeholder-count="8">
+                  <div style="background:#FFFFFF; padding:9px 12px; display:flex; justify-content:space-between; gap:10px"><span style="color:#4B5563">{{ lf.k }}</span><span style="font-family:'JetBrains Mono', monospace; font-weight:500; text-align:right; overflow-wrap:anywhere">{{ lf.v }}</span></div>
+                </sc-for>
+              </div>
+              <div style="font-size:12px; color:#4B5563">Astuce : le VLAN 1 natif sur une prise de bureau est inhabituel ici (les postes sont en VLAN 10). À vérifier dans Switchs et ports.</div>
+            </div>
+          </sc-if>
+
+        </div>
+      </section>
+
+      <!-- PANNEAU DROIT -->
+      <sc-if value="{{ showRight }}" hint-placeholder-val="{{ true }}">
+        <aside aria-label="Favoris et historique" style="flex:1 1 240px; max-width:270px; display:flex; flex-direction:column; gap:16px">
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:12px">
+            <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:8px">Favoris</div>
+            <div style="display:flex; flex-direction:column; gap:2px">
+              <sc-for list="{{ favs }}" as="fv" hint-placeholder-count="4">
+                <button type="button" class="fav" onClick="{{ fv.pick }}" style="display:flex; align-items:center; gap:8px; width:100%; height:32px; padding:0 8px; border:0; border-radius:6px; background:transparent; font:inherit; color:#111827; cursor:pointer; text-align:left">
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="#C2410C" stroke="#C2410C" stroke-width="1.5" stroke-linejoin="round"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"></path></svg>
+                  <span style="flex:1">{{ fv.label }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:12px">
+            <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; margin-bottom:8px">Résultats récents</div>
+            <div style="display:flex; flex-direction:column; gap:10px">
+              <sc-for list="{{ recents }}" as="rc" hint-placeholder-count="5">
+                <div style="display:flex; flex-direction:column; gap:3px; padding-bottom:10px; border-bottom:1px solid #F3F4F6">
+                  <div style="display:flex; justify-content:space-between; gap:6px; align-items:center"><span style="font-weight:600; font-size:12px">{{ rc.tool }}</span><span style="{{ rc.badge }}">{{ rc.status }}</span></div>
+                  <div style="font-family:'JetBrains Mono', monospace; font-size:12px">{{ rc.target }}</div>
+                  <div style="font-size:12px; color:#4B5563">{{ rc.sum }}</div>
+                  <div style="font-size:11px; color:#4B5563">{{ rc.when }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:12px">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px"><span style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#4B5563">Historique des commandes</span><button type="button" class="btn" style="height:24px; padding:0 8px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; font:inherit; font-size:11px; color:#111827; cursor:pointer">Copier</button></div>
+            <div style="background:#0F172A; border-radius:6px; padding:8px 10px; display:flex; flex-direction:column; gap:4px; overflow-x:auto">
+              <sc-for list="{{ cmdHist }}" as="ch" hint-placeholder-count="6">
+                <div style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#E2E8F0; white-space:nowrap"><span style="color:#93C5FD">$ </span>{{ ch.c }}</div>
+              </sc-for>
+            </div>
+          </div>
+        </aside>
+      </sc-if>
+
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000},"compact":false,"showRightPanel":true}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      tool: "subnet",
+      toolQ: "",
+      q: "",
+      cidr: "10.182.122.0/24",
+      split: 26,
+      mac: "70:4C:A5:1E:22:9A",
+      dnsType: "A",
+      portProfile: "courant",
+      wolMac: "B0:7B:25:4A:91:0E",
+      wolPort: "9",
+      tftpOn: false,
+      wolLog: [
+        { t: "08:41:07", name: "WKS341", mac: "B0:7B:25:4A:8F:33", res: "Paquet envoyé à 10.182.122.255:9 · répond au ping après 22 s", ok: true },
+        { t: "08:40:12", name: "WKS346", mac: "B0:7B:25:4A:91:0E", res: "Paquet envoyé à 10.182.122.255:9 · répond au ping après 18 s", ok: true },
+        { t: "hier 17:02", name: "PF4L8M20", mac: "54:E1:AD:6C:03:B7", res: "Aucune réponse après 60 s (WoL désactivé dans le BIOS ?)", ok: false }
+      ]
+    };
+  }
+
+  ipStr(n) { return [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join("."); }
+
+  parse(str) {
+    const s = (str || "").trim();
+    const m = s.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d{1,2})$/);
+    if (!m) {
+      if (/^(\d{1,3}\.){3}\d{1,3}$/.test(s)) return { err: "Préfixe manquant : ajoutez /xx, par exemple " + s + "/24." };
+      return { err: "Format attendu : a.b.c.d/préfixe, par exemple 10.182.122.0/24." };
+    }
+    const o = [1, 2, 3, 4].map(i => parseInt(m[i], 10));
+    if (o.some(x => x > 255)) return { err: "Chaque octet doit être compris entre 0 et 255." };
+    const p = parseInt(m[5], 10);
+    if (p > 32) return { err: "Le préfixe doit être compris entre /0 et /32." };
+    const ip = ((o[0] << 24) | (o[1] << 16) | (o[2] << 8) | o[3]) >>> 0;
+    const mask = p === 0 ? 0 : (0xFFFFFFFF << (32 - p)) >>> 0;
+    const net = (ip & mask) >>> 0;
+    const bc = (net | (~mask >>> 0)) >>> 0;
+    return { ip, p, mask, net, bc, o, ipPart: o.join(".") };
+  }
+
+  bin(n, p) {
+    const b = (n >>> 0).toString(2).padStart(32, "0");
+    let a = "", h = "";
+    for (let i = 0; i < 32; i++) {
+      const ch = (i > 0 && i % 8 === 0 ? "." : "") + b[i];
+      if (i < p) a += ch; else h += ch;
+    }
+    return [a, h];
+  }
+
+  hostsOf(p) { return p === 32 ? 1 : p === 31 ? 2 : Math.pow(2, 32 - p) - 2; }
+  fmt(n) { return n.toLocaleString("fr-CA"); }
+
+  renderVals() {
+    const st = this.state;
+    const props = this.props || {};
+    const rowH = props.compact ? 30 : 34;
+    const rowBase = "height:" + rowH + "px; border-top:1px solid #F3F4F6";
+    const chip = (on) => on
+      ? "height:28px; padding:0 10px; border:1px solid #2563EB; border-radius:6px; background:#EFF6FF; color:#1D4ED8; font:inherit; font-size:12px; font-weight:600; cursor:pointer; font-family:'JetBrains Mono', monospace"
+      : "height:28px; padding:0 10px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; font:inherit; font-size:12px; font-weight:500; cursor:pointer; font-family:'JetBrains Mono', monospace";
+    const badge = (kind) => {
+      const map = { ok: ["#DCFCE7", "#15803D"], warn: ["#FFEDD5", "#C2410C"], crit: ["#FEE2E2", "#B91C1C"], off: ["#F3F4F6", "#4B5563"], info: ["#EFF6FF", "#1D4ED8"] };
+      const c = map[kind] || map.off;
+      return "display:inline-block; font-size:11px; font-weight:600; padding:2px 7px; border-radius:4px; background:" + c[0] + "; color:" + c[1] + "; white-space:nowrap";
+    };
+
+    // ---------- Outils ----------
+    const I = {
+      calc: "M5 3h14v18H5zM8 7h8M8 11h2M12 11h2M16 11v6M8 15h2M12 15h2",
+      tag: "M3 12l9-9h9v9l-9 9zM16 8h.01",
+      route: "M5 19a2 2 0 1 0 0-.1M19 7a2 2 0 1 0 0-.1M7 19h6a4 4 0 0 0 0-8h-2a4 4 0 0 1 0-8h6",
+      ports: "M4 6h16v12H4zM8 10v4M12 10v4M16 10v4",
+      dns: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18",
+      whois: "M4 5h16v14H4zM8 9h8M8 13h5",
+      mtu: "M3 12h4M17 12h4M7 8h10v8H7z",
+      gauge: "M4 18a8 8 0 1 1 16 0M12 18l4-6",
+      speed: "M13 3L5 14h6l-1 7 8-11h-6z",
+      dhcp: "M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z",
+      power: "M12 3v8M7.5 6.5a7 7 0 1 0 9 0",
+      folder: "M3 6h6l2 2h10v11H3z",
+      term: "M4 5h16v14H4zM7 9l3 3-3 3M12 15h5",
+      cap: "M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01",
+      lldp: "M2 9h20v8H2zM6 13h.01M10 13h.01M14 13h.01M18 13h.01M12 9V5"
+    };
+    const tools = [
+      { g: "Adressage", id: "subnet", label: "Calculateur de sous-réseau", icon: I.calc, desc: "Adresse réseau, masques, broadcast, plage d’hôtes et découpage.", fav: true },
+      { g: "Adressage", id: "oui", label: "Convertisseur MAC/OUI", icon: I.tag, desc: "Formats MAC, fabricant OUI et correspondance avec l’inventaire." },
+      { g: "Diagnostic", id: "trace", label: "Traceroute", icon: I.route, desc: "Chemin réseau saut par saut avec statistiques MTR.", fav: true },
+      { g: "Diagnostic", id: "ports", label: "Scan de ports", icon: I.ports, desc: "Ports TCP/UDP ouverts et détection de services." },
+      { g: "Diagnostic", id: "dns", label: "DNS lookup", icon: I.dns, desc: "Résolution A, AAAA, MX, PTR et TXT sur le serveur choisi." },
+      { g: "Diagnostic", id: "whois", label: "Whois", icon: I.whois, desc: "Propriétaire d’une adresse, d’un ASN ou d’un domaine (RDAP)." },
+      { g: "Diagnostic", id: "mtu", label: "Test MTU", icon: I.mtu, desc: "Recherche de la MTU du chemin avec le bit Don’t Fragment." },
+      { g: "Performance", id: "iperf", label: "iperf3", icon: I.gauge, desc: "Débit réel entre ce Mac et un serveur iperf3 du réseau." },
+      { g: "Performance", id: "speed", label: "Test de débit", icon: I.speed, desc: "Débit Internet et latence sous charge." },
+      { g: "Services", id: "dhcp", label: "Test DHCP / DHCP non autorisé", icon: I.dhcp, desc: "Détecte tous les serveurs DHCP qui répondent sur le segment.", fav: true },
+      { g: "Services", id: "wol", label: "Wake-on-LAN", icon: I.power, desc: "Envoie un paquet magique pour réveiller un poste." },
+      { g: "Services", id: "tftp", label: "Serveur TFTP", icon: I.folder, desc: "Serveur TFTP intégré pour images et sauvegardes de configuration." },
+      { g: "Services", id: "serial", label: "Console série", icon: I.term, desc: "Terminal série pour câble console USB." },
+      { g: "Capture", id: "pcap", label: "Capture de paquets", icon: I.cap, desc: "Capture filtrée BPF, export .pcapng." },
+      { g: "Capture", id: "lldp", label: "Écoute LLDP/CDP", icon: I.lldp, desc: "Identifie le switch, le port et le VLAN où ce Mac est branché.", fav: true }
+    ];
+    const cmdOf = {
+      subnet: "ipcalc " + st.cidr, oui: "oui " + st.mac, trace: "mtr -c 100 8.8.8.8", ports: "scan -sV 10.182.122.111",
+      dns: "dig " + st.dnsType + " @10.182.122.1", whois: "whois 8.8.8.8", mtu: "ping -D -s 1472 10.182.122.1",
+      iperf: "iperf3 -c 10.182.122.117 -P 4 -t 10", speed: "speedtest --server montreal", dhcp: "dhcp-probe -i en0",
+      wol: "wol " + st.wolMac + " -p " + st.wolPort, tftp: "tftpd -s ~/TFTP", serial: "screen /dev/cu.usbserial-A10K3Z 9600",
+      pcap: "capture -i en0 'port 67 or port 68 or arp'", lldp: "lldp-listen -i en7"
+    };
+    const pickTool = (id) => () => this.setState({ tool: id });
+    const tq = st.toolQ.trim().toLowerCase();
+    const groupNames = ["Adressage", "Diagnostic", "Performance", "Services", "Capture"];
+    const groups = groupNames.map(name => ({
+      name,
+      items: tools.filter(t => t.g === name && (!tq || t.label.toLowerCase().indexOf(tq) >= 0 || t.id.indexOf(tq) >= 0)).map(t => {
+        const on = t.id === st.tool;
+        return {
+          ...t, pick: pickTool(t.id),
+          fav: !!t.fav,
+          style: "display:flex; align-items:center; gap:9px; width:100%; min-height:" + rowH + "px; padding:0 8px; border:0; border-radius:6px; font:inherit; font-size:13px; cursor:pointer; text-align:left; " +
+            (on ? "background:#EFF6FF; color:#1D4ED8; font-weight:600" : "background:transparent; color:#111827; font-weight:500")
+        };
+      })
+    })).filter(g => g.items.length > 0);
+    const cur = tools.find(t => t.id === st.tool) || tools[0];
+
+    // ---------- Sous-réseau ----------
+    const r = this.parse(st.cidr);
+    const valid = !r.err;
+    let calcCells = [], binIp = ["", ""], binMask = ["", ""], binWild = ["", ""], splitChips = [], splitRows = [];
+    let splitSummary = "", splitMore = false, splitMoreText = "", canSplit = false, invNote = "", prefixVal = "24";
+    if (valid) {
+      const p = r.p;
+      prefixVal = String(p);
+      const wild = (~r.mask) >>> 0;
+      const first = p >= 31 ? r.net : r.net + 1;
+      const last = p >= 31 ? r.bc : r.bc - 1;
+      const o1 = r.o[0], o2 = r.o[1];
+      const cls = o1 < 128 ? "A" : o1 < 192 ? "B" : o1 < 224 ? "C" : o1 < 240 ? "D" : "E";
+      const clsSub = cls === "D" ? "multidiffusion" : cls === "E" ? "réservée" : "classe historique (avant CIDR)";
+      let kind = "Publique", kindSub = "routable sur Internet";
+      if (o1 === 10) { kind = "Privée"; kindSub = "RFC 1918 · 10.0.0.0/8"; }
+      else if (o1 === 172 && o2 >= 16 && o2 <= 31) { kind = "Privée"; kindSub = "RFC 1918 · 172.16.0.0/12"; }
+      else if (o1 === 192 && o2 === 168) { kind = "Privée"; kindSub = "RFC 1918 · 192.168.0.0/16"; }
+      else if (o1 === 100 && o2 >= 64 && o2 <= 127) { kind = "CGNAT"; kindSub = "RFC 6598 · 100.64.0.0/10"; }
+      else if (o1 === 127) { kind = "Bouclage"; kindSub = "127.0.0.0/8"; }
+      else if (o1 === 169 && o2 === 254) { kind = "Lien local"; kindSub = "APIPA · 169.254.0.0/16"; }
+      else if (o1 >= 224 && o1 < 240) { kind = "Multidiffusion"; kindSub = "224.0.0.0/4"; }
+      const hosts = this.hostsOf(p);
+      const hostNote = r.ip !== r.net ? "IP saisie " + r.ipPart + " ramenée au réseau" : "réseau exact";
+      calcCells = [
+        { k: "Adresse réseau", v: this.ipStr(r.net) + "/" + p, s: hostNote },
+        { k: "Masque", v: this.ipStr(r.mask), s: "/" + p + " · " + p + " bits réseau" },
+        { k: "Masque inverse", v: this.ipStr(wild), s: "wildcard pour ACL Cisco / OSPF" },
+        { k: "Broadcast", v: this.ipStr(r.bc), s: p >= 31 ? "aucun (lien point à point)" : "dernière adresse du bloc" },
+        { k: "Premier hôte", v: this.ipStr(first), s: r.net === 0x0AB67A00 && p === 24 ? "FortiGate-60F (passerelle)" : "souvent la passerelle" },
+        { k: "Dernier hôte", v: this.ipStr(last), s: "plage " + this.fmt(Math.pow(2, 32 - p)) + " adresses au total" },
+        { k: "Hôtes utilisables", v: this.fmt(hosts), s: p === 31 ? "RFC 3021 point à point" : p === 32 ? "hôte unique" : "2^" + (32 - p) + " − 2" },
+        { k: "Classe", v: cls, s: clsSub },
+        { k: "Type d’adresse", v: kind, s: kindSub }
+      ];
+      binIp = this.bin(r.ip, p); binMask = this.bin(r.mask, p); binWild = this.bin(wild, p);
+      const netS = this.ipStr(r.net) + "/" + p;
+      invNote = netS === "10.182.122.0/24" ? "203 appareils connus dans cette plage · 182 vus récemment · passerelle 10.182.122.1"
+        : netS === "192.168.50.0/24" ? "Plage des caméras · VLAN 40 · dernier scan ce matin"
+        : "Aucun appareil connu dans cette plage pour l’instant.";
+      canSplit = p <= 30;
+      if (canSplit) {
+        let sp = st.split;
+        if (!(sp > p && sp <= 30)) sp = Math.min(p + 2, 30);
+        const maxChip = Math.min(30, p + 6);
+        for (let x = p + 1; x <= maxChip; x++) {
+          const n = Math.pow(2, x - p);
+          splitChips.push({ label: "/" + x + " (" + this.fmt(n) + ")", style: chip(x === sp), pick: ((v) => () => this.setState({ split: v }))(x) });
+        }
+        if (sp > maxChip) splitChips.push({ label: "/" + sp, style: chip(true), pick: () => {} });
+        const count = Math.pow(2, sp - p);
+        const size = Math.pow(2, 32 - sp);
+        const hs = this.hostsOf(sp);
+        splitSummary = this.fmt(count) + " sous-réseaux /" + sp + " · " + this.fmt(hs) + " hôtes utilisables chacun · masque " + this.ipStr(sp === 0 ? 0 : (0xFFFFFFFF << (32 - sp)) >>> 0);
+        const shown = Math.min(count, 16);
+        for (let i = 0; i < shown; i++) {
+          const n0 = (r.net + i * size) >>> 0;
+          const b0 = (n0 + size - 1) >>> 0;
+          const f0 = sp >= 31 ? n0 : n0 + 1, l0 = sp >= 31 ? b0 : b0 - 1;
+          splitRows.push({ n: i + 1, net: this.ipStr(n0) + "/" + sp, range: this.ipStr(f0) + " – " + this.ipStr(l0), bc: this.ipStr(b0), hosts: this.fmt(hs), style: rowBase });
+        }
+        splitMore = count > 16;
+        splitMoreText = "… et " + this.fmt(count - 16) + " autres sous-réseaux. Exportez en CSV pour la liste complète.";
+      } else {
+        splitSummary = "Bloc trop petit pour être découpé.";
+      }
+    }
+    const prefixOpts = [];
+    for (let x = 8; x <= 30; x++) {
+      const mk = (0xFFFFFFFF << (32 - x)) >>> 0;
+      prefixOpts.push({ v: String(x), label: "/" + x + " · " + this.ipStr(mk) });
+    }
+    const ipPart = (st.cidr.split("/")[0] || "").trim() || "10.182.122.0";
+    const setP = (np) => this.setState({ cidr: ipPart + "/" + np });
+    const curP = valid ? r.p : 24;
+    const quick = ["10.182.122.0/24", "192.168.50.0/24", "192.168.1.0/24", "172.16.0.0/12", "10.182.122.111/30"];
+    const quickRanges = quick.map(q => ({ label: q, style: chip(q === st.cidr.trim()), pick: () => this.setState({ cidr: q }) }));
+
+    // ---------- MAC / OUI ----------
+    const hex = (st.mac || "").replace(/[^0-9a-fA-F]/g, "").toUpperCase();
+    const macValid = hex.length === 12 && /^[0-9A-F]{12}$/.test(hex);
+    const pairs = macValid ? hex.match(/.{2}/g) : [];
+    const ouiDb = { "704CA5": "Fortinet, Inc.", "04D590": "Fortinet, Inc.", "94DDF8": "Brother Industries, Ltd.", "B07B25": "Dell Inc.", "005056": "VMware, Inc.", "001B21": "Intel Corporate", "D807B6": "TP-Link Corporation Limited", "3C22FB": "Apple, Inc." };
+    const devs = {
+      "704CA51E229A": ["10.182.122.102 · FortiAP-231F", "SW-CORE-01 · Gi1/0/12 · VLAN 20"],
+      "94DDF818157D": ["10.182.122.111 · Brother DCP-L2640DW", "SW-ETG2-01 · 1/14 · VLAN 30"],
+      "B07B254A910E": ["10.182.122.117 · WKS346", "SW-ETG2-01 · 1/07 · VLAN 10"]
+    };
+    const first = macValid ? parseInt(pairs[0], 16) : 0;
+    const ouiHex = macValid ? pairs.slice(0, 3).join(":") : "";
+    const macFormats = macValid ? [
+      { k: "Deux-points (IEEE)", v: pairs.join(":") },
+      { k: "Tirets (Windows)", v: pairs.join("-") },
+      { k: "Points (Cisco)", v: (hex.slice(0, 4) + "." + hex.slice(4, 8) + "." + hex.slice(8)).toLowerCase() },
+      { k: "Brut / EUI-48", v: hex.toLowerCase() }
+    ] : [];
+    const isLocal = (first & 2) === 2;
+    const macVendor = !macValid ? "" : isLocal ? "Aucun (adresse administrée localement)" : (ouiDb[hex.slice(0, 6)] || "Inconnu dans la base OUI locale");
+    const macExamples = [
+      { label: "70:4C:A5:1E:22:9A", v: "70:4C:A5:1E:22:9A" },
+      { label: "94DD.F818.157D", v: "94DD.F818.157D" },
+      { label: "b0-7b-25-4a-91-0e", v: "b0-7b-25-4a-91-0e" },
+      { label: "DA:A1:19:5C:07:E2", v: "DA:A1:19:5C:07:E2" }
+    ].map(m => ({ ...m, pick: () => this.setState({ mac: m.v }) }));
+
+    // ---------- Traceroute ----------
+    const hops = [
+      { n: 1, name: "FortiGate-60F", ip: "10.182.122.1", loss: "0 %", avg: "1,4 ms", worst: "6,2 ms" },
+      { n: 2, name: "passerelle FAI", ip: "100.71.0.1", loss: "0 %", avg: "4,8 ms", worst: "11,3 ms" },
+      { n: 3, name: "agrégation régionale", ip: "154.11.12.65", loss: "0 %", avg: "6,1 ms", worst: "14,0 ms" },
+      { n: 4, name: "cœur FAI", ip: "154.11.2.30", loss: "12 %", avg: "7,9 ms", worst: "21,5 ms" },
+      { n: 5, name: "*", ip: "* * *", loss: "100 %", avg: "—", worst: "—" },
+      { n: 6, name: "point d’échange", ip: "206.108.34.1", loss: "0 %", avg: "8,7 ms", worst: "15,8 ms" },
+      { n: 7, name: "réseau Google", ip: "142.250.236.9", loss: "0 %", avg: "9,0 ms", worst: "13,1 ms" },
+      { n: 8, name: "réseau Google", ip: "108.170.250.193", loss: "0 %", avg: "9,3 ms", worst: "12,7 ms" },
+      { n: 9, name: "dns.google", ip: "8.8.8.8", loss: "0 %", avg: "9,1 ms", worst: "12,2 ms" }
+    ].map(h => ({ ...h, lossStyle: "padding:0 12px; text-align:right; font-family:'JetBrains Mono', monospace; font-weight:600; color:" + (h.loss === "0 %" ? "#15803D" : h.loss === "100 %" ? "#4B5563" : "#C2410C") }));
+
+    // ---------- Scan de ports ----------
+    const profiles = [
+      { id: "rapide", label: "Rapide (top 100)", range: "top-100" },
+      { id: "courant", label: "Courant", range: "1-1024, 3389, 8080, 9100" },
+      { id: "complet", label: "Complet", range: "1-65535" },
+      { id: "imprimante", label: "Imprimantes", range: "80, 443, 515, 631, 9100, 161/udp" },
+      { id: "camera", label: "Caméras", range: "80, 443, 554, 8000, 8554, 37777" }
+    ];
+    const prof = profiles.find(p => p.id === st.portProfile) || profiles[1];
+    const portProfiles = profiles.map(p => ({ ...p, style: chip(p.id === st.portProfile), pick: () => this.setState({ portProfile: p.id }) }));
+    const ports = [
+      { port: "80/tcp", state: "ouvert", svc: "http", banner: "Brother HTTPD (Web Based Management)", act: "Ouvrir" },
+      { port: "443/tcp", state: "ouvert", svc: "https", banner: "TLS 1.2 · certificat autosigné BRN94DDF818157D", act: "Ouvrir" },
+      { port: "631/tcp", state: "ouvert", svc: "ipp", banner: "IPP 2.0 · CUPS compatible", act: "Détails" },
+      { port: "9100/tcp", state: "ouvert", svc: "jetdirect", banner: "Impression RAW (PCL / PostScript)", act: "Détails" },
+      { port: "515/tcp", state: "filtré", svc: "printer", banner: "Aucune réponse (LPD désactivé)", act: "—" }
+    ].map(p => ({ ...p, stateStyle: badge(p.state === "ouvert" ? "ok" : "warn") }));
+
+    // ---------- DNS ----------
+    const dnsData = {
+      A: { q: "WKS346.bureau.local", rows: [{ name: "WKS346.bureau.local.", type: "A", ttl: "1200", val: "10.182.122.117" }], meta: "NOERROR · 1 réponse · 3 ms · serveur 10.182.122.1#53 (UDP)" },
+      AAAA: { q: "WKS346.bureau.local", rows: [{ name: "WKS346.bureau.local.", type: "SOA", ttl: "3600", val: "fgt60f.bureau.local. (réponse vide)" }], meta: "NOERROR · aucun enregistrement AAAA · 2 ms" },
+      MX: { q: "google.com", rows: [{ name: "google.com.", type: "MX", ttl: "300", val: "10 smtp.google.com." }], meta: "NOERROR · 1 réponse · 14 ms · réponse non autoritaire" },
+      PTR: { q: "10.182.122.111", rows: [{ name: "111.122.182.10.in-addr.arpa.", type: "PTR", ttl: "1200", val: "BRN94DDF818157D.bureau.local." }], meta: "NOERROR · 1 réponse · 2 ms · enregistrement créé par le DHCP" },
+      TXT: { q: "google.com", rows: [{ name: "google.com.", type: "TXT", ttl: "3600", val: "\"v=spf1 include:_spf.google.com ~all\"" }, { name: "google.com.", type: "TXT", ttl: "3600", val: "\"google-site-verification=…\"" }], meta: "NOERROR · 2 réponses affichées · 16 ms" }
+    };
+    const dd = dnsData[st.dnsType] || dnsData.A;
+    const dnsTypes = ["A", "AAAA", "MX", "PTR", "TXT"].map(t => ({ label: t, style: chip(t === st.dnsType), pick: () => this.setState({ dnsType: t }) }));
+
+    // ---------- Whois ----------
+    const whois = [
+      { k: "Organisation", v: "Google LLC" }, { k: "ASN", v: "AS15169" }, { k: "Bloc", v: "8.8.8.0/24" },
+      { k: "Pays", v: "US" }, { k: "Registre", v: "ARIN" }, { k: "Reverse DNS", v: "dns.google" }
+    ];
+
+    // ---------- MTU ----------
+    const mtuRows = [
+      { size: "1472 + 28 = 1500", res: "Réponse", ok: true },
+      { size: "1473 + 28 = 1501", res: "Fragmentation requise", ok: false },
+      { size: "1400 + 28 = 1428", res: "Réponse", ok: true },
+      { size: "8972 + 28 = 9000", res: "Message too long", ok: false }
+    ].map(m => ({ ...m, style: badge(m.ok ? "ok" : "warn") }));
+
+    // ---------- iperf3 ----------
+    const tp = [512, 588, 601, 574, 612, 559, 547, 590, 581, 534];
+    const pts = tp.map((v, i) => (50 + i * (534 / 9)).toFixed(1) + "," + (160 - v / 1000 * 140).toFixed(1));
+    const iperfLine = pts.join(" ");
+    const iperfArea = "50,160 " + iperfLine + " 584,160";
+    const iperfStats = [
+      { k: "Débit moyen", v: "569", s: "Mbit/s (envoi)" },
+      { k: "Transféré", v: "678 Mo", s: "en 10,0 s" },
+      { k: "Retransmissions", v: "41", s: "TCP, 4 flux" },
+      { k: "Minimum", v: "512", s: "Mbit/s à 1 s" }
+    ];
+
+    // ---------- DHCP ----------
+    const dhcpRows = [
+      { srv: "10.182.122.1", mac: "04:D5:90:3A:7C:11", vendor: "Fortinet", offer: "10.182.122.187", gw: "10.182.122.1", dns: "10.182.122.1", lease: "24 h", status: "Attendu", badge: badge("ok"), rowStyle: rowBase },
+      { srv: "10.182.122.250", mac: "D8:07:B6:62:4E:A0", vendor: "TP-Link", offer: "192.168.0.100", gw: "192.168.0.1", dns: "192.168.0.1", lease: "2 h", status: "NON AUTORISÉ", badge: badge("crit"), rowStyle: rowBase + "; background:#FEF2F2" }
+    ];
+
+    // ---------- Wake-on-LAN ----------
+    const wolKnown = [
+      { name: "WKS346", mac: "B0:7B:25:4A:91:0E" },
+      { name: "WKS341", mac: "B0:7B:25:4A:8F:33" },
+      { name: "PF4L8M20", mac: "54:E1:AD:6C:03:B7" }
+    ];
+    const wolTargets = wolKnown.map(w => ({ label: w.name, style: chip(w.mac === st.wolMac), pick: () => this.setState({ wolMac: w.mac }) }));
+    const wake = () => {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const t = pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+      const k = wolKnown.find(w => w.mac.toUpperCase() === st.wolMac.trim().toUpperCase());
+      const entry = { t, name: k ? k.name : "Manuel", mac: st.wolMac.trim().toUpperCase(), res: "Paquet magique envoyé (102 octets) à 10.182.122.255:" + st.wolPort + " · vérification ping en cours", ok: null };
+      this.setState({ wolLog: [entry].concat(st.wolLog).slice(0, 6) });
+    };
+    const wolLog = st.wolLog.map(w => ({ ...w, status: w.ok === null ? "En attente" : w.ok ? "Réveillé" : "Échec", badge: badge(w.ok === null ? "info" : w.ok ? "ok" : "crit") }));
+
+    // ---------- TFTP ----------
+    const tftpFiles = [
+      { name: "cat9k_iosxe.17.09.04a.SPA.bin", size: "1,2 Go", last: "envoyé à 10.182.122.2 · 28 oct." },
+      { name: "SW-CORE-01-confg.txt", size: "38 Ko", last: "reçu de 10.182.122.2 · 3 nov. 08:15" },
+      { name: "SW-ETG2-01-confg.txt", size: "14 Ko", last: "reçu de 10.182.122.3 · 3 nov. 08:16" },
+      { name: "WC_16_11_0012.swi", size: "29 Mo", last: "jamais transféré" }
+    ];
+
+    // ---------- Console ----------
+    const serialLines = [
+      "SW-CORE-01>enable", "SW-CORE-01#show interfaces status | include connected", "Gi1/0/12  FortiAP-231F   connected  20   a-full a-1000 10/100/1000BaseTX",
+      "Gi1/0/24  uplink-ETG2    connected  trunk a-full a-1000 10/100/1000BaseTX", "Gi1/0/37                 connected  1    a-full a-100  10/100/1000BaseTX",
+      "SW-CORE-01#show mac address-table interface Gi1/0/37", "   1    d807.b662.4ea0    DYNAMIC     Gi1/0/37", "SW-CORE-01#"
+    ].map(t => ({ t }));
+
+    // ---------- Capture ----------
+    const packets = [
+      { t: "0.000000", src: "0.0.0.0", dst: "255.255.255.255", proto: "DHCP", info: "Discover · xid 0x5a1c93e2" },
+      { t: "0.004112", src: "10.182.122.1", dst: "255.255.255.255", proto: "DHCP", info: "Offer 10.182.122.187 · xid 0x5a1c93e2" },
+      { t: "0.019870", src: "10.182.122.250", dst: "255.255.255.255", proto: "DHCP", info: "Offer 192.168.0.100 · serveur non autorisé", bad: true },
+      { t: "0.020355", src: "0.0.0.0", dst: "255.255.255.255", proto: "DHCP", info: "Request 10.182.122.187" },
+      { t: "0.024018", src: "10.182.122.1", dst: "255.255.255.255", proto: "DHCP", info: "ACK 10.182.122.187 · bail 86400 s" },
+      { t: "1.331207", src: "70:4c:a5:1e:22:9a", dst: "ff:ff:ff:ff:ff:ff", proto: "ARP", info: "Qui a 10.182.122.1 ? Répondre à 10.182.122.102" },
+      { t: "1.331904", src: "04:d5:90:3a:7c:11", dst: "70:4c:a5:1e:22:9a", proto: "ARP", info: "10.182.122.1 est à 04:d5:90:3a:7c:11" }
+    ].map(p => ({ ...p, style: rowBase + (p.bad ? "; background:#FEF2F2; color:#B91C1C" : "") }));
+
+    // ---------- LLDP ----------
+    const lldpFields = [
+      { k: "Nom système", v: "SW-ETG2-01" }, { k: "Port ID", v: "1/22" },
+      { k: "Description du port", v: "Bureau 214 - prise B" }, { k: "VLAN (PVID)", v: "1 (non étiqueté)" },
+      { k: "IP de gestion", v: "10.182.122.3" }, { k: "Châssis ID", v: "88:3A:30:9C:41:00" },
+      { k: "Modèle", v: "Aruba 2930F-24G" }, { k: "Capacités", v: "Bridge, Router" },
+      { k: "PoE", v: "802.3at · non utilisé" }, { k: "TTL", v: "120 s" }
+    ];
+
+    // ---------- Panneau droit ----------
+    const favs = tools.filter(t => t.fav).map(t => ({ label: t.label, pick: pickTool(t.id) }));
+    const recents = [
+      { tool: "Test DHCP", target: "en0 · 10.182.122.0/24", sum: "2 serveurs, dont 10.182.122.250 non autorisé", when: "il y a 4 min", status: "Alerte", badge: badge("crit") },
+      { tool: "Écoute LLDP/CDP", target: "en7", sum: "SW-ETG2-01 · port 1/22 · VLAN 1", when: "il y a 9 min", status: "OK", badge: badge("ok") },
+      { tool: "Scan de ports", target: "10.182.122.111", sum: "4 ouverts : 80, 443, 631, 9100", when: "il y a 22 min", status: "OK", badge: badge("ok") },
+      { tool: "iperf3", target: "10.182.122.117", sum: "569 Mbit/s moyen · 41 retrans.", when: "il y a 41 min", status: "OK", badge: badge("ok") },
+      { tool: "Wake-on-LAN", target: "PF4L8M20", sum: "Aucune réponse après 60 s", when: "hier 17:02", status: "Échec", badge: badge("warn") }
+    ];
+    const cmdHist = [
+      "dhcp-probe -i en0 -t 5", "lldp-listen -i en7", "scan -sV -p 1-1024,9100 10.182.122.111",
+      "iperf3 -c 10.182.122.117 -P 4 -t 10", "dig PTR 10.182.122.111 @10.182.122.1", "ipcalc 192.168.50.0/24 --split 26", "wol B0:7B:25:4A:8F:33"
+    ].map(c => ({ c }));
+
+    return {
+      q: st.q, onQ: (e) => this.setState({ q: e.target.value }),
+      toolQ: st.toolQ, onToolQ: (e) => this.setState({ toolQ: e.target.value }),
+      groups, noTool: groups.length === 0,
+      toolGroup: cur.g, toolTitle: cur.label, toolDesc: cur.desc, toolCmd: cmdOf[cur.id],
+      isSubnet: st.tool === "subnet", isOui: st.tool === "oui", isTrace: st.tool === "trace", isPorts: st.tool === "ports",
+      isDns: st.tool === "dns", isWhois: st.tool === "whois", isMtu: st.tool === "mtu", isIperf: st.tool === "iperf",
+      isSpeed: st.tool === "speed", isDhcp: st.tool === "dhcp", isWol: st.tool === "wol", isTftp: st.tool === "tftp",
+      isSerial: st.tool === "serial", isPcap: st.tool === "pcap", isLldp: st.tool === "lldp",
+      rowBase,
+      // sous-réseau
+      cidr: st.cidr, onCidr: (e) => this.setState({ cidr: e.target.value }),
+      cidrStyle: "width:100%; box-sizing:border-box; height:36px; border:1px solid " + (valid ? "#E5E7EB" : "#B91C1C") + "; border-radius:6px; padding:0 10px; font-family:'JetBrains Mono', monospace; font-size:14px; font-weight:500; color:#111827; background:" + (valid ? "#FFFFFF" : "#FEF2F2"),
+      prefixOpts, prefixVal,
+      onPrefix: (e) => setP(e.target.value),
+      pDec: () => setP(Math.max(8, curP - 1)),
+      pInc: () => setP(Math.min(30, curP + 1)),
+      quickRanges,
+      subnetValid: valid, subnetInvalid: !valid, subnetError: r.err || "",
+      invNote, calcCells,
+      binIpNet: binIp[0], binIpHost: binIp[1], binMaskNet: binMask[0], binMaskHost: binMask[1], binWildNet: binWild[0], binWildHost: binWild[1],
+      netBits: valid ? r.p : 0, hostBits: valid ? 32 - r.p : 0,
+      canSplit: valid && canSplit, cannotSplit: valid && !canSplit,
+      splitChips, splitRows, splitSummary, splitMore, splitMoreText,
+      // mac
+      mac: st.mac, onMac: (e) => this.setState({ mac: e.target.value }),
+      macValid, macInvalid: !macValid, macLen: hex.length, macFormats, macExamples, ouiHex, macVendor,
+      macKind: !macValid ? "" : isLocal ? "Administrée localement" : "Universelle (UAA)",
+      macCast: !macValid ? "" : ((first & 1) ? "Multidiffusion" : "Unicast") + (isLocal ? " · probablement une MAC privée aléatoire (iOS, Android, Windows)" : " · attribuée par le fabricant"),
+      macInv: macValid && devs[hex] ? devs[hex][0] : "Non trouvée dans le dernier scan",
+      macInvPort: macValid && devs[hex] ? devs[hex][1] : "—",
+      // autres outils
+      hops,
+      portProfiles, portRange: prof.range, ports, portDone: "4 ports ouverts, 1 filtré, " + (prof.id === "complet" ? "65 530" : "1 024") + " fermés",
+      dnsTypes, dnsRows: dd.rows, dnsMeta: dd.meta, dnsQuery: dd.q,
+      whois, mtuRows,
+      iperfLine, iperfArea, iperfStats,
+      dhcpRows,
+      wolMac: st.wolMac, onWolMac: (e) => this.setState({ wolMac: e.target.value }),
+      wolPort: st.wolPort, onWolPort: (e) => this.setState({ wolPort: e.target.value }),
+      wolTargets, wake, wolLog,
+      tftpStatus: st.tftpOn ? "Serveur TFTP en cours d’exécution" : "Serveur TFTP arrêté",
+      tftpBtn: st.tftpOn ? "Arrêter le serveur" : "Démarrer le serveur",
+      tftpDot: "width:10px; height:10px; border-radius:50%; flex:none; background:" + (st.tftpOn ? "#15803D" : "#6B7280"),
+      tftpDotClass: st.tftpOn ? "live" : "",
+      toggleTftp: () => this.setState({ tftpOn: !st.tftpOn }),
+      tftpFiles, serialLines, packets, lldpFields,
+      showRight: props.showRightPanel !== false,
+      favs, recents, cmdHist
+    };
+  }
+}
+</script>
+</body>
+</html>

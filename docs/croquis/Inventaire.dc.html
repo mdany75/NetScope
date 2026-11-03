@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Inventaire</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F4F6}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+.nav{display:flex;align-items:center;gap:10px;padding:0 10px;height:32px;border-radius:6px;color:#E2E8F0;text-decoration:none;font-size:13px;font-weight:500}
+.nav:hover{background:#1E293B;color:#FFFFFF}
+.nav.act{background:#1E293B;color:#FFFFFF}
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:6px;border:1px solid #E5E7EB;background:#FFFFFF;color:#111827;font:500 13px Inter,system-ui,sans-serif;cursor:pointer}
+.btn:hover{background:#F9FAFB;border-color:#D1D5DB}
+.btn:focus-visible,.chip:focus-visible,.nav:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.sortb:focus-visible,.star:focus-visible,.tile:focus-visible{outline:2px solid #2563EB;outline-offset:2px}
+.btnp{border:1px solid transparent;color:#FFFFFF}
+.btnp:hover{filter:brightness(0.88)}
+.chip{cursor:pointer}
+.chip:hover{border-color:#9CA3AF}
+.row{cursor:pointer}
+.row td{background:#FFFFFF}
+.row:hover td{background:#F9FAFB}
+.row.sel td{background:#EFF6FF}
+.sortb{border:0;background:transparent;padding:0;font:600 11px Inter,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.03em;color:#4B5563;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.sortb:hover{color:#111827}
+.star{border:0;background:transparent;padding:2px;cursor:pointer;display:flex;border-radius:4px}
+.star:hover{background:#F3F4F6}
+.tile{cursor:pointer;text-align:left}
+.tile:hover{border-color:#9CA3AF !important}
+.fld{width:100%;height:30px;box-sizing:border-box;padding:0 8px;border:1px solid #E5E7EB;border-radius:6px;background:#FFFFFF;font:13px Inter,system-ui,sans-serif;color:#111827}
+.fld:hover{border-color:#D1D5DB}
+@media (max-width: 760px){.side{max-width:none !important}}
+</style>
+</helmet>
+<div style="width:100%; min-height:1000px; display:flex; flex-wrap:wrap; font-family:Inter, system-ui, sans-serif; color:#111827; background:#F3F4F6; box-sizing:border-box; font-size:13px">
+
+  <!-- BARRE LATÉRALE -->
+  <nav class="side" aria-label="Navigation principale" style="flex:1 1 220px; max-width:220px; background:#0F172A; color:#E2E8F0; display:flex; flex-direction:column; padding:16px 12px; box-sizing:border-box; gap:18px">
+    <div style="display:flex; align-items:center; gap:10px; padding:4px 6px">
+      <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#E2E8F0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><path d="M12 12l6-6"></path><circle cx="12" cy="12" r="1.2"></circle></svg>
+      <div>
+        <div style="font-weight:700; font-size:15px; color:#FFFFFF">NetScope</div>
+        <div style="font-size:11px; color:#94A3B8">Boîte à outils réseau</div>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:2px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:0 10px 4px">Découverte</div>
+      <a class="nav" href="Main.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>Scanner</a>
+      <a class="nav" href="Topologie.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="5" rx="1"></rect><rect x="3" y="16" width="6" height="5" rx="1"></rect><rect x="15" y="16" width="6" height="5" rx="1"></rect><path d="M12 8v4M6 16v-4h12v4"></path></svg>Carte du réseau</a>
+      <a class="nav act" href="Inventaire.dc.html" aria-current="page">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h1M4 12h1M4 18h1"></path></svg>Inventaire</a>
+      <a class="nav" href="Device.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="12" rx="1.5"></rect><path d="M9 20h6M12 16v4"></path></svg>Appareil</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Diagnostic</div>
+      <a class="nav" href="Ping.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Ping continu</a>
+      <a class="nav" href="Switch.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="1.5"></rect><path d="M7 11v2M10 11v2M13 11v2M16 11v2"></path></svg>Switchs et ports</a>
+      <a class="nav" href="Wifi.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5a15 15 0 0 1 20 0"></path><path d="M5 12a10.5 10.5 0 0 1 14 0"></path><path d="M8.5 15.5a5.5 5.5 0 0 1 7 0"></path><circle cx="12" cy="19" r="1"></circle></svg>Wi-Fi</a>
+      <a class="nav" href="Toolbox.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"></path></svg>Outils</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Suivi</div>
+      <a class="nav" href="Surveillance.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>Surveillance<span style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#DC2626; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center" aria-label="3 alertes">3</span></a>
+      <a class="nav" href="Analyse.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>Analyse<span style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#2563EB; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center" aria-label="1 nouveau résultat">1</span></a>
+      <a class="nav" href="Rapport.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>Rapports</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Accès</div>
+      <a class="nav" href="Remote.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="1.5"></rect><path d="M7 9l2.5 2L7 13M11.5 13H15M9 20h6M12 17v3"></path></svg>Accès distant</a>
+      <a class="nav" href="Speedtest.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 18.5a9 9 0 1 1 14.2 0"></path><path d="M12 14l4-5"></path><circle cx="12" cy="14" r="1.3"></circle><path d="M6.5 12h1M16.5 12h1M12 6.5v1"></path></svg>Speedtest</a>
+    </div>
+    <div style="border-top:1px solid #1E293B; padding-top:12px; display:flex; flex-direction:column; gap:6px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; padding:0 6px">Plages enregistrées</div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>10.182.122.0/24</span><span style="color:#94A3B8">Bureau</span></div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>192.168.50.0/24</span><span style="color:#94A3B8">Caméras</span></div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>10.10.0.1-50</span><span style="color:#94A3B8">Serveurs</span></div>
+    </div>
+    <div style="margin-top:auto; border-top:1px solid #1E293B; padding-top:10px; display:flex; flex-direction:column">
+      <a class="nav" href="Reglages.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>Réglages</a>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px; padding:10px; border:1px solid #1E293B; border-radius:8px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8">Interface active</div>
+      <div style="display:flex; align-items:center; gap:8px">
+        <span style="width:8px; height:8px; border-radius:50%; background:#22C55E; flex:none"></span>
+        <span style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#E2E8F0">en0 · 10.182.122.135 · Wi-Fi</span>
+      </div>
+      <div style="font-size:11px; color:#94A3B8">Passerelle 10.182.122.1 · DNS 10.182.122.1</div>
+      <div style="font-size:11px; color:#94A3B8">Version 2.0.0 (maquette)</div>
+    </div>
+  </nav>
+
+  <!-- CONTENU -->
+  <main style="flex:999 1 560px; min-width:0; display:flex; flex-direction:column; box-sizing:border-box">
+
+    <!-- Barre d'outils -->
+    <header style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:12px 20px; background:#FFFFFF; border-bottom:1px solid #E5E7EB">
+      <h1 style="margin:0; font-size:17px; font-weight:700; margin-right:6px">Inventaire</h1>
+      <label style="flex:1 1 300px; min-width:220px; position:relative; display:flex; align-items:center">
+        <span style="position:absolute; left:10px; color:#4B5563; display:flex">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
+        </span>
+        <input type="search" aria-label="Rechercher dans l’inventaire" placeholder="Rechercher IP, MAC, nom, étiquette, local, prise…" value="{{ q }}" onChange="{{ onQ }}" style="width:100%; height:32px; box-sizing:border-box; padding:0 10px 0 32px; border:1px solid #E5E7EB; border-radius:6px; background:#F9FAFB; font:13px Inter, system-ui, sans-serif; color:#111827">
+      </label>
+      <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:#4B5563">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"></path></svg>
+        <span style="position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)">Site</span>
+        <select aria-label="Site" value="{{ site }}" onChange="{{ onSite }}" style="height:32px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font:500 13px Inter, system-ui, sans-serif; color:#111827; background:#FFFFFF; max-width:260px">
+          <option value="siege">Siège – 1200 boul. [À COMPLÉTER]</option>
+          <option value="entrepot">Entrepôt</option>
+        </select>
+      </label>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center">
+        <button type="button" class="btn" onClick="{{ onImport }}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5M5 20h14"></path></svg>Importer CSV</button>
+        <button type="button" class="btn" onClick="{{ onExport }}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>Exporter</button>
+        <button type="button" class="btn btnp" style="{{ primaryStyle }}" aria-expanded="{{ mergeOpen }}" onClick="{{ onMergeOpen }}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v6a6 6 0 0 0 6 6h0a6 6 0 0 1 6 6M18 3v6a6 6 0 0 1-3 5.2"></path><circle cx="6" cy="3" r="0.5"></circle></svg>Fusionner les doublons
+          <sc-if value="{{ hasDup }}" hint-placeholder-val="{{ true }}">
+            <span style="min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#FFFFFF; color:#1D4ED8; font-size:11px; font-weight:700; display:inline-flex; align-items:center; justify-content:center" aria-label="1 doublon probable">1</span>
+          </sc-if>
+        </button>
+      </div>
+    </header>
+
+    <div style="padding:14px 20px; display:flex; flex-direction:column; gap:12px">
+
+      <!-- Vues + compteurs -->
+      <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px">
+        <div role="group" aria-label="Vues sauvegardées" style="display:flex; flex-wrap:wrap; gap:4px; padding:3px; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px">
+          <sc-for list="{{ views }}" as="v" hint-placeholder-count="4">
+            <button type="button" aria-pressed="{{ v.on }}" onClick="{{ v.pick }}" style="{{ v.style }}">{{ v.label }}</button>
+          </sc-for>
+        </div>
+        <span style="font-size:12px; color:#4B5563">Base permanente de tous les appareils jamais vus · dernier scan fusionné il y a 2 min</span>
+        <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+          <span role="status" style="margin-left:auto; font-size:12px; color:#15803D; background:#DCFCE7; border-radius:6px; padding:5px 9px">{{ toast }}</span>
+        </sc-if>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:10px">
+        <button type="button" class="tile" onClick="{{ onViewAll }}" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:10px 12px; font-family:Inter, system-ui, sans-serif; color:#111827">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Appareils connus</div>
+          <div style="font-family:'JetBrains Mono', monospace; font-size:22px; font-weight:600; margin-top:2px">{{ c.known }}</div>
+          <div style="font-size:12px; color:#4B5563">Toutes plages du site confondues</div>
+        </button>
+        <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:10px 12px">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Vus aujourd’hui</div>
+          <div style="font-family:'JetBrains Mono', monospace; font-size:22px; font-weight:600; margin-top:2px; color:#15803D">{{ c.today }}</div>
+          <div style="font-size:12px; color:#4B5563">{{ c.todaySub }}</div>
+        </div>
+        <button type="button" class="tile" onClick="{{ onViewUnid }}" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:10px 12px; font-family:Inter, system-ui, sans-serif; color:#111827">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Non identifiés</div>
+          <div style="font-family:'JetBrains Mono', monospace; font-size:22px; font-weight:600; margin-top:2px; color:#C2410C">{{ c.unid }}</div>
+          <div style="font-size:12px; color:#4B5563">MAC aléatoire ou empreinte insuffisante</div>
+        </button>
+        <button type="button" class="tile" onClick="{{ onViewGone }}" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:10px 12px; font-family:Inter, system-ui, sans-serif; color:#111827">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Disparus</div>
+          <div style="font-family:'JetBrains Mono', monospace; font-size:22px; font-weight:600; margin-top:2px; color:#4B5563">{{ c.gone }}</div>
+          <div style="font-size:12px; color:#4B5563">Sans réponse depuis plus de 30 jours</div>
+        </button>
+        <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:10px 12px">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Alertes d’inventaire</div>
+          <div style="display:flex; flex-direction:column; gap:4px; margin-top:6px; font-size:12px">
+            <span style="display:inline-flex; align-items:center; gap:6px"><span style="font-size:11px; font-weight:700; padding:1px 6px; border-radius:4px; background:#FEE2E2; color:#B91C1C">CONFLIT IP</span><span style="font-family:'JetBrains Mono', monospace">10.182.122.140</span></span>
+            <span style="display:inline-flex; align-items:center; gap:6px"><span style="font-size:11px; font-weight:700; padding:1px 6px; border-radius:4px; background:#FEE2E2; color:#B91C1C">DHCP NON AUTORISÉ</span><span style="font-family:'JetBrains Mono', monospace">.250</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panneau de fusion -->
+      <sc-if value="{{ mergeOpen }}" hint-placeholder-val="{{ false }}">
+        <section aria-labelledby="h-merge" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:12px 14px">
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px">
+            <h2 id="h-merge" style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Doublons probables</h2>
+            <span style="font-size:12px; color:#4B5563">{{ mergeSummary }}</span>
+            <button type="button" class="btn" style="margin-left:auto; height:28px" onClick="{{ onMergeClose }}">Fermer</button>
+          </div>
+          <sc-if value="{{ hasDup }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:stretch; margin-top:10px">
+              <div style="flex:1 1 260px; border:1px solid #E5E7EB; border-radius:6px; padding:8px 10px; background:#F9FAFB">
+                <div style="font-size:11px; color:#4B5563">Fiche conservée</div>
+                <div style="font-weight:600">Macmini-de-Dany · Wi-Fi</div>
+                <div style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#374151">10.182.122.135 · 3C:22:FB:7E:05:B1 · vu à l’instant</div>
+              </div>
+              <div style="flex:1 1 260px; border:1px solid #E5E7EB; border-radius:6px; padding:8px 10px; background:#F9FAFB">
+                <div style="font-size:11px; color:#4B5563">Fiche à rattacher</div>
+                <div style="font-weight:600">Macmini-de-Dany · Ethernet</div>
+                <div style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#374151">10.182.122.160 · 3C:22:FB:7E:05:B2 · vu le 2026-10-02</div>
+              </div>
+              <div style="flex:1 1 220px; font-size:12px; color:#4B5563; display:flex; flex-direction:column; gap:6px; justify-content:center">
+                <span>Critères : même hostname mDNS, MAC consécutives du même OUI Apple (3C:22:FB), jamais en ligne simultanément.</span>
+                <span style="display:flex; gap:6px; flex-wrap:wrap">
+                  <button type="button" class="btn btnp" style="{{ primarySmall }}" onClick="{{ onMergeConfirm }}">Fusionner dans .135</button>
+                  <button type="button" class="btn" style="height:28px" onClick="{{ onMergeClose }}">Ignorer</button>
+                </span>
+              </div>
+            </div>
+          </sc-if>
+        </section>
+      </sc-if>
+
+      <!-- Tableau -->
+      <section aria-labelledby="h-inv" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; display:flex; flex-direction:column; min-width:0">
+        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:9px 12px; border-bottom:1px solid #E5E7EB">
+          <h2 id="h-inv" style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Appareils</h2>
+          <span style="font-size:12px; color:#4B5563">{{ shownLabel }}</span>
+          <sc-if value="{{ anyChecked }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-left:auto">
+              <span style="font-size:12px; font-weight:600; color:#1D4ED8">{{ checkedLabel }}</span>
+              <button type="button" class="btn" style="height:28px; font-size:12px" onClick="{{ onBulkFav }}">Ajouter aux favoris</button>
+              <button type="button" class="btn" style="height:28px; font-size:12px" onClick="{{ onBulkExport }}">Exporter la sélection</button>
+              <button type="button" class="btn" style="height:28px; font-size:12px" onClick="{{ onClearChecks }}">Tout désélectionner</button>
+            </div>
+          </sc-if>
+        </div>
+        <div style="overflow:auto; max-height:430px">
+          <table style="width:100%; min-width:1660px; border-collapse:collapse; font-size:12px">
+            <thead>
+              <tr style="height:32px">
+                <th scope="col" style="position:sticky; top:0; z-index:1; background:#F9FAFB; border-bottom:1px solid #E5E7EB; width:30px; padding:0 0 0 12px; text-align:left"><input type="checkbox" aria-label="Tout sélectionner" checked="{{ allChecked }}" onChange="{{ onToggleAll }}" style="margin:0; width:14px; height:14px; accent-color:#2563EB"></th>
+                <th scope="col" style="position:sticky; top:0; z-index:1; background:#F9FAFB; border-bottom:1px solid #E5E7EB; width:26px; padding:0 2px"><span style="position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)">Favori</span></th>
+                <th scope="col" aria-sort="{{ sName.aria }}" style="position:sticky; top:0; z-index:1; background:#F9FAFB; border-bottom:1px solid #E5E7EB; padding:0 8px; text-align:left"><button type="button" class="sortb" onClick="{{ sName.fn }}">Nom<span aria-hidden="true" style="{{ sName.arrowStyle }}">{{ sName.arrow }}</span></button></th>
+                <th scope="col" style="position:sticky; top:0; z-index:1; background:#F9FAFB; border-bottom:1px solid #E5E7EB; padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Type</th>
+                <th scope="col" aria-sort="{{ sIp.aria }}" style="position:sticky; top:0; z-index:1; background:#F9FAFB; border-bottom:1px solid #E5E7EB; padding:0 8px; text-align:left"><button type="button" class="sortb" onClick="{{ sIp.fn }}">IP actuelle<span aria-hidden="true" style="{{ sIp.arrowStyle }}">{{ sIp.arrow }}</span></button></th>
+                <th scope="col" style="position:sticky; top:0; z-index:1; background:#F9FAFB; border-bottom:1px solid #E5E7EB; padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">MAC</th>
+                <th scope="col" style="position:sticky; top:0; z-index:1; background:#F9FAFB; border-bottom:1px solid #E5E7EB; padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Fabricant</th>
+                <th scope="col" style="position:sticky; top:0; z-index:1; background:#F9FAFB; border-bottom:1px solid #E5E7EB; padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Étiquettes</th>
+                <th scope="col" style="position:sticky; top:0; z-index:1; background:#F9FAFB; border-bottom:1px solid #E5E7EB; padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Local / prise murale</th>
+                <th scope="col" style="position:sticky; top:0; z-index:1; background:#F9FAFB; border-bottom:1px solid #E5E7EB; padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Switch / port</th>
+                <th scope="col" style="position:sticky; top:0; z-index:1; background:#F9FAFB; border-bottom:1px solid #E5E7EB; padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Responsable</th>
+                <th scope="col" aria-sort="{{ sFirst.aria }}" style="position:sticky; top:0; z-index:1; background:#F9FAFB; border-bottom:1px solid #E5E7EB; padding:0 8px; text-align:left"><button type="button" class="sortb" onClick="{{ sFirst.fn }}">Première détection<span aria-hidden="true" style="{{ sFirst.arrowStyle }}">{{ sFirst.arrow }}</span></button></th>
+                <th scope="col" aria-sort="{{ sLast.aria }}" style="position:sticky; top:0; z-index:1; background:#F9FAFB; border-bottom:1px solid #E5E7EB; padding:0 8px; text-align:left"><button type="button" class="sortb" onClick="{{ sLast.fn }}">Dernière détection<span aria-hidden="true" style="{{ sLast.arrowStyle }}">{{ sLast.arrow }}</span></button></th>
+                <th scope="col" style="position:sticky; top:0; z-index:1; background:#F9FAFB; border-bottom:1px solid #E5E7EB; padding:0 12px 0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ rows }}" as="item" hint-placeholder-count="14">
+                <tr class="{{ item.cls }}" style="{{ item.rowStyle }}" onClick="{{ item.pick }}" aria-selected="{{ item.isSel }}">
+                  <td style="padding:0 0 0 12px"><input type="checkbox" aria-label="{{ item.checkLabel }}" checked="{{ item.checked }}" onChange="{{ item.toggleCheck }}" style="margin:0; width:14px; height:14px; accent-color:#2563EB"></td>
+                  <td style="padding:0 2px">
+                    <button type="button" class="star" aria-label="{{ item.favLabel }}" aria-pressed="{{ item.favPressed }}" onClick="{{ item.toggleFav }}">
+                      <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="{{ item.starFill }}" stroke="{{ item.starStroke }}" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"></path></svg>
+                    </button>
+                  </td>
+                  <td style="padding:0 8px; white-space:nowrap">
+                    <span style="font-weight:600">{{ item.display }}</span>
+                    <sc-if value="{{ item.unid }}" hint-placeholder-val="{{ false }}">
+                      <span style="margin-left:6px; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; background:#FFEDD5; color:#C2410C">NON IDENTIFIÉ</span>
+                    </sc-if>
+                    <sc-if value="{{ item.dup }}" hint-placeholder-val="{{ false }}">
+                      <span style="margin-left:6px; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; background:#DBEAFE; color:#1D4ED8">DOUBLON ?</span>
+                    </sc-if>
+                    <span style="display:block; font-size:11px; color:#4B5563; font-family:'JetBrains Mono', monospace; max-width:220px; overflow:hidden; text-overflow:ellipsis">{{ item.host }}</span>
+                  </td>
+                  <td style="padding:0 8px; white-space:nowrap">
+                    <span style="display:inline-flex; align-items:center; gap:6px; color:#374151">
+                      <svg role="img" aria-label="{{ item.type }}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="{{ item.iconPath }}"></path></svg>
+                      <span>{{ item.type }}</span>
+                    </span>
+                  </td>
+                  <td style="padding:0 8px; font-family:'JetBrains Mono', monospace; font-weight:600; white-space:nowrap">{{ item.ip }}</td>
+                  <td style="padding:0 8px; font-family:'JetBrains Mono', monospace; white-space:nowrap; color:#374151">{{ item.mac }}</td>
+                  <td style="padding:0 8px; white-space:nowrap; color:#374151">{{ item.vendor }}</td>
+                  <td style="padding:0 8px; white-space:nowrap">
+                    <span style="display:inline-flex; gap:4px">
+                      <sc-for list="{{ item.tagChips }}" as="t" hint-placeholder-count="2">
+                        <span style="{{ t.style }}">{{ t.label }}</span>
+                      </sc-for>
+                      <sc-if value="{{ item.noTags }}" hint-placeholder-val="{{ false }}">
+                        <span style="color:#6B7280">—</span>
+                      </sc-if>
+                    </span>
+                  </td>
+                  <td style="padding:0 8px; white-space:nowrap; color:#374151">{{ item.locLabel }}</td>
+                  <td style="padding:0 8px; font-family:'JetBrains Mono', monospace; white-space:nowrap; color:#374151">{{ item.swLabel }}</td>
+                  <td style="padding:0 8px; white-space:nowrap; color:#374151">{{ item.owner }}</td>
+                  <td style="padding:0 8px; font-family:'JetBrains Mono', monospace; white-space:nowrap; color:#4B5563">{{ item.first }}</td>
+                  <td style="padding:0 8px; white-space:nowrap; color:#4B5563">{{ item.lastLabel }}</td>
+                  <td style="padding:0 12px 0 8px; white-space:nowrap"><span style="{{ item.statusStyle }}">{{ item.statusText }}</span></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+          <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:28px; text-align:center; color:#4B5563; font-size:13px">{{ emptyLabel }}</div>
+          </sc-if>
+        </div>
+        <footer style="display:flex; flex-wrap:wrap; gap:14px; align-items:center; padding:8px 12px; border-top:1px solid #E5E7EB; font-size:12px; color:#4B5563; background:#F9FAFB; border-radius:0 0 8px 8px">
+          <span>{{ sortLabel }}</span>
+          <span style="margin-left:auto">Cliquez une ligne pour ouvrir sa fiche · cochez pour une action groupée</span>
+        </footer>
+      </section>
+
+      <!-- Détail de l'appareil sélectionné -->
+      <section aria-labelledby="h-detail" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:12px; align-items:start">
+
+        <!-- Fiche éditable -->
+        <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+          <div style="display:flex; align-items:flex-start; gap:10px">
+            <div style="width:38px; height:38px; border-radius:8px; background:#F3F4F6; display:flex; align-items:center; justify-content:center; color:#374151; flex:none">
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="{{ d.iconPath }}"></path></svg>
+            </div>
+            <div style="min-width:0; flex:1">
+              <h2 id="h-detail" style="margin:0; font-size:15px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ d.title }}</h2>
+              <div style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#374151; margin-top:2px">{{ d.ip }} · {{ d.mac }}</div>
+              <div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; align-items:center">
+                <span style="{{ d.statusStyle }}">{{ d.statusText }}</span>
+                <span style="font-size:11px; color:#4B5563">{{ d.vendor }} · {{ d.host }}</span>
+              </div>
+            </div>
+            <a href="Device.dc.html" style="font-size:12px; font-weight:600; text-decoration:none; white-space:nowrap">Fiche complète</a>
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px 10px; margin-top:12px">
+            <label style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#4B5563; font-weight:600">Nom
+              <input type="text" class="fld" value="{{ draft.name }}" onChange="{{ onName }}">
+            </label>
+            <label style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#4B5563; font-weight:600">Type
+              <select class="fld" value="{{ draft.type }}" onChange="{{ onType }}">
+                <option value="Pare-feu">Pare-feu</option>
+                <option value="Switch">Switch</option>
+                <option value="Point d'accès">Point d’accès</option>
+                <option value="Imprimante">Imprimante</option>
+                <option value="Poste de travail">Poste de travail</option>
+                <option value="Ordinateur">Ordinateur</option>
+                <option value="Ordinateur portable">Ordinateur portable</option>
+                <option value="Téléphone">Téléphone</option>
+                <option value="Caméra IP">Caméra IP</option>
+                <option value="Affichage numérique">Affichage numérique</option>
+                <option value="Routeur">Routeur</option>
+                <option value="Inconnu">Inconnu</option>
+              </select>
+            </label>
+            <label style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#4B5563; font-weight:600">Local
+              <input type="text" class="fld" value="{{ draft.loc }}" onChange="{{ onLoc }}">
+            </label>
+            <label style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#4B5563; font-weight:600">Prise murale
+              <input type="text" class="fld" value="{{ draft.jack }}" onChange="{{ onJack }}" style="font-family:'JetBrains Mono', monospace">
+            </label>
+            <label style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#4B5563; font-weight:600">Responsable
+              <input type="text" class="fld" value="{{ draft.owner }}" onChange="{{ onOwner }}">
+            </label>
+            <label style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#4B5563; font-weight:600">N° d’actif
+              <input type="text" class="fld" value="{{ draft.asset }}" onChange="{{ onAsset }}" style="font-family:'JetBrains Mono', monospace">
+            </label>
+          </div>
+          <div role="group" aria-label="Étiquettes" style="margin-top:10px">
+            <div style="font-size:11px; color:#4B5563; font-weight:600; margin-bottom:4px">Étiquettes</div>
+            <div style="display:flex; flex-wrap:wrap; gap:5px">
+              <sc-for list="{{ tagToggles }}" as="tg" hint-placeholder-count="8">
+                <button type="button" class="chip" aria-pressed="{{ tg.on }}" onClick="{{ tg.pick }}" style="{{ tg.style }}">{{ tg.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <label style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#4B5563; font-weight:600; margin-top:10px">Notes
+            <textarea class="fld" value="{{ draft.notes }}" onChange="{{ onNotes }}" style="height:54px; padding:6px 8px; resize:vertical; font-size:12px"></textarea>
+          </label>
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:10px">
+            <button type="button" class="btn btnp" style="{{ primaryStyle }}" onClick="{{ onSave }}">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg>Enregistrer</button>
+            <button type="button" class="btn" onClick="{{ onCancel }}">Annuler</button>
+            <span style="{{ dirtyStyle }}">{{ dirtyLabel }}</span>
+          </div>
+        </div>
+
+        <!-- Chronologie -->
+        <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:12px">
+            <h3 style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Chronologie des changements</h3>
+            <span style="font-size:12px; color:#4B5563">{{ d.eventCount }}</span>
+          </div>
+          <div style="position:relative">
+          <div aria-hidden="true" style="position:absolute; left:5px; top:6px; bottom:10px; width:2px; background:#E5E7EB"></div>
+          <ol style="list-style:none; margin:0; padding:0; position:relative">
+            <sc-for list="{{ d.events }}" as="ev" hint-placeholder-count="5">
+              <li style="position:relative; padding:0 0 14px 22px">
+                <span aria-hidden="true" style="{{ ev.dotStyle }}"></span>
+                <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px">
+                  <span style="font-family:'JetBrains Mono', monospace; font-size:12px; font-weight:600">{{ ev.date }}</span>
+                  <span style="{{ ev.kindStyle }}">{{ ev.kindLabel }}</span>
+                </div>
+                <div style="font-size:13px; font-weight:600; margin-top:2px">{{ ev.title }}</div>
+                <div style="font-size:12px; color:#4B5563; margin-top:1px">{{ ev.detail }}</div>
+              </li>
+            </sc-for>
+          </ol>
+          </div>
+        </div>
+
+        <!-- Historiques -->
+        <div style="display:flex; flex-direction:column; gap:12px; min-width:0">
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+            <h3 style="margin:0 0 8px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Historique des IP</h3>
+            <div style="overflow-x:auto">
+              <table style="width:100%; border-collapse:collapse; font-size:12px">
+                <thead>
+                  <tr style="border-bottom:1px solid #E5E7EB">
+                    <th scope="col" style="text-align:left; padding:0 6px 6px 0; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563">IP</th>
+                    <th scope="col" style="text-align:left; padding:0 6px 6px; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563">Du</th>
+                    <th scope="col" style="text-align:left; padding:0 6px 6px; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563">Au</th>
+                    <th scope="col" style="text-align:left; padding:0 0 6px 6px; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563">Attribution</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <sc-for list="{{ d.ipHist }}" as="ih" hint-placeholder-count="2">
+                    <tr style="border-bottom:1px solid #F3F4F6; height:28px">
+                      <td style="padding:0 6px 0 0; font-family:'JetBrains Mono', monospace; font-weight:600; white-space:nowrap">{{ ih.ip }}</td>
+                      <td style="padding:0 6px; font-family:'JetBrains Mono', monospace; white-space:nowrap; color:#374151">{{ ih.from }}</td>
+                      <td style="padding:0 6px; font-family:'JetBrains Mono', monospace; white-space:nowrap; color:#374151">{{ ih.to }}</td>
+                      <td style="padding:0 0 0 6px; color:#374151">{{ ih.how }}</td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+            <h3 style="margin:0 0 8px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Historique des ports de switch</h3>
+            <div style="overflow-x:auto">
+              <table style="width:100%; border-collapse:collapse; font-size:12px">
+                <thead>
+                  <tr style="border-bottom:1px solid #E5E7EB">
+                    <th scope="col" style="text-align:left; padding:0 6px 6px 0; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563">Switch / port</th>
+                    <th scope="col" style="text-align:left; padding:0 6px 6px; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563">VLAN</th>
+                    <th scope="col" style="text-align:left; padding:0 6px 6px; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563">Du</th>
+                    <th scope="col" style="text-align:left; padding:0 0 6px 6px; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563">Au</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <sc-for list="{{ d.portHist }}" as="ph" hint-placeholder-count="2">
+                    <tr style="border-bottom:1px solid #F3F4F6; height:28px">
+                      <td style="padding:0 6px 0 0; font-family:'JetBrains Mono', monospace; font-weight:600; white-space:nowrap">{{ ph.label }}</td>
+                      <td style="padding:0 6px"><span style="font-family:'JetBrains Mono', monospace; font-size:11px; padding:1px 6px; border-radius:4px; background:#F3F4F6; color:#374151">{{ ph.vlan }}</span></td>
+                      <td style="padding:0 6px; font-family:'JetBrains Mono', monospace; white-space:nowrap; color:#374151">{{ ph.from }}</td>
+                      <td style="padding:0 0 0 6px; font-family:'JetBrains Mono', monospace; white-space:nowrap; color:#374151">{{ ph.to }}</td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:10px; font-size:12px">
+              <a href="Switch.dc.html" style="font-weight:600; text-decoration:none">Voir le port actuel</a>
+              <a href="Ping.dc.html" style="font-weight:600; text-decoration:none">Ping continu</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Aide -->
+      <div style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:#4B5563; padding:2px 2px 6px">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none; margin-top:1px"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h0"></path></svg>
+        <span><strong style="color:#111827">Identification par empreinte :</strong> préfixe OUI de la MAC (registre IEEE), annonces mDNS / Bonjour, nom NetBIOS, SNMP (sysDescr, sysObjectID), DHCP option 55 (liste des paramètres demandés) et option 60. Un appareil à MAC aléatoire reste « non identifié » jusqu’à ce qu’un technicien confirme sa fiche.</span>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000},"compact":false,"accent":"#2563EB"}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      q: '',
+      site: 'siege',
+      view: 'all',
+      sortKey: 'last',
+      sortDir: 'desc',
+      sel: 'd111',
+      checked: {},
+      draft: null,
+      toast: '',
+      mergeOpen: false,
+      merged: false,
+      devices: [
+        { id: 'd1', site: 'siege', name: 'Passerelle', host: 'FortiGate-60F', type: 'Pare-feu', ip: '10.182.122.1', mac: '04:D5:90:3A:7B:11', vendor: 'Fortinet', tags: ['Réseau', 'Critique'], loc: 'Sous-sol · Salle serveurs B01', jack: 'Baie A · U12', sw: '—', port: '—', vlan: '1', owner: 'Service TI', first: '2025-09-02', lastMin: 0, status: 'on', asset: 'INV-00101', notes: 'Passerelle et serveur DHCP officiel du site. Version FortiOS [À COMPLÉTER].', fav: true },
+        { id: 'd2', site: 'siege', name: 'Switch cœur', host: 'SW-CORE-01', type: 'Switch', ip: '10.182.122.2', mac: '70:0F:6A:91:4C:02', vendor: 'Cisco', tags: ['Réseau', 'Critique'], loc: 'Sous-sol · Salle serveurs B01', jack: 'Baie A · U20', sw: 'FortiGate-60F', port: 'port1', vlan: '1', owner: 'Service TI', first: '2025-09-02', lastMin: 0, status: 'on', asset: 'INV-00102', notes: 'Catalyst 9300-48P, alimente les AP en PoE+.', fav: true },
+        { id: 'd3', site: 'siege', name: 'Switch étage 2', host: 'SW-ETG2-01', type: 'Switch', ip: '10.182.122.3', mac: '88:3A:30:5D:E1:40', vendor: 'HPE Aruba', tags: ['Réseau'], loc: '2e étage · Local télécom T2', jack: 'Baie 2 · U04', sw: 'SW-CORE-01', port: 'Te1/1/1', vlan: '1', owner: 'Service TI', first: '2025-09-02', lastMin: 0, status: 'on', asset: 'INV-00103', notes: 'Aruba 2930F-24G, uplink 1/25 vers SW-CORE-01 Te1/1/1.', fav: false },
+        { id: 'd102', site: 'siege', name: 'Borne Wi-Fi accueil', host: 'FortiAP-231F', type: "Point d'accès", ip: '10.182.122.102', mac: '70:4C:A5:1E:22:9A', vendor: 'Fortinet', tags: ['Réseau'], loc: '1er étage · Accueil · plafond', jack: 'P1-03', sw: 'SW-CORE-01', port: 'Gi1/0/12', vlan: '20', owner: 'Service TI', first: '2026-03-03', lastMin: 0, status: 'on', asset: 'INV-00231', notes: '', fav: false },
+        { id: 'd104', site: 'siege', name: 'AP-ETG2', host: 'FortiAP-231F', type: "Point d'accès", ip: '10.182.122.104', mac: '70:4C:A5:1E:31:C4', vendor: 'Fortinet', tags: ['Réseau'], loc: '2e étage · Corridor est · plafond', jack: 'P2-02', sw: 'SW-ETG2-01', port: '1/2', vlan: '20', owner: 'Service TI', first: '2026-03-03', lastMin: 0, status: 'on', asset: 'INV-00232', notes: '', fav: false },
+        { id: 'd106', site: 'siege', name: 'Affichage hall', host: 'BrightSign-D1E876001191', type: 'Affichage numérique', ip: '10.182.122.106', mac: '90:AC:3F:0D:18:76', vendor: 'BrightSign', tags: ['Affichage'], loc: '1er étage · Hall d’entrée', jack: 'P1-08', sw: 'SW-ETG2-01', port: '1/9', vlan: '30', owner: '[À COMPLÉTER]', first: '2026-04-15', lastMin: 0, status: 'on', asset: '[À COMPLÉTER]', notes: '', fav: false },
+        { id: 'd111', site: 'siege', name: 'Imprimante accueil', host: 'Brother DCP-L2640DW', type: 'Imprimante', ip: '10.182.122.111', mac: '94:DD:F8:18:15:7D', vendor: 'Brother', tags: ['Imprimante', 'Critique'], loc: '2e étage · Salle 204', jack: 'P2-14', sw: 'SW-ETG2-01', port: '1/14', vlan: '30', owner: 'Réception', first: '2026-03-12', lastMin: 0, status: 'on', asset: 'INV-00412', notes: 'Réservation DHCP sur FortiGate-60F. Firmware 1.07.', fav: true,
+          events: [
+            { date: '2026-03-12', kind: 'first', title: 'Première détection', detail: '10.182.122.87 · SW-CORE-01 Gi1/0/22 · VLAN 30 · empreinte OUI + mDNS _ipp._tcp' },
+            { date: '2026-05-02', kind: 'ip', title: 'IP changée : .87 → .111', detail: 'Réservation DHCP créée sur FortiGate-60F pour 94:DD:F8:18:15:7D' },
+            { date: '2026-08-19', kind: 'move', title: 'Déplacé de port de switch', detail: 'SW-CORE-01 Gi1/0/22 → SW-ETG2-01 1/14 (table MAC lue par SNMP)' },
+            { date: '2026-09-24', kind: 'fw', title: 'Firmware 1.04 → 1.07', detail: 'Version lue par SNMP (sysDescr)' },
+            { date: '2026-10-30', kind: 'off', title: 'Hors ligne 23 min', detail: '14:02 → 14:25 · aucune réponse ARP ni ICMP' }
+          ],
+          ipHist: [
+            { ip: '10.182.122.87', from: '2026-03-12', to: '2026-05-02', how: 'DHCP dynamique' },
+            { ip: '10.182.122.111', from: '2026-05-02', to: "Aujourd'hui", how: 'Réservation DHCP' }
+          ],
+          portHist: [
+            { sw: 'SW-CORE-01', port: 'Gi1/0/22', vlan: '30', from: '2026-03-12', to: '2026-08-19' },
+            { sw: 'SW-ETG2-01', port: '1/14', vlan: '30', from: '2026-08-19', to: "Aujourd'hui" }
+          ]
+        },
+        { id: 'd113', site: 'siege', name: 'Portable Marc', host: 'PF4L8M20', type: 'Ordinateur portable', ip: '10.182.122.113', mac: '8C:16:45:2B:9E:03', vendor: 'Lenovo', tags: ['Poste'], loc: '2e étage · Salle 211', jack: 'P2-21', sw: 'SW-ETG2-01', port: '1/3', vlan: '1', owner: 'Marc [À COMPLÉTER]', first: '2026-01-20', lastMin: 1, status: 'on', asset: 'INV-00377', notes: '', fav: false },
+        { id: 'd117', site: 'siege', name: 'Poste comptabilité', host: 'WKS346', type: 'Poste de travail', ip: '10.182.122.117', mac: 'B0:7B:25:44:A1:6C', vendor: 'Dell', tags: ['Poste'], loc: '1er étage · Comptabilité 108', jack: 'P1-17', sw: 'SW-CORE-01', port: 'Gi1/0/22', vlan: '1', owner: 'Comptabilité', first: '2025-11-04', lastMin: 0, status: 'on', asset: 'INV-00346', notes: '', fav: false },
+        { id: 'd133', site: 'siege', name: '—', host: 'Android_89UM1WTN', type: 'Téléphone', ip: '10.182.122.133', mac: 'D6:4E:81:7A:33:C0', vendor: 'Inconnu (MAC aléatoire)', tags: [], loc: '[À COMPLÉTER]', jack: '—', sw: 'FortiAP-231F', port: 'Wi-Fi', vlan: '20', owner: '[À COMPLÉTER]', first: '2026-11-03', lastMin: 4, status: 'on', asset: '', notes: 'Hostname DHCP seulement, MAC administrée localement.', fav: false, unid: true },
+        { id: 'd135', site: 'siege', name: 'Ce Mac', host: 'Macmini-de-Dany', type: 'Ordinateur', ip: '10.182.122.135', mac: '3C:22:FB:7E:05:B1', vendor: 'Apple', tags: ['Poste'], loc: '[À COMPLÉTER]', jack: '—', sw: 'FortiAP-231F', port: 'Wi-Fi', vlan: '20', owner: 'Dany Ménard', first: '2025-09-02', lastMin: 0, status: 'on', asset: '[À COMPLÉTER]', notes: 'Poste du technicien (NetScope).', fav: true },
+        { id: 'd140', site: 'siege', name: '—', host: 'NPI7A4410', type: 'Imprimante', ip: '10.182.122.140', mac: '00:1A:2B:44:10:EE', vendor: 'HP', tags: ['Imprimante'], loc: '2e étage · [À COMPLÉTER]', jack: '—', sw: 'SW-ETG2-01', port: '1/18', vlan: '30', owner: '[À COMPLÉTER]', first: '2026-10-29', lastMin: 3, status: 'conflict', asset: '', notes: '', fav: false, unid: true },
+        { id: 'd146', site: 'siege', name: 'Poste réception', host: 'WKS341', type: 'Poste de travail', ip: '10.182.122.146', mac: 'B0:7B:25:44:9F:20', vendor: 'Dell', tags: ['Poste'], loc: '1er étage · Réception', jack: 'P1-01', sw: 'SW-CORE-01', port: 'Gi1/0/23', vlan: '1', owner: 'Réception', first: '2025-11-04', lastMin: 180, status: 'off', asset: 'INV-00341', notes: '', fav: false },
+        { id: 'd158', site: 'siege', name: 'WKS298', host: 'WKS298', type: 'Poste de travail', ip: '10.182.122.158', mac: 'B0:7B:25:3E:11:02', vendor: 'Dell', tags: ['Poste'], loc: '1er étage · Salle 115', jack: 'P1-29', sw: 'SW-CORE-01', port: 'Gi1/0/27', vlan: '1', owner: '[À COMPLÉTER]', first: '2025-09-02', lastMin: 81 * 1440, lastDate: '2026-08-14', status: 'gone', asset: 'INV-00298', notes: '', fav: false },
+        { id: 'd160', site: 'siege', name: 'Macmini-de-Dany (Ethernet)', host: 'Macmini-de-Dany', type: 'Ordinateur', ip: '10.182.122.160', mac: '3C:22:FB:7E:05:B2', vendor: 'Apple', tags: [], loc: '[À COMPLÉTER]', jack: '—', sw: 'SW-ETG2-01', port: '1/11', vlan: '1', owner: 'Dany Ménard', first: '2026-02-10', lastMin: 32 * 1440, lastDate: '2026-10-02', status: 'gone', asset: '', notes: '', fav: false, dup: true },
+        { id: 'd171', site: 'siege', name: 'Imprimante locataire', host: 'XRX-9C934E21', type: 'Imprimante', ip: '10.182.122.171', mac: '9C:93:4E:21:0A:5B', vendor: 'Xerox', tags: ['Imprimante', 'Locataire'], loc: '1er étage · Local 120', jack: 'P1-24', sw: 'SW-CORE-01', port: 'Gi1/0/30', vlan: '30', owner: 'Locataire [À COMPLÉTER]', first: '2026-02-03', lastMin: 36 * 1440, lastDate: '2026-09-28', status: 'gone', asset: '', notes: '', fav: false },
+        { id: 'd250', site: 'siege', name: '—', host: 'TL-WR841N', type: 'Routeur', ip: '10.182.122.250', mac: '50:C7:BF:6A:2E:91', vendor: 'TP-Link', tags: ['Non autorisé'], loc: '[À COMPLÉTER]', jack: '—', sw: 'SW-ETG2-01', port: '1/22', vlan: '1', owner: '[À COMPLÉTER]', first: '2026-11-03', lastMin: 0, status: 'rogue', asset: '', notes: 'Répond aux requêtes DHCP sur le VLAN 1.', fav: false, unid: true },
+        { id: 'c21', site: 'siege', name: 'Caméra-Quai', host: 'DS-2CD2143G2-I', type: 'Caméra IP', ip: '192.168.50.21', mac: 'BC:AD:28:6F:01:5A', vendor: 'Hikvision', tags: ['Sécurité', 'Critique'], loc: 'Rez-de-chaussée · Quai de chargement', jack: 'P0-05', sw: 'SW-CORE-01', port: 'Gi1/0/33', vlan: '40', owner: 'Sécurité', first: '2025-10-07', lastMin: 0, status: 'on', asset: 'INV-00521', notes: '', fav: false }
+      ]
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const props = this.props || {};
+    const accent = props.accent || '#2563EB';
+    const h = props.compact ? 32 : 38;
+    const q = (s.q || '').trim().toLowerCase();
+
+    const icons = {
+      'Pare-feu': 'M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z',
+      'Switch': 'M3 7h18v10H3zM7 11v2M10 11v2M13 11v2M16 11v2',
+      "Point d'accès": 'M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M11.5 19h1M3 20h18',
+      'Imprimante': 'M6 9V3h12v6M6 18H4v-7h16v7h-2M8 14h8v7H8z',
+      'Poste de travail': 'M4 4h16v12H4zM9 20h6M12 16v4',
+      'Ordinateur': 'M5 6h14v12H5zM9 21h6M8 18v3M16 18v3',
+      'Ordinateur portable': 'M5 5h14v10H5zM2 19h20',
+      'Téléphone': 'M8 2h8v20H8zM11 18h2',
+      'Caméra IP': 'M3 7h13v10H3zM16 10l5-3v10l-5-3',
+      'Affichage numérique': 'M2 5h20v12H2zM7 21h10M12 17v4',
+      'Routeur': 'M3 13h18v6H3zM7 16h1M11 16h1M16 13l2-7M8 13L6 6',
+      'Inconnu': 'M4 4h16v16H4zM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5M12 17h0'
+    };
+    const iconFor = t => icons[t] || icons['Inconnu'];
+
+    const tagStyle = t => {
+      let c = 'background:#F3F4F6; color:#374151;';
+      if (t === 'Critique' || t === 'Non autorisé') c = 'background:#FEE2E2; color:#B91C1C;';
+      else if (t === 'Locataire') c = 'background:#FFEDD5; color:#C2410C;';
+      else if (t === 'Imprimante') c = 'background:#DBEAFE; color:#1D4ED8;';
+      else if (t === 'Sécurité') c = 'background:#DCFCE7; color:#15803D;';
+      return 'font-size:11px; font-weight:600; padding:1px 7px; border-radius:10px; white-space:nowrap; ' + c;
+    };
+
+    const statusDefs = {
+      on: { t: 'En ligne', c: 'background:#DCFCE7; color:#15803D;' },
+      off: { t: 'Hors ligne', c: 'background:#F3F4F6; color:#4B5563;' },
+      gone: { t: 'Disparu', c: 'background:#FFEDD5; color:#C2410C;' },
+      conflict: { t: 'Conflit IP', c: 'background:#FEE2E2; color:#B91C1C;' },
+      rogue: { t: 'DHCP non autorisé', c: 'background:#FEE2E2; color:#B91C1C;' }
+    };
+    const stStyle = st => 'font-size:11px; font-weight:600; padding:2px 8px; border-radius:10px; white-space:nowrap; ' + (statusDefs[st] || statusDefs.off).c;
+    const stText = st => (statusDefs[st] || statusDefs.off).t;
+
+    const lastLabel = d => {
+      if (d.lastMin < 1) return "À l'instant";
+      if (d.lastMin < 60) return 'Il y a ' + d.lastMin + ' min';
+      if (d.lastMin < 1440) return 'Il y a ' + Math.round(d.lastMin / 60) + ' h';
+      return (d.lastDate || '') + ' (' + Math.round(d.lastMin / 1440) + ' j)';
+    };
+    const display = d => d.name !== '—' ? d.name : d.host;
+    const ipNum = ip => ip.split('.').reduce((a, p) => a * 256 + Number(p), 0);
+
+    const devs = s.devices;
+    const siteDevs = devs.filter(d => d.site === s.site);
+    const inView = d => {
+      if (s.view === 'unid') return !!d.unid;
+      if (s.view === 'gone') return d.status === 'gone';
+      if (s.view === 'fav') return !!d.fav;
+      return true;
+    };
+    const filtered = siteDevs.filter(d => {
+      if (!inView(d)) return false;
+      if (!q) return true;
+      const hay = [d.ip, d.mac, d.mac.replace(/:/g, ''), d.name, d.host, d.vendor, d.type, d.tags.join(' '), d.loc, d.jack, 'prise ' + d.jack, d.sw + ' ' + d.port, d.owner, d.asset].join(' ').toLowerCase();
+      return hay.indexOf(q) >= 0;
+    });
+
+    const sortVal = (d, k) => {
+      if (k === 'name') return display(d).toLowerCase();
+      if (k === 'ip') return ipNum(d.ip);
+      if (k === 'first') return d.first;
+      return -d.lastMin;
+    };
+    const dirMul = s.sortDir === 'asc' ? 1 : -1;
+    const sorted = filtered.slice().sort((a, b) => {
+      const va = sortVal(a, s.sortKey);
+      const vb = sortVal(b, s.sortKey);
+      if (typeof va === 'string') return va.localeCompare(vb, 'fr') * dirMul;
+      return (va - vb) * dirMul;
+    });
+
+    const rows = sorted.map(d => {
+      const selected = d.id === s.sel;
+      const isChecked = !!s.checked[d.id];
+      return {
+        ...d,
+        display: display(d),
+        cls: selected ? 'row sel' : 'row',
+        isSel: selected ? 'true' : 'false',
+        rowStyle: 'height:' + h + 'px; border-bottom:1px solid #E5E7EB;',
+        checked: isChecked,
+        checkLabel: 'Sélectionner ' + display(d) + ' (' + d.ip + ')',
+        toggleCheck: () => { const c = { ...s.checked }; c[d.id] = !isChecked; this.setState({ checked: c }); },
+        favLabel: d.fav ? 'Retirer ' + display(d) + ' des favoris' : 'Ajouter ' + display(d) + ' aux favoris',
+        favPressed: d.fav ? 'true' : 'false',
+        starFill: d.fav ? '#C2410C' : 'none',
+        starStroke: d.fav ? '#C2410C' : '#6B7280',
+        toggleFav: () => this.setState({ devices: s.devices.map(x => x.id === d.id ? { ...x, fav: !x.fav } : x) }),
+        iconPath: iconFor(d.type),
+        tagChips: d.tags.map(t => ({ label: t, style: tagStyle(t) })),
+        noTags: d.tags.length === 0,
+        locLabel: d.jack && d.jack !== '—' ? d.loc + ' · Prise ' + d.jack : d.loc,
+        swLabel: d.sw === '—' ? '—' : d.sw + ' · ' + d.port,
+        lastLabel: lastLabel(d),
+        statusText: stText(d.status),
+        statusStyle: stStyle(d.status),
+        unid: !!d.unid,
+        dup: !!d.dup && !s.merged,
+        pick: () => this.setState({ sel: d.id, draft: null })
+      };
+    });
+
+    const mkSort = (key, defDir) => {
+      const on = s.sortKey === key;
+      return {
+        aria: on ? (s.sortDir === 'asc' ? 'ascending' : 'descending') : 'none',
+        arrow: on ? (s.sortDir === 'asc' ? '↑' : '↓') : '↕',
+        arrowStyle: on ? 'color:#1D4ED8; font-size:12px;' : 'color:#6B7280; font-size:11px;',
+        fn: () => this.setState(on ? { sortDir: s.sortDir === 'asc' ? 'desc' : 'asc' } : { sortKey: key, sortDir: defDir })
+      };
+    };
+    const sortNames = { name: 'Nom', ip: 'IP actuelle', first: 'Première détection', last: 'Dernière détection' };
+
+    const viewDefs = [
+      { id: 'all', label: 'Tous' },
+      { id: 'unid', label: 'Non identifiés' },
+      { id: 'gone', label: 'Disparus > 30 j' },
+      { id: 'fav', label: 'Favoris' }
+    ];
+    const views = viewDefs.map(v => {
+      const on = s.view === v.id;
+      return {
+        label: v.label,
+        on: on ? 'true' : 'false',
+        style: 'height:28px; padding:0 12px; border-radius:6px; cursor:pointer; font:500 12px Inter, system-ui, sans-serif; ' + (on ? 'background:#EFF6FF; border:1px solid ' + accent + '; color:#1D4ED8;' : 'background:transparent; border:1px solid transparent; color:#111827;'),
+        pick: () => this.setState({ view: v.id })
+      };
+    });
+
+    const counters = s.site === 'siege'
+      ? { known: '247', today: '203', todaySub: '182 vus récemment au dernier scan', unid: '12', gone: '32' }
+      : { known: '[À COMPLÉTER]', today: '[À COMPLÉTER]', todaySub: 'Aucun scan importé pour ce site', unid: '—', gone: '—' };
+
+    const visibleIds = sorted.map(d => d.id);
+    const nChecked = visibleIds.filter(id => s.checked[id]).length;
+    const allChecked = visibleIds.length > 0 && nChecked === visibleIds.length;
+
+    // Détail
+    const sel = devs.find(d => d.id === s.sel) || sorted[0] || devs[0];
+    const fields = d => ({ name: d.name === '—' ? '' : d.name, type: d.type, tags: d.tags.slice(), loc: d.loc, jack: d.jack, owner: d.owner, asset: d.asset, notes: d.notes });
+    const base = fields(sel);
+    const draft = s.draft || base;
+    const dirty = !!s.draft && JSON.stringify(s.draft) !== JSON.stringify(base);
+    const setD = (k, v) => { const nd = { ...draft }; nd[k] = v; this.setState({ draft: nd }); };
+
+    const allTags = ['Critique', 'Imprimante', 'Locataire', 'Réseau', 'Poste', 'Sécurité', 'Affichage', 'Non autorisé'];
+    const tagToggles = allTags.map(t => {
+      const on = draft.tags.indexOf(t) >= 0;
+      return {
+        label: t,
+        on: on ? 'true' : 'false',
+        style: 'height:26px; padding:0 10px; border-radius:13px; font:500 12px Inter, system-ui, sans-serif; ' + (on ? 'background:#EFF6FF; border:1px solid ' + accent + '; color:#1D4ED8;' : 'background:#FFFFFF; border:1px solid #E5E7EB; color:#111827;'),
+        pick: () => setD('tags', on ? draft.tags.filter(x => x !== t) : draft.tags.concat([t]))
+      };
+    });
+
+    const today = "Aujourd'hui";
+    let events = sel.events;
+    if (!events) {
+      events = [{ date: sel.first, kind: 'first', title: 'Première détection', detail: sel.ip + (sel.sw !== '—' ? ' · ' + sel.sw + ' ' + sel.port : '') + ' · VLAN ' + sel.vlan }];
+      if (sel.status === 'conflict') events.push({ date: '2026-11-03', kind: 'off', title: 'Conflit IP détecté', detail: 'Deux MAC répondent à 10.182.122.140 : 00:1A:2B:44:10:EE et 5C:F9:38:02:7A:41' });
+      if (sel.status === 'rogue') events.push({ date: '2026-11-03', kind: 'off', title: 'Offre DHCP non autorisée', detail: 'Serveur DHCP sur VLAN 1 via SW-ETG2-01 1/22 · à isoler' });
+      if (sel.status === 'off') events.push({ date: '2026-11-03', kind: 'off', title: 'Hors ligne depuis 3 h', detail: 'Dernière réponse ARP à 10:12' });
+      if (sel.status === 'gone') events.push({ date: sel.lastDate, kind: 'off', title: 'Dernière réponse', detail: 'Aucune réponse depuis ' + Math.round(sel.lastMin / 1440) + ' jours' });
+      if (sel.dup && !s.merged) events.push({ date: '2026-11-03', kind: 'edit', title: 'Doublon probable', detail: 'Même hostname que 10.182.122.135 (Wi-Fi)' });
+    }
+    events = events.concat(sel.extraEvents || []);
+    const kindDefs = {
+      first: { l: 'Détection', c: '#2563EB', bg: '#DBEAFE', fg: '#1D4ED8' },
+      ip: { l: 'Adresse IP', c: '#2563EB', bg: '#DBEAFE', fg: '#1D4ED8' },
+      move: { l: 'Port de switch', c: '#C2410C', bg: '#FFEDD5', fg: '#C2410C' },
+      fw: { l: 'Firmware', c: '#15803D', bg: '#DCFCE7', fg: '#15803D' },
+      off: { l: 'Disponibilité', c: '#B91C1C', bg: '#FEE2E2', fg: '#B91C1C' },
+      edit: { l: 'Fiche', c: '#4B5563', bg: '#F3F4F6', fg: '#374151' }
+    };
+    const evs = events.map(e => {
+      const k = kindDefs[e.kind] || kindDefs.edit;
+      return {
+        ...e,
+        kindLabel: k.l,
+        kindStyle: 'font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:1px 6px; border-radius:4px; background:' + k.bg + '; color:' + k.fg + ';',
+        dotStyle: 'position:absolute; left:0; top:3px; width:12px; height:12px; border-radius:50%; box-sizing:border-box; border:2px solid #FFFFFF; box-shadow:0 0 0 1px ' + k.c + '; background:' + k.c + ';'
+      };
+    });
+
+    const endDate = sel.status === 'gone' ? sel.lastDate : today;
+    const ipHist = (sel.ipHist || [{ ip: sel.ip, from: sel.first, to: endDate, how: sel.unid ? 'Observée (ARP)' : 'DHCP dynamique' }]).concat(sel.extraIp || []);
+    const portHist = (sel.portHist || [{ sw: sel.sw, port: sel.port, vlan: sel.vlan, from: sel.first, to: endDate }]).map(p => ({ ...p, label: p.sw === '—' ? '—' : p.sw + ' · ' + p.port, vlan: 'VLAN ' + p.vlan }));
+
+    const d = {
+      title: display(sel),
+      ip: sel.ip,
+      mac: sel.mac,
+      host: sel.host,
+      vendor: sel.vendor,
+      iconPath: iconFor(sel.type),
+      statusText: stText(sel.status),
+      statusStyle: stStyle(sel.status),
+      events: evs,
+      eventCount: evs.length + ' événements',
+      ipHist: ipHist,
+      portHist: portHist
+    };
+
+    const hasDup = !s.merged;
+    const fl = 'height:28px; font-size:12px; background:' + accent + ';';
+
+    return {
+      q: s.q,
+      onQ: (e) => this.setState({ q: e.target.value }),
+      site: s.site,
+      onSite: (e) => this.setState({ site: e.target.value, view: 'all' }),
+      views: views,
+      c: counters,
+      onViewAll: () => this.setState({ view: 'all' }),
+      onViewUnid: () => this.setState({ view: 'unid' }),
+      onViewGone: () => this.setState({ view: 'gone' }),
+      rows: rows,
+      empty: rows.length === 0,
+      emptyLabel: s.site === 'entrepot' ? "Aucun appareil importé pour l'Entrepôt : lancez un scan sur ce site ou importez un CSV. [À COMPLÉTER]" : 'Aucun appareil ne correspond à « ' + s.q + ' » dans cette vue.',
+      shownLabel: rows.length + ' affichés · extrait de la base (' + counters.known + ' appareils connus)',
+      sortLabel: 'Tri : ' + sortNames[s.sortKey] + (s.sortDir === 'asc' ? ' croissant' : ' décroissant'),
+      sName: mkSort('name', 'asc'),
+      sIp: mkSort('ip', 'asc'),
+      sFirst: mkSort('first', 'desc'),
+      sLast: mkSort('last', 'desc'),
+      allChecked: allChecked,
+      onToggleAll: () => { const c = { ...s.checked }; visibleIds.forEach(id => { c[id] = !allChecked; }); this.setState({ checked: c }); },
+      anyChecked: nChecked > 0,
+      checkedLabel: nChecked + (nChecked > 1 ? ' sélectionnés' : ' sélectionné'),
+      onBulkFav: () => this.setState({ devices: s.devices.map(x => s.checked[x.id] ? { ...x, fav: true } : x), toast: nChecked + ' appareil(s) ajouté(s) aux favoris' }),
+      onBulkExport: () => this.setState({ toast: 'Export CSV de ' + nChecked + ' appareil(s) prêt : inventaire-selection.csv' }),
+      onClearChecks: () => this.setState({ checked: {} }),
+      onImport: () => this.setState({ toast: 'Importer CSV : colonnes attendues IP, MAC, Nom, Type, Local, Prise, Responsable, N° d’actif' }),
+      onExport: () => this.setState({ toast: 'Export de la vue en cours : inventaire-' + s.site + '.csv (' + rows.length + ' lignes)' }),
+      mergeOpen: s.mergeOpen,
+      hasDup: hasDup,
+      mergeSummary: hasDup ? '1 paire détectée sur ' + counters.known + ' fiches' : 'Aucun doublon restant · dernière fusion appliquée',
+      onMergeOpen: () => this.setState({ mergeOpen: !s.mergeOpen }),
+      onMergeClose: () => this.setState({ mergeOpen: false }),
+      onMergeConfirm: () => this.setState({
+        merged: true,
+        mergeOpen: false,
+        sel: s.sel === 'd160' ? 'd135' : s.sel,
+        draft: null,
+        toast: 'Fiches fusionnées : Macmini-de-Dany (.160) rattaché à .135',
+        devices: s.devices.filter(x => x.id !== 'd160').map(x => x.id === 'd135' ? {
+          ...x,
+          extraEvents: [{ date: '2026-11-03', kind: 'edit', title: 'Fiches fusionnées', detail: 'MAC Ethernet 3C:22:FB:7E:05:B2 (ancienne IP .160) rattachée à cette fiche' }],
+          extraIp: [{ ip: '10.182.122.160', from: '2026-02-10', to: '2026-10-02', how: 'Ethernet · fiche fusionnée' }]
+        } : x)
+      }),
+      primaryStyle: 'background:' + accent + ';',
+      primarySmall: fl,
+      toast: s.toast,
+      hasToast: !!s.toast,
+      draft: draft,
+      onName: (e) => setD('name', e.target.value),
+      onType: (e) => setD('type', e.target.value),
+      onLoc: (e) => setD('loc', e.target.value),
+      onJack: (e) => setD('jack', e.target.value),
+      onOwner: (e) => setD('owner', e.target.value),
+      onAsset: (e) => setD('asset', e.target.value),
+      onNotes: (e) => setD('notes', e.target.value),
+      tagToggles: tagToggles,
+      dirtyLabel: dirty ? 'Modifications non enregistrées' : 'Fiche à jour',
+      dirtyStyle: dirty ? 'font-size:12px; font-weight:600; color:#C2410C;' : 'font-size:12px; color:#4B5563;',
+      onCancel: () => this.setState({ draft: null }),
+      onSave: () => {
+        if (!dirty) { this.setState({ toast: 'Aucune modification à enregistrer' }); return; }
+        const nd = s.draft;
+        this.setState({
+          draft: null,
+          toast: 'Fiche enregistrée : ' + (nd.name || sel.host),
+          devices: s.devices.map(x => x.id === sel.id ? {
+            ...x,
+            name: nd.name ? nd.name : '—',
+            type: nd.type, tags: nd.tags, loc: nd.loc, jack: nd.jack, owner: nd.owner, asset: nd.asset, notes: nd.notes,
+            unid: nd.name ? false : x.unid,
+            extraEvents: (x.extraEvents || []).concat([{ date: '2026-11-03', kind: 'edit', title: 'Fiche modifiée', detail: 'Champs mis à jour manuellement par le technicien' }])
+          } : x)
+        });
+      },
+      d: d
+    };
+  }
+}
+</script>
+</body>
+</html>

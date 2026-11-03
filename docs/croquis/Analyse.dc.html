@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Analyse et alertes</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F4F6}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+.nav a:hover{background:#1E293B;color:#FFFFFF}
+.btn:hover{background:#F9FAFB;border-color:#9CA3AF}
+.btn:focus-visible,.cell:focus-visible,.tab:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #2563EB;outline-offset:2px}
+.btnp:hover{background:#1D4ED8 !important;border-color:#1D4ED8 !important}
+.cell:hover{outline:2px solid #2563EB;outline-offset:1px}
+.arow:hover{background:#F9FAFB}
+.trow:hover{background:#F9FAFB}
+.tab:hover{color:#111827}
+@media (max-width: 760px){.side{max-width:none !important}}
+</style>
+</helmet>
+<div style="width:100%; min-height:1000px; display:flex; flex-wrap:wrap; font-family:Inter, system-ui, sans-serif; color:#111827; background:#F3F4F6; box-sizing:border-box; font-size:13px">
+
+  <!-- Barre latérale -->
+  <aside class="side" style="flex:1 1 220px; max-width:220px; background:#0F172A; color:#E2E8F0; display:flex; flex-direction:column; box-sizing:border-box; padding:16px 12px; gap:20px">
+    <div style="display:flex; align-items:center; gap:10px; padding:4px 6px">
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><path d="M12 12l6-6"></path><circle cx="12" cy="12" r="1.2"></circle></svg>
+      <div>
+        <div style="font-weight:700; font-size:15px; color:#FFFFFF">NetScope</div>
+        <div style="font-size:11px; color:#94A3B8">Outil du technicien réseau</div>
+      </div>
+    </div>
+    <nav class="nav" aria-label="Navigation principale" style="display:flex; flex-direction:column; gap:2px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:4px 10px 4px">Découverte</div>
+      <a href="Main.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>Scanner</a>
+      <a href="Topologie.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"></circle><circle cx="5" cy="19" r="2"></circle><circle cx="19" cy="19" r="2"></circle><path d="M12 7v5M12 12l-6 5M12 12l6 5"></path></svg>Carte du réseau</a>
+      <a href="Inventaire.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"></path><path d="M3 6h.01M3 12h.01M3 18h.01"></path></svg>Inventaire</a>
+      <a href="Device.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path></svg>Appareil</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:6px 10px 4px">Diagnostic</div>
+      <a href="Ping.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"></path></svg>Ping continu</a>
+      <a href="Switch.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="2"></rect><path d="M7 12h.01M11 12h.01M15 12h.01"></path></svg>Switchs et ports</a>
+      <a href="Wifi.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a15 15 0 0 1 20 0"></path><path d="M5 12.5a10 10 0 0 1 14 0"></path><path d="M8.5 16a5 5 0 0 1 7 0"></path><path d="M12 19.5h.01"></path></svg>Wi-Fi</a>
+      <a href="Toolbox.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"></path></svg>Outils</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:6px 10px 4px">Suivi</div>
+      <a href="Surveillance.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>Surveillance<span style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#DC2626; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center">3</span></a>
+      <a href="Analyse.dc.html" aria-current="page" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#FFFFFF; background:#1E293B; font-weight:600">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>Analyse<span style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#DC2626; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center">1</span></a>
+      <a href="Rapport.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>Rapports</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:6px 10px 4px">Accès</div>
+      <a href="Remote.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"></rect><path d="M7 9l3 2.5-3 2.5M12 14h4M9 21h6"></path></svg>Accès distant</a>
+      <a href="Speedtest.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 18a9 9 0 1 1 14.2 0"></path><path d="M12 14l4-5"></path><circle cx="12" cy="14" r="1.5"></circle></svg>Speedtest</a>
+    </nav>
+    <div style="border-top:1px solid #1E293B; padding-top:12px; display:flex; flex-direction:column; gap:6px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8">Scans planifiés</div>
+      <div style="font-size:12px; color:#E2E8F0">{{schedSide}}</div>
+      <div style="font-size:12px; color:#CBD5E1">Prochain : <span style="font-family:JetBrains Mono, monospace">{{nextRun}}</span></div>
+    </div>
+    <div style="margin-top:auto; display:flex; flex-direction:column; gap:6px; font-size:12px">
+      <nav class="nav" aria-label="Réglages" style="display:flex; flex-direction:column; border-bottom:1px solid #1E293B; padding-bottom:10px; margin-bottom:4px">
+        <a href="Reglages.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>Réglages</a>
+      </nav>
+      <div style="display:flex; align-items:center; gap:8px; color:#E2E8F0">
+        <span style="width:8px; height:8px; border-radius:4px; background:#22C55E; display:inline-block"></span>
+        <span style="font-family:JetBrains Mono, monospace">en0 · 10.182.122.135 · Wi-Fi</span>
+      </div>
+      <div style="color:#94A3B8">Version 2.4.0 (build 612)</div>
+    </div>
+  </aside>
+
+  <!-- Contenu -->
+  <main style="flex:999 1 560px; min-width:0; display:flex; flex-direction:column">
+
+    <!-- Barre d’outils -->
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:12px 20px; background:#FFFFFF; border-bottom:1px solid #E5E7EB">
+      <h1 style="margin:0; font-size:17px; font-weight:700; flex:0 0 auto">Analyse et alertes</h1>
+      <div style="flex:1 1 320px; min-width:220px; position:relative; display:flex; align-items:center">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4B5563" stroke-width="1.8" stroke-linecap="round" style="position:absolute; left:10px"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+        <input type="search" aria-label="Rechercher IP, MAC, hostname, fabricant, port de switch" placeholder="Rechercher IP, MAC, hostname, fabricant, port de switch…" value="{{q}}" onChange="{{onQ}}" style="width:100%; height:32px; box-sizing:border-box; padding:0 10px 0 32px; border:1px solid #D1D5DB; border-radius:6px; font:13px Inter, system-ui, sans-serif; color:#111827; background:#F9FAFB">
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px">
+        <button type="button" class="btn" onClick="{{exportCsv}}" style="height:32px; padding:0 12px; border:1px solid #D1D5DB; background:#FFFFFF; color:#111827; border-radius:6px; font:500 13px Inter, system-ui, sans-serif; display:inline-flex; align-items:center; gap:6px; cursor:pointer">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>Exporter CSV</button>
+        <button type="button" class="btn" onClick="{{exportJson}}" style="height:32px; padding:0 12px; border:1px solid #D1D5DB; background:#FFFFFF; color:#111827; border-radius:6px; font:500 13px Inter, system-ui, sans-serif; display:inline-flex; align-items:center; gap:6px; cursor:pointer">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4c-2 0-2 2-2 4s-1 4-2 4c1 0 2 2 2 4s0 4 2 4M16 4c2 0 2 2 2 4s1 4 2 4c-1 0-2 2-2 4s0 4-2 4"></path></svg>Exporter JSON</button>
+        <button type="button" class="btn" onClick="{{toggleSched}}" aria-expanded="{{showSchedStr}}" style="height:32px; padding:0 12px; border:1px solid #D1D5DB; background:#FFFFFF; color:#111827; border-radius:6px; font:500 13px Inter, system-ui, sans-serif; display:inline-flex; align-items:center; gap:6px; cursor:pointer">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><path d="M12 8v4l3 2"></path></svg>Planifier un scan</button>
+        <button type="button" class="btnp" onClick="{{exportPdf}}" style="{{primaryBtn}}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5M9 13h6M9 17h4"></path></svg>Rapport PDF</button>
+      </div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:16px; padding:16px 20px 24px">
+
+      <!-- Filtres -->
+      <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px">
+        <div role="group" aria-label="Période" style="display:inline-flex; background:#FFFFFF; border:1px solid #D1D5DB; border-radius:6px; padding:2px; gap:2px">
+          <sc-for list="{{periods}}" as="p" hint-placeholder-count="3">
+            <button type="button" class="tab" onClick="{{p.pick}}" aria-pressed="{{p.pressed}}" style="{{p.style}}">{{p.label}}</button>
+          </sc-for>
+        </div>
+        <label style="display:inline-flex; align-items:center; gap:8px; font-size:12px; color:#4B5563">Plage / VLAN
+          <select value="{{range}}" onChange="{{onRange}}" style="height:30px; border:1px solid #D1D5DB; border-radius:6px; background:#FFFFFF; font:13px JetBrains Mono, monospace; color:#111827; padding:0 8px">
+            <option value="10.182.122.0/24">10.182.122.0/24 · VLAN 20, 30</option>
+            <option value="192.168.50.0/24">192.168.50.0/24 · VLAN 40 (caméras)</option>
+            <option value="toutes">Toutes les plages (2)</option>
+          </select>
+        </label>
+        <span style="font-size:12px; color:#4B5563">{{periodSummary}}</span>
+        <sc-if value="{{hasNotice}}" hint-placeholder-val="{{false}}">
+          <span role="status" style="margin-left:auto; display:inline-flex; align-items:center; gap:8px; background:#DCFCE7; color:#15803D; border-radius:6px; padding:5px 10px; font-size:12px; font-weight:500">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg>{{notice}}</span>
+        </sc-if>
+      </div>
+
+      <!-- Planification -->
+      <sc-if value="{{showSched}}" hint-placeholder-val="{{false}}">
+        <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px 16px; display:flex; flex-wrap:wrap; align-items:flex-end; gap:16px">
+          <div style="flex:1 1 220px">
+            <div style="font-weight:600">Planifier un scan récurrent</div>
+            <div style="font-size:12px; color:#4B5563">Scan ARP + ping + SNMP des switchs, comparaison automatique au scan précédent et alerte en cas de changement.</div>
+          </div>
+          <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600">Fréquence
+            <select value="{{freq}}" onChange="{{onFreq}}" style="height:30px; border:1px solid #D1D5DB; border-radius:6px; background:#FFFFFF; font:13px Inter, system-ui, sans-serif; color:#111827; padding:0 8px; text-transform:none; font-weight:400">
+              <option value="15m">Toutes les 15 minutes</option>
+              <option value="1h">Toutes les heures</option>
+              <option value="6h">Toutes les 6 heures</option>
+              <option value="1j">Tous les jours à 9:00</option>
+            </select>
+          </label>
+          <div style="font-size:12px; color:#4B5563">Plages : <span style="font-family:JetBrains Mono, monospace; color:#111827">10.182.122.0/24, 192.168.50.0/24</span></div>
+          <div style="font-size:12px; color:#4B5563">Prochain : <span style="font-family:JetBrains Mono, monospace; color:#111827">{{nextRun}}</span></div>
+          <button type="button" class="btnp" onClick="{{saveSched}}" style="{{primaryBtn}}">Enregistrer</button>
+        </div>
+      </sc-if>
+
+      <!-- Tuiles -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px">
+        <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:12px 14px">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#4B5563; font-weight:600">Appareils</div>
+          <div style="font-size:26px; font-weight:700; margin-top:4px; font-family:JetBrains Mono, monospace">203</div>
+          <div style="font-size:12px; color:#4B5563">{{tile.totalSub}}</div>
+        </div>
+        <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:12px 14px">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#4B5563; font-weight:600">En ligne</div>
+          <div style="font-size:26px; font-weight:700; margin-top:4px; color:#15803D; font-family:JetBrains Mono, monospace">182</div>
+          <div style="font-size:12px; color:#4B5563">{{tile.onlineSub}}</div>
+        </div>
+        <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:12px 14px">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#4B5563; font-weight:600">Nouveaux</div>
+          <div style="font-size:26px; font-weight:700; margin-top:4px; color:#1D4ED8; font-family:JetBrains Mono, monospace">{{tile.newDev}}</div>
+          <div style="font-size:12px; color:#4B5563">{{tile.newSub}}</div>
+        </div>
+        <div style="background:#FEE2E2; border:1px solid #FECACA; border-radius:8px; padding:12px 14px">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#991B1B; font-weight:600">Conflit IP</div>
+          <div style="font-size:26px; font-weight:700; margin-top:4px; color:#B91C1C; font-family:JetBrains Mono, monospace">1</div>
+          <div style="font-size:12px; color:#7F1D1D">{{tile.conflictSub}}</div>
+        </div>
+        <div style="background:#FEE2E2; border:1px solid #FECACA; border-radius:8px; padding:12px 14px">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#991B1B; font-weight:600">DHCP non autorisé</div>
+          <div style="font-size:26px; font-weight:700; margin-top:4px; color:#B91C1C; font-family:JetBrains Mono, monospace">1</div>
+          <div style="font-size:12px; color:#7F1D1D">{{tile.rogueSub}}</div>
+        </div>
+        <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:12px 14px">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#4B5563; font-weight:600">Utilisation de la plage</div>
+          <div style="display:flex; align-items:baseline; gap:8px; margin-top:4px">
+            <span style="font-size:26px; font-weight:700; color:#C2410C; font-family:JetBrains Mono, monospace">79 %</span>
+            <span style="font-size:12px; color:#4B5563; font-family:JetBrains Mono, monospace">203/254</span>
+          </div>
+          <div role="img" aria-label="Plage 10.182.122.0/24 utilisée à 79 %" style="height:6px; background:#E5E7EB; border-radius:3px; margin-top:6px; overflow:hidden">
+            <div style="width:79%; height:6px; background:#C2410C"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Carte d’occupation + graphe -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(440px, 100%), 1fr)); gap:16px">
+
+        <section aria-labelledby="occ-title" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px 16px; display:flex; flex-direction:column; gap:12px; min-width:0">
+          <div style="display:flex; flex-wrap:wrap; align-items:baseline; gap:8px">
+            <h2 id="occ-title" style="margin:0; font-size:14px; font-weight:600">Carte d’occupation</h2>
+            <span style="font-family:JetBrains Mono, monospace; font-size:12px; color:#4B5563">10.182.122.0/24 · bail DHCP .100–.249</span>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:16px">
+            <div style="flex:1 1 300px; min-width:0">
+              <div style="display:grid; grid-template-columns:34px repeat(16, minmax(0, 1fr)); gap:3px; font-family:JetBrains Mono, monospace; font-size:9px; color:#4B5563">
+                <span></span>
+                <sc-for list="{{colHeads}}" as="c" hint-placeholder-count="16"><span style="text-align:center">{{c}}</span></sc-for>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:3px; margin-top:3px">
+                <sc-for list="{{gridRows}}" as="row" hint-placeholder-count="16">
+                  <div style="display:grid; grid-template-columns:34px repeat(16, minmax(0, 1fr)); gap:3px; align-items:center">
+                    <span style="font-family:JetBrains Mono, monospace; font-size:10px; color:#4B5563; text-align:right; padding-right:4px">{{row.label}}</span>
+                    <sc-for list="{{row.cells}}" as="cell" hint-placeholder-count="16">
+                      <button type="button" class="cell" aria-label="{{cell.label}}" title="{{cell.label}}" onClick="{{cell.pick}}" style="{{cell.style}}"></button>
+                    </sc-for>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:12px; font-size:12px; color:#4B5563">
+                <sc-for list="{{legend}}" as="lg" hint-placeholder-count="7">
+                  <span style="display:inline-flex; align-items:center; gap:6px"><span style="{{lg.swatch}}"></span>{{lg.label}} <span style="font-family:JetBrains Mono, monospace; color:#111827">{{lg.count}}</span></span>
+                </sc-for>
+              </div>
+            </div>
+            <!-- Détail adresse choisie -->
+            <div style="flex:1 1 200px; border:1px solid #E5E7EB; border-radius:8px; padding:12px; background:#F9FAFB; display:flex; flex-direction:column; gap:8px; align-self:flex-start">
+              <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#4B5563; font-weight:600">Adresse choisie</div>
+              <div style="font-family:JetBrains Mono, monospace; font-size:17px; font-weight:600">{{det.ip}}</div>
+              <span style="{{det.badge}}">{{det.status}}</span>
+              <div style="display:grid; grid-template-columns:auto minmax(0,1fr); gap:5px 10px; font-size:12px">
+                <span style="color:#4B5563">Nom</span><span style="font-weight:500; overflow-wrap:anywhere">{{det.name}}</span>
+                <span style="color:#4B5563">Fabricant</span><span>{{det.vendor}}</span>
+                <span style="color:#4B5563">MAC</span><span style="font-family:JetBrains Mono, monospace; overflow-wrap:anywhere">{{det.mac}}</span>
+                <span style="color:#4B5563">Port</span><span style="font-family:JetBrains Mono, monospace">{{det.port}}</span>
+                <span style="color:#4B5563">VLAN</span><span style="font-family:JetBrains Mono, monospace">{{det.vlan}}</span>
+                <span style="color:#4B5563">Vu</span><span>{{det.seen}}</span>
+              </div>
+              <div style="font-size:12px; color:#4B5563; border-top:1px solid #E5E7EB; padding-top:8px">{{det.note}}</div>
+              <div style="display:flex; flex-wrap:wrap; gap:8px">
+                <a href="Device.dc.html" style="font-size:12px; font-weight:500">Ouvrir la fiche</a>
+                <a href="Ping.dc.html" style="font-size:12px; font-weight:500">Ping continu</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div style="display:flex; flex-direction:column; gap:16px; min-width:0">
+          <section aria-labelledby="chart-title" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px 16px; min-width:0">
+            <div style="display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 16px">
+              <h2 id="chart-title" style="margin:0; font-size:14px; font-weight:600">Appareils en ligne sur la période</h2>
+              <span style="font-size:12px; color:#4B5563">{{chart.caption}}</span>
+              <div style="margin-left:auto; display:flex; gap:14px; font-size:12px; color:#4B5563">
+                <span>Pic <b style="font-family:JetBrains Mono, monospace; color:#111827">{{chart.peak}}</b></span>
+                <span>Min <b style="font-family:JetBrains Mono, monospace; color:#111827">{{chart.low}}</b></span>
+                <span>Moy. <b style="font-family:JetBrains Mono, monospace; color:#111827">{{chart.avg}}</b></span>
+              </div>
+            </div>
+            <svg role="img" aria-label="{{chart.aria}}" viewBox="0 0 640 210" style="width:100%; height:auto; display:block; margin-top:8px">
+              <sc-for list="{{chart.grid}}" as="g" hint-placeholder-count="4">
+                <line x1="36" x2="632" y1="{{g.y}}" y2="{{g.y}}" stroke="#E5E7EB" stroke-width="1"></line>
+                <text x="30" y="{{g.ty}}" text-anchor="end" font-size="10" fill="#4B5563" font-family="JetBrains Mono, monospace">{{g.v}}</text>
+              </sc-for>
+              <polygon points="{{chart.area}}" fill="#DBEAFE" opacity="0.6"></polygon>
+              <polyline points="{{chart.line}}" fill="none" stroke="{{accent}}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline>
+              <circle cx="{{chart.lastX}}" cy="{{chart.lastY}}" r="4" fill="#FFFFFF" stroke="{{accent}}" stroke-width="2"></circle>
+              <text x="{{chart.lastX}}" y="{{chart.lastLabelY}}" text-anchor="end" font-size="10" fill="#111827" font-family="JetBrains Mono, monospace" font-weight="600">{{chart.lastV}}</text>
+              <sc-for list="{{chart.xLabels}}" as="xl" hint-placeholder-count="5">
+                <text x="{{xl.x}}" y="204" text-anchor="middle" font-size="10" fill="#4B5563" font-family="Inter, sans-serif">{{xl.t}}</text>
+              </sc-for>
+            </svg>
+          </section>
+
+          <section aria-labelledby="rep-title" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px 16px; display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:20px; min-width:0">
+            <div>
+              <h2 id="rep-title" style="margin:0 0 10px; font-size:14px; font-weight:600">Répartition par fabricant</h2>
+              <div style="display:flex; flex-direction:column; gap:7px">
+                <sc-for list="{{vendors}}" as="v" hint-placeholder-count="9">
+                  <div style="display:grid; grid-template-columns:78px minmax(0,1fr) 54px; align-items:center; gap:8px; font-size:12px">
+                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{v.name}}</span>
+                    <div style="height:10px; background:#F3F4F6; border-radius:3px"><div style="{{v.bar}}"></div></div>
+                    <span style="font-family:JetBrains Mono, monospace; text-align:right">{{v.n}} <span style="color:#4B5563">{{v.pct}}</span></span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div>
+              <h2 style="margin:0 0 10px; font-size:14px; font-weight:600">Par type d’appareil</h2>
+              <div role="img" aria-label="{{typesAria}}" style="display:flex; height:14px; border-radius:4px; overflow:hidden; gap:2px">
+                <sc-for list="{{types}}" as="t" hint-placeholder-count="8"><div style="{{t.seg}}"></div></sc-for>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px; margin-top:12px">
+                <sc-for list="{{types}}" as="t" hint-placeholder-count="8">
+                  <div style="display:flex; align-items:center; gap:8px; font-size:12px">
+                    <span style="{{t.dot}}"></span><span style="flex:1">{{t.name}}</span>
+                    <span style="font-family:JetBrains Mono, monospace">{{t.n}}</span>
+                    <span style="font-family:JetBrains Mono, monospace; color:#4B5563; width:38px; text-align:right">{{t.pct}}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- Alertes + comparaison -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(440px, 100%), 1fr)); gap:16px">
+
+        <section aria-labelledby="al-title" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; min-width:0; display:flex; flex-direction:column">
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid #E5E7EB">
+            <h2 id="al-title" style="margin:0; font-size:14px; font-weight:600">Alertes et changements</h2>
+            <span style="font-size:12px; color:#4B5563">{{alertSummary}}</span>
+            <div role="group" aria-label="Filtrer par gravité" style="margin-left:auto; display:inline-flex; gap:2px; background:#F3F4F6; border-radius:6px; padding:2px">
+              <sc-for list="{{sevTabs}}" as="st" hint-placeholder-count="4">
+                <button type="button" class="tab" onClick="{{st.pick}}" aria-pressed="{{st.pressed}}" style="{{st.style}}">{{st.label}}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column">
+            <sc-for list="{{alerts}}" as="al" hint-placeholder-count="6">
+              <div class="arow" style="{{al.rowStyle}}">
+                <span style="{{al.badge}}">{{al.sevLabel}}</span>
+                <div style="flex:1 1 240px; min-width:0">
+                  <div style="font-weight:600; font-size:13px; overflow-wrap:anywhere">{{al.title}}</div>
+                  <div style="font-size:12px; color:#4B5563; margin-top:2px; overflow-wrap:anywhere">{{al.detail}}</div>
+                </div>
+                <span style="font-family:JetBrains Mono, monospace; font-size:12px; color:#4B5563; width:44px">{{al.time}}</span>
+                <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap">
+                  <sc-if value="{{al.pending}}" hint-placeholder-val="{{true}}">
+                    <button type="button" class="btn" onClick="{{al.accept}}" style="height:28px; padding:0 10px; border:1px solid #D1D5DB; background:#FFFFFF; color:#111827; border-radius:6px; font:500 12px Inter, system-ui, sans-serif; cursor:pointer">Accepter</button>
+                    <button type="button" class="btn" onClick="{{al.ignore}}" style="height:28px; padding:0 10px; border:1px solid #D1D5DB; background:#FFFFFF; color:#111827; border-radius:6px; font:500 12px Inter, system-ui, sans-serif; cursor:pointer">Ignorer</button>
+                  </sc-if>
+                  <sc-if value="{{al.done}}" hint-placeholder-val="{{false}}">
+                    <span style="font-size:12px; color:#4B5563">{{al.doneLabel}}</span>
+                    <button type="button" class="btn" onClick="{{al.undo}}" style="height:28px; padding:0 10px; border:1px solid #D1D5DB; background:#FFFFFF; color:#111827; border-radius:6px; font:500 12px Inter, system-ui, sans-serif; cursor:pointer">Annuler</button>
+                  </sc-if>
+                  <a href="{{al.href}}" aria-label="{{al.viewLabel}}" style="font-size:12px; font-weight:600; padding:0 4px">Voir</a>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{noAlerts}}" hint-placeholder-val="{{false}}">
+              <div style="padding:24px 16px; font-size:13px; color:#4B5563">Aucune alerte ne correspond au filtre ou à la recherche.</div>
+            </sc-if>
+          </div>
+        </section>
+
+        <section aria-labelledby="cmp-title" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; min-width:0; display:flex; flex-direction:column">
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid #E5E7EB">
+            <h2 id="cmp-title" style="margin:0; font-size:14px; font-weight:600">Comparer deux scans</h2>
+            <span style="font-family:JetBrains Mono, monospace; font-size:12px; color:#4B5563">hier 9:00 → aujourd’hui 9:00</span>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; padding:12px 16px">
+            <sc-for list="{{cmpTabs}}" as="ct" hint-placeholder-count="3">
+              <button type="button" class="tab" onClick="{{ct.pick}}" aria-pressed="{{ct.pressed}}" style="{{ct.style}}">
+                <span style="{{ct.numStyle}}">{{ct.num}}</span>
+                <span style="font-size:12px; color:#4B5563">{{ct.label}}</span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="overflow-x:auto; padding:0 16px 14px">
+            <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:460px">
+              <thead>
+                <tr style="text-align:left">
+                  <th style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; padding:6px 8px; border-bottom:1px solid #E5E7EB">IP</th>
+                  <th style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; padding:6px 8px; border-bottom:1px solid #E5E7EB">Nom</th>
+                  <th style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; padding:6px 8px; border-bottom:1px solid #E5E7EB">MAC</th>
+                  <th style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; padding:6px 8px; border-bottom:1px solid #E5E7EB">Hier 9:00</th>
+                  <th style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; padding:6px 8px; border-bottom:1px solid #E5E7EB">Aujourd’hui 9:00</th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{cmpRows}}" as="r" hint-placeholder-count="5">
+                  <tr class="trow" style="{{r.rowH}}">
+                    <td style="padding:0 8px; border-bottom:1px solid #F3F4F6; font-family:JetBrains Mono, monospace; white-space:nowrap">{{r.ip}}</td>
+                    <td style="padding:0 8px; border-bottom:1px solid #F3F4F6; font-weight:500">{{r.name}}</td>
+                    <td style="padding:0 8px; border-bottom:1px solid #F3F4F6; font-family:JetBrains Mono, monospace; white-space:nowrap">{{r.mac}}</td>
+                    <td style="padding:0 8px; border-bottom:1px solid #F3F4F6; color:#4B5563">{{r.before}}</td>
+                    <td style="{{r.afterStyle}}">{{r.after}}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+          <div style="margin-top:auto; display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 16px; border-top:1px solid #E5E7EB; font-size:12px; color:#4B5563">
+            <span>Base : 201 appareils hier → 203 aujourd’hui (+3 −2 = +1, plus 1 MAC en conflit).</span>
+            <button type="button" class="btn" onClick="{{exportDiff}}" style="margin-left:auto; height:28px; padding:0 10px; border:1px solid #D1D5DB; background:#FFFFFF; color:#111827; border-radius:6px; font:500 12px Inter, system-ui, sans-serif; cursor:pointer">Exporter l’écart CSV</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000},"compact":false,"accent":"#2563EB"}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      period: '24h', range: '10.182.122.0/24', sel: 140, q: '',
+      sev: 'all', ack: {}, cmpTab: 'mod', showSched: false, freq: '1h',
+      schedSaved: 'Toutes les heures', notice: ''
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const props = this.props || {};
+    const accent = props.accent || '#2563EB';
+    const compact = !!props.compact;
+    const set = (o) => this.setState(o);
+
+    const primaryBtn = 'height:32px; padding:0 14px; border:1px solid ' + accent + '; background:' + accent + '; color:#FFFFFF; border-radius:6px; font:600 13px Inter, system-ui, sans-serif; display:inline-flex; align-items:center; gap:6px; cursor:pointer';
+
+    /* ---------- Période ---------- */
+    const P = {
+      '24h': { label: '24 h', newDev: 3, gone: 2, conflicts: 1, rogue: 1, changes: 5, scans: 24, span: 'dernières 24 h' },
+      '7j':  { label: '7 j',  newDev: 9, gone: 6, conflicts: 2, rogue: 1, changes: 14, scans: 168, span: '7 derniers jours' },
+      '30j': { label: '30 j', newDev: 21, gone: 15, conflicts: 4, rogue: 2, changes: 38, scans: 720, span: '30 derniers jours' }
+    };
+    const per = P[s.period];
+    const periods = Object.keys(P).map(k => ({
+      label: P[k].label,
+      pressed: k === s.period ? 'true' : 'false',
+      pick: () => set({ period: k }),
+      style: 'height:28px; padding:0 14px; border:0; border-radius:4px; cursor:pointer; font:600 12px Inter, system-ui, sans-serif; ' +
+        (k === s.period ? 'background:' + accent + '; color:#FFFFFF' : 'background:transparent; color:#4B5563')
+    }));
+
+    const tile = {
+      totalSub: '+' + per.newDev + ' / −' + per.gone + ' sur ' + per.label,
+      onlineSub: '21 hors ligne vus récemment',
+      newDev: String(per.newDev),
+      newSub: 'Non approuvés sur ' + per.label,
+      conflictSub: 'Actif · ' + per.conflicts + ' détecté(s) sur ' + per.label,
+      rogueSub: 'Actif · ' + per.rogue + ' détecté(s) sur ' + per.label
+    };
+
+    /* ---------- Grille 16 x 16 ---------- */
+    const known = {
+      1: { name: 'FortiGate-60F (passerelle)', vendor: 'Fortinet', mac: '70:4C:A5:61:0A:01', port: 'SW-CORE-01 Gi1/0/48', vlan: '20', note: 'Passerelle par défaut, serveur DHCP autorisé.' },
+      2: { name: 'SW-CORE-01', vendor: 'Cisco Catalyst 9300-48P', mac: '00:A3:D1:4E:90:01', port: '—', vlan: '20', note: 'Switch principal, SNMP v3 actif, LLDP + CDP.' },
+      3: { name: 'SW-ETG2-01', vendor: 'Aruba 2930F-24G', mac: '88:3A:30:9B:C2:03', port: 'SW-CORE-01 Te1/1/1', vlan: '20', note: 'Telnet (23) ouvert : voir alerte sécurité.' },
+      100: { name: 'ca2032249c778fc96008b9df7aa447c9', vendor: 'Inconnu', mac: '02:5E:91:C4:7A:10', port: 'SW-CORE-01 Gi1/0/31', vlan: '20', note: 'MAC administrée localement (adresse aléatoire).' },
+      102: { name: 'FortiAP-231F', vendor: 'Fortinet', mac: '70:4C:A5:1E:22:9A', port: 'SW-CORE-01 Gi1/0/12', vlan: '20', note: 'Point d’accès, PoE 802.3at, 14,2 W.' },
+      106: { name: 'BrightSign-D1E876001191', vendor: 'BrightSign', mac: '90:AC:3F:0B:61:91', port: 'SW-ETG2-01 1/5', vlan: '30', note: 'Lecteur d’affichage dynamique.' },
+      111: { name: 'Brother DCP-L2640DW', vendor: 'Brother', mac: '94:DD:F8:18:15:7D', port: 'SW-ETG2-01 1/14', vlan: '30', note: 'Ports ouverts : 80, 443, 9100, 631.' },
+      113: { name: 'PF4L8M20', vendor: 'Lenovo', mac: '54:E1:AD:6C:33:20', port: 'SW-ETG2-01 1/9', vlan: '30', note: 'Bail DHCP renouvelé à 08:12 (ancienne IP .158).' },
+      117: { name: 'WKS346', vendor: 'Dell', mac: 'B0:7B:25:3A:61:C2', port: 'SW-CORE-01 Gi1/0/9', vlan: '20', note: 'Port changé : Gi1/0/7 → Gi1/0/9 à 09:03.' },
+      133: { name: 'Android_89UM1WTN', vendor: 'Samsung', mac: '8C:F5:A3:7E:02:B1', port: 'Wi-Fi via FortiAP-231F', vlan: '20', note: 'Nouvel appareil, vu pour la première fois à 08:57.' },
+      135: { name: 'Macmini-de-Dany', vendor: 'Apple', mac: 'F0:18:98:4A:2C:35', port: 'Wi-Fi via FortiAP-231F', vlan: '20', note: 'Cet ordinateur (en0).' },
+      140: { name: '2 appareils en conflit', vendor: 'Apple / Apple', mac: '00:1B:63:84:45:E6 · 3C:22:FB:9A:10:4D', port: 'Gi1/0/21 · SW-ETG2-01 1/7', vlan: '20 / 30', note: 'Réponses ARP alternées toutes les ~40 s. IP fixe en double probable.' },
+      146: { name: 'WKS341', vendor: 'Dell', mac: 'B0:7B:25:3A:5E:08', port: 'SW-CORE-01 Gi1/0/15', vlan: '20', note: 'Poste de travail.' },
+      250: { name: 'TL-WR841N (inconnu)', vendor: 'TP-Link', mac: '50:C7:BF:2E:11:08', port: 'SW-ETG2-01 1/19', vlan: '30', note: 'Répond aux DHCPDISCOVER : serveur DHCP non autorisé.' }
+    };
+    const fixedOnline = [1, 2, 3, 100, 102, 106, 111, 113, 117, 133, 135, 146];
+    const status = {};
+    status[0] = 'special'; status[255] = 'special';
+    fixedOnline.forEach(i => { status[i] = 'online'; });
+    status[140] = 'conflict'; status[250] = 'rogue';
+    const rest = [];
+    for (let i = 1; i <= 254; i++) if (!status[i]) rest.push(i);
+    const score = (i) => ((i * 73 + 19) % 254) - (i >= 180 ? 220 : 0) - (i >= 150 && i < 180 ? 60 : 0);
+    rest.sort((a, b) => score(a) - score(b));
+    rest.forEach((i, k) => {
+      status[i] = k < 6 ? 'reserved' : k < 51 ? 'free' : k < 72 ? 'offline' : 'online';
+    });
+
+    const ST = {
+      online:   { bg: '#16A34A', bd: '#15803D', label: 'En ligne' },
+      offline:  { bg: '#CBD5E1', bd: '#94A3B8', label: 'Hors ligne (vu récemment)' },
+      free:     { bg: '#FFFFFF', bd: '#D1D5DB', label: 'Libre' },
+      reserved: { bg: '#DBEAFE', bd: '#2563EB', label: 'Réservée DHCP' },
+      conflict: { bg: '#B91C1C', bd: '#7F1D1D', label: 'Conflit IP' },
+      rogue:    { bg: '#C2410C', bd: '#9A3412', label: 'DHCP non autorisé' },
+      special:  { bg: '#374151', bd: '#1F2937', label: 'Réseau / diffusion' }
+    };
+    const ch = compact ? 16 : 20;
+    const counts = {};
+    const gridRows = [];
+    for (let r = 0; r < 16; r++) {
+      const cells = [];
+      for (let c = 0; c < 16; c++) {
+        const i = r * 16 + c;
+        const st = status[i];
+        counts[st] = (counts[st] || 0) + 1;
+        const d = ST[st];
+        const selected = i === s.sel;
+        cells.push({
+          label: '10.182.122.' + i + ' : ' + d.label,
+          pick: () => set({ sel: i }),
+          style: 'height:' + ch + 'px; width:100%; padding:0; border-radius:3px; cursor:pointer; border:1px solid ' + d.bd + '; background:' + d.bg + ';' +
+            (selected ? ' outline:2px solid #111827; outline-offset:1px;' : '')
+        });
+      }
+      gridRows.push({ label: '.' + (r * 16), cells });
+    }
+    const colHeads = [];
+    for (let c = 0; c < 16; c++) colHeads.push(String(c));
+    const legend = ['online', 'offline', 'free', 'reserved', 'conflict', 'rogue', 'special'].map(k => ({
+      label: ST[k].label, count: String(counts[k] || 0),
+      swatch: 'width:12px; height:12px; border-radius:3px; display:inline-block; background:' + ST[k].bg + '; border:1px solid ' + ST[k].bd
+    }));
+
+    /* ---------- Détail de l’adresse ---------- */
+    const hx = (n) => ('0' + (n % 256).toString(16).toUpperCase()).slice(-2);
+    const sel = s.sel; const sst = status[sel];
+    const gen = [
+      { vendor: 'Dell', pre: 'B0:7B:25', name: (i) => 'WKS' + (300 + (i % 70)) },
+      { vendor: 'Lenovo', pre: '54:E1:AD', name: (i) => 'PF4' + hx(i * 3) + 'M' + (i % 90) },
+      { vendor: 'Apple', pre: 'F0:18:98', name: (i) => 'iPhone-' + (i % 40) },
+      { vendor: 'Samsung', pre: '8C:F5:A3', name: (i) => 'Galaxy-' + hx(i * 7) }
+    ];
+    let det;
+    const badgeOf = (bg, fg) => 'align-self:flex-start; font-size:12px; font-weight:600; padding:2px 8px; border-radius:10px; background:' + bg + '; color:' + fg;
+    if (known[sel]) {
+      const k = known[sel];
+      det = { name: k.name, vendor: k.vendor, mac: k.mac, port: k.port, vlan: k.vlan, note: k.note, seen: sst === 'online' || sst === 'conflict' || sst === 'rogue' ? 'Maintenant (09:12)' : '—' };
+    } else if (sst === 'online' || sst === 'offline') {
+      const g = gen[sel % 4];
+      const sw = sel % 3 === 0 ? 'SW-ETG2-01 1/' + ((sel % 24) + 1) : 'SW-CORE-01 Gi1/0/' + ((sel % 48) + 1);
+      det = {
+        name: g.name(sel), vendor: g.vendor, mac: g.pre + ':' + hx(sel * 7) + ':' + hx(sel * 13 + 5) + ':' + hx(sel * 29 + 11),
+        port: g.vendor === 'Apple' || g.vendor === 'Samsung' ? 'Wi-Fi via FortiAP-231F' : sw,
+        vlan: sel % 3 === 0 ? '30' : '20',
+        seen: sst === 'online' ? 'Maintenant (09:12)' : 'Il y a ' + ((sel % 9) + 1) + ' h',
+        note: sst === 'online' ? 'Répond au ping et à l’ARP.' : 'Ne répond plus ; dernière entrée ARP sur ' + sw + '.'
+      };
+    } else if (sst === 'reserved') {
+      det = { name: 'Réservation DHCP', vendor: '—', mac: 'D8:9E:F3:' + hx(sel) + ':10:' + hx(sel * 5), port: '—', vlan: '20', seen: 'Jamais sur ' + per.label, note: 'Réservée sur FortiGate-60F, aucun appareil présent.' };
+    } else if (sst === 'special') {
+      det = { name: sel === 0 ? 'Adresse réseau' : 'Adresse de diffusion', vendor: '—', mac: '—', port: '—', vlan: '—', seen: '—', note: 'Non attribuable dans un /24.' };
+    } else {
+      det = { name: 'Libre', vendor: '—', mac: '—', port: '—', vlan: '—', seen: 'Aucune réponse sur ' + per.label, note: 'Ni ARP ni bail DHCP : utilisable pour une IP fixe.' };
+    }
+    det.ip = '10.182.122.' + sel;
+    det.status = ST[sst].label;
+    det.badge = sst === 'online' ? badgeOf('#DCFCE7', '#15803D')
+      : sst === 'conflict' ? badgeOf('#FEE2E2', '#B91C1C')
+      : sst === 'rogue' ? badgeOf('#FFEDD5', '#C2410C')
+      : sst === 'reserved' ? badgeOf('#DBEAFE', '#1D4ED8')
+      : badgeOf('#E5E7EB', '#374151');
+
+    /* ---------- Graphe ---------- */
+    let vals = [], labels = [], caption = '';
+    if (s.period === '24h') {
+      for (let i = 0; i < 24; i++) {
+        const h = (10 + i) % 24;
+        const w = h >= 8 && h <= 17 ? 1 : (h === 7 || h === 18 ? 0.55 : 0.08);
+        vals.push(Math.round(146 + 43 * w + ((i * 7) % 5) - 2));
+        if (i % 6 === 0 || i === 23) labels.push({ i, t: (h < 10 ? '0' : '') + h + ':00' });
+      }
+      vals[23] = 182; vals[3] = 191;
+      caption = 'Mesure horaire · hier 10:00 → aujourd’hui 09:00';
+    } else if (s.period === '7j') {
+      const days = ['mer 28', 'jeu 29', 'ven 30', 'sam 31', 'dim 1', 'lun 2', 'mar 3'];
+      for (let i = 0; i < 28; i++) {
+        const d = Math.floor(i / 4), slot = i % 4;
+        const we = d === 3 || d === 4;
+        const base = we ? [97, 104, 118, 108][slot] : [138, 152, 189, 168][slot];
+        vals.push(base + ((i * 5) % 7) - 3);
+        if (slot === 0) labels.push({ i, t: days[d] });
+      }
+      vals[10] = 196; vals[27] = 182; vals[12] = 97;
+      caption = 'Toutes les 6 h · 28 oct. → 3 nov.';
+    } else {
+      for (let i = 0; i < 30; i++) {
+        const dow = (1 + i) % 7; /* 5 oct. = lundi */
+        const we = dow === 6 || dow === 0;
+        vals.push(we ? 88 + ((i * 11) % 23) : 180 + ((i * 7) % 15));
+        if (i % 7 === 0) labels.push({ i, t: (i <= 26 ? (5 + i) + ' oct.' : (i - 26) + ' nov.') });
+      }
+      vals[29] = 182; vals[17] = 198;
+      labels.push({ i: 29, t: '3 nov.' });
+      caption = 'Pic quotidien · 5 oct. → 3 nov.';
+    }
+    const n = vals.length;
+    const X = (i) => +(40 + i * (590 / (n - 1))).toFixed(1);
+    const Y = (v) => +(10 + (200 - v) / 120 * 176).toFixed(1);
+    const line = vals.map((v, i) => X(i) + ',' + Y(v)).join(' ');
+    const area = X(0) + ',186 ' + line + ' ' + X(n - 1) + ',186';
+    const peak = Math.max.apply(null, vals), low = Math.min.apply(null, vals);
+    const avg = Math.round(vals.reduce((a, b) => a + b, 0) / n);
+    const chart = {
+      line, area, caption, peak: String(peak), low: String(low), avg: String(avg),
+      lastX: X(n - 1), lastY: Y(vals[n - 1]), lastLabelY: Y(vals[n - 1]) - 8, lastV: String(vals[n - 1]),
+      grid: [200, 160, 120, 80].map(v => ({ v: String(v), y: Y(v), ty: Y(v) + 3 })),
+      xLabels: labels.map(l => ({ x: Math.min(Math.max(X(l.i), 56), 612), t: l.t })),
+      aria: 'Appareils en ligne sur ' + per.span + ' : pic ' + peak + ', minimum ' + low + ', moyenne ' + avg + ', valeur actuelle ' + vals[n - 1] + '.'
+    };
+
+    /* ---------- Répartitions ---------- */
+    const V = [['Dell', 52], ['Lenovo', 41], ['Apple', 24], ['Fortinet', 16], ['Samsung', 11], ['Brother', 9], ['Hikvision', 6], ['Autres', 9], ['Inconnu', 35]];
+    const vendors = V.map(([name, c]) => ({
+      name, n: String(c), pct: Math.round(c / 203 * 100) + '%',
+      bar: 'height:10px; border-radius:3px; width:' + Math.round(c / 52 * 100) + '%; background:' + (name === 'Inconnu' ? '#9CA3AF' : accent)
+    }));
+    const T = [['Postes de travail', 96, '#1E3A8A'], ['Téléphones', 34, '#2563EB'], ['IoT / affichage', 21, '#60A5FA'], ['Points d’accès', 14, '#0F766E'], ['Imprimantes', 11, '#15803D'], ['Caméras', 6, '#C2410C'], ['Réseau', 5, '#7C3AED'], ['Inconnu', 16, '#9CA3AF']];
+    const types = T.map(([name, c, col]) => ({
+      name, n: String(c), pct: Math.round(c / 203 * 100) + '%',
+      seg: 'height:14px; flex:' + c + ' 1 0; background:' + col,
+      dot: 'width:10px; height:10px; border-radius:2px; display:inline-block; background:' + col
+    }));
+    const typesAria = 'Types d’appareils : ' + T.map(t => t[0] + ' ' + t[1]).join(', ');
+
+    /* ---------- Alertes ---------- */
+    const SEV = {
+      crit: { label: 'Critique', bg: '#FEE2E2', fg: '#B91C1C' },
+      sec:  { label: 'Sécurité', bg: '#FEE2E2', fg: '#991B1B' },
+      warn: { label: 'Alerte', bg: '#FFEDD5', fg: '#C2410C' },
+      info: { label: 'Info', bg: '#DBEAFE', fg: '#1D4ED8' }
+    };
+    const A = [
+      { id: 'a1', sev: 'crit', time: '08:42', href: 'Device.dc.html', title: 'Conflit IP 10.182.122.140 : 2 MAC (00:1B:63:84:45:E6 et 3C:22:FB:9A:10:4D)', detail: 'SW-CORE-01 Gi1/0/21 et SW-ETG2-01 1/7 · réponses ARP alternées toutes les ~40 s' },
+      { id: 'a2', sev: 'crit', time: '07:15', href: 'Switch.dc.html', title: 'DHCP non autorisé 10.182.122.250', detail: 'DHCPOFFER de 50:C7:BF:2E:11:08 (TP-Link) · SW-ETG2-01 port 1/19 · VLAN 30' },
+      { id: 'a3', sev: 'sec', time: '06:00', href: 'Switch.dc.html', title: 'Port 23 (Telnet) ouvert sur SW-ETG2-01', detail: '10.182.122.3 · authentification en clair · désactiver Telnet, garder SSH (22)' },
+      { id: 'a4', sev: 'warn', time: '09:03', href: 'Switch.dc.html', title: 'Changement de port : WKS346 de SW-CORE-01 Gi1/0/7 à Gi1/0/9', detail: '10.182.122.117 · MAC B0:7B:25:3A:61:C2 · VLAN 20 inchangé' },
+      { id: 'a5', sev: 'warn', time: '07:11', href: 'Ping.dc.html', title: 'Appareil hors ligne depuis 2 h : Caméra-Quai 192.168.50.21', detail: 'Hikvision · VLAN 40 · dernier ping réussi à 07:11' },
+      { id: 'a6', sev: 'info', time: '08:57', href: 'Device.dc.html', title: 'Nouvel appareil : Android_89UM1WTN', detail: '10.182.122.133 · MAC 8C:F5:A3:7E:02:B1 (Samsung) · bail DHCP 8 h' }
+    ];
+    const ql = (s.q || '').trim().toLowerCase();
+    const inSev = (a) => s.sev === 'all' || (s.sev === 'crit' ? (a.sev === 'crit' || a.sev === 'sec') : a.sev === s.sev);
+    const rowH = 'height:' + (compact ? 30 : 34) + 'px';
+    const alerts = A.filter(a => inSev(a) && (!ql || (a.title + ' ' + a.detail).toLowerCase().indexOf(ql) >= 0)).map(a => {
+      const st = s.ack[a.id];
+      const sv = SEV[a.sev];
+      const setAck = (v) => { const ack = Object.assign({}, s.ack); if (v) ack[a.id] = v; else delete ack[a.id]; set({ ack }); };
+      return {
+        title: a.title, detail: a.detail, time: a.time, href: a.href, sevLabel: sv.label,
+        viewLabel: 'Voir : ' + a.title,
+        badge: 'flex:0 0 auto; width:66px; text-align:center; font-size:11px; font-weight:700; padding:3px 0; border-radius:10px; background:' + sv.bg + '; color:' + sv.fg,
+        rowStyle: 'display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:' + (compact ? 7 : 10) + 'px 16px; border-bottom:1px solid #F3F4F6;' + (st ? ' background:#F9FAFB;' : ''),
+        pending: !st, done: !!st,
+        doneLabel: st === 'acc' ? 'Accepté · 09:12' : 'Ignoré · 09:12',
+        accept: () => setAck('acc'), ignore: () => setAck('ign'), undo: () => setAck(null)
+      };
+    });
+    const pendingCount = A.filter(a => !s.ack[a.id]).length;
+    const nCrit = A.filter(a => a.sev === 'crit' || a.sev === 'sec').length;
+    const sevTabs = [['all', 'Toutes (' + A.length + ')'], ['crit', 'Critiques (' + nCrit + ')'], ['warn', 'Alertes (2)'], ['info', 'Info (1)']].map(([k, label]) => ({
+      label, pressed: k === s.sev ? 'true' : 'false', pick: () => set({ sev: k }),
+      style: 'height:26px; padding:0 10px; border:0; border-radius:4px; cursor:pointer; font:600 12px Inter, system-ui, sans-serif; ' +
+        (k === s.sev ? 'background:#FFFFFF; color:#111827; box-shadow:0 0 0 1px #E5E7EB' : 'background:transparent; color:#4B5563')
+    }));
+    const alertSummary = pendingCount + ' à traiter · ' + per.changes + ' changements sur ' + per.label;
+
+    /* ---------- Comparaison ---------- */
+    const CMP = {
+      add: [
+        { ip: '10.182.122.133', name: 'Android_89UM1WTN', mac: '8C:F5:A3:7E:02:B1', before: 'Absent', after: 'Ajouté · Samsung, Wi-Fi' },
+        { ip: '10.182.122.140', name: '(2e MAC sur .140)', mac: '3C:22:FB:9A:10:4D', before: 'Absent', after: 'Ajouté · conflit avec 00:1B:63:84:45:E6' },
+        { ip: '10.182.122.250', name: 'TL-WR841N', mac: '50:C7:BF:2E:11:08', before: 'Absent', after: 'Ajouté · serveur DHCP actif' }
+      ],
+      gone: [
+        { ip: '192.168.50.21', name: 'Caméra-Quai', mac: 'C0:56:E3:A1:7F:21', before: 'En ligne · VLAN 40', after: 'Disparu depuis 07:11' },
+        { ip: '10.182.122.164', name: 'WKS329', mac: 'B0:7B:25:3A:48:9D', before: 'En ligne · Gi1/0/27', after: 'Disparu (port down)' }
+      ],
+      mod: [
+        { ip: '10.182.122.117', name: 'WKS346', mac: 'B0:7B:25:3A:61:C2', before: 'SW-CORE-01 Gi1/0/7', after: 'SW-CORE-01 Gi1/0/9' },
+        { ip: '10.182.122.113', name: 'PF4L8M20', mac: '54:E1:AD:6C:33:20', before: 'IP 10.182.122.158', after: 'IP 10.182.122.113' },
+        { ip: '10.182.122.111', name: 'Brother DCP-L2640DW', mac: '94:DD:F8:18:15:7D', before: 'Ports 80, 443, 9100', after: 'Ports 80, 443, 9100, 631' },
+        { ip: '10.182.122.3', name: 'SW-ETG2-01', mac: '88:3A:30:9B:C2:03', before: 'Ports 22, 443, 161', after: 'Ports 22, 23, 443, 161' },
+        { ip: '10.182.122.106', name: 'BrightSign-D1E876001191', mac: '90:AC:3F:0B:61:91', before: 'Firmware 8.5.41', after: 'Firmware 8.5.47' }
+      ]
+    };
+    const afterColor = { add: '#15803D', gone: '#B91C1C', mod: '#C2410C' };
+    const cmpRows = CMP[s.cmpTab].map(r => Object.assign({}, r, {
+      rowH: rowH,
+      afterStyle: 'padding:0 8px; border-bottom:1px solid #F3F4F6; font-weight:600; color:' + afterColor[s.cmpTab]
+    }));
+    const cmpTabs = [['add', '+3', 'ajoutés', '#15803D', '#DCFCE7'], ['gone', '−2', 'disparus', '#B91C1C', '#FEE2E2'], ['mod', '5', 'modifiés', '#C2410C', '#FFEDD5']].map(([k, num, label, fg, bg]) => ({
+      num, label, pressed: k === s.cmpTab ? 'true' : 'false', pick: () => set({ cmpTab: k }),
+      numStyle: 'font:700 20px JetBrains Mono, monospace; color:' + fg,
+      style: 'display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:8px 12px; border-radius:8px; cursor:pointer; text-align:left; font-family:Inter, system-ui, sans-serif; ' +
+        (k === s.cmpTab ? 'background:' + bg + '; border:1px solid ' + fg : 'background:#FFFFFF; border:1px solid #E5E7EB')
+    }));
+
+    /* ---------- Planification et exports ---------- */
+    const FREQ = { '15m': ['Toutes les 15 minutes', '09:15'], '1h': ['Toutes les heures', '10:00'], '6h': ['Toutes les 6 heures', '12:00'], '1j': ['Tous les jours à 9:00', 'demain 09:00'] };
+    const stamp = '2026-11-03';
+    return {
+      accent, primaryBtn, rowH,
+      q: s.q, onQ: (e) => set({ q: e.target.value }),
+      periods, periodSummary: per.scans + ' scans sur ' + per.span + ' · dernier scan 09:00 (3 min 12 s)',
+      range: s.range, onRange: (e) => set({ range: e.target.value, notice: 'Filtre de plage : ' + e.target.value }),
+      tile,
+      colHeads, gridRows, legend, det,
+      chart, vendors, types, typesAria,
+      alerts, noAlerts: alerts.length === 0, sevTabs, alertSummary,
+      cmpTabs, cmpRows,
+      showSched: s.showSched, showSchedStr: s.showSched ? 'true' : 'false',
+      toggleSched: () => set({ showSched: !s.showSched }),
+      freq: s.freq, onFreq: (e) => set({ freq: e.target.value }),
+      nextRun: FREQ[s.freq][1], schedSide: s.schedSaved + ' · 2 plages',
+      saveSched: () => set({ showSched: false, schedSaved: FREQ[s.freq][0], notice: 'Scan planifié : ' + FREQ[s.freq][0].toLowerCase() }),
+      hasNotice: !!s.notice, notice: s.notice,
+      exportCsv: () => set({ notice: 'CSV prêt : analyse-' + stamp + '-' + s.period + '.csv (203 lignes)' }),
+      exportJson: () => set({ notice: 'JSON prêt : analyse-' + stamp + '-' + s.period + '.json' }),
+      exportPdf: () => set({ notice: 'Rapport PDF généré : rapport-reseau-' + stamp + '.pdf (6 pages)' }),
+      exportDiff: () => set({ notice: 'CSV prêt : ecart-scans-' + stamp + '.csv (10 lignes)' })
+    };
+  }
+}
+</script>
+</body>
+</html>

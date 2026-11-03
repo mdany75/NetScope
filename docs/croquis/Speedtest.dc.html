@@ -1,0 +1,1102 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Speedtest</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F4F6}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+.nav{display:flex;align-items:center;gap:10px;padding:0 10px;height:32px;border-radius:6px;color:#E2E8F0;text-decoration:none;font-size:13px;font-weight:500}
+.nav:hover{background:#1E293B;color:#FFFFFF}
+.nav.act{background:#1E293B;color:#FFFFFF}
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:6px;border:1px solid #E5E7EB;background:#FFFFFF;color:#111827;font:500 13px Inter,system-ui,sans-serif;cursor:pointer}
+.btn:hover{background:#F9FAFB;border-color:#D1D5DB}
+.btn:focus-visible,.chip:focus-visible,.nav:focus-visible,.tab:focus-visible,.seg:focus-visible,.srv:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #2563EB;outline-offset:2px}
+.btnp{border:1px solid transparent;color:#FFFFFF}
+.btnp:hover{filter:brightness(0.88)}
+.chip{cursor:pointer}
+.chip:hover{border-color:#9CA3AF}
+.tab{cursor:pointer}
+.tab:hover{color:#111827;background:#F3F4F6}
+.seg{cursor:pointer}
+.seg:hover{border-color:#9CA3AF}
+.srv{cursor:pointer}
+.srv:hover{background:#F9FAFB}
+.row td{background:#FFFFFF}
+.row:hover td{background:#F9FAFB}
+.row.fresh td{background:#EFF6FF}
+@keyframes pulse{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
+.pulse{animation:pulse 1.2s ease-in-out infinite}
+@media (max-width: 760px){.side{max-width:none !important}}
+@media (max-width: 1180px){.aside{max-width:none !important}}
+</style>
+</helmet>
+<div style="width:100%; min-height:1000px; display:flex; flex-wrap:wrap; font-family:Inter, system-ui, sans-serif; color:#111827; background:#F3F4F6; box-sizing:border-box; font-size:13px">
+
+  <!-- BARRE LATÉRALE -->
+  <nav class="side" aria-label="Navigation principale" style="flex:1 1 220px; max-width:220px; background:#0F172A; color:#E2E8F0; display:flex; flex-direction:column; padding:16px 12px; box-sizing:border-box; gap:18px">
+    <div style="display:flex; align-items:center; gap:10px; padding:4px 6px">
+      <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#E2E8F0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><path d="M12 12l6-6"></path><circle cx="12" cy="12" r="1.2"></circle></svg>
+      <div>
+        <div style="font-weight:700; font-size:15px; color:#FFFFFF">NetScope</div>
+        <div style="font-size:11px; color:#94A3B8">Boîte à outils réseau</div>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:2px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:0 10px 4px">Découverte</div>
+      <a class="nav" href="Main.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>Scanner</a>
+      <a class="nav" href="Topologie.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="5" rx="1"></rect><rect x="3" y="16" width="6" height="5" rx="1"></rect><rect x="15" y="16" width="6" height="5" rx="1"></rect><path d="M12 8v4M6 16v-4h12v4"></path></svg>Carte du réseau</a>
+      <a class="nav" href="Inventaire.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h1M4 12h1M4 18h1"></path></svg>Inventaire</a>
+      <a class="nav" href="Device.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="12" rx="1.5"></rect><path d="M9 20h6M12 16v4"></path></svg>Appareil</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Diagnostic</div>
+      <a class="nav" href="Ping.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Ping continu</a>
+      <a class="nav" href="Switch.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="1.5"></rect><path d="M7 11v2M10 11v2M13 11v2M16 11v2"></path></svg>Switchs et ports</a>
+      <a class="nav" href="Wifi.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5a15 15 0 0 1 20 0"></path><path d="M5 12a10.5 10.5 0 0 1 14 0"></path><path d="M8.5 15.5a5.5 5.5 0 0 1 7 0"></path><circle cx="12" cy="19" r="1"></circle></svg>Wi-Fi</a>
+      <a class="nav" href="Toolbox.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"></path></svg>Outils</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Suivi</div>
+      <a class="nav" href="Surveillance.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>Surveillance<span style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#DC2626; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center" aria-label="3 alertes">3</span></a>
+      <a class="nav" href="Analyse.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>Analyse<span style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#2563EB; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center" aria-label="1 nouveau résultat">1</span></a>
+      <a class="nav" href="Rapport.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>Rapports</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Accès</div>
+      <a class="nav" href="Remote.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="1.5"></rect><path d="M7 9l3 2.5L7 14M12 14h4M9 21h6M12 17v4"></path></svg>Accès distant</a>
+      <a class="nav act" href="Speedtest.dc.html" aria-current="page">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 18.5a9 9 0 1 1 14.2 0"></path><path d="M12 14l4-5"></path><circle cx="12" cy="14" r="1.2"></circle><path d="M12 5v1.5M6.5 8.5l1 1M17.5 8.5l-1 1"></path></svg>Speedtest</a>
+    </div>
+    <div style="border-top:1px solid #1E293B; padding-top:12px; display:flex; flex-direction:column; gap:6px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; padding:0 6px">Plages enregistrées</div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>10.182.122.0/24</span><span style="color:#94A3B8">Bureau</span></div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>192.168.50.0/24</span><span style="color:#94A3B8">Caméras</span></div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>10.10.0.1-50</span><span style="color:#94A3B8">Serveurs</span></div>
+    </div>
+    <div style="margin-top:auto; border-top:1px solid #1E293B; padding-top:10px; display:flex; flex-direction:column">
+      <a class="nav" href="Reglages.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>Réglages</a>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px; padding:10px; border:1px solid #1E293B; border-radius:8px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8">Interface active</div>
+      <div style="display:flex; align-items:center; gap:8px">
+        <span style="width:8px; height:8px; border-radius:50%; background:#22C55E; flex:none"></span>
+        <span style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#E2E8F0">en0 · 10.182.122.135 · Wi-Fi</span>
+      </div>
+      <div style="font-size:11px; color:#94A3B8">Passerelle 10.182.122.1 · DNS 10.182.122.1</div>
+      <div style="font-size:11px; color:#94A3B8">Version 2.0.0 (maquette)</div>
+    </div>
+  </nav>
+
+  <!-- CONTENU -->
+  <main style="flex:999 1 560px; min-width:0; display:flex; flex-direction:column; box-sizing:border-box">
+
+    <!-- Barre d'outils -->
+    <header style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:12px 20px; background:#FFFFFF; border-bottom:1px solid #E5E7EB">
+      <h1 style="margin:0; font-size:17px; font-weight:700; margin-right:6px">Speedtest</h1>
+      <span style="{{ statusBadgeStyle }}"><span class="{{ statusDotCls }}" style="{{ statusDotStyle }}"></span>{{ statusText }}</span>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-left:auto">
+        <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:#4B5563">Interface
+          <select aria-label="Interface utilisée pour les tests" value="{{ iface }}" onChange="{{ onIfaceSel }}" style="height:32px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font:12px 'JetBrains Mono', monospace; color:#111827; background:#FFFFFF">
+            <option value="eth">en7 · Ethernet 1 Gb/s</option>
+            <option value="wifi">en0 · Wi-Fi 5 GHz</option>
+          </select>
+        </label>
+        <button type="button" class="btn" onClick="{{ onExport }}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>Exporter CSV</button>
+      </div>
+    </header>
+
+    <!-- Onglets -->
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:8px 20px; background:#FFFFFF; border-bottom:1px solid #E5E7EB">
+      <div role="tablist" aria-label="Type de test" style="display:inline-flex; gap:2px; padding:2px; background:#F3F4F6; border-radius:7px">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+          <button type="button" role="tab" class="tab" aria-selected="{{ t.sel }}" onClick="{{ t.pick }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.subStyle }}">{{ t.sub }}</span></button>
+        </sc-for>
+      </div>
+      <span style="font-size:12px; color:#4B5563">{{ tabHint }}</span>
+      <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+        <span role="status" style="margin-left:auto; font-size:12px; color:#15803D; background:#DCFCE7; border-radius:6px; padding:5px 9px">{{ toast }}</span>
+      </sc-if>
+    </div>
+
+    <div style="padding:16px 20px; display:flex; flex-direction:column; gap:14px">
+
+      <!-- ============ INTERNET ============ -->
+      <sc-if value="{{ isNet }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:flex-start">
+
+          <section aria-labelledby="h-gauge" style="flex:999 1 560px; min-width:0; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:14px">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px">
+              <h2 id="h-gauge" style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Débit Internet</h2>
+              <span style="font-size:12px; color:#4B5563">{{ runSummary }}</span>
+              <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap">
+                <button type="button" class="btn btnp" style="{{ startStyle }}" onClick="{{ onStartNet }}">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5l12 7-12 7z"></path></svg>{{ startLabel }}</button>
+                <button type="button" class="btn" onClick="{{ onStopNet }}" aria-disabled="{{ stopDisabled }}">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg>Arrêter</button>
+              </div>
+            </div>
+
+            <sc-if value="{{ isWifi }}" hint-placeholder-val="{{ false }}">
+              <div role="status" style="display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:6px; background:#FFEDD5; color:#9A3412; font-size:12px">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"></path><path d="M12 10v5M12 18h0"></path></svg>
+                <span><strong>Résultat limité par le Wi-Fi (PHY 866 Mb/s)</strong> — tester en filaire pour mesurer le lien Internet.</span>
+                <button type="button" class="btn" onClick="{{ onUseEth }}" style="margin-left:auto; height:28px; font-size:12px">Passer sur en7</button>
+              </div>
+            </sc-if>
+
+            <div style="display:flex; flex-wrap:wrap; gap:18px; align-items:center">
+              <!-- Jauge -->
+              <div style="flex:1 1 320px; min-width:0; display:flex; flex-direction:column; align-items:center">
+                <svg role="img" aria-label="{{ g.aria }}" width="100%" height="270" viewBox="0 0 300 250" style="display:block; max-width:360px">
+                  <path d="{{ g.track }}" fill="none" stroke="#E5E7EB" stroke-width="16" stroke-linecap="round"></path>
+                  <path d="{{ g.arc }}" fill="none" stroke="{{ g.color }}" stroke-width="16" stroke-linecap="round"></path>
+                  <path d="{{ g.ticks }}" fill="none" stroke="#9CA3AF" stroke-width="1.4"></path>
+                  <text x="90.6" y="213" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#4B5563">0</text>
+                  <text x="67" y="141" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#4B5563">200</text>
+                  <text x="111.9" y="79" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#4B5563">400</text>
+                  <text x="188.1" y="79" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#4B5563">600</text>
+                  <text x="233" y="141" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#4B5563">800</text>
+                  <text x="209.4" y="213" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#4B5563">1000</text>
+                  <line x1="150" y1="150" x2="{{ g.nx }}" y2="{{ g.ny }}" stroke="#111827" stroke-width="2.4" stroke-linecap="round"></line>
+                  <circle cx="150" cy="150" r="5" fill="#111827"></circle>
+                  <circle cx="{{ g.dx }}" cy="{{ g.dy }}" r="6" fill="#FFFFFF" stroke="{{ g.color }}" stroke-width="3"></circle>
+                  <text x="150" y="112" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#4B5563">{{ g.phase }}</text>
+                  <text x="150" y="196" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="34" font-weight="600" fill="#111827">{{ g.value }}</text>
+                  <text x="150" y="216" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" fill="#4B5563">{{ g.unit }}</text>
+                </svg>
+                <!-- Étapes -->
+                <ol aria-label="Étapes du test" style="list-style:none; margin:4px 0 0; padding:0; display:flex; gap:6px; flex-wrap:wrap; justify-content:center">
+                  <sc-for list="{{ steps }}" as="st" hint-placeholder-count="3">
+                    <li style="{{ st.style }}"><span class="{{ st.dotCls }}" style="{{ st.dotStyle }}"></span>{{ st.label }}<span style="font-family:'JetBrains Mono', monospace; font-size:11px">{{ st.val }}</span></li>
+                  </sc-for>
+                </ol>
+                <div style="width:100%; max-width:360px; margin-top:10px">
+                  <div style="height:6px; border-radius:3px; background:#E5E7EB; overflow:hidden" role="progressbar" aria-label="Progression du test" aria-valuenow="{{ pct }}" aria-valuemin="0" aria-valuemax="100">
+                    <div style="{{ pctBarStyle }}"></div>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; margin-top:5px; font-size:11px; color:#4B5563; font-family:'JetBrains Mono', monospace"><span>{{ pctLabel }}</span><span>{{ elapsedLabel }}</span></div>
+                </div>
+              </div>
+
+              <!-- Courbes temps réel -->
+              <div style="flex:1 1 240px; min-width:0; display:flex; flex-direction:column; gap:12px">
+                <div style="border:1px solid #E5E7EB; border-radius:8px; padding:10px">
+                  <div style="display:flex; align-items:baseline; justify-content:space-between">
+                    <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v15M6 13l6 6 6-6"></path></svg>Descente</span>
+                    <span style="font-family:'JetBrains Mono', monospace; font-size:12px; font-weight:600">{{ downLive }}</span>
+                  </div>
+                  <svg role="img" aria-label="Débit de téléchargement en temps réel" width="100%" height="64" viewBox="0 0 240 60" preserveAspectRatio="none" style="display:block; margin-top:6px">
+                    <line x1="0" y1="30" x2="240" y2="30" stroke="#F3F4F6" stroke-width="1"></line>
+                    <line x1="0" y1="59" x2="240" y2="59" stroke="#E5E7EB" stroke-width="1"></line>
+                    <polygon points="{{ downArea }}" fill="#DBEAFE"></polygon>
+                    <polyline points="{{ downLine }}" fill="none" stroke="#2563EB" stroke-width="1.8" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+                  </svg>
+                  <div style="display:flex; justify-content:space-between; font-size:11px; color:#4B5563"><span>0 s</span><span>{{ downPeak }}</span><span>3,2 s</span></div>
+                </div>
+                <div style="border:1px solid #E5E7EB; border-radius:8px; padding:10px">
+                  <div style="display:flex; align-items:baseline; justify-content:space-between">
+                    <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0E7490" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V5M6 11l6-6 6 6"></path></svg>Montée</span>
+                    <span style="font-family:'JetBrains Mono', monospace; font-size:12px; font-weight:600">{{ upLive }}</span>
+                  </div>
+                  <svg role="img" aria-label="Débit de téléversement en temps réel" width="100%" height="64" viewBox="0 0 240 60" preserveAspectRatio="none" style="display:block; margin-top:6px">
+                    <line x1="0" y1="30" x2="240" y2="30" stroke="#F3F4F6" stroke-width="1"></line>
+                    <line x1="0" y1="59" x2="240" y2="59" stroke="#E5E7EB" stroke-width="1"></line>
+                    <polygon points="{{ upArea }}" fill="#CFFAFE"></polygon>
+                    <polyline points="{{ upLine }}" fill="none" stroke="#0E7490" stroke-width="1.8" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+                  </svg>
+                  <div style="display:flex; justify-content:space-between; font-size:11px; color:#4B5563"><span>0 s</span><span>{{ upPeak }}</span><span>3,2 s</span></div>
+                </div>
+                <div style="font-size:11px; color:#4B5563">Échelle 0–1000 Mb/s · {{ streamsLabel }} · {{ protoLabel }}</div>
+              </div>
+            </div>
+
+            <!-- Résultats -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px">
+              <sc-for list="{{ tiles }}" as="tl" hint-placeholder-count="6">
+                <div style="background:#F9FAFB; border:1px solid #E5E7EB; border-radius:8px; padding:10px">
+                  <div style="font-size:11px; color:#4B5563; text-transform:uppercase; letter-spacing:.04em; font-weight:600">{{ tl.label }}</div>
+                  <div style="display:flex; align-items:baseline; gap:5px; margin-top:4px">
+                    <span style="font-family:'JetBrains Mono', monospace; font-size:22px; font-weight:600; color:#111827">{{ tl.value }}</span>
+                    <span style="font-size:12px; color:#4B5563">{{ tl.unit }}</span>
+                    <sc-if value="{{ tl.hasBadge }}" hint-placeholder-val="{{ false }}">
+                      <span style="{{ tl.badgeStyle }}">{{ tl.badge }}</span>
+                    </sc-if>
+                  </div>
+                  <div style="font-size:11px; color:#4B5563; margin-top:2px">{{ tl.sub }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+
+          <!-- Colonne droite -->
+          <aside class="aside" style="flex:1 1 340px; max-width:380px; min-width:0; display:flex; flex-direction:column; gap:12px">
+            <section aria-labelledby="h-srv" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+              <h2 id="h-srv" style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Serveur de test</h2>
+              <div role="radiogroup" aria-label="Serveur de test" style="display:flex; flex-direction:column; gap:4px">
+                <sc-for list="{{ servers }}" as="sv" hint-placeholder-count="5">
+                  <button type="button" role="radio" class="srv" aria-checked="{{ sv.on }}" onClick="{{ sv.pick }}" style="{{ sv.style }}">
+                    <span style="{{ sv.radioStyle }}"></span>
+                    <span style="flex:1; min-width:0; text-align:left">
+                      <span style="display:block; font-weight:600; font-size:12px; color:#111827">{{ sv.name }}</span>
+                      <span style="display:block; font-size:11px; color:#4B5563">{{ sv.sub }}</span>
+                    </span>
+                    <span style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#374151; text-align:right; white-space:nowrap">{{ sv.dist }}<br>{{ sv.lat }}</span>
+                  </button>
+                </sc-for>
+              </div>
+              <div style="margin-top:12px; font-size:11px; color:#4B5563; text-transform:uppercase; letter-spacing:.04em; font-weight:600">Flux parallèles</div>
+              <div role="group" aria-label="Nombre de flux" style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:4px; margin-top:6px">
+                <sc-for list="{{ streamOpts }}" as="o" hint-placeholder-count="4">
+                  <button type="button" class="seg" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="{{ o.style }}">{{ o.label }}</button>
+                </sc-for>
+              </div>
+              <div style="margin-top:12px; font-size:11px; color:#4B5563; text-transform:uppercase; letter-spacing:.04em; font-weight:600">Protocole</div>
+              <div role="group" aria-label="Protocole de mesure" style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:4px; margin-top:6px">
+                <sc-for list="{{ protoOpts }}" as="o" hint-placeholder-count="3">
+                  <button type="button" class="seg" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="{{ o.style }}">{{ o.label }}</button>
+                </sc-for>
+              </div>
+            </section>
+
+            <section aria-labelledby="h-cnx" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+              <h2 id="h-cnx" style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Votre connexion</h2>
+              <div role="group" aria-label="Interface utilisée" style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:4px; margin-bottom:10px">
+                <sc-for list="{{ ifaceOpts }}" as="o" hint-placeholder-count="2">
+                  <button type="button" class="seg" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="{{ o.style }}">{{ o.label }}</button>
+                </sc-for>
+              </div>
+              <dl style="margin:0; display:grid; grid-template-columns:96px minmax(0, 1fr); row-gap:7px; column-gap:8px; font-size:12px">
+                <dt style="color:#4B5563">IP publique</dt><dd style="margin:0; font-family:'JetBrains Mono', monospace">[À COMPLÉTER]</dd>
+                <dt style="color:#4B5563">FAI</dt><dd style="margin:0">[À COMPLÉTER]</dd>
+                <dt style="color:#4B5563">Interface</dt><dd style="margin:0; font-family:'JetBrains Mono', monospace">{{ ifaceDetail }}</dd>
+                <dt style="color:#4B5563">Passerelle</dt><dd style="margin:0"><span style="font-family:'JetBrains Mono', monospace">10.182.122.1</span> · FortiGate-60F</dd>
+                <dt style="color:#4B5563">DNS</dt><dd style="margin:0; font-family:'JetBrains Mono', monospace">10.182.122.1</dd>
+                <dt style="color:#4B5563">IPv6</dt><dd style="margin:0">Non · aucune adresse globale</dd>
+                <dt style="color:#4B5563">MTU</dt><dd style="margin:0; font-family:'JetBrains Mono', monospace">1500</dd>
+              </dl>
+              <sc-if value="{{ isWifi }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:10px; padding:8px 10px; border-radius:6px; background:#FFEDD5; color:#9A3412; font-size:12px">Résultat limité par le Wi-Fi (PHY 866 Mb/s) — tester en filaire pour mesurer le lien Internet.</div>
+              </sc-if>
+            </section>
+
+            <section aria-labelledby="h-plan" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+              <h2 id="h-plan" style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Comparaison au forfait</h2>
+              <div style="display:flex; gap:8px; flex-wrap:wrap">
+                <label style="flex:1 1 120px; display:flex; flex-direction:column; gap:4px; font-size:11px; color:#4B5563">Forfait descente (Mb/s)
+                  <input type="number" min="1" value="{{ planDown }}" onChange="{{ onPlanDown }}" style="height:30px; box-sizing:border-box; padding:0 8px; border:1px solid #E5E7EB; border-radius:6px; font:12px 'JetBrains Mono', monospace; color:#111827">
+                </label>
+                <label style="flex:1 1 120px; display:flex; flex-direction:column; gap:4px; font-size:11px; color:#4B5563">Forfait montée (Mb/s)
+                  <input type="number" min="1" value="{{ planUp }}" onChange="{{ onPlanUp }}" style="height:30px; box-sizing:border-box; padding:0 8px; border:1px solid #E5E7EB; border-radius:6px; font:12px 'JetBrains Mono', monospace; color:#111827">
+                </label>
+              </div>
+              <sc-for list="{{ planBars }}" as="pb" hint-placeholder-count="2">
+                <div style="margin-top:12px">
+                  <div style="display:flex; justify-content:space-between; font-size:12px"><span>{{ pb.label }}</span><span style="font-family:'JetBrains Mono', monospace; font-weight:600">{{ pb.text }}</span></div>
+                  <div style="margin-top:5px; height:8px; border-radius:4px; background:#E5E7EB; overflow:hidden"><div style="{{ pb.barStyle }}"></div></div>
+                  <div style="{{ pb.noteStyle }}">{{ pb.note }}</div>
+                </div>
+              </sc-for>
+            </section>
+          </aside>
+        </div>
+      </sc-if>
+
+      <!-- ============ RÉSEAU LOCAL ============ -->
+      <sc-if value="{{ isLan }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:flex-start">
+          <section aria-labelledby="h-lan" style="flex:999 1 560px; min-width:0; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:14px">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px">
+              <h2 id="h-lan" style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Test iperf3</h2>
+              <span style="font-size:12px; color:#4B5563">{{ lanSummary }}</span>
+              <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap">
+                <button type="button" class="btn btnp" style="{{ lanStartStyle }}" onClick="{{ onStartLan }}">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5l12 7-12 7z"></path></svg>{{ lanStartLabel }}</button>
+                <button type="button" class="btn" onClick="{{ onStopLan }}">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg>Arrêter</button>
+              </div>
+            </div>
+
+            <div style="display:flex; flex-wrap:wrap; gap:12px">
+              <label style="flex:2 1 260px; display:flex; flex-direction:column; gap:4px; font-size:11px; color:#4B5563; font-weight:600; text-transform:uppercase; letter-spacing:.04em">Serveur iperf3 cible
+                <select value="{{ lanTarget }}" onChange="{{ onLanTarget }}" style="height:32px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font:500 12px Inter, system-ui, sans-serif; color:#111827; background:#FFFFFF; text-transform:none; letter-spacing:0">
+                  <option value="nas">NAS Synology · 10.10.0.20:5201</option>
+                  <option value="srv">SRV-FICHIERS · 10.10.0.12:5201</option>
+                  <option value="self">NetScope en mode serveur sur ce Mac · port 5201</option>
+                </select>
+              </label>
+              <label style="flex:1 1 110px; display:flex; flex-direction:column; gap:4px; font-size:11px; color:#4B5563; font-weight:600; text-transform:uppercase; letter-spacing:.04em">Durée
+                <select value="{{ lanDurStr }}" onChange="{{ onLanDur }}" style="height:32px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font:500 12px Inter, system-ui, sans-serif; color:#111827; background:#FFFFFF; text-transform:none; letter-spacing:0">
+                  <option value="5">5 s</option>
+                  <option value="10">10 s</option>
+                  <option value="15">15 s</option>
+                </select>
+              </label>
+              <div style="flex:1 1 150px; display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:11px; color:#4B5563; font-weight:600; text-transform:uppercase; letter-spacing:.04em">Flux (-P)</span>
+                <div role="group" aria-label="Flux parallèles iperf3" style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:4px">
+                  <sc-for list="{{ lanStreamOpts }}" as="o" hint-placeholder-count="3">
+                    <button type="button" class="seg" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="{{ o.style }}">{{ o.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="flex:1 1 120px; display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:11px; color:#4B5563; font-weight:600; text-transform:uppercase; letter-spacing:.04em">Transport</span>
+                <div role="group" aria-label="Transport" style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:4px">
+                  <sc-for list="{{ lanProtoOpts }}" as="o" hint-placeholder-count="2">
+                    <button type="button" class="seg" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="{{ o.style }}">{{ o.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="flex:2 1 260px; display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:11px; color:#4B5563; font-weight:600; text-transform:uppercase; letter-spacing:.04em">Sens</span>
+                <div role="group" aria-label="Sens du test" style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:4px">
+                  <sc-for list="{{ lanDirOpts }}" as="o" hint-placeholder-count="3">
+                    <button type="button" class="seg" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="{{ o.style }}">{{ o.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+
+            <!-- Commande -->
+            <div style="background:#0B1220; border-radius:8px; padding:10px 12px; font:13px 'JetBrains Mono', monospace; color:#E2E8F0; overflow-x:auto; white-space:nowrap">
+              <div><span style="color:#4ADE80">dany@Macmini-de-Dany ~ %</span> {{ lanCmd }}</div>
+              <div style="color:#94A3B8">{{ lanCmdLine2 }}</div>
+              <sc-if value="{{ lanRunning }}" hint-placeholder-val="{{ false }}">
+                <div><span class="pulse">{{ lanLiveLine }}</span></div>
+              </sc-if>
+            </div>
+
+            <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:flex-start">
+              <!-- Tableau des intervalles -->
+              <div style="flex:1 1 360px; min-width:0; border:1px solid #E5E7EB; border-radius:8px; overflow-x:auto">
+                <table style="width:100%; min-width:360px; border-collapse:collapse; font-size:12px">
+                  <thead>
+                    <tr style="height:30px; background:#F9FAFB; border-bottom:1px solid #E5E7EB">
+                      <th scope="col" style="padding:0 10px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Intervalle</th>
+                      <th scope="col" style="padding:0 8px; text-align:right; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Transfert</th>
+                      <th scope="col" style="padding:0 8px; text-align:right; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">{{ lanColRate }}</th>
+                      <th scope="col" style="padding:0 10px 0 8px; text-align:right; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">{{ lanColExtra }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <sc-for list="{{ lanRowsV }}" as="lr" hint-placeholder-count="10">
+                      <tr class="row" style="height:28px; border-bottom:1px solid #F3F4F6">
+                        <td style="padding:0 10px; font-family:'JetBrains Mono', monospace; white-space:nowrap">{{ lr.label }}</td>
+                        <td style="padding:0 8px; text-align:right; font-family:'JetBrains Mono', monospace; white-space:nowrap; color:#374151">{{ lr.xfer }}</td>
+                        <td style="padding:0 8px; text-align:right; font-family:'JetBrains Mono', monospace; white-space:nowrap; font-weight:600">{{ lr.rate }}</td>
+                        <td style="{{ lr.extraStyle }}">{{ lr.extra }}</td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                  <tfoot>
+                    <tr style="height:32px; background:#F9FAFB; border-top:1px solid #E5E7EB">
+                      <td style="padding:0 10px; font-weight:600">Moyenne</td>
+                      <td style="padding:0 8px; text-align:right; font-family:'JetBrains Mono', monospace; white-space:nowrap">{{ lanTotXfer }}</td>
+                      <td style="padding:0 8px; text-align:right; font-family:'JetBrains Mono', monospace; white-space:nowrap; font-weight:700">{{ lanAvg }}</td>
+                      <td style="padding:0 10px 0 8px; text-align:right; font-family:'JetBrains Mono', monospace; white-space:nowrap">{{ lanTotExtra }}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+                <sc-if value="{{ lanEmpty }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:16px; text-align:center; color:#4B5563; font-size:12px">{{ lanEmptyText }}</div>
+                </sc-if>
+              </div>
+
+              <!-- Graphe -->
+              <div style="flex:1 1 260px; min-width:0; border:1px solid #E5E7EB; border-radius:8px; padding:10px">
+                <div style="display:flex; justify-content:space-between; align-items:baseline">
+                  <span style="font-size:12px; font-weight:600">Débit par seconde</span>
+                  <span style="font-family:'JetBrains Mono', monospace; font-size:12px; font-weight:600">{{ lanAvg }}</span>
+                </div>
+                <div role="img" aria-label="{{ lanChartAria }}" style="position:relative; margin-top:10px; height:150px; border-bottom:1px solid #E5E7EB; display:flex; align-items:flex-end; gap:4px">
+                  <div style="position:absolute; left:0; right:0; top:15px; border-top:1px dashed #D1D5DB"></div>
+                  <span style="position:absolute; right:0; top:0; font-size:10px; color:#4B5563; font-family:'JetBrains Mono', monospace">1000</span>
+                  <sc-for list="{{ lanBars }}" as="b" hint-placeholder-count="10">
+                    <div style="flex:1; min-width:0; display:flex; align-items:flex-end; gap:1px; height:150px">
+                      <div style="{{ b.s1 }}"></div>
+                      <div style="{{ b.s2 }}"></div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:11px; color:#4B5563; font-family:'JetBrains Mono', monospace"><span>0 s</span><span>{{ lanDurLabel }}</span></div>
+                <sc-if value="{{ lanBidir }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex; gap:12px; margin-top:8px; font-size:11px; color:#4B5563">
+                    <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:8px; height:8px; border-radius:2px; background:#2563EB"></span>Envoi (TX)</span>
+                    <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:8px; height:8px; border-radius:2px; background:#0E7490"></span>Réception (RX)</span>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </section>
+
+          <aside class="aside" style="flex:1 1 340px; max-width:380px; min-width:0; display:flex; flex-direction:column; gap:12px">
+            <section aria-labelledby="h-cmp" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+              <h2 id="h-cmp" style="margin:0 0 4px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Filaire vs Wi-Fi</h2>
+              <div style="font-size:12px; color:#4B5563">Même cible : NAS 10.10.0.20 · 4 flux · TCP · 10 s</div>
+              <div role="img" aria-label="Comparatif : Ethernet 941 Mb/s, Wi-Fi 612 Mb/s" style="margin-top:12px; display:flex; flex-direction:column; gap:12px">
+                <div>
+                  <div style="display:flex; justify-content:space-between; font-size:12px"><span style="font-family:'JetBrains Mono', monospace">en7 · Ethernet 1 Gb/s</span><span style="font-family:'JetBrains Mono', monospace; font-weight:700">941 Mb/s</span></div>
+                  <div style="margin-top:5px; height:14px; border-radius:4px; background:#F3F4F6; overflow:hidden"><div style="height:14px; width:94.1%; background:#2563EB"></div></div>
+                </div>
+                <div>
+                  <div style="display:flex; justify-content:space-between; font-size:12px"><span style="font-family:'JetBrains Mono', monospace">en0 · Wi-Fi 5 GHz ch. 44</span><span style="font-family:'JetBrains Mono', monospace; font-weight:700">612 Mb/s</span></div>
+                  <div style="margin-top:5px; height:14px; border-radius:4px; background:#F3F4F6; overflow:hidden"><div style="height:14px; width:61.2%; background:#C2410C"></div></div>
+                </div>
+              </div>
+              <div style="margin-top:12px; padding:8px 10px; border-radius:6px; background:#F9FAFB; border:1px solid #E5E7EB; font-size:12px; color:#374151">Le Wi-Fi atteint 65 % du filaire. Avec un PHY négocié à 866 Mb/s (2×2, 80 MHz), environ 600 Mb/s utiles est attendu : le goulot est le lien radio, pas le réseau.</div>
+              <a href="Wifi.dc.html" style="display:inline-flex; align-items:center; gap:6px; margin-top:10px; font-size:13px; font-weight:600; text-decoration:none">Analyser le Wi-Fi
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+            </section>
+
+            <section aria-labelledby="h-path" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+              <h2 id="h-path" style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Chemin mesuré</h2>
+              <ol style="list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px">
+                <sc-for list="{{ lanPath }}" as="hp" hint-placeholder-count="4">
+                  <li style="display:flex; align-items:center; gap:8px; font-size:12px">
+                    <span style="width:20px; height:20px; flex:none; border-radius:50%; background:#F3F4F6; color:#374151; font:600 11px 'JetBrains Mono', monospace; display:inline-flex; align-items:center; justify-content:center">{{ hp.n }}</span>
+                    <span style="flex:1; min-width:0">
+                      <span style="display:block; font-weight:600">{{ hp.name }}</span>
+                      <span style="display:block; font-size:11px; color:#4B5563; font-family:'JetBrains Mono', monospace">{{ hp.sub }}</span>
+                    </span>
+                  </li>
+                </sc-for>
+              </ol>
+              <div style="margin-top:10px; font-size:11px; color:#4B5563">Le trafic vers 10.10.0.0/24 traverse le FortiGate-60F : un débit inférieur à 940 Mb/s en filaire peut venir de l’inspection du pare-feu.</div>
+            </section>
+          </aside>
+        </div>
+      </sc-if>
+
+      <!-- ============ HISTORIQUE ============ -->
+      <sc-if value="{{ isHist }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; flex-direction:column; gap:14px">
+          <section aria-labelledby="h-evo" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:16px">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px">
+              <h2 id="h-evo" style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Évolution sur 30 jours · Internet</h2>
+              <span style="display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#374151"><span style="width:14px; height:2px; background:#2563EB"></span>Descente</span>
+              <span style="display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#374151"><span style="width:14px; height:2px; background:#0E7490"></span>Montée</span>
+              <span style="display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#374151"><span style="width:14px; height:0; border-top:2px dashed #9CA3AF"></span>Forfait</span>
+              <span style="margin-left:auto; font-size:12px; color:#4B5563; font-family:'JetBrains Mono', monospace">{{ evoSummary }}</span>
+            </div>
+            <svg role="img" aria-label="{{ evoAria }}" width="100%" height="190" viewBox="0 0 700 190" preserveAspectRatio="none" style="display:block; margin-top:10px">
+              <line x1="40" y1="10" x2="700" y2="10" stroke="#F3F4F6" stroke-width="1"></line>
+              <line x1="40" y1="45" x2="700" y2="45" stroke="#F3F4F6" stroke-width="1"></line>
+              <line x1="40" y1="80" x2="700" y2="80" stroke="#F3F4F6" stroke-width="1"></line>
+              <line x1="40" y1="115" x2="700" y2="115" stroke="#F3F4F6" stroke-width="1"></line>
+              <line x1="40" y1="150" x2="700" y2="150" stroke="#E5E7EB" stroke-width="1"></line>
+              <text x="34" y="14" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" fill="#4B5563">1000</text>
+              <text x="34" y="84" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" fill="#4B5563">500</text>
+              <text x="34" y="154" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" fill="#4B5563">0</text>
+              <line x1="40" y1="{{ evoPlanDownY }}" x2="700" y2="{{ evoPlanDownY }}" stroke="#9CA3AF" stroke-width="1.2" stroke-dasharray="5 4"></line>
+              <line x1="40" y1="{{ evoPlanUpY }}" x2="700" y2="{{ evoPlanUpY }}" stroke="#9CA3AF" stroke-width="1.2" stroke-dasharray="5 4"></line>
+              <polyline points="{{ evoDown }}" fill="none" stroke="#2563EB" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+              <polyline points="{{ evoUp }}" fill="none" stroke="#0E7490" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+              <circle cx="{{ evoDipX }}" cy="{{ evoDipY }}" r="4" fill="#FFFFFF" stroke="#C2410C" stroke-width="2"></circle>
+              <text x="{{ evoDipX }}" y="{{ evoDipLabelY }}" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#9A3412">en0 Wi-Fi</text>
+              <text x="40" y="172" font-family="JetBrains Mono, monospace" font-size="10" fill="#4B5563">5 oct.</text>
+              <text x="260" y="172" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#4B5563">15 oct.</text>
+              <text x="480" y="172" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#4B5563">25 oct.</text>
+              <text x="700" y="172" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" fill="#4B5563">3 nov.</text>
+            </svg>
+          </section>
+
+          <section aria-labelledby="h-hist" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; display:flex; flex-direction:column">
+            <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 12px; border-bottom:1px solid #E5E7EB">
+              <h2 id="h-hist" style="margin:0 6px 0 0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Tests enregistrés</h2>
+              <div role="group" aria-label="Filtrer par type" style="display:flex; flex-wrap:wrap; gap:6px">
+                <sc-for list="{{ histChips }}" as="c" hint-placeholder-count="3">
+                  <button type="button" class="chip" aria-pressed="{{ c.on }}" onClick="{{ c.pick }}" style="{{ c.style }}">{{ c.label }}<span style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#4B5563">{{ c.count }}</span></button>
+                </sc-for>
+              </div>
+              <button type="button" class="btn" onClick="{{ onExport }}" style="margin-left:auto; height:30px">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>Exporter CSV</button>
+            </div>
+            <div style="overflow-x:auto">
+              <table style="width:100%; min-width:900px; border-collapse:collapse; font-size:12px">
+                <thead>
+                  <tr style="height:32px; background:#F9FAFB; border-bottom:1px solid #E5E7EB">
+                    <th scope="col" style="padding:0 12px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Date / heure</th>
+                    <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Type</th>
+                    <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Serveur</th>
+                    <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Interface</th>
+                    <th scope="col" style="padding:0 8px; text-align:right; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Descente</th>
+                    <th scope="col" style="padding:0 8px; text-align:right; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Montée</th>
+                    <th scope="col" style="padding:0 8px; text-align:right; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Latence</th>
+                    <th scope="col" style="padding:0 12px 0 8px; text-align:right; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Gigue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <sc-for list="{{ histRows }}" as="hr" hint-placeholder-count="10">
+                    <tr class="{{ hr.cls }}" style="height:34px; border-bottom:1px solid #E5E7EB">
+                      <td style="padding:0 12px; white-space:nowrap; font-family:'JetBrains Mono', monospace">{{ hr.when }}</td>
+                      <td style="padding:0 8px; white-space:nowrap"><span style="{{ hr.typeStyle }}">{{ hr.typeLabel }}</span><span style="margin-left:6px; font-size:11px; color:#4B5563">{{ hr.origin }}</span></td>
+                      <td style="padding:0 8px; white-space:nowrap; color:#374151">{{ hr.server }}</td>
+                      <td style="padding:0 8px; white-space:nowrap; font-family:'JetBrains Mono', monospace; color:#374151">{{ hr.ifLabel }}</td>
+                      <td style="{{ hr.downStyle }}">{{ hr.downLabel }}</td>
+                      <td style="padding:0 8px; text-align:right; font-family:'JetBrains Mono', monospace; white-space:nowrap">{{ hr.upLabel }}</td>
+                      <td style="padding:0 8px; text-align:right; font-family:'JetBrains Mono', monospace; white-space:nowrap">{{ hr.latLabel }}</td>
+                      <td style="padding:0 12px 0 8px; text-align:right; font-family:'JetBrains Mono', monospace; white-space:nowrap">{{ hr.jitLabel }}</td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:12px; border-top:1px solid #E5E7EB; background:#F9FAFB; border-radius:0 0 8px 8px">
+              <button type="button" role="switch" aria-checked="{{ schedOn }}" aria-label="Planifier un test toutes les heures" onClick="{{ onSched }}" style="{{ schedTrack }}"><span style="{{ schedKnob }}"></span></button>
+              <div style="flex:1 1 300px; min-width:0">
+                <div style="font-weight:600; font-size:13px">Planifier un test toutes les heures</div>
+                <div style="font-size:12px; color:#4B5563">{{ schedText }}</div>
+              </div>
+              <a href="Surveillance.dc.html" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; text-decoration:none">Ouvrir Surveillance
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+            </div>
+          </section>
+        </div>
+      </sc-if>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000},"accent":"#2563EB","defaultTab":"net"}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const p = props || {};
+    const downPts = [];
+    const upPts = [];
+    for (let i = 0; i < 16; i++) {
+      downPts.push(912 * (1 - Math.exp(-(i + 1) / 2.6)) * (1 + 0.03 * Math.sin(i * 2.1)));
+      upPts.push(487 * (1 - Math.exp(-(i + 1) / 2.6)) * (1 + 0.03 * Math.cos(i * 1.7)));
+    }
+    const lanSeed = [918, 941, 942, 940, 941, 939, 942, 941, 940, 941];
+    const lanRetr = [12, 0, 0, 3, 0, 0, 1, 0, 0, 0];
+    this.state = {
+      tab: p.defaultTab || 'net',
+      iface: 'eth',
+      server: 'auto',
+      streams: 8,
+      proto: 'http',
+      phase: 'done',
+      tick: 0,
+      cur: 0,
+      downPts: downPts,
+      upPts: upPts,
+      res: { down: 912, up: 487, idle: 6, loaded: 18, jitter: 1.4, loss: 0 },
+      planDown: '1000',
+      planUp: '500',
+      toast: '',
+      lanTarget: 'nas',
+      lanDur: 10,
+      lanStreams: 4,
+      lanProto: 'tcp',
+      lanDir: 'normal',
+      lanRunning: false,
+      lanRows: lanSeed.map((v, i) => ({ i: i, v: v, v2: 0, x: lanRetr[i] })),
+      histF: 'all',
+      sched: false,
+      history: [
+        { id: 'h1', when: '3 nov. 2026 · 09:12', type: 'net', origin: 'manuel', server: 'Montréal – [OPÉRATEUR]', iface: 'en7', down: 912, up: 487, lat: 6, jit: 1.4 },
+        { id: 'h2', when: '3 nov. 2026 · 08:00', type: 'net', origin: 'planifié', server: 'Montréal – [OPÉRATEUR]', iface: 'en7', down: 905, up: 489, lat: 6, jit: 1.2 },
+        { id: 'h3', when: '2 nov. 2026 · 16:41', type: 'lan', origin: 'manuel', server: 'NAS 10.10.0.20', iface: 'en7', down: 941, up: null, lat: 0.4, jit: null },
+        { id: 'h4', when: '2 nov. 2026 · 16:35', type: 'lan', origin: 'manuel', server: 'NAS 10.10.0.20', iface: 'en0', down: 612, up: null, lat: 3.1, jit: null },
+        { id: 'h5', when: '2 nov. 2026 · 14:05', type: 'net', origin: 'manuel', server: 'Montréal – [OPÉRATEUR]', iface: 'en0', down: 588, up: 462, lat: 8, jit: 4.8 },
+        { id: 'h6', when: '31 oct. 2026 · 09:00', type: 'net', origin: 'manuel', server: 'Toronto – [OPÉRATEUR]', iface: 'en7', down: 884, up: 481, lat: 13, jit: 1.9 },
+        { id: 'h7', when: '30 oct. 2026 · 11:22', type: 'lan', origin: 'manuel', server: 'SRV-FICHIERS 10.10.0.12', iface: 'en7', down: 938, up: null, lat: 0.5, jit: null },
+        { id: 'h8', when: '28 oct. 2026 · 15:48', type: 'net', origin: 'manuel', server: 'Québec', iface: 'en7', down: 897, up: 484, lat: 9, jit: 1.6 },
+        { id: 'h9', when: '24 oct. 2026 · 10:03', type: 'net', origin: 'manuel', server: 'Ottawa', iface: 'en7', down: 901, up: 486, lat: 8, jit: 1.5 },
+        { id: 'h10', when: '20 oct. 2026 · 08:47', type: 'net', origin: 'manuel', server: 'Montréal – [OPÉRATEUR]', iface: 'en7', down: 909, up: 488, lat: 6, jit: 1.3 }
+      ],
+      fresh: ''
+    };
+  }
+
+  componentWillUnmount() {
+    clearInterval(this.netTimer);
+    clearInterval(this.lanTimer);
+  }
+
+  serverDefs() {
+    return [
+      { id: 'auto', name: 'Automatique (le plus proche)', sub: 'Choisit Montréal – [OPÉRATEUR]', km: 12, ms: 6, f: 1 },
+      { id: 'mtl', name: 'Montréal – [OPÉRATEUR]', sub: 'Serveur du fournisseur', km: 12, ms: 6, f: 1 },
+      { id: 'tor', name: 'Toronto – [OPÉRATEUR]', sub: 'Serveur du fournisseur', km: 505, ms: 13, f: 0.97 },
+      { id: 'qc', name: 'Québec', sub: 'Serveur public', km: 245, ms: 9, f: 0.985 },
+      { id: 'ott', name: 'Ottawa', sub: 'Serveur public', km: 190, ms: 8, f: 0.99 }
+    ];
+  }
+
+  netTargets() {
+    const s = this.state;
+    const sv = this.serverDefs().find(x => x.id === s.server) || this.serverDefs()[0];
+    const wifi = s.iface === 'wifi';
+    const sf = { 1: [0.58, 0.7], 4: [0.96, 0.98], 8: [1, 1], 16: [0.99, 1] }[s.streams] || [1, 1];
+    const pf = { http: [1, 1], tcp: [0.97, 0.98], udp: [1.02, 1.01] }[s.proto] || [1, 1];
+    const baseDown = wifi ? 588 : 912;
+    const baseUp = wifi ? 462 : 487;
+    const idle = sv.ms + (wifi ? 2 : 0);
+    return {
+      down: Math.min(wifi ? 610 : 935, Math.round(baseDown * sv.f * sf[0] * pf[0])),
+      up: Math.min(495, Math.round(baseUp * sv.f * sf[1] * pf[1])),
+      idle: idle,
+      loaded: idle + (wifi ? 34 : 12),
+      jitter: wifi ? 4.8 : 1.4,
+      server: sv.id === 'auto' ? 'Montréal – [OPÉRATEUR]' : sv.name
+    };
+  }
+
+  startNet() {
+    clearInterval(this.netTimer);
+    this.cfg = this.netTargets();
+    this.setState({ phase: 'ping', tick: 0, cur: 0, downPts: [], upPts: [], res: { down: null, up: null, idle: null, loaded: null, jitter: null, loss: null }, toast: '', fresh: '' });
+    this.netTimer = setInterval(() => this.netStep(), 200);
+  }
+
+  netStep() {
+    const s = this.state;
+    const c = this.cfg;
+    const t = s.tick + 1;
+    const noise = () => 1 + (Math.random() - 0.5) * 0.07;
+    if (s.phase === 'ping') {
+      const v = Math.max(1, c.idle + (Math.random() - 0.5) * c.jitter * 1.6);
+      if (t >= 8) this.setState({ phase: 'down', tick: 0, cur: 0, res: { ...s.res, idle: c.idle, jitter: c.jitter } });
+      else this.setState({ tick: t, cur: v });
+      return;
+    }
+    if (s.phase === 'down') {
+      const v = Math.min(1000, c.down * (1 - Math.exp(-t / 2.6)) * noise());
+      const pts = s.downPts.concat([v]);
+      if (t >= 16) this.setState({ phase: 'up', tick: 0, cur: 0, downPts: pts, res: { ...s.res, down: c.down } });
+      else this.setState({ tick: t, cur: v, downPts: pts });
+      return;
+    }
+    if (s.phase === 'up') {
+      const v = Math.min(1000, c.up * (1 - Math.exp(-t / 2.6)) * noise());
+      const pts = s.upPts.concat([v]);
+      if (t >= 16) {
+        clearInterval(this.netTimer);
+        const d = new Date();
+        const hh = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        const row = { id: 'n' + d.getTime(), when: "Aujourd'hui · " + hh, type: 'net', origin: 'manuel', server: c.server, iface: s.iface === 'wifi' ? 'en0' : 'en7', down: c.down, up: c.up, lat: c.idle, jit: c.jitter };
+        this.setState({ phase: 'done', tick: 0, cur: 0, upPts: pts, res: { ...s.res, up: c.up, loaded: c.loaded, loss: 0 }, history: [row].concat(s.history), fresh: row.id, toast: 'Test terminé et ajouté à l’historique' });
+      } else this.setState({ tick: t, cur: v, upPts: pts });
+    }
+  }
+
+  lanTarget() {
+    const s = this.state;
+    const wifi = s.iface === 'wifi' || s.lanTarget === 'self';
+    let base = wifi ? 612 : (s.lanTarget === 'srv' ? 938 : 941);
+    if (s.lanStreams === 1) base = Math.round(base * (wifi ? 0.78 : 0.97));
+    if (s.lanProto === 'udp') base = Math.min(wifi ? 640 : 956, Math.round(base * 1.015));
+    return { base: base, wifi: wifi };
+  }
+
+  startLan() {
+    clearInterval(this.lanTimer);
+    this.lanCfg = this.lanTarget();
+    this.setState({ lanRunning: true, lanRows: [], toast: '' });
+    this.lanTimer = setInterval(() => {
+      const s = this.state;
+      const i = s.lanRows.length;
+      const b = this.lanCfg.base;
+      const ramp = i === 0 ? 0.975 : 1;
+      const jit = this.lanCfg.wifi ? 0.05 : 0.004;
+      const v = Math.round(b * ramp * (1 + (Math.random() - 0.5) * jit));
+      const v2 = s.lanDir === 'bidir' ? Math.round(v * 0.94 * (1 + (Math.random() - 0.5) * 0.01)) : 0;
+      const x = s.lanProto === 'udp' ? 0 : (i === 0 ? 8 + Math.floor(Math.random() * 8) : (Math.random() < 0.25 ? Math.floor(Math.random() * 4) : 0));
+      const rows = s.lanRows.concat([{ i: i, v: s.lanDir === 'bidir' ? Math.round(v * 0.96) : v, v2: v2, x: x }]);
+      if (rows.length >= s.lanDur) {
+        clearInterval(this.lanTimer);
+        const avg = Math.round(rows.reduce((a, r) => a + r.v, 0) / rows.length);
+        const avg2 = s.lanDir === 'bidir' ? Math.round(rows.reduce((a, r) => a + r.v2, 0) / rows.length) : null;
+        const names = { nas: 'NAS 10.10.0.20', srv: 'SRV-FICHIERS 10.10.0.12', self: 'WKS346 → ce Mac' };
+        const d = new Date();
+        const hh = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        const row = { id: 'l' + d.getTime(), when: "Aujourd'hui · " + hh, type: 'lan', origin: 'manuel', server: names[s.lanTarget], iface: this.lanCfg.wifi ? 'en0' : 'en7', down: avg, up: avg2, lat: this.lanCfg.wifi ? 3.1 : 0.4, jit: s.lanProto === 'udp' ? 0.08 : null };
+        this.setState({ lanRows: rows, lanRunning: false, history: [row].concat(s.history), fresh: row.id, toast: 'Test iperf3 terminé : ' + avg + ' Mb/s' });
+      } else this.setState({ lanRows: rows });
+    }, 450);
+  }
+
+  renderVals() {
+    const s = this.state;
+    const props = this.props || {};
+    const accent = props.accent || '#2563EB';
+    const fmt = (n, d) => n === null || n === undefined ? '—' : Number(n).toFixed(d).replace('.', ',');
+    const running = ['ping', 'down', 'up'].indexOf(s.phase) >= 0;
+    const wifi = s.iface === 'wifi';
+    const segStyle = on => 'height:30px; border-radius:6px; font:500 12px Inter, system-ui, sans-serif; ' + (on ? 'background:#EFF6FF; border:1px solid ' + accent + '; color:#1D4ED8;' : 'background:#FFFFFF; border:1px solid #E5E7EB; color:#111827;');
+
+    // Onglets
+    const tabDefs = [
+      { id: 'net', label: 'Internet', sub: '' },
+      { id: 'lan', label: 'Réseau local (iperf3)', sub: '' },
+      { id: 'hist', label: 'Historique', sub: String(s.history.length) }
+    ];
+    const tabs = tabDefs.map(t => {
+      const on = s.tab === t.id;
+      return {
+        label: t.label,
+        sub: t.sub,
+        sel: on ? 'true' : 'false',
+        subStyle: t.sub ? 'margin-left:6px; font-family:JetBrains Mono, monospace; font-size:11px; color:#4B5563;' : 'display:none;',
+        style: 'height:30px; padding:0 14px; border:0; border-radius:6px; font:600 13px Inter, system-ui, sans-serif; ' + (on ? 'background:#FFFFFF; color:#111827; box-shadow:0 1px 2px rgba(15,23,42,.12);' : 'background:transparent; color:#4B5563;'),
+        pick: () => this.setState({ tab: t.id })
+      };
+    });
+    const tabHint = s.tab === 'net' ? 'Débit du lien Internet via la passerelle FortiGate-60F' : (s.tab === 'lan' ? 'Débit entre ce Mac et un serveur iperf3 du réseau' : 'Résultats conservés 90 jours sur ce Mac');
+
+    // Statut
+    let statusText = 'Prêt';
+    let statusColor = '#4B5563';
+    let statusBg = '#F3F4F6';
+    if (running) { statusText = 'Test Internet en cours'; statusColor = '#1D4ED8'; statusBg = '#EFF6FF'; }
+    else if (s.lanRunning) { statusText = 'iperf3 en cours'; statusColor = '#1D4ED8'; statusBg = '#EFF6FF'; }
+    else if (s.phase === 'done') { statusText = 'Dernier test : ' + s.res.down + ' / ' + s.res.up + ' Mb/s'; statusColor = '#15803D'; statusBg = '#DCFCE7'; }
+    else if (s.phase === 'stopped') { statusText = 'Test arrêté'; statusColor = '#C2410C'; statusBg = '#FFEDD5'; }
+    const busy = running || s.lanRunning;
+
+    // Jauge
+    const pt = (a, r) => { const rad = a * Math.PI / 180; return [150 + r * Math.cos(rad), 150 + r * Math.sin(rad)]; };
+    const arcD = (a0, a1, r) => {
+      if (a1 - a0 < 0.5) return 'M0 0';
+      const p0 = pt(a0, r);
+      const p1 = pt(a1, r);
+      return 'M' + p0[0].toFixed(1) + ' ' + p0[1].toFixed(1) + ' A' + r + ' ' + r + ' 0 ' + (a1 - a0 > 180 ? 1 : 0) + ' 1 ' + p1[0].toFixed(1) + ' ' + p1[1].toFixed(1);
+    };
+    let ticks = '';
+    for (let v = 0; v <= 1000; v += 50) {
+      const a = 135 + 270 * v / 1000;
+      const major = v % 200 === 0;
+      const p0 = pt(a, 102);
+      const p1 = pt(a, major ? 92 : 97);
+      ticks += 'M' + p0[0].toFixed(1) + ' ' + p0[1].toFixed(1) + 'L' + p1[0].toFixed(1) + ' ' + p1[1].toFixed(1);
+    }
+    let gVal = 0;
+    let gPhase = 'Prêt';
+    let gUnit = 'Mb/s';
+    let gColor = accent;
+    let gText = '0';
+    if (s.phase === 'ping') { gVal = 0; gPhase = 'Latence'; gUnit = 'ms · ping au repos'; gColor = '#4B5563'; gText = fmt(s.cur, 1); }
+    else if (s.phase === 'down') { gVal = s.cur; gPhase = 'Téléchargement'; gText = String(Math.round(s.cur)); }
+    else if (s.phase === 'up') { gVal = s.cur; gPhase = 'Téléversement'; gColor = '#0E7490'; gText = String(Math.round(s.cur)); }
+    else if (s.phase === 'done') { gVal = s.res.down; gPhase = 'Téléchargement · résultat'; gText = String(s.res.down); }
+    else if (s.phase === 'stopped') { gVal = 0; gPhase = 'Test arrêté'; gText = '—'; }
+    const ang = 135 + 270 * Math.min(1, Math.max(0, gVal / 1000));
+    const needle = pt(ang, 78);
+    const dot = pt(ang, 118);
+    const g = {
+      track: arcD(135, 405, 118),
+      arc: arcD(135, ang, 118),
+      ticks: ticks,
+      color: gColor,
+      nx: needle[0].toFixed(1),
+      ny: needle[1].toFixed(1),
+      dx: dot[0].toFixed(1),
+      dy: dot[1].toFixed(1),
+      phase: gPhase,
+      value: gText,
+      unit: gUnit,
+      aria: 'Jauge de débit : ' + gPhase + ' ' + gText + ' ' + gUnit
+    };
+
+    // Étapes
+    const order = ['ping', 'down', 'up'];
+    const idx = s.phase === 'done' ? 3 : order.indexOf(s.phase);
+    const stepDefs = [
+      { label: 'Latence', val: s.res.idle !== null ? s.res.idle + ' ms' : '' },
+      { label: 'Téléchargement', val: s.res.down !== null ? s.res.down + ' Mb/s' : '' },
+      { label: 'Téléversement', val: s.res.up !== null ? s.res.up + ' Mb/s' : '' }
+    ];
+    const steps = stepDefs.map((d, i) => {
+      const done = idx > i;
+      const cur = idx === i;
+      return {
+        label: d.label,
+        val: d.val,
+        dotCls: cur ? 'pulse' : '',
+        dotStyle: 'width:8px; height:8px; border-radius:50%; background:' + (done ? '#15803D' : (cur ? accent : '#D1D5DB')) + ';',
+        style: 'display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 10px; border-radius:13px; font-size:12px; font-weight:600; ' + (cur ? 'background:#EFF6FF; color:#1D4ED8;' : (done ? 'background:#DCFCE7; color:#15803D;' : 'background:#F3F4F6; color:#4B5563;'))
+      };
+    });
+    let pct = 0;
+    if (s.phase === 'ping') pct = s.tick / 8 * 20;
+    else if (s.phase === 'down') pct = 20 + s.tick / 16 * 40;
+    else if (s.phase === 'up') pct = 60 + s.tick / 16 * 40;
+    else if (s.phase === 'done') pct = 100;
+    const elapsed = s.phase === 'ping' ? s.tick * 0.2 : (s.phase === 'down' ? 1.6 + s.tick * 0.2 : (s.phase === 'up' ? 4.8 + s.tick * 0.2 : (s.phase === 'done' ? 8 : 0)));
+
+    // Courbes
+    const curve = arr => {
+      if (!arr.length) return { line: '0,59', area: '0,59 0,59' };
+      const pts = arr.map((v, i) => (i * 240 / 15).toFixed(1) + ',' + (59 - Math.min(1000, v) / 1000 * 56).toFixed(1));
+      const lastX = ((arr.length - 1) * 240 / 15).toFixed(1);
+      return { line: pts.join(' '), area: '0,59 ' + pts.join(' ') + ' ' + lastX + ',59' };
+    };
+    const dc = curve(s.downPts);
+    const uc = curve(s.upPts);
+    const last = arr => arr.length ? Math.round(arr[arr.length - 1]) + ' Mb/s' : '—';
+    const peak = arr => arr.length ? 'pic ' + Math.round(Math.max.apply(null, arr)) + ' Mb/s' : 'en attente';
+
+    // Tuiles
+    const planD = Math.max(1, parseFloat(s.planDown) || 1);
+    const planU = Math.max(1, parseFloat(s.planUp) || 1);
+    const bb = s.res.loaded !== null && s.res.idle !== null ? s.res.loaded - s.res.idle : null;
+    const grade = bb === null ? '' : (bb < 5 ? 'A+' : (bb < 30 ? 'A' : (bb < 60 ? 'B' : 'C')));
+    const gradeStyle = 'font-size:11px; font-weight:700; padding:1px 6px; border-radius:4px; ' + (grade === 'B' || grade === 'C' ? 'background:#FFEDD5; color:#9A3412;' : 'background:#DCFCE7; color:#15803D;');
+    const tiles = [
+      { label: 'Téléchargement', value: s.res.down !== null ? String(s.res.down) : '—', unit: 'Mb/s', sub: s.res.down !== null ? Math.round(s.res.down / planD * 100) + ' % du forfait' : 'en attente', hasBadge: false },
+      { label: 'Téléversement', value: s.res.up !== null ? String(s.res.up) : '—', unit: 'Mb/s', sub: s.res.up !== null ? Math.round(s.res.up / planU * 100) + ' % du forfait' : 'en attente', hasBadge: false },
+      { label: 'Latence au repos', value: s.res.idle !== null ? String(s.res.idle) : '—', unit: 'ms', sub: 'ICMP + TCP vers le serveur', hasBadge: false },
+      { label: 'Latence en charge', value: s.res.loaded !== null ? String(s.res.loaded) : '—', unit: 'ms', sub: bb !== null ? 'Bufferbloat +' + bb + ' ms' : 'mesurée pendant le débit', hasBadge: !!grade, badge: grade, badgeStyle: gradeStyle },
+      { label: 'Gigue', value: s.res.jitter !== null ? fmt(s.res.jitter, 1) : '—', unit: 'ms', sub: 'écart moyen entre pings', hasBadge: false },
+      { label: 'Perte de paquets', value: s.res.loss !== null ? String(s.res.loss) : '—', unit: '%', sub: s.res.loss !== null ? '0 sur 200 sondes' : 'en attente', hasBadge: false }
+    ].map(t => ({ badge: '', badgeStyle: '', ...t }));
+
+    const planBars = [
+      { label: 'Descente', r: s.res.down, p: planD },
+      { label: 'Montée', r: s.res.up, p: planU }
+    ].map(b => {
+      const has = b.r !== null;
+      const ratio = has ? Math.round(b.r / b.p * 100) : 0;
+      const ok = ratio >= 80;
+      return {
+        label: b.label,
+        text: has ? b.r + ' / ' + b.p + ' Mb/s · ' + ratio + ' %' : '— / ' + b.p + ' Mb/s',
+        barStyle: 'height:8px; width:' + Math.min(100, ratio) + '%; background:' + (ok ? '#15803D' : '#C2410C') + ';',
+        note: !has ? 'Lancez un test pour comparer.' : (ok ? 'Conforme au forfait (seuil 80 %).' : (wifi ? 'Sous 80 % : mesure limitée par le Wi-Fi.' : 'Sous 80 % du forfait : à signaler au fournisseur.')),
+        noteStyle: 'font-size:11px; margin-top:4px; color:' + (!has ? '#4B5563' : (ok ? '#15803D' : '#C2410C')) + ';'
+      };
+    });
+
+    const servers = this.serverDefs().map(sv => {
+      const on = s.server === sv.id;
+      return {
+        name: sv.name,
+        sub: sv.sub,
+        dist: sv.km + ' km',
+        lat: (sv.ms + (wifi ? 2 : 0)) + ' ms',
+        on: on ? 'true' : 'false',
+        style: 'display:flex; align-items:center; gap:10px; width:100%; padding:7px 9px; border-radius:6px; font-family:Inter, system-ui, sans-serif; ' + (on ? 'background:#EFF6FF; border:1px solid ' + accent + ';' : 'background:#FFFFFF; border:1px solid #E5E7EB;'),
+        radioStyle: 'width:14px; height:14px; flex:none; border-radius:50%; box-sizing:border-box; ' + (on ? 'border:4px solid ' + accent + '; background:#FFFFFF;' : 'border:1.5px solid #6B7280;'),
+        pick: () => this.setState({ server: sv.id })
+      };
+    });
+    const streamOpts = [1, 4, 8, 16].map(n => ({ label: String(n), on: s.streams === n ? 'true' : 'false', style: segStyle(s.streams === n), pick: () => this.setState({ streams: n }) }));
+    const protoDefs = [{ id: 'http', label: 'HTTP multi-flux' }, { id: 'tcp', label: 'TCP' }, { id: 'udp', label: 'UDP' }];
+    const protoOpts = protoDefs.map(o => ({ label: o.label, on: s.proto === o.id ? 'true' : 'false', style: segStyle(s.proto === o.id), pick: () => this.setState({ proto: o.id }) }));
+    const ifaceOpts = [{ id: 'eth', label: 'en7 · Ethernet' }, { id: 'wifi', label: 'en0 · Wi-Fi' }].map(o => ({ label: o.label, on: s.iface === o.id ? 'true' : 'false', style: segStyle(s.iface === o.id), pick: () => this.setState({ iface: o.id }) }));
+    const svCur = this.serverDefs().find(x => x.id === s.server);
+    const svName = s.server === 'auto' ? 'Montréal – [OPÉRATEUR] (auto)' : svCur.name;
+
+    // ---------- iperf3 ----------
+    const lanNames = { nas: '10.10.0.20', srv: '10.10.0.12', self: '' };
+    const dirFlag = s.lanDir === 'reverse' ? ' -R' : (s.lanDir === 'bidir' ? ' --bidir' : '');
+    const udpFlag = s.lanProto === 'udp' ? ' -u -b 1G' : '';
+    const lanCmd = s.lanTarget === 'self' ? 'iperf3 -s -p 5201' : 'iperf3 -c ' + lanNames[s.lanTarget] + ' -p 5201 -t ' + s.lanDur + ' -P ' + s.lanStreams + udpFlag + dirFlag;
+    const lanSelf = s.lanTarget === 'self';
+    const lanCmdLine2 = lanSelf ? 'Serveur en écoute sur 10.182.122.135:5201 · client : WKS346 (10.182.122.117)' : 'Connecting to host ' + lanNames[s.lanTarget] + ', port 5201 · local ' + (wifi ? '10.182.122.135 (en0)' : '10.182.122.135 (en7)');
+    const udp = s.lanProto === 'udp';
+    const bidir = s.lanDir === 'bidir';
+    const lanRowsV = s.lanRows.map(r => {
+      const mb = r.v / 8;
+      return {
+        label: r.i + '–' + (r.i + 1) + ' s',
+        xfer: fmt(mb + (bidir ? r.v2 / 8 : 0), 1) + ' Mo',
+        rate: bidir ? r.v + ' / ' + r.v2 : String(r.v),
+        extra: udp ? '0 / ' + Math.round(r.v * 85) + ' (0 %)' : String(r.x),
+        extraStyle: 'padding:0 10px 0 8px; text-align:right; font-family:JetBrains Mono, monospace; white-space:nowrap; color:' + (!udp && r.x > 5 ? '#C2410C' : '#374151') + ';'
+      };
+    });
+    const n = s.lanRows.length;
+    const avg = n ? Math.round(s.lanRows.reduce((a, r) => a + r.v, 0) / n) : 0;
+    const avg2 = n && bidir ? Math.round(s.lanRows.reduce((a, r) => a + r.v2, 0) / n) : 0;
+    const totMo = s.lanRows.reduce((a, r) => a + r.v / 8 + r.v2 / 8, 0);
+    const totRetr = s.lanRows.reduce((a, r) => a + r.x, 0);
+    const lanBars = s.lanRows.map(r => ({
+      s1: 'flex:1; min-width:0; border-radius:2px 2px 0 0; background:' + accent + '; height:' + Math.round(Math.min(1000, r.v) / 1000 * 135) + 'px;',
+      s2: bidir ? 'flex:1; min-width:0; border-radius:2px 2px 0 0; background:#0E7490; height:' + Math.round(Math.min(1000, r.v2) / 1000 * 135) + 'px;' : 'display:none;'
+    }));
+    const lanStreamOpts = [1, 4, 8].map(k => ({ label: String(k), on: s.lanStreams === k ? 'true' : 'false', style: segStyle(s.lanStreams === k), pick: () => this.setState({ lanStreams: k }) }));
+    const lanProtoOpts = [{ id: 'tcp', label: 'TCP' }, { id: 'udp', label: 'UDP' }].map(o => ({ label: o.label, on: s.lanProto === o.id ? 'true' : 'false', style: segStyle(s.lanProto === o.id), pick: () => this.setState({ lanProto: o.id }) }));
+    const lanDirOpts = [{ id: 'normal', label: 'Normal' }, { id: 'reverse', label: 'Inverse -R' }, { id: 'bidir', label: 'Bidirectionnel' }].map(o => ({ label: o.label, on: s.lanDir === o.id ? 'true' : 'false', style: segStyle(s.lanDir === o.id), pick: () => this.setState({ lanDir: o.id }) }));
+    const lanIfWifi = wifi || lanSelf;
+    const lanPath = lanSelf ? [
+      { n: '1', name: 'WKS346 (client)', sub: '10.182.122.117 · Gi1/0/22 SW-CORE-01' },
+      { n: '2', name: 'SW-CORE-01', sub: 'Cisco Catalyst 9300-48P · 10.182.122.2' },
+      { n: '3', name: 'FortiAP-231F', sub: '10.182.122.102 · Wi-Fi 5 GHz ch. 44' },
+      { n: '4', name: 'Macmini-de-Dany (serveur)', sub: '10.182.122.135 · en0 · port 5201' }
+    ] : [
+      { n: '1', name: 'Macmini-de-Dany', sub: '10.182.122.135 · ' + (lanIfWifi ? 'en0 Wi-Fi via FortiAP-231F' : 'en7 Ethernet 1 Gb/s') },
+      { n: '2', name: 'SW-CORE-01', sub: 'Cisco Catalyst 9300-48P · 10.182.122.2' },
+      { n: '3', name: 'FortiGate-60F', sub: '10.182.122.1 → 10.10.0.1 (routage inter-VLAN)' },
+      { n: '4', name: s.lanTarget === 'srv' ? 'SRV-FICHIERS' : 'NAS Synology', sub: (s.lanTarget === 'srv' ? '10.10.0.12 · Windows Server 2022' : '10.10.0.20 · DSM') + ' · iperf3 5201' }
+    ];
+    const lanDone = !s.lanRunning && n > 0;
+
+    // ---------- Historique ----------
+    const hist = s.history;
+    const histCount = { all: hist.length, net: hist.filter(h => h.type === 'net').length, lan: hist.filter(h => h.type === 'lan').length };
+    const histChips = [{ id: 'all', label: 'Tous' }, { id: 'net', label: 'Internet' }, { id: 'lan', label: 'Réseau local' }].map(c => {
+      const on = s.histF === c.id;
+      return {
+        label: c.label,
+        count: String(histCount[c.id]),
+        on: on ? 'true' : 'false',
+        style: 'display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 10px; border-radius:14px; font:500 12px Inter, system-ui, sans-serif; ' + (on ? 'background:#EFF6FF; border:1px solid ' + accent + '; color:#1D4ED8;' : 'background:#FFFFFF; border:1px solid #E5E7EB; color:#111827;'),
+        pick: () => this.setState({ histF: c.id })
+      };
+    });
+    const histRows = hist.filter(h => s.histF === 'all' || h.type === s.histF).map(h => {
+      const isLan = h.type === 'lan';
+      const low = !isLan && h.down < planD * 0.8;
+      return {
+        ...h,
+        cls: h.id === s.fresh ? 'row fresh' : 'row',
+        typeLabel: isLan ? 'iperf3' : 'Internet',
+        typeStyle: 'font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; ' + (isLan ? 'background:#F3F4F6; color:#374151;' : 'background:#DBEAFE; color:#1D4ED8;'),
+        ifLabel: h.iface === 'en0' ? 'en0 · Wi-Fi' : 'en7 · Ethernet',
+        downLabel: h.down + ' Mb/s',
+        downStyle: 'padding:0 8px; text-align:right; font-family:JetBrains Mono, monospace; white-space:nowrap; font-weight:600; color:' + (low ? '#C2410C' : '#111827') + ';',
+        upLabel: h.up === null ? '—' : h.up + ' Mb/s',
+        latLabel: fmt(h.lat, h.lat < 1 ? 1 : (h.lat % 1 ? 1 : 0)) + ' ms',
+        jitLabel: h.jit === null ? '—' : fmt(h.jit, h.jit < 1 ? 2 : 1) + ' ms'
+      };
+    });
+    const yOf = v => (150 - Math.min(1000, v) / 1000 * 140).toFixed(1);
+    const evoD = [];
+    const evoU = [];
+    let sumD = 0;
+    let minD = 9999;
+    for (let i = 0; i < 30; i++) {
+      const dv = i === 28 ? 588 : Math.round(903 + 9 * Math.sin(i * 1.3) + 5 * Math.cos(i * 2.7));
+      const uv = i === 28 ? 462 : Math.round(485 + 3 * Math.cos(i * 1.1));
+      sumD += dv;
+      minD = Math.min(minD, dv);
+      const x = (40 + i * 660 / 29).toFixed(1);
+      evoD.push(x + ',' + yOf(dv));
+      evoU.push(x + ',' + yOf(uv));
+    }
+    const dipX = (40 + 28 * 660 / 29).toFixed(1);
+
+    const exportName = 'speedtest-historique-2026-11-03.csv';
+
+    return {
+      tabs: tabs,
+      tabHint: tabHint,
+      isNet: s.tab === 'net',
+      isLan: s.tab === 'lan',
+      isHist: s.tab === 'hist',
+      toast: s.toast,
+      hasToast: !!s.toast,
+      statusText: statusText,
+      statusBadgeStyle: 'display:inline-flex; align-items:center; gap:6px; height:24px; padding:0 9px; border-radius:12px; font-size:12px; font-weight:600; background:' + statusBg + '; color:' + statusColor + ';',
+      statusDotCls: busy ? 'pulse' : '',
+      statusDotStyle: 'width:7px; height:7px; border-radius:50%; background:' + statusColor + ';',
+      iface: s.iface,
+      onIfaceSel: (e) => this.setState({ iface: e.target.value }),
+      onUseEth: () => this.setState({ iface: 'eth' }),
+      isWifi: wifi,
+      ifaceDetail: wifi ? 'en0 · Wi-Fi 5 GHz · canal 44' : 'en7 · Ethernet 1 Gb/s',
+      onExport: () => this.setState({ toast: 'Exporté : ' + exportName + ' (' + hist.length + ' lignes)' }),
+
+      runSummary: svName + ' · ' + (wifi ? 'en0 Wi-Fi' : 'en7 Ethernet'),
+      startLabel: running ? 'Relancer le test' : 'Lancer le test',
+      startStyle: 'background:' + accent + ';',
+      onStartNet: () => this.startNet(),
+      onStopNet: () => { if (!running) return; clearInterval(this.netTimer); this.setState({ phase: 'stopped', toast: 'Test arrêté par l’utilisateur' }); },
+      stopDisabled: running ? 'false' : 'true',
+      g: g,
+      steps: steps,
+      pct: String(Math.round(pct)),
+      pctLabel: Math.round(pct) + ' %',
+      pctBarStyle: 'height:6px; width:' + pct.toFixed(1) + '%; background:' + (s.phase === 'done' ? '#15803D' : accent) + ';',
+      elapsedLabel: fmt(elapsed, 1) + ' s / ~8 s',
+      downLine: dc.line,
+      downArea: dc.area,
+      upLine: uc.line,
+      upArea: uc.area,
+      downLive: last(s.downPts),
+      upLive: last(s.upPts),
+      downPeak: peak(s.downPts),
+      upPeak: peak(s.upPts),
+      streamsLabel: s.streams + (s.streams > 1 ? ' flux' : ' flux unique'),
+      protoLabel: (protoDefs.find(o => o.id === s.proto) || protoDefs[0]).label,
+      tiles: tiles,
+      planBars: planBars,
+      planDown: s.planDown,
+      planUp: s.planUp,
+      onPlanDown: (e) => this.setState({ planDown: e.target.value }),
+      onPlanUp: (e) => this.setState({ planUp: e.target.value }),
+      servers: servers,
+      streamOpts: streamOpts,
+      protoOpts: protoOpts,
+      ifaceOpts: ifaceOpts,
+
+      lanTarget: s.lanTarget,
+      onLanTarget: (e) => this.setState({ lanTarget: e.target.value }),
+      lanDurStr: String(s.lanDur),
+      onLanDur: (e) => this.setState({ lanDur: parseInt(e.target.value, 10) || 10 }),
+      lanStreamOpts: lanStreamOpts,
+      lanProtoOpts: lanProtoOpts,
+      lanDirOpts: lanDirOpts,
+      lanCmd: lanCmd,
+      lanCmdLine2: lanCmdLine2,
+      lanRunning: s.lanRunning,
+      lanLiveLine: '[SUM] ' + n + '.00-' + (n + 1) + '.00 sec · mesure en cours…',
+      lanSummary: (lanSelf ? 'Mode serveur · port 5201' : (s.lanTarget === 'srv' ? 'SRV-FICHIERS 10.10.0.12' : 'NAS 10.10.0.20')) + ' · ' + (lanIfWifi ? 'Wi-Fi' : 'Ethernet') + ' · ' + s.lanDur + ' s',
+      lanStartLabel: s.lanRunning ? 'Mesure en cours…' : (lanSelf ? 'Démarrer le serveur' : 'Lancer'),
+      lanStartStyle: 'background:' + accent + ';',
+      onStartLan: () => this.startLan(),
+      onStopLan: () => { if (!s.lanRunning) return; clearInterval(this.lanTimer); this.setState({ lanRunning: false, toast: 'iperf3 interrompu après ' + n + ' s' }); },
+      lanColRate: bidir ? 'TX / RX Mb/s' : 'Débit Mb/s',
+      lanColExtra: udp ? 'Perdus / total' : 'Retrans.',
+      lanRowsV: lanRowsV,
+      lanEmpty: n === 0,
+      lanEmptyText: s.lanRunning ? 'Connexion au serveur iperf3…' : 'Aucun résultat.',
+      lanTotXfer: n ? fmt(totMo, 0) + ' Mo' : '—',
+      lanAvg: n ? (bidir ? avg + ' / ' + avg2 + ' Mb/s' : avg + ' Mb/s') : '—',
+      lanTotExtra: n ? (udp ? 'gigue 0,08 ms' : totRetr + ' retrans.') : '—',
+      lanBars: lanBars,
+      lanBidir: bidir,
+      lanDurLabel: s.lanDur + ' s',
+      lanChartAria: 'Débit iperf3 par seconde, moyenne ' + (n ? avg + ' Mb/s' : 'inconnue') + (lanDone ? ' (terminé)' : ''),
+      lanPath: lanPath,
+
+      histChips: histChips,
+      histRows: histRows,
+      evoDown: evoD.join(' '),
+      evoUp: evoU.join(' '),
+      evoPlanDownY: yOf(planD),
+      evoPlanUpY: yOf(planU),
+      evoDipX: dipX,
+      evoDipY: yOf(588),
+      evoDipLabelY: (parseFloat(yOf(588)) + 16).toFixed(1),
+      evoSummary: 'moy. ' + Math.round(sumD / 30) + ' Mb/s · min ' + minD + ' Mb/s',
+      evoAria: 'Débit Internet quotidien sur 30 jours : descente moyenne ' + Math.round(sumD / 30) + ' Mb/s, montée environ 485 Mb/s, un creux à 588 Mb/s le 2 novembre lors d’un test en Wi-Fi',
+      schedOn: s.sched ? 'true' : 'false',
+      onSched: () => this.setState({ sched: !s.sched, toast: s.sched ? 'Planification désactivée' : 'Test planifié toutes les heures · visible dans Surveillance' }),
+      schedTrack: 'position:relative; width:38px; height:22px; flex:none; border-radius:11px; border:0; cursor:pointer; padding:0; background:' + (s.sched ? accent : '#9CA3AF') + ';',
+      schedKnob: 'position:absolute; top:3px; left:' + (s.sched ? '19px' : '3px') + '; width:16px; height:16px; border-radius:50%; background:#FFFFFF;',
+      schedText: s.sched ? 'Actif · prochain test à l’heure pile, serveur ' + svName + ', interface ' + (wifi ? 'en0' : 'en7') + '. Les résultats alimentent la sonde « Débit Internet » de Surveillance.' : 'Désactivé · une fois actif, chaque résultat alimente la sonde « Débit Internet » de Surveillance (alerte sous 80 % du forfait).'
+    };
+  }
+}
+</script>
+</body>
+</html>

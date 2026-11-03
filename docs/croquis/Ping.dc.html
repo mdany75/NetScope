@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Ping continu</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F4F6}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+.nav:hover{background:#1E293B !important;color:#FFFFFF !important}
+.btn:hover{background:#F9FAFB !important}
+.btnp:hover{background:#1D4ED8 !important}
+.seg:hover{background:#EEF2FF}
+.tcard:hover{box-shadow:0 2px 6px rgba(15,23,42,0.10)}
+.mrow:hover{background:#F9FAFB !important}
+.evrow:hover{background:#F9FAFB}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #2563EB;outline-offset:2px}
+@keyframes dcpulse{0%{box-shadow:0 0 0 0 rgba(21,128,61,0.45)}70%{box-shadow:0 0 0 6px rgba(21,128,61,0)}100%{box-shadow:0 0 0 0 rgba(21,128,61,0)}}
+@media (max-width:1180px){.cards{grid-template-columns:repeat(2,minmax(0,1fr)) !important}.split{grid-template-columns:minmax(0,1fr) !important}}
+@media (max-width:760px){.side{max-width:none !important;flex-basis:100% !important}.stats7{grid-template-columns:repeat(4,minmax(0,1fr)) !important}}
+@media (max-width:620px){.cards{grid-template-columns:minmax(0,1fr) !important}.stats7{grid-template-columns:repeat(3,minmax(0,1fr)) !important}}
+</style>
+</helmet>
+<div style="width:100%; min-height:1000px; display:flex; flex-wrap:wrap; font-family:Inter, system-ui, sans-serif; color:#111827; background:#F3F4F6; box-sizing:border-box; font-size:13px">
+
+  <!-- Barre latérale -->
+  <nav class="side" aria-label="Navigation principale" style="flex:1 1 220px; max-width:220px; background:#0F172A; color:#E2E8F0; display:flex; flex-direction:column; justify-content:space-between; padding:16px 12px; box-sizing:border-box; gap:24px">
+    <div style="display:flex; flex-direction:column; gap:20px">
+      <div style="display:flex; align-items:center; gap:10px; padding:4px 6px">
+        <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><path d="M12 12 L18.4 5.6"></path><circle cx="12" cy="12" r="1.2" fill="#FFFFFF"></circle></svg>
+        <div style="display:flex; flex-direction:column">
+          <span style="font-weight:700; font-size:15px; color:#FFFFFF">NetScope</span>
+          <span style="font-size:11px; color:#CBD5E1">Boîte à outils réseau</span>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px">
+        <div style="display:flex; flex-direction:column; gap:1px">
+          <span style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:#94A3B8; font-weight:600; padding:0 10px 4px">Découverte</span>
+          <a class="nav" href="Main.dc.html" style="display:flex; align-items:center; gap:10px; min-height:32px; padding:6px 10px; box-sizing:border-box; border-radius:6px; color:#E2E8F0; text-decoration:none; font-size:13px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 12 L17 7"></path><path d="M12 3 V5"></path></svg>
+            Scanner
+          </a>
+          <a class="nav" href="Topologie.dc.html" style="display:flex; align-items:center; gap:10px; min-height:32px; padding:6px 10px; box-sizing:border-box; border-radius:6px; color:#E2E8F0; text-decoration:none; font-size:13px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"></circle><circle cx="5" cy="19" r="2"></circle><circle cx="19" cy="19" r="2"></circle><path d="M12 7 V12 M12 12 L6.5 17.5 M12 12 L17.5 17.5"></path></svg>
+            Carte du réseau
+          </a>
+          <a class="nav" href="Inventaire.dc.html" style="display:flex; align-items:center; gap:10px; min-height:32px; padding:6px 10px; box-sizing:border-box; border-radius:6px; color:#E2E8F0; text-decoration:none; font-size:13px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6 H20 M4 12 H20 M4 18 H20"></path><path d="M8 4 V8 M8 10 V14 M8 16 V20"></path></svg>
+            Inventaire
+          </a>
+          <a class="nav" href="Device.dc.html" style="display:flex; align-items:center; gap:10px; min-height:32px; padding:6px 10px; box-sizing:border-box; border-radius:6px; color:#E2E8F0; text-decoration:none; font-size:13px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20 H16 M12 16 V20"></path></svg>
+            Appareil
+          </a>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:1px">
+          <span style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:#94A3B8; font-weight:600; padding:0 10px 4px">Diagnostic</span>
+          <a class="nav" href="Ping.dc.html" aria-current="page" style="display:flex; align-items:center; gap:10px; min-height:32px; padding:6px 10px; box-sizing:border-box; border-radius:6px; background:#1E293B; color:#FFFFFF; text-decoration:none; font-size:13px; font-weight:600">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12 H7 L10 5 L14 19 L17 12 H21"></path></svg>
+            Ping continu
+          </a>
+          <a class="nav" href="Switch.dc.html" style="display:flex; align-items:center; gap:10px; min-height:32px; padding:6px 10px; box-sizing:border-box; border-radius:6px; color:#E2E8F0; text-decoration:none; font-size:13px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="2"></rect><path d="M7 11 V13 M10 11 V13 M13 11 V13 M16 11 V13"></path></svg>
+            Switchs et ports
+          </a>
+          <a class="nav" href="Wifi.dc.html" style="display:flex; align-items:center; gap:10px; min-height:32px; padding:6px 10px; box-sizing:border-box; border-radius:6px; color:#E2E8F0; text-decoration:none; font-size:13px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 9 a14 14 0 0 1 19 0"></path><path d="M5.5 12.5 a9.5 9.5 0 0 1 13 0"></path><path d="M8.5 16 a5 5 0 0 1 7 0"></path><circle cx="12" cy="19.5" r="0.8"></circle></svg>
+            Wi-Fi
+          </a>
+          <a class="nav" href="Toolbox.dc.html" style="display:flex; align-items:center; gap:10px; min-height:32px; padding:6px 10px; box-sizing:border-box; border-radius:6px; color:#E2E8F0; text-decoration:none; font-size:13px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3 a4 4 0 0 0 -5.4 5.4 L4 17 L7 20 L12.3 14.7 a4 4 0 0 0 5.4 -5.4 L15 12 L12 9 Z"></path></svg>
+            Outils
+          </a>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:1px">
+          <span style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:#94A3B8; font-weight:600; padding:0 10px 4px">Suivi</span>
+          <a class="nav" href="Surveillance.dc.html" style="display:flex; align-items:center; gap:10px; min-height:32px; padding:6px 10px; box-sizing:border-box; border-radius:6px; color:#E2E8F0; text-decoration:none; font-size:13px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16 V11 a6 6 0 0 1 12 0 V16 L20 18 H4 Z"></path><path d="M10 21 H14"></path></svg>
+            Surveillance
+            <span aria-label="3 alertes" style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#DC2626; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center">3</span>
+          </a>
+          <a class="nav" href="Analyse.dc.html" style="display:flex; align-items:center; gap:10px; min-height:32px; padding:6px 10px; box-sizing:border-box; border-radius:6px; color:#E2E8F0; text-decoration:none; font-size:13px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 V10 M10 20 V4 M16 20 V13 M21 20 H3"></path></svg>
+            Analyse
+            <span aria-label="1 élément à examiner" style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#DC2626; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center">1</span>
+          </a>
+          <a class="nav" href="Rapport.dc.html" style="display:flex; align-items:center; gap:10px; min-height:32px; padding:6px 10px; box-sizing:border-box; border-radius:6px; color:#E2E8F0; text-decoration:none; font-size:13px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3 H14 L19 8 V21 H6 Z"></path><path d="M14 3 V8 H19 M9 13 H16 M9 17 H16"></path></svg>
+            Rapports
+          </a>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:1px">
+          <span style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:#94A3B8; font-weight:600; padding:0 10px 4px">Accès</span>
+          <a class="nav" href="Remote.dc.html" style="display:flex; align-items:center; gap:10px; min-height:32px; padding:6px 10px; box-sizing:border-box; border-radius:6px; color:#E2E8F0; text-decoration:none; font-size:13px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"></rect><path d="M7 9 L10 11.5 L7 14"></path><path d="M12 14 H16"></path><path d="M9 21 H15"></path></svg>
+            Accès distant
+          </a>
+          <a class="nav" href="Speedtest.dc.html" style="display:flex; align-items:center; gap:10px; min-height:32px; padding:6px 10px; box-sizing:border-box; border-radius:6px; color:#E2E8F0; text-decoration:none; font-size:13px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.2 18 a9 9 0 1 1 15.6 0"></path><path d="M12 14 L16 9"></path><circle cx="12" cy="14" r="1.2"></circle></svg>
+            Speedtest
+          </a>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px; padding:0 6px">
+        <span style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:#CBD5E1; font-weight:600">Profils de ping</span>
+        <span style="font-size:12px; color:#E2E8F0; padding:4px 0">Passerelle et cœur</span>
+        <span style="font-size:12px; color:#E2E8F0; padding:4px 0">Internet (DNS publics)</span>
+        <span style="font-size:12px; color:#E2E8F0; padding:4px 0">Caméras · VLAN 40</span>
+        <span style="font-size:12px; color:#E2E8F0; padding:4px 0">Imprimantes étage 2</span>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:0">
+      <a class="nav" href="Reglages.dc.html" style="display:flex; align-items:center; gap:10px; min-height:32px; padding:6px 10px; box-sizing:border-box; border-radius:6px; color:#E2E8F0; text-decoration:none; font-size:13px">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 2 V5 M12 19 V22 M2 12 H5 M19 12 H22 M4.9 4.9 L7 7 M17 17 L19.1 19.1 M4.9 19.1 L7 17 M17 7 L19.1 4.9"></path></svg>
+        Réglages
+      </a>
+      <div style="display:flex; flex-direction:column; gap:6px; padding:10px 8px; margin-top:8px; border-top:1px solid #1E293B">
+        <span style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:#CBD5E1; font-weight:600">Interface active</span>
+        <span style="font-family:JetBrains Mono, monospace; font-size:12px; color:#FFFFFF">en0 · 10.182.122.135 · Wi-Fi</span>
+        <span style="font-size:11px; color:#CBD5E1">NetScope 2.0 · maquette</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Contenu -->
+  <main style="flex:999 1 560px; min-width:0; display:flex; flex-direction:column">
+
+    <!-- Barre d’outils globale -->
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:12px 20px; background:#FFFFFF; border-bottom:1px solid #E5E7EB">
+      <div style="display:flex; flex-direction:column; gap:2px; margin-right:8px">
+        <h1 style="margin:0; font-size:17px; font-weight:700">Ping continu</h1>
+        <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:#4B5563">
+          <span style="{{ liveDotStyle }}" aria-hidden="true"></span>
+          <span style="font-weight:600; color:#111827">{{ liveLabel }}</span>
+          <span>{{ sessionInfo }}</span>
+        </div>
+      </div>
+      <div style="flex:1 1 320px; display:flex; align-items:center; gap:8px; height:34px; padding:0 10px; border:1px solid #D1D5DB; border-radius:6px; background:#FFFFFF; min-width:0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4B5563" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20 L16 16"></path></svg>
+        <label for="gsearch" style="position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)">Recherche globale</label>
+        <input id="gsearch" type="search" value="{{ gq }}" onChange="{{ onGq }}" placeholder="Rechercher IP, MAC, hostname, fabricant, port de switch…" style="flex:1; min-width:0; border:none; outline:none; font:inherit; font-size:13px; color:#111827; background:transparent">
+        <span style="font-family:JetBrains Mono, monospace; font-size:11px; color:#4B5563; border:1px solid #E5E7EB; border-radius:4px; padding:1px 5px">⌘K</span>
+      </div>
+      <button type="button" class="btn" style="height:34px; padding:0 12px; border:1px solid #D1D5DB; background:#FFFFFF; border-radius:6px; font:inherit; font-size:13px; font-weight:500; color:#111827; display:inline-flex; align-items:center; gap:6px; cursor:pointer">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7 H20 M4 12 H20 M4 17 H14"></path></svg>
+        Enregistrer le profil
+      </button>
+      <button type="button" class="btn" onClick="{{ onExport }}" style="height:34px; padding:0 12px; border:1px solid #D1D5DB; background:#FFFFFF; border-radius:6px; font:inherit; font-size:13px; font-weight:500; color:#111827; display:inline-flex; align-items:center; gap:6px; cursor:pointer">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 V15 M7 10 L12 15 L17 10 M5 20 H19"></path></svg>
+        Exporter CSV
+      </button>
+    </div>
+
+    <!-- Barre de contrôle du ping -->
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; padding:10px 20px; background:#FFFFFF; border-bottom:1px solid #E5E7EB">
+      <div style="display:flex; align-items:center; gap:6px; flex:1 1 300px; min-width:0">
+        <label for="addq" style="position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)">Ajouter une cible</label>
+        <input id="addq" type="text" value="{{ q }}" onChange="{{ onQ }}" placeholder="Ajouter une cible (IP, hostname, plage)" style="flex:1; min-width:0; height:32px; padding:0 10px; border:1px solid #D1D5DB; border-radius:6px; font-family:JetBrains Mono, monospace; font-size:12px; color:#111827; background:#FFFFFF">
+        <button type="button" class="btnp" onClick="{{ onAdd }}" style="{{ addBtnStyle }}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5 V19 M5 12 H19"></path></svg>
+          Ajouter
+        </button>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:6px">
+        <label for="intv" style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#4B5563; font-weight:600">Intervalle</label>
+        <select id="intv" value="{{ intervalStr }}" onChange="{{ onInterval }}" style="height:32px; padding:0 8px; border:1px solid #D1D5DB; border-radius:6px; font:inherit; font-size:13px; color:#111827; background:#FFFFFF">
+          <option value="200">0,2 s</option>
+          <option value="500">0,5 s</option>
+          <option value="1000">1 s</option>
+          <option value="5000">5 s</option>
+        </select>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:6px" role="group" aria-label="Taille de paquet">
+        <span style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#4B5563; font-weight:600">Paquet</span>
+        <div style="display:flex; gap:2px; padding:2px; border:1px solid #E5E7EB; border-radius:6px; background:#F9FAFB">
+          <button type="button" class="seg" aria-pressed="{{ size56Pressed }}" onClick="{{ setSize56 }}" style="{{ size56Style }}">56 o</button>
+          <button type="button" class="seg" aria-pressed="{{ size1472Pressed }}" onClick="{{ setSize1472 }}" style="{{ size1472Style }}">1472 o · MTU</button>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:6px" role="group" aria-label="Protocole">
+        <span style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#4B5563; font-weight:600">Mode</span>
+        <div style="display:flex; gap:2px; padding:2px; border:1px solid #E5E7EB; border-radius:6px; background:#F9FAFB">
+          <button type="button" class="seg" aria-pressed="{{ icmpPressed }}" onClick="{{ setIcmp }}" style="{{ icmpStyle }}">ICMP</button>
+          <button type="button" class="seg" aria-pressed="{{ tcpPressed }}" onClick="{{ setTcp }}" style="{{ tcpStyle }}">TCP:443</button>
+          <button type="button" class="seg" aria-pressed="{{ arpPressed }}" onClick="{{ setArp }}" style="{{ arpStyle }}">ARP</button>
+        </div>
+      </div>
+
+      <label style="display:inline-flex; align-items:center; gap:6px; font-size:13px; color:#111827; cursor:pointer">
+        <input type="checkbox" checked="{{ sound }}" onChange="{{ onSound }}" style="width:15px; height:15px; accent-color:#2563EB; margin:0">
+        Son à la perte
+      </label>
+
+      <div style="display:flex; align-items:center; gap:6px; margin-left:auto">
+        <button type="button" class="btn" onClick="{{ onPause }}" style="{{ pauseStyle }}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="{{ pauseIcon }}"></path></svg>
+          {{ pauseLabel }}
+        </button>
+        <button type="button" class="btn" onClick="{{ onReset }}" style="height:32px; padding:0 12px; border:1px solid #D1D5DB; background:#FFFFFF; border-radius:6px; font:inherit; font-size:13px; font-weight:500; color:#111827; display:inline-flex; align-items:center; gap:6px; cursor:pointer">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12 a8 8 0 1 0 2.4 -5.7 M4 4 V8 H8"></path></svg>
+          Réinitialiser
+        </button>
+      </div>
+    </div>
+
+    <sc-if value="{{ hasNote }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex; align-items:center; gap:8px; padding:8px 20px; background:#EFF6FF; border-bottom:1px solid #DBEAFE; font-size:12px; color:#1E3A8A">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11 V16 M12 8 V8.5"></path></svg>
+        <span>{{ modeNote }}</span>
+      </div>
+    </sc-if>
+
+    <div style="display:flex; flex-direction:column; gap:16px; padding:16px 20px 24px">
+
+      <!-- Cartes de cibles -->
+      <section aria-label="Cibles surveillées" style="display:flex; flex-direction:column; gap:8px">
+        <div style="display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px">
+          <h2 style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:#4B5563; font-weight:600">Cibles · {{ targetCount }}</h2>
+          <span style="font-size:12px; color:#4B5563">Cliquer sur une carte pour l’analyser · statistiques sur les {{ windowLabel }}</span>
+        </div>
+        <div class="cards" style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px">
+          <sc-for list="{{ cards }}" as="c" hint-placeholder-count="6">
+            <button type="button" class="tcard" aria-pressed="{{ c.pressed }}" onClick="{{ c.pick }}" style="{{ c.cardStyle }}">
+              <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px">
+                <div style="display:flex; flex-direction:column; gap:2px; min-width:0">
+                  <span style="font-size:13px; font-weight:600; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.name }}</span>
+                  <span style="font-size:12px; color:#4B5563; white-space:nowrap; overflow:hidden; text-overflow:ellipsis"><span style="font-family:JetBrains Mono, monospace; color:#111827">{{ c.ip }}</span> · {{ c.role }}</span>
+                </div>
+                <span style="{{ c.pillStyle }}">{{ c.statusLabel }}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:12px">
+                <div style="display:flex; flex-direction:column; gap:3px; flex:0 0 96px">
+                  <span style="{{ c.latStyle }}">{{ c.lat }}</span>
+                  <span style="font-size:11px; color:#4B5563">{{ c.latUnit }}</span>
+                </div>
+                <svg role="img" aria-label="{{ c.sparkLabel }}" width="100%" height="40" viewBox="0 0 120 32" preserveAspectRatio="none" style="flex:1; min-width:0; display:block">
+                  <line x1="0" y1="31.5" x2="120" y2="31.5" stroke="#E5E7EB" stroke-width="1" vector-effect="non-scaling-stroke"></line>
+                  <path d="{{ c.sparkLossD }}" stroke="#B91C1C" stroke-width="2" fill="none" vector-effect="non-scaling-stroke" opacity="0.8"></path>
+                  <path d="{{ c.sparkD }}" stroke="{{ c.sparkStroke }}" stroke-width="1.5" fill="none" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+                </svg>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:4px; padding-top:8px; border-top:1px solid #F3F4F6">
+                <div style="display:flex; flex-direction:column; gap:1px"><span style="font-size:10px; text-transform:uppercase; color:#4B5563; font-weight:600">Min</span><span style="font-family:JetBrains Mono, monospace; font-size:12px">{{ c.min }}</span></div>
+                <div style="display:flex; flex-direction:column; gap:1px"><span style="font-size:10px; text-transform:uppercase; color:#4B5563; font-weight:600">Moy</span><span style="font-family:JetBrains Mono, monospace; font-size:12px">{{ c.avg }}</span></div>
+                <div style="display:flex; flex-direction:column; gap:1px"><span style="font-size:10px; text-transform:uppercase; color:#4B5563; font-weight:600">Max</span><span style="font-family:JetBrains Mono, monospace; font-size:12px">{{ c.max }}</span></div>
+                <div style="display:flex; flex-direction:column; gap:1px"><span style="font-size:10px; text-transform:uppercase; color:#4B5563; font-weight:600">Jitter</span><span style="font-family:JetBrains Mono, monospace; font-size:12px">{{ c.jit }}</span></div>
+                <div style="display:flex; flex-direction:column; gap:1px"><span style="font-size:10px; text-transform:uppercase; color:#4B5563; font-weight:600">Perte</span><span style="{{ c.lossStyle }}">{{ c.loss }}</span></div>
+              </div>
+              <div style="display:flex; justify-content:space-between; gap:8px; font-size:11px; color:#4B5563">
+                <span>Envoyés / reçus <span style="font-family:JetBrains Mono, monospace; color:#111827">{{ c.sentRecv }}</span></span>
+                <span style="font-family:JetBrains Mono, monospace">seq {{ c.seq }}</span>
+              </div>
+            </button>
+          </sc-for>
+        </div>
+      </section>
+
+      <div class="split" style="display:grid; grid-template-columns:minmax(0, 1.7fr) minmax(0, 1fr); gap:16px; align-items:start">
+
+        <div style="display:flex; flex-direction:column; gap:16px; min-width:0">
+
+          <!-- Grand graphe -->
+          <section aria-label="Graphe de latence de la cible sélectionnée" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px 16px; display:flex; flex-direction:column; gap:12px">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px">
+              <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px">
+                <h2 style="margin:0; font-size:15px; font-weight:600">{{ selName }}</h2>
+                <span style="font-family:JetBrains Mono, monospace; font-size:12px; color:#4B5563">{{ selIp }}</span>
+                <span style="{{ selPill }}">{{ selStatus }}</span>
+              </div>
+              <span style="font-size:12px; color:#4B5563">{{ selMeta }}</span>
+            </div>
+            <div class="stats7" style="display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:8px">
+              <div style="display:flex; flex-direction:column; gap:2px; padding:8px 10px; background:#F9FAFB; border:1px solid #E5E7EB; border-radius:6px"><span style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600">Actuel</span><span style="font-family:JetBrains Mono, monospace; font-size:16px; font-weight:600">{{ bCur }}</span></div>
+              <div style="display:flex; flex-direction:column; gap:2px; padding:8px 10px; background:#F9FAFB; border:1px solid #E5E7EB; border-radius:6px"><span style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600">Min</span><span style="font-family:JetBrains Mono, monospace; font-size:16px; font-weight:600">{{ bMin }}</span></div>
+              <div style="display:flex; flex-direction:column; gap:2px; padding:8px 10px; background:#F9FAFB; border:1px solid #E5E7EB; border-radius:6px"><span style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600">Moy</span><span style="font-family:JetBrains Mono, monospace; font-size:16px; font-weight:600">{{ bAvg }}</span></div>
+              <div style="display:flex; flex-direction:column; gap:2px; padding:8px 10px; background:#F9FAFB; border:1px solid #E5E7EB; border-radius:6px"><span style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600">Max</span><span style="font-family:JetBrains Mono, monospace; font-size:16px; font-weight:600">{{ bMax }}</span></div>
+              <div style="display:flex; flex-direction:column; gap:2px; padding:8px 10px; background:#F9FAFB; border:1px solid #E5E7EB; border-radius:6px"><span style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600">Jitter</span><span style="font-family:JetBrains Mono, monospace; font-size:16px; font-weight:600">{{ bJit }}</span></div>
+              <div style="display:flex; flex-direction:column; gap:2px; padding:8px 10px; background:#F9FAFB; border:1px solid #E5E7EB; border-radius:6px"><span style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600">P95</span><span style="font-family:JetBrains Mono, monospace; font-size:16px; font-weight:600">{{ bP95 }}</span></div>
+              <div style="display:flex; flex-direction:column; gap:2px; padding:8px 10px; background:#F9FAFB; border:1px solid #E5E7EB; border-radius:6px"><span style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600">Perte</span><span style="{{ bLossStyle }}">{{ bLoss }}</span></div>
+            </div>
+
+            <div style="display:flex; gap:8px">
+              <div aria-hidden="true" style="position:relative; flex:0 0 36px; height:200px; font-family:JetBrains Mono, monospace; font-size:11px; color:#4B5563; text-align:right">
+                <span style="position:absolute; right:0; top:-6px">{{ yl0 }}</span>
+                <span style="position:absolute; right:0; top:44px">{{ yl1 }}</span>
+                <span style="position:absolute; right:0; top:94px">{{ yl2 }}</span>
+                <span style="position:absolute; right:0; top:144px">{{ yl3 }}</span>
+                <span style="position:absolute; right:0; top:192px">0</span>
+              </div>
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:6px">
+                <div style="position:relative; height:200px; border-left:1px solid #D1D5DB; border-bottom:1px solid #D1D5DB">
+                  <sc-for list="{{ zones }}" as="z" hint-placeholder-count="2">
+                    <div aria-hidden="true" style="{{ z.style }}"></div>
+                  </sc-for>
+                  <svg role="img" aria-label="{{ chartLabel }}" width="100%" height="200" viewBox="0 0 1000 200" preserveAspectRatio="none" style="position:absolute; left:0; top:0; display:block">
+                    <line x1="0" y1="50" x2="1000" y2="50" stroke="#F3F4F6" stroke-width="1" vector-effect="non-scaling-stroke"></line>
+                    <line x1="0" y1="100" x2="1000" y2="100" stroke="#E5E7EB" stroke-width="1" vector-effect="non-scaling-stroke"></line>
+                    <line x1="0" y1="150" x2="1000" y2="150" stroke="#F3F4F6" stroke-width="1" vector-effect="non-scaling-stroke"></line>
+                    <path d="{{ areaD }}" fill="{{ accent }}" fill-opacity="0.08" stroke="none"></path>
+                    <line x1="0" y1="{{ thrY }}" x2="1000" y2="{{ thrY }}" stroke="#C2410C" stroke-width="1" stroke-dasharray="6 4" vector-effect="non-scaling-stroke"></line>
+                    <line x1="0" y1="{{ avgY }}" x2="1000" y2="{{ avgY }}" stroke="#4B5563" stroke-width="1" stroke-dasharray="2 3" vector-effect="non-scaling-stroke"></line>
+                    <path d="{{ lineD }}" fill="none" stroke="{{ accent }}" stroke-width="1.75" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+                  </svg>
+                  <span style="{{ thrLabelStyle }}">{{ thrLabel }}</span>
+                </div>
+                <div aria-hidden="true" style="display:flex; justify-content:space-between; font-family:JetBrains Mono, monospace; font-size:11px; color:#4B5563">
+                  <span>{{ xl0 }}</span><span>{{ xl1 }}</span><span>{{ xl2 }}</span><span>{{ xl3 }}</span><span>maintenant</span>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:16px; font-size:12px; color:#4B5563; padding-left:44px">
+              <span style="display:inline-flex; align-items:center; gap:6px"><span style="{{ legendLineStyle }}"></span>Latence (ms)</span>
+              <span style="display:inline-flex; align-items:center; gap:6px"><span style="width:16px; height:0; border-top:2px dotted #4B5563"></span>Moyenne</span>
+              <span style="display:inline-flex; align-items:center; gap:6px"><span style="width:16px; height:0; border-top:2px dashed #C2410C"></span>Seuil d’alerte</span>
+              <span style="display:inline-flex; align-items:center; gap:6px"><span style="width:12px; height:12px; background:#FEE2E2; border:1px solid #B91C1C; border-radius:2px"></span>Paquets perdus · {{ zoneCount }}</span>
+            </div>
+          </section>
+
+          <!-- MTR -->
+          <section aria-label="MTR et traceroute" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; display:flex; flex-direction:column">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; padding:12px 16px; border-bottom:1px solid #E5E7EB">
+              <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px">
+                <h2 style="margin:0; font-size:15px; font-weight:600">MTR / Traceroute</h2>
+                <span style="font-size:12px; color:#4B5563">vers <span style="font-family:JetBrains Mono, monospace; color:#111827">{{ selIp }}</span> · {{ mtrInfo }}</span>
+              </div>
+              <div style="display:flex; gap:6px">
+                <button type="button" class="btn" style="height:28px; padding:0 10px; border:1px solid #D1D5DB; background:#FFFFFF; border-radius:6px; font:inherit; font-size:12px; font-weight:500; color:#111827; cursor:pointer">Résolution DNS : oui</button>
+                <button type="button" class="btn" style="height:28px; padding:0 10px; border:1px solid #D1D5DB; background:#FFFFFF; border-radius:6px; font:inherit; font-size:12px; font-weight:500; color:#111827; cursor:pointer">Copier le rapport</button>
+              </div>
+            </div>
+            <div style="overflow-x:auto">
+              <div role="table" aria-label="Sauts du traceroute" style="min-width:760px; padding:0 8px 4px">
+                <div role="row" style="display:grid; grid-template-columns:36px minmax(150px, 1.6fr) 128px 70px 70px 64px 64px 72px 64px 80px; align-items:center; height:30px; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:#4B5563; font-weight:600">
+                  <span role="columnheader" style="padding:0 8px">N°</span>
+                  <span role="columnheader" style="padding:0 8px">Hôte</span>
+                  <span role="columnheader" style="padding:0 8px">IP</span>
+                  <span role="columnheader" style="padding:0 8px; text-align:right">Perte</span>
+                  <span role="columnheader" style="padding:0 8px; text-align:right">Envoyés</span>
+                  <span role="columnheader" style="padding:0 8px; text-align:right">Dernier</span>
+                  <span role="columnheader" style="padding:0 8px; text-align:right">Moy</span>
+                  <span role="columnheader" style="padding:0 8px; text-align:right">Meilleur</span>
+                  <span role="columnheader" style="padding:0 8px; text-align:right">Pire</span>
+                  <span role="columnheader" style="padding:0 8px; text-align:right">Écart-type</span>
+                </div>
+                <sc-for list="{{ mtrRows }}" as="h" hint-placeholder-count="8">
+                  <div role="row" class="mrow" style="{{ h.rowStyle }}">
+                    <span role="cell" style="padding:0 8px; font-family:JetBrains Mono, monospace; color:#4B5563">{{ h.n }}</span>
+                    <span role="cell" style="{{ h.hostStyle }}">{{ h.host }}</span>
+                    <span role="cell" style="padding:0 8px; font-family:JetBrains Mono, monospace">{{ h.ip }}</span>
+                    <span role="cell" style="{{ h.lossStyle }}">{{ h.loss }}</span>
+                    <span role="cell" style="padding:0 8px; font-family:JetBrains Mono, monospace; text-align:right; color:#4B5563">{{ h.sent }}</span>
+                    <span role="cell" style="padding:0 8px; font-family:JetBrains Mono, monospace; text-align:right">{{ h.last }}</span>
+                    <span role="cell" style="padding:0 8px; font-family:JetBrains Mono, monospace; text-align:right; font-weight:600">{{ h.avg }}</span>
+                    <span role="cell" style="padding:0 8px; font-family:JetBrains Mono, monospace; text-align:right">{{ h.best }}</span>
+                    <span role="cell" style="padding:0 8px; font-family:JetBrains Mono, monospace; text-align:right">{{ h.worst }}</span>
+                    <span role="cell" style="padding:0 8px; font-family:JetBrains Mono, monospace; text-align:right">{{ h.sd }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display:flex; align-items:flex-start; gap:8px; padding:10px 16px; border-top:1px solid #E5E7EB; font-size:12px; color:#4B5563">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="flex:0 0 16px"><circle cx="12" cy="12" r="9"></circle><path d="M12 11 V16 M12 8 V8.5"></path></svg>
+              <span>{{ mtrNote }}</span>
+            </div>
+          </section>
+        </div>
+
+        <!-- Journal -->
+        <section aria-label="Journal des événements" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; display:flex; flex-direction:column; min-width:0">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 16px; border-bottom:1px solid #E5E7EB">
+            <div style="display:flex; align-items:baseline; gap:8px">
+              <h2 style="margin:0; font-size:15px; font-weight:600">Journal des événements</h2>
+              <span style="font-size:12px; color:#4B5563">{{ evCount }}</span>
+            </div>
+            <button type="button" class="btn" onClick="{{ onClearLog }}" style="height:28px; padding:0 10px; border:1px solid #D1D5DB; background:#FFFFFF; border-radius:6px; font:inherit; font-size:12px; font-weight:500; color:#111827; cursor:pointer">Effacer</button>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; padding:10px 16px; border-bottom:1px solid #E5E7EB">
+            <div style="display:flex; flex-direction:column; gap:2px"><span style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600">Coupures</span><span style="font-family:JetBrains Mono, monospace; font-size:15px; font-weight:600; color:#B91C1C">{{ nCrit }}</span></div>
+            <div style="display:flex; flex-direction:column; gap:2px"><span style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600">Alertes</span><span style="font-family:JetBrains Mono, monospace; font-size:15px; font-weight:600; color:#C2410C">{{ nWarn }}</span></div>
+            <div style="display:flex; flex-direction:column; gap:2px"><span style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600">Rétablis</span><span style="font-family:JetBrains Mono, monospace; font-size:15px; font-weight:600; color:#15803D">{{ nOk }}</span></div>
+          </div>
+          <ol aria-live="polite" style="list-style:none; margin:0; padding:4px 0; display:flex; flex-direction:column">
+            <sc-for list="{{ events }}" as="e" hint-placeholder-count="12">
+              <li class="evrow" style="{{ e.rowStyle }}">
+                <span style="font-family:JetBrains Mono, monospace; font-size:12px; color:#4B5563; padding-top:1px">{{ e.time }}</span>
+                <div style="display:flex; flex-direction:column; gap:3px; min-width:0">
+                  <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap">
+                    <span style="{{ e.tagStyle }}">{{ e.tag }}</span>
+                    <span style="font-family:JetBrains Mono, monospace; font-size:12px; font-weight:600; color:#111827">{{ e.ip }}</span>
+                  </div>
+                  <span style="font-size:12px; color:#111827; line-height:1.4">{{ e.msg }}</span>
+                </div>
+              </li>
+            </sc-for>
+          </ol>
+          <sc-if value="{{ noEvents }}" hint-placeholder-val="{{ false }}">
+            <p style="margin:0; padding:20px 16px; font-size:12px; color:#4B5563">Aucun événement depuis la réinitialisation. Les pertes, retours en ligne et pics de latence s’afficheront ici.</p>
+          </sc-if>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000},"compact":false,"accent":"#2563EB"}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.acc = 0;
+    this.evSeq = 1;
+    this.userSeq = 1;
+    const now = Date.now();
+    const targets = this.baseTargets().map(d => this.prefill(d));
+    const cam = targets.find(t => t.id === 'cam');
+    [76, 77, 78, 79].forEach(i => { cam.hist[i] = null; });
+    const core = targets.find(t => t.id === 'core');
+    core.hist[101] = 17.4;
+    const prn = targets.find(t => t.id === 'prn');
+    prn.hist[52] = null;
+    targets.forEach(t => {
+      if (t.hist[119] === null) t.hist[119] = t.base;
+      if (t.hist[118] === null) t.hist[118] = t.base;
+      t.recv = t.hist.filter(v => v !== null).length;
+      t.consec = 0; t.burst = 0;
+    });
+    const at = i => now - (119 - i) * 1000;
+    const events = [
+      this.mkEv(at(101), '10.182.122.2', 'latence élevée 17,4 ms (seuil 15 ms), CPU du switch qui dépriorise l’ICMP', 'warn'),
+      this.mkEv(at(80), '192.168.50.21', 'retour en ligne après 4 s (4 paquets perdus)', 'ok'),
+      this.mkEv(at(78), '192.168.50.21', 'délai dépassé (3 paquets perdus)', 'crit'),
+      this.mkEv(at(53), '10.182.122.111', '1 paquet perdu (seq 53)', 'warn'),
+      this.mkEv(at(0) - 1000, 'Session', 'surveillance démarrée · 6 cibles · ICMP · 56 octets · 1 s', 'info')
+    ];
+    this.state = {
+      targets, events, sel: 'g', paused: false, intervalMs: 1000, size: 56, proto: 'ICMP',
+      sound: true, q: '', gq: '', startTs: now - 121000, mtr: null
+    };
+    this.state.mtr = this.freshMtr(targets.find(t => t.id === 'g'), 60);
+  }
+
+  componentDidMount() {
+    this.timer = setInterval(() => this.tick(), 200);
+  }
+
+  componentWillUnmount() {
+    clearInterval(this.timer);
+  }
+
+  baseTargets() {
+    return [
+      { id: 'gw', name: 'FortiGate-60F', role: 'Passerelle', ip: '10.182.122.1', base: 2.1, jit: 1.3, lossP: 0.002, burstP: 0, spikeP: 0.01, thr: 15, local: true,
+        path: 'Wi-Fi via FortiAP-231F → SW-CORE-01 Gi1/0/12 → Gi1/0/1 → FortiGate-60F port1' },
+      { id: 'core', name: 'SW-CORE-01', role: 'Catalyst 9300-48P', ip: '10.182.122.2', base: 2.6, jit: 1.6, lossP: 0.004, burstP: 0, spikeP: 0.03, thr: 15, local: true,
+        path: 'Wi-Fi via FortiAP-231F → SW-CORE-01 Gi1/0/12 (VLAN 20), plan de contrôle du switch' },
+      { id: 'prn', name: 'Brother DCP-L2640DW', role: 'SW-ETG2-01 · 1/14', ip: '10.182.122.111', base: 3.4, jit: 1.9, lossP: 0.006, burstP: 0, spikeP: 0.02, thr: 20, local: true,
+        path: 'FortiAP-231F → SW-CORE-01 Gi1/0/12 → Gi1/0/48 → SW-ETG2-01 port 1/14 (VLAN 30, LLDP)' },
+      { id: 'g', name: 'Google DNS', role: 'Internet', ip: '8.8.8.8', base: 13.6, jit: 1.8, lossP: 0.004, burstP: 0, spikeP: 0.015, thr: 40, local: false, path: '' },
+      { id: 'cf', name: 'Cloudflare', role: 'Internet', ip: '1.1.1.1', base: 11.8, jit: 1.5, lossP: 0.003, burstP: 0, spikeP: 0.015, thr: 40, local: false, path: '' },
+      { id: 'cam', name: 'Caméra-Quai', role: 'Caméra · VLAN 40', ip: '192.168.50.21', base: 3.9, jit: 2.4, lossP: 0.025, burstP: 0.012, spikeP: 0.04, thr: 20, local: false, path: '' }
+    ];
+  }
+
+  prefill(d) {
+    const t = Object.assign({}, d, { hist: [], sent: 0, recv: 0, consec: 0, burst: 0, seq: 0 });
+    for (let i = 0; i < 120; i++) {
+      t.hist.push(this.sample(t, 56, 'ICMP'));
+    }
+    t.sent = 120; t.seq = 120;
+    return t;
+  }
+
+  gauss() {
+    const u = 1 - Math.random(), v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  sample(t, size, proto) {
+    if (t.burst > 0) { t.burst -= 1; return null; }
+    if (Math.random() < t.burstP) { t.burst = 2 + Math.floor(Math.random() * 3); return null; }
+    if (Math.random() < t.lossP) return null;
+    let v = t.base + Math.abs(this.gauss()) * t.jit * 0.7 + (Math.random() - 0.5) * t.jit * 0.4;
+    if (Math.random() < t.spikeP) v += t.base * (1.2 + Math.random() * 2.5);
+    if (size === 1472) v += t.local ? 0.35 : 0.6;
+    if (proto === 'TCP:443') v += 0.25;
+    if (proto === 'ARP') v -= 0.3;
+    return Math.max(0.3, Math.round(v * 10) / 10);
+  }
+
+  hopSample(h) {
+    if (Math.random() < h.loss) return null;
+    const v = h.base + Math.abs(this.gauss()) * h.jit * 0.7;
+    return Math.max(0.3, Math.round(v * 10) / 10);
+  }
+
+  hopDefs(t) {
+    const gw = { host: 'FortiGate-60F', ip: '10.182.122.1', base: 2.1, jit: 1.3, loss: 0 };
+    const fin = (host) => ({ host, ip: t.ip, base: t.base, jit: t.jit, loss: t.lossP + t.burstP * 3, final: true });
+    if (t.local) return [fin(t.name)];
+    const isp = [
+      { host: '(sans PTR)', ip: '100.64.0.1', base: 5.2, jit: 1.6, loss: 0 },
+      { host: '(sans PTR)', ip: '154.11.12.37', base: 7.4, jit: 2.2, loss: 0.04 },
+      { host: '(sans PTR)', ip: '154.11.6.225', base: 9.6, jit: 1.4, loss: 0 }
+    ];
+    if (t.ip.indexOf('192.168.50.') === 0) return [gw, fin(t.name)];
+    if (t.ip === '8.8.8.8') return [gw].concat(isp, [
+      { host: '(sans PTR)', ip: '72.14.211.106', base: 11.9, jit: 1.3, loss: 0 },
+      { host: '(sans PTR)', ip: '108.170.250.225', base: 12.6, jit: 1.6, loss: 0 },
+      { host: '(sans PTR)', ip: '142.250.236.211', base: 13.1, jit: 1.4, loss: 0 },
+      fin('dns.google')
+    ]);
+    if (t.ip === '1.1.1.1') return [gw].concat(isp, [
+      { host: '(sans PTR)', ip: '162.158.140.3', base: 11.2, jit: 1.2, loss: 0 },
+      fin('one.one.one.one')
+    ]);
+    return [gw].concat(isp, [fin(t.name)]);
+  }
+
+  freshMtr(t, prefill) {
+    let mtr = { tid: t.id, cycles: 0, hops: this.hopDefs(t).map(h => Object.assign({}, h, { sent: 0, lost: 0, last: null, sum: 0, sumsq: 0, best: null, worst: null })) };
+    for (let k = 0; k < prefill; k++) mtr = this.stepMtr(mtr, undefined);
+    return mtr;
+  }
+
+  stepMtr(mtr, finalV) {
+    const hops = mtr.hops.map(h => {
+      const v = (h.final && finalV !== undefined) ? finalV : this.hopSample(h);
+      const n = Object.assign({}, h, { sent: h.sent + 1 });
+      if (v === null) { n.lost = h.lost + 1; n.last = null; }
+      else {
+        n.last = v; n.sum = h.sum + v; n.sumsq = h.sumsq + v * v;
+        n.best = h.best === null ? v : Math.min(h.best, v);
+        n.worst = h.worst === null ? v : Math.max(h.worst, v);
+      }
+      return n;
+    });
+    return Object.assign({}, mtr, { hops, cycles: mtr.cycles + 1 });
+  }
+
+  mkEv(ts, ip, msg, level) {
+    this.evSeq = (this.evSeq || 1) + 1;
+    return { id: 'e' + this.evSeq, ts, ip, msg, level };
+  }
+
+  tick() {
+    const s = this.state;
+    if (s.paused) return;
+    this.acc += 200;
+    if (this.acc < s.intervalMs) return;
+    this.acc = 0;
+    const now = Date.now();
+    const sec = s.intervalMs / 1000;
+    const evs = [];
+    let selV;
+    const targets = s.targets.map(t0 => {
+      if (s.proto === 'ARP' && !t0.local) return t0;
+      const t = Object.assign({}, t0);
+      const v = this.sample(t, s.size, s.proto);
+      t.hist = t0.hist.concat([v]).slice(-120);
+      t.sent = t0.sent + 1;
+      t.seq = t0.seq + 1;
+      if (t.id === s.sel) selV = v;
+      if (v === null) {
+        t.consec = t0.consec + 1;
+        if (t.consec === 3) evs.push(this.mkEv(now, t.ip, 'délai dépassé (3 paquets perdus)' + (s.sound ? ' · alerte sonore' : ''), 'crit'));
+      } else {
+        t.recv = t0.recv + 1;
+        const k = t0.consec;
+        if (k >= 3) evs.push(this.mkEv(now, t.ip, 'retour en ligne après ' + this.f1(k * sec).replace(',0', '') + ' s (' + k + ' paquets perdus)', 'ok'));
+        else if (k > 0) evs.push(this.mkEv(now, t.ip, k + ' paquet' + (k > 1 ? 's perdus' : ' perdu') + ' (seq ' + (t0.seq - k + 1) + ')', 'warn'));
+        if (v > t.thr) evs.push(this.mkEv(now, t.ip, 'latence élevée ' + this.f1(v) + ' ms (seuil ' + t.thr + ' ms)', 'warn'));
+        t.consec = 0;
+      }
+      return t;
+    });
+    let mtr = s.mtr;
+    if (mtr && selV !== undefined) mtr = this.stepMtr(mtr, selV);
+    this.setState({ targets, mtr, events: evs.reverse().concat(s.events).slice(0, 60) });
+  }
+
+  stats(hist) {
+    const vals = hist.filter(v => v !== null);
+    const n = hist.length;
+    if (!vals.length) return { min: null, max: null, avg: null, jit: null, p95: null, lossPct: n ? 100 : 0, lost: n - vals.length };
+    let sum = 0, min = Infinity, max = -Infinity, jd = 0;
+    vals.forEach((v, i) => { sum += v; if (v < min) min = v; if (v > max) max = v; if (i > 0) jd += Math.abs(v - vals[i - 1]); });
+    const sorted = vals.slice().sort((a, b) => a - b);
+    return {
+      min, max, avg: sum / vals.length, jit: vals.length > 1 ? jd / (vals.length - 1) : 0,
+      p95: sorted[Math.floor(0.95 * (sorted.length - 1))],
+      lossPct: (n - vals.length) / n * 100, lost: n - vals.length
+    };
+  }
+
+  status(t, proto) {
+    if (proto === 'ARP' && !t.local) return { key: 'na', label: 'Non applicable' };
+    if (!t.hist.length) return { key: 'wait', label: 'En attente' };
+    if (t.consec >= 3) return { key: 'off', label: 'Hors ligne' };
+    if (t.hist.slice(-10).indexOf(null) !== -1) return { key: 'loss', label: 'Perte' };
+    return { key: 'on', label: 'En ligne' };
+  }
+
+  pill(key) {
+    const m = { on: ['#DCFCE7', '#15803D'], loss: ['#FFEDD5', '#C2410C'], off: ['#FEE2E2', '#B91C1C'], na: ['#F3F4F6', '#4B5563'], wait: ['#F3F4F6', '#4B5563'] };
+    const c = m[key] || m.na;
+    return 'display:inline-flex; align-items:center; height:20px; padding:0 8px; border-radius:10px; font-size:11px; font-weight:600; white-space:nowrap; background:' + c[0] + '; color:' + c[1];
+  }
+
+  f1(v) {
+    if (v === null || v === undefined || isNaN(v)) return '—';
+    return v.toFixed(1).replace('.', ',');
+  }
+
+  tfmt(ts) {
+    const d = new Date(ts);
+    return [d.getHours(), d.getMinutes(), d.getSeconds()].map(x => String(x).padStart(2, '0')).join(':');
+  }
+
+  dfmt(ms) {
+    const t = Math.max(0, Math.floor(ms / 1000));
+    return [Math.floor(t / 3600), Math.floor(t / 60) % 60, t % 60].map(x => String(x).padStart(2, '0')).join(':');
+  }
+
+  durLabel(sec) {
+    if (sec >= 60) {
+      const m = sec / 60;
+      return (Math.abs(m - Math.round(m)) < 0.05 ? String(Math.round(m)) : m.toFixed(1).replace('.', ',')) + ' min';
+    }
+    return (sec >= 10 ? String(Math.round(sec)) : sec.toFixed(1).replace('.', ',')) + ' s';
+  }
+
+  spark(arr) {
+    const N = 60, W = 120, H = 32;
+    const off = N - arr.length;
+    const vals = arr.filter(v => v !== null);
+    const max = vals.length ? Math.max.apply(null, vals) * 1.2 : 1;
+    const X = i => ((off + i) / (N - 1)) * W;
+    let d = '', loss = '', pen = false;
+    arr.forEach((v, i) => {
+      if (v === null) { pen = false; loss += 'M' + X(i).toFixed(1) + ' 3 V29 '; return; }
+      d += (pen ? 'L' : 'M') + X(i).toFixed(1) + ' ' + (H - 2 - (v / max) * (H - 4)).toFixed(1) + ' ';
+      pen = true;
+    });
+    return { d, loss };
+  }
+
+  select(id) {
+    const t = this.state.targets.find(x => x.id === id);
+    if (!t || id === this.state.sel) return;
+    this.setState({ sel: id, mtr: this.freshMtr(t, 30) });
+  }
+
+  segStyle(active, accent) {
+    return 'height:26px; padding:0 10px; border:none; border-radius:4px; font:inherit; font-size:12px; font-weight:' + (active ? '600' : '500') + '; cursor:pointer; background:' + (active ? accent : 'transparent') + '; color:' + (active ? '#FFFFFF' : '#111827');
+  }
+
+  renderVals() {
+    const s = this.state;
+    const p = this.props || {};
+    const accent = p.accent || '#2563EB';
+    const compact = !!p.compact;
+    const sec = s.intervalMs / 1000;
+    const now = Date.now();
+    const selT = s.targets.find(t => t.id === s.sel) || s.targets[0];
+
+    const cards = s.targets.map(t => {
+      const st = this.stats(t.hist.slice(-60));
+      const status = this.status(t, s.proto);
+      const last = t.hist.length ? t.hist[t.hist.length - 1] : null;
+      const sp = this.spark(t.hist.slice(-60));
+      const selected = t.id === selT.id;
+      const col = status.key === 'off' ? '#B91C1C' : status.key === 'loss' ? '#C2410C' : status.key === 'na' ? '#6B7280' : accent;
+      let lat = this.f1(last), unit = 'ms';
+      if (status.key === 'na') { lat = 'N/A'; unit = 'ARP hors sous-réseau'; }
+      else if (!t.hist.length) { lat = '—'; unit = 'en attente'; }
+      else if (last === null) { lat = '—'; unit = 'délai dépassé'; }
+      return {
+        id: t.id, name: t.name, role: t.role, ip: t.ip, seq: t.seq,
+        lat, latUnit: unit,
+        latStyle: 'font-family:JetBrains Mono, monospace; font-size:26px; font-weight:600; line-height:1; color:' + (status.key === 'off' || (last === null && t.hist.length) ? '#B91C1C' : '#111827'),
+        statusLabel: status.label, pillStyle: this.pill(status.key),
+        sparkD: sp.d, sparkLossD: sp.loss, sparkStroke: col,
+        sparkLabel: 'Latence des 60 dernières mesures vers ' + t.ip + ', moyenne ' + this.f1(st.avg) + ' ms',
+        min: this.f1(st.min), avg: this.f1(st.avg), max: this.f1(st.max), jit: this.f1(st.jit),
+        loss: this.f1(st.lossPct) + ' %',
+        lossStyle: 'font-family:JetBrains Mono, monospace; font-size:12px; font-weight:' + (st.lossPct > 0 ? '600' : '400') + '; color:' + (st.lossPct >= 5 ? '#B91C1C' : st.lossPct > 0 ? '#C2410C' : '#111827'),
+        sentRecv: t.sent + ' / ' + t.recv,
+        pressed: selected ? 'true' : 'false',
+        cardStyle: 'display:flex; flex-direction:column; gap:' + (compact ? '6' : '10') + 'px; width:100%; text-align:left; font:inherit; color:inherit; cursor:pointer; background:#FFFFFF; border-radius:8px; padding:' + (compact ? '10px 12px' : '12px 14px') + '; box-sizing:border-box; border:' + (selected ? '2px solid ' + accent : '1px solid #E5E7EB') + '; margin:' + (selected ? '0' : '1px') + ';',
+        pick: () => this.select(t.id)
+      };
+    });
+
+    // Grand graphe
+    const N = 120, W = 1000, H = 200;
+    const h = selT.hist;
+    const off = N - h.length;
+    const bst = this.stats(h);
+    const vals = h.filter(v => v !== null);
+    const vmax = vals.length ? Math.max.apply(null, vals) : 4;
+    const nice = [2, 5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 200, 500, 1000].find(x => x >= vmax * 1.15) || 2000;
+    const X = i => ((off + i) / (N - 1)) * W;
+    const Y = v => H - (v / nice) * H;
+    let lineD = '', areaD = '', run = [];
+    const flush = () => {
+      if (run.length) {
+        areaD += 'M' + X(run[0]).toFixed(1) + ' ' + H + ' ';
+        run.forEach(i => { areaD += 'L' + X(i).toFixed(1) + ' ' + Y(h[i]).toFixed(1) + ' '; });
+        areaD += 'L' + X(run[run.length - 1]).toFixed(1) + ' ' + H + ' Z ';
+      }
+      run = [];
+    };
+    h.forEach((v, i) => {
+      if (v === null) { flush(); return; }
+      lineD += (run.length ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1) + ' ';
+      run.push(i);
+    });
+    flush();
+    const step = W / (N - 1);
+    const zones = [];
+    let zs = -1;
+    for (let i = 0; i <= h.length; i++) {
+      const isNull = i < h.length && h[i] === null;
+      if (isNull && zs < 0) zs = i;
+      if (!isNull && zs >= 0) {
+        const left = Math.max(0, (X(zs) - step / 2) / W * 100);
+        const width = Math.min(100 - left, ((i - zs) * step) / W * 100);
+        zones.push({ id: 'z' + zs, style: 'position:absolute; top:0; height:200px; left:' + left.toFixed(2) + '%; width:' + width.toFixed(2) + '%; min-width:3px; background:#FEE2E2; border-top:3px solid #B91C1C; box-sizing:border-box' });
+        zs = -1;
+      }
+    }
+    const showThr = selT.thr < nice;
+    const thrY = showThr ? Y(selT.thr) : -20;
+    const yfmt = v => (Math.abs(v - Math.round(v)) < 0.01 ? String(Math.round(v)) : v.toFixed(1).replace('.', ','));
+    const total = (N - 1) * sec;
+    const selStatus = this.status(selT, s.proto);
+
+    // MTR
+    const mtr = s.mtr || this.freshMtr(selT, 0);
+    const rowH = compact ? 28 : 32;
+    const cols = '36px minmax(150px, 1.6fr) 128px 70px 70px 64px 64px 72px 64px 80px';
+    const mtrRows = mtr.hops.map((hp, i) => {
+      const n = hp.sent - hp.lost;
+      const avg = n ? hp.sum / n : null;
+      const sd = n > 1 ? Math.sqrt(Math.max(0, hp.sumsq / n - avg * avg)) : null;
+      const lp = hp.sent ? hp.lost / hp.sent * 100 : 0;
+      return {
+        id: 'h' + i, n: i + 1, host: hp.host, ip: hp.ip, sent: hp.sent,
+        loss: this.f1(lp) + ' %', last: this.f1(hp.last), avg: this.f1(avg),
+        best: this.f1(hp.best), worst: this.f1(hp.worst), sd: this.f1(sd),
+        hostStyle: 'padding:0 8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:' + (hp.final ? '600' : '400') + '; color:' + (hp.host === '(sans PTR)' ? '#4B5563' : '#111827'),
+        lossStyle: 'padding:0 8px; font-family:JetBrains Mono, monospace; text-align:right; font-weight:' + (lp > 0 ? '600' : '400') + '; color:' + (lp >= 5 ? '#B91C1C' : lp > 0 ? '#C2410C' : '#111827'),
+        rowStyle: 'display:grid; grid-template-columns:' + cols + '; align-items:center; min-height:' + rowH + 'px; border-top:1px solid #F3F4F6; font-size:12px; border-radius:4px; background:' + (hp.final ? '#F8FAFF' : '#FFFFFF')
+      };
+    });
+    let mtrNote;
+    if (selT.local) mtrNote = 'Même sous-réseau 10.182.122.0/24 : 1 saut L3. Chemin L2 découvert par LLDP et table MAC (SNMP) : ' + selT.path + '.';
+    else if (mtr.hops.length <= 2) mtrNote = 'Routage inter-VLAN par la FortiGate-60F (10.182.122.1 → VLAN 40). Une perte sur le dernier saut seulement pointe vers la caméra ou son port de switch, pas vers le cœur.';
+    else mtrNote = 'Une perte sur un saut intermédiaire qui ne se propage pas aux sauts suivants (ex. saut 3) vient d’une limitation ICMP du routeur, pas d’une vraie perte sur le chemin.';
+
+    // Journal
+    const tagMap = { crit: ['Coupure', '#FEE2E2', '#B91C1C'], warn: ['Alerte', '#FFEDD5', '#C2410C'], ok: ['Rétabli', '#DCFCE7', '#15803D'], info: ['Info', '#DBEAFE', '#1E40AF'] };
+    const events = s.events.slice(0, compact ? 22 : 18).map(e => {
+      const tg = tagMap[e.level] || tagMap.info;
+      return {
+        id: e.id, time: this.tfmt(e.ts), ip: e.ip, msg: e.msg, tag: tg[0],
+        tagStyle: 'display:inline-flex; align-items:center; height:18px; padding:0 6px; border-radius:4px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; background:' + tg[1] + '; color:' + tg[2],
+        rowStyle: 'display:grid; grid-template-columns:64px minmax(0, 1fr); gap:10px; padding:' + (compact ? '6px' : '8px') + ' 16px; border-bottom:1px solid #F3F4F6'
+      };
+    });
+    const cnt = lv => s.events.filter(e => e.level === lv).length;
+
+    const totalSent = s.targets.reduce((a, t) => a + t.sent, 0);
+    const totalLost = s.targets.reduce((a, t) => a + (t.sent - t.recv), 0);
+    const notes = [];
+    if (s.size === 1472) notes.push('Test MTU : 1472 octets de données + 28 octets d’en-tête IP/ICMP = 1500 octets, bit DF activé. Une perte franche signale un MTU réduit sur le chemin (tunnel, PPPoE).');
+    if (s.proto === 'TCP:443') notes.push('TCP:443 : temps d’établissement SYN → SYN/ACK. Utile quand l’ICMP est filtré par un pare-feu.');
+    if (s.proto === 'ARP') notes.push('ARP : seules les cibles de 10.182.122.0/24 sont sondées ; les autres cibles sont suspendues.');
+
+    const btnBase = 'height:32px; padding:0 12px; border-radius:6px; font:inherit; font-size:13px; font-weight:500; display:inline-flex; align-items:center; gap:6px; cursor:pointer;';
+    const ev = (ip, msg, lvl) => this.mkEv(Date.now(), ip, msg, lvl || 'info');
+    const setSize = sz => () => { if (s.size !== sz) this.setState({ size: sz, events: [ev('Session', 'taille de paquet : ' + sz + ' octets' + (sz === 1472 ? ' (test MTU, DF)' : ''))].concat(this.state.events) }); };
+    const setProto = pr => () => { if (s.proto !== pr) this.setState({ proto: pr, events: [ev('Session', 'mode de sondage : ' + pr)].concat(this.state.events) }); };
+
+    return {
+      accent,
+      liveLabel: s.paused ? 'En pause' : 'En direct',
+      liveDotStyle: 'width:8px; height:8px; border-radius:4px; display:inline-block; background:' + (s.paused ? '#6B7280' : '#15803D') + ';' + (s.paused ? '' : ' animation:dcpulse 1.4s infinite;'),
+      sessionInfo: 'Session ' + this.dfmt(now - s.startTs) + ' · ' + s.targets.length + ' cibles · ' + totalSent + ' paquets envoyés · ' + totalLost + ' perdus',
+      gq: s.gq, onGq: e => this.setState({ gq: e.target.value }),
+      q: s.q, onQ: e => this.setState({ q: e.target.value }),
+      addBtnStyle: btnBase + ' border:1px solid ' + accent + '; background:' + accent + '; color:#FFFFFF;',
+      onAdd: () => {
+        const v = (this.state.q || '').trim();
+        if (!v) return;
+        if (this.state.targets.length >= 9) { this.setState({ events: [ev('Session', 'limite de 9 cibles atteinte', 'warn')].concat(this.state.events) }); return; }
+        const local = v.indexOf('10.182.122.') === 0;
+        this.userSeq += 1;
+        const nt = { id: 'u' + this.userSeq, name: v, role: 'Ajoutée', ip: v, base: local ? 3.2 : 18.5, jit: local ? 1.8 : 2.6, lossP: 0.01, burstP: 0, spikeP: 0.02, thr: local ? 20 : 50, local, path: 'chemin L2 en cours de découverte (LLDP/SNMP)', hist: [], sent: 0, recv: 0, consec: 0, burst: 0, seq: 0 };
+        this.setState({ q: '', targets: this.state.targets.concat([nt]), events: [ev(v, 'cible ajoutée à la surveillance')].concat(this.state.events) });
+      },
+      intervalStr: String(s.intervalMs),
+      onInterval: e => {
+        const ms = parseInt(e.target.value, 10);
+        this.acc = 0;
+        this.setState({ intervalMs: ms, events: [ev('Session', 'intervalle changé à ' + this.durLabel(ms / 1000))].concat(this.state.events) });
+      },
+      size56Style: this.segStyle(s.size === 56, accent), size1472Style: this.segStyle(s.size === 1472, accent),
+      size56Pressed: s.size === 56 ? 'true' : 'false', size1472Pressed: s.size === 1472 ? 'true' : 'false',
+      setSize56: setSize(56), setSize1472: setSize(1472),
+      icmpStyle: this.segStyle(s.proto === 'ICMP', accent), tcpStyle: this.segStyle(s.proto === 'TCP:443', accent), arpStyle: this.segStyle(s.proto === 'ARP', accent),
+      icmpPressed: s.proto === 'ICMP' ? 'true' : 'false', tcpPressed: s.proto === 'TCP:443' ? 'true' : 'false', arpPressed: s.proto === 'ARP' ? 'true' : 'false',
+      setIcmp: setProto('ICMP'), setTcp: setProto('TCP:443'), setArp: setProto('ARP'),
+      sound: s.sound, onSound: e => this.setState({ sound: e.target.checked }),
+      pauseLabel: s.paused ? 'Reprendre' : 'Pause',
+      pauseIcon: s.paused ? 'M8 5 L19 12 L8 19 Z' : 'M9 5 V19 M15 5 V19',
+      pauseStyle: s.paused
+        ? btnBase + ' border:1px solid ' + accent + '; background:' + accent + '; color:#FFFFFF;'
+        : btnBase + ' border:1px solid #D1D5DB; background:#FFFFFF; color:#111827;',
+      onPause: () => {
+        const pz = !this.state.paused;
+        this.acc = 0;
+        this.setState({ paused: pz, events: [ev('Session', pz ? 'surveillance en pause' : 'surveillance reprise')].concat(this.state.events) });
+      },
+      onReset: () => {
+        const targets = this.state.targets.map(t => Object.assign({}, t, { hist: [], sent: 0, recv: 0, consec: 0, burst: 0, seq: 0 }));
+        const st = targets.find(t => t.id === this.state.sel) || targets[0];
+        this.acc = 0;
+        this.setState({ targets, startTs: Date.now(), mtr: this.freshMtr(st, 0), events: [ev('Session', 'statistiques réinitialisées')] });
+      },
+      onExport: () => this.setState({ events: [ev('Export', 'CSV prêt : ' + this.state.targets.length + ' cibles, ' + totalSent + ' mesures (horodatage, cible, rtt_ms, perdu)')].concat(this.state.events) }),
+      hasNote: notes.length > 0, modeNote: notes.join(' '),
+      cards, targetCount: s.targets.length,
+      windowLabel: '60 dernières mesures (' + this.durLabel(60 * sec) + ')',
+      selName: selT.name, selIp: selT.ip, selPill: this.pill(selStatus.key), selStatus: selStatus.label,
+      selMeta: selT.role + ' · envoyés ' + selT.sent + ' · reçus ' + selT.recv + ' · fenêtre ' + this.durLabel(N * sec),
+      bCur: h.length ? (h[h.length - 1] === null ? 'perdu' : this.f1(h[h.length - 1]) + ' ms') : '—',
+      bMin: this.f1(bst.min), bAvg: this.f1(bst.avg), bMax: this.f1(bst.max), bJit: this.f1(bst.jit), bP95: this.f1(bst.p95),
+      bLoss: this.f1(bst.lossPct) + ' %',
+      bLossStyle: 'font-family:JetBrains Mono, monospace; font-size:16px; font-weight:600; color:' + (bst.lossPct >= 5 ? '#B91C1C' : bst.lossPct > 0 ? '#C2410C' : '#111827'),
+      yl0: yfmt(nice), yl1: yfmt(nice * 0.75), yl2: yfmt(nice / 2), yl3: yfmt(nice / 4),
+      xl0: '−' + this.durLabel(total), xl1: '−' + this.durLabel(total * 0.75), xl2: '−' + this.durLabel(total / 2), xl3: '−' + this.durLabel(total / 4),
+      lineD, areaD, zones,
+      avgY: bst.avg === null ? -20 : Y(bst.avg).toFixed(1),
+      thrY: typeof thrY === 'number' ? thrY.toFixed(1) : thrY,
+      thrLabel: 'seuil ' + selT.thr + ' ms',
+      thrLabelStyle: 'position:absolute; right:6px; top:' + Math.max(0, (thrY / H) * 200 - 18).toFixed(0) + 'px; font-size:11px; font-weight:600; color:#C2410C; background:#FFFFFF; padding:0 4px; border-radius:3px;' + (showThr ? '' : ' display:none;'),
+      legendLineStyle: 'width:16px; height:0; border-top:2px solid ' + accent,
+      zoneCount: zones.length + (zones.length > 1 ? ' épisodes' : ' épisode'),
+      chartLabel: 'Latence vers ' + selT.ip + ' sur ' + this.durLabel(N * sec) + ' : moyenne ' + this.f1(bst.avg) + ' ms, maximum ' + this.f1(bst.max) + ' ms, perte ' + this.f1(bst.lossPct) + ' %',
+      mtrRows, mtrNote,
+      mtrInfo: mtr.hops.length + (mtr.hops.length > 1 ? ' sauts' : ' saut') + ' · ' + mtr.cycles + ' cycles · ' + s.proto,
+      events, noEvents: events.length === 0,
+      evCount: s.events.length + ' événements',
+      nCrit: cnt('crit'), nWarn: cnt('warn'), nOk: cnt('ok'),
+      onClearLog: () => this.setState({ events: [] })
+    };
+  }
+}
+</script>
+</body>
+</html>

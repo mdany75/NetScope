@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Switchs et ports</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F4F6}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+.side a.nav:hover{background:#1E293B;color:#FFFFFF}
+.btn:hover{background:#F3F4F6}
+.btn:focus-visible,.btnp:focus-visible,.port:focus-visible,.chip:focus-visible,.card:focus-visible,.node:focus-visible{outline:2px solid #2563EB;outline-offset:2px}
+.btnp:hover{background:#1D4ED8}
+.port:hover{filter:brightness(1.12)}
+.chip:hover{background:#DBEAFE}
+.card:hover{border-color:#93C5FD}
+.node:hover{border-color:#2563EB}
+.row:hover{background:#F9FAFB}
+.row{cursor:pointer}
+input:focus,select:focus{outline:2px solid #2563EB;outline-offset:-1px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin 1s linear infinite}
+@keyframes pulse{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
+.pulse{animation:pulse 1.4s ease-in-out infinite}
+@media (max-width: 760px){.side{max-width:none !important}}
+</style>
+</helmet>
+<div style="width:100%; min-height:1000px; display:flex; flex-wrap:wrap; font-family:Inter, system-ui, sans-serif; color:#111827; background:#F3F4F6; box-sizing:border-box; font-size:13px">
+
+  <aside class="side" style="flex:1 1 220px; max-width:220px; background:#0F172A; color:#E2E8F0; display:flex; flex-direction:column; padding:16px 12px; box-sizing:border-box; gap:20px">
+    <div style="display:flex; align-items:center; gap:10px; padding:4px 8px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><path d="M12 12l6-6"></path><circle cx="12" cy="12" r="1.2"></circle></svg>
+      <div>
+        <div style="font-weight:700; font-size:15px; color:#FFFFFF">NetScope</div>
+        <div style="font-size:11px; color:#94A3B8">Boîte à outils réseau</div>
+      </div>
+    </div>
+    <nav aria-label="Navigation principale" style="display:flex; flex-direction:column; gap:8px">
+      <div style="display:flex; flex-direction:column; gap:2px">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:0 10px; margin:0; height:20px; display:flex; align-items:center">Découverte</div>
+        <a class="nav" href="Main.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>Scanner</a>
+        <a class="nav" href="Topologie.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="5" rx="1"></rect><rect x="3" y="16" width="6" height="5" rx="1"></rect><rect x="15" y="16" width="6" height="5" rx="1"></rect><path d="M12 8v4M6 16v-4h12v4"></path></svg>Carte du réseau</a>
+        <a class="nav" href="Inventaire.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h1M4 12h1M4 18h1"></path></svg>Inventaire</a>
+        <a class="nav" href="Device.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path></svg>Appareil</a>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:2px">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:0 10px; margin:0; height:20px; display:flex; align-items:center">Diagnostic</div>
+        <a class="nav" href="Ping.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Ping continu</a>
+        <a class="nav" href="Switch.dc.html" aria-current="page" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#FFFFFF; background:#1E293B; font-weight:600">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="10" rx="2"></rect><path d="M6 11h2M10 11h2M14 11h2M6 14h2M10 14h2M14 14h2"></path></svg>Switchs et ports</a>
+        <a class="nav" href="Wifi.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9a15 15 0 0 1 20 0"></path><path d="M5 12.5a10 10 0 0 1 14 0"></path><path d="M8.5 16a5 5 0 0 1 7 0"></path><circle cx="12" cy="19.5" r="0.8"></circle></svg>Wi-Fi</a>
+        <a class="nav" href="Toolbox.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"></path></svg>Outils</a>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:2px">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:0 10px; margin:0; height:20px; display:flex; align-items:center">Suivi</div>
+        <a class="nav" href="Surveillance.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg>Surveillance<span aria-label="3 alertes" style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#DC2626; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center">3</span></a>
+        <a class="nav" href="Analyse.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>Analyse<span aria-label="1 nouvelle analyse" style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#2563EB; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center">1</span></a>
+        <a class="nav" href="Rapport.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><path d="M14 3v6h6M8 13h8M8 17h5"></path></svg>Rapports</a>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:2px">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:0 10px; margin:0; height:20px; display:flex; align-items:center">Accès</div>
+        <a class="nav" href="Remote.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M7 10l3 2-3 2M12 15h5"></path></svg>Accès distant</a>
+        <a class="nav" href="Speedtest.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.9 19a9 9 0 1 1 14.2 0"></path><path d="M12 14l4-5"></path><circle cx="12" cy="14" r="1.2"></circle></svg>Speedtest</a>
+      </div>
+    </nav>
+    <div style="border-top:1px solid #1E293B; padding:12px 8px 0; display:flex; flex-direction:column; gap:6px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8">Switchs surveillés</div>
+      <sc-for list="{{ switches }}" as="s" hint-placeholder-count="2">
+        <button type="button" onClick="{{ s.pick }}" style="{{ s.sideStyle }}">
+          <span style="width:8px; height:8px; border-radius:4px; background:#22C55E; flex:none"></span>
+          <span style="font-family:'JetBrains Mono', monospace; font-size:12px">{{ s.name }}</span>
+        </button>
+      </sc-for>
+    </div>
+    <nav aria-label="Réglages" style="margin-top:auto; border-top:1px solid #1E293B; padding-top:8px; display:flex; flex-direction:column">
+      <a class="nav" href="Reglages.dc.html" style="display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:#E2E8F0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>Réglages</a>
+    </nav>
+    <div style="border-top:1px solid #1E293B; padding:12px 8px 0; display:flex; flex-direction:column; gap:4px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8">Interface active</div>
+      <div style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#E2E8F0">en0 · 10.182.122.135 · Wi-Fi</div>
+      <div style="font-size:11px; color:#94A3B8">NetScope 2.0 · build 2611</div>
+    </div>
+  </aside>
+
+  <main style="flex:999 1 560px; min-width:0; display:flex; flex-direction:column">
+    <header style="display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:12px 24px; background:#FFFFFF; border-bottom:1px solid #E5E7EB">
+      <div style="flex:0 1 auto; min-width:200px">
+        <h1 style="margin:0; font-size:18px; font-weight:700">Switchs et ports</h1>
+        <div style="font-size:12px; color:#4B5563">Où est branché chaque appareil · 2 switchs · 10.182.122.0/24 et 192.168.50.0/24</div>
+      </div>
+      <div style="flex:1 1 300px; display:flex; align-items:center; gap:8px; border:1px solid #E5E7EB; border-radius:6px; padding:0 10px; height:34px; background:#F9FAFB; color:#4B5563">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
+        <input type="search" aria-label="Recherche globale" placeholder="Rechercher IP, MAC, hostname, fabricant, port de switch…" value="{{ globalQ }}" onChange="{{ onGlobal }}" style="flex:1; border:0; background:transparent; font:13px Inter, sans-serif; color:#111827; height:30px; min-width:0">
+        <span style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#4B5563; border:1px solid #E5E7EB; border-radius:4px; padding:1px 5px; background:#FFFFFF">⌘K</span>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px">
+        <button type="button" class="btn" style="display:flex; align-items:center; gap:6px; height:34px; padding:0 12px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; font:500 13px Inter, sans-serif; cursor:pointer">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Ajouter un switch</button>
+        <button type="button" class="btn" style="display:flex; align-items:center; gap:6px; height:34px; padding:0 12px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; font:500 13px Inter, sans-serif; cursor:pointer">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"></path></svg>Exporter CSV</button>
+      </div>
+    </header>
+
+    <div style="padding:16px 24px 24px; display:flex; flex-direction:column; gap:16px">
+
+      <section aria-label="Sources de localisation" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px 16px; display:flex; flex-wrap:wrap; gap:16px; align-items:center">
+        <div style="flex:1 1 460px; min-width:0; display:flex; flex-direction:column; gap:8px">
+          <div style="font-weight:600">Comment l’appareil est localisé</div>
+          <div style="display:flex; flex-wrap:wrap; gap:8px; font-size:12px; color:#4B5563">
+            <span style="display:inline-flex; gap:6px; align-items:center; padding:4px 8px; border-radius:6px; background:#DBEAFE; color:#1E40AF"><b>LLDP</b> voisins annoncés</span>
+            <span style="display:inline-flex; gap:6px; align-items:center; padding:4px 8px; border-radius:6px; background:#E0E7FF; color:#3730A3"><b>CDP</b> équipements Cisco</span>
+            <span style="display:inline-flex; gap:6px; align-items:center; padding:4px 8px; border-radius:6px; background:#F3F4F6; color:#374151"><b>FDB</b> table MAC par SNMP v2c/v3 · BRIDGE-MIB / Q-BRIDGE-MIB</span>
+            <span style="display:inline-flex; gap:6px; align-items:center; padding:4px 8px; border-radius:6px; background:#DCFCE7; color:#166534"><b>ARP</b> passerelle 10.182.122.1 (MAC → IP)</span>
+          </div>
+          <div style="font-size:12px; color:#4B5563">Un port d’accès qui apprend la MAC est retenu en priorité ; les ports trunk et uplink sont ignorés pour la localisation.</div>
+        </div>
+        <div style="flex:1 1 420px; display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end">
+          <div style="display:flex; flex-direction:column; gap:4px">
+            <label for="snmpver" style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600">Version</label>
+            <select id="snmpver" value="{{ snmpVer }}" onChange="{{ onVer }}" style="height:32px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font:13px Inter, sans-serif; background:#FFFFFF; color:#111827">
+              <option value="v3">SNMP v3 · authPriv</option>
+              <option value="v2c">SNMP v2c</option>
+            </select>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px; flex:1 1 150px">
+            <label for="snmpsecret" style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600">{{ secretLabel }}</label>
+            <input id="snmpsecret" type="password" value="{{ snmpSecret }}" onChange="{{ onSecret }}" style="height:32px; border:1px solid #E5E7EB; border-radius:6px; padding:0 10px; font:13px 'JetBrains Mono', monospace; box-sizing:border-box; width:100%">
+          </div>
+          <button type="button" class="btnp" onClick="{{ onPoll }}" style="display:flex; align-items:center; gap:6px; height:32px; padding:0 14px; border:0; border-radius:6px; background:#2563EB; color:#FFFFFF; font:600 13px Inter, sans-serif; cursor:pointer">
+            <sc-if value="{{ polling }}" hint-placeholder-val="{{ false }}">
+              <svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9"></path></svg>
+            </sc-if>
+            <sc-if value="{{ notPolling }}" hint-placeholder-val="{{ true }}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15 6.7L3 16M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M3 21v-5h5"></path></svg>
+            </sc-if>
+            {{ pollLabel }}
+          </button>
+          <div style="font-size:12px; color:#4B5563; flex:1 1 100%">Dernier relevé : <span style="font-family:'JetBrains Mono', monospace; color:#111827">{{ lastPoll }}</span> · 2 switchs · {{ fdbTotal }} entrées FDB · 2 voisins LLDP · 6 voisins CDP</div>
+        </div>
+      </section>
+
+      <section aria-label="Switchs découverts" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap:12px">
+        <sc-for list="{{ switches }}" as="s" hint-placeholder-count="2">
+          <button type="button" class="card" onClick="{{ s.pick }}" aria-pressed="{{ s.pressed }}" style="{{ s.cardStyle }}">
+            <div style="display:flex; align-items:center; gap:10px; width:100%">
+              <div style="width:34px; height:34px; border-radius:6px; background:#F3F4F6; display:flex; align-items:center; justify-content:center; color:#111827; flex:none">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="10" rx="2"></rect><path d="M6 11h2M10 11h2M14 11h2M6 14h2M10 14h2M14 14h2"></path></svg>
+              </div>
+              <div style="flex:1; min-width:0">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+                  <span style="font-family:'JetBrains Mono', monospace; font-weight:600; font-size:14px">{{ s.name }}</span>
+                  <span style="font-size:11px; padding:1px 6px; border-radius:4px; background:#DCFCE7; color:#15803D; font-weight:600">En ligne</span>
+                  <span style="font-size:11px; padding:1px 6px; border-radius:4px; background:#F3F4F6; color:#374151">{{ s.role }}</span>
+                </div>
+                <div style="font-size:12px; color:#4B5563">{{ s.model }} · <span style="font-family:'JetBrains Mono', monospace">{{ s.ip }}</span> · {{ s.portsText }}</div>
+              </div>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px; width:100%; margin-top:10px">
+              <div><div style="font-size:11px; text-transform:uppercase; color:#4B5563">Firmware</div><div style="font-family:'JetBrains Mono', monospace; font-size:12px">{{ s.fw }}</div></div>
+              <div><div style="font-size:11px; text-transform:uppercase; color:#4B5563">Uptime</div><div style="font-family:'JetBrains Mono', monospace; font-size:12px">{{ s.uptime }}</div></div>
+              <div><div style="font-size:11px; text-transform:uppercase; color:#4B5563">Température</div><div style="font-family:'JetBrains Mono', monospace; font-size:12px">{{ s.temp }}</div></div>
+              <div><div style="font-size:11px; text-transform:uppercase; color:#4B5563">Ports actifs</div><div style="font-family:'JetBrains Mono', monospace; font-size:12px">{{ s.upText }}</div></div>
+            </div>
+            <div style="width:100%; margin-top:10px">
+              <div style="display:flex; justify-content:space-between; font-size:12px; color:#4B5563"><span>PoE utilisé / budget</span><span style="font-family:'JetBrains Mono', monospace; color:#111827">{{ s.poeText }}</span></div>
+              <div style="height:6px; border-radius:3px; background:#E5E7EB; margin-top:4px; overflow:hidden"><div style="{{ s.poeBar }}"></div></div>
+            </div>
+          </button>
+        </sc-for>
+      </section>
+
+      <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start">
+
+        <section aria-label="Façade du switch" style="flex:1 1 640px; min-width:0; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px 16px; display:flex; flex-direction:column; gap:12px">
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px">
+            <div style="font-weight:600; font-size:14px">Façade · <span style="font-family:'JetBrains Mono', monospace">{{ cur.name }}</span></div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px; margin-left:auto">
+              <sc-for list="{{ statChips }}" as="c" hint-placeholder-count="4">
+                <span style="{{ c.style }}">{{ c.label }} <b style="font-family:'JetBrains Mono', monospace">{{ c.value }}</b></span>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="overflow-x:auto">
+            <div style="background:#1E293B; border-radius:8px; padding:12px 14px; display:inline-flex; gap:18px; align-items:center; min-width:max-content">
+              <div style="display:flex; flex-direction:column; gap:6px; color:#CBD5E1; font-size:10px; width:72px">
+                <div style="font-weight:700; color:#FFFFFF; font-size:12px; letter-spacing:.06em">{{ cur.brand }}</div>
+                <div>{{ cur.shortModel }}</div>
+                <div style="display:flex; gap:8px; margin-top:4px">
+                  <span style="display:flex; align-items:center; gap:3px"><span class="pulse" style="width:6px; height:6px; border-radius:3px; background:#22C55E"></span>SYST</span>
+                  <span style="display:flex; align-items:center; gap:3px"><span style="width:6px; height:6px; border-radius:3px; background:#22C55E"></span>PoE</span>
+                </div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:5px">
+                <div style="display:flex; gap:3px">
+                  <sc-for list="{{ topPorts }}" as="p" hint-placeholder-count="24">
+                    <button type="button" class="port" onClick="{{ p.pick }}" style="{{ p.style }}" aria-label="{{ p.aria }}" title="{{ p.aria }}">{{ p.label }}</button>
+                  </sc-for>
+                </div>
+                <div style="display:flex; gap:3px">
+                  <sc-for list="{{ bottomPorts }}" as="p" hint-placeholder-count="24">
+                    <button type="button" class="port" onClick="{{ p.pick }}" style="{{ p.style }}" aria-label="{{ p.aria }}" title="{{ p.aria }}">{{ p.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:5px; padding-left:14px; border-left:1px solid #475569">
+                <div style="display:flex; gap:4px">
+                  <sc-for list="{{ sfpTop }}" as="p" hint-placeholder-count="2">
+                    <button type="button" class="port" onClick="{{ p.pick }}" style="{{ p.style }}" aria-label="{{ p.aria }}" title="{{ p.aria }}">{{ p.label }}</button>
+                  </sc-for>
+                </div>
+                <div style="display:flex; gap:4px">
+                  <sc-for list="{{ sfpBottom }}" as="p" hint-placeholder-count="2">
+                    <button type="button" class="port" onClick="{{ p.pick }}" style="{{ p.style }}" aria-label="{{ p.aria }}" title="{{ p.aria }}">{{ p.label }}</button>
+                  </sc-for>
+                </div>
+                <div style="font-size:10px; color:#CBD5E1; text-align:center">SFP+ 10G</div>
+              </div>
+            </div>
+          </div>
+
+          <sc-if value="{{ showLegend }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; flex-wrap:wrap; gap:14px; font-size:12px; color:#4B5563">
+              <span style="display:flex; align-items:center; gap:6px"><span style="width:14px; height:12px; border-radius:3px; background:#15803D; border:1px solid #166534"></span>Actif 1 Gb/s</span>
+              <span style="display:flex; align-items:center; gap:6px"><span style="width:14px; height:12px; border-radius:3px; background:#DCFCE7; border:1px solid #15803D"></span>Actif 100 Mb/s</span>
+              <span style="display:flex; align-items:center; gap:6px"><span style="width:14px; height:12px; border-radius:3px; background:#2563EB; border:1px solid #1D4ED8"></span>PoE actif</span>
+              <span style="display:flex; align-items:center; gap:6px"><span style="width:14px; height:12px; border-radius:3px; background:#F8FAFC; border:1px solid #94A3B8"></span>Trunk / uplink</span>
+              <span style="display:flex; align-items:center; gap:6px"><span style="width:14px; height:12px; border-radius:3px; background:#B91C1C; border:1px solid #991B1B"></span>Erreurs</span>
+              <span style="display:flex; align-items:center; gap:6px"><span style="width:14px; height:12px; border-radius:3px; background:#334155; border:1px solid #475569"></span>Inactif / désactivé</span>
+              <span style="display:flex; align-items:center; gap:6px"><span style="width:14px; height:12px; border-radius:3px; background:#FFFFFF; outline:2px solid #F59E0B"></span>Appareil trouvé</span>
+            </div>
+          </sc-if>
+
+          <div style="border-top:1px solid #E5E7EB; padding-top:12px; display:flex; flex-direction:column; gap:8px">
+            <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end">
+              <div style="display:flex; flex-direction:column; gap:4px; flex:1 1 280px">
+                <label for="finddev" style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600">Trouver un appareil</label>
+                <input id="finddev" type="text" placeholder="IP, MAC ou hostname (ex. 10.182.122.111)" value="{{ findQ }}" onChange="{{ onFindQ }}" onKeyDown="{{ onFindKey }}" style="height:34px; border:1px solid #E5E7EB; border-radius:6px; padding:0 10px; font:13px 'JetBrains Mono', monospace; box-sizing:border-box; width:100%">
+              </div>
+              <button type="button" class="btnp" onClick="{{ doFind }}" style="display:flex; align-items:center; gap:6px; height:34px; padding:0 14px; border:0; border-radius:6px; background:#2563EB; color:#FFFFFF; font:600 13px Inter, sans-serif; cursor:pointer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="10" r="3"></circle><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"></path></svg>Localiser le port</button>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:12px; color:#4B5563">
+              <span>Exemples :</span>
+              <sc-for list="{{ samples }}" as="x" hint-placeholder-count="4">
+                <button type="button" class="chip" onClick="{{ x.pick }}" style="border:1px solid #BFDBFE; background:#EFF6FF; color:#1D4ED8; border-radius:6px; padding:3px 8px; font:12px 'JetBrains Mono', monospace; cursor:pointer">{{ x.v }}</button>
+              </sc-for>
+            </div>
+            <sc-if value="{{ foundOk }}" hint-placeholder-val="{{ true }}">
+              <div role="status" style="display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:6px; background:#DCFCE7; color:#14532D; font-size:13px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>
+                <span>{{ foundText }}</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ foundNone }}" hint-placeholder-val="{{ false }}">
+              <div role="status" style="display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:6px; background:#FFEDD5; color:#9A3412; font-size:13px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01"></path></svg>
+                <span>{{ foundText }}</span>
+              </div>
+            </sc-if>
+          </div>
+        </section>
+
+        <aside aria-label="Détail du port" style="flex:1 1 320px; max-width:420px; min-width:0; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; display:flex; flex-direction:column">
+          <div style="padding:14px 16px; border-bottom:1px solid #E5E7EB; display:flex; flex-direction:column; gap:6px">
+            <div style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600">Port sélectionné · {{ selSwName }}</div>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+              <span style="font-family:'JetBrains Mono', monospace; font-weight:600; font-size:18px">{{ sel.name }}</span>
+              <span style="{{ selBadge }}">{{ selStateLabel }}</span>
+            </div>
+            <div style="color:#4B5563; font-size:12px">{{ sel.desc }}</div>
+          </div>
+          <div style="padding:12px 16px; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px 14px; border-bottom:1px solid #E5E7EB">
+            <div><div style="font-size:11px; text-transform:uppercase; color:#4B5563">État admin / opér.</div><div style="font-size:12px">{{ sel.admin }} / {{ sel.oper }}</div></div>
+            <div><div style="font-size:11px; text-transform:uppercase; color:#4B5563">Vitesse / duplex</div><div style="font-family:'JetBrains Mono', monospace; font-size:12px">{{ sel.speed }}</div></div>
+            <div><div style="font-size:11px; text-transform:uppercase; color:#4B5563">VLAN</div><div style="font-family:'JetBrains Mono', monospace; font-size:12px">{{ sel.vlan }}</div></div>
+            <div><div style="font-size:11px; text-transform:uppercase; color:#4B5563">PoE</div><div style="font-family:'JetBrains Mono', monospace; font-size:12px">{{ poeLine }}</div></div>
+            <div><div style="font-size:11px; text-transform:uppercase; color:#4B5563">Entrée</div><div style="font-family:'JetBrains Mono', monospace; font-size:12px">{{ sel.inB }}</div></div>
+            <div><div style="font-size:11px; text-transform:uppercase; color:#4B5563">Sortie</div><div style="font-family:'JetBrains Mono', monospace; font-size:12px">{{ sel.outB }}</div></div>
+            <div><div style="font-size:11px; text-transform:uppercase; color:#4B5563">Erreurs CRC</div><div style="{{ crcStyle }}">{{ sel.crc }}</div></div>
+            <div><div style="font-size:11px; text-transform:uppercase; color:#4B5563">Dernier changement</div><div style="font-size:12px">{{ sel.change }}</div></div>
+          </div>
+
+          <div style="padding:12px 16px; display:flex; flex-direction:column; gap:8px; border-bottom:1px solid #E5E7EB">
+            <div style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600">Appareils vus sur ce port ({{ selDevCount }})</div>
+            <sc-for list="{{ selDevices }}" as="d" hint-placeholder-count="2">
+              <div style="border:1px solid #E5E7EB; border-radius:6px; padding:8px 10px; display:flex; flex-direction:column; gap:2px">
+                <div style="display:flex; align-items:center; gap:6px">
+                  <span style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0">{{ d.host }}</span>
+                  <span style="{{ d.srcStyle }}">{{ d.src }}</span>
+                </div>
+                <div style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#111827">{{ d.ip }} · {{ d.mac }}</div>
+                <div style="font-size:12px; color:#4B5563">{{ d.vendor }} · VLAN {{ d.vlan }} · vu {{ d.seen }}</div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ noDevices }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:12px; color:#4B5563; padding:8px 10px; background:#F9FAFB; border-radius:6px">Aucune adresse MAC apprise sur ce port lors du dernier relevé.</div>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{ hasNeighbor }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:12px 16px; display:flex; flex-direction:column; gap:6px; border-bottom:1px solid #E5E7EB">
+              <div style="font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600">Voisin {{ nb.proto }}</div>
+              <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:6px 14px; font-size:12px">
+                <div><span style="color:#4B5563">Système : </span><span style="font-family:'JetBrains Mono', monospace">{{ nb.name }}</span></div>
+                <div><span style="color:#4B5563">Port distant : </span><span style="font-family:'JetBrains Mono', monospace">{{ nb.port }}</span></div>
+                <div><span style="color:#4B5563">IP de gestion : </span><span style="font-family:'JetBrains Mono', monospace">{{ nb.mgmt }}</span></div>
+                <div><span style="color:#4B5563">Capacités : </span>{{ nb.caps }}</div>
+                <div style="grid-column:1 / -1"><span style="color:#4B5563">Plateforme : </span>{{ nb.platform }}</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <div style="padding:12px 16px; display:flex; flex-wrap:wrap; gap:8px">
+            <a href="Ping.dc.html" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:6px; background:#2563EB; color:#FFFFFF; text-decoration:none; font-weight:600; font-size:13px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Ping continu</a>
+            <a href="Device.dc.html" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:6px; border:1px solid #E5E7EB; color:#111827; text-decoration:none; font-weight:500; font-size:13px">Fiche appareil</a>
+            <button type="button" class="btn" onClick="{{ onCopy }}" style="height:32px; padding:0 12px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; color:#111827; font:500 13px Inter, sans-serif; cursor:pointer">{{ copyLabel }}</button>
+          </div>
+        </aside>
+      </div>
+
+      <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start">
+        <section aria-label="Table MAC et ports" style="flex:2 1 640px; min-width:0; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; display:flex; flex-direction:column">
+          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:12px 16px; border-bottom:1px solid #E5E7EB">
+            <div style="font-weight:600; font-size:14px">Table MAC / ports</div>
+            <div style="font-size:12px; color:#4B5563">{{ tableCount }}</div>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:6px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; height:30px; color:#4B5563">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6 7v6l-4 2v-8z"></path></svg>
+              <input type="text" aria-label="Filtrer la table MAC" placeholder="Filtrer port, VLAN, MAC, IP…" value="{{ tableQ }}" onChange="{{ onTableQ }}" style="border:0; background:transparent; font:12px Inter, sans-serif; color:#111827; width:190px; height:26px">
+            </div>
+          </div>
+          <div style="overflow-x:auto; max-height:340px; overflow-y:auto">
+            <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:820px">
+              <thead>
+                <tr style="background:#F9FAFB; text-align:left">
+                  <th style="padding:8px 12px; font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; border-bottom:1px solid #E5E7EB; position:sticky; top:0; background:#F9FAFB">Port</th>
+                  <th style="padding:8px 12px; font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; border-bottom:1px solid #E5E7EB; position:sticky; top:0; background:#F9FAFB">VLAN</th>
+                  <th style="padding:8px 12px; font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; border-bottom:1px solid #E5E7EB; position:sticky; top:0; background:#F9FAFB">MAC</th>
+                  <th style="padding:8px 12px; font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; border-bottom:1px solid #E5E7EB; position:sticky; top:0; background:#F9FAFB">IP</th>
+                  <th style="padding:8px 12px; font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; border-bottom:1px solid #E5E7EB; position:sticky; top:0; background:#F9FAFB">Hostname</th>
+                  <th style="padding:8px 12px; font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; border-bottom:1px solid #E5E7EB; position:sticky; top:0; background:#F9FAFB">Fabricant</th>
+                  <th style="padding:8px 12px; font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; border-bottom:1px solid #E5E7EB; position:sticky; top:0; background:#F9FAFB">Source</th>
+                  <th style="padding:8px 12px; font-size:11px; text-transform:uppercase; color:#4B5563; font-weight:600; border-bottom:1px solid #E5E7EB; position:sticky; top:0; background:#F9FAFB">Vu</th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ macRows }}" as="r" hint-placeholder-count="10">
+                  <tr class="row" onClick="{{ r.pick }}" style="{{ r.rowStyle }}">
+                    <td style="{{ cellMono }}">{{ r.port }}</td>
+                    <td style="{{ cellMono }}">{{ r.vlan }}</td>
+                    <td style="{{ cellMono }}">{{ r.mac }}</td>
+                    <td style="{{ cellMono }}">{{ r.ip }}</td>
+                    <td style="{{ cellText }}">{{ r.host }}</td>
+                    <td style="{{ cellText }}">{{ r.vendor }}</td>
+                    <td style="{{ cellText }}"><span style="{{ r.srcStyle }}">{{ r.src }}</span></td>
+                    <td style="{{ cellText }}">{{ r.seen }}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section aria-label="Topologie simplifiée" style="flex:1 1 300px; max-width:420px; min-width:0; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:12px 16px 16px; display:flex; flex-direction:column; gap:10px">
+          <div style="display:flex; align-items:center; gap:8px">
+            <div style="font-weight:600; font-size:14px">Topologie</div>
+            <div style="font-size:12px; color:#4B5563">déduite par LLDP / CDP</div>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:center">
+            <div style="display:flex; align-items:center; gap:8px; padding:8px 12px; border:1px dashed #9CA3AF; border-radius:8px; color:#374151; font-weight:500; width:220px; box-sizing:border-box">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path></svg>Internet
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; height:26px"><div style="width:2px; height:26px; background:#9CA3AF"></div><span style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#4B5563">wan1</span></div>
+            <div style="padding:8px 12px; border:1px solid #E5E7EB; border-radius:8px; width:220px; box-sizing:border-box; background:#F9FAFB">
+              <div style="font-weight:600">FortiGate-60F</div>
+              <div style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#4B5563">10.182.122.1 · passerelle</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; height:26px"><div style="width:2px; height:26px; background:#2563EB"></div><span style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#4B5563">internal1 ↔ Gi1/0/1 · trunk</span></div>
+            <button type="button" class="node" onClick="{{ pickCore }}" style="{{ coreNode }}">
+              <div style="font-weight:600; font-family:'JetBrains Mono', monospace">SW-CORE-01</div>
+              <div style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#4B5563">10.182.122.2 · Catalyst 9300</div>
+            </button>
+            <div style="display:flex; align-items:center; gap:8px; height:30px"><div style="width:4px; height:30px; background:#2563EB; border-radius:2px"></div><span style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#4B5563">Te1/1/1 ↔ 1/25 · 10 Gb/s</span></div>
+            <button type="button" class="node" onClick="{{ pickEtg }}" style="{{ etgNode }}">
+              <div style="font-weight:600; font-family:'JetBrains Mono', monospace">SW-ETG2-01</div>
+              <div style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#4B5563">10.182.122.3 · Aruba 2930F</div>
+            </button>
+            <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; width:240px; margin-top:10px">
+              <div style="border-top:2px solid #9CA3AF; padding-top:6px; font-size:11px; color:#4B5563">
+                <div style="font-weight:600; color:#111827">VLAN 40 · caméras</div>
+                <div style="font-family:'JetBrains Mono', monospace">192.168.50.0/24</div>
+                <div>4 Axis · ports 1/3–1/6</div>
+              </div>
+              <div style="border-top:2px solid #9CA3AF; padding-top:6px; font-size:11px; color:#4B5563">
+                <div style="font-weight:600; color:#111827">VLAN 30 · impression</div>
+                <div style="font-family:'JetBrains Mono', monospace">Brother 1/14</div>
+                <div>10.182.122.111</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000},"compact":false,"showLegend":true}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.ST = {
+      up1g: { bg: "#15803D", bd: "#166534", fg: "#FFFFFF", label: "Actif 1 Gb/s", sbg: "#DCFCE7", sfg: "#15803D" },
+      up100: { bg: "#DCFCE7", bd: "#15803D", fg: "#14532D", label: "Actif 100 Mb/s", sbg: "#DCFCE7", sfg: "#14532D" },
+      poe: { bg: "#2563EB", bd: "#1D4ED8", fg: "#FFFFFF", label: "Actif · PoE", sbg: "#DBEAFE", sfg: "#1D4ED8" },
+      down: { bg: "#334155", bd: "#475569", fg: "#CBD5E1", label: "Inactif", sbg: "#F3F4F6", sfg: "#4B5563" },
+      err: { bg: "#B91C1C", bd: "#991B1B", fg: "#FFFFFF", label: "Actif · erreurs", sbg: "#FEE2E2", sfg: "#B91C1C" },
+      trunk: { bg: "#F8FAFC", bd: "#94A3B8", fg: "#0F172A", label: "Trunk / uplink", sbg: "#E2E8F0", sfg: "#0F172A" }
+    };
+    this.switches = this.buildSwitches();
+    this.state = {
+      sw: "core",
+      port: "core:Gi1/0/12",
+      findQ: "",
+      found: null,
+      polling: false,
+      lastPoll: "2026-11-03 09:42:17",
+      snmpVer: "v3",
+      snmpSecret: "lecture-seule-v3",
+      tableQ: "",
+      globalQ: "",
+      copied: false
+    };
+  }
+
+  componentWillUnmount() {
+    if (this.pollT) clearTimeout(this.pollT);
+    if (this.copyT) clearTimeout(this.copyT);
+  }
+
+  buildSwitches() {
+    const dec = (x) => String(x).replace(".", ",");
+    const hex2 = (n) => { const v = n % 256; return (v < 16 ? "0" : "") + v.toString(16).toUpperCase(); };
+    const traffic = (n, k) => dec((((n * k) % 870) + 35) / 10) + " Go";
+    const mkPort = (sw, n, name, label, sfp, o) => Object.assign({
+      key: sw + ":" + name, sw: sw, n: n, name: name, label: label, sfp: sfp,
+      state: "down", desc: "", admin: "Activé", oper: "Inactif", speed: "—", vlan: "Accès 10",
+      poeClass: "", poeW: "", devices: [], neighbor: null, crc: "0",
+      inB: "0 o", outB: "0 o", change: "il y a 12 j 03 h"
+    }, o || {});
+    const vendors = [["Dell", "B0:7B:25"], ["Lenovo", "54:E1:AD"], ["HP", "3C:52:82"]];
+    const genDev = (n, ipLast, host, vlan) => {
+      const v = vendors[n % 3];
+      return { mac: v[1] + ":" + hex2(n * 5 + 17) + ":" + hex2(n * 11 + 3) + ":" + hex2(n * 17 + 9), ip: "10.182.122." + ipLast, host: host, vendor: v[0], vlan: vlan, src: "FDB", seen: n % 4 === 0 ? "il y a 4 min" : "à l’instant" };
+    };
+    const upGen = (n, ipLast, host, desc) => ({
+      state: "up1g", oper: "Actif", speed: "1 Gb/s · full", desc: desc,
+      devices: [genDev(n, ipLast, host, "10")], inB: traffic(n, 37), outB: traffic(n, 53),
+      change: "il y a " + ((n % 9) + 2) + " j 0" + (n % 10) + " h"
+    });
+
+    // ---- SW-CORE-01 ----
+    const coreDown = [3, 4, 11, 16, 24, 27, 28, 33, 35, 39, 40, 44, 45, 46, 47];
+    const coreFast = [30, 37];
+    const corePhone = [13, 14, 25, 26, 29, 31];
+    const coreOv = {
+      1: { state: "trunk", oper: "Actif", speed: "1 Gb/s · full", desc: "Uplink FortiGate-60F (internal1)", vlan: "Trunk · natif 1 · 10,20,30,40",
+        devices: [{ mac: "04:D5:90:6A:11:F0", ip: "10.182.122.1", host: "FortiGate-60F", vendor: "Fortinet", vlan: "1", src: "LLDP", seen: "à l’instant" }],
+        neighbor: { proto: "LLDP", name: "FortiGate-60F", port: "internal1", mgmt: "10.182.122.1", caps: "Routeur, pare-feu", platform: "FortiOS 7.2.8" },
+        inB: "3,41 To", outB: "1,96 To", change: "il y a 142 j 06 h" },
+      7: { state: "up1g", oper: "Actif", speed: "1 Gb/s · full", desc: "Bureau 107 · poste comptabilité",
+        devices: [{ mac: "B0:7B:25:3C:8E:41", ip: "10.182.122.117", host: "WKS346", vendor: "Dell", vlan: "10", src: "FDB", seen: "à l’instant" }],
+        inB: "48,2 Go", outB: "12,7 Go", change: "il y a 3 j 08 h" },
+      9: { state: "up1g", oper: "Actif", speed: "1 Gb/s · full", desc: "Bureau 109",
+        devices: [{ mac: "54:E1:AD:7F:20:C3", ip: "10.182.122.113", host: "PF4L8M20", vendor: "Lenovo", vlan: "10", src: "FDB", seen: "il y a 2 min" }],
+        inB: "22,9 Go", outB: "6,1 Go", change: "il y a 1 j 02 h" },
+      12: { state: "poe", oper: "Actif", speed: "1 Gb/s · full", desc: "AP plafond · salle de réunion 1", vlan: "Accès 20",
+        poeClass: "4", poeW: "18,4 W",
+        devices: [
+          { mac: "70:4C:A5:1E:22:9A", ip: "10.182.122.102", host: "FortiAP-231F", vendor: "Fortinet", vlan: "20", src: "LLDP", seen: "à l’instant" },
+          { mac: "F0:18:98:4A:B2:6E", ip: "10.182.122.135", host: "Macmini-de-Dany", vendor: "Apple", vlan: "20", src: "FDB", seen: "à l’instant" },
+          { mac: "DA:7E:31:C5:09:4B", ip: "10.182.122.133", host: "Android_89UM1WTN", vendor: "MAC aléatoire", vlan: "20", src: "FDB", seen: "il y a 6 min" }
+        ],
+        neighbor: { proto: "LLDP", name: "FortiAP-231F", port: "eth0", mgmt: "10.182.122.102", caps: "Point d’accès", platform: "FortiAP 7.2.3 · 802.3at" },
+        inB: "186 Go", outB: "642 Go", change: "il y a 21 j 14 h" },
+      15: { state: "poe", oper: "Actif", speed: "100 Mb/s · full", desc: "Affichage dynamique hall", poeClass: "3", poeW: "9,6 W",
+        devices: [{ mac: "90:AC:3F:1D:E8:76", ip: "10.182.122.106", host: "BrightSign-D1E876001191", vendor: "BrightSign", vlan: "10", src: "FDB", seen: "à l’instant" }],
+        inB: "3,8 Go", outB: "41,5 Go", change: "il y a 9 j 22 h" },
+      18: { state: "err", oper: "Actif", speed: "100 Mb/s · half", desc: "Bureau 214 · duplex non concordant probable", crc: "1 284",
+        devices: [{ mac: "3C:52:82:A2:14:07", ip: "10.182.122.162", host: "IMP-RH-02", vendor: "HP", vlan: "10", src: "FDB", seen: "il y a 1 min" }],
+        inB: "1,2 Go", outB: "0,8 Go", change: "il y a 47 min" },
+      21: { state: "up1g", oper: "Actif", speed: "1 Gb/s · full", desc: "Bureau 121",
+        devices: [{ mac: "2E:51:0B:9C:44:A1", ip: "10.182.122.100", host: "ca2032249c778fc96008b9df7aa447c9", vendor: "Inconnu", vlan: "10", src: "FDB", seen: "il y a 3 min" }],
+        inB: "9,4 Go", outB: "2,2 Go", change: "il y a 5 j 11 h" },
+      22: { state: "up1g", oper: "Actif", speed: "1 Gb/s · full", desc: "Bureau 122",
+        devices: [{ mac: "B0:7B:25:3C:91:0D", ip: "10.182.122.146", host: "WKS341", vendor: "Dell", vlan: "10", src: "FDB", seen: "à l’instant" }],
+        inB: "31,0 Go", outB: "8,8 Go", change: "il y a 3 j 08 h" }
+    };
+    const corePorts = [];
+    for (let n = 1; n <= 48; n++) {
+      const name = "Gi1/0/" + n;
+      let o;
+      if (coreOv[n]) o = coreOv[n];
+      else if (coreDown.indexOf(n) >= 0) o = { desc: n === 44 ? "Désactivé (shutdown) · ancien poste" : "Prise " + (100 + n) + " · libre", admin: n === 44 ? "Désactivé" : "Activé" };
+      else if (corePhone.indexOf(n) >= 0) {
+        const sep = "SEP00EBD5" + hex2(n * 7) + hex2(n * 3 + 40) + hex2(n + 90);
+        o = { state: "poe", oper: "Actif", speed: "1 Gb/s · full", desc: "Téléphone IP · bureau " + (100 + n), vlan: "Accès 10 · voix 110",
+          poeClass: "2", poeW: dec((5 + (n % 4) * 0.4).toFixed(1)) + " W",
+          devices: [{ mac: "00:EB:D5:" + hex2(n * 7) + ":" + hex2(n * 3 + 40) + ":" + hex2(n + 90), ip: "10.182.110." + (20 + n), host: sep, vendor: "Cisco", vlan: "110", src: "CDP", seen: "à l’instant" }],
+          neighbor: { proto: "CDP", name: sep, port: "Port 1", mgmt: "10.182.110." + (20 + n), caps: "Téléphone, hôte", platform: "Cisco IP Phone CP-8845" },
+          inB: traffic(n, 7), outB: traffic(n, 9), change: "il y a 30 j 04 h" };
+      } else {
+        o = upGen(n, 150 + n, "WKS3" + (50 + n), "Bureau " + (100 + n));
+        if (coreFast.indexOf(n) >= 0) { o.state = "up100"; o.speed = "100 Mb/s · full"; }
+      }
+      corePorts.push(mkPort("core", n, name, String(n), false, o));
+    }
+    const coreSfp = [
+      mkPort("core", 49, "Te1/1/1", "T1", true, { state: "trunk", oper: "Actif", speed: "10 Gb/s · full", desc: "Uplink vers SW-ETG2-01 (1/25)", vlan: "Trunk · natif 1 · 10,20,30,40",
+        devices: [{ mac: "88:3A:30:5B:C2:00", ip: "10.182.122.3", host: "SW-ETG2-01", vendor: "Aruba (HPE)", vlan: "1", src: "LLDP", seen: "à l’instant" }],
+        neighbor: { proto: "LLDP", name: "SW-ETG2-01", port: "1/25", mgmt: "10.182.122.3", caps: "Pont (bridge)", platform: "Aruba JL261A 2930F-24G-PoE+-4SFP+" },
+        inB: "2,07 To", outB: "4,82 To", change: "il y a 87 j 21 h" }),
+      mkPort("core", 50, "Te1/1/2", "T2", true, { desc: "Réservé · uplink caméras futur" }),
+      mkPort("core", 51, "Te1/1/3", "T3", true, { desc: "Libre" }),
+      mkPort("core", 52, "Te1/1/4", "T4", true, { desc: "Libre" })
+    ];
+
+    // ---- SW-ETG2-01 ----
+    const etgDown = [2, 8, 11, 12, 17, 19, 22, 23, 24];
+    const etgPorts = [];
+    for (let n = 1; n <= 24; n++) {
+      const name = "1/" + n;
+      let o;
+      if (n >= 3 && n <= 6) {
+        const i = n - 2;
+        o = { state: "poe", oper: "Actif", speed: "100 Mb/s · full", desc: "Caméra étage 2 · zone " + i, vlan: "Accès 40", poeClass: "3", poeW: dec((5.4 + i * 0.4).toFixed(1)) + " W",
+          devices: [{ mac: "AC:CC:8E:4B:2" + i + ":" + hex2(16 * i + 1), ip: "192.168.50." + (20 + i), host: "CAM-ETG2-0" + i, vendor: "Axis", vlan: "40", src: "LLDP", seen: "à l’instant" }],
+          neighbor: { proto: "LLDP", name: "CAM-ETG2-0" + i, port: "eth0", mgmt: "192.168.50." + (20 + i), caps: "Station", platform: "AXIS P3265-LVE · LLDP-MED" },
+          inB: traffic(n, 3), outB: dec((180 + i * 23) + "") + " Go", change: "il y a 64 j 10 h" };
+      } else if (n === 14) {
+        o = { state: "up1g", oper: "Actif", speed: "1 Gb/s · full", desc: "Imprimante étage 2 · corridor", vlan: "Accès 30",
+          devices: [{ mac: "94:DD:F8:18:15:7D", ip: "10.182.122.111", host: "Brother DCP-L2640DW", vendor: "Brother", vlan: "30", src: "FDB", seen: "à l’instant" }],
+          inB: "0,9 Go", outB: "2,4 Go", change: "il y a 12 j 07 h" };
+      } else if (etgDown.indexOf(n) >= 0) {
+        o = { desc: "Prise 2-" + (n < 10 ? "0" + n : n) + " · libre" };
+      } else if (n === 20) {
+        o = Object.assign(upGen(n, 200 + n, "WKS4" + (10 + n), "Salle de conférence 2.08"), { state: "err", crc: "342", change: "il y a 2 h 15 min" });
+      } else {
+        o = upGen(n, 200 + n, "WKS4" + (10 + n), "Prise 2-" + (n < 10 ? "0" + n : n));
+        if (n === 9) { o.state = "up100"; o.speed = "100 Mb/s · full"; o.desc = "Badgeuse entrée étage 2"; }
+      }
+      etgPorts.push(mkPort("etg", n, name, String(n), false, o));
+    }
+    const etgSfp = [
+      mkPort("etg", 25, "1/25", "25", true, { state: "trunk", oper: "Actif", speed: "10 Gb/s · full", desc: "Uplink vers SW-CORE-01 (Te1/1/1)", vlan: "Trunk · natif 1 · 10,20,30,40",
+        devices: [{ mac: "00:A3:D1:6C:4E:80", ip: "10.182.122.2", host: "SW-CORE-01", vendor: "Cisco", vlan: "1", src: "LLDP", seen: "à l’instant" }],
+        neighbor: { proto: "LLDP", name: "SW-CORE-01", port: "Te1/1/1", mgmt: "10.182.122.2", caps: "Pont, routeur", platform: "Cisco C9300-48P · IOS XE 17.9.4a" },
+        inB: "4,82 To", outB: "2,07 To", change: "il y a 87 j 21 h" }),
+      mkPort("etg", 26, "1/26", "26", true, { desc: "Libre" }),
+      mkPort("etg", 27, "1/27", "27", true, { desc: "Libre" }),
+      mkPort("etg", 28, "1/28", "28", true, { desc: "Libre" })
+    ];
+
+    return [
+      { id: "core", name: "SW-CORE-01", brand: "CISCO", shortModel: "C9300-48P", model: "Cisco Catalyst 9300-48P", ip: "10.182.122.2", fw: "IOS XE 17.9.4a", uptime: "142 j 06 h", temp: "41 °C", poeUsed: 412, poeBudget: 740, portsText: "48 ports + 4 SFP+", role: "Cœur", ports: corePorts.concat(coreSfp) },
+      { id: "etg", name: "SW-ETG2-01", brand: "ARUBA", shortModel: "2930F-24G", model: "Aruba 2930F-24G PoE+", ip: "10.182.122.3", fw: "WC.16.11.0012", uptime: "87 j 21 h", temp: "36 °C", poeUsed: 96, poeBudget: 370, portsText: "24 ports + 4 SFP+", role: "Étage 2", ports: etgPorts.concat(etgSfp) }
+    ];
+  }
+
+  normMac(s) { return String(s || "").toLowerCase().replace(/[^0-9a-f]/g, ""); }
+
+  runFind(q) {
+    const raw = String(q || "").trim();
+    if (!raw) { this.setState({ findQ: raw, found: null }); return; }
+    const ql = raw.toLowerCase();
+    const isMac = ql.indexOf(":") >= 0 || ql.indexOf("-") >= 0 || /^[0-9a-f]{12}$/.test(ql);
+    const qm = this.normMac(ql);
+    const hits = [];
+    this.switches.forEach((sw) => sw.ports.forEach((p) => p.devices.forEach((d) => {
+      const ok = d.ip === raw || (isMac && qm.length >= 6 && this.normMac(d.mac).indexOf(qm) >= 0) || (ql.length >= 3 && !/^[0-9.]+$/.test(ql) && d.host.toLowerCase().indexOf(ql) >= 0);
+      if (ok) hits.push({ sw: sw, p: p, d: d });
+    })));
+    const best = hits.filter((h) => h.p.state !== "trunk")[0] || hits[0];
+    if (!best) { this.setState({ findQ: raw, found: { key: null, none: true, text: "Aucun port trouvé pour « " + raw + " ». Vérifiez la saisie ou relancez l’interrogation des switchs." } }); return; }
+    const text = best.d.host + " · " + best.d.ip + " · " + best.d.mac + " → " + best.sw.name + " · port " + best.p.name + " · VLAN " + best.d.vlan + " · source " + best.d.src;
+    this.setState({ findQ: raw, found: { key: best.p.key, none: false, text: text }, sw: best.sw.id, port: best.p.key });
+  }
+
+  portStyle(p, rowIdx, selected, found) {
+    const c = this.ST[p.state];
+    const w = p.sfp ? 30 : 24;
+    let s = "width:" + w + "px;height:22px;border-radius:3px;border:1px solid " + c.bd + ";background:" + c.bg + ";color:" + c.fg + ";font:600 10px 'JetBrains Mono',monospace;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;box-sizing:border-box;flex:none;";
+    if (!p.sfp && rowIdx > 0 && rowIdx % 6 === 0) s += "margin-left:9px;";
+    if (found) s += "outline:2px solid #F59E0B;outline-offset:2px;";
+    else if (selected) s += "outline:2px solid #FFFFFF;outline-offset:2px;";
+    return s;
+  }
+
+  srcStyle(src) {
+    const m = { LLDP: ["#DBEAFE", "#1E40AF"], CDP: ["#E0E7FF", "#3730A3"], FDB: ["#F3F4F6", "#374151"], ARP: ["#DCFCE7", "#166534"] };
+    const c = m[src] || m.FDB;
+    return "font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;background:" + c[0] + ";color:" + c[1] + ";font-family:'JetBrains Mono',monospace";
+  }
+
+  renderVals() {
+    const s = this.state;
+    const compact = !!(this.props && this.props.compact);
+    const showLegend = !(this.props && this.props.showLegend === false);
+    const cur = this.switches.filter((x) => x.id === s.sw)[0] || this.switches[0];
+    const all = [];
+    this.switches.forEach((x) => x.ports.forEach((p) => all.push(p)));
+    const sel = all.filter((p) => p.key === s.port)[0] || cur.ports[0];
+    const selSw = this.switches.filter((x) => x.id === sel.sw)[0];
+    const foundKey = s.found && s.found.key;
+
+    const mk = (p, i) => {
+      const first = p.devices[0];
+      return Object.assign({}, p, {
+        style: this.portStyle(p, i, p.key === sel.key, p.key === foundKey),
+        aria: p.name + " · " + this.ST[p.state].label + (first ? " · " + first.host : ""),
+        pick: () => this.setState({ port: p.key, sw: p.sw })
+      });
+    };
+    const front = cur.ports.filter((p) => !p.sfp);
+    const sfp = cur.ports.filter((p) => p.sfp);
+    const topPorts = front.filter((p) => p.n % 2 === 1).map(mk);
+    const bottomPorts = front.filter((p) => p.n % 2 === 0).map(mk);
+    const sfpTop = sfp.filter((p, i) => i % 2 === 0).map(mk);
+    const sfpBottom = sfp.filter((p, i) => i % 2 === 1).map(mk);
+
+    const count = (st) => cur.ports.filter((p) => p.state === st).length;
+    const upN = cur.ports.filter((p) => p.state !== "down").length;
+    const chip = (bg, fg) => "font-size:12px;padding:3px 8px;border-radius:6px;background:" + bg + ";color:" + fg;
+    const statChips = [
+      { label: "Actifs", value: String(upN), style: chip("#DCFCE7", "#14532D") },
+      { label: "PoE", value: String(count("poe")), style: chip("#DBEAFE", "#1E40AF") },
+      { label: "Trunk", value: String(count("trunk")), style: chip("#E2E8F0", "#0F172A") },
+      { label: "Erreurs", value: String(count("err")), style: chip("#FEE2E2", "#B91C1C") },
+      { label: "Inactifs", value: String(count("down")), style: chip("#F3F4F6", "#374151") }
+    ];
+
+    const switches = this.switches.map((x) => {
+      const active = x.id === cur.id;
+      const pct = Math.round((x.poeUsed / x.poeBudget) * 100);
+      const up = x.ports.filter((p) => p.state !== "down").length;
+      return Object.assign({}, x, {
+        pressed: active ? "true" : "false",
+        upText: up + " / " + x.ports.length,
+        poeText: x.poeUsed + " W / " + x.poeBudget + " W · " + pct + " %",
+        poeBar: "height:6px;border-radius:3px;background:" + (pct > 80 ? "#C2410C" : "#2563EB") + ";width:" + pct + "%",
+        cardStyle: "text-align:left;font:13px Inter,sans-serif;color:#111827;cursor:pointer;display:flex;flex-direction:column;padding:12px 14px;border-radius:8px;background:#FFFFFF;border:" + (active ? "2px solid #2563EB" : "1px solid #E5E7EB") + ";" + (active ? "" : "margin:1px;"),
+        sideStyle: "display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;border:0;cursor:pointer;text-align:left;color:" + (active ? "#FFFFFF" : "#E2E8F0") + ";background:" + (active ? "#1E293B" : "transparent"),
+        pick: () => this.setState({ sw: x.id, port: (x.id === "core" ? "core:Gi1/0/12" : "etg:1/14") })
+      });
+    });
+
+    const st = this.ST[sel.state];
+    const selDevices = sel.devices.map((d) => Object.assign({}, d, { srcStyle: this.srcStyle(d.src) }));
+    const nb = sel.neighbor || { proto: "", name: "", port: "", mgmt: "", caps: "", platform: "" };
+
+    const q = String(s.tableQ || "").trim().toLowerCase();
+    const pad = compact ? "5px 12px" : "8px 12px";
+    const rows = [];
+    cur.ports.forEach((p) => p.devices.forEach((d) => {
+      const hay = (p.name + " " + d.vlan + " " + d.mac + " " + d.ip + " " + d.host + " " + d.vendor + " " + d.src).toLowerCase();
+      if (q && hay.indexOf(q) < 0) return;
+      const selected = p.key === sel.key;
+      rows.push(Object.assign({}, d, {
+        port: p.name,
+        srcStyle: this.srcStyle(d.src),
+        rowStyle: "border-bottom:1px solid #F3F4F6;" + (selected ? "background:#EFF6FF;" : ""),
+        pick: () => this.setState({ port: p.key, sw: p.sw })
+      }));
+    }));
+    let fdbTotal = 0;
+    this.switches.forEach((x) => x.ports.forEach((p) => { fdbTotal += p.devices.length; }));
+
+    const nodeStyle = (active) => "text-align:left;font:13px Inter,sans-serif;color:#111827;cursor:pointer;padding:8px 12px;border-radius:8px;width:220px;box-sizing:border-box;background:" + (active ? "#EFF6FF" : "#FFFFFF") + ";border:" + (active ? "2px solid #2563EB" : "1px solid #E5E7EB");
+
+    return {
+      switches: switches,
+      cur: cur,
+      topPorts: topPorts,
+      bottomPorts: bottomPorts,
+      sfpTop: sfpTop,
+      sfpBottom: sfpBottom,
+      statChips: statChips,
+      showLegend: showLegend,
+      sel: sel,
+      selSwName: selSw.name,
+      selStateLabel: sel.admin === "Désactivé" ? "Désactivé (admin)" : st.label,
+      selBadge: "font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;background:" + st.sbg + ";color:" + st.sfg,
+      poeLine: sel.poeW ? "Classe " + sel.poeClass + " · " + sel.poeW : (sel.state === "down" ? "—" : "Aucune charge PoE"),
+      crcStyle: "font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:" + (sel.crc !== "0" ? "600;color:#B91C1C" : "400;color:#111827"),
+      selDevices: selDevices,
+      selDevCount: String(selDevices.length),
+      noDevices: selDevices.length === 0,
+      hasNeighbor: !!sel.neighbor,
+      nb: nb,
+      macRows: rows,
+      tableCount: rows.length + " entrées · " + cur.name + " · relevé SNMP BRIDGE-MIB",
+      cellMono: "padding:" + pad + ";font-family:'JetBrains Mono',monospace;white-space:nowrap",
+      cellText: "padding:" + pad + ";white-space:nowrap",
+      fdbTotal: String(fdbTotal),
+      tableQ: s.tableQ,
+      onTableQ: (e) => this.setState({ tableQ: e.target.value }),
+      globalQ: s.globalQ,
+      onGlobal: (e) => this.setState({ globalQ: e.target.value }),
+      findQ: s.findQ,
+      onFindQ: (e) => this.setState({ findQ: e.target.value }),
+      onFindKey: (e) => { if (e.key === "Enter") this.runFind(e.target.value); },
+      doFind: () => this.runFind(this.state.findQ),
+      samples: ["10.182.122.111", "70:4C:A5:1E:22:9A", "BrightSign", "192.168.50.22"].map((v) => ({ v: v, pick: () => this.runFind(v) })),
+      foundOk: !!(s.found && !s.found.none),
+      foundNone: !!(s.found && s.found.none),
+      foundText: s.found ? s.found.text : "",
+      snmpVer: s.snmpVer,
+      onVer: (e) => this.setState({ snmpVer: e.target.value }),
+      secretLabel: s.snmpVer === "v3" ? "Utilisateur v3 · clés auth/priv" : "Communauté (lecture)",
+      snmpSecret: s.snmpSecret,
+      onSecret: (e) => this.setState({ snmpSecret: e.target.value }),
+      polling: s.polling,
+      notPolling: !s.polling,
+      pollLabel: s.polling ? "Interrogation…" : "Interroger les switchs",
+      lastPoll: s.lastPoll,
+      onPoll: () => {
+        if (this.state.polling) return;
+        this.setState({ polling: true });
+        this.pollT = setTimeout(() => {
+          const d = new Date();
+          const z = (n) => (n < 10 ? "0" : "") + n;
+          this.setState({ polling: false, lastPoll: d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()) + " " + z(d.getHours()) + ":" + z(d.getMinutes()) + ":" + z(d.getSeconds()) });
+        }, 1800);
+      },
+      copyLabel: s.copied ? "Copié" : "Copier les infos",
+      onCopy: () => {
+        this.setState({ copied: true });
+        this.copyT = setTimeout(() => this.setState({ copied: false }), 1500);
+      },
+      pickCore: () => this.setState({ sw: "core", port: "core:Te1/1/1" }),
+      pickEtg: () => this.setState({ sw: "etg", port: "etg:1/25" }),
+      coreNode: nodeStyle(cur.id === "core"),
+      etgNode: nodeStyle(cur.id === "etg")
+    };
+  }
+}
+</script>
+</body>
+</html>

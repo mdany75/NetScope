@@ -1,0 +1,1640 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Accès distant</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F4F6}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+.nav{display:flex;align-items:center;gap:10px;padding:0 10px;height:32px;border-radius:6px;color:#E2E8F0;text-decoration:none;font-size:13px;font-weight:500}
+.nav:hover{background:#1E293B;color:#FFFFFF}
+.nav.act{background:#1E293B;color:#FFFFFF}
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:6px;border:1px solid #E5E7EB;background:#FFFFFF;color:#111827;font:500 13px Inter,system-ui,sans-serif;cursor:pointer}
+.btn:hover{background:#F9FAFB;border-color:#D1D5DB}
+.btn:focus-visible,.chip:focus-visible,.nav:focus-visible,input:focus-visible,select:focus-visible,.tabb:focus-visible,.seg:focus-visible,.cpick:focus-visible{outline:2px solid #2563EB;outline-offset:2px}
+.btnp{border:1px solid transparent;color:#FFFFFF}
+.btnp:hover{filter:brightness(0.88)}
+.chip{cursor:pointer}
+.chip:hover{border-color:#9CA3AF}
+.mini{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 9px;border-radius:6px;border:1px solid #E5E7EB;background:#FFFFFF;color:#111827;font:500 12px Inter,system-ui,sans-serif;cursor:pointer}
+.mini:hover{background:#F3F4F6}
+.mini:focus-visible{outline:2px solid #2563EB;outline-offset:2px}
+.ghost{border:0;background:transparent;color:#4B5563;cursor:pointer;padding:2px;display:inline-flex;border-radius:4px}
+.ghost:hover{background:#E5E7EB;color:#111827}
+.ghost:focus-visible{outline:2px solid #2563EB;outline-offset:2px}
+.crow:hover{background:#F9FAFB}
+.cpick{cursor:pointer}
+.tabb{cursor:pointer}
+.tabb:hover{color:#111827}
+.snip{cursor:pointer}
+.snip:hover{background:#1E293B;border-color:#475569}
+.snip:focus-visible{outline:2px solid #60A5FA;outline-offset:2px}
+.tin:focus{outline:none}
+.tin:focus-visible{outline:none}
+.irow td{background:#FFFFFF}
+.irow:hover td{background:#F9FAFB}
+@keyframes pulse{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
+.pulse{animation:pulse 1.2s ease-in-out infinite}
+@keyframes blink{0%{opacity:1}50%{opacity:0}100%{opacity:1}}
+.caret{animation:blink 1s step-end infinite}
+@media (max-width: 760px){.side{max-width:none !important}}
+@media (max-width: 1180px){.detail{max-width:none !important}.conns{max-width:none !important}}
+</style>
+</helmet>
+<div style="width:100%; min-height:1000px; display:flex; flex-wrap:wrap; font-family:Inter, system-ui, sans-serif; color:#111827; background:#F3F4F6; box-sizing:border-box; font-size:13px">
+
+  <!-- BARRE LATÉRALE -->
+  <nav class="side" aria-label="Navigation principale" style="flex:1 1 220px; max-width:220px; background:#0F172A; color:#E2E8F0; display:flex; flex-direction:column; padding:16px 12px; box-sizing:border-box; gap:18px">
+    <div style="display:flex; align-items:center; gap:10px; padding:4px 6px">
+      <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#E2E8F0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><path d="M12 12l6-6"></path><circle cx="12" cy="12" r="1.2"></circle></svg>
+      <div>
+        <div style="font-weight:700; font-size:15px; color:#FFFFFF">NetScope</div>
+        <div style="font-size:11px; color:#94A3B8">Boîte à outils réseau</div>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:2px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:0 10px 4px">Découverte</div>
+      <a class="nav" href="Main.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>Scanner</a>
+      <a class="nav" href="Topologie.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="5" rx="1"></rect><rect x="3" y="16" width="6" height="5" rx="1"></rect><rect x="15" y="16" width="6" height="5" rx="1"></rect><path d="M12 8v4M6 16v-4h12v4"></path></svg>Carte du réseau</a>
+      <a class="nav" href="Inventaire.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h1M4 12h1M4 18h1"></path></svg>Inventaire</a>
+      <a class="nav" href="Device.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="12" rx="1.5"></rect><path d="M9 20h6M12 16v4"></path></svg>Appareil</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Diagnostic</div>
+      <a class="nav" href="Ping.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Ping continu</a>
+      <a class="nav" href="Switch.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="1.5"></rect><path d="M7 11v2M10 11v2M13 11v2M16 11v2"></path></svg>Switchs et ports</a>
+      <a class="nav" href="Wifi.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5a15 15 0 0 1 20 0"></path><path d="M5 12a10.5 10.5 0 0 1 14 0"></path><path d="M8.5 15.5a5.5 5.5 0 0 1 7 0"></path><circle cx="12" cy="19" r="1"></circle></svg>Wi-Fi</a>
+      <a class="nav" href="Toolbox.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"></path></svg>Outils</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Suivi</div>
+      <a class="nav" href="Surveillance.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>Surveillance<span style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#DC2626; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center" aria-label="3 alertes">3</span></a>
+      <a class="nav" href="Analyse.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>Analyse<span style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#2563EB; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center" aria-label="1 nouveau résultat">1</span></a>
+      <a class="nav" href="Rapport.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>Rapports</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Accès</div>
+      <a class="nav act" href="Remote.dc.html" aria-current="page">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="1.5"></rect><path d="M7 9l3 2.5L7 14M12 14h4M9 21h6M12 17v4"></path></svg>Accès distant</a>
+      <a class="nav" href="Speedtest.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 18.5a9 9 0 1 1 14.2 0"></path><path d="M12 14l4-5"></path><circle cx="12" cy="14" r="1.2"></circle><path d="M12 5v1.5M6.5 8.5l1 1M17.5 8.5l-1 1"></path></svg>Speedtest</a>
+    </div>
+    <div style="border-top:1px solid #1E293B; padding-top:12px; display:flex; flex-direction:column; gap:6px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; padding:0 6px">Plages enregistrées</div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>10.182.122.0/24</span><span style="color:#94A3B8">Bureau</span></div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>192.168.50.0/24</span><span style="color:#94A3B8">Caméras</span></div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>10.10.0.1-50</span><span style="color:#94A3B8">Serveurs</span></div>
+    </div>
+    <div style="margin-top:auto; border-top:1px solid #1E293B; padding-top:10px; display:flex; flex-direction:column">
+      <a class="nav" href="Reglages.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>Réglages</a>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px; padding:10px; border:1px solid #1E293B; border-radius:8px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8">Interface active</div>
+      <div style="display:flex; align-items:center; gap:8px">
+        <span style="width:8px; height:8px; border-radius:50%; background:#22C55E; flex:none"></span>
+        <span style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#E2E8F0">en0 · 10.182.122.135 · Wi-Fi</span>
+      </div>
+      <div style="font-size:11px; color:#94A3B8">Passerelle 10.182.122.1 · DNS 10.182.122.1</div>
+      <div style="font-size:11px; color:#94A3B8">Version 2.0.0 (maquette)</div>
+    </div>
+  </nav>
+
+  <!-- CONTENU -->
+  <main style="flex:999 1 560px; min-width:0; display:flex; flex-direction:column; box-sizing:border-box; position:relative">
+
+    <!-- Barre d'outils -->
+    <header style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:12px 20px; background:#FFFFFF; border-bottom:1px solid #E5E7EB">
+      <h1 style="margin:0; font-size:17px; font-weight:700; margin-right:6px">Accès distant</h1>
+      <span style="font-size:12px; color:#4B5563">SSH · Telnet · Console série · RDP · VNC</span>
+      <span style="font-size:11px; font-weight:600; padding:2px 8px; border-radius:10px; background:#EFF6FF; color:#1D4ED8">{{ openCountLabel }}</span>
+      <div style="margin-left:auto; display:flex; flex-wrap:wrap; gap:8px; align-items:center">
+        <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#374151; padding:0 10px; height:32px; border:1px solid #E5E7EB; border-radius:6px; background:#F9FAFB">
+          <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"></circle><path d="M11 12l9-9M17 6l3 3M15 8l2 2"></path></svg>Agent SSH : <span style="font-family:'JetBrains Mono', monospace">id_netscope</span> chargée</span>
+        <button type="button" class="btn" onClick="{{ onKnownHosts }}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"></path><path d="M9 12l2 2 4-4"></path></svg>Hôtes connus</button>
+        <button type="button" class="btn" aria-pressed="{{ rightOpenStr }}" onClick="{{ onToggleRight }}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"></rect><path d="M15 4v16"></path></svg>{{ rightBtnLabel }}</button>
+      </div>
+    </header>
+
+    <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+      <div role="status" style="display:flex; align-items:center; gap:10px; margin:10px 16px 0; padding:8px 12px; border-radius:6px; background:#DCFCE7; color:#15803D; font-size:12px; font-weight:500">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4 10-10"></path></svg>
+        <span style="flex:1; min-width:0">{{ toast }}</span>
+        <button type="button" class="ghost" aria-label="Fermer le message" onClick="{{ onToastClose }}" style="color:#15803D">
+          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+        </button>
+      </div>
+    </sc-if>
+
+    <div style="padding:12px 16px 16px; display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start">
+
+      <!-- COLONNE CONNEXIONS -->
+      <section class="conns" aria-labelledby="h-conns" style="flex:1 1 260px; max-width:272px; min-width:0; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; display:flex; flex-direction:column">
+        <div style="padding:12px 12px 10px; border-bottom:1px solid #E5E7EB; display:flex; flex-direction:column; gap:8px">
+          <div style="display:flex; align-items:center; justify-content:space-between">
+            <h2 id="h-conns" style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Connexions</h2>
+            <span style="font-size:11px; color:#4B5563">{{ connCountLabel }}</span>
+          </div>
+          <label style="position:relative; display:flex; align-items:center">
+            <span style="position:absolute; left:8px; color:#4B5563; display:flex">
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
+            </span>
+            <input type="search" aria-label="Rechercher une connexion" placeholder="Nom, IP, protocole…" value="{{ q }}" onChange="{{ onQ }}" style="width:100%; height:30px; box-sizing:border-box; padding:0 8px 0 28px; border:1px solid #E5E7EB; border-radius:6px; background:#F9FAFB; font:12px Inter, system-ui, sans-serif; color:#111827">
+          </label>
+          <div style="display:flex; gap:6px">
+            <button type="button" class="btn btnp" style="{{ primaryStyle }}" onClick="{{ onNew }}">
+              <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>Nouvelle connexion</button>
+            <button type="button" class="btn" onClick="{{ onImport }}" style="flex:1; justify-content:center; padding:0 8px; font-size:12px" aria-haspopup="dialog">
+              <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>Importer du scan</button>
+          </div>
+        </div>
+        <div style="padding:6px 6px 10px; display:flex; flex-direction:column; gap:4px">
+          <sc-for list="{{ groups }}" as="g" hint-placeholder-count="5">
+            <div style="display:flex; flex-direction:column; gap:1px">
+              <button type="button" class="tabb" aria-expanded="{{ g.exp }}" onClick="{{ g.toggle }}" style="display:flex; align-items:center; gap:6px; height:26px; padding:0 6px; border:0; background:transparent; font:600 11px Inter, system-ui, sans-serif; color:#4B5563; text-transform:uppercase; letter-spacing:.04em; text-align:left; border-radius:4px">
+                <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="{{ g.chevStyle }}"><path d="M9 6l6 6-6 6"></path></svg>
+                <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{ g.icon }}"></path></svg>
+                <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ g.label }}</span>
+                <span style="font-family:'JetBrains Mono', monospace; font-weight:500">{{ g.count }}</span>
+              </button>
+              <sc-if value="{{ g.open }}" hint-placeholder-val="{{ true }}">
+                <sc-for list="{{ g.items }}" as="c" hint-placeholder-count="3">
+                  <div class="crow" style="{{ c.rowStyle }}">
+                    <button type="button" class="cpick" onClick="{{ c.pick }}" onDoubleClick="{{ c.open }}" aria-pressed="{{ c.isSel }}" title="Double-clic pour ouvrir la session" style="flex:1; min-width:0; display:flex; align-items:center; gap:8px; border:0; background:transparent; padding:5px 2px 5px 6px; text-align:left; font:inherit; color:inherit; border-radius:6px">
+                      <span style="{{ c.iconBox }}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{ c.icon }}"></path></svg></span>
+                      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px">
+                        <span style="display:flex; align-items:center; gap:6px; min-width:0">
+                          <span style="font-weight:600; font-size:12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ c.name }}</span>
+                          <span style="{{ c.protoStyle }}">{{ c.protoLabel }}</span>
+                        </span>
+                        <span style="display:flex; align-items:center; gap:6px; min-width:0">
+                          <span style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#4B5563; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ c.addr }}</span>
+                          <sc-if value="{{ c.insecure }}" hint-placeholder-val="{{ false }}">
+                            <span style="font-size:10px; font-weight:700; color:#C2410C; white-space:nowrap">NON SÉCURISÉ</span>
+                          </sc-if>
+                        </span>
+                      </span>
+                      <span role="img" aria-label="{{ c.stateLabel }}" title="{{ c.stateLabel }}" style="{{ c.dotStyle }}"></span>
+                    </button>
+                    <button type="button" class="ghost" aria-label="{{ c.favLabel }}" aria-pressed="{{ c.favOn }}" onClick="{{ c.toggleFav }}" style="margin-right:4px">
+                      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="{{ c.starFill }}" stroke="{{ c.starStroke }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"></path></svg>
+                    </button>
+                  </div>
+                </sc-for>
+              </sc-if>
+            </div>
+          </sc-for>
+          <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:20px 10px; text-align:center; font-size:12px; color:#4B5563">Aucune connexion ne correspond à « {{ q }} ».</div>
+          </sc-if>
+        </div>
+        <div style="margin-top:auto; border-top:1px solid #E5E7EB; padding:8px 12px; display:flex; flex-wrap:wrap; gap:10px; font-size:11px; color:#4B5563; background:#F9FAFB; border-radius:0 0 8px 8px">
+          <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:8px; height:8px; border-radius:50%; background:#15803D"></span>Joignable</span>
+          <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:8px; height:8px; border-radius:50%; border:2px solid #6B7280; box-sizing:border-box"></span>Non joignable</span>
+          <span style="margin-left:auto">Vérifié à 10:41</span>
+        </div>
+      </section>
+
+      <!-- ZONE DES SESSIONS -->
+      <section aria-label="Sessions" style="flex:999 1 480px; min-width:0; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; display:flex; flex-direction:column; overflow:hidden">
+        <div role="tablist" aria-label="Sessions ouvertes" style="display:flex; align-items:flex-end; gap:2px; padding:6px 6px 0; background:#F3F4F6; border-bottom:1px solid #E5E7EB; overflow-x:auto">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+            <div style="{{ t.wrapStyle }}">
+              <button type="button" role="tab" class="tabb" aria-selected="{{ t.sel }}" onClick="{{ t.pick }}" style="{{ t.btnStyle }}">
+                <span role="img" aria-label="{{ t.stateLabel }}" style="{{ t.dotStyle }}"></span>
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{ t.icon }}"></path></svg>
+                <span style="white-space:nowrap">{{ t.label }}</span>
+                <span style="{{ t.protoStyle }}">{{ t.proto }}</span>
+              </button>
+              <button type="button" class="ghost" aria-label="{{ t.closeLabel }}" onClick="{{ t.close }}" style="margin-right:4px">
+                <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+              </button>
+            </div>
+          </sc-for>
+          <button type="button" class="ghost" aria-label="Ouvrir un nouvel onglet de session" onClick="{{ onAddTab }}" style="margin:0 0 6px 4px; padding:5px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+          </button>
+        </div>
+
+        <!-- AUCUN ONGLET -->
+        <sc-if value="{{ noTabs }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:80px 20px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:10px">
+            <svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4B5563" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="1.5"></rect><path d="M7 9l3 2.5L7 14M12 14h4M9 21h6M12 17v4"></path></svg>
+            <div style="font-size:15px; font-weight:600">Aucune session ouverte</div>
+            <div style="font-size:12px; color:#4B5563; max-width:360px">Double-cliquez sur une connexion à gauche, ou choisissez-la puis « Connecter » dans le panneau de détails.</div>
+            <button type="button" class="btn" onClick="{{ onAddTab }}">Nouvel onglet</button>
+          </div>
+        </sc-if>
+
+        <!-- TERMINAL SSH / TELNET -->
+        <sc-if value="{{ isTerm }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex; flex-direction:column">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid #E5E7EB">
+              <span style="font-weight:600; font-size:13px">{{ termTitle }}</span>
+              <span style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#4B5563">{{ termAddr }}</span>
+              <div style="margin-left:auto; display:flex; flex-wrap:wrap; align-items:center; gap:8px">
+                <label style="display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#4B5563">Encodage
+                  <select value="{{ enc }}" onChange="{{ onEnc }}" style="height:26px; border:1px solid #E5E7EB; border-radius:6px; padding:0 4px; font:12px Inter, system-ui, sans-serif; background:#FFFFFF; color:#111827">
+                    <option value="UTF-8">UTF-8</option>
+                    <option value="ISO-8859-1">ISO-8859-1</option>
+                    <option value="CP437">CP437</option>
+                  </select>
+                </label>
+                <label style="display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#4B5563">Taille
+                  <select value="{{ size }}" onChange="{{ onSize }}" style="height:26px; border:1px solid #E5E7EB; border-radius:6px; padding:0 4px; font:12px 'JetBrains Mono', monospace; background:#FFFFFF; color:#111827">
+                    <option value="80×24">80×24</option>
+                    <option value="120×32">120×32</option>
+                    <option value="160×48">160×48</option>
+                  </select>
+                </label>
+                <label style="display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#111827; cursor:pointer">
+                  <input type="checkbox" checked="{{ logOn }}" onChange="{{ onLog }}" style="width:14px; height:14px; margin:0; accent-color:#2563EB">Journaliser la session</label>
+                <button type="button" class="mini" onClick="{{ onCopyOut }}">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="1.5"></rect><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"></path></svg>Copier la sortie</button>
+                <button type="button" class="mini" onClick="{{ onClearTerm }}">Effacer</button>
+              </div>
+            </div>
+
+            <sc-if value="{{ isTelnet }}" hint-placeholder-val="{{ false }}">
+              <div role="alert" style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:10px 12px 0; padding:9px 12px; border-radius:6px; background:#FFEDD5; color:#9A3412; font-size:12px; border:1px solid #FED7AA">
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C2410C" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"></path><path d="M12 10v5M12 18h0"></path></svg>
+                <span style="flex:1; min-width:220px"><strong>Telnet transmet en clair — préférer SSH.</strong> Identifiants et configuration circulent sans chiffrement sur le réseau. SSH (port 22) est ouvert sur cet appareil.</span>
+                <button type="button" class="mini" onClick="{{ onToSsh }}" style="border-color:#FDBA74">Basculer en SSH</button>
+              </div>
+            </sc-if>
+
+            <div style="margin:10px 12px 0; background:#0B1220; border-radius:8px; border:1px solid #1E293B; display:flex; flex-direction:column; overflow:hidden">
+              <div style="{{ termBoxStyle }}">
+                <div role="log" aria-label="{{ termAria }}" aria-live="polite" style="font-family:'JetBrains Mono', monospace; font-size:13px; line-height:18px; color:#E2E8F0">
+                  <sc-for list="{{ termLines }}" as="ln" hint-placeholder-count="24">
+                    <div style="{{ ln.style }}"><span style="color:#4ADE80">{{ ln.pre }}</span>{{ ln.t }}</div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:0; padding:4px 12px 10px; font-family:'JetBrains Mono', monospace; font-size:13px">
+                <label for="term-in" style="color:#4ADE80; white-space:pre">{{ prompt }}</label>
+                <input id="term-in" class="tin" type="text" autocomplete="off" spellcheck="false" value="{{ cmd }}" onChange="{{ onCmd }}" onKeyDown="{{ onKey }}" placeholder="tapez une commande, puis Entrée (? pour l’aide)" style="flex:1; min-width:0; height:24px; border:0; background:transparent; color:#E2E8F0; font:13px 'JetBrains Mono', monospace; caret-color:#4ADE80; padding:0 0 0 2px">
+                <button type="button" onClick="{{ onRun }}" style="height:26px; padding:0 10px; border-radius:6px; border:1px solid #334155; background:#1E293B; color:#E2E8F0; font:500 12px Inter, system-ui, sans-serif; cursor:pointer">Exécuter</button>
+              </div>
+            </div>
+
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:8px 12px 0; padding:8px 10px; background:#0F172A; border-radius:8px">
+              <span style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; margin-right:4px">Extraits</span>
+              <sc-for list="{{ snippets }}" as="sn" hint-placeholder-count="6">
+                <button type="button" class="snip" onClick="{{ sn.insert }}" title="Insérer dans l’invite" style="height:24px; padding:0 8px; border-radius:5px; border:1px solid #334155; background:#0B1220; color:#E2E8F0; font:12px 'JetBrains Mono', monospace">{{ sn.cmd }}</button>
+              </sc-for>
+            </div>
+
+            <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin-top:10px; padding:8px 12px; border-top:1px solid #E5E7EB; background:#F9FAFB; font-size:12px; color:#4B5563">
+              <span style="{{ termSecStyle }}">{{ termSec }}</span>
+              <span style="font-family:'JetBrains Mono', monospace">{{ termMeta }}</span>
+              <span style="margin-left:auto; font-family:'JetBrains Mono', monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0">{{ logPath }}</span>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- CONSOLE SÉRIE -->
+        <sc-if value="{{ isSerial }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column">
+            <div style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px; padding:10px 12px; border-bottom:1px solid #E5E7EB">
+              <label style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#4B5563; font-weight:600">Port
+                <select value="{{ serPort }}" onChange="{{ onSerPort }}" style="height:28px; border:1px solid #E5E7EB; border-radius:6px; padding:0 6px; font:12px 'JetBrains Mono', monospace; background:#FFFFFF; color:#111827">
+                  <option value="/dev/cu.usbserial-A10K">/dev/cu.usbserial-A10K</option>
+                  <option value="/dev/cu.usbmodem14201">/dev/cu.usbmodem14201</option>
+                  <option value="/dev/cu.Bluetooth-Incoming-Port">/dev/cu.Bluetooth-Incoming-Port</option>
+                </select>
+              </label>
+              <label style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#4B5563; font-weight:600">Débit (bauds)
+                <select value="{{ baud }}" onChange="{{ onBaud }}" style="height:28px; border:1px solid #E5E7EB; border-radius:6px; padding:0 6px; font:12px 'JetBrains Mono', monospace; background:#FFFFFF; color:#111827">
+                  <option value="9600">9600</option>
+                  <option value="19200">19200</option>
+                  <option value="38400">38400</option>
+                  <option value="57600">57600</option>
+                  <option value="115200">115200</option>
+                </select>
+              </label>
+              <label style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#4B5563; font-weight:600">Bits de données
+                <select value="{{ bits }}" onChange="{{ onBits }}" style="height:28px; border:1px solid #E5E7EB; border-radius:6px; padding:0 6px; font:12px 'JetBrains Mono', monospace; background:#FFFFFF; color:#111827">
+                  <option value="8">8</option>
+                  <option value="7">7</option>
+                </select>
+              </label>
+              <label style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#4B5563; font-weight:600">Parité
+                <select value="{{ parity }}" onChange="{{ onParity }}" style="height:28px; border:1px solid #E5E7EB; border-radius:6px; padding:0 6px; font:12px Inter, system-ui, sans-serif; background:#FFFFFF; color:#111827">
+                  <option value="N">Aucune (N)</option>
+                  <option value="E">Paire (E)</option>
+                  <option value="O">Impaire (O)</option>
+                </select>
+              </label>
+              <label style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#4B5563; font-weight:600">Bits d’arrêt
+                <select value="{{ stop }}" onChange="{{ onStop }}" style="height:28px; border:1px solid #E5E7EB; border-radius:6px; padding:0 6px; font:12px 'JetBrains Mono', monospace; background:#FFFFFF; color:#111827">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                </select>
+              </label>
+              <label style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#4B5563; font-weight:600">Contrôle de flux
+                <select value="{{ flow }}" onChange="{{ onFlow }}" style="height:28px; border:1px solid #E5E7EB; border-radius:6px; padding:0 6px; font:12px Inter, system-ui, sans-serif; background:#FFFFFF; color:#111827">
+                  <option value="none">Aucun</option>
+                  <option value="xon">XON/XOFF (logiciel)</option>
+                  <option value="rts">RTS/CTS (matériel)</option>
+                </select>
+              </label>
+              <div style="margin-left:auto; display:flex; gap:6px; flex-wrap:wrap">
+                <button type="button" class="btn btnp" style="{{ serBtnStyle }}" onClick="{{ onSerToggle }}">{{ serToggleLabel }}</button>
+                <button type="button" class="btn" onClick="{{ onBreak }}">Envoyer Break</button>
+                <button type="button" class="btn" onClick="{{ onSerClear }}">Effacer</button>
+              </div>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:8px 12px 0; font-size:12px; color:#4B5563">
+              <span style="{{ serBadgeStyle }}">{{ serStateLabel }}</span>
+              <span style="font-family:'JetBrains Mono', monospace">{{ serSummary }}</span>
+              <span>Adaptateur FTDI FT232R · numéro de série A10K</span>
+              <span style="margin-left:auto">Appareil : switch neuf en cours d’installation (Cisco C9200L-24P-4G)</span>
+            </div>
+            <div style="margin:8px 12px 0; background:#0B1220; border-radius:8px; border:1px solid #1E293B; display:flex; flex-direction:column; overflow:hidden">
+              <div style="display:flex; flex-direction:column-reverse; overflow:auto; height:470px; padding:10px 12px 4px; box-sizing:border-box">
+                <div role="log" aria-label="Sortie de la console série" style="font-family:'JetBrains Mono', monospace; font-size:13px; line-height:18px; color:#E2E8F0">
+                  <sc-for list="{{ serialLines }}" as="ln" hint-placeholder-count="24">
+                    <div style="{{ ln.style }}"><span style="color:#4ADE80">{{ ln.pre }}</span>{{ ln.t }}</div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; padding:4px 12px 10px; font-family:'JetBrains Mono', monospace; font-size:13px">
+                <label for="ser-in" style="color:#4ADE80; white-space:pre">{{ serPrompt }}</label>
+                <input id="ser-in" class="tin" type="text" autocomplete="off" spellcheck="false" value="{{ serCmd }}" onChange="{{ onSerCmd }}" onKeyDown="{{ onSerKey }}" placeholder="saisie envoyée sur la ligne série" style="flex:1; min-width:0; height:24px; border:0; background:transparent; color:#E2E8F0; font:13px 'JetBrains Mono', monospace; caret-color:#4ADE80; padding:0 0 0 2px">
+                <button type="button" onClick="{{ onSerRun }}" style="height:26px; padding:0 10px; border-radius:6px; border:1px solid #334155; background:#1E293B; color:#E2E8F0; font:500 12px Inter, system-ui, sans-serif; cursor:pointer">Envoyer</button>
+              </div>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:14px; margin-top:10px; padding:8px 12px; border-top:1px solid #E5E7EB; background:#F9FAFB; font-size:12px; color:#4B5563">
+              <span>Fin de ligne : CR</span><span>Écho local : désactivé</span><span>Capture : ~/Library/Logs/NetScope/console_2026-11-03_1029.log</span>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- RDP -->
+        <sc-if value="{{ isRdp }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:8px 12px; border-bottom:1px solid #E5E7EB">
+              <div style="display:flex; align-items:center; gap:6px">
+                <span style="font-size:12px; color:#4B5563">Résolution</span>
+                <div role="group" aria-label="Résolution" style="display:inline-flex; gap:2px; padding:2px; background:#F3F4F6; border:1px solid #E5E7EB; border-radius:8px">
+                  <sc-for list="{{ rdpResSeg }}" as="o" hint-placeholder-count="2">
+                    <button type="button" class="seg" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="{{ o.style }}">{{ o.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+              <label style="display:inline-flex; align-items:center; gap:5px; font-size:12px; cursor:pointer"><input type="checkbox" checked="{{ rdpMulti }}" onChange="{{ onRdpMulti }}" style="margin:0; accent-color:#2563EB">Multi-écrans</label>
+              <span style="width:1px; height:20px; background:#E5E7EB"></span>
+              <span style="font-size:12px; color:#4B5563">Rediriger</span>
+              <label style="display:inline-flex; align-items:center; gap:5px; font-size:12px; cursor:pointer"><input type="checkbox" checked="{{ rClip }}" onChange="{{ onRClip }}" style="margin:0; accent-color:#2563EB">Presse-papiers</label>
+              <label style="display:inline-flex; align-items:center; gap:5px; font-size:12px; cursor:pointer"><input type="checkbox" checked="{{ rDrives }}" onChange="{{ onRDrives }}" style="margin:0; accent-color:#2563EB">Lecteurs</label>
+              <label style="display:inline-flex; align-items:center; gap:5px; font-size:12px; cursor:pointer"><input type="checkbox" checked="{{ rPrint }}" onChange="{{ onRPrint }}" style="margin:0; accent-color:#2563EB">Imprimantes</label>
+              <span style="width:1px; height:20px; background:#E5E7EB"></span>
+              <label style="display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#4B5563">Passerelle RD
+                <select value="{{ rdpGw }}" onChange="{{ onRdpGw }}" style="height:26px; border:1px solid #E5E7EB; border-radius:6px; padding:0 4px; font:12px Inter, system-ui, sans-serif; background:#FFFFFF; color:#111827">
+                  <option value="none">Aucune</option>
+                  <option value="auto">Détection automatique</option>
+                  <option value="custom">rdgw.[À COMPLÉTER]</option>
+                </select>
+              </label>
+              <label style="display:inline-flex; align-items:center; gap:5px; font-size:12px; cursor:pointer"><input type="checkbox" checked="{{ nla }}" onChange="{{ onNla }}" style="margin:0; accent-color:#2563EB">NLA</label>
+              <label style="display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#4B5563">Qualité
+                <select value="{{ rdpQ }}" onChange="{{ onRdpQ }}" style="height:26px; border:1px solid #E5E7EB; border-radius:6px; padding:0 4px; font:12px Inter, system-ui, sans-serif; background:#FFFFFF; color:#111827">
+                  <option value="auto">Automatique</option>
+                  <option value="lan">Réseau local (optimale)</option>
+                  <option value="bb">Haut débit</option>
+                  <option value="low">Faible bande passante</option>
+                </select>
+              </label>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px 12px">
+              <span style="font-weight:600">{{ rdpTitle }}</span>
+              <span style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#4B5563">{{ rdpAddr }}</span>
+              <span style="{{ rdpBadgeStyle }}">{{ rdpBadge }}</span>
+              <div style="margin-left:auto; display:flex; gap:6px; flex-wrap:wrap">
+                <button type="button" class="mini" onClick="{{ onCad }}">Ctrl+Alt+Suppr</button>
+                <button type="button" class="mini" onClick="{{ onFull }}">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path></svg>Plein écran</button>
+                <button type="button" class="mini" onClick="{{ onRdpDisc }}" style="color:#B91C1C; border-color:#FECACA">{{ rdpDiscLabel }}</button>
+              </div>
+            </div>
+            <div style="margin:0 12px; height:440px; overflow:auto; border:1px solid #1E293B; border-radius:8px; background:#111827">
+              <sc-if value="{{ rdpOff }}" hint-placeholder-val="{{ false }}">
+                <div style="height:438px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:#E2E8F0">
+                  <svg aria-hidden="true" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1.5"></rect><path d="M8 20h8M12 16v4M4 4l16 12"></path></svg>
+                  <div style="font-size:14px; font-weight:600">Session déconnectée</div>
+                  <div style="font-size:12px; color:#CBD5E1">La session Windows reste ouverte sur {{ rdpTitle }} et peut être reprise.</div>
+                  <button type="button" class="btn btnp" style="{{ primaryStyle }}" onClick="{{ onRdpRecon }}">Reconnecter</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ rdpOn }}" hint-placeholder-val="{{ true }}">
+                <div style="{{ rdpCanvas }}">
+                  <!-- icônes du bureau -->
+                  <div style="position:absolute; left:14px; top:14px; display:flex; flex-direction:column; gap:16px; width:64px; align-items:center">
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:4px"><span style="width:30px; height:30px; border-radius:4px; background:#E2E8F0; border:1px solid #CBD5E1"></span><span style="font-size:10px; color:#FFFFFF">Corbeille</span></div>
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:4px"><span style="width:30px; height:24px; border-radius:3px; background:#93C5FD; border:1px solid #BFDBFE"></span><span style="font-size:10px; color:#FFFFFF">Ce PC</span></div>
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:4px"><span style="width:30px; height:24px; border-radius:3px; background:#FCD34D; border:1px solid #FDE68A"></span><span style="font-size:10px; color:#FFFFFF; text-align:center">Partages</span></div>
+                  </div>
+                  <!-- Explorateur -->
+                  <div style="position:absolute; left:96px; top:22px; width:56%; height:270px; background:#FFFFFF; border-radius:8px; border:1px solid #94A3B8; overflow:hidden; display:flex; flex-direction:column">
+                    <div style="height:28px; display:flex; align-items:center; gap:8px; padding:0 0 0 10px; background:#F3F4F6; border-bottom:1px solid #E5E7EB; font-size:11px; color:#111827">
+                      <span style="width:12px; height:10px; background:#FCD34D; border-radius:2px"></span>
+                      <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ rdpExplorerTitle }}</span>
+                      <span style="width:34px; text-align:center; color:#4B5563">–</span><span style="width:34px; text-align:center; color:#4B5563">□</span><span style="width:34px; text-align:center; color:#4B5563">×</span>
+                    </div>
+                    <div style="height:26px; display:flex; align-items:center; gap:6px; padding:0 10px; border-bottom:1px solid #E5E7EB; font-size:11px; color:#374151">
+                      <span style="flex:1; height:18px; border:1px solid #E5E7EB; border-radius:4px; padding:0 6px; display:flex; align-items:center; font-family:'JetBrains Mono', monospace; font-size:10px">{{ rdpPath }}</span>
+                    </div>
+                    <div style="flex:1; display:flex; min-height:0">
+                      <div style="width:110px; border-right:1px solid #E5E7EB; padding:8px; display:flex; flex-direction:column; gap:6px; font-size:11px; color:#374151">
+                        <span>Accueil</span><span>Bureau</span><span>Documents</span><span>Téléchargements</span><span style="font-weight:600; color:#111827">Réseau</span>
+                      </div>
+                      <div style="flex:1; min-width:0; padding:6px 8px; font-size:11px">
+                        <div style="display:grid; grid-template-columns:minmax(0, 1fr) 96px 56px; gap:6px; color:#4B5563; padding:2px 4px; border-bottom:1px solid #E5E7EB"><span>Nom</span><span>Modifié le</span><span style="text-align:right">Taille</span></div>
+                        <sc-for list="{{ rdpFiles }}" as="f" hint-placeholder-count="5">
+                          <div style="{{ f.style }}"><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ f.name }}</span><span style="color:#4B5563">{{ f.date }}</span><span style="text-align:right; color:#4B5563">{{ f.size }}</span></div>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Invite de commandes -->
+                  <div style="position:absolute; right:16px; top:140px; width:42%; height:190px; background:#0C0C0C; border-radius:8px; border:1px solid #475569; overflow:hidden">
+                    <div style="height:26px; display:flex; align-items:center; padding:0 10px; background:#1F1F1F; color:#E5E5E5; font-size:11px">Invite de commandes</div>
+                    <div style="padding:6px 8px; font-family:'JetBrains Mono', monospace; font-size:10.5px; line-height:15px; color:#CCCCCC; white-space:pre; overflow:hidden">
+                      <sc-for list="{{ rdpCmdLines }}" as="l" hint-placeholder-count="7">
+                        <div>{{ l.t }}</div>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <!-- Barre des tâches -->
+                  <div style="position:absolute; left:0; right:0; bottom:0; height:38px; background:#E9EEF5; border-top:1px solid #CBD5E1; display:flex; align-items:center; padding:0 12px">
+                    <div style="flex:1"></div>
+                    <div style="display:flex; gap:8px; align-items:center">
+                      <span style="width:22px; height:22px; border-radius:4px; background:#2563EB"></span>
+                      <span style="width:22px; height:22px; border-radius:4px; background:#FFFFFF; border:1px solid #CBD5E1"></span>
+                      <span style="width:22px; height:22px; border-radius:4px; background:#FCD34D; border-bottom:2px solid #2563EB"></span>
+                      <span style="width:22px; height:22px; border-radius:4px; background:#111827; border-bottom:2px solid #2563EB"></span>
+                      <span style="width:22px; height:22px; border-radius:4px; background:#0EA5E9"></span>
+                    </div>
+                    <div style="flex:1; display:flex; justify-content:flex-end; align-items:center; gap:10px; font-size:10.5px; color:#111827">
+                      <span>FRA</span>
+                      <span style="text-align:right; line-height:13px">10:42<br>2026-11-03</span>
+                    </div>
+                  </div>
+                  <sc-if value="{{ rdpCad }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute; inset:0; background:#1E3A5F; display:flex; align-items:center; justify-content:center">
+                      <div style="display:flex; flex-direction:column; gap:4px; min-width:220px">
+                        <div style="font-size:12px; margin-bottom:6px; color:#CBD5E1">Ctrl+Alt+Suppr envoyé à {{ rdpTitle }}</div>
+                        <button type="button" onClick="{{ onCadClose }}" style="text-align:left; padding:7px 10px; border:0; background:transparent; color:#FFFFFF; font:500 13px Inter, system-ui, sans-serif; cursor:pointer">Verrouiller</button>
+                        <button type="button" onClick="{{ onCadClose }}" style="text-align:left; padding:7px 10px; border:0; background:transparent; color:#FFFFFF; font:500 13px Inter, system-ui, sans-serif; cursor:pointer">Changer d’utilisateur</button>
+                        <button type="button" onClick="{{ onCadClose }}" style="text-align:left; padding:7px 10px; border:0; background:transparent; color:#FFFFFF; font:500 13px Inter, system-ui, sans-serif; cursor:pointer">Se déconnecter</button>
+                        <button type="button" onClick="{{ onCadClose }}" style="text-align:left; padding:7px 10px; border:0; background:transparent; color:#FFFFFF; font:500 13px Inter, system-ui, sans-serif; cursor:pointer">Gestionnaire des tâches</button>
+                        <button type="button" onClick="{{ onCadClose }}" style="margin-top:10px; align-self:flex-start; height:30px; padding:0 16px; border-radius:4px; border:1px solid #93C5FD; background:transparent; color:#FFFFFF; font:500 12px Inter, system-ui, sans-serif; cursor:pointer">Annuler</button>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:14px; margin-top:10px; padding:8px 12px; border-top:1px solid #E5E7EB; background:#F9FAFB; font-size:12px; color:#4B5563">
+              <span style="font-family:'JetBrains Mono', monospace">{{ rdpStatus }}</span>
+              <span>{{ rdpRedirLabel }}</span>
+              <span style="margin-left:auto">{{ rdpResLabel }}</span>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- VNC -->
+        <sc-if value="{{ isVnc }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:8px 12px; border-bottom:1px solid #E5E7EB">
+              <div style="display:flex; align-items:center; gap:6px">
+                <span style="font-size:12px; color:#4B5563">Qualité</span>
+                <div role="group" aria-label="Qualité de l’image" style="display:inline-flex; gap:2px; padding:2px; background:#F3F4F6; border:1px solid #E5E7EB; border-radius:8px">
+                  <sc-for list="{{ vncQSeg }}" as="o" hint-placeholder-count="2">
+                    <button type="button" class="seg" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="{{ o.style }}">{{ o.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px">
+                <span style="font-size:12px; color:#4B5563">Mise à l’échelle</span>
+                <div role="group" aria-label="Mise à l’échelle" style="display:inline-flex; gap:2px; padding:2px; background:#F3F4F6; border:1px solid #E5E7EB; border-radius:8px">
+                  <sc-for list="{{ vncScaleSeg }}" as="o" hint-placeholder-count="2">
+                    <button type="button" class="seg" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="{{ o.style }}">{{ o.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+              <label style="display:inline-flex; align-items:center; gap:5px; font-size:12px; cursor:pointer"><input type="checkbox" checked="{{ vncView }}" onChange="{{ onVncView }}" style="margin:0; accent-color:#2563EB">Observation seule</label>
+              <label style="display:inline-flex; align-items:center; gap:5px; font-size:12px; cursor:pointer"><input type="checkbox" checked="{{ vncEnc }}" onChange="{{ onVncEnc }}" style="margin:0; accent-color:#2563EB">Chiffrement de toutes les données</label>
+              <div style="margin-left:auto; display:flex; gap:6px">
+                <button type="button" class="mini" onClick="{{ onVncClip }}">Envoyer le presse-papiers</button>
+                <button type="button" class="mini" onClick="{{ onFull }}">Plein écran</button>
+              </div>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px 12px">
+              <span style="font-weight:600">{{ vncTitle }}</span>
+              <span style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#4B5563">{{ vncAddr }}</span>
+              <span style="{{ vncEncStyle }}">{{ vncEncLabel }}</span>
+              <sc-if value="{{ vncView }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; background:#FFEDD5; color:#C2410C">Observation seule : clavier et souris désactivés</span>
+              </sc-if>
+            </div>
+            <div style="margin:0 12px; height:440px; overflow:auto; border:1px solid #1E293B; border-radius:8px; background:#111827">
+              <div style="{{ vncCanvas }}">
+                <div style="height:22px; background:#F5F5F7; border-bottom:1px solid #D1D5DB; display:flex; align-items:center; gap:14px; padding:0 12px; font-size:11px; color:#111827">
+                  <svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="#111827"><circle cx="12" cy="13" r="8"></circle></svg>
+                  <span style="font-weight:700">Finder</span><span>Fichier</span><span>Édition</span><span>Présentation</span><span>Aller</span><span>Fenêtre</span><span>Aide</span>
+                  <span style="margin-left:auto">mar. 3 nov. 10:42</span>
+                </div>
+                <!-- Finder -->
+                <div style="position:absolute; left:40px; top:52px; width:52%; height:240px; background:#FFFFFF; border-radius:10px; border:1px solid #9CA3AF; overflow:hidden; display:flex">
+                  <div style="width:120px; background:#EEF0F3; padding:30px 10px 10px; display:flex; flex-direction:column; gap:7px; font-size:11px; color:#374151; position:relative">
+                    <div style="position:absolute; left:10px; top:10px; display:flex; gap:6px"><span style="width:10px; height:10px; border-radius:50%; background:#EF4444"></span><span style="width:10px; height:10px; border-radius:50%; background:#F59E0B"></span><span style="width:10px; height:10px; border-radius:50%; background:#22C55E"></span></div>
+                    <span style="font-size:10px; color:#4B5563; font-weight:600">Favoris</span>
+                    <span>Applications</span><span>Bureau</span><span style="font-weight:600; color:#111827">Documents</span><span>Téléchargements</span>
+                  </div>
+                  <div style="flex:1; min-width:0; padding:10px 12px; font-size:11px">
+                    <div style="font-weight:700; font-size:12px; margin-bottom:10px">Documents</div>
+                    <div style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px 8px">
+                      <sc-for list="{{ vncFiles }}" as="f" hint-placeholder-count="6">
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:4px; text-align:center"><span style="{{ f.style }}"></span><span style="font-size:10px; color:#111827; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%">{{ f.name }}</span></div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </div>
+                <!-- Terminal macOS -->
+                <div style="position:absolute; right:28px; top:150px; width:40%; height:170px; background:#1C1C1E; border-radius:10px; border:1px solid #4B5563; overflow:hidden">
+                  <div style="height:22px; display:flex; align-items:center; gap:6px; padding:0 10px; background:#2C2C2E; color:#D1D5DB; font-size:10.5px">
+                    <span style="width:9px; height:9px; border-radius:50%; background:#EF4444"></span><span style="width:9px; height:9px; border-radius:50%; background:#F59E0B"></span><span style="width:9px; height:9px; border-radius:50%; background:#22C55E"></span>
+                    <span style="margin-left:auto; margin-right:auto">dany — zsh — 80×24</span>
+                  </div>
+                  <div style="padding:6px 8px; font-family:'JetBrains Mono', monospace; font-size:10.5px; line-height:15px; color:#E5E7EB; white-space:pre; overflow:hidden">
+                    <sc-for list="{{ vncTermLines }}" as="l" hint-placeholder-count="6">
+                      <div>{{ l.t }}</div>
+                    </sc-for>
+                  </div>
+                </div>
+                <!-- Dock -->
+                <div style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); height:44px; padding:0 10px; background:#E5E7EB; border:1px solid #CBD5E1; border-radius:14px; display:flex; align-items:center; gap:8px">
+                  <span style="width:30px; height:30px; border-radius:8px; background:#3B82F6"></span>
+                  <span style="width:30px; height:30px; border-radius:8px; background:#FFFFFF; border:1px solid #D1D5DB"></span>
+                  <span style="width:30px; height:30px; border-radius:8px; background:#22C55E"></span>
+                  <span style="width:30px; height:30px; border-radius:8px; background:#1C1C1E"></span>
+                  <span style="width:30px; height:30px; border-radius:8px; background:#F59E0B"></span>
+                  <span style="width:1px; height:28px; background:#9CA3AF"></span>
+                  <span style="width:30px; height:30px; border-radius:8px; background:#9CA3AF"></span>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:14px; margin-top:10px; padding:8px 12px; border-top:1px solid #E5E7EB; background:#F9FAFB; font-size:12px; color:#4B5563">
+              <span style="font-family:'JetBrains Mono', monospace">{{ vncStatus }}</span>
+              <span style="margin-left:auto">{{ vncScaleLabel }}</span>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- NOUVELLE SESSION -->
+        <sc-if value="{{ isNew }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:18px 20px; display:flex; flex-wrap:wrap; gap:20px; align-items:flex-start">
+            <div style="flex:1 1 320px; min-width:0; display:flex; flex-direction:column; gap:12px">
+              <h2 style="margin:0; font-size:15px; font-weight:700">Nouvelle connexion</h2>
+              <div style="display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:11px; color:#4B5563; font-weight:600">Protocole</span>
+                <div role="group" aria-label="Protocole" style="display:inline-flex; flex-wrap:wrap; gap:2px; padding:2px; background:#F3F4F6; border:1px solid #E5E7EB; border-radius:8px; align-self:flex-start">
+                  <sc-for list="{{ nfProtoSeg }}" as="o" hint-placeholder-count="5">
+                    <button type="button" class="seg" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="{{ o.style }}">{{ o.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display:grid; grid-template-columns:minmax(0, 1fr) 110px; gap:10px">
+                <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; color:#4B5563; font-weight:600">{{ nfHostLabel }}
+                  <input type="text" value="{{ nfHost }}" onChange="{{ onNfHost }}" placeholder="{{ nfHostPh }}" style="height:32px; border:1px solid #E5E7EB; border-radius:6px; padding:0 10px; font:13px 'JetBrains Mono', monospace; color:#111827; box-sizing:border-box">
+                </label>
+                <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; color:#4B5563; font-weight:600">{{ nfPortLabel }}
+                  <input type="text" value="{{ nfPort }}" onChange="{{ onNfPort }}" style="height:32px; border:1px solid #E5E7EB; border-radius:6px; padding:0 10px; font:13px 'JetBrains Mono', monospace; color:#111827; box-sizing:border-box">
+                </label>
+              </div>
+              <div style="display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:10px">
+                <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; color:#4B5563; font-weight:600">Utilisateur
+                  <input type="text" value="{{ nfUser }}" onChange="{{ onNfUser }}" placeholder="netadmin" style="height:32px; border:1px solid #E5E7EB; border-radius:6px; padding:0 10px; font:13px Inter, system-ui, sans-serif; color:#111827; box-sizing:border-box">
+                </label>
+                <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; color:#4B5563; font-weight:600">Dossier
+                  <select value="{{ nfGrp }}" onChange="{{ onNfGrp }}" style="height:32px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font:13px Inter, system-ui, sans-serif; background:#FFFFFF; color:#111827">
+                    <option value="reseau">Siège › Réseau</option>
+                    <option value="serveurs">Siège › Serveurs</option>
+                    <option value="postes">Siège › Postes</option>
+                    <option value="console">Console</option>
+                  </select>
+                </label>
+              </div>
+              <sc-if value="{{ nfTelnetWarn }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:12px; padding:8px 10px; border-radius:6px; background:#FFEDD5; color:#9A3412">Telnet n’est pas chiffré. Utilisez SSH si l’appareil le permet.</div>
+              </sc-if>
+              <div style="display:flex; gap:8px; flex-wrap:wrap">
+                <button type="button" class="btn btnp" style="{{ primaryStyle }}" onClick="{{ onNfSaveOpen }}">Enregistrer et connecter</button>
+                <button type="button" class="btn" onClick="{{ onNfSave }}">Enregistrer seulement</button>
+              </div>
+            </div>
+            <div style="flex:1 1 240px; min-width:0; display:flex; flex-direction:column; gap:8px">
+              <h3 style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Ouvrir une connexion enregistrée</h3>
+              <sc-for list="{{ recent }}" as="r" hint-placeholder-count="6">
+                <button type="button" class="act-btn" onClick="{{ r.open }}" style="display:flex; align-items:center; gap:8px; height:36px; padding:0 10px; border-radius:6px; border:1px solid #E5E7EB; background:#FFFFFF; color:#111827; font:500 12px Inter, system-ui, sans-serif; cursor:pointer; text-align:left">
+                  <span style="{{ r.iconBox }}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{ r.icon }}"></path></svg></span>
+                  <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ r.name }}</span>
+                  <span style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#4B5563">{{ r.addr }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </section>
+
+      <!-- PANNEAU DE DÉTAILS -->
+      <sc-if value="{{ rightClosed }}" hint-placeholder-val="{{ false }}">
+        <aside aria-label="Détails repliés" style="flex:0 0 40px; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; display:flex; flex-direction:column; align-items:center; padding:8px 0; gap:10px">
+          <button type="button" class="ghost" aria-label="Afficher les détails de la connexion" onClick="{{ onToggleRight }}" style="padding:6px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+          </button>
+          <span style="writing-mode:vertical-rl; font-size:11px; font-weight:600; color:#4B5563; letter-spacing:.05em; text-transform:uppercase">Détails · {{ d.name }}</span>
+        </aside>
+      </sc-if>
+      <sc-if value="{{ rightOpen }}" hint-placeholder-val="{{ true }}">
+        <aside class="detail" aria-labelledby="h-detail" style="flex:1 1 290px; max-width:300px; min-width:0; display:flex; flex-direction:column; gap:12px">
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+            <div style="display:flex; align-items:flex-start; gap:10px">
+              <div style="{{ d.iconBoxLg }}">
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="{{ d.icon }}"></path></svg>
+              </div>
+              <div style="min-width:0; flex:1">
+                <h2 id="h-detail" style="margin:0; font-size:15px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ d.name }}</h2>
+                <div style="font-size:12px; color:#4B5563; margin-top:2px">{{ d.model }}</div>
+                <div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap">
+                  <span style="{{ d.badgeStyle }}">{{ d.stateLabel }}</span>
+                  <span style="font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; background:#F3F4F6; color:#374151">{{ d.grpLabel }}</span>
+                </div>
+              </div>
+              <button type="button" class="ghost" aria-label="Replier le panneau de détails" onClick="{{ onToggleRight }}">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+              </button>
+            </div>
+            <sc-if value="{{ d.insecure }}" hint-placeholder-val="{{ false }}">
+              <div role="alert" style="margin-top:10px; padding:7px 10px; border-radius:6px; background:#FFEDD5; color:#9A3412; font-size:12px">Protocole non chiffré : le mot de passe circule en clair.</div>
+            </sc-if>
+            <dl style="margin:12px 0 0; display:grid; grid-template-columns:92px minmax(0, 1fr); row-gap:7px; column-gap:8px; font-size:12px; align-items:center">
+              <dt style="color:#4B5563">Protocole</dt><dd style="margin:0">{{ d.protoFull }}</dd>
+              <dt style="color:#4B5563">{{ d.hostLabel }}</dt>
+              <dd style="margin:0; min-width:0">
+                <sc-if value="{{ notEditing }}" hint-placeholder-val="{{ true }}"><span style="font-family:'JetBrains Mono', monospace; overflow-wrap:anywhere">{{ d.host }}</span></sc-if>
+                <sc-if value="{{ editing }}" hint-placeholder-val="{{ false }}"><input type="text" aria-label="Hôte" value="{{ d.host }}" onChange="{{ onEdHost }}" style="width:100%; box-sizing:border-box; height:26px; border:1px solid #E5E7EB; border-radius:6px; padding:0 6px; font:12px 'JetBrains Mono', monospace; color:#111827"></sc-if>
+              </dd>
+              <dt style="color:#4B5563">{{ d.portLabel }}</dt>
+              <dd style="margin:0">
+                <sc-if value="{{ notEditing }}" hint-placeholder-val="{{ true }}"><span style="font-family:'JetBrains Mono', monospace">{{ d.port }}</span></sc-if>
+                <sc-if value="{{ editing }}" hint-placeholder-val="{{ false }}"><input type="text" aria-label="Port" value="{{ d.port }}" onChange="{{ onEdPort }}" style="width:100%; box-sizing:border-box; height:26px; border:1px solid #E5E7EB; border-radius:6px; padding:0 6px; font:12px 'JetBrains Mono', monospace; color:#111827"></sc-if>
+              </dd>
+              <dt style="color:#4B5563">Utilisateur</dt>
+              <dd style="margin:0">
+                <sc-if value="{{ notEditing }}" hint-placeholder-val="{{ true }}"><span style="font-family:'JetBrains Mono', monospace">{{ d.user }}</span></sc-if>
+                <sc-if value="{{ editing }}" hint-placeholder-val="{{ false }}"><input type="text" aria-label="Utilisateur" value="{{ d.user }}" onChange="{{ onEdUser }}" style="width:100%; box-sizing:border-box; height:26px; border:1px solid #E5E7EB; border-radius:6px; padding:0 6px; font:12px 'JetBrains Mono', monospace; color:#111827"></sc-if>
+              </dd>
+              <dt style="color:#4B5563">Dernière</dt><dd style="margin:0">{{ d.last }}</dd>
+            </dl>
+          </div>
+
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px; display:flex; flex-direction:column; gap:12px">
+            <div>
+              <h3 style="margin:0 0 8px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Authentification</h3>
+              <sc-if value="{{ authHasOptions }}" hint-placeholder-val="{{ true }}">
+                <div role="group" aria-label="Méthode d’authentification" style="display:flex; gap:2px; padding:2px; background:#F3F4F6; border:1px solid #E5E7EB; border-radius:8px">
+                  <sc-for list="{{ authSeg }}" as="o" hint-placeholder-count="3">
+                    <button type="button" class="seg" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="{{ o.style }}">{{ o.label }}</button>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{ authPwd }}" hint-placeholder-val="{{ false }}">
+                <label style="display:flex; flex-direction:column; gap:4px; margin-top:8px; font-size:11px; color:#4B5563">Mot de passe (enregistré, masqué)
+                  <input type="text" readonly value="••••••••••" style="height:28px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font:12px 'JetBrains Mono', monospace; color:#111827; background:#F9FAFB; box-sizing:border-box">
+                </label>
+              </sc-if>
+              <sc-if value="{{ authKey }}" hint-placeholder-val="{{ true }}">
+                <div style="margin-top:8px; padding:8px 10px; border:1px solid #E5E7EB; border-radius:6px; background:#F9FAFB; font-size:12px; display:flex; flex-direction:column; gap:3px">
+                  <span style="font-weight:600">Clé SSH ed25519 « id_netscope »</span>
+                  <span style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#4B5563">~/.ssh/id_netscope · phrase secrète dans le Trousseau</span>
+                  <span style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#4B5563">SHA256:Zt4u…0pQe</span>
+                </div>
+              </sc-if>
+              <sc-if value="{{ authKeychain }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:8px; padding:8px 10px; border:1px solid #E5E7EB; border-radius:6px; background:#F9FAFB; font-size:12px">Trousseau macOS : élément « NetScope — {{ d.name }} » (session ouverte)</div>
+              </sc-if>
+              <sc-if value="{{ authNone }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:12px; color:#4B5563">Aucune : accès physique par le port console.</div>
+              </sc-if>
+            </div>
+
+            <sc-if value="{{ jumpShow }}" hint-placeholder-val="{{ true }}">
+              <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; color:#4B5563; font-weight:600; text-transform:uppercase; letter-spacing:.05em">Hôte de rebond (jump host)
+                <select value="{{ jump }}" onChange="{{ onJump }}" style="height:28px; border:1px solid #E5E7EB; border-radius:6px; padding:0 6px; font:12px Inter, system-ui, sans-serif; text-transform:none; letter-spacing:0; background:#FFFFFF; color:#111827">
+                  <option value="none">Aucun (accès direct)</option>
+                  <option value="fgt">FortiGate-60F · 10.182.122.1:22</option>
+                  <option value="nas">NAS-SYNO · 10.10.0.20:22</option>
+                </select>
+              </label>
+            </sc-if>
+
+            <sc-if value="{{ isSshSel }}" hint-placeholder-val="{{ true }}">
+              <div>
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px">
+                  <h3 style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Tunnels / redirections</h3>
+                  <button type="button" class="ghost" aria-label="Ajouter une redirection de port" onClick="{{ onAddTunnel }}">
+                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+                  </button>
+                </div>
+                <sc-for list="{{ tunnels }}" as="tn" hint-placeholder-count="1">
+                  <div style="display:flex; align-items:center; gap:6px; padding:6px 8px; border:1px solid #E5E7EB; border-radius:6px; margin-bottom:4px; font-size:12px">
+                    <span style="font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; background:#EFF6FF; color:#1D4ED8">{{ tn.kind }}</span>
+                    <span style="flex:1; min-width:0; font-family:'JetBrains Mono', monospace; font-size:11px; overflow-wrap:anywhere">{{ tn.spec }}</span>
+                    <button type="button" class="ghost" aria-label="{{ tn.removeLabel }}" onClick="{{ tn.remove }}">
+                      <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+                    </button>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ noTunnels }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:12px; color:#4B5563">Aucune redirection.</div>
+                </sc-if>
+              </div>
+            </sc-if>
+
+            <div>
+              <h3 style="margin:0 0 6px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">{{ d.fpLabel }}</h3>
+              <div style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#111827; overflow-wrap:anywhere; padding:6px 8px; background:#F9FAFB; border:1px solid #E5E7EB; border-radius:6px">{{ d.fp }}</div>
+              <div style="display:flex; align-items:center; gap:8px; margin-top:6px; flex-wrap:wrap">
+                <span style="font-size:11px; color:#4B5563">{{ d.fpType }}</span>
+                <sc-if value="{{ d.hasFp }}" hint-placeholder-val="{{ true }}">
+                  <button type="button" class="mini" onClick="{{ onVerify }}" style="margin-left:auto">Vérifier</button>
+                </sc-if>
+              </div>
+              <sc-if value="{{ verified }}" hint-placeholder-val="{{ false }}">
+                <div role="status" style="margin-top:6px; font-size:12px; padding:6px 8px; border-radius:6px; background:#DCFCE7; color:#15803D">{{ verifyText }}</div>
+              </sc-if>
+            </div>
+          </div>
+
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px; display:flex; flex-direction:column; gap:10px">
+            <div style="display:flex; gap:6px; flex-wrap:wrap">
+              <button type="button" class="btn btnp" style="{{ connectStyle }}" onClick="{{ onConnect }}">
+                <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5l12 7-12 7z"></path></svg>{{ connectLabel }}</button>
+              <button type="button" class="btn" onClick="{{ onEdit }}" style="padding:0 10px">{{ editLabel }}</button>
+              <button type="button" class="btn" onClick="{{ onDup }}" style="padding:0 10px">Dupliquer</button>
+            </div>
+            <div style="border-top:1px solid #E5E7EB; padding-top:10px; display:flex; flex-direction:column; gap:6px">
+              <label for="ext-app" style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Ouvrir dans l’app externe</label>
+              <div style="display:flex; gap:6px">
+                <select id="ext-app" value="{{ extApp }}" onChange="{{ onExtApp }}" style="flex:1; min-width:0; height:30px; border:1px solid #E5E7EB; border-radius:6px; padding:0 6px; font:12px Inter, system-ui, sans-serif; background:#FFFFFF; color:#111827">
+                  <option value="term">Terminal.app</option>
+                  <option value="winapp">Windows App (Microsoft Remote Desktop)</option>
+                  <option value="screen">Partage d’écran</option>
+                </select>
+                <button type="button" class="btn" onClick="{{ onExtOpen }}" style="padding:0 10px">Ouvrir</button>
+              </div>
+              <div style="{{ extNoteStyle }}">{{ extNote }}</div>
+            </div>
+          </div>
+        </aside>
+      </sc-if>
+    </div>
+
+    <!-- IMPORT DEPUIS LE SCAN -->
+    <sc-if value="{{ importOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; inset:0; background:rgba(15,23,42,.45); display:flex; justify-content:center; align-items:flex-start; padding:80px 16px 16px; box-sizing:border-box; z-index:10">
+        <div role="dialog" aria-modal="true" aria-labelledby="h-import" style="width:100%; max-width:760px; background:#FFFFFF; border-radius:8px; border:1px solid #E5E7EB; box-shadow:0 16px 40px rgba(15,23,42,.25); display:flex; flex-direction:column">
+          <div style="display:flex; align-items:flex-start; gap:10px; padding:14px 16px; border-bottom:1px solid #E5E7EB">
+            <div style="flex:1; min-width:0">
+              <h2 id="h-import" style="margin:0; font-size:15px; font-weight:700">Importer depuis le scan</h2>
+              <div style="font-size:12px; color:#4B5563; margin-top:2px">Scan du 3 nov. 2026 à 10:12 · 10.182.122.0/24 et 10.10.0.1-50 · appareils avec 22, 23, 3389 ou 5900 ouverts</div>
+            </div>
+            <button type="button" class="ghost" aria-label="Fermer l’import" onClick="{{ onCloseImport }}" style="padding:4px">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+            </button>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%; min-width:680px; border-collapse:collapse; font-size:12px">
+              <thead>
+                <tr style="height:30px; background:#F9FAFB; border-bottom:1px solid #E5E7EB">
+                  <th scope="col" style="padding:0 8px 0 16px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563">Appareil</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563">IP</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563">Ports détectés</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563">Proposé</th>
+                  <th scope="col" style="padding:0 16px 0 8px; text-align:right; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ importRows }}" as="ir" hint-placeholder-count="10">
+                  <tr class="irow" style="height:38px; border-bottom:1px solid #E5E7EB">
+                    <td style="padding:0 8px 0 16px; white-space:nowrap"><span style="font-weight:600">{{ ir.name }}</span> <span style="color:#4B5563">· {{ ir.vendor }}</span></td>
+                    <td style="padding:0 8px; font-family:'JetBrains Mono', monospace; white-space:nowrap">{{ ir.ip }}</td>
+                    <td style="padding:0 8px; white-space:nowrap">
+                      <span style="display:inline-flex; gap:3px">
+                        <sc-for list="{{ ir.portTags }}" as="pt" hint-placeholder-count="2">
+                          <span style="{{ pt.style }}">{{ pt.p }}</span>
+                        </sc-for>
+                      </span>
+                    </td>
+                    <td style="padding:0 8px"><span style="{{ ir.protoStyle }}">{{ ir.protoLabel }}</span></td>
+                    <td style="padding:0 16px 0 8px; text-align:right; white-space:nowrap">
+                      <sc-if value="{{ ir.exists }}" hint-placeholder-val="{{ false }}">
+                        <span style="font-size:12px; color:#4B5563">Déjà enregistrée</span>
+                      </sc-if>
+                      <sc-if value="{{ ir.canAdd }}" hint-placeholder-val="{{ true }}">
+                        <button type="button" class="mini" onClick="{{ ir.add }}" aria-label="{{ ir.addLabel }}">Ajouter</button>
+                      </sc-if>
+                    </td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:12px 16px; border-top:1px solid #E5E7EB; background:#F9FAFB; border-radius:0 0 8px 8px">
+            <span style="font-size:12px; color:#4B5563">{{ importSummary }}</span>
+            <div style="margin-left:auto; display:flex; gap:8px">
+              <button type="button" class="btn" onClick="{{ onImportAll }}">Ajouter toutes les nouvelles</button>
+              <button type="button" class="btn btnp" style="{{ primaryStyle }}" onClick="{{ onCloseImport }}">Terminé</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000},"accent":"#2563EB","termRows":24}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const conns = [
+      { id: 'core', grp: 'reseau', name: 'SW-CORE-01', proto: 'ssh', host: '10.182.122.2', port: '22', user: 'netadmin', auth: 'key', up: true, fav: true, os: 'ios', model: 'Cisco Catalyst 9300-48P · IOS XE 17.9.4a', last: 'Aujourd’hui 10:38 (en cours)', fp: 'SHA256:q3Vt9kXbN2pF7wLr0cYhJm4sA8dEuGi1oT6zRxKvB5M', fpType: 'ECDSA 256 bits', tunnels: [{ kind: 'L', spec: '8443 → 10.182.122.111:443' }] },
+      { id: 'etg2', grp: 'reseau', name: 'SW-ETG2-01', proto: 'telnet', host: '10.182.122.3', port: '23', user: 'manager', auth: 'pwd', up: true, insecure: true, os: 'aruba', model: 'Aruba 2930F-24G · WC.16.11', last: 'Aujourd’hui 10:41 (en cours)', fp: 'Aucune — Telnet n’authentifie pas l’hôte', fpType: 'Non vérifiable', tunnels: [] },
+      { id: 'fgt', grp: 'reseau', name: 'FortiGate-60F', proto: 'ssh', host: '10.182.122.1', port: '22', user: 'admin', auth: 'keychain', up: true, fav: true, os: 'fortios', model: 'Fortinet FortiGate-60F · FortiOS 7.4', last: 'Hier 16:05 · 12 min', fp: 'SHA256:Hk2mW8sQ0rT5vYb3nLc7xJf1aZ9pD4uE6gO2iR8tN0s', fpType: 'RSA 2048 bits', tunnels: [] },
+      { id: 'srv', grp: 'serveurs', name: 'SRV-FICHIERS', proto: 'rdp', host: '10.10.0.12', port: '3389', user: 'CORP\\dmenard', auth: 'keychain', up: true, os: 'win', model: 'Windows Server 2022 Standard', last: '30 oct. 14:22 · 41 min', fp: '7C:1E:A4:93:5B:0D:F2:68:C1:49:3A:E7:20:BB:84:56', fpType: 'Certificat TLS auto-signé · expire le 14 mai 2027', tunnels: [] },
+      { id: 'nas', grp: 'serveurs', name: 'NAS-SYNO', proto: 'ssh', host: '10.10.0.20', port: '22', user: 'admin-nas', auth: 'key', up: true, os: 'linux', model: 'Synology · DSM 7.2', last: '28 oct. 09:10 · 6 min', fp: 'SHA256:7tPx3Lq9Vm1cN5bR8wY2kJ6hF0sD4gA9eU3oI7zX1Qc', fpType: 'ED25519', tunnels: [{ kind: 'L', spec: '5001 → 127.0.0.1:5001 (DSM)' }] },
+      { id: 'wks346', grp: 'postes', name: 'WKS346', proto: 'rdp', host: '10.182.122.117', port: '3389', user: 'CORP\\dmenard', auth: 'pwd', up: true, fav: true, os: 'win', model: 'Dell · Windows 11 Pro 23H2', last: 'Aujourd’hui 10:29 (en cours)', fp: '4F:A2:91:0C:7E:3B:D8:55:19:C6:0A:E3:72:4D:B8:1F', fpType: 'Certificat TLS auto-signé · expire le 2 févr. 2027', tunnels: [] },
+      { id: 'wks341', grp: 'postes', name: 'WKS341', proto: 'rdp', host: '10.182.122.146', port: '3389', user: 'CORP\\dmenard', auth: 'pwd', up: false, os: 'win', model: 'Dell · Windows 11 Pro', last: '27 oct. 11:48 · 9 min', fp: '91:3D:0E:C8:44:7A:B2:16:5F:E0:8D:23:A9:61:C4:0B', fpType: 'Certificat TLS auto-signé', tunnels: [] },
+      { id: 'mac', grp: 'postes', name: 'Macmini-de-Dany', proto: 'vnc', host: '10.182.122.135', port: '5900', user: 'dany', auth: 'keychain', up: true, os: 'mac', model: 'Apple Mac mini · ce Mac', last: 'Aujourd’hui 10:33 (en cours)', fp: 'Partage d’écran macOS · authentification SRP', fpType: 'Identité vérifiée par macOS', tunnels: [] },
+      { id: 'usb', grp: 'console', name: 'USB-série', proto: 'serial', host: '/dev/cu.usbserial-A10K', port: '9600 8N1', user: '—', auth: 'none', up: true, os: 'serial', model: 'Adaptateur FTDI FT232R → câble console RJ45', last: 'Aujourd’hui 10:29 (en cours)', fp: 'Sans objet (liaison locale)', fpType: 'Port série local', tunnels: [] }
+    ];
+    const terms = {};
+    terms.t1 = this.initTerm(conns[0]);
+    terms.t2 = this.initTerm(conns[1]);
+    this.state = {
+      q: '', sel: 'core', collapsed: {}, importOpen: false, rightOpen: true, toast: '', seq: 10,
+      conns: conns,
+      tabs: [{ id: 't1', connId: 'core' }, { id: 't2', connId: 'etg2' }, { id: 't3', connId: 'usb' }, { id: 't4', connId: 'wks346' }, { id: 't5', connId: 'mac' }],
+      active: 't1', tabSeq: 6,
+      terms: terms, cmd: '', hist: [], histIdx: -1,
+      enc: 'UTF-8', size: '120×32', logOn: true,
+      serPort: '/dev/cu.usbserial-A10K', baud: '9600', bits: '8', parity: 'N', stop: '1', flow: 'none', serOn: true,
+      serialLines: this.bootLines(), serCmd: '', serPrompt: 'Switch>',
+      rdpRes: 'fit', rdpMulti: false, rClip: true, rDrives: false, rPrint: true, rdpGw: 'none', nla: true, rdpQ: 'auto', rdpCad: false, rdpOff: {},
+      vncQ: 'adapt', vncView: false, vncScale: 'fit', vncEnc: true,
+      authBy: {}, jumpBy: { nas: 'none' }, verified: {}, extBy: {}, editing: false,
+      nf: { proto: 'ssh', host: '', port: '22', user: '', grp: 'reseau' }
+    };
+  }
+
+  L(txt, k) { return txt.split('\n').map(t => ({ k: k || 'o', pre: '', t: t })); }
+
+  promptFor(c) {
+    if (c.os === 'ios') return c.name + '#';
+    if (c.os === 'aruba') return c.name + '# ';
+    if (c.os === 'fortios') return c.name + ' # ';
+    return c.user + '@' + c.name + ':~$ ';
+  }
+
+  initTerm(c) {
+    const P = this.promptFor(c);
+    if (c.os === 'ios') {
+      return [].concat(
+        this.L('Connexion à 10.182.122.2:22 avec la clé ed25519 « id_netscope »…\nClé hôte ECDSA vérifiée (SHA256:q3Vt…KvB5M). Session chiffrée chacha20-poly1305.', 'n'),
+        this.L('\n*** Accès réservé au personnel autorisé — activité journalisée ***\n'),
+        [{ k: 'p', pre: P, t: 'show interfaces status' }],
+        this.L(this.ios('show interfaces status')),
+        [{ k: 'p', pre: P, t: 'show mac address-table | include 94dd' }],
+        this.L(this.ios('show mac address-table | include 94dd')),
+        [{ k: 'p', pre: P, t: 'show lldp neighbors' }],
+        this.L(this.ios('show lldp neighbors'))
+      );
+    }
+    if (c.os === 'aruba') {
+      return [].concat(
+        this.L('Telnet : connexion à 10.182.122.3:23 établie (non chiffrée).', 'w'),
+        this.L('\nHPE Networking\n\nPress any key to continue\n\nPassword: ••••••••\n'),
+        [{ k: 'p', pre: P, t: 'show interfaces brief' }],
+        this.L(this.aruba('show interfaces brief'))
+      );
+    }
+    if (c.os === 'fortios') {
+      return [].concat(
+        this.L('Connexion à ' + c.host + ':' + c.port + ' (mot de passe depuis le Trousseau)…\nClé hôte RSA vérifiée.', 'n'),
+        this.L('\n' + c.name + ' login: ' + c.user + '\nPassword: ••••••••\nWelcome!\n')
+      );
+    }
+    return [].concat(
+      this.L('Connexion à ' + c.host + ':' + c.port + '…\nAuthentification ' + (c.auth === 'key' ? 'par clé ed25519 « id_netscope »' : 'par mot de passe') + ' réussie.', 'n'),
+      this.L('\nDernière connexion : mar. 28 oct. 09:10 depuis 10.182.122.135\n')
+    );
+  }
+
+  bootLines() {
+    return this.L([
+      'Initializing Hardware ...',
+      '',
+      'System Bootstrap, Version 17.6.1r[FC2], RELEASE SOFTWARE (P)',
+      'Copyright (c) 1994-2021 by cisco Systems, Inc.',
+      '',
+      'Current image running: Boot ROM0',
+      'Last reset cause: PowerOn',
+      'C9200L-24P-4G platform with 2097152 Kbytes of main memory',
+      '',
+      'boot: attempting to boot from [flash:packages.conf]',
+      'boot: reading file packages.conf',
+      '##############################################################################',
+      '',
+      'Waiting for 120 seconds for other switches to boot',
+      'Switch number is 1',
+      'All switches in the stack have been discovered. Accelerating discovery',
+      '',
+      '              Restricted Rights Legend',
+      '',
+      'cisco C9200L-24P-4G (ARM64) processor with 1295437K/3071K bytes of memory.',
+      'Processor board ID JAE25110XYZ',
+      '24 Gigabit Ethernet interfaces',
+      '4 Gigabit Ethernet interfaces (SFP)',
+      '',
+      '         --- System Configuration Dialog ---',
+      '',
+      'Would you like to enter the initial configuration dialog? [yes/no]: no',
+      '',
+      'Press RETURN to get started!',
+      '',
+      '*Nov  3 10:29:47.112: %SYS-5-RESTART: System restarted --',
+      '*Nov  3 10:29:48.903: %LINK-3-UPDOWN: Interface GigabitEthernet1/0/24, changed state to up',
+      '*Nov  3 10:29:49.904: %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet1/0/24, changed state to up',
+      ''
+    ].join('\n'));
+  }
+
+  ios(c) {
+    const T = {
+      'show interfaces status': [
+        '',
+        'Port         Name               Status       Vlan       Duplex  Speed Type',
+        'Gi1/0/1      FortiGate-60F      connected    trunk      a-full a-1000 10/100/1000BaseTX',
+        'Gi1/0/2                         notconnect   1            auto   auto 10/100/1000BaseTX',
+        'Gi1/0/12     FortiAP-231F       connected    trunk      a-full a-1000 10/100/1000BaseTX',
+        'Gi1/0/22     WKS346             connected    1          a-full a-1000 10/100/1000BaseTX',
+        'Gi1/0/23     WKS341             notconnect   1            auto   auto 10/100/1000BaseTX',
+        'Gi1/0/33     CAM-QUAI           connected    40         a-full  a-100 10/100/1000BaseTX',
+        'Gi1/0/34     CAM-AXIS           connected    40         a-full  a-100 10/100/1000BaseTX',
+        'Gi1/0/40     SRV-AD-01          connected    100        a-full a-1000 10/100/1000BaseTX',
+        'Gi1/0/41     SRV-FICHIERS       connected    100        a-full a-1000 10/100/1000BaseTX',
+        'Gi1/0/42     NAS-SYNO           connected    100        a-full a-1000 10/100/1000BaseTX',
+        'Gi1/0/47     SW-ETG2-01         connected    trunk      a-full a-1000 10/100/1000BaseTX',
+        'Te1/1/1                         notconnect   1            full    10G SFP-10GBase-SR'
+      ].join('\n'),
+      'show mac address-table | include 94dd': '  30    94dd.f818.157d    DYNAMIC     Gi1/0/47',
+      'show lldp neighbors': [
+        'Capability codes:',
+        '    (R) Router, (B) Bridge, (T) Telephone, (C) DOCSIS Cable Device',
+        '    (W) WLAN Access Point, (P) Repeater, (S) Station, (O) Other',
+        '',
+        'Device ID           Local Intf     Hold-time  Capability      Port ID',
+        'FortiGate-60F       Gi1/0/1        120        B,R             port1',
+        'FortiAP-231F        Gi1/0/12       120        W               lan1',
+        'SW-ETG2-01          Gi1/0/47       120        B               24',
+        '',
+        'Total entries displayed: 3',
+        ''
+      ].join('\n'),
+      'show version': [
+        'Cisco IOS XE Software, Version 17.09.04a',
+        'Cisco IOS Software [Cupertino], Catalyst L3 Switch Software (CAT9K_IOSXE), Version 17.9.4a, RELEASE SOFTWARE (fc3)',
+        'Copyright (c) 1986-2023 by Cisco Systems, Inc.',
+        '',
+        'ROM: IOS-XE ROMMON',
+        'BOOTLDR: System Bootstrap, Version 17.9.1r[FC2], RELEASE SOFTWARE (P)',
+        '',
+        'SW-CORE-01 uptime is 41 weeks, 3 days, 7 hours, 12 minutes',
+        'System returned to ROM by Reload Command',
+        'System image file is "flash:packages.conf"',
+        '',
+        'cisco C9300-48P (X86) processor with 1331521K/6147K bytes of memory.',
+        'Processor board ID FOC2418L0QX',
+        '48 Gigabit Ethernet interfaces',
+        '4 Ten Gigabit Ethernet interfaces',
+        '8388608K bytes of physical memory.',
+        '',
+        'Switch Ports Model              SW Version        SW Image              Mode',
+        '------ ----- -----              ----------        ----------            ----',
+        '*    1 52    C9300-48P          17.09.04a         CAT9K_IOSXE           INSTALL',
+        '',
+        'Configuration register is 0x102',
+        ''
+      ].join('\n'),
+      'show vlan brief': [
+        '',
+        'VLAN Name                             Status    Ports',
+        '---- -------------------------------- --------- -------------------------------',
+        '1    default                          active    Gi1/0/2, Gi1/0/3, Gi1/0/22, Gi1/0/23',
+        '20   WIFI                             active    ',
+        '30   IMPRESSION                       active    ',
+        '40   CAMERAS                          active    Gi1/0/33, Gi1/0/34',
+        '100  SERVEURS                         active    Gi1/0/40, Gi1/0/41, Gi1/0/42',
+        '1002 fddi-default                     act/unsup ',
+        '1003 token-ring-default               act/unsup ',
+        '1004 fddinet-default                  act/unsup ',
+        '1005 trnet-default                    act/unsup ',
+        ''
+      ].join('\n'),
+      'show ip interface brief': [
+        'Interface              IP-Address      OK? Method Status                Protocol',
+        'Vlan1                  10.182.122.2    YES NVRAM  up                    up',
+        'Vlan40                 192.168.50.1    YES NVRAM  up                    up',
+        'Vlan100                10.10.0.1       YES NVRAM  up                    up',
+        'GigabitEthernet0/0     unassigned      YES NVRAM  administratively down down',
+        'GigabitEthernet1/0/1   unassigned      YES unset  up                    up',
+        'GigabitEthernet1/0/2   unassigned      YES unset  down                  down',
+        'GigabitEthernet1/0/12  unassigned      YES unset  up                    up',
+        'GigabitEthernet1/0/22  unassigned      YES unset  up                    up',
+        'GigabitEthernet1/0/23  unassigned      YES unset  down                  down',
+        'GigabitEthernet1/0/47  unassigned      YES unset  up                    up',
+        'Te1/1/1                unassigned      YES unset  down                  down',
+        ''
+      ].join('\n'),
+      'show clock': '*10:42:18.204 EST Tue Nov 3 2026',
+      '?': [
+        'Exec commands:',
+        '  clear       Reset functions',
+        '  configure   Enter configuration mode',
+        '  exit        Exit from the EXEC',
+        '  ping        Send echo messages',
+        '  show        Show running system information',
+        '  terminal    Set terminal line parameters',
+        '  traceroute  Trace route to destination',
+        '  write       Write running configuration to memory, network, or terminal',
+        ''
+      ].join('\n'),
+      'terminal length 0': ''
+    };
+    return T[c];
+  }
+
+  aruba(c) {
+    if (c === 'show interfaces brief') {
+      const up = { 3: '1000FDx', 7: '1000FDx', 9: '100FDx', 14: '1000FDx', 18: '100FDx', 24: '1000FDx' };
+      const rows = [];
+      for (let p = 1; p <= 28; p++) {
+        const isUp = !!up[p];
+        const type = p > 24 ? 'SFP+SR   ' : '100/1000T';
+        const mode = isUp ? up[p] : (p > 24 ? '.' : '1000FDx');
+        rows.push('  ' + String(p).padEnd(5) + ' ' + type + '   | No        Yes     ' + (isUp ? 'Up    ' : 'Down  ') + ' ' + mode.padEnd(10) + ' ' + (isUp ? 'MDIX ' : 'Auto ') + ' off   0');
+      }
+      return [
+        '',
+        ' Status and Counters - Port Status',
+        '',
+        '                    | Intrusion                           MDI   Flow  Bcast',
+        '  Port  Type        | Alert     Enabled Status Mode       Mode  Ctrl  Limit',
+        '  ----- ----------- + --------- ------- ------ ---------- ----- ----- ------'
+      ].concat(rows).concat(['']).join('\n');
+    }
+    const T = {
+      'show vlans': [
+        '',
+        ' Status and Counters - VLAN Information',
+        '',
+        '  Maximum VLANs to support : 256',
+        '  Primary VLAN : DEFAULT_VLAN',
+        '',
+        '  VLAN ID Name                             | Status     Voice Jumbo',
+        '  ------- -------------------------------- + ---------- ----- -----',
+        '  1       DEFAULT_VLAN                     | Port-based No    No',
+        '  20      WIFI                             | Port-based No    No',
+        '  30      IMPRESSION                       | Port-based No    No',
+        ''
+      ].join('\n'),
+      'show version': [
+        'Image stamp:    /ws/swbuildm/rel_ukiah/code/build/bom',
+        '                Mar 12 2024 10:21:47',
+        '                WC.16.11.0018',
+        'Boot Image:     Primary',
+        '',
+        'Active Boot ROM: WC.17.02.0006',
+        ''
+      ].join('\n'),
+      'show lldp info remote-device': [
+        '',
+        ' LLDP Remote Devices Information',
+        '',
+        '  LocalPort | ChassisId          PortId   PortDescr SysName',
+        '  --------- + ------------------ -------- --------- ------------',
+        '  24        | 70 0f 6a 91 4c 02  Gi1/0/47 Gi1/0/47  SW-CORE-01',
+        ''
+      ].join('\n'),
+      '?': [
+        '  show         Display switch operation information.',
+        '  ping         Send IPv4 ping request(s) to a device on the network.',
+        '  configure    Enter the Configuration context.',
+        '  exit         Return to the previous context or terminate the session.',
+        ''
+      ].join('\n')
+    };
+    return T[c];
+  }
+
+  respond(c, raw, prompt) {
+    const cmd = raw.trim().replace(/\s+/g, ' ');
+    const low = cmd.toLowerCase();
+    const known = ['10.182.122.1', '10.182.122.2', '10.182.122.3', '10.182.122.102', '10.182.122.111', '10.182.122.117', '10.182.122.135', '10.10.0.10', '10.10.0.12', '10.10.0.20'];
+    const pm = low.match(/^(?:execute )?ping(?: -c \d+)? (\d+\.\d+\.\d+\.\d+)$/);
+    if (c.os === 'ios') {
+      const al = { 'sh ver': 'show version', 'sh version': 'show version', 'show ver': 'show version', 'sh vlan br': 'show vlan brief', 'sh vlan brief': 'show vlan brief', 'show vlan br': 'show vlan brief', 'sh ip int br': 'show ip interface brief', 'sh ip int brief': 'show ip interface brief', 'show ip int br': 'show ip interface brief', 'sh int status': 'show interfaces status', 'sh int st': 'show interfaces status', 'sh lldp nei': 'show lldp neighbors', 'show lldp nei': 'show lldp neighbors', 'sh clock': 'show clock' };
+      const key = al[low] || low;
+      if (pm) {
+        const ok = known.indexOf(pm[1]) >= 0;
+        return this.L('Type escape sequence to abort.\nSending 5, 100-byte ICMP Echos to ' + pm[1] + ', timeout is 2 seconds:\n' + (ok ? '!!!!!\nSuccess rate is 100 percent (5/5), round-trip min/avg/max = 1/2/4 ms' : '.....\nSuccess rate is 0 percent (0/5)'));
+      }
+      const r = this.ios(key);
+      if (r !== undefined) {
+        const out = r === '' ? [] : this.L(r);
+        if (key === '?') out.push({ k: 'n', pre: '', t: '(Maquette NetScope : show version, show vlan brief, show ip interface brief, show interfaces status, show lldp neighbors, show clock, ping <ip>, clear)' });
+        return out;
+      }
+      if (low === 'exit') return this.L('\nConnexion à 10.182.122.2 fermée par l’hôte distant.', 'n');
+      const tok = cmd.split(' ');
+      const verbs = ['show', 'sh', 'ping', 'terminal', 'configure', 'write', 'traceroute'];
+      const at = verbs.indexOf(tok[0].toLowerCase()) >= 0 && tok.length > 1 ? raw.indexOf(tok[1]) : raw.length - raw.replace(/^\s+/, '').length;
+      return [{ k: 'e', pre: '', t: ' '.repeat(prompt.length + Math.max(0, at)) + '^' }, { k: 'e', pre: '', t: '% Invalid input detected at \'^\' marker.' }, { k: 'o', pre: '', t: '' }];
+    }
+    if (c.os === 'aruba') {
+      if (pm) return this.L(pm[1] + (known.indexOf(pm[1]) >= 0 ? ' is alive, time = 1 ms' : ' is not responding (request timed out)'));
+      const r = this.aruba(low);
+      if (r !== undefined) return this.L(r);
+      return [{ k: 'e', pre: '', t: 'Invalid input: ' + cmd.split(' ')[0] }];
+    }
+    if (c.os === 'fortios') {
+      if (pm) return this.L('PING ' + pm[1] + ' (' + pm[1] + '): 56 data bytes\n64 bytes from ' + pm[1] + ': icmp_seq=0 ttl=64 time=0.6 ms\n64 bytes from ' + pm[1] + ': icmp_seq=1 ttl=64 time=0.5 ms\n\n--- ' + pm[1] + ' ping statistics ---\n2 packets transmitted, 2 packets received, 0% packet loss');
+      if (low === 'get system status') return this.L('Version: FortiGate-60F v7.4.4,build2662,240514 (GA.F)\nSerial-Number: FGT60FTK2209A1B2\nHostname: FortiGate-60F\nOperation Mode: NAT\nCurrent virtual domain: root\nCurrent HA mode: standalone\nSystem time: Tue Nov  3 10:42:18 2026\n');
+      if (low === 'get router info routing-table all') return this.L('Codes: K - kernel, C - connected, S - static, R - RIP, B - BGP, O - OSPF\n\nS*      0.0.0.0/0 [10/0] via [À COMPLÉTER : passerelle du fournisseur], wan1\nC       10.182.122.0/24 is directly connected, internal\nS       10.10.0.0/24 [10/0] via 10.182.122.2, internal\nS       192.168.50.0/24 [10/0] via 10.182.122.2, internal\n');
+      if (low === '?') return this.L('get        Get dynamic and system information.\nshow       Show configuration.\ndiagnose   Diagnose facility.\nexecute    Execute static commands.\nexit       Exit the CLI.');
+      return this.L('Unknown action 0\nCommand fail. Return code -61', 'e');
+    }
+    if (pm) return this.L('PING ' + pm[1] + ' (' + pm[1] + ') 56(84) bytes of data.\n64 bytes from ' + pm[1] + ': icmp_seq=1 ttl=63 time=0.71 ms\n64 bytes from ' + pm[1] + ': icmp_seq=2 ttl=63 time=0.64 ms\n64 bytes from ' + pm[1] + ': icmp_seq=3 ttl=63 time=0.69 ms\n\n--- ' + pm[1] + ' ping statistics ---\n3 packets transmitted, 3 received, 0% packet loss');
+    if (low === 'uptime') return this.L(' 10:42:18 up 38 days,  4:11,  1 user,  load average: 0.21, 0.18, 0.15');
+    if (low === 'uname -a') return this.L('Linux ' + c.name + ' 5.10.55+ #72806 SMP x86_64 GNU/Linux');
+    if (low === 'df -h /volume1') return this.L('Filesystem              Size  Used Avail Use% Mounted on\n/dev/mapper/cachedev_0   11T  6.8T  4.2T  62% /volume1');
+    if (low === '?' || low === 'help') return this.L('Commandes simulées : uptime, uname -a, df -h /volume1, ping -c 3 <ip>, clear', 'n');
+    return [{ k: 'e', pre: '', t: '-sh: ' + cmd.split(' ')[0] + ': command not found' }];
+  }
+
+  activeTab() { return this.state.tabs.find(t => t.id === this.state.active) || null; }
+  connById(id) { return this.state.conns.find(c => c.id === id) || null; }
+
+  runCmd(raw) {
+    const s = this.state;
+    const tab = this.activeTab();
+    if (!tab) return;
+    const c = this.connById(tab.connId);
+    if (!c) return;
+    const prompt = this.promptFor(c);
+    const cmd = (raw || '').trim();
+    let lines = (s.terms[tab.id] || []).concat([{ k: 'p', pre: prompt, t: raw || '' }]);
+    if (cmd === 'clear' || cmd === 'cls') lines = [];
+    else if (cmd) lines = lines.concat(this.respond(c, raw, prompt));
+    const terms = { ...s.terms };
+    terms[tab.id] = lines;
+    this.setState({ terms: terms, cmd: '', hist: cmd ? [cmd].concat(s.hist).slice(0, 30) : s.hist, histIdx: -1 });
+  }
+
+  runSerial(raw) {
+    const s = this.state;
+    if (!s.serOn) { this.setState({ toast: 'Ouvrez d’abord le port série.' }); return; }
+    const v = (raw || '').trim();
+    let p = s.serPrompt;
+    let out = [{ k: 'p', pre: p, t: raw || '' }];
+    if (v === 'enable' || v === 'en') p = 'Switch#';
+    else if (v === 'disable') p = 'Switch>';
+    else if (v === '?') out = out.concat(this.L('Exec commands:\n  enable      Turn on privileged commands\n  ping        Send echo messages\n  show        Show running system information'));
+    else if (v.indexOf('show ver') === 0 || v === 'sh ver') out = out.concat(this.L('Cisco IOS XE Software, Version 17.09.04a\ncisco C9200L-24P-4G (ARM64) processor\nSwitch uptime is 13 minutes'));
+    else if (v) out = out.concat(this.L('Translating "' + v.split(' ')[0] + '"...domain server (255.255.255.255)\n% Unknown command or computer name, or unable to find computer address', 'e'));
+    this.setState({ serialLines: s.serialLines.concat(out), serPrompt: p, serCmd: '' });
+  }
+
+  openConn(id, replaceTabId) {
+    const s = this.state;
+    const c = this.connById(id);
+    if (!c) return;
+    const ex = s.tabs.find(t => t.connId === id);
+    if (ex) { this.setState({ tabs: replaceTabId ? s.tabs.filter(t => t.id !== replaceTabId) : s.tabs, active: ex.id, sel: id, cmd: '', editing: false }); return; }
+    if (!c.up) { this.setState({ sel: id, toast: c.name + ' ne répond pas (' + c.host + ':' + c.port + ') — vérifiez qu’il est allumé ou utilisez Wake-on-LAN.' }); return; }
+    const tid = replaceTabId || ('t' + s.tabSeq);
+    const terms = { ...s.terms };
+    if (c.proto === 'ssh' || c.proto === 'telnet') terms[tid] = this.initTerm(c);
+    const tabs = replaceTabId ? s.tabs.map(t => t.id === replaceTabId ? { id: tid, connId: id } : t) : s.tabs.concat([{ id: tid, connId: id }]);
+    this.setState({ tabs: tabs, active: tid, tabSeq: s.tabSeq + 1, terms: terms, sel: id, cmd: '' });
+  }
+
+  closeTab(id) {
+    const s = this.state;
+    const idx = s.tabs.findIndex(t => t.id === id);
+    const tabs = s.tabs.filter(t => t.id !== id);
+    let active = s.active;
+    if (active === id) active = tabs.length ? tabs[Math.min(idx, tabs.length - 1)].id : null;
+    const nt = tabs.find(t => t.id === active);
+    this.setState({ tabs: tabs, active: active, sel: nt && nt.connId ? nt.connId : s.sel, rdpCad: false });
+  }
+
+  addTab() {
+    const s = this.state;
+    const tid = 't' + s.tabSeq;
+    this.setState({ tabs: s.tabs.concat([{ id: tid, connId: null }]), active: tid, tabSeq: s.tabSeq + 1 });
+  }
+
+  saveNew(openIt) {
+    const s = this.state;
+    const nf = s.nf;
+    const host = (nf.host || '').trim();
+    if (!host) { this.setState({ toast: 'Indiquez un hôte ou un port série.' }); return; }
+    const id = 'n' + s.seq;
+    const up = nf.proto === 'serial' || /^(10\.|192\.168\.)/.test(host);
+    const c = { id: id, grp: nf.grp, name: host, proto: nf.proto, host: host, port: nf.port || '', user: nf.user || '—', auth: nf.proto === 'ssh' ? 'key' : (nf.proto === 'serial' ? 'none' : 'pwd'), up: up, insecure: nf.proto === 'telnet', os: nf.proto === 'telnet' ? 'aruba' : (nf.proto === 'ssh' ? 'linux' : nf.proto), model: 'Nouvelle connexion', last: 'Jamais', fp: nf.proto === 'ssh' ? 'Inconnue — sera demandée à la première connexion' : 'Sans objet', fpType: 'Non vérifiée', tunnels: [] };
+    const tab = this.activeTab();
+    const base = { conns: s.conns.concat([c]), seq: s.seq + 1, sel: id, nf: { proto: 'ssh', host: '', port: '22', user: '', grp: 'reseau' }, toast: 'Connexion « ' + host + ' » enregistrée.' };
+    if (openIt && tab && up) {
+      const terms = { ...s.terms };
+      if (c.proto === 'ssh' || c.proto === 'telnet') terms[tab.id] = this.initTerm(c);
+      base.tabs = s.tabs.map(t => t.id === tab.id ? { id: tab.id, connId: id } : t);
+      base.terms = terms;
+      base.cmd = '';
+    } else if (openIt && !up) {
+      base.toast = 'Connexion « ' + host + ' » enregistrée, mais l’hôte ne répond pas.';
+    }
+    this.setState(base);
+  }
+
+  renderVals() {
+    const s = this.state;
+    const props = this.props || {};
+    const accent = props.accent || '#2563EB';
+    const rowsN = Math.max(16, Math.min(40, Number(props.termRows) || 24));
+    const q = (s.q || '').trim().toLowerCase();
+
+    const icons = {
+      ssh: 'M3 5h18v14H3zM7 10l3 2-3 2M12 15h5',
+      telnet: 'M3 5h18v14H3zM7 10l3 2-3 2M14 10v3M14 15.5v.1',
+      rdp: 'M3 4h18v12H3zM8 20h8M12 16v4M3 8h18',
+      vnc: 'M3 4h18v12H3zM8 20h8M12 16v4M10 7l5 3-2.2.8-1 2.2z',
+      serial: 'M9 3v5M15 3v5M7 8h10v4a5 5 0 0 1-10 0zM12 17v4',
+      none: 'M12 5v14M5 12h14'
+    };
+    const protoLabel = { ssh: 'SSH', telnet: 'TELNET', rdp: 'RDP', vnc: 'VNC', serial: 'SÉRIE' };
+    const pc = {
+      ssh: ['#EFF6FF', '#1D4ED8'], telnet: ['#FFEDD5', '#C2410C'], rdp: ['#EEF2FF', '#4338CA'], vnc: ['#F3F4F6', '#374151'], serial: ['#DCFCE7', '#15803D']
+    };
+    const iconBox = (p, sz) => 'width:' + sz + 'px; height:' + sz + 'px; flex:none; border-radius:6px; display:flex; align-items:center; justify-content:center; background:' + pc[p][0] + '; color:' + pc[p][1] + ';';
+    const protoStyle = p => 'font-size:9.5px; font-weight:700; letter-spacing:.03em; padding:1px 4px; border-radius:3px; background:' + pc[p][0] + '; color:' + pc[p][1] + '; white-space:nowrap;';
+    const dotStyle = up => 'width:9px; height:9px; flex:none; border-radius:50%; box-sizing:border-box; ' + (up ? 'background:#15803D;' : 'border:2px solid #6B7280; background:transparent;');
+    const addrOf = c => c.proto === 'serial' ? (c.id === 'usb' ? s.serPort.replace('/dev/', '') + ' · ' + s.baud + ' ' + s.bits + s.parity + s.stop : c.host) : c.host + ':' + c.port;
+    const segStyle = on => 'flex:1; height:26px; padding:0 10px; border-radius:6px; cursor:pointer; white-space:nowrap; font:500 12px Inter, system-ui, sans-serif; ' + (on ? 'background:#FFFFFF; border:1px solid ' + accent + '; color:#1D4ED8;' : 'background:transparent; border:1px solid transparent; color:#374151;');
+    const seg = (opts, cur, set) => opts.map(o => ({ label: o.label, on: cur === o.id ? 'true' : 'false', style: segStyle(cur === o.id), pick: () => set(o.id) }));
+    const toast = m => this.setState({ toast: m });
+
+    // ---- Connexions
+    const match = c => !q || [c.name, c.host, c.port, protoLabel[c.proto], c.proto, c.model, c.user].join(' ').toLowerCase().indexOf(q) >= 0;
+    const mkItem = c => {
+      const sel = c.id === s.sel;
+      return {
+        name: c.name, addr: addrOf(c), protoLabel: protoLabel[c.proto], protoStyle: protoStyle(c.proto),
+        icon: icons[c.proto], iconBox: iconBox(c.proto, 26), insecure: !!c.insecure,
+        dotStyle: dotStyle(c.up), stateLabel: c.up ? 'Joignable' : 'Non joignable',
+        isSel: sel ? 'true' : 'false',
+        rowStyle: 'display:flex; align-items:center; border-radius:6px; ' + (sel ? 'background:#EFF6FF; box-shadow:inset 0 0 0 1px #BFDBFE;' : ''),
+        favOn: c.fav ? 'true' : 'false', favLabel: (c.fav ? 'Retirer ' : 'Ajouter ') + c.name + (c.fav ? ' des favoris' : ' aux favoris'),
+        starFill: c.fav ? '#F59E0B' : 'none', starStroke: c.fav ? '#B45309' : '#6B7280',
+        pick: () => { const t = s.tabs.find(x => x.connId === c.id); this.setState(t ? { sel: c.id, active: t.id, editing: false } : { sel: c.id, editing: false }); },
+        open: () => this.openConn(c.id),
+        toggleFav: () => this.setState({ conns: s.conns.map(x => x.id === c.id ? { ...x, fav: !x.fav } : x) })
+      };
+    };
+    const grpDefs = [
+      { id: 'fav', label: 'Favoris', icon: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z', f: c => c.fav },
+      { id: 'reseau', label: 'Siège › Réseau', icon: 'M3 7h18v10H3zM7 11v2M10 11v2M13 11v2', f: c => c.grp === 'reseau' },
+      { id: 'serveurs', label: 'Siège › Serveurs', icon: 'M4 4h16v6H4zM4 14h16v6H4zM8 7h0M8 17h0', f: c => c.grp === 'serveurs' },
+      { id: 'postes', label: 'Siège › Postes', icon: 'M4 4h16v11H4zM9 20h6M12 15v5', f: c => c.grp === 'postes' },
+      { id: 'console', label: 'Console', icon: 'M9 3v5M15 3v5M7 8h10v4a5 5 0 0 1-10 0zM12 17v4', f: c => c.grp === 'console' },
+      { id: 'import', label: 'Importés du scan', icon: 'M12 4v11M7 10l5 5 5-5M5 20h14', f: c => c.grp === 'import' }
+    ];
+    const groups = grpDefs.map(g => {
+      const items = s.conns.filter(g.f).filter(match);
+      const open = !s.collapsed[g.id];
+      return {
+        label: g.label, icon: g.icon, count: String(items.length), items: items.map(mkItem), open: open && items.length > 0, exp: open ? 'true' : 'false',
+        chevStyle: 'transition:transform .15s; transform:rotate(' + (open ? '90' : '0') + 'deg); flex:none;',
+        toggle: () => { const col = { ...s.collapsed }; col[g.id] = !col[g.id]; this.setState({ collapsed: col }); },
+        has: items.length > 0
+      };
+    }).filter(g => g.has || (!q && g.label !== 'Importés du scan'));
+    const anyMatch = s.conns.some(match);
+
+    // ---- Onglets
+    const tab = this.activeTab();
+    const tc = tab && tab.connId ? this.connById(tab.connId) : null;
+    const tabs = s.tabs.map(t => {
+      const c = t.connId ? this.connById(t.connId) : null;
+      const on = t.id === s.active;
+      const p = c ? c.proto : null;
+      const off = c && c.proto === 'rdp' && s.rdpOff[t.id];
+      return {
+        label: c ? (c.proto === 'serial' ? 'Console série' : c.name) : 'Nouvelle session',
+        proto: c ? protoLabel[p] : '',
+        protoStyle: c ? protoStyle(p) : 'display:none;',
+        icon: c ? icons[p] : icons.none,
+        sel: on ? 'true' : 'false',
+        stateLabel: c ? (off ? 'Déconnectée' : 'Connectée') : 'Non connectée',
+        dotStyle: 'width:7px; height:7px; flex:none; border-radius:50%; ' + (c && !off ? 'background:#15803D;' : 'background:#9CA3AF;'),
+        wrapStyle: 'display:flex; align-items:center; flex:none; border-radius:6px 6px 0 0; ' + (on ? 'background:#FFFFFF; border:1px solid #E5E7EB; border-bottom-color:#FFFFFF; margin-bottom:-1px;' : 'background:transparent; border:1px solid transparent;'),
+        btnStyle: 'display:flex; align-items:center; gap:6px; height:32px; padding:0 4px 0 10px; border:0; background:transparent; font:' + (on ? '600' : '500') + ' 12px Inter, system-ui, sans-serif; color:' + (on ? '#111827' : '#4B5563') + ';',
+        closeLabel: 'Fermer l’onglet ' + (c ? c.name : 'Nouvelle session'),
+        pick: () => this.setState(c ? { active: t.id, sel: c.id, cmd: '', rdpCad: false, editing: false } : { active: t.id, cmd: '', rdpCad: false }),
+        close: () => this.closeTab(t.id)
+      };
+    });
+    const kind = !tab ? 'none' : (!tc ? 'new' : ((tc.proto === 'ssh' || tc.proto === 'telnet') ? 'term' : tc.proto));
+
+    // ---- Terminal
+    const lineColor = { o: '#E2E8F0', p: '#E2E8F0', e: '#FCA5A5', n: '#94A3B8', w: '#FDBA74' };
+    const termLines = (tab && s.terms[tab.id] ? s.terms[tab.id] : []).map(l => ({ pre: l.pre, t: l.t, style: 'white-space:pre; min-height:18px; color:' + lineColor[l.k] + ';' }));
+    const snipDefs = {
+      ios: ['show interfaces status', 'show vlan brief', 'show ip interface brief', 'show mac address-table | include 94dd', 'show lldp neighbors', 'ping 10.182.122.111', 'show version'],
+      aruba: ['show interfaces brief', 'show vlans', 'show lldp info remote-device', 'show version', 'ping 10.182.122.2'],
+      fortios: ['get system status', 'get router info routing-table all', 'execute ping 10.182.122.111'],
+      linux: ['uptime', 'df -h /volume1', 'uname -a', 'ping -c 3 10.182.122.1']
+    };
+    const snippets = ((tc && snipDefs[tc.os]) || snipDefs.linux).map(x => ({ cmd: x, insert: () => this.setState({ cmd: x }) }));
+    const isTelnet = !!(tc && tc.proto === 'telnet');
+    const stamp = '2026-11-03_' + (tc && tc.id === 'core' ? '1038' : '1041');
+    const cols = s.size.split('×');
+
+    // ---- Série
+    const serLines = s.serialLines.map(l => ({ pre: l.pre, t: l.t, style: 'white-space:pre; min-height:18px; color:' + lineColor[l.k] + ';' }));
+
+    // ---- RDP
+    const rdpConn = tc && tc.proto === 'rdp' ? tc : this.connById('wks346');
+    const rdpOff = !!(tab && s.rdpOff[tab.id]);
+    const isSrv = rdpConn.id === 'srv';
+    const rdpFilesData = isSrv
+      ? [['Comptabilité', '2 nov. 2026', '—'], ['Direction', '29 oct. 2026', '—'], ['Production', '3 nov. 2026', '—'], ['RH', '15 oct. 2026', '—'], ['Commun', '3 nov. 2026', '—']]
+      : [['Grand livre 2026.xlsx', '3 nov. 2026', '412 Ko'], ['Factures octobre.pdf', '31 oct. 2026', '2,1 Mo'], ['Rapprochement bancaire.xlsx', '30 oct. 2026', '88 Ko'], ['Fournisseurs.csv', '28 oct. 2026', '14 Ko'], ['Procédure fin de mois.docx', '12 sept. 2026', '46 Ko']];
+    const rdpFiles = rdpFilesData.map((f, i) => ({ name: f[0], date: f[1], size: f[2], style: 'display:grid; grid-template-columns:minmax(0, 1fr) 96px 56px; gap:6px; padding:4px 4px; border-radius:3px; ' + (i === 0 ? 'background:#DBEAFE;' : '') }));
+    const user = 'dmenard';
+    const rdpCmdLines = [
+      'C:\\Users\\' + user + '>ipconfig | findstr IPv4',
+      '   Adresse IPv4. . . . . . . . . . : ' + rdpConn.host,
+      'C:\\Users\\' + user + '>ping -n 2 ' + (isSrv ? '10.10.0.20' : '10.10.0.12'),
+      'Réponse de ' + (isSrv ? '10.10.0.20' : '10.10.0.12') + ' : octets=32 temps<1ms TTL=' + (isSrv ? '64' : '127'),
+      'Réponse de ' + (isSrv ? '10.10.0.20' : '10.10.0.12') + ' : octets=32 temps<1ms TTL=' + (isSrv ? '64' : '127'),
+      '',
+      'C:\\Users\\' + user + '>_'
+    ].map(t => ({ t: t }));
+    const redir = [s.rClip ? 'presse-papiers' : null, s.rDrives ? 'lecteurs' : null, s.rPrint ? 'imprimantes' : null].filter(Boolean);
+    const qLabel = { auto: 'qualité automatique', lan: 'qualité optimale (LAN)', bb: 'haut débit', low: 'faible bande passante' };
+
+    // ---- VNC
+    const vncFiles = [['Inventaire réseau.numbers', '#22C55E'], ['Plan baie.pdf', '#EF4444'], ['Configs', '#60A5FA'], ['Captures', '#60A5FA'], ['Rapport scan.pdf', '#EF4444'], ['Notes.txt', '#E5E7EB']].map(f => ({ name: f[0], style: 'width:34px; height:' + (f[1] === '#60A5FA' ? '26' : '34') + 'px; border-radius:' + (f[1] === '#60A5FA' ? '4' : '3') + 'px; background:' + f[1] + '; border:1px solid #CBD5E1;' }));
+    const vncTermLines = ['dany@Macmini-de-Dany ~ % ping -c 2 10.182.122.1', 'PING 10.182.122.1 (10.182.122.1): 56 data bytes', '64 bytes from 10.182.122.1: icmp_seq=0 ttl=255 time=1.204 ms', '64 bytes from 10.182.122.1: icmp_seq=1 ttl=255 time=0.982 ms', '', 'dany@Macmini-de-Dany ~ % '].map(t => ({ t: t }));
+    const vncConn = tc && tc.proto === 'vnc' ? tc : this.connById('mac');
+
+    // ---- Nouvelle connexion
+    const nf = s.nf;
+    const defPort = { ssh: '22', telnet: '23', rdp: '3389', vnc: '5900', serial: '9600' };
+    const nfProtoSeg = seg([{ id: 'ssh', label: 'SSH' }, { id: 'telnet', label: 'Telnet' }, { id: 'rdp', label: 'RDP' }, { id: 'vnc', label: 'VNC' }, { id: 'serial', label: 'Série' }], nf.proto, id => this.setState({ nf: { ...nf, proto: id, port: defPort[id] } }));
+    const setNf = k => e => { const n = { ...nf }; n[k] = e.target.value; this.setState({ nf: n }); };
+    const recent = s.conns.filter(c => c.up).slice(0, 7).map(c => ({ name: c.name, addr: addrOf(c), icon: icons[c.proto], iconBox: iconBox(c.proto, 22), open: () => this.openConn(c.id, tab ? tab.id : null) }));
+
+    // ---- Détails
+    const c = this.connById(s.sel) || s.conns[0];
+    const grpName = { reseau: 'Siège › Réseau', serveurs: 'Siège › Serveurs', postes: 'Siège › Postes', console: 'Console', import: 'Importés du scan' };
+    const protoFull = { ssh: 'SSH-2 · OpenSSH 9.8', telnet: 'Telnet — non chiffré', rdp: 'RDP 10 · TLS 1.3', vnc: 'VNC (RFB 3.8) · Partage d’écran', serial: 'RS-232 · liaison locale' };
+    const authOpts = c.proto === 'ssh' ? [{ id: 'pwd', label: 'Mot de passe' }, { id: 'key', label: 'Clé SSH' }, { id: 'keychain', label: 'Trousseau' }] : (c.proto === 'serial' ? [] : [{ id: 'pwd', label: 'Mot de passe' }, { id: 'keychain', label: 'Trousseau' }]);
+    const auth = c.proto === 'serial' ? 'none' : (s.authBy[c.id] || c.auth);
+    const authSeg = seg(authOpts, auth, id => { const a = { ...s.authBy }; a[c.id] = id; this.setState({ authBy: a }); });
+    const tunnels = (c.tunnels || []).map((t, i) => ({ kind: t.kind === 'L' ? 'LOCAL' : 'DYNAMIQUE', spec: t.spec, removeLabel: 'Supprimer la redirection ' + t.spec, remove: () => this.setState({ conns: s.conns.map(x => x.id === c.id ? { ...x, tunnels: x.tunnels.filter((_, j) => j !== i) } : x) }) }));
+    const hasFp = c.proto === 'ssh' || c.proto === 'rdp';
+    const extDef = c.proto === 'rdp' ? 'winapp' : (c.proto === 'vnc' ? 'screen' : 'term');
+    const extApp = s.extBy[c.id] || extDef;
+    const extCmds = {
+      term: c.proto === 'ssh' ? 'ssh ' + (auth === 'key' ? '-i ~/.ssh/id_netscope ' : '') + (c.user && c.user !== '—' ? c.user + '@' : '') + c.host + (c.port !== '22' ? ' -p ' + c.port : '') : (c.proto === 'telnet' ? 'telnet ' + c.host + ' ' + c.port : (c.proto === 'serial' ? 'screen ' + s.serPort + ' ' + s.baud : null)),
+      winapp: c.proto === 'rdp' ? 'Fichier ' + c.name + '.rdp généré · ' + c.host + ':' + c.port : null,
+      screen: c.proto === 'vnc' ? 'vnc://' + c.host + ':' + c.port : null
+    };
+    const extOk = !!extCmds[extApp];
+    const appName = { term: 'Terminal.app', winapp: 'Windows App', screen: 'Partage d’écran' };
+    const isOpen = !!s.tabs.find(t => t.connId === c.id);
+    const updConn = (k) => e => { const v = e.target.value; this.setState({ conns: s.conns.map(x => { if (x.id !== c.id) return x; const n = { ...x }; n[k] = v; return n; }) }); };
+    const d = {
+      name: c.name, model: c.model, protoFull: protoFull[c.proto], host: c.host, port: c.port, user: c.user, last: c.last,
+      grpLabel: grpName[c.grp] || 'Non classé', icon: icons[c.proto], iconBoxLg: iconBox(c.proto, 40).replace('border-radius:6px', 'border-radius:8px'),
+      stateLabel: c.up ? 'Joignable' : 'Non joignable',
+      badgeStyle: 'font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; ' + (c.up ? 'background:#DCFCE7; color:#15803D;' : 'background:#F3F4F6; color:#4B5563;'),
+      insecure: !!c.insecure,
+      hostLabel: c.proto === 'serial' ? 'Périphérique' : 'Hôte', portLabel: c.proto === 'serial' ? 'Paramètres' : 'Port',
+      fpLabel: c.proto === 'ssh' ? 'Empreinte de clé hôte' : (c.proto === 'rdp' ? 'Certificat du serveur (SHA-1)' : 'Identité de l’hôte'),
+      fp: c.fp, fpType: c.fpType, hasFp: hasFp
+    };
+
+    // ---- Import
+    const scan = [
+      { name: 'FortiGate-60F', vendor: 'Fortinet', ip: '10.182.122.1', ports: [22, 443], proto: 'ssh', port: '22', grp: 'reseau', model: 'Fortinet FortiGate-60F' },
+      { name: 'SW-CORE-01', vendor: 'Cisco', ip: '10.182.122.2', ports: [22, 161, 443], proto: 'ssh', port: '22', grp: 'reseau', model: 'Cisco Catalyst 9300-48P' },
+      { name: 'SW-ETG2-01', vendor: 'HPE Aruba', ip: '10.182.122.3', ports: [22, 23, 80], proto: 'telnet', port: '23', grp: 'reseau', model: 'Aruba 2930F-24G' },
+      { name: 'FortiAP-231F', vendor: 'Fortinet', ip: '10.182.122.102', ports: [22, 443], proto: 'ssh', port: '22', grp: 'import', model: 'Fortinet FortiAP-231F' },
+      { name: 'WKS346', vendor: 'Dell', ip: '10.182.122.117', ports: [135, 445, 3389], proto: 'rdp', port: '3389', grp: 'postes', model: 'Dell · Windows 11' },
+      { name: 'Macmini-de-Dany', vendor: 'Apple', ip: '10.182.122.135', ports: [22, 5900], proto: 'vnc', port: '5900', grp: 'postes', model: 'Apple Mac mini' },
+      { name: 'WKS341', vendor: 'Dell', ip: '10.182.122.146', ports: [3389], proto: 'rdp', port: '3389', grp: 'postes', model: 'Dell · Windows 11 (hors ligne depuis 3 h)', off: true },
+      { name: 'SRV-AD-01', vendor: 'Dell', ip: '10.10.0.10', ports: [53, 389, 3389], proto: 'rdp', port: '3389', grp: 'import', model: 'Windows Server · contrôleur de domaine' },
+      { name: 'SRV-FICHIERS', vendor: 'Dell', ip: '10.10.0.12', ports: [445, 3389], proto: 'rdp', port: '3389', grp: 'serveurs', model: 'Windows Server 2022' },
+      { name: 'NAS-SYNO', vendor: 'Synology', ip: '10.10.0.20', ports: [22, 5000, 5001], proto: 'ssh', port: '22', grp: 'serveurs', model: 'Synology DSM 7.2' }
+    ];
+    const remotePorts = [22, 23, 3389, 5900];
+    const exists = r => s.conns.some(x => x.host === r.ip && x.proto === r.proto) || (r.name === 'SW-ETG2-01' && s.conns.some(x => x.host === r.ip));
+    const mkConn = (r, i) => ({ id: 'i' + (s.seq + i), grp: 'import', name: r.name, proto: r.proto, host: r.ip, port: r.port, user: r.proto === 'rdp' ? 'CORP\\dmenard' : 'admin', auth: r.proto === 'ssh' ? 'key' : 'pwd', up: !r.off, os: r.proto === 'ssh' ? (r.vendor === 'Fortinet' ? 'fortios' : 'linux') : 'win', model: r.model, last: 'Jamais', fp: r.proto === 'ssh' ? 'Inconnue — sera demandée à la première connexion' : 'Certificat non encore reçu', fpType: 'Non vérifiée', tunnels: [] });
+    const importRows = scan.map(r => {
+      const ex = exists(r);
+      return {
+        name: r.name, vendor: r.vendor, ip: r.ip, exists: ex, canAdd: !ex,
+        protoLabel: protoLabel[r.proto] + ' ' + r.port, protoStyle: protoStyle(r.proto),
+        portTags: r.ports.map(p => ({ p: String(p), style: 'font-family:JetBrains Mono, monospace; font-size:11px; padding:1px 5px; border-radius:4px; ' + (remotePorts.indexOf(p) >= 0 ? 'background:#DBEAFE; color:#1D4ED8;' : 'background:#F3F4F6; color:#374151;') })),
+        addLabel: 'Ajouter ' + r.name + ' en ' + protoLabel[r.proto],
+        add: () => this.setState({ conns: s.conns.concat([mkConn(r, 0)]), seq: s.seq + 1, toast: r.name + ' ajouté au dossier « Importés du scan ».' })
+      };
+    });
+    const newOnes = scan.filter(r => !exists(r));
+
+    return {
+      openCountLabel: s.tabs.length + (s.tabs.length > 1 ? ' sessions ouvertes' : ' session ouverte'),
+      rightOpen: s.rightOpen, rightClosed: !s.rightOpen, rightOpenStr: s.rightOpen ? 'true' : 'false',
+      rightBtnLabel: s.rightOpen ? 'Masquer les détails' : 'Afficher les détails',
+      onToggleRight: () => this.setState({ rightOpen: !s.rightOpen }),
+      onKnownHosts: () => toast('~/.ssh/known_hosts : 14 entrées · aucune clé modifiée depuis le 12 août 2026.'),
+      toast: s.toast, hasToast: !!s.toast, onToastClose: () => this.setState({ toast: '' }),
+      primaryStyle: 'background:' + accent + '; flex:none; padding:0 10px; font-size:12px;',
+
+      q: s.q, onQ: e => this.setState({ q: e.target.value }),
+      groups: groups, noResults: !anyMatch,
+      connCountLabel: s.conns.length + ' enregistrées · ' + s.conns.filter(x => x.up).length + ' joignables',
+      onNew: () => { const t = s.tabs.find(x => !x.connId); if (t) this.setState({ active: t.id }); else this.addTab(); },
+      onImport: () => this.setState({ importOpen: true }),
+
+      tabs: tabs, onAddTab: () => this.addTab(),
+      noTabs: kind === 'none', isTerm: kind === 'term', isSerial: kind === 'serial', isRdp: kind === 'rdp', isVnc: kind === 'vnc', isNew: kind === 'new',
+
+      termTitle: tc ? tc.name : '', termAddr: tc ? (tc.user + '@' + tc.host + ':' + tc.port) : '',
+      termAria: 'Sortie du terminal ' + (tc ? tc.name : ''),
+      termBoxStyle: 'display:flex; flex-direction:column-reverse; overflow:auto; height:' + (rowsN * 18 + 14) + 'px; padding:10px 12px 4px; box-sizing:border-box;',
+      termLines: termLines, prompt: tc ? this.promptFor(tc) : '',
+      cmd: s.cmd, onCmd: e => this.setState({ cmd: e.target.value }),
+      onKey: e => {
+        if (e.key === 'Enter') { e.preventDefault(); this.runCmd(e.target.value); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); const i = Math.min(s.hist.length - 1, s.histIdx + 1); if (i >= 0) this.setState({ histIdx: i, cmd: s.hist[i] }); }
+        else if (e.key === 'ArrowDown') { e.preventDefault(); const i = s.histIdx - 1; this.setState({ histIdx: Math.max(-1, i), cmd: i >= 0 ? s.hist[i] : '' }); }
+      },
+      onRun: () => this.runCmd(s.cmd),
+      snippets: snippets,
+      enc: s.enc, onEnc: e => this.setState({ enc: e.target.value }),
+      size: s.size, onSize: e => this.setState({ size: e.target.value }),
+      logOn: s.logOn, onLog: () => this.setState({ logOn: !s.logOn }),
+      logPath: s.logOn && tc ? 'Journal : ~/Library/Logs/NetScope/' + tc.name + '_' + stamp + '.log' : 'Journalisation désactivée',
+      onCopyOut: () => toast('Sortie copiée dans le presse-papiers (' + termLines.length + ' lignes).'),
+      onClearTerm: () => { if (!tab) return; const t = { ...s.terms }; t[tab.id] = []; this.setState({ terms: t }); },
+      isTelnet: isTelnet,
+      termSec: isTelnet ? 'Telnet · NON CHIFFRÉ' : (tc && tc.proto === 'ssh' ? 'SSH-2.0 · chacha20-poly1305 · ' + ((s.authBy[tc.id] || tc.auth) === 'key' ? 'clé ed25519' : 'mot de passe') : ''),
+      termSecStyle: isTelnet ? 'font-weight:600; color:#C2410C;' : 'font-weight:600; color:#15803D;',
+      termMeta: s.enc + ' · ' + cols[0] + ' col. × ' + cols[1] + ' lignes · xterm-256color',
+      onToSsh: () => {
+        if (!tab || !tc) return;
+        const conns = s.conns.map(x => x.id === tc.id ? { ...x, proto: 'ssh', port: '22', insecure: false, auth: 'key', os: 'aruba', fp: 'SHA256:Pm5Lw0dT8yQe2Vr6nBx4Kc1Zh9Ja3Fs7Ug5Oi2Rt4Yk', fpType: 'ECDSA 256 bits', last: 'Aujourd’hui 10:43 (en cours)' } : x);
+        const t = { ...s.terms };
+        t[tab.id] = (s.terms[tab.id] || []).concat(this.L('\nSession Telnet fermée.\nConnexion SSH à 10.182.122.3:22 avec la clé ed25519 « id_netscope »…\nNouvelle clé hôte ECDSA enregistrée (SHA256:Pm5L…Yk). Session chiffrée.\n', 'n'));
+        this.setState({ conns: conns, terms: t, toast: 'SW-ETG2-01 est maintenant enregistré en SSH (port 22).' });
+      },
+
+      serPort: s.serPort, onSerPort: e => this.setState({ serPort: e.target.value }),
+      baud: s.baud, onBaud: e => this.setState({ baud: e.target.value }),
+      bits: s.bits, onBits: e => this.setState({ bits: e.target.value }),
+      parity: s.parity, onParity: e => this.setState({ parity: e.target.value }),
+      stop: s.stop, onStop: e => this.setState({ stop: e.target.value }),
+      flow: s.flow, onFlow: e => this.setState({ flow: e.target.value }),
+      serSummary: s.serPort + ' · ' + s.baud + ' ' + s.bits + s.parity + s.stop + ' · flux ' + ({ none: 'aucun', xon: 'XON/XOFF', rts: 'RTS/CTS' })[s.flow],
+      serStateLabel: s.serOn ? 'Port ouvert' : 'Port fermé',
+      serBadgeStyle: 'font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; ' + (s.serOn ? 'background:#DCFCE7; color:#15803D;' : 'background:#F3F4F6; color:#4B5563;'),
+      serToggleLabel: s.serOn ? 'Fermer le port' : 'Ouvrir le port',
+      serBtnStyle: 'background:' + (s.serOn ? '#B91C1C' : accent) + ';',
+      onSerToggle: () => this.setState({ serOn: !s.serOn, serialLines: s.serialLines.concat(this.L(s.serOn ? '[Port ' + s.serPort + ' fermé]' : '[Port ' + s.serPort + ' ouvert à ' + s.baud + ' ' + s.bits + s.parity + s.stop + ']', 'n')) }),
+      onBreak: () => this.setState({ serialLines: s.serialLines.concat(this.L('[Break envoyé — 250 ms]', 'w')) }),
+      onSerClear: () => this.setState({ serialLines: [] }),
+      serialLines: serLines, serPrompt: s.serPrompt, serCmd: s.serCmd,
+      onSerCmd: e => this.setState({ serCmd: e.target.value }),
+      onSerKey: e => { if (e.key === 'Enter') { e.preventDefault(); this.runSerial(e.target.value); } },
+      onSerRun: () => this.runSerial(s.serCmd),
+
+      rdpResSeg: seg([{ id: 'fit', label: 'Ajuster' }, { id: 'fhd', label: '1920×1080' }], s.rdpRes, id => this.setState({ rdpRes: id })),
+      rdpMulti: s.rdpMulti, onRdpMulti: () => this.setState({ rdpMulti: !s.rdpMulti }),
+      rClip: s.rClip, onRClip: () => this.setState({ rClip: !s.rClip }),
+      rDrives: s.rDrives, onRDrives: () => this.setState({ rDrives: !s.rDrives }),
+      rPrint: s.rPrint, onRPrint: () => this.setState({ rPrint: !s.rPrint }),
+      rdpGw: s.rdpGw, onRdpGw: e => this.setState({ rdpGw: e.target.value }),
+      nla: s.nla, onNla: () => this.setState({ nla: !s.nla, toast: s.nla ? 'NLA désactivée : l’authentification se fera après l’ouverture de la session (déconseillé).' : 'NLA réactivée.' }),
+      rdpQ: s.rdpQ, onRdpQ: e => this.setState({ rdpQ: e.target.value }),
+      rdpTitle: rdpConn.name, rdpAddr: rdpConn.user + ' @ ' + rdpConn.host + ':' + rdpConn.port,
+      rdpBadge: rdpOff ? 'Déconnectée' : 'Connectée · ' + rdpConn.model,
+      rdpBadgeStyle: 'font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; ' + (rdpOff ? 'background:#F3F4F6; color:#4B5563;' : 'background:#DCFCE7; color:#15803D;'),
+      rdpOff: rdpOff, rdpOn: !rdpOff, rdpCad: s.rdpCad,
+      rdpDiscLabel: rdpOff ? 'Fermer l’onglet' : 'Déconnecter',
+      onCad: () => { if (!rdpOff) this.setState({ rdpCad: true }); },
+      onCadClose: () => this.setState({ rdpCad: false }),
+      onFull: () => toast('Plein écran : Ctrl+Option+Entrée pour revenir à NetScope.'),
+      onRdpDisc: () => { if (!tab) return; if (rdpOff) { this.closeTab(tab.id); return; } const o = { ...s.rdpOff }; o[tab.id] = true; this.setState({ rdpOff: o, rdpCad: false }); },
+      onRdpRecon: () => { if (!tab) return; const o = { ...s.rdpOff }; o[tab.id] = false; this.setState({ rdpOff: o }); },
+      rdpCanvas: 'position:relative; overflow:hidden; background:#1F4E79; ' + (s.rdpRes === 'fit' ? 'width:100%; height:438px;' : 'width:1120px; height:630px;'),
+      rdpExplorerTitle: isSrv ? 'Partages — Explorateur de fichiers' : 'Comptabilité — Explorateur de fichiers',
+      rdpPath: isSrv ? 'D:\\Partages' : '\\\\SRV-FICHIERS\\Comptabilité',
+      rdpFiles: rdpFiles, rdpCmdLines: rdpCmdLines,
+      rdpStatus: rdpOff ? 'Session déconnectée' : 'TLS 1.3 · ' + (s.nla ? 'NLA (CredSSP)' : 'sans NLA') + ' · AVC 444 · ' + qLabel[s.rdpQ] + ' · RTT 2 ms',
+      rdpRedirLabel: (s.rdpGw === 'none' ? 'Connexion directe' : 'Via passerelle RD') + ' · ' + (redir.length ? 'redirige : ' + redir.join(', ') : 'aucune redirection') + (s.rdpMulti ? ' · 2 écrans' : ''),
+      rdpResLabel: s.rdpRes === 'fit' ? 'Ajusté à la fenêtre (1218×684 côté hôte)' : 'Résolution fixe 1920×1080 · défilement',
+
+      vncQSeg: seg([{ id: 'adapt', label: 'Adaptative' }, { id: 'high', label: 'Haute' }], s.vncQ, id => this.setState({ vncQ: id })),
+      vncScaleSeg: seg([{ id: 'fit', label: 'Ajuster' }, { id: 'real', label: '100 %' }], s.vncScale, id => this.setState({ vncScale: id })),
+      vncView: s.vncView, onVncView: () => this.setState({ vncView: !s.vncView }),
+      vncEnc: s.vncEnc, onVncEnc: () => this.setState({ vncEnc: !s.vncEnc }),
+      vncEncLabel: s.vncEnc ? 'Chiffré (AES-128)' : 'Clavier et souris chiffrés seulement',
+      vncEncStyle: 'font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; ' + (s.vncEnc ? 'background:#DCFCE7; color:#15803D;' : 'background:#FFEDD5; color:#C2410C;'),
+      vncTitle: vncConn.name, vncAddr: vncConn.user + ' @ ' + vncConn.host + ':' + vncConn.port,
+      onVncClip: () => toast('Presse-papiers envoyé à ' + vncConn.name + '.'),
+      vncCanvas: 'position:relative; overflow:hidden; background:#2D3A4A; ' + (s.vncScale === 'fit' ? 'width:100%; height:438px;' : 'width:1280px; height:720px;') + (s.vncView ? ' cursor:not-allowed;' : ''),
+      vncFiles: vncFiles, vncTermLines: vncTermLines,
+      vncStatus: 'RFB 3.8 · ' + (s.vncQ === 'adapt' ? 'qualité adaptative (JPEG/Zlib)' : 'haute qualité (sans perte)') + ' · 2560×1440 · 30 i/s',
+      vncScaleLabel: s.vncScale === 'fit' ? 'Mis à l’échelle pour la fenêtre' : 'Taille réelle · défilement',
+
+      nfProtoSeg: nfProtoSeg,
+      nfHost: nf.host, onNfHost: setNf('host'), nfPort: nf.port, onNfPort: setNf('port'), nfUser: nf.user, onNfUser: setNf('user'), nfGrp: nf.grp, onNfGrp: setNf('grp'),
+      nfHostLabel: nf.proto === 'serial' ? 'Port série' : 'Hôte ou adresse IP',
+      nfHostPh: nf.proto === 'serial' ? '/dev/cu.usbserial-A10K' : '10.182.122.102',
+      nfPortLabel: nf.proto === 'serial' ? 'Débit' : 'Port',
+      nfTelnetWarn: nf.proto === 'telnet',
+      onNfSave: () => this.saveNew(false), onNfSaveOpen: () => this.saveNew(true),
+      recent: recent,
+
+      d: d, authSeg: authSeg, authHasOptions: authOpts.length > 0,
+      authPwd: auth === 'pwd', authKey: auth === 'key', authKeychain: auth === 'keychain', authNone: auth === 'none',
+      jumpShow: c.proto !== 'serial', jump: s.jumpBy[c.id] || 'none',
+      onJump: e => { const j = { ...s.jumpBy }; j[c.id] = e.target.value; this.setState({ jumpBy: j }); },
+      isSshSel: c.proto === 'ssh', tunnels: tunnels, noTunnels: tunnels.length === 0,
+      onAddTunnel: () => this.setState({ conns: s.conns.map(x => x.id === c.id ? { ...x, tunnels: (x.tunnels || []).concat([{ kind: 'D', spec: '1080 (proxy SOCKS5)' }]) } : x) }),
+      verified: !!s.verified[c.id],
+      verifyText: c.proto === 'ssh' ? (c.fp.indexOf('SHA256') === 0 ? 'Correspond à ~/.ssh/known_hosts (enregistrée le 12 août 2026).' : 'Aucune clé connue : elle sera présentée à la première connexion.') : 'Certificat identique à celui accepté le 14 mai 2026.',
+      onVerify: () => { const v = { ...s.verified }; v[c.id] = true; this.setState({ verified: v }); },
+      connectLabel: isOpen ? 'Aller à la session' : 'Connecter',
+      connectStyle: 'background:' + (c.up ? accent : '#4B5563') + ';',
+      onConnect: () => this.openConn(c.id),
+      editing: s.editing, notEditing: !s.editing, editLabel: s.editing ? 'Enregistrer' : 'Modifier',
+      onEdit: () => this.setState({ editing: !s.editing, toast: s.editing ? 'Connexion « ' + c.name + ' » enregistrée.' : '' }),
+      onEdHost: updConn('host'), onEdPort: updConn('port'), onEdUser: updConn('user'),
+      onDup: () => { const id = 'd' + s.seq; this.setState({ conns: s.conns.concat([{ ...c, id: id, name: c.name + ' (copie)', fav: false, last: 'Jamais', tunnels: (c.tunnels || []).slice() }]), seq: s.seq + 1, sel: id, toast: 'Connexion dupliquée : ' + c.name + ' (copie).' }); },
+      extApp: extApp,
+      onExtApp: e => { const x = { ...s.extBy }; x[c.id] = e.target.value; this.setState({ extBy: x }); },
+      extNote: extOk ? extCmds[extApp] : appName[extApp] + ' ne prend pas en charge ' + protoLabel[c.proto] + '.',
+      extNoteStyle: 'font-family:' + (extOk ? 'JetBrains Mono, monospace' : 'Inter, system-ui, sans-serif') + '; font-size:11px; padding:6px 8px; border-radius:6px; overflow-wrap:anywhere; ' + (extOk ? 'background:#F9FAFB; color:#374151; border:1px solid #E5E7EB;' : 'background:#FFEDD5; color:#9A3412;'),
+      onExtOpen: () => toast(extOk ? 'Ouverture dans ' + appName[extApp] + ' : ' + extCmds[extApp] : 'Choisissez une application compatible avec ' + protoLabel[c.proto] + '.'),
+
+      importOpen: s.importOpen, onCloseImport: () => this.setState({ importOpen: false }),
+      importRows: importRows,
+      importSummary: scan.length + ' appareils avec accès distant · ' + newOnes.length + ' pas encore enregistrés',
+      onImportAll: () => { if (!newOnes.length) { toast('Toutes les connexions détectées sont déjà enregistrées.'); return; } this.setState({ conns: s.conns.concat(newOnes.map((r, i) => mkConn(r, i))), seq: s.seq + newOnes.length, toast: newOnes.length + ' connexions ajoutées au dossier « Importés du scan ».' }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

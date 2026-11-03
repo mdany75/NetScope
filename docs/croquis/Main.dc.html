@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Scanner</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F4F6}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+.nav{display:flex;align-items:center;gap:10px;padding:0 10px;height:32px;border-radius:6px;color:#E2E8F0;text-decoration:none;font-size:13px;font-weight:500}
+.nav:hover{background:#1E293B;color:#FFFFFF}
+.nav.act{background:#1E293B;color:#FFFFFF}
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:6px;border:1px solid #E5E7EB;background:#FFFFFF;color:#111827;font:500 13px Inter,system-ui,sans-serif;cursor:pointer}
+.btn:hover{background:#F9FAFB;border-color:#D1D5DB}
+.btn:focus-visible,.chip:focus-visible,.nav:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #2563EB;outline-offset:2px}
+.btnp{border:1px solid transparent;color:#FFFFFF}
+.btnp:hover{filter:brightness(0.88)}
+.chip{cursor:pointer}
+.chip:hover{border-color:#9CA3AF}
+.row{cursor:pointer}
+.row td{background:#FFFFFF}
+.row:hover td{background:#F9FAFB}
+.row.sel td{background:#EFF6FF}
+.act-btn{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:6px;border:1px solid #E5E7EB;background:#FFFFFF;color:#111827;font:500 12px Inter,system-ui,sans-serif;cursor:pointer;text-align:left}
+.act-btn:hover{background:#F3F4F6}
+.menu-item{display:block;width:100%;text-align:left;padding:7px 10px;border:0;background:#FFFFFF;border-radius:4px;font:500 13px Inter,system-ui,sans-serif;color:#111827;cursor:pointer}
+.menu-item:hover{background:#F3F4F6}
+@keyframes pulse{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
+.pulse{animation:pulse 1.2s ease-in-out infinite}
+@media (max-width: 760px){.side{max-width:none !important}}
+@media (max-width: 1180px){.detail{max-width:none !important}}
+</style>
+</helmet>
+<div style="width:100%; min-height:1000px; display:flex; flex-wrap:wrap; font-family:Inter, system-ui, sans-serif; color:#111827; background:#F3F4F6; box-sizing:border-box; font-size:13px">
+
+  <!-- BARRE LATÉRALE -->
+  <nav class="side" aria-label="Navigation principale" style="flex:1 1 220px; max-width:220px; background:#0F172A; color:#E2E8F0; display:flex; flex-direction:column; padding:16px 12px; box-sizing:border-box; gap:18px">
+    <div style="display:flex; align-items:center; gap:10px; padding:4px 6px">
+      <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#E2E8F0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><path d="M12 12l6-6"></path><circle cx="12" cy="12" r="1.2"></circle></svg>
+      <div>
+        <div style="font-weight:700; font-size:15px; color:#FFFFFF">NetScope</div>
+        <div style="font-size:11px; color:#94A3B8">Boîte à outils réseau</div>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:2px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:0 10px 4px">Découverte</div>
+      <a class="nav act" href="Main.dc.html" aria-current="page">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>Scanner</a>
+      <a class="nav" href="Topologie.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="5" rx="1"></rect><rect x="3" y="16" width="6" height="5" rx="1"></rect><rect x="15" y="16" width="6" height="5" rx="1"></rect><path d="M12 8v4M6 16v-4h12v4"></path></svg>Carte du réseau</a>
+      <a class="nav" href="Inventaire.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h1M4 12h1M4 18h1"></path></svg>Inventaire</a>
+      <a class="nav" href="Device.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="12" rx="1.5"></rect><path d="M9 20h6M12 16v4"></path></svg>Appareil</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Diagnostic</div>
+      <a class="nav" href="Ping.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Ping continu</a>
+      <a class="nav" href="Switch.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="1.5"></rect><path d="M7 11v2M10 11v2M13 11v2M16 11v2"></path></svg>Switchs et ports</a>
+      <a class="nav" href="Wifi.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5a15 15 0 0 1 20 0"></path><path d="M5 12a10.5 10.5 0 0 1 14 0"></path><path d="M8.5 15.5a5.5 5.5 0 0 1 7 0"></path><circle cx="12" cy="19" r="1"></circle></svg>Wi-Fi</a>
+      <a class="nav" href="Toolbox.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"></path></svg>Outils</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Suivi</div>
+      <a class="nav" href="Surveillance.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>Surveillance<span style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#DC2626; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center" aria-label="3 alertes">3</span></a>
+      <a class="nav" href="Analyse.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>Analyse<span style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#2563EB; color:#FFFFFF; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center" aria-label="1 nouveau résultat">1</span></a>
+      <a class="nav" href="Rapport.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>Rapports</a>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; background:#0F172A; padding:8px 10px 4px">Accès</div>
+      <a class="nav" href="Remote.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="1.5"></rect><path d="M7 9l3 2.5L7 14M12 14h4M9 21h6M12 17v4"></path></svg>Accès distant</a>
+      <a class="nav" href="Speedtest.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 18.5a9 9 0 1 1 14.2 0"></path><path d="M12 14l4-5"></path><circle cx="12" cy="14" r="1.2"></circle><path d="M12 5v1.5M6.5 8.5l1 1M17.5 8.5l-1 1"></path></svg>Speedtest</a>
+    </div>
+    <div style="border-top:1px solid #1E293B; padding-top:12px; display:flex; flex-direction:column; gap:6px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; padding:0 6px">Plages enregistrées</div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>10.182.122.0/24</span><span style="color:#94A3B8">Bureau</span></div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>192.168.50.0/24</span><span style="color:#94A3B8">Caméras</span></div>
+      <div style="display:flex; justify-content:space-between; padding:0 6px; font-family:'JetBrains Mono', monospace; font-size:12px"><span>10.10.0.1-50</span><span style="color:#94A3B8">Serveurs</span></div>
+    </div>
+    <div style="margin-top:auto; border-top:1px solid #1E293B; padding-top:10px; display:flex; flex-direction:column">
+      <a class="nav" href="Reglages.dc.html">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>Réglages</a>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px; padding:10px; border:1px solid #1E293B; border-radius:8px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8">Interface active</div>
+      <div style="display:flex; align-items:center; gap:8px">
+        <span style="width:8px; height:8px; border-radius:50%; background:#22C55E; flex:none"></span>
+        <span style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#E2E8F0">en0 · 10.182.122.135 · Wi-Fi</span>
+      </div>
+      <div style="font-size:11px; color:#94A3B8">Passerelle 10.182.122.1 · DNS 10.182.122.1</div>
+      <div style="font-size:11px; color:#94A3B8">Version 2.0.0 (maquette)</div>
+    </div>
+  </nav>
+
+  <!-- CONTENU -->
+  <main style="flex:999 1 560px; min-width:0; display:flex; flex-direction:column; box-sizing:border-box">
+
+    <!-- Barre d'outils -->
+    <header style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:12px 20px; background:#FFFFFF; border-bottom:1px solid #E5E7EB">
+      <h1 style="margin:0; font-size:17px; font-weight:700; margin-right:6px">Scanner</h1>
+      <label style="flex:1 1 300px; min-width:220px; position:relative; display:flex; align-items:center">
+        <span style="position:absolute; left:10px; color:#4B5563; display:flex">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
+        </span>
+        <input type="search" aria-label="Recherche globale" placeholder="Rechercher IP, MAC, hostname, fabricant, port de switch…" value="{{ q }}" onChange="{{ onQ }}" style="width:100%; height:32px; box-sizing:border-box; padding:0 10px 0 32px; border:1px solid #E5E7EB; border-radius:6px; background:#F9FAFB; font:13px Inter, system-ui, sans-serif; color:#111827">
+      </label>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center">
+        <button type="button" class="btn btnp" style="{{ primaryStyle }}" onClick="{{ onStart }}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5l12 7-12 7z"></path></svg>Lancer le scan</button>
+        <button type="button" class="btn" onClick="{{ onStop }}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg>Arrêter</button>
+        <button type="button" class="btn" onClick="{{ onClear }}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg>Effacer</button>
+        <div style="position:relative">
+          <button type="button" class="btn" aria-haspopup="true" aria-expanded="{{ menuOpen }}" onClick="{{ onMenu }}">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>Profil : {{ profileLabel }}
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+          </button>
+          <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+            <div role="menu" style="position:absolute; top:38px; right:0; z-index:5; width:260px; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:6px; box-shadow:0 8px 24px rgba(15,23,42,.12)">
+              <sc-for list="{{ profiles }}" as="p" hint-placeholder-count="4">
+                <button type="button" role="menuitem" class="menu-item" onClick="{{ p.pick }}">
+                  <span style="{{ p.titleStyle }}">{{ p.label }}</span>
+                  <span style="display:block; font-size:11px; color:#4B5563; font-weight:400">{{ p.desc }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+        <button type="button" class="btn">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>Exporter</button>
+      </div>
+    </header>
+
+    <div style="padding:16px 20px; display:flex; flex-direction:column; gap:14px">
+
+      <!-- Plages à scanner -->
+      <section aria-labelledby="h-plages" style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+        <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:12px">
+          <h2 id="h-plages" style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Plages à scanner</h2>
+          <span style="font-size:12px; color:#4B5563">{{ rangesSummary }}</span>
+          <sc-if value="{{ running }}" hint-placeholder-val="{{ true }}">
+            <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#1D4ED8; font-weight:600"><span class="pulse" style="width:8px; height:8px; border-radius:50%; background:#2563EB"></span>Scan en cours · {{ elapsedLabel }}</span>
+          </sc-if>
+          <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap">
+            <button type="button" class="btn" onClick="{{ onDetect }}">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><path d="M12 2v4M12 18v4M2 12h4M18 12h4"></path><circle cx="12" cy="12" r="2"></circle></svg>Détecter mon réseau</button>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:10px">
+          <sc-for list="{{ ranges }}" as="r" hint-placeholder-count="3">
+            <div style="{{ r.cardStyle }}">
+              <div style="display:flex; align-items:flex-start; gap:8px">
+                <input type="checkbox" id="{{ r.cbId }}" checked="{{ r.checked }}" onChange="{{ r.toggle }}" style="margin:2px 0 0; width:15px; height:15px; accent-color:#2563EB">
+                <label for="{{ r.cbId }}" style="flex:1; min-width:0; cursor:pointer">
+                  <span style="display:block; font-family:'JetBrains Mono', monospace; font-size:13px; font-weight:600">{{ r.cidr }}</span>
+                  <span style="display:block; font-size:12px; color:#4B5563">{{ r.name }} · {{ r.kind }}</span>
+                </label>
+                <span style="font-size:11px; font-weight:600; padding:2px 6px; border-radius:4px; background:#F3F4F6; color:#374151; font-family:'JetBrains Mono', monospace">{{ r.vlanLabel }}</span>
+                <button type="button" aria-label="{{ r.removeLabel }}" onClick="{{ r.remove }}" style="border:0; background:transparent; color:#4B5563; cursor:pointer; padding:0; display:flex">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+                </button>
+              </div>
+              <div style="margin-top:10px; height:6px; border-radius:3px; background:#E5E7EB; overflow:hidden" role="progressbar" aria-label="{{ r.progressAria }}" aria-valuenow="{{ r.pct }}" aria-valuemin="0" aria-valuemax="100">
+                <div style="{{ r.barStyle }}"></div>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:12px; color:#4B5563">
+                <span style="font-family:'JetBrains Mono', monospace">{{ r.pctLabel }} · {{ r.doneLabel }}</span>
+                <span style="font-family:'JetBrains Mono', monospace">{{ r.timeLabel }}</span>
+              </div>
+              <div style="display:flex; gap:12px; margin-top:6px; font-size:12px">
+                <span style="color:#15803D; font-weight:600">{{ r.online }} en ligne</span>
+                <span style="color:#4B5563">{{ r.offline }} sans réponse</span>
+                <span style="{{ r.newStyle }}">{{ r.newCount }} nouveaux</span>
+              </div>
+            </div>
+          </sc-for>
+          <!-- Ajouter une plage -->
+          <div style="border:1px dashed #D1D5DB; border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px; background:#F9FAFB">
+            <div style="font-weight:600; font-size:13px">Ajouter une plage</div>
+            <div role="group" aria-label="Type de plage" style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:4px">
+              <sc-for list="{{ addKinds }}" as="k" hint-placeholder-count="4">
+                <button type="button" aria-pressed="{{ k.on }}" onClick="{{ k.pick }}" style="{{ k.style }}">{{ k.label }}</button>
+              </sc-for>
+            </div>
+            <div style="display:flex; gap:6px">
+              <input type="text" aria-label="Nouvelle plage" placeholder="{{ addPlaceholder }}" value="{{ newRange }}" onChange="{{ onNewRange }}" style="flex:1; min-width:0; height:30px; box-sizing:border-box; padding:0 8px; border:1px solid #E5E7EB; border-radius:6px; background:#FFFFFF; font:12px 'JetBrains Mono', monospace; color:#111827">
+              <button type="button" class="btn" onClick="{{ onAdd }}" style="height:30px">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>Ajouter</button>
+            </div>
+            <div style="font-size:11px; color:#4B5563">CIDR, début-fin, liste séparée par des virgules ou fichier .txt / .csv</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Zone principale : tableau + détail -->
+      <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:flex-start">
+
+        <section aria-labelledby="h-res" style="flex:999 1 560px; min-width:0; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; display:flex; flex-direction:column">
+          <h2 id="h-res" style="position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)">Résultats du scan</h2>
+          <!-- Filtres -->
+          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 12px; border-bottom:1px solid #E5E7EB">
+            <label style="position:relative; display:flex; align-items:center; flex:0 1 240px; min-width:180px">
+              <span style="position:absolute; left:8px; color:#4B5563; display:flex">
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16l-6 8v6l-4-2v-4z"></path></svg>
+              </span>
+              <input type="text" aria-label="Filtrer le tableau" placeholder="Filtrer : IP, MAC, hostname…" value="{{ q }}" onChange="{{ onQ }}" style="width:100%; height:30px; box-sizing:border-box; padding:0 8px 0 28px; border:1px solid #E5E7EB; border-radius:6px; font:12px Inter, system-ui, sans-serif; color:#111827">
+            </label>
+            <div role="group" aria-label="Filtres rapides" style="display:flex; flex-wrap:wrap; gap:6px">
+              <sc-for list="{{ chips }}" as="c" hint-placeholder-count="6">
+                <button type="button" class="chip" aria-pressed="{{ c.on }}" onClick="{{ c.pick }}" style="{{ c.style }}">
+                  <span style="{{ c.dotStyle }}"></span>{{ c.label }}<span style="{{ c.countStyle }}">{{ c.count }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <div style="display:flex; gap:6px; margin-left:auto; flex-wrap:wrap">
+              <select aria-label="Plage" value="{{ rangeF }}" onChange="{{ onRangeF }}" style="height:30px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font:12px Inter, system-ui, sans-serif; color:#111827; background:#FFFFFF">
+                <option value="all">Toutes les plages</option>
+                <option value="r1">10.182.122.0/24</option>
+                <option value="r2">192.168.50.0/24</option>
+                <option value="r3">10.10.0.1-50</option>
+              </select>
+              <select aria-label="VLAN" value="{{ vlanF }}" onChange="{{ onVlanF }}" style="height:30px; border:1px solid #E5E7EB; border-radius:6px; padding:0 8px; font:12px Inter, system-ui, sans-serif; color:#111827; background:#FFFFFF">
+                <option value="all">Tous les VLAN</option>
+                <option value="1">VLAN 1 · Gestion</option>
+                <option value="20">VLAN 20 · Wi-Fi</option>
+                <option value="30">VLAN 30 · Impression</option>
+                <option value="40">VLAN 40 · Caméras</option>
+                <option value="100">VLAN 100 · Serveurs</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Tableau -->
+          <div style="overflow-x:auto">
+            <table style="width:100%; min-width:1120px; border-collapse:collapse; font-size:12px">
+              <thead>
+                <tr style="height:32px; background:#F9FAFB; border-bottom:1px solid #E5E7EB">
+                  <th scope="col" style="width:28px; padding:0 0 0 12px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563"><span style="position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)">Statut</span></th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">IP</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Nom personnalisé</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Hostname</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Fabricant</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">MAC</th>
+                  <th scope="col" style="padding:0 8px; text-align:right; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Latence</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Ports ouverts</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Switch / Port</th>
+                  <th scope="col" style="padding:0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">VLAN</th>
+                  <th scope="col" style="padding:0 12px 0 8px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#4B5563; letter-spacing:.03em">Vu la dernière fois</th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ rows }}" as="item" hint-placeholder-count="14">
+                  <tr class="{{ item.cls }}" style="{{ item.rowStyle }}" onClick="{{ item.pick }}" aria-selected="{{ item.isSel }}">
+                    <td style="padding:0 0 0 12px"><span role="img" aria-label="{{ item.statusLabel }}" style="{{ item.dotStyle }}"></span></td>
+                    <td style="padding:0 8px; font-family:'JetBrains Mono', monospace; font-weight:600; white-space:nowrap">{{ item.ip }}</td>
+                    <td style="padding:0 8px; white-space:nowrap">
+                      <span>{{ item.name }}</span>
+                      <sc-if value="{{ item.isNew }}" hint-placeholder-val="{{ false }}">
+                        <span style="margin-left:6px; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; background:#DBEAFE; color:#1D4ED8">NOUVEAU</span>
+                      </sc-if>
+                      <sc-if value="{{ item.conflict }}" hint-placeholder-val="{{ false }}">
+                        <span style="margin-left:6px; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; background:#FEE2E2; color:#B91C1C">CONFLIT IP</span>
+                      </sc-if>
+                    </td>
+                    <td style="padding:0 8px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#374151">{{ item.host }}</td>
+                    <td style="padding:0 8px; white-space:nowrap; color:#374151">{{ item.vendor }}</td>
+                    <td style="padding:0 8px; font-family:'JetBrains Mono', monospace; white-space:nowrap; color:#374151">{{ item.mac }}</td>
+                    <td style="{{ item.latStyle }}">{{ item.latLabel }}</td>
+                    <td style="padding:0 8px; white-space:nowrap">
+                      <span style="display:inline-flex; gap:3px">
+                        <sc-for list="{{ item.portTags }}" as="pt" hint-placeholder-count="3">
+                          <span style="{{ pt.style }}">{{ pt.p }}</span>
+                        </sc-for>
+                        <sc-if value="{{ item.noPorts }}" hint-placeholder-val="{{ false }}">
+                          <span style="color:#6B7280">—</span>
+                        </sc-if>
+                      </span>
+                    </td>
+                    <td style="padding:0 8px; font-family:'JetBrains Mono', monospace; white-space:nowrap; color:#374151">{{ item.swLabel }}</td>
+                    <td style="padding:0 8px"><span style="font-family:'JetBrains Mono', monospace; font-size:11px; padding:1px 6px; border-radius:4px; background:#F3F4F6; color:#374151">{{ item.vlan }}</span></td>
+                    <td style="padding:0 12px 0 8px; white-space:nowrap; color:#4B5563">{{ item.seen }}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+            <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:28px; text-align:center; color:#4B5563; font-size:13px">Aucun appareil ne correspond à « {{ q }} » avec les filtres actifs.</div>
+            </sc-if>
+          </div>
+
+          <!-- Pied -->
+          <footer style="display:flex; flex-wrap:wrap; gap:14px; align-items:center; padding:10px 12px; border-top:1px solid #E5E7EB; font-size:12px; color:#4B5563; background:#F9FAFB; border-radius:0 0 8px 8px">
+            <span><strong style="color:#111827">203</strong> appareils</span>
+            <span><strong style="color:#15803D">182</strong> vus récemment</span>
+            <span><strong style="color:#1D4ED8">3</strong> nouveaux</span>
+            <span><strong style="color:#B91C1C">1</strong> conflit IP</span>
+            <span style="margin-left:auto">{{ shownLabel }}</span>
+            <span style="font-family:'JetBrains Mono', monospace">Durée du scan : {{ durationLabel }}</span>
+          </footer>
+        </section>
+
+        <!-- Panneau de détail -->
+        <aside class="detail" aria-labelledby="h-detail" style="flex:1 1 340px; max-width:360px; min-width:0; display:flex; flex-direction:column; gap:12px">
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+            <div style="display:flex; align-items:flex-start; gap:10px">
+              <div style="width:40px; height:40px; border-radius:8px; background:#F3F4F6; display:flex; align-items:center; justify-content:center; color:#374151; flex:none">
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="9" rx="1.5"></rect><path d="M7 8V3h10v5M7 14h10v7H7z"></path></svg>
+              </div>
+              <div style="min-width:0; flex:1">
+                <h2 id="h-detail" style="margin:0; font-size:15px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ d.title }}</h2>
+                <div style="font-family:'JetBrains Mono', monospace; font-size:13px; color:#111827; margin-top:2px">{{ d.ip }}</div>
+                <div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap">
+                  <span style="{{ d.badgeStyle }}">{{ d.statusLabel }}</span>
+                  <span style="font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; background:#F3F4F6; color:#374151">{{ d.type }}</span>
+                </div>
+              </div>
+            </div>
+            <sc-if value="{{ d.conflict }}" hint-placeholder-val="{{ false }}">
+              <div role="alert" style="margin-top:12px; padding:8px 10px; border-radius:6px; background:#FEE2E2; color:#B91C1C; font-size:12px">Deux adresses MAC répondent à cette IP : 00:1A:2B:44:10:EE et 5C:F9:38:02:7A:41.</div>
+            </sc-if>
+
+            <dl style="margin:14px 0 0; display:grid; grid-template-columns:110px minmax(0, 1fr); row-gap:7px; column-gap:8px; font-size:12px">
+              <dt style="color:#4B5563">Hostname</dt><dd style="margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ d.host }}</dd>
+              <dt style="color:#4B5563">MAC</dt><dd style="margin:0; font-family:'JetBrains Mono', monospace">{{ d.mac }}</dd>
+              <dt style="color:#4B5563">OUI</dt><dd style="margin:0"><span style="font-family:'JetBrains Mono', monospace">{{ d.oui }}</span> · {{ d.ouiOrg }}</dd>
+              <dt style="color:#4B5563">Découverte</dt><dd style="margin:0">{{ d.discovery }}</dd>
+              <dt style="color:#4B5563">Première vue</dt><dd style="margin:0">{{ d.firstSeen }}</dd>
+            </dl>
+          </div>
+
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+            <h3 style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Emplacement physique</h3>
+            <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px">
+              <div style="background:#F9FAFB; border:1px solid #E5E7EB; border-radius:6px; padding:8px">
+                <div style="font-size:11px; color:#4B5563">Switch</div>
+                <div style="font-family:'JetBrains Mono', monospace; font-size:12px; font-weight:600; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ d.swName }}</div>
+              </div>
+              <div style="background:#F9FAFB; border:1px solid #E5E7EB; border-radius:6px; padding:8px">
+                <div style="font-size:11px; color:#4B5563">Port</div>
+                <div style="font-family:'JetBrains Mono', monospace; font-size:12px; font-weight:600; margin-top:2px">{{ d.swPort }}</div>
+              </div>
+              <div style="background:#F9FAFB; border:1px solid #E5E7EB; border-radius:6px; padding:8px">
+                <div style="font-size:11px; color:#4B5563">VLAN</div>
+                <div style="font-family:'JetBrains Mono', monospace; font-size:12px; font-weight:600; margin-top:2px">{{ d.vlan }}</div>
+              </div>
+            </div>
+            <div style="font-size:12px; color:#4B5563; margin-top:8px">{{ d.swDetail }}</div>
+          </div>
+
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+            <div style="display:flex; align-items:baseline; justify-content:space-between">
+              <h3 style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Latence · 30 derniers pings</h3>
+              <span style="font-family:'JetBrains Mono', monospace; font-size:12px; font-weight:600">{{ d.latLabel }}</span>
+            </div>
+            <svg role="img" aria-label="{{ d.sparkAria }}" width="100%" height="44" viewBox="0 0 300 44" preserveAspectRatio="none" style="display:block; margin-top:8px">
+              <line x1="0" y1="43" x2="300" y2="43" stroke="#E5E7EB" stroke-width="1"></line>
+              <polyline points="{{ d.spark }}" fill="none" stroke="#2563EB" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+            </svg>
+            <h3 style="margin:14px 0 8px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Ports ouverts</h3>
+            <div style="display:flex; flex-wrap:wrap; gap:6px">
+              <sc-for list="{{ d.portButtons }}" as="pb" hint-placeholder-count="4">
+                <button type="button" class="btn" style="height:28px; padding:0 9px; font-size:12px">
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5H5V6h5"></path></svg>{{ pb.label }}<span style="font-size:11px; color:#4B5563">{{ pb.svc }}</span>
+                </button>
+              </sc-for>
+              <sc-if value="{{ d.noPorts }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size:12px; color:#4B5563">Aucun port ouvert détecté (profil {{ profileLabel }}).</span>
+              </sc-if>
+            </div>
+          </div>
+
+          <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:8px; padding:14px">
+            <h3 style="margin:0 0 8px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#4B5563; font-weight:600">Actions rapides</h3>
+            <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:6px">
+              <a class="act-btn" href="Ping.dc.html" style="text-decoration:none">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Ping continu</a>
+              <button type="button" class="act-btn">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="18" r="2"></circle><circle cx="19" cy="6" r="2"></circle><path d="M7 18h5a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h8"></path></svg>Traceroute</button>
+              <button type="button" class="act-btn">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"></rect><path d="M8 9h2M8 12h2M8 15h2M14 9h2M14 12h2M14 15h2"></path></svg>Scanner les ports</button>
+              <button type="button" class="act-btn">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9M6.3 7.5a8 8 0 1 0 11.4 0"></path></svg>Wake-on-LAN</button>
+              <button type="button" class="act-btn">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M7 9l3 3-3 3M13 15h4"></path></svg>SSH</button>
+              <button type="button" class="act-btn" onClick="{{ onCopyIp }}">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="1.5"></rect><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"></path></svg>Copier IP</button>
+              <button type="button" class="act-btn" onClick="{{ onCopyMac }}">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="1.5"></rect><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"></path></svg>Copier MAC</button>
+              <a class="act-btn" href="Switch.dc.html" style="text-decoration:none">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="1.5"></rect><path d="M7 11v2M10 11v2M13 11v2M16 11v2"></path></svg>Voir le port</a>
+            </div>
+            <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+              <div role="status" style="margin-top:8px; font-size:12px; color:#15803D; background:#DCFCE7; border-radius:6px; padding:6px 8px">{{ toast }}</div>
+            </sc-if>
+            <a href="Device.dc.html" style="display:inline-flex; align-items:center; gap:6px; margin-top:12px; font-size:13px; font-weight:600; text-decoration:none">Voir la fiche complète
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000},"compact":false,"accent":"#2563EB"}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      q: '',
+      chip: 'all',
+      rangeF: 'all',
+      vlanF: 'all',
+      sel: 'd111',
+      running: true,
+      elapsed: 23,
+      profile: 'rapide',
+      menuOpen: false,
+      addKind: 'cidr',
+      newRange: '',
+      toast: '',
+      ranges: [
+        { id: 'r1', cidr: '10.182.122.0/24', name: 'Bureau', kind: 'CIDR', vlan: '1', total: 254, done: 254, secs: 31, online: 182, newCount: 2, checked: true },
+        { id: 'r2', cidr: '192.168.50.0/24', name: 'Caméras', kind: 'CIDR', vlan: '40', total: 254, done: 188, secs: 23, online: 17, newCount: 1, checked: true },
+        { id: 'r3', cidr: '10.10.0.1-10.10.0.50', name: 'Serveurs', kind: 'Début-fin', vlan: '100', total: 50, done: 50, secs: 6, online: 4, newCount: 0, checked: true }
+      ],
+      devices: [
+        { id: 'd1', range: 'r1', ip: '10.182.122.1', name: 'Passerelle', host: 'FortiGate-60F', vendor: 'Fortinet', mac: '04:D5:90:3A:7B:11', lat: 0.8, ports: [22, 443, 541], sw: 'SW-CORE-01', port: 'Gi1/0/1', vlan: '1', seen: "À l'instant", type: 'Pare-feu', on: true },
+        { id: 'd2', range: 'r1', ip: '10.182.122.2', name: 'Switch cœur', host: 'SW-CORE-01', vendor: 'Cisco', mac: '70:0F:6A:91:4C:02', lat: 1.1, ports: [22, 161, 443], sw: 'SW-CORE-01', port: 'Vlan1 (SVI)', vlan: '1', seen: "À l'instant", type: 'Switch', on: true },
+        { id: 'd3', range: 'r1', ip: '10.182.122.3', name: 'Switch étage 2', host: 'SW-ETG2-01', vendor: 'HPE Aruba', mac: '88:3A:30:5D:E1:40', lat: 1.6, ports: [22, 80, 161], sw: 'SW-CORE-01', port: 'Gi1/0/47', vlan: '1', seen: "À l'instant", type: 'Switch', on: true },
+        { id: 'd100', range: 'r1', ip: '10.182.122.100', name: '—', host: 'ca2032249c778fc96008b9df7aa447c9', vendor: 'Inconnu (MAC aléatoire)', mac: '3A:1F:C7:02:9B:E4', lat: 6.4, ports: [], sw: 'SW-ETG2-01', port: '1/7', vlan: '1', seen: 'Il y a 2 min', type: 'Inconnu', on: true, isNew: true },
+        { id: 'd102', range: 'r1', ip: '10.182.122.102', name: 'Borne Wi-Fi accueil', host: 'FortiAP-231F', vendor: 'Fortinet', mac: '70:4C:A5:1E:22:9A', lat: 2.3, ports: [22, 443], sw: 'SW-CORE-01', port: 'Gi1/0/12', vlan: '20', seen: "À l'instant", type: "Point d'accès", on: true },
+        { id: 'd106', range: 'r1', ip: '10.182.122.106', name: 'Affichage hall', host: 'BrightSign-D1E876001191', vendor: 'BrightSign', mac: '90:AC:3F:0D:18:76', lat: 3.4, ports: [80, 8080], sw: 'SW-ETG2-01', port: '1/9', vlan: '30', seen: "À l'instant", type: 'Affichage numérique', on: true },
+        { id: 'd111', range: 'r1', ip: '10.182.122.111', name: 'Imprimante accueil', host: 'Brother DCP-L2640DW', vendor: 'Brother', mac: '94:DD:F8:18:15:7D', lat: 4.1, ports: [80, 443, 9100, 631], sw: 'SW-ETG2-01', port: '1/14', vlan: '30', seen: "À l'instant", type: 'Imprimante', on: true },
+        { id: 'd113', range: 'r1', ip: '10.182.122.113', name: 'Portable Marc', host: 'PF4L8M20', vendor: 'Lenovo', mac: '8C:16:45:2B:9E:03', lat: 5.2, ports: [135, 445], sw: 'SW-ETG2-01', port: '1/3', vlan: '1', seen: 'Il y a 1 min', type: 'Ordinateur portable', on: true },
+        { id: 'd117', range: 'r1', ip: '10.182.122.117', name: 'Poste comptabilité', host: 'WKS346', vendor: 'Dell', mac: 'B0:7B:25:44:A1:6C', lat: 1.9, ports: [135, 445, 3389], sw: 'SW-CORE-01', port: 'Gi1/0/22', vlan: '1', seen: "À l'instant", type: 'Poste de travail', on: true },
+        { id: 'd133', range: 'r1', ip: '10.182.122.133', name: '—', host: 'Android_89UM1WTN', vendor: 'Inconnu (MAC aléatoire)', mac: 'D6:4E:81:7A:33:C0', lat: 18.6, ports: [], sw: 'FortiAP-231F', port: 'Wi-Fi', vlan: '20', seen: 'Il y a 4 min', type: 'Téléphone', on: true, isNew: true },
+        { id: 'd135', range: 'r1', ip: '10.182.122.135', name: 'Ce Mac', host: 'Macmini-de-Dany', vendor: 'Apple', mac: '3C:22:FB:7E:05:B1', lat: 0.1, ports: [22, 5900], sw: 'FortiAP-231F', port: 'Wi-Fi', vlan: '20', seen: "À l'instant", type: 'Ordinateur', on: true },
+        { id: 'd140', range: 'r1', ip: '10.182.122.140', name: '—', host: 'NPI7A4410', vendor: 'HP', mac: '00:1A:2B:44:10:EE', lat: 7.8, ports: [80, 9100], sw: 'SW-ETG2-01', port: '1/18', vlan: '30', seen: 'Il y a 3 min', type: 'Imprimante', on: true, conflict: true },
+        { id: 'd146', range: 'r1', ip: '10.182.122.146', name: 'Poste réception', host: 'WKS341', vendor: 'Dell', mac: 'B0:7B:25:44:9F:20', lat: null, ports: [], sw: 'SW-CORE-01', port: 'Gi1/0/23', vlan: '1', seen: 'Il y a 3 h', type: 'Poste de travail', on: false },
+        { id: 'c21', range: 'r2', ip: '192.168.50.21', name: 'Caméra quai', host: 'DS-2CD2143G2-I', vendor: 'Hikvision', mac: 'BC:AD:28:6F:01:5A', lat: 3.0, ports: [80, 443, 554], sw: 'SW-CORE-01', port: 'Gi1/0/33', vlan: '40', seen: "À l'instant", type: 'Caméra IP', on: true },
+        { id: 'c22', range: 'r2', ip: '192.168.50.22', name: '—', host: 'axis-b8a44f2c19e0', vendor: 'Axis', mac: 'B8:A4:4F:2C:19:E0', lat: 2.7, ports: [80, 443, 554], sw: 'SW-CORE-01', port: 'Gi1/0/34', vlan: '40', seen: "À l'instant", type: 'Caméra IP', on: true, isNew: true },
+        { id: 's10', range: 'r3', ip: '10.10.0.10', name: 'Contrôleur de domaine', host: 'SRV-AD-01', vendor: 'Dell', mac: 'F4:EE:08:3C:72:A1', lat: 0.9, ports: [53, 88, 389, 445], sw: 'SW-CORE-01', port: 'Gi1/0/40', vlan: '100', seen: "À l'instant", type: 'Serveur', on: true }
+      ]
+    };
+  }
+
+  componentDidMount() {
+    this.timer = setInterval(() => {
+      if (!this.state.running) return;
+      const ranges = this.state.ranges.map(r => {
+        if (!r.checked || r.done >= r.total) return r;
+        const done = Math.min(r.total, r.done + 3 + Math.floor(Math.random() * 4));
+        return { ...r, done: done, secs: r.secs + 1 };
+      });
+      const still = ranges.some(r => r.checked && r.done < r.total);
+      this.setState({ ranges: ranges, running: still, elapsed: this.state.elapsed + (still ? 1 : 0) });
+    }, 900);
+  }
+
+  componentWillUnmount() {
+    clearInterval(this.timer);
+  }
+
+  renderVals() {
+    const s = this.state;
+    const props = this.props || {};
+    const accent = props.accent || '#2563EB';
+    const h = props.compact ? 32 : 36;
+    const q = (s.q || '').trim().toLowerCase();
+    const webPorts = [80, 443, 8080, 8443];
+
+    const svcMap = { 22: 'SSH', 53: 'DNS', 80: 'HTTP', 88: 'Kerberos', 135: 'RPC', 161: 'SNMP', 389: 'LDAP', 443: 'HTTPS', 445: 'SMB', 541: 'FGFM', 554: 'RTSP', 631: 'IPP', 3389: 'RDP', 5900: 'VNC', 8080: 'HTTP', 9100: 'RAW' };
+    const btnLabel = { 80: 'Ouvrir 80', 443: 'Ouvrir 443', 8080: 'Ouvrir 8080', 631: 'IPP 631', 9100: 'RAW 9100', 22: 'SSH 22', 3389: 'RDP 3389', 5900: 'VNC 5900', 554: 'RTSP 554' };
+
+    const isWeb = d => d.ports.some(p => webPorts.indexOf(p) >= 0);
+    const devs = s.devices;
+    const counts = {
+      all: devs.length,
+      on: devs.filter(d => d.on).length,
+      off: devs.filter(d => !d.on).length,
+      nw: devs.filter(d => d.isNew).length,
+      web: devs.filter(isWeb).length,
+      cf: devs.filter(d => d.conflict).length
+    };
+
+    const matchChip = d => {
+      if (s.chip === 'on') return d.on;
+      if (s.chip === 'off') return !d.on;
+      if (s.chip === 'nw') return !!d.isNew;
+      if (s.chip === 'web') return isWeb(d);
+      if (s.chip === 'cf') return !!d.conflict;
+      return true;
+    };
+    const activeRanges = s.ranges.filter(r => r.checked).map(r => r.id);
+
+    const filtered = devs.filter(d => {
+      if (activeRanges.indexOf(d.range) < 0) return false;
+      if (s.rangeF !== 'all' && d.range !== s.rangeF) return false;
+      if (s.vlanF !== 'all' && d.vlan !== s.vlanF) return false;
+      if (!matchChip(d)) return false;
+      if (!q) return true;
+      const hay = [d.ip, d.mac, d.mac.replace(/:/g, ''), d.host, d.name, d.vendor, d.sw + ' ' + d.port, d.sw + ' · ' + d.port, 'vlan ' + d.vlan, d.ports.join(' ')].join(' ').toLowerCase();
+      return hay.indexOf(q) >= 0;
+    });
+
+    const dot = (d) => {
+      const base = 'display:inline-block; width:9px; height:9px; border-radius:50%; box-sizing:border-box;';
+      if (d.conflict) return base + 'background:#B91C1C;';
+      if (!d.on) return base + 'border:2px solid #6B7280; background:transparent;';
+      return base + 'background:#15803D;';
+    };
+    const statusLabel = d => d.conflict ? 'Conflit IP' : (d.on ? 'En ligne' : 'Hors ligne');
+    const latColor = v => v === null ? '#6B7280' : (v > 15 ? '#C2410C' : '#111827');
+
+    const rows = filtered.map(d => {
+      const selected = d.id === s.sel;
+      return {
+        ...d,
+        cls: selected ? 'row sel' : 'row',
+        isSel: selected ? 'true' : 'false',
+        rowStyle: 'height:' + h + 'px; border-bottom:1px solid #E5E7EB;',
+        dotStyle: dot(d),
+        statusLabel: statusLabel(d),
+        isNew: !!d.isNew,
+        conflict: !!d.conflict,
+        latLabel: d.lat === null ? '—' : d.lat.toFixed(1) + ' ms',
+        latStyle: 'padding:0 8px; text-align:right; font-family:JetBrains Mono, monospace; white-space:nowrap; color:' + latColor(d.lat) + ';',
+        portTags: d.ports.slice(0, 4).map(p => ({
+          p: String(p),
+          style: 'font-family:JetBrains Mono, monospace; font-size:11px; padding:1px 5px; border-radius:4px; ' + (webPorts.indexOf(p) >= 0 ? 'background:#DBEAFE; color:#1D4ED8;' : 'background:#F3F4F6; color:#374151;')
+        })),
+        noPorts: d.ports.length === 0,
+        swLabel: d.sw + ' · ' + d.port,
+        pick: () => this.setState({ sel: d.id, toast: '' })
+      };
+    });
+
+    const chipDefs = [
+      { id: 'all', label: 'Tous', dot: '', n: counts.all },
+      { id: 'on', label: 'En ligne', dot: '#15803D', n: counts.on },
+      { id: 'off', label: 'Hors ligne', dot: '#6B7280', n: counts.off },
+      { id: 'nw', label: 'Nouveaux', dot: '#2563EB', n: counts.nw },
+      { id: 'web', label: 'Ports web', dot: '#1D4ED8', n: counts.web },
+      { id: 'cf', label: 'Conflit IP', dot: '#B91C1C', n: counts.cf }
+    ];
+    const chips = chipDefs.map(c => {
+      const on = s.chip === c.id;
+      return {
+        label: c.label,
+        count: String(c.n),
+        on: on ? 'true' : 'false',
+        style: 'display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 10px; border-radius:14px; font:500 12px Inter, system-ui, sans-serif; ' + (on ? 'background:#EFF6FF; border:1px solid ' + accent + '; color:#1D4ED8;' : 'background:#FFFFFF; border:1px solid #E5E7EB; color:#111827;'),
+        dotStyle: c.dot ? 'width:7px; height:7px; border-radius:50%; background:' + c.dot + ';' : 'display:none;',
+        countStyle: 'font-family:JetBrains Mono, monospace; font-size:11px; color:#4B5563;',
+        pick: () => this.setState({ chip: c.id })
+      };
+    });
+
+    const ranges = s.ranges.map(r => {
+      const pct = Math.round((r.done / r.total) * 100);
+      const doneAll = r.done >= r.total;
+      const scanning = s.running && r.checked && !doneAll;
+      return {
+        ...r,
+        cbId: 'cb-' + r.id,
+        vlanLabel: r.vlan ? 'VLAN ' + r.vlan : 'VLAN ?',
+        pct: String(pct),
+        pctLabel: pct + ' %',
+        doneLabel: r.done + '/' + r.total,
+        timeLabel: scanning ? r.secs + ' s · en cours' : (r.done === 0 ? 'en attente' : r.secs + ' s · terminé'),
+        offline: String(Math.max(0, r.done - r.online)),
+        newStyle: r.newCount > 0 ? 'color:#1D4ED8; font-weight:600;' : 'color:#4B5563;',
+        progressAria: 'Progression ' + r.cidr,
+        removeLabel: 'Retirer la plage ' + r.cidr,
+        cardStyle: 'border:1px solid ' + (r.checked ? '#E5E7EB' : '#E5E7EB') + '; border-radius:8px; padding:12px; background:' + (r.checked ? '#FFFFFF' : '#F9FAFB') + '; opacity:' + (r.checked ? '1' : '0.7') + ';',
+        barStyle: 'height:6px; width:' + pct + '%; background:' + (doneAll ? '#15803D' : accent) + ';',
+        toggle: () => this.setState({ ranges: s.ranges.map(x => x.id === r.id ? { ...x, checked: !x.checked } : x) }),
+        remove: () => this.setState({ ranges: s.ranges.filter(x => x.id !== r.id) })
+      };
+    });
+    const checkedRanges = s.ranges.filter(r => r.checked);
+    const totalAddr = checkedRanges.reduce((a, r) => a + r.total, 0);
+
+    const kindDefs = [
+      { id: 'cidr', label: 'CIDR', ph: '172.16.0.0/22' },
+      { id: 'span', label: 'Début-fin', ph: '192.168.1.1-192.168.1.254' },
+      { id: 'list', label: 'Liste', ph: '10.0.0.5, 10.0.0.9, 10.0.0.12' },
+      { id: 'file', label: 'Importer', ph: 'plages.txt' }
+    ];
+    const addKinds = kindDefs.map(k => {
+      const on = s.addKind === k.id;
+      return {
+        label: k.label,
+        on: on ? 'true' : 'false',
+        style: 'height:26px; border-radius:6px; cursor:pointer; font:500 11px Inter, system-ui, sans-serif; ' + (on ? 'background:#FFFFFF; border:1px solid ' + accent + '; color:#1D4ED8;' : 'background:transparent; border:1px solid #E5E7EB; color:#374151;'),
+        pick: () => this.setState({ addKind: k.id })
+      };
+    });
+    const curKind = kindDefs.find(k => k.id === s.addKind) || kindDefs[0];
+
+    const profDefs = [
+      { id: 'rapide', label: 'Rapide', desc: 'ARP + ping ICMP, résolution des noms' },
+      { id: 'complet', label: 'Complet', desc: 'Rapide + SNMP, LLDP/CDP, 1000 ports TCP' },
+      { id: 'courants', label: 'Ports courants', desc: '22, 80, 443, 445, 3389, 554, 9100…' },
+      { id: 'perso', label: 'Personnalisé', desc: 'Délais, ports et sondes à votre choix' }
+    ];
+    const profiles = profDefs.map(p => ({
+      ...p,
+      titleStyle: 'display:block; ' + (s.profile === p.id ? 'color:#1D4ED8; font-weight:700;' : 'font-weight:600;'),
+      pick: () => this.setState({ profile: p.id, menuOpen: false })
+    }));
+    const profileLabel = (profDefs.find(p => p.id === s.profile) || profDefs[0]).label;
+
+    // Détail
+    const sel = devs.find(d => d.id === s.sel) || devs[0];
+    const extra = {
+      d111: { oui: '94:DD:F8', org: 'Brother Industries, Ltd.', disc: 'ARP, mDNS (_ipp._tcp), SNMP', first: '12 août 2026, 09:14', det: 'SW-ETG2-01 (10.182.122.3) · 1 Gb/s full duplex · LLDP + table MAC SNMP', vname: '30 · Impression' },
+      d102: { oui: '70:4C:A5', org: 'Fortinet, Inc.', disc: 'ARP, LLDP, SNMP', first: '3 mars 2026, 08:02', det: 'SW-CORE-01 (10.182.122.2) · 1 Gb/s · PoE+ 13,4 W · LLDP', vname: '20 · Wi-Fi' }
+    };
+    const ex = extra[sel.id] || {
+      oui: sel.mac.slice(0, 8),
+      org: sel.vendor.indexOf('Inconnu') === 0 ? 'Adresse administrée localement' : sel.vendor,
+      disc: 'ARP, ping ICMP',
+      first: sel.isNew ? "Aujourd'hui" : '2026',
+      det: sel.port === 'Wi-Fi' ? 'Client sans fil associé à FortiAP-231F (10.182.122.102)' : sel.sw + ' · table MAC SNMP',
+      vname: sel.vlan
+    };
+    const base = sel.lat === null ? 0 : sel.lat;
+    const pts = [];
+    for (let i = 0; i < 30; i++) {
+      const v = sel.lat === null ? 0 : base * (1 + 0.28 * Math.sin(i * 1.7) + 0.12 * Math.cos(i * 3.1)) + (i === 19 ? base * 0.9 : 0);
+      const maxV = base * 2.4 || 1;
+      const y = sel.lat === null ? 42 : 42 - (v / maxV) * 38;
+      pts.push((i * 300 / 29).toFixed(1) + ',' + y.toFixed(1));
+    }
+    const badge = sel.conflict ? 'background:#FEE2E2; color:#B91C1C;' : (sel.on ? 'background:#DCFCE7; color:#15803D;' : 'background:#F3F4F6; color:#4B5563;');
+    const d = {
+      title: sel.name !== '—' ? sel.name : sel.host,
+      ip: sel.ip,
+      host: sel.host,
+      mac: sel.mac,
+      oui: ex.oui,
+      ouiOrg: ex.org,
+      discovery: ex.disc,
+      firstSeen: ex.first,
+      type: sel.type,
+      statusLabel: statusLabel(sel),
+      badgeStyle: 'font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; ' + badge,
+      conflict: !!sel.conflict,
+      swName: sel.sw,
+      swPort: sel.port,
+      vlan: ex.vname,
+      swDetail: ex.det,
+      latLabel: sel.lat === null ? 'Sans réponse' : 'moy. ' + sel.lat.toFixed(1) + ' ms · perte 0 %',
+      spark: pts.join(' '),
+      sparkAria: 'Latence des 30 derniers pings vers ' + sel.ip,
+      portButtons: sel.ports.map(p => ({ label: btnLabel[p] || 'Port ' + p, svc: svcMap[p] || 'TCP' })),
+      noPorts: sel.ports.length === 0
+    };
+
+    return {
+      q: s.q,
+      onQ: (e) => this.setState({ q: e.target.value }),
+      rangeF: s.rangeF,
+      vlanF: s.vlanF,
+      onRangeF: (e) => this.setState({ rangeF: e.target.value }),
+      onVlanF: (e) => this.setState({ vlanF: e.target.value }),
+      rows: rows,
+      empty: rows.length === 0,
+      chips: chips,
+      ranges: ranges,
+      rangesSummary: checkedRanges.length + ' plages actives · ' + totalAddr + ' adresses',
+      running: s.running,
+      elapsedLabel: s.elapsed + ' s',
+      durationLabel: s.running ? s.elapsed + ' s (en cours)' : s.elapsed + ' s',
+      shownLabel: rows.length + ' affichés sur ' + devs.length + ' dans cette vue',
+      addKinds: addKinds,
+      addPlaceholder: curKind.ph,
+      newRange: s.newRange,
+      onNewRange: (e) => this.setState({ newRange: e.target.value }),
+      onAdd: () => {
+        const v = (s.newRange || '').trim();
+        if (!v) return;
+        const id = 'r' + (s.ranges.length + 10) + '-' + v.length;
+        this.setState({ newRange: '', ranges: s.ranges.concat([{ id: id, cidr: v, name: 'Nouvelle plage', kind: curKind.label, vlan: '', total: 254, done: 0, secs: 0, online: 0, newCount: 0, checked: true }]) });
+      },
+      onDetect: () => this.setState({ toast: 'Réseau détecté : 10.182.122.0/24 via en0 (déjà dans la liste)' }),
+      profiles: profiles,
+      profileLabel: profileLabel,
+      menuOpen: s.menuOpen,
+      onMenu: () => this.setState({ menuOpen: !s.menuOpen }),
+      primaryStyle: 'background:' + accent + ';',
+      onStart: () => this.setState({ running: true, elapsed: 0, ranges: s.ranges.map(r => r.checked ? { ...r, done: 0, secs: 0 } : r) }),
+      onStop: () => this.setState({ running: false }),
+      onClear: () => this.setState({ q: '', chip: 'all', rangeF: 'all', vlanF: 'all' }),
+      onCopyIp: () => this.setState({ toast: 'IP copiée : ' + sel.ip }),
+      onCopyMac: () => this.setState({ toast: 'MAC copiée : ' + sel.mac }),
+      toast: s.toast,
+      hasToast: !!s.toast,
+      d: d
+    };
+  }
+}
+</script>
+</body>
+</html>
