@@ -8,7 +8,8 @@ let package = Package(
         // Moteur réseau, sans interface : Foundation, Network et Darwin seulement.
         .target(name: "NetScopeCore", linkerSettings: [.linkedLibrary("resolv")]),
         // Application SwiftUI.
-        .executableTarget(name: "NetScope", dependencies: ["NetScopeCore"]),
+        .executableTarget(name: "NetScope", dependencies: ["NetScopeCore"],
+                         linkerSettings: [.linkedFramework("CoreWLAN"), .linkedFramework("CoreLocation")]),
         // Tests du moteur (exécutable, car XCTest n'est pas disponible sans Xcode).
         .executableTarget(name: "NetScopeSelfTest", dependencies: ["NetScopeCore"]),
     ],
