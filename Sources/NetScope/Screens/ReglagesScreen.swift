@@ -1,25 +1,150 @@
 import NetScopeCore
 import SwiftUI
 
-/// Écran `Screen.reglages`, provisoire (en construction), voir le croquis dans docs/croquis/.
+/// Écran `Screen.reglages` (croquis docs/croquis/Reglages.dc.html) : colonne des sections à
+/// gauche, contenu de la section à droite. Les réglages s'enregistrent dès qu'ils changent.
 struct ReglagesScreen: View {
+    @EnvironmentObject private var state: AppState
+    @ObservedObject private var navigation = RegNavigation.shared
+    @ObservedObject private var updates = UpdController.shared
+    @State private var query = ""
+
     var body: some View {
-        UnderConstructionView(
-            screen: .reglages,
-            summary: "Règle NetScope : sites et plages, profils de scan, identifiants SNMP/SSH/WMI, switchs interrogés, notifications, mises à jour.",
-            features: [
-                "Général",
-                "Sites et plages, plages exclues, détection au branchement",
-                "Profils de scan et profil personnalisé",
-                "Identifiants (SNMP, SSH, WMI) dans le trousseau",
-                "Switchs interrogés",
-                "Notifications : canaux, seuils et plages horaires",
-                "Interface réseau",
-                "Export et sauvegarde",
-                "Mises à jour",
-                "Raccourcis clavier",
-                "À propos et composants tiers",
-            ]
-        )
+        HStack(alignment: .top, spacing: 14) {
+            sectionColumn
+                .frame(width: 230)
+            ScrollView {
+                content
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .padding(.bottom, 20)
+            }
+            .id(navigation.section)
+        }
+        .padding(.top, 16)
+        .padding(.horizontal, Theme.contentPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear {
+            updates.attach(state)
+            // Arrivée par la pastille « Mise à jour disponible » : on montre la mise à jour.
+            if !navigation.didPromoteUpdates, state.updateAvailable != nil {
+                navigation.section = .majs
+            }
+            navigation.didPromoteUpdates = true
+        }
+        .screenToolbar {
+            HStack(spacing: 6) {
+                Circle().fill(Theme.success).frame(width: 8, height: 8)
+                Text("Réglages enregistrés automatiquement")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.success)
+            }
+            .help("Chaque modification est enregistrée aussitôt ; les secrets vont dans le Trousseau macOS.")
+        }
+    }
+
+    // MARK: Colonne des sections
+
+    private var visibleSections: [RegSection] {
+        let needle = query.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !needle.isEmpty else { return RegSection.allCases }
+        return RegSection.allCases.filter { ($0.label + " " + $0.keywords).lowercased().contains(needle) }
+    }
+
+    private var sectionColumn: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary)
+                TextField("", text: $query, prompt: Text("Rechercher un réglage").foregroundStyle(Theme.textTertiary))
+                    .textFieldStyle(.plain)
+                    .font(Theme.small)
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 28)
+            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
+            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+            .padding(.bottom, 6)
+
+            ForEach(visibleSections) { section in
+                sectionButton(section)
+            }
+            if visibleSections.isEmpty {
+                Text("Aucun réglage ne correspond à « \(query) ».")
+                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    .padding(10)
+            }
+            Rectangle().fill(Theme.border).frame(height: 1).padding(.top, 6)
+            Text("Réglages stockés dans les préférences de NetScope. Les secrets restent dans le Trousseau macOS.")
+                .font(Theme.caption)
+                .foregroundStyle(Theme.textSecondary)
+                .lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 8)
+                .padding(.top, 10)
+                .padding(.bottom, 4)
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+    }
+
+    private func sectionButton(_ section: RegSection) -> some View {
+        let selected = navigation.section == section
+        return Button {
+            navigation.section = section
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: section.symbol)
+                    .font(.system(size: 13, weight: .regular))
+                    .frame(width: 18)
+                    .foregroundStyle(selected ? Theme.accentStrong : Theme.textSecondary)
+                Text(section.label)
+                    .font(.system(size: 13, weight: selected ? .semibold : .medium))
+                    .foregroundStyle(selected ? Theme.accentStrong : Theme.text)
+                Spacer(minLength: 4)
+                note(for: section)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 34)
+            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(selected ? Theme.accentSoft : Color.clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder private func note(for section: RegSection) -> some View {
+        switch section {
+        case .sites:
+            Text("\(state.ranges.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+        case .profils:
+            Text("\(ScanProfile.allCases.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+        case .interface:
+            if let name = state.activeInterface?.name {
+                Text(name).font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+            }
+        case .majs:
+            if state.updateAvailable != nil { CountBadge(count: 1) }
+        case .switchs, .notifications, .export, .raccourcis:
+            Text("bientôt").font(Theme.caption).foregroundStyle(Theme.textTertiary)
+        default:
+            EmptyView()
+        }
+    }
+
+    // MARK: Contenu
+
+    @ViewBuilder private var content: some View {
+        switch navigation.section {
+        case .general: RegGeneralSection()
+        case .sites: RegSitesSection()
+        case .profils: RegProfilesSection()
+        case .identifiants: RegCredentialsSection()
+        case .interface: RegInterfaceSection()
+        case .majs: RegUpdatesSection()
+        case .apropos: RegAboutSection()
+        case .switchs, .notifications, .export, .raccourcis:
+            RegPanel(title: navigation.section.label) {
+                RegNotice("Section prévue au croquis, pas encore disponible dans cette version de NetScope.", tone: .neutral)
+            }
+        }
     }
 }
