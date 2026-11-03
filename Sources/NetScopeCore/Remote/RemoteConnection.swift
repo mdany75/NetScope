@@ -1,0 +1,189 @@
+import Foundation
+
+/// Protocole d'accès distant.
+public enum RemoteProtocol: String, Codable, CaseIterable, Identifiable, Sendable {
+    case ssh, telnet, rdp, vnc, serie
+
+    public var id: String { rawValue }
+
+    /// Nom court (« SSH », « Série »).
+    public var label: String {
+        switch self {
+        case .ssh: return "SSH"
+        case .telnet: return "Telnet"
+        case .rdp: return "RDP"
+        case .vnc: return "VNC"
+        case .serie: return "Série"
+        }
+    }
+
+    /// Étiquette en majuscules des listes (« TELNET », « SÉRIE »).
+    public var badge: String { label.uppercased() }
+
+    /// Nom complet du détail.
+    public var fullName: String {
+        switch self {
+        case .ssh: return "SSH (Secure Shell)"
+        case .telnet: return "Telnet (non chiffré)"
+        case .rdp: return "RDP (Bureau à distance)"
+        case .vnc: return "VNC (Partage d’écran)"
+        case .serie: return "Console série"
+        }
+    }
+
+    /// Port par défaut (débit en bauds pour la série).
+    public var defaultPort: Int {
+        switch self {
+        case .ssh: return 22
+        case .telnet: return 23
+        case .rdp: return 3389
+        case .vnc: return 5900
+        case .serie: return 9600
+        }
+    }
+
+    /// Le mot de passe circule en clair.
+    public var isInsecure: Bool { self == .telnet }
+
+    /// Application externe utilisée par « Connecter ».
+    public var externalApp: String {
+        switch self {
+        case .ssh, .telnet, .serie: return "Terminal"
+        case .rdp: return "Windows App"
+        case .vnc: return "Partage d’écran"
+        }
+    }
+
+    /// Protocole correspondant à un port TCP ouvert.
+    public static func forPort(_ port: UInt16) -> RemoteProtocol? {
+        switch port {
+        case 22: return .ssh
+        case 23: return .telnet
+        case 3389: return .rdp
+        case 5900: return .vnc
+        default: return nil
+        }
+    }
+}
+
+/// Connexion enregistrée.
+public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var name: String
+    public var proto: RemoteProtocol
+    /// Hôte ou IP ; chemin du périphérique (/dev/cu.…) pour la série.
+    public var host: String
+    /// Port TCP ; débit en bauds pour la série.
+    public var port: Int
+    public var username: String
+    /// Dossier ou site (« Siège › Réseau ») ; vide : « Non classé ».
+    public var folder: String
+    public var isFavorite: Bool
+    /// Description libre (modèle, système).
+    public var note: String
+    public var lastConnected: Date?
+    public var createdAt: Date
+
+    public init(id: UUID = UUID(), name: String, proto: RemoteProtocol, host: String, port: Int? = nil,
+                username: String = "", folder: String = "", isFavorite: Bool = false, note: String = "",
+                lastConnected: Date? = nil, createdAt: Date = Date()) {
+        self.id = id
+        self.name = name
+        self.proto = proto
+        self.host = host
+        self.port = port ?? proto.defaultPort
+        self.username = username
+        self.folder = folder
+        self.isFavorite = isFavorite
+        self.note = note
+        self.lastConnected = lastConnected
+        self.createdAt = createdAt
+    }
+
+    /// « 10.182.122.2:22 » ou « cu.usbserial-A10K · 9600 8N1 ».
+    public var address: String {
+        if proto == .serie {
+            let device = host.hasPrefix("/dev/") ? String(host.dropFirst(5)) : host
+            return "\(device) · \(port) 8N1"
+        }
+        return host.contains(":") ? "[\(host)]:\(port)" : "\(host):\(port)"
+    }
+
+    /// Dossier affiché.
+    public var folderLabel: String { folder.trimmingCharacters(in: .whitespaces).isEmpty ? "Non classé" : folder }
+
+    /// Recherche : nom, hôte, port, protocole, utilisateur, dossier, note.
+    public func matches(_ query: String) -> Bool {
+        let needle = query.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !needle.isEmpty else { return true }
+        let haystack = [name, host, String(port), proto.label, proto.rawValue, username, folder, note]
+            .joined(separator: " ").lowercased()
+        return needle.split(separator: " ").allSatisfy { haystack.contains($0) }
+    }
+
+    /// Copie à enregistrer sous un autre nom.
+    public func duplicated(now: Date = Date()) -> RemoteConnection {
+        var copy = self
+        copy.id = UUID()
+        copy.name = name + " (copie)"
+        copy.isFavorite = false
+        copy.lastConnected = nil
+        copy.createdAt = now
+        return copy
+    }
+
+    /// Vérifie les champs avant enregistrement ou lancement.
+    public func validated() throws -> RemoteConnection {
+        var copy = self
+        copy.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !copy.name.isEmpty, !copy.name.contains("\n") else { throw RemoteValidationError.emptyName }
+        if proto == .serie {
+            copy.host = try RemoteValidator.validateSerialDevice(host)
+            guard RemoteValidator.baudRates.contains(port) else { throw RemoteValidationError.invalidBaud(port) }
+            copy.username = ""
+        } else {
+            copy.host = try RemoteValidator.validateHost(host)
+            try RemoteValidator.validatePort(port)
+            copy.username = try RemoteValidator.validateUser(username, allowDomain: proto == .rdp)
+        }
+        copy.folder = folder.trimmingCharacters(in: .whitespacesAndNewlines)
+        return copy
+    }
+}
+
+/// Enregistre les connexions en JSON dans ~/Library/Application Support/NetScope/connexions.json.
+public struct RemoteConnectionStore: Sendable {
+    private struct File: Codable {
+        var version = 1
+        var connections: [RemoteConnection]
+    }
+
+    public let url: URL
+
+    public init(url: URL) {
+        self.url = url
+    }
+
+    public static var standard: RemoteConnectionStore {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
+        return RemoteConnectionStore(url: base.appendingPathComponent("NetScope", isDirectory: true)
+            .appendingPathComponent("connexions.json"))
+    }
+
+    /// nil : aucun fichier (premier lancement) ou fichier illisible.
+    public func load() -> [RemoteConnection]? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return (try? decoder.decode(File.self, from: data))?.connections
+    }
+
+    public func save(_ connections: [RemoteConnection]) throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode(File(connections: connections)).write(to: url, options: .atomic)
+    }
+}
