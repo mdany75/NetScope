@@ -6,7 +6,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     targets: [
         // Moteur réseau, sans interface : Foundation, Network et Darwin seulement.
-        .target(name: "NetScopeCore"),
+        .target(name: "NetScopeCore", linkerSettings: [.linkedLibrary("resolv")]),
         // Application SwiftUI.
         .executableTarget(name: "NetScope", dependencies: ["NetScopeCore"]),
         // Tests du moteur (exécutable, car XCTest n'est pas disponible sans Xcode).
