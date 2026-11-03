@@ -15,6 +15,7 @@ registerToolsTests(suite)
 registerUpdateTests(suite)
 registerSpeedRemoteTests(suite)
 registerSNMPTests(suite)
+registerSNMPDiscoveryTests(suite)
 registerInventoryTests(suite)
 
 let failures = await suite.run()

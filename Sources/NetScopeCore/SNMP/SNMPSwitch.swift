@@ -28,11 +28,17 @@ public enum SNMPOIDs {
     public static let ifAlias: SNMPOID = "1.3.6.1.2.1.31.1.1.1.18"
 
     // BRIDGE-MIB
+    /// Nombre de ports de pont (dot1dBaseNumPorts.0) : présent et non nul sur un switch.
+    public static let dot1dBaseNumPorts: SNMPOID = "1.3.6.1.2.1.17.1.2.0"
     public static let dot1dBasePortIfIndex: SNMPOID = "1.3.6.1.2.1.17.1.4.1.2"
     public static let dot1dTpFdbPort: SNMPOID = "1.3.6.1.2.1.17.4.3.1.2"
     // Q-BRIDGE-MIB
     public static let dot1qTpFdbPort: SNMPOID = "1.3.6.1.2.1.17.7.1.2.2.1.2"
     public static let dot1qPvid: SNMPOID = "1.3.6.1.2.1.17.7.1.4.5.1.1"
+    /// dot1qVlanFdbId (index : timeMark.vlan) : base de filtrage utilisée par chaque VLAN.
+    public static let dot1qVlanFdbId: SNMPOID = "1.3.6.1.2.1.17.7.1.4.2.1.3"
+    // CISCO-VTP-MIB, vtpVlanState (index : domaine.vlan) : VLAN à interroger par « communauté@vlan ».
+    public static let vtpVlanState: SNMPOID = "1.3.6.1.4.1.9.9.46.1.3.1.1.2"
 
     // LLDP-MIB (lldpRemTable, index : timeMark.localPortNum.remIndex)
     public static let lldpRemPortId: SNMPOID = "1.0.8802.1.1.2.1.4.1.1.7"
@@ -51,6 +57,11 @@ public enum SNMPOIDs {
 
     // IP-MIB, ipNetToMediaPhysAddress (index : ifIndex.a.b.c.d)
     public static let ipNetToMediaPhysAddress: SNMPOID = "1.3.6.1.2.1.4.22.1.2"
+    // IP-MIB (RFC 4293), ipNetToPhysicalPhysAddress (index : ifIndex.type.[longueur.]adresse)
+    public static let ipNetToPhysicalPhysAddress: SNMPOID = "1.3.6.1.2.1.4.35.1.4"
+
+    // Printer-MIB, prtGeneralConfigChanges.1 : présent seulement sur une imprimante.
+    public static let prtGeneralConfigChanges: SNMPOID = "1.3.6.1.2.1.43.5.1.1.1.1"
 }
 
 // MARK: - Modèles
@@ -79,12 +90,15 @@ public struct SNMPSystemInfo: Hashable, Sendable, Codable {
         if let objectID, let oid = SNMPOID(objectID), oid.hasPrefix("1.3.6.1.4.1"), oid.components.count > 6 {
             switch oid.components[6] {
             case 9: return "Cisco"
+            case 11 where oid.hasPrefix("1.3.6.1.4.1.11.2.3.9"): return "HP"
             case 11, 47196: return "Aruba"
             case 14823: return "Aruba"
             case 2636: return "Juniper"
             case 41112, 4413: return "Ubiquiti"
             case 12356: return "Fortinet"
-            case 674: return "Dell"
+            case 674, 6027: return "Dell"
+            case 171: return "D-Link"
+            case 890: return "Zyxel"
             case 4526: return "Netgear"
             case 11863: return "TP-Link"
             case 25506: return "HPE"
@@ -98,7 +112,8 @@ public struct SNMPSystemInfo: Hashable, Sendable, Codable {
         let known: [(String, String)] = [("cisco", "Cisco"), ("aruba", "Aruba"), ("procurve", "HPE"), ("juniper", "Juniper"),
                                          ("junos", "Juniper"), ("ubiquiti", "Ubiquiti"), ("unifi", "Ubiquiti"), ("edgeswitch", "Ubiquiti"),
                                          ("fortiswitch", "Fortinet"), ("netgear", "Netgear"), ("tp-link", "TP-Link"), ("mikrotik", "MikroTik"),
-                                         ("routeros", "MikroTik"), ("dell", "Dell"), ("arista", "Arista")]
+                                         ("routeros", "MikroTik"), ("dell", "Dell"), ("arista", "Arista"),
+                                         ("d-link", "D-Link"), ("zyxel", "Zyxel"), ("fortigate", "Fortinet")]
         return known.first { text.contains($0.0) }?.1
     }
 
@@ -383,11 +398,62 @@ public struct SNMPLocation: Hashable, Sendable {
 }
 
 public enum SNMPLocator {
+    /// Ports d'uplink de chaque switch, en tenant compte des autres switchs relevés (switchs chaînés) :
+    /// - les règles propres au switch (`uplinkInterfaces`) : voisin LLDP d'infrastructure, beaucoup de MAC ;
+    /// - un voisin LLDP qui porte le nom d'un autre switch relevé, quelles que soient ses capacités ;
+    /// - un port où le switch apprend l'adresse MAC d'un autre switch relevé (d'après les tables ARP) ;
+    /// - un port où convergent des MAC qu'un autre switch voit sur au moins deux ports différents :
+    ///   un port d'accès ne mène qu'à un seul port de l'autre switch, un lien entre switchs en agrège plusieurs.
+    public static func uplinks(in snapshots: [SNMPSwitchSnapshot], macThreshold: Int = 8) -> [IPv4Address: Set<Int>] {
+        func normalized(_ name: String) -> String {
+            name.lowercased().split(separator: ".").first.map(String.init)?.trimmingCharacters(in: .whitespaces) ?? ""
+        }
+        let names = Set(snapshots.map { normalized($0.system.name) }.filter { !$0.isEmpty })
+        let hosts = Set(snapshots.map(\.host))
+        var switchMACs: Set<MACAddress> = []
+        for snapshot in snapshots {
+            for (mac, ip) in snapshot.arp where hosts.contains(ip) && ip != snapshot.host { switchMACs.insert(mac) }
+        }
+        // MAC → ports (ifIndex) où chaque switch l'apprend.
+        var portsByMAC: [IPv4Address: [MACAddress: Set<Int>]] = [:]
+        for snapshot in snapshots {
+            var map: [MACAddress: Set<Int>] = [:]
+            for entry in snapshot.fdb { if let i = entry.ifIndex { map[entry.mac, default: []].insert(i) } }
+            portsByMAC[snapshot.host] = map
+        }
+        var result: [IPv4Address: Set<Int>] = [:]
+        for snapshot in snapshots {
+            var set = snapshot.uplinkInterfaces(macThreshold: macThreshold)
+            let own = normalized(snapshot.system.name)
+            for neighbor in snapshot.neighbors {
+                let name = normalized(neighbor.sysName)
+                if let i = neighbor.ifIndex, !name.isEmpty, name != own, names.contains(name) { set.insert(i) }
+            }
+            var macsByPort: [Int: Set<MACAddress>] = [:]
+            for entry in snapshot.fdb {
+                guard let i = entry.ifIndex else { continue }
+                if switchMACs.contains(entry.mac) { set.insert(i) }
+                macsByPort[i, default: []].insert(entry.mac)
+            }
+            for other in snapshots where other.host != snapshot.host {
+                guard let theirs = portsByMAC[other.host] else { continue }
+                for (port, macs) in macsByPort where !set.contains(port) {
+                    var reached: Set<Int> = []
+                    for mac in macs { reached.formUnion(theirs[mac] ?? []) }
+                    if reached.count >= 2 { set.insert(port) }
+                }
+            }
+            result[snapshot.host] = set
+        }
+        return result
+    }
+
     /// Toutes les positions où la MAC est apprise, ports d'accès d'abord.
     public static func sightings(of mac: MACAddress, in snapshots: [SNMPSwitchSnapshot], macThreshold: Int = 8) -> [SNMPLocation] {
         var result: [SNMPLocation] = []
+        let uplinkMap = uplinks(in: snapshots, macThreshold: macThreshold)
         for snapshot in snapshots {
-            let uplinks = snapshot.uplinkInterfaces(macThreshold: macThreshold)
+            let uplinks = uplinkMap[snapshot.host] ?? []
             for entry in snapshot.fdb where entry.mac == mac {
                 guard let i = entry.ifIndex else { continue }
                 let name = snapshot.interface(i)?.name ?? "port \(entry.bridgePort)"
@@ -435,6 +501,26 @@ public enum SNMPParse {
     public static func arpIndex(_ suffix: [UInt32]) -> (ifIndex: Int, ip: IPv4Address)? {
         guard suffix.count == 5, suffix[1...].allSatisfy({ $0 <= 255 }) else { return nil }
         return (Int(suffix[0]), IPv4Address(UInt8(suffix[1]), UInt8(suffix[2]), UInt8(suffix[3]), UInt8(suffix[4])))
+    }
+
+    /// Index ipNetToPhysicalTable pour IPv4 : ifIndex.1.4.a.b.c.d (ou ifIndex.1.a.b.c.d sans longueur).
+    public static func arpPhysicalIndex(_ suffix: [UInt32]) -> (ifIndex: Int, ip: IPv4Address)? {
+        guard suffix.count >= 6, suffix[1] == 1 else { return nil }  // 1 = ipv4
+        let address: ArraySlice<UInt32>
+        if suffix.count == 7, suffix[2] == 4 { address = suffix[3...] }
+        else if suffix.count == 6 { address = suffix[2...] }
+        else { return nil }
+        guard address.allSatisfy({ $0 <= 255 }) else { return nil }
+        let a = Array(address)
+        return (Int(suffix[0]), IPv4Address(UInt8(a[0]), UInt8(a[1]), UInt8(a[2]), UInt8(a[3])))
+    }
+
+    /// Adresse MAC d'une ligne ARP : 6 octets, ni nulle, ni diffusion, ni multidiffusion.
+    static func arpMAC(_ value: SNMPValue) -> MACAddress? {
+        guard let bytes = value.bytesValue, bytes.count == 6 else { return nil }
+        let mac = MACAddress(bytes: bytes)
+        guard mac.value != 0, !mac.isBroadcast, !mac.isMulticast else { return nil }
+        return mac
     }
 
     static func macFromComponents(_ values: [UInt32]) -> MACAddress? {
@@ -597,19 +683,85 @@ public struct SNMPSwitchPoller: Sendable {
         return result
     }
 
-    /// Table MAC : Q-BRIDGE (avec le VLAN) si elle existe, sinon BRIDGE-MIB.
+    /// Table MAC : Q-BRIDGE (avec le VLAN) si elle existe ; sinon, sur un Cisco, BRIDGE-MIB VLAN par VLAN
+    /// (« communauté@vlan ») ; sinon BRIDGE-MIB simple, sans VLAN.
     public func fdb(bridgePorts: [Int: Int]) async throws -> [SNMPFDBEntry] {
         var entries: [SNMPFDBEntry] = []
+        let fdbToVLAN = try await vlanByFdbId()
         for bind in try await column(SNMPOIDs.dot1qTpFdbPort) {
             guard let suffix = bind.oid.suffix(after: SNMPOIDs.dot1qTpFdbPort), let parsed = SNMPParse.qBridgeIndex(suffix),
                   let port = bind.value.intValue, port > 0 else { continue }
-            entries.append(SNMPFDBEntry(mac: parsed.mac, vlan: parsed.vlan, bridgePort: Int(port), ifIndex: bridgePorts[Int(port)] ?? Int(port)))
+            // L'index est l'identifiant de base de filtrage (fdbId) : le VLAN sur la plupart des switchs,
+            // sinon traduit par dot1qVlanFdbId ; une base partagée par plusieurs VLAN ne dit pas le VLAN.
+            let vlan: Int?
+            if let mapped = fdbToVLAN[parsed.vlan] { vlan = mapped.count == 1 ? mapped.first : nil } else { vlan = parsed.vlan }
+            entries.append(SNMPFDBEntry(mac: parsed.mac, vlan: vlan, bridgePort: Int(port), ifIndex: bridgePorts[Int(port)] ?? Int(port)))
         }
         if !entries.isEmpty { return entries }
-        for bind in try await column(SNMPOIDs.dot1dTpFdbPort) {
+        entries = try await perVLANBridgeFdb()
+        if !entries.isEmpty { return entries }
+        return try await bridgeFdb(client: client, bridgePorts: bridgePorts, vlan: nil)
+    }
+
+    /// fdbId → VLAN qui l'utilisent (dot1qVlanFdbId) ; vide si la table manque.
+    func vlanByFdbId() async throws -> [Int: Set<Int>] {
+        var result: [Int: Set<Int>] = [:]
+        for bind in try await column(SNMPOIDs.dot1qVlanFdbId) {
+            guard let suffix = bind.oid.suffix(after: SNMPOIDs.dot1qVlanFdbId), suffix.count == 2,
+                  let fdbId = bind.value.intValue else { continue }
+            result[Int(fdbId), default: []].insert(Int(suffix[1]))
+        }
+        return result
+    }
+
+    private func bridgeFdb(client: SNMPClient, bridgePorts: [Int: Int], vlan: Int?) async throws -> [SNMPFDBEntry] {
+        var entries: [SNMPFDBEntry] = []
+        let binds: [SNMPVarBind]
+        do { binds = try await client.walk(SNMPOIDs.dot1dTpFdbPort) } catch SNMPError.agent { binds = [] }
+        for bind in binds {
             guard let suffix = bind.oid.suffix(after: SNMPOIDs.dot1dTpFdbPort), let mac = SNMPParse.bridgeIndex(suffix),
                   let port = bind.value.intValue, port > 0 else { continue }
-            entries.append(SNMPFDBEntry(mac: mac, vlan: nil, bridgePort: Int(port), ifIndex: bridgePorts[Int(port)] ?? Int(port)))
+            entries.append(SNMPFDBEntry(mac: mac, vlan: vlan, bridgePort: Int(port), ifIndex: bridgePorts[Int(port)] ?? Int(port)))
+        }
+        return entries
+    }
+
+    /// VLAN actifs d'après CISCO-VTP-MIB (sans les VLAN réservés 1002 à 1005).
+    public func vtpVLANs() async throws -> [Int] {
+        var result: Set<Int> = []
+        for bind in try await column(SNMPOIDs.vtpVlanState) {
+            guard let suffix = bind.oid.suffix(after: SNMPOIDs.vtpVlanState), suffix.count == 2, bind.value.intValue == 1 else { continue }
+            let vlan = Int(suffix[1])
+            if vlan >= 1, vlan <= 4094, !(1002...1005).contains(vlan) { result.insert(vlan) }
+        }
+        return result.sorted()
+    }
+
+    /// Cisco : la table BRIDGE-MIB de chaque VLAN se lit avec la communauté « communauté@vlan ».
+    /// Un VLAN qui ne répond pas est simplement ignoré.
+    func perVLANBridgeFdb(limit: Int = 256) async throws -> [SNMPFDBEntry] {
+        let vlans = try await vtpVLANs()
+        guard !vlans.isEmpty else { return [] }
+        var entries: [SNMPFDBEntry] = []
+        var answered = false
+        for vlan in vlans.prefix(limit) {
+            try Task.checkCancellation()
+            var target = client.target
+            target.community = "\(target.community)@\(vlan)"
+            let context = SNMPClient(target: target)
+            do {
+                var ports: [Int: Int] = [:]
+                for bind in try await context.walk(SNMPOIDs.dot1dBasePortIfIndex) {
+                    if let port = SNMPParse.lastIndex(bind, under: SNMPOIDs.dot1dBasePortIfIndex), let i = bind.value.intValue { ports[port] = Int(i) }
+                }
+                entries += try await bridgeFdb(client: context, bridgePorts: ports, vlan: vlan)
+                answered = true
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                // Le premier VLAN muet : l'indexation par communauté n'est pas prise en charge, inutile d'insister.
+                if !answered { return [] }
+            }
         }
         return entries
     }
@@ -698,10 +850,23 @@ public struct SNMPSwitchPoller: Sendable {
     /// Table ARP du switch (MAC → IP).
     public func arp() async throws -> [MACAddress: IPv4Address] {
         var result: [MACAddress: IPv4Address] = [:]
+        for (ip, mac) in try await arpTable().sorted(by: { $0.key > $1.key }) { result[mac] = ip }
+        return result
+    }
+
+    /// Table ARP (IP → MAC) : ipNetToMediaTable, complétée par ipNetToPhysicalTable (RFC 4293),
+    /// seule présente sur certains équipements récents.
+    public func arpTable() async throws -> [IPv4Address: MACAddress] {
+        var result: [IPv4Address: MACAddress] = [:]
         for bind in try await column(SNMPOIDs.ipNetToMediaPhysAddress) {
             guard let suffix = bind.oid.suffix(after: SNMPOIDs.ipNetToMediaPhysAddress), let index = SNMPParse.arpIndex(suffix),
-                  let bytes = bind.value.bytesValue, bytes.count == 6 else { continue }
-            result[MACAddress(bytes: bytes)] = index.ip
+                  let mac = SNMPParse.arpMAC(bind.value) else { continue }
+            result[index.ip] = mac
+        }
+        for bind in try await column(SNMPOIDs.ipNetToPhysicalPhysAddress) {
+            guard let suffix = bind.oid.suffix(after: SNMPOIDs.ipNetToPhysicalPhysAddress), let index = SNMPParse.arpPhysicalIndex(suffix),
+                  let mac = SNMPParse.arpMAC(bind.value), result[index.ip] == nil else { continue }
+            result[index.ip] = mac
         }
         return result
     }
