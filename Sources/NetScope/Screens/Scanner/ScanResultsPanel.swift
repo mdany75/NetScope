@@ -84,7 +84,7 @@ struct ScanResultsPanel: View {
             } else {
                 ScanDeviceTable(rows: rows, scan: scan, sortOrder: $sortOrder)
             }
-            footer(shown: rows.count)
+            footer(shown: rows.count, inView: scoped.count)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
@@ -185,16 +185,16 @@ struct ScanResultsPanel: View {
         }
     }
 
-    private func footer(shown: Int) -> some View {
+    private func footer(shown: Int, inView: Int) -> some View {
         let devices = state.devices
         let online = devices.filter(\.isOnline).count
         return TimelineView(.periodic(from: .now, by: 1)) { context in
             HStack(spacing: 14) {
                 footerCount(devices.count, "appareils", color: Theme.text)
-                footerCount(online, "en ligne", color: Theme.success)
+                footerCount(online, "vus récemment", color: Theme.success)
                 footerCount(scan.newIDs.count, "nouveaux", color: Theme.accentStrong)
                 Spacer(minLength: 8)
-                Text("\(shown) affichés sur \(devices.count)")
+                Text("\(shown) affichés sur \(inView) dans cette vue")
                 Text("Durée du scan : \(durationLabel(at: context.date))").font(Theme.mono(12))
             }
             .font(Theme.small)

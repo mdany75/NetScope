@@ -157,6 +157,7 @@ public actor ScanEngine {
         rangeOf = [:]
         found = [:]
         progress = [:]
+        progressStep = [:]
 
         // Adresses dédoublonnées (une adresse de deux plages compte pour la première), puis entrelacées
         // pour que toutes les plages avancent ensemble.

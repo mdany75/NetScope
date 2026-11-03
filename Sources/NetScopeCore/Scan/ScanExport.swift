@@ -43,7 +43,11 @@ public enum ScanCSV {
         Data([0xEF, 0xBB, 0xBF]) + Data(make(devices).utf8)
     }
 
-    static func escape(_ field: String) -> String {
+    static func escape(_ raw: String) -> String {
+        // Un nom d'hôte ou un nom personnalisé commençant par = + - @ serait lu comme une
+        // formule par Excel : on le neutralise par une apostrophe.
+        var field = raw
+        if let first = field.unicodeScalars.first, "=+-@\t\r".unicodeScalars.contains(first) { field = "'" + field }
         guard field.contains(where: { $0 == ";" || $0 == "\"" || $0 == "\n" || $0 == "\r" }) else { return field }
         return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\""
     }

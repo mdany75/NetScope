@@ -9,6 +9,10 @@ public protocol ScanNameResolving: Sendable {
 /// DNS inverse par getnameinfo (NI_NAMEREQD), abandonné après le délai.
 /// TODO : noms mDNS (Bonjour) et NetBIOS, plus parlants sur un réseau local.
 public struct ScanReverseDNS: ScanNameResolving {
+    /// File des délais, distincte des files globales : si beaucoup de getnameinfo bloquent les
+    /// fils globaux, les délais tombent quand même à l'heure.
+    private static let timerQueue = DispatchQueue(label: "netscope.rdns.timer")
+
     public init() {}
 
     public func name(for ip: IPv4Address, timeout: Duration = .seconds(2)) async -> String? {
@@ -19,7 +23,7 @@ public struct ScanReverseDNS: ScanNameResolving {
                 let name = ScanReverseDNS.lookup(ip)
                 if once.claim() { continuation.resume(returning: name) }
             }
-            DispatchQueue.global().asyncAfter(deadline: .now() + .nanoseconds(Int(min(timeout.scanNanoseconds, UInt64(Int.max))))) {
+            ScanReverseDNS.timerQueue.asyncAfter(deadline: .now() + .nanoseconds(Int(min(timeout.scanNanoseconds, UInt64(Int.max))))) {
                 if once.claim() { continuation.resume(returning: nil) }
             }
         }
