@@ -244,7 +244,7 @@ struct InvTable: View {
                     let record = row.record
                     nameCell(record)
                 }
-                .width(min: 110, ideal: 145)
+                .width(min: 110, ideal: 175)
                 .customizationID("nom")
 
                 TableColumn("TYPE", sortUsing: table.sort("type")) { row in
@@ -290,7 +290,7 @@ struct InvTable: View {
                     // Le port reste lisible : switch au-dessus du port quand la colonne est étroite.
                     SwitchPortCell(name: record.switchName, port: record.switchPort)
                 }
-                .width(min: 90, ideal: 172)
+                .width(min: 90, ideal: 142)
                 .customizationID("switch")
 
                 TableColumn("DERNIÈRE VUE", sortUsing: table.sort("derniereVue")) { row in

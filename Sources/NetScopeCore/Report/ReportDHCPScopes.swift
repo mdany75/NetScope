@@ -74,7 +74,8 @@ extension ReportBuilder {
         columns += [ReportColumn("Interface", weight: 0.8), ReportColumn("Plage", weight: 1.8),
                     ReportColumn("Utilisées", weight: 0.8, trailing: true), ReportColumn("Taux", weight: 1.3),
                     ReportColumn("Réserv.", weight: 0.6, trailing: true), ReportColumn("État", weight: 0.8)]
-        blocks.append(.table(ReportTable(columns: columns, rows: rows)))
+        // Retour à la ligne : une étendue à plusieurs plages (Caméras) reste lisible en entier sur papier.
+        blocks.append(.table(ReportTable(columns: columns, rows: rows, wraps: true)))
 
         if alerting.isEmpty {
             blocks.append(.note("Aucune étendue au-delà de \(MonFormat.percent(thresholds.warningPercent)) d’occupation\u{00A0}: assez d’adresses libres pour les nouveaux appareils."))

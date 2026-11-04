@@ -354,16 +354,16 @@ struct DHCPScopesView: View {
                         .customizationID("etendue")
                         .disabledCustomizationBehavior(.visibility)
 
-                        TableColumn("INTERFACE / VLAN", sortUsing: table.sort("interface")) { row in
+                        TableColumn("INTERFACE", sortUsing: table.sort("interface")) { row in
                             ToolTableText(row.scope.interfaceLabel, color: Theme.textSecondary).help(row.scope.vlan.map { "VLAN \($0)" } ?? "")
                         }
-                        .width(min: 52, ideal: 124)
+                        .width(min: 52, ideal: 96)
                         .customizationID("interface")
 
                         TableColumn("PLAGE", sortUsing: table.sort("plage")) { row in
                             ToolTableText(row.scope.compactRangesLabel, size: 11).help(row.scope.rangesLabel)
                         }
-                        .width(min: 96, ideal: 140)
+                        .width(min: 96, ideal: 176)
                         .customizationID("plage")
 
                         TableColumn("UTILISÉES", sortUsing: table.sort("utilisees")) { row in
