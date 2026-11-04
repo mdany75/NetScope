@@ -177,6 +177,8 @@ public struct LiveMailDNSClient: MailDNSClient {
             switch result.rcode {
             case "NOERROR", "—":
                 let records = result.answerCount > 0 || result.rcode == "—" ? result.records.filter { $0.typeCode == type.code } : []
+                // « — » : repli (host) sans état connu ; sans enregistrement, rien ne prouve que le nom est vide.
+                if result.rcode == "—" && records.isEmpty { return .failure("résolution impossible") }
                 return MailDNSAnswer(outcome: .answer, values: records.map { type == .txt ? MailDNSText.joinTXT($0.value) : $0.value })
             case "NXDOMAIN":
                 return .nxdomain
@@ -221,9 +223,16 @@ public struct LiveMailDNSClient: MailDNSClient {
         defer { session.finishTasksAndInvalidate() }
         var request = URLRequest(url: url)
         request.setValue("NetScope", forHTTPHeaderField: "User-Agent")
-        let (data, response) = try await session.data(for: request)
+        // Lecture en flux, coupée à 64 Ko : l'hôte mta-sts appartient au domaine analysé.
+        let limit = 64 * 1024
+        let (bytes, response) = try await session.bytes(for: request)
         if let http = response as? HTTPURLResponse, http.statusCode != 200 { throw MailDNSError.http(http.statusCode) }
-        guard data.count <= 64 * 1024 else { throw MailDNSError.tooLarge }
+        guard response.expectedContentLength <= Int64(limit) else { throw MailDNSError.tooLarge }
+        var data = Data()
+        for try await byte in bytes {
+            data.append(byte)
+            if data.count > limit { throw MailDNSError.tooLarge }
+        }
         guard let text = String(data: data, encoding: .utf8) else { throw MailDNSError.notText }
         return text
     }

@@ -76,7 +76,14 @@ public enum SvcCatalog {
     /// Catalogue enregistré fusionné avec la liste intégrée : un service intégré absent de
     /// l'enregistrement (ajouté par une version plus récente) est ajouté, actif.
     public static func merged(saved: [SvcService]) -> [SvcService] {
-        var result = saved
+        // Services intégrés : la définition de cette version (adresses à jour), seul le choix
+        // « suivi ou non » vient de la copie enregistrée.
+        let current = Dictionary(builtIn.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var result = saved.map { service -> SvcService in
+            guard !service.isCustom, var fresh = current[service.id] else { return service }
+            fresh.isEnabled = service.isEnabled
+            return fresh
+        }
         let known = Set(saved.map(\.id))
         for service in builtIn where !known.contains(service.id) {
             result.append(service)

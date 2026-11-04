@@ -122,7 +122,7 @@ public enum MailExplain {
                 case "none": meaning = "Désactivée."; status = .warning
                 default: meaning = "Mode inconnu."; status = .error
                 }
-            case "mx": meaning = "Serveur MX autorisé (un « * » remplace une seule étiquette)."
+            case "mx": meaning = "Serveur MX autorisé (un «\u{00A0}*\u{00A0}» remplace une seule étiquette)."
             case "max_age":
                 let seconds = Int(value) ?? 0
                 meaning = "Durée de mise en cache\u{00A0}: \(duration(seconds))."

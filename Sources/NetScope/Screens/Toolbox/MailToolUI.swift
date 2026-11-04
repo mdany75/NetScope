@@ -78,7 +78,7 @@ struct MailTallyChips: View {
     private func label(_ status: MailStatus, _ count: Int) -> String {
         switch status {
         case .ok: return "\(count) OK"
-        case .info: return "\(count) info"
+        case .info: return "\(count) info\(count > 1 ? "s" : "")"
         case .warning: return "\(count) avertissement\(count > 1 ? "s" : "")"
         case .error: return "\(count) erreur\(count > 1 ? "s" : "")"
         }

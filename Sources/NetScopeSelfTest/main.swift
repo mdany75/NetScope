@@ -35,6 +35,7 @@ registerServiceStatusTests(suite)
 registerMailDNSTests(suite)
 registerMailDiagnosticTests(suite)
 registerMailHeaderTests(suite)
+registerMailReviewTests(suite)
 registerDNSExtendedTests(suite)
 
 let failures = await suite.run()

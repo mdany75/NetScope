@@ -217,7 +217,7 @@ public struct DNSBLResult: Hashable, Sendable, Identifiable {
             let meanings = codes.map { DNSBL.explain(code: $0, list: list).meaning }
             var seen: Set<String> = []
             var text = meanings.filter { seen.insert($0).inserted }.joined(separator: " · ")
-            if let reason, !reason.isEmpty { text += " — « \(reason) »" }
+            if let reason, !reason.isEmpty { text += " — «\u{00A0}\(reason)\u{00A0}»" }
             return text
         case .refused(let text), .failed(let text), .skipped(let text): return text
         }

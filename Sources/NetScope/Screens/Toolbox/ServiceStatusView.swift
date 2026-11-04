@@ -162,7 +162,10 @@ private var refreshButton: some View {
                 ToolNotice(tone: .warning, title: "Probablement un problème chez nous",
                            message: ours.map { service in
                                let verdict = svc.snapshot(service.id)?.verdict
-                               return "\(service.name)\u{00A0}: " + (verdict?.headline ?? "") + (verdict?.detail.map { ". \($0)" } ?? "")
+                               // « Dropbox — injoignable d’ici… » : pas de deux « : » à la suite.
+                               let headline = verdict?.headline ?? ""
+                               let lowered = headline.prefix(1).lowercased() + headline.dropFirst()
+                               return "\(service.name) — " + lowered + (verdict?.detail.map { ". \($0)" } ?? "")
                            }.joined(separator: "\n") + proxyNote) {
                     Button("Voir") { svc.selectedServiceID = ours.first?.id }
                         .buttonStyle(.secondary)
@@ -275,14 +278,14 @@ struct SvcServiceTable: View {
                     ToolTableText(row.name, size: 13, mono: false, weight: .semibold)
                         .help(row.service.category)
                 }
-                .width(min: 90, ideal: 112)
+                .width(min: 100, ideal: 125)
                 .customizationID("service")
                 .disabledCustomizationBehavior(.visibility)
 
                 TableColumn("ÉTAT", sortUsing: table.sort("etat")) { row in
                     Chip(text: SvcTone.label(row.health, checking: row.isChecking), tone: SvcTone.tone(row.health))
                 }
-                .width(min: 64, ideal: 86)
+                .width(min: 64, ideal: 96)
                 .customizationID("etat")
 
                 TableColumn("BILAN", sortUsing: table.sort("bilan")) { row in
@@ -290,21 +293,22 @@ struct SvcServiceTable: View {
                                   color: row.health?.isProblem == true ? Theme.text : Theme.textSecondary)
                         .help([row.headline, row.snapshot?.verdict.detail].compactMap { $0 }.joined(separator: "\n"))
                 }
-                .width(min: 90, ideal: 120)
+                .width(min: 80, ideal: 120)
                 .customizationID("bilan")
 
-                TableColumn("DEPUIS CE RÉSEAU", sortUsing: table.sort("reseau")) { row in
+                // En-tête court (« depuis ce réseau ») : le détail des adresses testées est dans l'aide.
+                TableColumn("D’ICI", sortUsing: table.sort("reseau")) { row in
                     let failed = row.snapshot?.endpoints.contains { !$0.isReachable } == true
                     ToolTableText(row.network, color: failed ? Theme.critical : Theme.textSecondary)
                         .help(row.snapshot?.endpoints.map { "\($0.host)\u{00A0}: \($0.summary)" }.joined(separator: "\n") ?? "")
                 }
-                .width(min: 64, ideal: 86)
+                .width(min: 52, ideal: 60)
                 .customizationID("reseau")
 
                 TableColumn("LATENCE", sortUsing: table.sort("latence")) { row in
                     ToolTableText(row.snapshot?.latencyMs.map(ToolFormat.milliseconds) ?? "—", alignment: .trailing)
                 }
-                .width(min: 44, ideal: 50)
+                .width(min: 58, ideal: 60)
                 .customizationID("latence")
 
                 TableColumn("INCIDENTS", sortUsing: table.sort("incidents")) { row in

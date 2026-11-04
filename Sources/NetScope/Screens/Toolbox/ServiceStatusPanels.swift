@@ -67,7 +67,7 @@ struct SvcServiceDetail: View {
         HStack(spacing: 6) {
             Button("Vérifier") { svc.refresh(service.id) }
                 .buttonStyle(.secondary)
-                .disabled(svc.checking.contains(service.id) || svc.isSimulated)
+                .disabled(svc.checking.contains(service.id))
             Button {
                 ToolActions.open(service.pageURL)
             } label: {

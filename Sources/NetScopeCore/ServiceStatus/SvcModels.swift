@@ -90,7 +90,7 @@ public struct SvcService: Codable, Identifiable, Hashable, Sendable {
     /// Adresses clés testées depuis ce réseau (https://…).
     public var endpoints: [String]
     /// Parties suivies affichées (« Outlook », « Teams »…), et filtre des incidents quand la page
-    /// couvre bien plus que ce qui intéresse (vide : tout).
+    /// couvre bien plus que ce qui intéresse (vide : tout) ; appliqué par `SvcChecker.filtered`.
     public var components: [String]
     public var isEnabled: Bool
     /// Service ajouté par l'utilisateur (modifiable et supprimable).

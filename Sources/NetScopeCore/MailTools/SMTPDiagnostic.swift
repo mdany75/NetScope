@@ -199,7 +199,7 @@ public enum SMTPDiagnostic {
                 steps.append(SMTPStep("Résolution DNS", durationMs: elapsed(began), status: ips.isEmpty ? .warning : .ok,
                                       detail: ips.isEmpty ? "Aucune adresse IPv4 (\(lookup.rcode))" : "\(target) → \(ips.joined(separator: ", "))"))
                 if ips.isEmpty && lookup.rcode == "NXDOMAIN" {
-                    findings.append(SMTPFinding(.critical, "Nom introuvable", "« \(target) » n’existe pas dans le DNS."))
+                    findings.append(SMTPFinding(.critical, "Nom introuvable", "«\u{00A0}\(target)\u{00A0}» n’existe pas dans le DNS."))
                     return SMTPDiagnosticResult(host: target, port: port, preference: preference, mode: mode,
                                                 connectOutcome: .failed("nom introuvable"), steps: steps,
                                                 findings: findings, totalMs: elapsed(start))
@@ -276,16 +276,21 @@ public enum SMTPDiagnostic {
         // 4. DNS inverse
         var ptrNames: [String] = []
         var ptrConfirmed: Bool?
+        // Requête PTR sans réponse (délai, serveur injoignable, SERVFAIL) : panne DNS, pas défaut du serveur.
+        var ptrLookupFailed = false
         if checkPTR, let ip = address, IPv4Address(ip) != nil, state.tcpConnectedAt != nil {
             let began = Date()
-            if let lookup = try? await DNSLookup.resolve(ip, type: .ptr, timeout: 4) {
+            let lookup = try? await DNSLookup.resolve(ip, type: .ptr, timeout: 4)
+            if lookup == nil || !["NOERROR", "NXDOMAIN"].contains(lookup?.rcode ?? "") { ptrLookupFailed = true }
+            if let lookup, !ptrLookupFailed {
                 ptrNames = lookup.records.filter { $0.type == .ptr }.map { SMTPCertificate.normalize($0.value) }
                 if let first = ptrNames.first, let forward = try? await DNSLookup.resolve(first, type: .a, timeout: 4) {
                     ptrConfirmed = forward.records.contains { $0.type == .a && $0.value == ip }
                 }
             }
             steps.append(SMTPStep("DNS inverse (PTR)", durationMs: elapsed(began), status: ptrNames.isEmpty ? .warning : (ptrConfirmed == false ? .warning : .ok),
-                                  detail: ptrNames.first.map { "\(ip) → \($0)" + (ptrConfirmed == true ? " ⇄ confirmé" : "") } ?? "Aucun PTR pour \(ip)"))
+                                  detail: ptrLookupFailed ? "Requête PTR sans réponse"
+                                      : ptrNames.first.map { "\(ip) → \($0)" + (ptrConfirmed == true ? " ⇄ confirmé" : "") } ?? "Aucun PTR pour \(ip)"))
         }
 
         let extensions = mode == .startTLS ? (state.ehlo.map(SMTPExtension.parse(ehlo:)) ?? []) : []
@@ -296,7 +301,7 @@ public enum SMTPDiagnostic {
                 bannerDelayMs: state.bannerAt.flatMap { at in state.tcpConnectedAt.map { at.timeIntervalSince($0) * 1000 } },
                 ehloGreeting: (session.ehloAfterTLS ?? state.ehlo)?.firstLine, extensions: extensions, extensionsAfterTLS: afterTLS,
                 tls: state.tls, tlsVersion: state.tlsVersion, certificate: state.certificate,
-                ptrNames: checkPTR ? ptrNames : nil, ptrConfirmed: ptrConfirmed)
+                ptrNames: checkPTR && !ptrLookupFailed ? ptrNames : nil, ptrConfirmed: ptrConfirmed)
         }
         findings.sort { $0.level > $1.level }
 
@@ -368,7 +373,7 @@ public enum SMTPDiagnostic {
             if state.tcpConnectedAt != nil, state.failure == nil {
                 context.update { $0.failure = outcome == .timedOut ? "Délai dépassé" : outcome.label }
             }
-            context.note(state.tcpConnectedAt == nil ? "Connexion impossible : \(outcome.label)" : "Session interrompue : \(outcome.label)")
+            context.note(state.tcpConnectedAt == nil ? "Connexion impossible\u{00A0}: \(outcome.label)" : "Session interrompue\u{00A0}: \(outcome.label)")
             return SessionOutcome(outcome: outcome, ehloAfterTLS: nil, laterSteps: [])
         case .success:
             break
@@ -419,7 +424,7 @@ public enum SMTPDiagnostic {
             } else {
                 later.append(SMTPStep("Fin de session", durationMs: nil, status: .warning, detail: message(error)))
             }
-            context.note("Session interrompue : \(message(error))")
+            context.note("Session interrompue\u{00A0}: \(message(error))")
         }
         return SessionOutcome(outcome: .connected, ehloAfterTLS: ehloAfterTLS, laterSteps: later)
     }

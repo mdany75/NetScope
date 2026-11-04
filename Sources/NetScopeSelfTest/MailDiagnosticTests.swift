@@ -89,7 +89,7 @@ func registerMailDiagnosticTests(_ suite: TestSuite) {
         try expect(titles.contains("Authentification proposée avant le chiffrement"), "AUTH en clair")
         try expect(titles.contains("Bannière cohérente avec le DNS inverse"), "bannière = PTR")
         try expect(titles.contains("DNS inverse confirmé"), "FCrDNS")
-        try expect(titles.contains("Le certificat couvre « mx1.exemple.ca »"), "nom couvert")
+        try expect(titles.contains("Le certificat couvre «\u{00A0}mx1.exemple.ca\u{00A0}»"), "nom couvert")
         try expect(titles.contains("Session chiffrée (TLS 1.3)"), "chiffrement")
         try expectEqual(findings.first?.level, .warning, "le plus grave d’abord")
 
@@ -105,7 +105,7 @@ func registerMailDiagnosticTests(_ suite: TestSuite) {
         try expect(badTitles.contains("STARTTLS absent sur le port de soumission"), "587 sans STARTTLS")
         try expect(badTitles.contains("Aucun DNS inverse (PTR) pour l’adresse du serveur"), "sans PTR")
         try expect(badTitles.contains("Certificat expiré"), "expiré")
-        try expect(badTitles.contains("Le certificat ne couvre pas « smtp.exemple.ca »"), "nom non couvert")
+        try expect(badTitles.contains("Le certificat ne couvre pas «\u{00A0}smtp.exemple.ca\u{00A0}»"), "nom non couvert")
         try expect(badTitles.contains("Certificat auto-signé"), "auto-signé")
         try expect(badTitles.contains("VRFY ou EXPN activé"), "VRFY")
         try expect(badTitles.contains { $0.hasPrefix("Bannière lente") }, "bannière lente")

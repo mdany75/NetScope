@@ -75,7 +75,7 @@ public enum SvcGraph {
     public static func parseHealthOverviews(_ data: Data) throws -> [SvcComponent] {
         let root = try SvcFeedParser.object(data)
         guard let values = root["value"] as? [[String: Any]] else {
-            throw SvcParseError.unreadable("champ « value » absent (healthOverviews)")
+            throw SvcParseError.unreadable("champ «\u{00A0}value\u{00A0}» absent (healthOverviews)")
         }
         return values.compactMap { item in
             guard let name = item["service"] as? String else { return nil }
@@ -87,7 +87,7 @@ public enum SvcGraph {
     public static func parseIssues(_ data: Data) throws -> [SvcIncident] {
         let root = try SvcFeedParser.object(data)
         guard let values = root["value"] as? [[String: Any]] else {
-            throw SvcParseError.unreadable("champ « value » absent (issues)")
+            throw SvcParseError.unreadable("champ «\u{00A0}value\u{00A0}» absent (issues)")
         }
         return values.compactMap { item in
             guard let id = item["id"] as? String else { return nil }

@@ -40,6 +40,8 @@ public struct MXHost: Hashable, Sendable, Identifiable {
     /// Le nom du MX ne résout pas (ni A ni AAAA).
     public var unresolved: Bool
     public var findings: [MailFinding]
+    /// Non résolu faute de réponse (délai dépassé, serveur injoignable) : rien ne prouve que le nom est vide.
+    public var lookupFailed: Bool = false
 
     public var status: MailStatus { findings.worstStatus }
     public var ipv4: [String] { addresses.map(\.ip) }
@@ -103,7 +105,7 @@ public enum MXLookup {
             report.implicitA = a.values
             if a.values.isEmpty {
                 report.findings.append(MailFinding(.error, "Aucun MX", "\(name) ne publie aucun serveur de réception\u{00A0}: les messages qui lui sont adressés sont refusés.",
-                                                   fix: "Publier les MX du fournisseur de courriel (ou un MX nul « 0 . » si le domaine ne reçoit rien)."))
+                                                   fix: "Publier les MX du fournisseur de courriel (ou un MX nul «\u{00A0}0 .\u{00A0}» si le domaine ne reçoit rien)."))
             } else {
                 report.findings.append(MailFinding(.warning, "Aucun MX (A implicite)",
                     "Les expéditeurs livreront à \(name) lui-même (\(a.values.joined(separator: ", "))).",
@@ -121,7 +123,9 @@ public enum MXLookup {
         if report.hosts.count == 1 && !isProvider(report.hosts[0].host) {
             report.findings.append(MailFinding(.info, "Un seul MX", "Pas de serveur de secours\u{00A0}: les expéditeurs réessaient pendant quelques jours en cas de panne."))
         }
-        if report.hosts.allSatisfy(\.unresolved) {
+        if !report.hosts.isEmpty && report.hosts.allSatisfy({ $0.unresolved && $0.lookupFailed }) {
+            report.findings.append(MailFinding(.warning, "MX non vérifiés", "Les recherches A et AAAA des serveurs MX n’ont pas abouti."))
+        } else if report.hosts.allSatisfy({ $0.unresolved }) {
             report.findings.append(MailFinding(.error, "Aucun MX joignable", "Aucun nom MX ne résout vers une adresse.", fix: "Corriger les noms MX."))
         } else if !report.hosts.contains(where: { $0.status > .info }) {
             report.findings.insert(MailFinding(.ok, "\(report.hosts.count) MX", "Tous les serveurs résolvent et leur DNS inverse est cohérent."), at: 0)
@@ -146,6 +150,7 @@ public enum MXLookup {
         result.ipv6 = aaaa.values
         if a.values.isEmpty && aaaa.values.isEmpty {
             result.unresolved = true
+            result.lookupFailed = a.isFailure || aaaa.isFailure
             result.findings.append(MailFinding(a.isFailure ? .warning : .error, "\(host) ne résout pas",
                 a.failureText.map { "Recherche impossible\u{00A0}: \($0)." } ?? "Ni A ni AAAA\u{00A0}: ce MX est inutilisable.",
                 fix: a.isFailure ? nil : "Corriger ou retirer ce MX."))

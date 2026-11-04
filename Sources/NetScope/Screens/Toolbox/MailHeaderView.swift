@@ -63,7 +63,7 @@ struct MailHeaderView: View {
                     .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.borderStrong))
                     .overlay(alignment: .topLeading) {
                         if model.text.isEmpty {
-                            Text("Coller ici les en-têtes complets du message.\nMail\u{00A0}: Présentation › Message › Toutes les en-têtes · Outlook\u{00A0}: Fichier › Propriétés › En-têtes Internet · Gmail\u{00A0}: ⋮ › Afficher l’original")
+                            Text("Coller ici les en-têtes complets du message.\nMail\u{00A0}: Présentation › Message › Tous les en-têtes · Outlook\u{00A0}: Fichier › Propriétés › En-têtes Internet · Gmail\u{00A0}: ⋮ › Afficher l’original")
                                 .font(Theme.small).foregroundStyle(Theme.textTertiary)
                                 .padding(.horizontal, 11).padding(.vertical, 6)
                                 .allowsHitTesting(false)

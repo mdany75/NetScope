@@ -154,17 +154,17 @@ public struct MailTagList: Hashable, Sendable {
             let item = piece.trimmingCharacters(in: .whitespacesAndNewlines)
             if item.isEmpty { continue }
             guard let equal = item.firstIndex(of: "=") else {
-                errors.append("« \(item) » n’a pas la forme clé=valeur.")
+                errors.append("«\u{00A0}\(item)\u{00A0}» n’a pas la forme clé=valeur.")
                 continue
             }
             let key = item[..<equal].trimmingCharacters(in: .whitespaces).lowercased()
             let value = item[item.index(after: equal)...].trimmingCharacters(in: .whitespacesAndNewlines)
             guard !key.isEmpty, key.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_") }) else {
-                errors.append("Clé invalide dans « \(item) ».")
+                errors.append("Clé invalide dans «\u{00A0}\(item)\u{00A0}».")
                 continue
             }
             if seen.contains(key) {
-                errors.append("La clé « \(key) » apparaît deux fois.")
+                errors.append("La clé «\u{00A0}\(key)\u{00A0}» apparaît deux fois.")
                 continue
             }
             seen.insert(key)

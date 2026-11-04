@@ -102,7 +102,7 @@ final class ToolMailHealthModel: ObservableObject {
         return lines.joined(separator: "\n")
     }
 
-    /// Démonstration : bilan de groupecouture.ca (réponses fixes).
+    /// Démonstration : bilan de exemple.ca (réponses fixes).
     func startDemo() {
         domain = MailDemo.domain
         run(store: nil)

@@ -140,7 +140,7 @@ struct BlacklistView: View {
 
     private var footnote: String {
         let closed = DNSBLCatalog.all.filter { !$0.isActive }.map { "\($0.name) (\($0.note ?? "fermée"))" }
-        return "Une inscription dans une liste « mineure » (blocs ou réseaux entiers) bloque rarement des messages. Spamhaus et URIBL refusent les résolveurs publics (8.8.8.8, 1.1.1.1)\u{00A0}: le résultat est alors «\u{00A0}Refusé\u{00A0}»."
+        return "Une inscription dans une liste «\u{00A0}mineure\u{00A0}» (blocs ou réseaux entiers) bloque rarement des messages. Spamhaus et URIBL refusent les résolveurs publics (8.8.8.8, 1.1.1.1)\u{00A0}: le résultat est alors «\u{00A0}Refusé\u{00A0}»."
             + (closed.isEmpty ? "" : " Non interrogée\u{00A0}: " + closed.joined(separator: ", ") + ".")
     }
 

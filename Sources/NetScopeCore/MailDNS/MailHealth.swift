@@ -98,7 +98,8 @@ public enum MailHealth {
         progress?(6, steps[6])
         let blacklists = await DNSBL.check(blacklistTargets(name, mx: mx, spf: spf), client: client)
         progress?(7, steps[7])
-        let dnssec = await client.dnssec(name)
+        // DS de la zone (domaine organisationnel) : un sous-domaine sans délégation n'a jamais de DS.
+        let dnssec = await client.dnssec(MailDNSText.organizationalDomain(name))
         let summary = evaluate(domain: name, mx: mx, spf: spf, dmarc: dmarc, dkim: dkim, bimi: bimi, mtaSTS: mtaSTS,
                                tlsRPT: tlsRPT, blacklists: blacklists, dnssec: dnssec, date: date)
         return MailHealthReport(domain: name, mx: mx, spf: spf, dmarc: dmarc, dkim: dkim, bimi: bimi, mtaSTS: mtaSTS,
@@ -121,7 +122,10 @@ public enum MailHealth {
         for node in spf.nodes where MailDNSText.organizationalDomain(node.domain) == organization {
             for term in node.record.flatMap(SPFRecord.parse)?.terms ?? [] where term.kind == .ip4 {
                 let value = term.value ?? ""
-                if !value.contains("/") || value.hasSuffix("/32") { add(String(value.split(separator: "/")[0])) }
+                // « ip4: » vide (faute de syntaxe déjà signalée) : rien à ajouter.
+                guard !value.contains("/") || value.hasSuffix("/32"),
+                      let address = value.split(separator: "/").first else { continue }
+                add(String(address))
             }
         }
         for ip in mx.allIPv4.dropFirst(2) { add(ip) }
@@ -146,12 +150,14 @@ public enum MailHealth {
 
         // MX
         let mxStatus = mx.status
-        let mxPoints: Int? = mx.queryFailed ? nil
+        // Tous les MX non résolus faute de réponse : panne de résolution, pas défaut du domaine.
+        let mxUnverified = !mx.hosts.isEmpty && mx.hosts.allSatisfy { $0.unresolved && $0.lookupFailed }
+        let mxPoints: Int? = mx.queryFailed || mxUnverified ? nil
             : mx.nullMX ? 15
             : mx.hosts.isEmpty ? (mx.implicitA.isEmpty ? 0 : 5)
             : mxStatus == .error ? (mx.hosts.contains { !$0.unresolved } ? 6 : 0)
             : mxStatus == .warning ? 10 : 15
-        add(.mx, mx.queryFailed ? .info : mxStatus, mxPoints, mx.summary,
+        add(.mx, mx.queryFailed || mxUnverified ? .info : mxStatus, mxPoints, mx.summary,
             detail(mx.findings + mx.hosts.flatMap(\.findings)))
 
         // SPF

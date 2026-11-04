@@ -29,14 +29,14 @@ public struct DKIMKey: Hashable, Sendable {
         var key = DKIMKey(text: text, tags: tags, keyType: (tags["k"] ?? "rsa").lowercased(), publicKey: "", revoked: false,
                           bits: nil, testing: false, errors: tags.errors, warnings: [])
         if let version = tags["v"] {
-            if version != "DKIM1" { key.errors.append("« v=\(version) » : seule la version DKIM1 existe.") }
-            if tags.keys.first != "v" { key.errors.append("« v=DKIM1 » doit être la première étiquette.") }
+            if version != "DKIM1" { key.errors.append("«\u{00A0}v=\(version)\u{00A0}»\u{00A0}: seule la version DKIM1 existe.") }
+            if tags.keys.first != "v" { key.errors.append("«\u{00A0}v=DKIM1\u{00A0}» doit être la première étiquette.") }
         }
         if !["rsa", "ed25519"].contains(key.keyType) {
-            key.errors.append("Type de clé « k=\(key.keyType) » inconnu (rsa ou ed25519).")
+            key.errors.append("Type de clé «\u{00A0}k=\(key.keyType)\u{00A0}» inconnu (rsa ou ed25519).")
         }
         guard let p = tags["p"] else {
-            key.errors.append("L’étiquette « p= » (clé publique) est obligatoire.")
+            key.errors.append("L’étiquette «\u{00A0}p=\u{00A0}» (clé publique) est obligatoire.")
             return key
         }
         let base64 = p.filter { !$0.isWhitespace }
@@ -46,7 +46,7 @@ public struct DKIMKey: Hashable, Sendable {
             return key
         }
         guard let data = Data(base64Encoded: base64, options: .ignoreUnknownCharacters), !data.isEmpty else {
-            key.errors.append("La clé publique « p= » n’est pas du base64 valide.")
+            key.errors.append("La clé publique «\u{00A0}p=\u{00A0}» n’est pas du base64 valide.")
             return key
         }
         let bytes = [UInt8](data)
@@ -62,10 +62,10 @@ public struct DKIMKey: Hashable, Sendable {
         let flags = (tags["t"] ?? "").split(separator: ":").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
         key.testing = flags.contains("y")
         if let hashes = tags["h"], !hashes.lowercased().contains("sha256") {
-            key.warnings.append("« h=\(hashes) » n’autorise pas SHA-256 (SHA-1 seul est refusé par les destinataires).")
+            key.warnings.append("«\u{00A0}h=\(hashes)\u{00A0}» n’autorise pas SHA-256 (SHA-1 seul est refusé par les destinataires).")
         }
         if let service = tags["s"], !service.split(separator: ":").contains(where: { $0 == "*" || $0 == "email" }) {
-            key.errors.append("« s=\(service) » : la clé n’est pas utilisable pour le courriel.")
+            key.errors.append("«\u{00A0}s=\(service)\u{00A0}»\u{00A0}: la clé n’est pas utilisable pour le courriel.")
         }
         return key
     }
@@ -170,30 +170,30 @@ public enum DKIMAnalyzer {
     public static func findings(for key: DKIMKey, selector: String) -> [MailFinding] {
         var result: [MailFinding] = []
         for error in key.errors {
-            result.append(MailFinding(.error, "Clé « \(selector) » invalide", error, fix: "Republier la clé fournie par le service d’envoi."))
+            result.append(MailFinding(.error, "Clé «\u{00A0}\(selector)\u{00A0}» invalide", error, fix: "Republier la clé fournie par le service d’envoi."))
         }
-        for warning in key.warnings { result.append(MailFinding(.warning, "Clé « \(selector) »", warning)) }
+        for warning in key.warnings { result.append(MailFinding(.warning, "Clé «\u{00A0}\(selector)\u{00A0}»", warning)) }
         if key.revoked {
-            result.append(MailFinding(.info, "Clé « \(selector) » révoquée",
+            result.append(MailFinding(.info, "Clé «\u{00A0}\(selector)\u{00A0}» révoquée",
                 "p= est vide\u{00A0}: les signatures faites avec ce sélecteur échouent (normal après une rotation)."))
             return result
         }
         if key.testing {
-            result.append(MailFinding(.warning, "Clé « \(selector) » en mode test (t=y)",
+            result.append(MailFinding(.warning, "Clé «\u{00A0}\(selector)\u{00A0}» en mode test (t=y)",
                 "Les destinataires peuvent traiter les signatures en échec comme absentes.", fix: "Retirer t=y une fois la signature vérifiée."))
         }
         if let bits = key.bits, key.keyType == "rsa" {
             if bits < 1024 {
-                result.append(MailFinding(.error, "Clé « \(selector) » de \(bits) bits",
+                result.append(MailFinding(.error, "Clé «\u{00A0}\(selector)\u{00A0}» de \(bits) bits",
                     "Une clé RSA de moins de 1024 bits est refusée (RFC 8301) et peut être cassée.", fix: "Générer une clé de 2048 bits."))
             } else if bits < 2048 {
-                result.append(MailFinding(.warning, "Clé « \(selector) » de \(bits) bits",
+                result.append(MailFinding(.warning, "Clé «\u{00A0}\(selector)\u{00A0}» de \(bits) bits",
                     "1024 bits reste accepté, mais 2048 bits est la taille recommandée.", fix: "Passer à une clé de 2048 bits à la prochaine rotation."))
             } else {
-                result.append(MailFinding(.ok, "Clé « \(selector) » de \(bits) bits", "Taille recommandée."))
+                result.append(MailFinding(.ok, "Clé «\u{00A0}\(selector)\u{00A0}» de \(bits) bits", "Taille recommandée."))
             }
         } else if key.keyType == "ed25519", key.bits != nil {
-            result.append(MailFinding(.ok, "Clé « \(selector) » Ed25519", "Clé moderne (RFC 8463)\u{00A0}; garder aussi une clé RSA pour les anciens destinataires."))
+            result.append(MailFinding(.ok, "Clé «\u{00A0}\(selector)\u{00A0}» Ed25519", "Clé moderne (RFC 8463)\u{00A0}; garder aussi une clé RSA pour les anciens destinataires."))
         }
         return result
     }

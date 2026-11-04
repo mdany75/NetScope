@@ -41,7 +41,7 @@ final class ToolSMTPModel: ObservableObject {
         let text = target.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty else { error = "Saisir un domaine, un serveur ou une adresse IP."; return }
         guard text.range(of: "^[A-Za-z0-9@._-]+$", options: .regularExpression) != nil else {
-            error = "« \(text) » n’est pas un domaine, un nom de serveur ou une adresse valide."
+            error = "«\u{00A0}\(text)\u{00A0}» n’est pas un domaine, un nom de serveur ou une adresse valide."
             return
         }
         error = nil
@@ -72,7 +72,7 @@ final class ToolSMTPModel: ObservableObject {
                 let targets = try await SMTPDiagnostic.targets(for: text)
                 guard run == self.generation else { return }
                 guard !targets.isEmpty else {
-                    self.error = "Le domaine publie un MX nul (« 0 . »)\u{00A0}: il refuse tout courriel."
+                    self.error = "Le domaine publie un MX nul («\u{00A0}0 .\u{00A0}»)\u{00A0}: il refuse tout courriel."
                     store.record(ToolRecent(tool: .smtp, target: text, summary: "MX nul", status: .warning))
                     return
                 }
@@ -154,7 +154,7 @@ struct SMTPDiagnosticView: View {
             if let result = model.selected {
                 detail(result)
             } else if model.error == nil && !model.isRunning {
-                Text("Un domaine est testé par ses serveurs MX (par ordre de préférence) ; un nom de serveur ou une adresse IP est testé directement. Seules les commandes EHLO, STARTTLS et QUIT sont envoyées\u{00A0}: aucun courriel n’est envoyé et aucun test de relais ouvert n’est fait.")
+                Text("Un domaine est testé par ses serveurs MX (par ordre de préférence)\u{00A0}; un nom de serveur ou une adresse IP est testé directement. Seules les commandes EHLO, STARTTLS et QUIT sont envoyées\u{00A0}: aucun courriel n’est envoyé et aucun test de relais ouvert n’est fait.")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -265,10 +265,10 @@ struct SMTPServerTable: View {
     static let columns: [StandardColumn] = [
         StandardColumn(id: "preference", title: "Préférence"),
         StandardColumn(id: "serveur", title: "Serveur", isRequired: true),
-        StandardColumn(id: "ip", title: "IP"),
+        StandardColumn(id: "ip", title: "IP", isDefaultVisible: false),
         StandardColumn(id: "logiciel", title: "Logiciel", isDefaultVisible: false),
-        StandardColumn(id: "tls", title: "Chiffrement"),
-        StandardColumn(id: "temps", title: "Temps"),
+        StandardColumn(id: "tls", title: "TLS"),
+        StandardColumn(id: "temps", title: "Temps", isDefaultVisible: false),
         StandardColumn(id: "bilan", title: "Bilan"),
         StandardColumn(id: "ptr", title: "DNS inverse", isDefaultVisible: false),
     ]
@@ -291,26 +291,27 @@ struct SMTPServerTable: View {
 
     var body: some View {
         let sorted = rows.sorted(using: table.sortOrder)
-        ToolStandardTableFrame(rowCount: sorted.count) {
+        ToolStandardTableFrame(rowCount: sorted.count, emptyText: "Aucun serveur testé.") {
             Table(sorted, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
                 TableColumn("MX", sortUsing: table.sort("preference")) { row in
                     ToolTableText(row.preference.map(String.init) ?? "—", color: Theme.textSecondary, alignment: .trailing)
                 }
-                .width(min: 30, ideal: 36)
+                .width(min: 34, ideal: 40)
                 .customizationID("preference")
 
                 TableColumn("SERVEUR", sortUsing: table.sort("serveur")) { row in
                     ToolTableText(row.host, weight: .medium).help(row.host)
                 }
-                .width(min: 110, ideal: 130)
+                .width(min: 90, ideal: 130)
                 .customizationID("serveur")
                 .disabledCustomizationBehavior(.visibility)
 
                 TableColumn("IP", sortUsing: table.sort("ip")) { row in
                     ToolTableText(row.address ?? "—", color: Theme.textSecondary)
                 }
-                .width(min: 86, ideal: 96)
+                .width(min: 96, ideal: 110)
                 .customizationID("ip")
+                .defaultVisibility(.hidden)
 
                 TableColumn("LOGICIEL", sortUsing: table.sort("logiciel")) { row in
                     ToolTableText(row.software ?? "—", mono: false, color: Theme.textSecondary)
@@ -319,11 +320,11 @@ struct SMTPServerTable: View {
                 .customizationID("logiciel")
                 .defaultVisibility(.hidden)
 
-                TableColumn("CHIFFREMENT", sortUsing: table.sort("tls")) { row in
+                TableColumn("TLS", sortUsing: table.sort("tls")) { row in
                     Chip(text: row.tls == .succeeded ? (row.tlsVersion ?? "TLS") : row.tls.label,
                          tone: row.tls == .succeeded ? .success : (row.tls == .notReached ? .neutral : .warning))
                 }
-                .width(min: 76, ideal: 84)
+                .width(min: 50, ideal: 60)
                 .customizationID("tls")
 
                 TableColumn("TEMPS", sortUsing: table.sort("temps")) { row in
@@ -331,11 +332,12 @@ struct SMTPServerTable: View {
                 }
                 .width(min: 48, ideal: 52)
                 .customizationID("temps")
+                .defaultVisibility(.hidden)
 
                 TableColumn("BILAN", sortUsing: table.sort("bilan")) { row in
                     Chip(text: row.verdictLabel, tone: row.verdict.tone)
                 }
-                .width(min: 70, ideal: 80)
+                .width(min: 64, ideal: 76)
                 .customizationID("bilan")
 
                 TableColumn("DNS INVERSE", sortUsing: table.sort("ptr")) { row in

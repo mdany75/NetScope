@@ -357,7 +357,7 @@ final class SvcStore: ObservableObject {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         guard let archive = try? decoder.decode(Archive.self, from: data) else {
-            NSLog("NetScope : lecture impossible de %@", url.path)
+            NSLog("NetScope\u{00A0}: lecture impossible de %@", url.path)
             return
         }
         services = SvcCatalog.merged(saved: archive.services)
@@ -384,7 +384,7 @@ final class SvcStore: ObservableObject {
             encoder.dateEncodingStrategy = .iso8601
             try encoder.encode(archive).write(to: url, options: .atomic)
         } catch {
-            NSLog("NetScope : enregistrement impossible de %@ : %@", url.path, error.localizedDescription)
+            NSLog("NetScope\u{00A0}: enregistrement impossible de %@\u{00A0}: %@", url.path, error.localizedDescription)
         }
     }
 

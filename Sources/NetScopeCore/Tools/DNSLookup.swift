@@ -335,8 +335,9 @@ public enum DNSLookup {
     public static func resolve(_ text: String, type: DNSRecordType, server: IPv4Address? = nil, port: UInt16 = 53,
                                timeout: TimeInterval = 3) async throws -> DNSLookupResult {
         let name = queryName(for: text, type: type)
-        // Le nom est repassé à dig/host en repli : jamais d'option déguisée (« -f… »).
-        guard !name.hasPrefix("-") else { throw DNSError.invalidName(name) }
+        // Le nom est repassé à dig/host en repli : jamais d'option déguisée (« -f… », « @serveur »,
+        // « +option ») ; les noms viennent parfois des réponses DNS d'un domaine tiers (SPF, MX).
+        guard let first = name.first, !"-@+".contains(first) else { throw DNSError.invalidName(name) }
         _ = try DNSMessageCodec.encodeName(name)
         do {
             return try await Task.detached(priority: .userInitiated) {
@@ -423,15 +424,42 @@ public enum DNSLookup {
 
     // MARK: Repli sur dig / host
 
+    /// Le repli ne reçoit que des noms faits d'étiquettes [A-Za-z0-9_-] (et « * ») : rien qui
+    /// puisse passer pour une option de dig ou de host.
+    static func isSafeToolName(_ name: String) -> Bool {
+        guard let first = name.first, first != "-" else { return false }
+        return name.unicodeScalars.allSatisfy { scalar in
+            switch scalar {
+            case "a"..."z", "A"..."Z", "0"..."9", "_", "-", ".", "*": return true
+            default: return false
+            }
+        }
+    }
+
+    /// État de la réponse dans la sortie de `dig +comments` (« status: NXDOMAIN »), nil sans réponse.
+    public static func digStatus(_ output: String) -> String? {
+        guard let range = output.range(of: "status: ") else { return nil }
+        let status = output[range.upperBound...].prefix { $0 != "," && !$0.isWhitespace }
+        return status.isEmpty ? nil : String(status)
+    }
+
     static func resolveWithTool(name: String, type: DNSRecordType, server: IPv4Address?, timeout: TimeInterval) async throws -> DNSLookupResult {
+        guard isSafeToolName(name) else { throw DNSError.invalidName(name) }
         let start = Date()
         if FileManager.default.isExecutableFile(atPath: "/usr/bin/dig") {
-            var arguments = ["+noall", "+answer", "+time=3", "+tries=1"]
+            var arguments = ["+noall", "+answer", "+comments", "+time=3", "+tries=1"]
             if let server { arguments.append("@\(server)") }
             arguments += [name, type.rawValue]
             let output = try await ToolProcess.run("/usr/bin/dig", arguments, timeout: timeout)
+            // Sans « status: », dig n'a reçu aucune réponse (délai dépassé, aucun serveur joignable) :
+            // c'est un échec, pas une réponse vide.
+            guard let status = digStatus(output) else {
+                let reason = output.split(separator: "\n").first { $0.hasPrefix(";;") }
+                    .map { $0.dropFirst(2).trimmingCharacters(in: .whitespaces) } ?? "aucune réponse"
+                throw ToolError.processFailed("dig\u{00A0}: \(reason)")
+            }
             let records = parseDigAnswer(output)
-            return DNSLookupResult(query: name, type: type, rcode: "NOERROR", records: records, answerCount: records.count,
+            return DNSLookupResult(query: name, type: type, rcode: status, records: records, answerCount: records.count,
                                    isAuthoritative: false, serverLabel: (server.map { "\($0)" } ?? "système") + " (dig)",
                                    durationMs: Date().timeIntervalSince(start) * 1000)
         }
@@ -449,7 +477,17 @@ public enum DNSLookup {
             }
             return nil
         }
-        return DNSLookupResult(query: name, type: type, rcode: records.isEmpty ? "—" : "NOERROR", records: records,
+        let rcode: String
+        if !records.isEmpty || output.contains(" has no ") {
+            rcode = "NOERROR"
+        } else if output.contains("NXDOMAIN") {
+            rcode = "NXDOMAIN"
+        } else if output.contains("timed out") || output.contains("no servers could be reached") {
+            throw ToolError.processFailed("host\u{00A0}: aucune réponse")
+        } else {
+            rcode = "—"
+        }
+        return DNSLookupResult(query: name, type: type, rcode: rcode, records: records,
                                answerCount: records.count, isAuthoritative: false,
                                serverLabel: (server.map { "\($0)" } ?? "système") + " (host)",
                                durationMs: Date().timeIntervalSince(start) * 1000)

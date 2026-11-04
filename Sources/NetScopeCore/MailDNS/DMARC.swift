@@ -30,26 +30,26 @@ public struct DMARCRecord: Hashable, Sendable {
                                  adkim: "r", aspf: "r", failureOptions: "0", interval: 86_400, errors: tags.errors, warnings: [])
         let policies: Set<String> = ["none", "quarantine", "reject"]
         if tags.tags.first?.key != "v" || tags["v"] != "DMARC1" {
-            record.errors.append("L’enregistrement doit commencer par « v=DMARC1 » (en majuscules).")
+            record.errors.append("L’enregistrement doit commencer par «\u{00A0}v=DMARC1\u{00A0}» (en majuscules).")
         }
         if let p = tags["p"] {
             if policies.contains(p.lowercased()) { record.policy = p.lowercased() } else {
-                record.errors.append("Politique « p=\(p) » inconnue (none, quarantine ou reject).")
+                record.errors.append("Politique «\u{00A0}p=\(p)\u{00A0}» inconnue (none, quarantine ou reject).")
             }
         } else {
-            record.errors.append("La politique « p= » est obligatoire.")
+            record.errors.append("La politique «\u{00A0}p=\u{00A0}» est obligatoire.")
         }
         if tags.keys.count >= 2, tags.keys[1] != "p", tags["p"] != nil {
-            record.warnings.append("« p= » devrait suivre immédiatement « v=DMARC1 ».")
+            record.warnings.append("«\u{00A0}p=\u{00A0}» devrait suivre immédiatement «\u{00A0}v=DMARC1\u{00A0}».")
         }
         if let sp = tags["sp"] {
             if policies.contains(sp.lowercased()) { record.subdomainPolicy = sp.lowercased() } else {
-                record.errors.append("Politique de sous-domaine « sp=\(sp) » inconnue.")
+                record.errors.append("Politique de sous-domaine «\u{00A0}sp=\(sp)\u{00A0}» inconnue.")
             }
         }
         if let pct = tags["pct"] {
             if let value = Int(pct), (0...100).contains(value) { record.percent = value } else {
-                record.errors.append("« pct=\(pct) » doit être un entier de 0 à 100.")
+                record.errors.append("«\u{00A0}pct=\(pct)\u{00A0}» doit être un entier de 0 à 100.")
             }
         }
         for (key, target) in [("rua", \DMARCRecord.rua), ("ruf", \DMARCRecord.ruf)] {
@@ -57,7 +57,7 @@ public struct DMARCRecord: Hashable, Sendable {
             var list: [String] = []
             for uri in MailURI.list(value) {
                 if let mailbox = MailURI.mailbox(uri) { list.append(mailbox) } else {
-                    record.errors.append("Adresse « \(uri) » invalide dans \(key)= (forme attendue\u{00A0}: mailto:dmarc@exemple.ca).")
+                    record.errors.append("Adresse «\u{00A0}\(uri)\u{00A0}» invalide dans \(key)= (forme attendue\u{00A0}: mailto:dmarc@exemple.ca).")
                 }
             }
             record[keyPath: target] = list
@@ -67,26 +67,26 @@ public struct DMARCRecord: Hashable, Sendable {
             if value == "r" || value == "s" {
                 if key == "adkim" { record.adkim = value } else { record.aspf = value }
             } else {
-                record.errors.append("« \(key)=\(value) » doit valoir r (souple) ou s (strict).")
+                record.errors.append("«\u{00A0}\(key)=\(value)\u{00A0}» doit valoir r (souple) ou s (strict).")
             }
         }
         if let fo = tags["fo"] {
             let options = fo.split(separator: ":").map { $0.trimmingCharacters(in: .whitespaces) }
             if options.allSatisfy({ ["0", "1", "d", "s"].contains($0) }) { record.failureOptions = fo } else {
-                record.errors.append("« fo=\(fo) » : options permises 0, 1, d et s.")
+                record.errors.append("«\u{00A0}fo=\(fo)\u{00A0}»\u{00A0}: options permises 0, 1, d et s.")
             }
         }
         if let ri = tags["ri"] {
             if let value = Int(ri), value > 0 { record.interval = value } else {
-                record.errors.append("« ri=\(ri) » doit être un nombre de secondes.")
+                record.errors.append("«\u{00A0}ri=\(ri)\u{00A0}» doit être un nombre de secondes.")
             }
         }
         if let rf = tags["rf"], rf.lowercased() != "afrf" {
-            record.warnings.append("« rf=\(rf) » : seul le format afrf est défini.")
+            record.warnings.append("«\u{00A0}rf=\(rf)\u{00A0}»\u{00A0}: seul le format afrf est défini.")
         }
         let known: Set<String> = ["v", "p", "sp", "pct", "rua", "ruf", "adkim", "aspf", "fo", "ri", "rf", "np", "psd", "t"]
         for key in tags.keys where !known.contains(key) {
-            record.warnings.append("Étiquette inconnue « \(key)= » (ignorée par les destinataires).")
+            record.warnings.append("Étiquette inconnue «\u{00A0}\(key)=\u{00A0}» (ignorée par les destinataires).")
         }
         return record
     }
@@ -143,7 +143,7 @@ public enum DMARCAnalyzer {
         guard let text = found.first else {
             report.findings.append(MailFinding(.error, "Aucun enregistrement DMARC",
                 "Rien à _dmarc.\(name)\u{00A0}: les destinataires n’ont aucune consigne pour les messages usurpés, et Gmail et Yahoo exigent DMARC des expéditeurs en volume.",
-                fix: "Publier « v=DMARC1; p=none; rua=mailto:dmarc@\(organization) » pour observer, puis passer à quarantine et reject."))
+                fix: "Publier «\u{00A0}v=DMARC1; p=none; rua=mailto:dmarc@\(organization)\u{00A0}» pour observer, puis passer à quarantine et reject."))
             return report
         }
         report.location = location
@@ -151,7 +151,7 @@ public enum DMARCAnalyzer {
         report.record = record
         if found.count > 1 {
             report.findings.append(MailFinding(.error, "\(found.count) enregistrements DMARC",
-                "Plusieurs TXT « v=DMARC1 »\u{00A0}: les destinataires ignorent alors DMARC.", fix: "N’en garder qu’un."))
+                "Plusieurs TXT «\u{00A0}v=DMARC1\u{00A0}»\u{00A0}: les destinataires ignorent alors DMARC.", fix: "N’en garder qu’un."))
         }
         for error in record.errors {
             report.findings.append(MailFinding(.error, "Syntaxe DMARC", error, fix: "Corriger l’enregistrement _dmarc."))
@@ -165,35 +165,35 @@ public enum DMARCAnalyzer {
         let effective = report.inherited ? (record.subdomainPolicy ?? record.policy) : record.policy
         switch effective {
         case "none":
-            report.findings.append(MailFinding(.warning, "Politique « none » (surveillance)",
+            report.findings.append(MailFinding(.warning, "Politique «\u{00A0}none\u{00A0}» (surveillance)",
                 "Les messages qui échouent DMARC sont livrés comme les autres\u{00A0}: le domaine reste usurpable.",
-                fix: "Après lecture des rapports rua, passer à « p=quarantine », puis à « p=reject »."))
+                fix: "Après lecture des rapports rua, passer à «\u{00A0}p=quarantine\u{00A0}», puis à «\u{00A0}p=reject\u{00A0}»."))
         case "quarantine":
             if record.percent < 100 {
                 report.findings.append(MailFinding(.warning, "Quarantaine sur \(record.percent)\u{00A0}% des messages",
-                    "Le reste des messages en échec est traité comme « none ».", fix: "Monter pct à 100, puis passer à reject."))
+                    "Le reste des messages en échec est traité comme «\u{00A0}none\u{00A0}».", fix: "Monter pct à 100, puis passer à reject."))
             } else {
-                report.findings.append(MailFinding(.ok, "Politique « quarantine »", "Les messages en échec vont aux indésirables.",
-                                                   fix: "Étape suivante\u{00A0}: « p=reject »."))
+                report.findings.append(MailFinding(.ok, "Politique «\u{00A0}quarantine\u{00A0}»", "Les messages en échec vont aux indésirables.",
+                                                   fix: "Étape suivante\u{00A0}: «\u{00A0}p=reject\u{00A0}»."))
             }
         case "reject":
             if record.percent < 100 {
                 report.findings.append(MailFinding(.warning, "Rejet sur \(record.percent)\u{00A0}% des messages",
                     "Le reste des messages en échec est mis en quarantaine.", fix: "Monter pct à 100."))
             } else {
-                report.findings.append(MailFinding(.ok, "Politique « reject »", "Les messages usurpés sont refusés."))
+                report.findings.append(MailFinding(.ok, "Politique «\u{00A0}reject\u{00A0}»", "Les messages usurpés sont refusés."))
             }
         default:
             break
         }
         if !report.inherited, let sp = record.subdomainPolicy, sp == "none", record.policy != "none" {
-            report.findings.append(MailFinding(.warning, "Sous-domaines en « sp=none »",
+            report.findings.append(MailFinding(.warning, "Sous-domaines en «\u{00A0}sp=none\u{00A0}»",
                 "Les sous-domaines (qui n’ont pas leur propre DMARC) restent usurpables.", fix: "Retirer sp= ou le mettre au niveau de p=."))
         }
         if record.rua.isEmpty {
             report.findings.append(MailFinding(.warning, "Aucune adresse rua",
                 "Sans rapports agrégés, impossible de savoir qui envoie au nom du domaine avant de durcir la politique.",
-                fix: "Ajouter « rua=mailto:dmarc@\(organization) » (ou l’adresse d’un service d’analyse DMARC)."))
+                fix: "Ajouter «\u{00A0}rua=mailto:dmarc@\(organization)\u{00A0}» (ou l’adresse d’un service d’analyse DMARC)."))
         }
         // Adresses de rapport hors domaine : le domaine qui reçoit doit l'autoriser (RFC 7489 §7.1).
         let external = Set((record.rua + record.ruf).compactMap(MailURI.domain(ofMailbox:)))
@@ -206,7 +206,7 @@ public enum DMARCAnalyzer {
                 report.findings.append(MailFinding(.ok, "Rapports vers \(target) autorisés", "\(organization)._report._dmarc.\(target) existe."))
             } else {
                 report.findings.append(MailFinding(.warning, "Rapports vers \(target) non autorisés",
-                    "\(target) ne publie pas « \(organization)._report._dmarc.\(target) »\u{00A0}: les rapports risquent de ne pas être envoyés.",
+                    "\(target) ne publie pas «\u{00A0}\(organization)._report._dmarc.\(target)\u{00A0}»\u{00A0}: les rapports risquent de ne pas être envoyés.",
                     fix: "Demander au service qui reçoit les rapports d’ajouter cette autorisation (ou utiliser une adresse du domaine)."))
             }
         }

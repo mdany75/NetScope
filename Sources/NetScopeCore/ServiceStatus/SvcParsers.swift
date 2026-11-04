@@ -33,7 +33,7 @@ public enum SvcFeedParser {
     public static func statuspage(_ data: Data) throws -> SvcFeedReport {
         let root = try object(data)
         guard let status = root["status"] as? [String: Any] else {
-            throw SvcParseError.unreadable("champ « status » absent (summary.json attendu)")
+            throw SvcParseError.unreadable("champ «\u{00A0}status\u{00A0}» absent (summary.json attendu)")
         }
         let page = root["page"] as? [String: Any]
         let pageURL = page?["url"] as? String
@@ -119,7 +119,7 @@ public enum SvcFeedParser {
     public static func slack(_ data: Data, pageURL: String) throws -> SvcFeedReport {
         let root = try object(data)
         guard let state = root["status"] as? String else {
-            throw SvcParseError.unreadable("champ « status » absent (API Slack attendue)")
+            throw SvcParseError.unreadable("champ «\u{00A0}status\u{00A0}» absent (API Slack attendue)")
         }
         var incidents: [SvcIncident] = []
         for item in root["active_incidents"] as? [[String: Any]] ?? [] {
@@ -158,7 +158,7 @@ public enum SvcFeedParser {
         }
         let root = try object(payload)
         guard let services = root["services"] as? [[String: Any]] else {
-            throw SvcParseError.unreadable("champ « services » absent (Apple System Status attendu)")
+            throw SvcParseError.unreadable("champ «\u{00A0}services\u{00A0}» absent (Apple System Status attendu)")
         }
         var incidents: [SvcIncident] = []
         for service in services {

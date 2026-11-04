@@ -74,19 +74,19 @@ public struct SPFRecord: Hashable, Sendable {
         for token in tokens {
             let term = parseTerm(token, errors: &record.errors)
             if afterAll && term.isMechanism {
-                record.warnings.append("« \(token) » vient après « all » : il n’est jamais évalué.")
+                record.warnings.append("«\u{00A0}\(token)\u{00A0}» vient après «\u{00A0}all\u{00A0}»\u{00A0}: il n’est jamais évalué.")
             }
             if term.kind == .all { afterAll = true }
             record.terms.append(term)
         }
         for kind in [SPFTerm.Kind.redirect, .exp] where record.terms.filter({ $0.kind == kind }).count > 1 {
-            record.errors.append("Le modificateur « \(kind.rawValue)= » apparaît plusieurs fois.")
+            record.errors.append("Le modificateur «\u{00A0}\(kind.rawValue)=\u{00A0}» apparaît plusieurs fois.")
         }
         if record.all != nil && record.redirect != nil {
-            record.warnings.append("« redirect= » est ignoré parce que l’enregistrement contient « all ».")
+            record.warnings.append("«\u{00A0}redirect=\u{00A0}» est ignoré parce que l’enregistrement contient «\u{00A0}all\u{00A0}».")
         }
         if record.terms.contains(where: { $0.kind == .ptr }) {
-            record.warnings.append("Le mécanisme « ptr » est déconseillé (RFC 7208 §5.5) : lent et peu fiable.")
+            record.warnings.append("Le mécanisme «\u{00A0}ptr\u{00A0}» est déconseillé (RFC 7208 §5.5)\u{00A0}: lent et peu fiable.")
         }
         return record
     }
@@ -100,7 +100,7 @@ public struct SPFRecord: Hashable, Sendable {
             let value = String(token[token.index(after: equal)...])
             let kind: SPFTerm.Kind = name == "redirect" ? .redirect : (name == "exp" ? .exp : .modifier)
             if (kind == .redirect || kind == .exp) && value.isEmpty {
-                errors.append("« \(token) » : domaine manquant.")
+                errors.append("«\u{00A0}\(token)\u{00A0}»\u{00A0}: domaine manquant.")
             }
             return SPFTerm(kind: kind, qualifier: nil, value: value, raw: token)
         }
@@ -120,17 +120,17 @@ public struct SPFRecord: Hashable, Sendable {
         let term = SPFTerm(kind: kind, qualifier: qualifier, value: value, raw: token)
         switch kind {
         case .unknown:
-            errors.append("Mécanisme inconnu « \(token) ».")
+            errors.append("Mécanisme inconnu «\u{00A0}\(token)\u{00A0}».")
         case .all:
-            if value != nil { errors.append("« \(token) » : « all » ne prend pas de valeur.") }
+            if value != nil { errors.append("«\u{00A0}\(token)\u{00A0}»\u{00A0}: «\u{00A0}all\u{00A0}» ne prend pas de valeur.") }
         case .include, .exists:
-            if (value ?? "").isEmpty { errors.append("« \(token) » : domaine manquant.") }
+            if (value ?? "").isEmpty { errors.append("«\u{00A0}\(token)\u{00A0}»\u{00A0}: domaine manquant.") }
         case .ip4:
-            if !validIP4(value ?? "") { errors.append("« \(token) » : réseau IPv4 invalide.") }
+            if !validIP4(value ?? "") { errors.append("«\u{00A0}\(token)\u{00A0}»\u{00A0}: réseau IPv4 invalide.") }
         case .ip6:
-            if !validIP6(value ?? "") { errors.append("« \(token) » : réseau IPv6 invalide.") }
+            if !validIP6(value ?? "") { errors.append("«\u{00A0}\(token)\u{00A0}»\u{00A0}: réseau IPv6 invalide.") }
         case .a, .mx:
-            if let value, !validDomainCIDR(value) { errors.append("« \(token) » : domaine ou préfixe invalide.") }
+            if let value, !validDomainCIDR(value) { errors.append("«\u{00A0}\(token)\u{00A0}»\u{00A0}: domaine ou préfixe invalide.") }
         default:
             break
         }
@@ -226,14 +226,14 @@ public enum SPFAnalyzer {
         }
         guard let first = spf.first, let record = SPFRecord.parse(first) else {
             report.findings.append(MailFinding(.error, "Aucun enregistrement SPF",
-                "\(root) ne publie pas de TXT « v=spf1 »\u{00A0}: n’importe quel serveur peut envoyer en son nom.",
-                fix: "Publier un TXT « v=spf1 » qui liste les serveurs d’envoi (ex. « v=spf1 include:spf.protection.outlook.com -all »)."))
+                "\(root) ne publie pas de TXT «\u{00A0}v=spf1\u{00A0}»\u{00A0}: n’importe quel serveur peut envoyer en son nom.",
+                fix: "Publier un TXT «\u{00A0}v=spf1\u{00A0}» qui liste les serveurs d’envoi (ex. «\u{00A0}v=spf1 include:spf.protection.outlook.com -all\u{00A0}»)."))
             return report
         }
         report.record = record
         if spf.count > 1 {
             report.findings.append(MailFinding(.error, "\(spf.count) enregistrements SPF",
-                "Un domaine ne doit publier qu’un seul TXT « v=spf1 »\u{00A0}: les destinataires rendent permerror.",
+                "Un domaine ne doit publier qu’un seul TXT «\u{00A0}v=spf1\u{00A0}»\u{00A0}: les destinataires rendent permerror.",
                 fix: "Fusionner les enregistrements SPF en un seul."))
         }
         await visit(root, record: record, via: "racine", depth: 0, chain: [root], client: client, state: &state)
@@ -259,22 +259,22 @@ public enum SPFAnalyzer {
         }
         switch state.rootAll {
         case "+":
-            report.findings.append(MailFinding(.error, "« +all » autorise tout le monde",
+            report.findings.append(MailFinding(.error, "«\u{00A0}+all\u{00A0}» autorise tout le monde",
                 "N’importe quel serveur d’Internet passe le SPF de ce domaine.",
-                fix: "Remplacer « +all » par « -all » (ou « ~all » le temps de vérifier les envois)."))
+                fix: "Remplacer «\u{00A0}+all\u{00A0}» par «\u{00A0}-all\u{00A0}» (ou «\u{00A0}~all\u{00A0}» le temps de vérifier les envois)."))
         case "?":
-            report.findings.append(MailFinding(.warning, "« ?all » est neutre",
+            report.findings.append(MailFinding(.warning, "«\u{00A0}?all\u{00A0}» est neutre",
                 "Les serveurs non listés ne sont ni acceptés ni refusés\u{00A0}: le SPF ne protège presque pas.",
-                fix: "Passer à « ~all », puis à « -all »."))
+                fix: "Passer à «\u{00A0}~all\u{00A0}», puis à «\u{00A0}-all\u{00A0}»."))
         case "~":
-            report.findings.append(MailFinding(.ok, "« ~all » (échec léger)",
+            report.findings.append(MailFinding(.ok, "«\u{00A0}~all\u{00A0}» (échec léger)",
                 "Les serveurs non listés sont marqués suspects\u{00A0}; avec DMARC, c’est une configuration courante."))
         case "-":
-            report.findings.append(MailFinding(.ok, "« -all » (échec)", "Les serveurs non listés sont refusés."))
+            report.findings.append(MailFinding(.ok, "«\u{00A0}-all\u{00A0}» (échec)", "Les serveurs non listés sont refusés."))
         default:
-            report.findings.append(MailFinding(.warning, "Pas de règle « all »",
-                "Sans « all », le résultat par défaut est neutre\u{00A0}: les serveurs non listés ne sont pas refusés.",
-                fix: "Terminer l’enregistrement par « ~all » ou « -all »."))
+            report.findings.append(MailFinding(.warning, "Pas de règle «\u{00A0}all\u{00A0}»",
+                "Sans «\u{00A0}all\u{00A0}», le résultat par défaut est neutre\u{00A0}: les serveurs non listés ne sont pas refusés.",
+                fix: "Terminer l’enregistrement par «\u{00A0}~all\u{00A0}» ou «\u{00A0}-all\u{00A0}»."))
         }
         if !report.findings.contains(where: { $0.status > .info }) {
             report.findings.insert(MailFinding(.ok, "SPF valide",
@@ -288,6 +288,8 @@ public enum SPFAnalyzer {
         var lookups = 0
         var voids = 0
         var rootAll: Character?
+        /// Qualificatif « all » effectif du dernier sous-arbre visité (son « all », sinon celui de son redirect).
+        var subtreeAll: Character?
         var findings: [MailFinding] = []
     }
 
@@ -308,7 +310,7 @@ public enum SPFAnalyzer {
         for warning in record.warnings {
             state.findings.append(MailFinding(.warning, "SPF de \(domain)", warning))
         }
-        if depth == 0 { state.rootAll = record.all?.qualifier }
+        var effectiveAll = record.all?.qualifier
 
         for term in record.terms {
             switch term.kind {
@@ -323,30 +325,36 @@ public enum SPFAnalyzer {
                             "\(target) n’a pas d’enregistrement \(term.kind == .a ? "A" : "MX") (\(domain))."))
                     }
                 } else if term.kind == .mx && answer.values.count > 10 {
-                    state.findings.append(MailFinding(.error, "Trop de MX pour « \(term.raw) »",
+                    state.findings.append(MailFinding(.error, "Trop de MX pour «\u{00A0}\(term.raw)\u{00A0}»",
                         "\(answer.values.count) serveurs MX\u{00A0}: un mécanisme mx ne peut pas en évaluer plus de 10."))
                 }
             case .include:
                 guard let target = term.targetDomain.map(MailDNSText.normalize) else { continue }
                 if term.hasMacro {
-                    state.findings.append(MailFinding(.info, "Include avec macro", "« \(term.raw) » dépend de l’expéditeur\u{00A0}: il n’est pas évalué ici."))
+                    state.findings.append(MailFinding(.info, "Include avec macro", "«\u{00A0}\(term.raw)\u{00A0}» dépend de l’expéditeur\u{00A0}: il n’est pas évalué ici."))
                     continue
                 }
                 await follow(target, via: "include", from: domain, depth: depth, chain: chain, client: client, state: &state)
             case .redirect:
                 guard record.all == nil, let target = term.targetDomain.map(MailDNSText.normalize), !term.hasMacro else { continue }
-                await follow(target, via: "redirect", from: domain, depth: depth, chain: chain, client: client, state: &state)
+                let redirected = await follow(target, via: "redirect", from: domain, depth: depth, chain: chain, client: client, state: &state)
+                if effectiveAll == nil { effectiveAll = redirected }
             default:
                 break
             }
         }
         let subtree = state.lookups - before
         state.nodes[index].subtreeLookups = subtree
+        state.subtreeAll = effectiveAll
+        if depth == 0 { state.rootAll = effectiveAll }
         return subtree
     }
 
+    /// Suit un include ou un redirect ; pour un redirect, renvoie le qualificatif « all » effectif
+    /// du domaine visé (le sien, ou celui de son propre redirect).
+    @discardableResult
     static func follow(_ target: String, via: String, from domain: String, depth: Int, chain: [String],
-                       client: MailDNSClient, state: inout State) async {
+                       client: MailDNSClient, state: inout State) async -> Character? {
         func node(_ problem: String) {
             state.nodes.append(SPFNode(id: state.nodes.count, depth: depth + 1, domain: target, via: via, record: nil,
                                        lookups: 0, subtreeLookups: 0, problem: problem))
@@ -356,33 +364,32 @@ public enum SPFAnalyzer {
             state.findings.append(MailFinding(.error, "Boucle d’include",
                 "\(domain) inclut \(target), déjà présent plus haut (\(chain.joined(separator: " → ")) → \(target)).",
                 fix: "Retirer l’include qui revient vers un domaine déjà évalué."))
-            return
+            return nil
         }
         guard depth + 1 <= maxDepth, state.nodes.count < maxNodes else {
             node("non suivi (profondeur)")
-            return
+            return nil
         }
         let answer = await client.query(target, .txt)
         let spf = answer.values.filter(SPFRecord.isSPF)
         if let failure = answer.failureText {
             node("recherche impossible")
             state.findings.append(MailFinding(.warning, "\(via) \(target) non vérifié", "La recherche TXT a échoué\u{00A0}: \(failure)."))
-            return
+            return nil
         }
         guard let first = spf.first, let record = SPFRecord.parse(first) else {
             if answer.isEmpty { state.voids += 1 }
             node("aucun SPF")
             state.findings.append(MailFinding(.error, "\(via == "include" ? "include" : "redirect")\u{00A0}: \(target) sans SPF",
-                "\(domain) renvoie vers \(target), qui ne publie pas de « v=spf1 »\u{00A0}: permerror chez les destinataires.",
+                "\(domain) renvoie vers \(target), qui ne publie pas de «\u{00A0}v=spf1\u{00A0}»\u{00A0}: permerror chez les destinataires.",
                 fix: "Corriger le nom (faute de frappe\u{00A0}?) ou retirer ce \(via)."))
-            return
+            return nil
         }
         if spf.count > 1 {
-            state.findings.append(MailFinding(.error, "\(target)\u{00A0}: plusieurs SPF", "Le domaine inclus publie \(spf.count) enregistrements « v=spf1 »."))
+            state.findings.append(MailFinding(.error, "\(target)\u{00A0}: plusieurs SPF", "Le domaine inclus publie \(spf.count) enregistrements «\u{00A0}v=spf1\u{00A0}»."))
         }
-        let saved = state.rootAll
         await visit(target, record: record, via: via, depth: depth + 1, chain: chain + [target], client: client, state: &state)
-        // Un redirect à la racine remplace la règle finale par celle du domaine visé.
-        state.rootAll = (via == "redirect" && depth == 0) ? record.all?.qualifier : saved
+        // Un redirect remplace la règle finale par celle (effective) du domaine visé.
+        return via == "redirect" ? state.subtreeAll : nil
     }
 }

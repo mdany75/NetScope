@@ -100,7 +100,7 @@ final class ToolMailRecordsModel: ObservableObject {
         }
     }
 
-    /// Démonstration : groupecouture.ca ; NETSCOPE_COURRIEL_ONGLET=dkim (ou dmarc…) ouvre cet onglet.
+    /// Démonstration : exemple.ca ; NETSCOPE_COURRIEL_ONGLET=dkim (ou dmarc…) ouvre cet onglet.
     func startDemo() {
         domain = MailDemo.domain
         if let raw = ProcessInfo.processInfo.environment["NETSCOPE_COURRIEL_ONGLET"], let kind = MailRecordKind(rawValue: raw) {

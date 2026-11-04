@@ -86,7 +86,7 @@ func registerMailDNSTests(_ suite: TestSuite) {
         try expect(bad.errors.contains { $0.contains("300.1.1.1") }, "IPv4 invalide")
         try expect(bad.errors.contains { $0.contains("inclde") }, "mécanisme inconnu")
         try expect(bad.errors.contains { $0.contains("include:") && $0.contains("manquant") }, "include sans domaine")
-        try expect(bad.warnings.contains { $0.contains("après « all »") }, "terme après all")
+        try expect(bad.warnings.contains { $0.contains("après «\u{00A0}all\u{00A0}»") }, "terme après all")
         try expect(bad.warnings.contains { $0.contains("redirect") }, "redirect ignoré avec all")
         try expectEqual(SPFRecord.parse("v=spf1 ptr -all")!.warnings.count, 1, "ptr déconseillé")
         let twice = SPFRecord.parse("v=spf1 redirect=a.test redirect=b.test")!
@@ -159,7 +159,7 @@ func registerMailDNSTests(_ suite: TestSuite) {
         try expect(!ok.isEnforced, "pct=50 n’est pas une application complète")
 
         let bad = DMARCRecord.parse("p=reject; v=DMARC1; pct=150; rua=dmarc@exemple.ca; adkim=x; p=none; zz=1")
-        try expect(bad.errors.contains { $0.contains("commencer par « v=DMARC1 »") }, "v= en premier")
+        try expect(bad.errors.contains { $0.contains("commencer par «\u{00A0}v=DMARC1\u{00A0}»") }, "v= en premier")
         try expect(bad.errors.contains { $0.contains("pct=150") }, "pct hors bornes")
         try expect(bad.errors.contains { $0.contains("dmarc@exemple.ca") }, "rua sans mailto:")
         try expect(bad.errors.contains { $0.contains("adkim=x") }, "adkim invalide")
@@ -183,7 +183,7 @@ func registerMailDNSTests(_ suite: TestSuite) {
         let inherited = await DMARCAnalyzer.analyze("ventes.exemple.ca", client: fixture)
         try expect(inherited.inherited, "hérité de exemple.ca")
         try expectEqual(inherited.location, "_dmarc.exemple.ca", "emplacement")
-        try expect(inherited.findings.contains { $0.title == "Politique « quarantine »" }, "sp=quarantine appliqué au sous-domaine")
+        try expect(inherited.findings.contains { $0.title == "Politique «\u{00A0}quarantine\u{00A0}»" }, "sp=quarantine appliqué au sous-domaine")
         try expect(inherited.findings.contains { $0.title.contains("analyse.test autorisés") }, "rapports externes autorisés")
         try expect(inherited.findings.contains { $0.title.contains("refus.test non autorisés") }, "rapports externes non autorisés")
 

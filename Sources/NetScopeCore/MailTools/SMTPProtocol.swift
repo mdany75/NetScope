@@ -39,9 +39,9 @@ public enum SMTPError: Error, LocalizedError, Equatable, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .malformedReply(let line): return "Réponse SMTP illisible : « \(line.prefix(80)) »."
+        case .malformedReply(let line): return "Réponse SMTP illisible\u{00A0}: «\u{00A0}\(line.prefix(80))\u{00A0}»."
         case .replyTooLong: return "Réponse SMTP trop longue."
-        case .invalidHostname(let name): return "« \(name) » n’est pas un nom de serveur valide."
+        case .invalidHostname(let name): return "«\u{00A0}\(name)\u{00A0}» n’est pas un nom de serveur valide."
         }
     }
 }
@@ -184,7 +184,7 @@ public struct SMTPExtension: Hashable, Sendable, Identifiable {
         case "MTRK": return "Suivi des messages"
         case "LIMITS": return "Limites annoncées\u{00A0}: " + parameters.joined(separator: " ")
         default:
-            return keyword.hasPrefix("X") ? "Extension propre au serveur" : "Extension « \(keyword) »"
+            return keyword.hasPrefix("X") ? "Extension propre au serveur" : "Extension «\u{00A0}\(keyword)\u{00A0}»"
         }
     }
 
@@ -366,7 +366,7 @@ public enum SMTPAssessment {
         let ports = open.map(String.init).joined(separator: " et ")
         return SMTPFinding(.critical, "Le port 25 sortant semble bloqué par votre fournisseur",
                            "Délai dépassé sur le port 25 alors que le port \(ports) du même serveur répond. Beaucoup de "
-                           + "fournisseurs résidentiels bloquent le port 25 sortant : refaire le test depuis un autre réseau, "
+                           + "fournisseurs résidentiels bloquent le port 25 sortant\u{00A0}: refaire le test depuis un autre réseau, "
                            + "ou utiliser le port 587 pour envoyer.")
     }
 
@@ -388,7 +388,7 @@ public enum SMTPAssessment {
                 }
             } else {
                 list.append(SMTPFinding(.critical, "Le serveur refuse la session (code \(banner.code))",
-                                        "Bannière\u{00A0}: « \(banner.firstLine) ». L’adresse de ce réseau est peut-être sur une liste noire."))
+                                        "Bannière\u{00A0}: «\u{00A0}\(banner.firstLine)\u{00A0}». L’adresse de ce réseau est peut-être sur une liste noire."))
             }
         }
 
@@ -401,16 +401,16 @@ public enum SMTPAssessment {
             let ptr = SMTPCertificate.normalize(ptrNames[0])
             if ptrConfirmed == false {
                 list.append(SMTPFinding(.warning, "DNS inverse non confirmé",
-                                        "Le PTR « \(ptr) » ne renvoie pas à l’adresse du serveur (FCrDNS)."))
+                                        "Le PTR «\u{00A0}\(ptr)\u{00A0}» ne renvoie pas à l’adresse du serveur (FCrDNS)."))
             } else if ptrConfirmed == true {
-                list.append(SMTPFinding(.ok, "DNS inverse confirmé", "PTR « \(ptr) » ⇄ même adresse."))
+                list.append(SMTPFinding(.ok, "DNS inverse confirmé", "PTR «\u{00A0}\(ptr)\u{00A0}» ⇄ même adresse."))
             }
             if let bannerHost {
                 if ptrNames.contains(where: { SMTPCertificate.normalize($0) == bannerHost }) {
-                    list.append(SMTPFinding(.ok, "Bannière cohérente avec le DNS inverse", "Les deux annoncent « \(bannerHost) »."))
+                    list.append(SMTPFinding(.ok, "Bannière cohérente avec le DNS inverse", "Les deux annoncent «\u{00A0}\(bannerHost)\u{00A0}»."))
                 } else {
                     list.append(SMTPFinding(.info, "La bannière n’annonce pas le nom du DNS inverse",
-                                            "Bannière\u{00A0}: « \(bannerHost) » · PTR\u{00A0}: « \(ptr) »."))
+                                            "Bannière\u{00A0}: «\u{00A0}\(bannerHost)\u{00A0}» · PTR\u{00A0}: «\u{00A0}\(ptr)\u{00A0}»."))
                 }
             }
         }
@@ -447,15 +447,15 @@ public enum SMTPAssessment {
             }
             if !isIP {
                 if certificate.covers(target) {
-                    list.append(SMTPFinding(.ok, "Le certificat couvre « \(target) »"))
+                    list.append(SMTPFinding(.ok, "Le certificat couvre «\u{00A0}\(target)\u{00A0}»"))
                 } else {
                     let names = certificate.dnsNames.prefix(4).joined(separator: ", ")
-                    list.append(SMTPFinding(.warning, "Le certificat ne couvre pas « \(target) »",
+                    list.append(SMTPFinding(.warning, "Le certificat ne couvre pas «\u{00A0}\(target)\u{00A0}»",
                                             names.isEmpty ? "Aucun nom dans le certificat." : "Noms du certificat\u{00A0}: \(names)."))
                 }
             }
             if let bannerHost, bannerHost != target, !certificate.covers(bannerHost) {
-                list.append(SMTPFinding(.info, "Le certificat ne couvre pas le nom de la bannière", "« \(bannerHost) »."))
+                list.append(SMTPFinding(.info, "Le certificat ne couvre pas le nom de la bannière", "«\u{00A0}\(bannerHost)\u{00A0}»."))
             }
             if certificate.isSelfSigned {
                 list.append(SMTPFinding(.warning, "Certificat auto-signé",
@@ -475,7 +475,7 @@ public enum SMTPAssessment {
         }
         if port == 25, extensionsAfterTLS.contains("AUTH") || extensions.contains("AUTH") {
             list.append(SMTPFinding(.info, "Authentification ouverte sur le port 25",
-                                    "Le port 25 sert à la réception entre serveurs ; l’envoi authentifié passe d’habitude par 587."))
+                                    "Le port 25 sert à la réception entre serveurs\u{00A0}; l’envoi authentifié passe d’habitude par 587."))
         }
         let all = extensions + extensionsAfterTLS
         if all.contains("VRFY") || all.contains("EXPN") {

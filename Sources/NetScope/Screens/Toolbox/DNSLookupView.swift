@@ -379,7 +379,7 @@ struct DNSLookupView: View {
                 }
             }
         } else if model.error == nil {
-            Text("La même question est posée en même temps à chaque serveur coché ; les réponses s’affichent côte à côte et les écarts sont signalés (un TTL différent n’est pas un écart).")
+            Text("La même question est posée en même temps à chaque serveur coché\u{00A0}; les réponses s’affichent côte à côte et les écarts sont signalés (un TTL différent n’est pas un écart).")
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }

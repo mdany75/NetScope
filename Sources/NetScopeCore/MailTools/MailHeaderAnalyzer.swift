@@ -582,10 +582,10 @@ public enum MailHeaderAnalyzer {
         let dmarc = report.result("dmarc"), spf = report.result("spf"), dkim = report.result("dkim")
         if let dmarc {
             if dmarc.isPass {
-                list.append(SMTPFinding(.ok, "DMARC réussi", "Le domaine « \(dmarc.properties["header.from"] ?? fromDomain) » reconnaît ce message."))
+                list.append(SMTPFinding(.ok, "DMARC réussi", "Le domaine «\u{00A0}\(dmarc.properties["header.from"] ?? fromDomain)\u{00A0}» reconnaît ce message."))
             } else if dmarc.isFail {
                 list.append(SMTPFinding(.critical, "DMARC en échec",
-                                        "Le domaine de l’expéditeur (« \(dmarc.properties["header.from"] ?? fromDomain) ») ne reconnaît pas ce message\u{00A0}: usurpation probable."))
+                                        "Le domaine de l’expéditeur («\u{00A0}\(dmarc.properties["header.from"] ?? fromDomain)\u{00A0}») ne reconnaît pas ce message\u{00A0}: usurpation probable."))
             } else {
                 list.append(SMTPFinding(.info, "DMARC\u{00A0}: \(dmarc.result)", "Aucune politique DMARC n’a pu confirmer l’expéditeur."))
             }
@@ -605,9 +605,9 @@ public enum MailHeaderAnalyzer {
         if let dkim {
             if dkim.isPass {
                 let signer = dkim.properties["header.d"] ?? dkim.properties["header.i"] ?? ""
-                list.append(SMTPFinding(.ok, "Signature DKIM valide", signer.isEmpty ? "" : "Signé par « \(signer) »."))
+                list.append(SMTPFinding(.ok, "Signature DKIM valide", signer.isEmpty ? "" : "Signé par «\u{00A0}\(signer)\u{00A0}»."))
                 if !signer.isEmpty, !fromOrg.isEmpty, organizationalDomain(signer.replacingOccurrences(of: "@", with: "")) != fromOrg {
-                    list.append(SMTPFinding(.info, "Signé par un autre domaine que l’expéditeur", "Signature\u{00A0}: « \(signer) » · From\u{00A0}: « \(fromDomain) »."))
+                    list.append(SMTPFinding(.info, "Signé par un autre domaine que l’expéditeur", "Signature\u{00A0}: «\u{00A0}\(signer)\u{00A0}» · From\u{00A0}: «\u{00A0}\(fromDomain)\u{00A0}»."))
                 }
             } else if dkim.isFail || dkim.result == "neutral" {
                 list.append(SMTPFinding(.warning, "Signature DKIM invalide", "Le message a pu être modifié en route, ou la signature est fausse."))
@@ -618,25 +618,25 @@ public enum MailHeaderAnalyzer {
         if let envelope = report.envelopeDomain, !fromOrg.isEmpty, organizationalDomain(envelope) != fromOrg {
             let dmarcPass = dmarc?.isPass ?? false
             list.append(SMTPFinding(dmarcPass ? .info : .warning, "Enveloppe (Return-Path) ≠ From",
-                                    "Return-Path\u{00A0}: « \(envelope) » · From\u{00A0}: « \(fromDomain) »."
+                                    "Return-Path\u{00A0}: «\u{00A0}\(envelope)\u{00A0}» · From\u{00A0}: «\u{00A0}\(fromDomain)\u{00A0}»."
                                     + (dmarcPass ? " Courant pour les envois de masse (DMARC réussi)." : "")))
         }
         if let replyTo = report.replyTo, !replyTo.domain.isEmpty, !fromOrg.isEmpty, organizationalDomain(replyTo.domain) != fromOrg {
             list.append(SMTPFinding(.warning, "Reply-To vers un autre domaine",
-                                    "Les réponses iront à « \(replyTo.address) », pas à « \(report.from?.address ?? "") »."))
+                                    "Les réponses iront à «\u{00A0}\(replyTo.address)\u{00A0}», pas à «\u{00A0}\(report.from?.address ?? "")\u{00A0}»."))
         }
         if let sender = report.sender, !sender.domain.isEmpty, !fromOrg.isEmpty, organizationalDomain(sender.domain) != fromOrg {
-            list.append(SMTPFinding(.info, "Sender différent de From", "Envoyé par « \(sender.address) » au nom de « \(report.from?.address ?? "") »."))
+            list.append(SMTPFinding(.info, "Sender différent de From", "Envoyé par «\u{00A0}\(sender.address)\u{00A0}» au nom de «\u{00A0}\(report.from?.address ?? "")\u{00A0}»."))
         }
 
         // Usurpation : domaine sosie, nom affiché trompeur
         if !fromDomain.isEmpty {
             if let brand = imitatedBrand(fromDomain) {
-                list.append(SMTPFinding(.critical, "Domaine sosie", "« \(fromDomain) » imite « \(brand.official) »."))
+                list.append(SMTPFinding(.critical, "Domaine sosie", "«\u{00A0}\(fromDomain)\u{00A0}» imite «\u{00A0}\(brand.official)\u{00A0}»."))
             }
             if fromDomain.contains("xn--") {
                 list.append(SMTPFinding(.warning, "Domaine internationalisé (punycode)",
-                                        "« \(fromDomain) » peut contenir des lettres d’un autre alphabet qui imitent un domaine connu."))
+                                        "«\u{00A0}\(fromDomain)\u{00A0}» peut contenir des lettres d’un autre alphabet qui imitent un domaine connu."))
             }
             var others: [(String, String)] = []
             if let envelope = report.envelopeDomain { others.append(("Return-Path", envelope)) }
@@ -651,21 +651,21 @@ public enum MailHeaderAnalyzer {
             }
             if let match = others.first(where: { areLookalikes(fromDomain, $0.1) }) {
                 list.append(SMTPFinding(.critical, "Domaines presque identiques",
-                                        "From\u{00A0}: « \(fromDomain) » et \(match.0)\u{00A0}: « \(match.1) »."))
+                                        "From\u{00A0}: «\u{00A0}\(fromDomain)\u{00A0}» et \(match.0)\u{00A0}: «\u{00A0}\(match.1)\u{00A0}»."))
             }
             if let name = report.from?.displayName {
                 if let embedded = name.range(of: #"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"#, options: .regularExpression) {
                     let address = MailAddress(displayName: nil, address: String(name[embedded]))
                     if organizationalDomain(address.domain) != fromOrg {
                         list.append(SMTPFinding(.critical, "Nom affiché trompeur",
-                                                "Le nom affiché montre « \(address.address) », mais le message vient de « \(report.from?.address ?? "") »."))
+                                                "Le nom affiché montre «\u{00A0}\(address.address)\u{00A0}», mais le message vient de «\u{00A0}\(report.from?.address ?? "")\u{00A0}»."))
                     }
                 } else {
                     let compact = normalizeLookalike(name.lowercased().filter { $0.isLetter || $0.isNumber })
                     if let brand = brands.first(where: { $0.name.count >= 5 && compact.contains($0.name) }),
                        !brand.domains.contains(where: { organizationalDomain($0) == fromOrg }) {
                         list.append(SMTPFinding(.warning, "Nom affiché d’une marque, autre domaine",
-                                                "« \(name) » écrit depuis « \(fromDomain) »."))
+                                                "«\u{00A0}\(name)\u{00A0}» écrit depuis «\u{00A0}\(fromDomain)\u{00A0}»."))
                     }
                 }
             }
@@ -675,7 +675,7 @@ public enum MailHeaderAnalyzer {
         if let messageID = report.messageID {
             let domain = messageID.trimmingCharacters(in: CharacterSet(charactersIn: "<> ")).split(separator: "@").last.map(String.init) ?? ""
             if !domain.isEmpty, !fromOrg.isEmpty, domain.contains("."), organizationalDomain(domain) != fromOrg {
-                list.append(SMTPFinding(.info, "Message-ID d’un autre domaine", "« \(domain) » (souvent le service d’envoi)."))
+                list.append(SMTPFinding(.info, "Message-ID d’un autre domaine", "«\u{00A0}\(domain)\u{00A0}» (souvent le service d’envoi)."))
             }
         } else {
             list.append(SMTPFinding(.info, "Aucun Message-ID", "Les messages légitimes en ont presque toujours un."))

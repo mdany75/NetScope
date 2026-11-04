@@ -22,7 +22,7 @@ public struct BIMIRecord: Hashable, Sendable {
     public static func parse(_ text: String) -> BIMIRecord {
         let tags = MailTagList.parse(text)
         var record = BIMIRecord(text: text, tags: tags, logo: tags["l"], authority: tags["a"], errors: tags.errors)
-        if tags.keys.first != "v" || tags["v"] != "BIMI1" { record.errors.append("L’enregistrement doit commencer par « v=BIMI1 ».") }
+        if tags.keys.first != "v" || tags["v"] != "BIMI1" { record.errors.append("L’enregistrement doit commencer par «\u{00A0}v=BIMI1\u{00A0}».") }
         if let logo = record.logo, !logo.isEmpty {
             if !logo.lowercased().hasPrefix("https://") { record.errors.append("Le logo l= doit être servi en HTTPS.") }
             if !logo.lowercased().hasSuffix(".svg") { record.errors.append("Le logo l= doit être un fichier SVG (profil SVG Tiny PS).") }
@@ -64,7 +64,7 @@ public struct MTASTSPolicy: Hashable, Sendable {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
             if line.isEmpty { continue }
             guard let colon = line.firstIndex(of: ":") else {
-                policy.errors.append("Ligne « \(line) » sans « : ».")
+                policy.errors.append("Ligne «\u{00A0}\(line)\u{00A0}» sans «\u{00A0}:\u{00A0}».")
                 continue
             }
             let key = line[..<colon].trimmingCharacters(in: .whitespaces).lowercased()
@@ -77,15 +77,15 @@ public struct MTASTSPolicy: Hashable, Sendable {
             default: break
             }
         }
-        if policy.version != "STSv1" { policy.errors.append("« version: STSv1 » est obligatoire.") }
+        if policy.version != "STSv1" { policy.errors.append("«\u{00A0}version: STSv1\u{00A0}» est obligatoire.") }
         if let mode = policy.mode {
-            if !["enforce", "testing", "none"].contains(mode) { policy.errors.append("Mode « \(mode) » inconnu (enforce, testing ou none).") }
+            if !["enforce", "testing", "none"].contains(mode) { policy.errors.append("Mode «\u{00A0}\(mode)\u{00A0}» inconnu (enforce, testing ou none).") }
         } else {
-            policy.errors.append("La ligne « mode: » est obligatoire.")
+            policy.errors.append("La ligne «\u{00A0}mode:\u{00A0}» est obligatoire.")
         }
-        if policy.maxAge == nil { policy.errors.append("La ligne « max_age: » (en secondes) est obligatoire.") }
+        if policy.maxAge == nil { policy.errors.append("La ligne «\u{00A0}max_age:\u{00A0}» (en secondes) est obligatoire.") }
         if let age = policy.maxAge, age > 31_557_600 { policy.errors.append("max_age dépasse un an (31557600 s).") }
-        if policy.mx.isEmpty && policy.mode != "none" { policy.errors.append("Au moins une ligne « mx: » est obligatoire.") }
+        if policy.mx.isEmpty && policy.mode != "none" { policy.errors.append("Au moins une ligne «\u{00A0}mx:\u{00A0}» est obligatoire.") }
         return policy
     }
 
@@ -140,9 +140,9 @@ public struct TLSRPTRecord: Hashable, Sendable {
     public static func parse(_ text: String) -> TLSRPTRecord {
         let tags = MailTagList.parse(text)
         var record = TLSRPTRecord(text: text, tags: tags, rua: [], errors: tags.errors)
-        if tags.keys.first != "v" || tags["v"] != "TLSRPTv1" { record.errors.append("L’enregistrement doit commencer par « v=TLSRPTv1 ».") }
+        if tags.keys.first != "v" || tags["v"] != "TLSRPTv1" { record.errors.append("L’enregistrement doit commencer par «\u{00A0}v=TLSRPTv1\u{00A0}».") }
         guard let rua = tags["rua"] else {
-            record.errors.append("L’étiquette « rua= » (adresse des rapports) est obligatoire.")
+            record.errors.append("L’étiquette «\u{00A0}rua=\u{00A0}» (adresse des rapports) est obligatoire.")
             return record
         }
         for uri in MailURI.list(rua) {
@@ -150,7 +150,7 @@ public struct TLSRPTRecord: Hashable, Sendable {
             if lower.hasPrefix("https://") || MailURI.mailbox(uri) != nil {
                 record.rua.append(uri)
             } else {
-                record.errors.append("Adresse « \(uri) » invalide (mailto: ou https: attendu).")
+                record.errors.append("Adresse «\u{00A0}\(uri)\u{00A0}» invalide (mailto: ou https: attendu).")
             }
         }
         return record
@@ -226,11 +226,11 @@ public enum MailPolicyAnalyzer {
         report.record = text
         let tags = MailTagList.parse(text)
         report.id = tags["id"]
-        if records.count > 1 { report.findings.append(MailFinding(.error, "Plusieurs TXT MTA-STS", "Un seul « v=STSv1 » est permis.")) }
-        if tags["v"] != "STSv1" { report.findings.append(MailFinding(.error, "Syntaxe MTA-STS", "« v=STSv1 » attendu au début.")) }
+        if records.count > 1 { report.findings.append(MailFinding(.error, "Plusieurs TXT MTA-STS", "Un seul «\u{00A0}v=STSv1\u{00A0}» est permis.")) }
+        if tags["v"] != "STSv1" { report.findings.append(MailFinding(.error, "Syntaxe MTA-STS", "«\u{00A0}v=STSv1\u{00A0}» attendu au début.")) }
         if let id = tags["id"] {
             if !(1...32).contains(id.count) || !id.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) }) {
-                report.findings.append(MailFinding(.error, "Identifiant « id=\(id) » invalide", "1 à 32 lettres ou chiffres."))
+                report.findings.append(MailFinding(.error, "Identifiant «\u{00A0}id=\(id)\u{00A0}» invalide", "1 à 32 lettres ou chiffres."))
             }
         } else {
             report.findings.append(MailFinding(.error, "Identifiant id= manquant", "Le TXT doit porter un id= qui change à chaque modification de la politique."))
@@ -248,7 +248,7 @@ public enum MailPolicyAnalyzer {
                 report.findings.append(MailFinding(.ok, "MTA-STS appliqué (enforce)", "Les expéditeurs compatibles exigent TLS et un certificat valide."))
             case "testing":
                 report.findings.append(MailFinding(.warning, "MTA-STS en mode testing",
-                    "Les échecs TLS sont signalés (TLS-RPT) mais les messages passent quand même.", fix: "Passer en « mode: enforce » après quelques semaines de rapports propres."))
+                    "Les échecs TLS sont signalés (TLS-RPT) mais les messages passent quand même.", fix: "Passer en «\u{00A0}mode: enforce\u{00A0}» après quelques semaines de rapports propres."))
             case "none":
                 report.findings.append(MailFinding(.warning, "MTA-STS désactivé (mode none)", "La politique est publiée mais ne s’applique pas."))
             default: break
@@ -261,7 +261,7 @@ public enum MailPolicyAnalyzer {
                 for host in mxHosts where !policy.covers(host) {
                     report.findings.append(MailFinding(.error, "MX \(host) hors politique",
                         "Aucune ligne mx: ne couvre ce serveur\u{00A0}: en mode enforce, les messages vers lui seraient refusés.",
-                        fix: "Ajouter « mx: \(host) » (ou un motif *.) au fichier de politique."))
+                        fix: "Ajouter «\u{00A0}mx: \(host)\u{00A0}» (ou un motif *.) au fichier de politique."))
                 }
             }
         } catch {
@@ -286,12 +286,12 @@ public enum MailPolicyAnalyzer {
         guard let text = records.first else {
             report.findings.append(MailFinding(.info, "Aucun TLS-RPT",
                 "Sans TLS-RPT, les échecs de chiffrement vers vos MX restent invisibles.",
-                fix: "Publier « _smtp._tls.\(name) TXT \"v=TLSRPTv1; rua=mailto:tlsrpt@\(name)\" »."))
+                fix: "Publier «\u{00A0}_smtp._tls.\(name) TXT \"v=TLSRPTv1; rua=mailto:tlsrpt@\(name)\"\u{00A0}»."))
             return report
         }
         let record = TLSRPTRecord.parse(text)
         report.record = record
-        if records.count > 1 { report.findings.append(MailFinding(.error, "Plusieurs TXT TLS-RPT", "Un seul « v=TLSRPTv1 » est permis.")) }
+        if records.count > 1 { report.findings.append(MailFinding(.error, "Plusieurs TXT TLS-RPT", "Un seul «\u{00A0}v=TLSRPTv1\u{00A0}» est permis.")) }
         for error in record.errors { report.findings.append(MailFinding(.error, "Syntaxe TLS-RPT", error)) }
         if record.errors.isEmpty { report.findings.append(MailFinding(.ok, "TLS-RPT publié", "Rapports vers " + record.rua.joined(separator: ", ") + ".")) }
         return report

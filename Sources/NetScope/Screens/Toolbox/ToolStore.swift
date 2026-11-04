@@ -62,7 +62,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .subnet: return "Adresse réseau, masques, broadcast, plage d’hôtes et découpage."
         case .mac: return "Formats MAC, fabricant OUI et correspondance avec l’inventaire."
         case .ports: return "Ports TCP ouverts et bannières des services texte (SSH, FTP, SMTP, HTTP)."
-        case .dns: return "Résolution A, AAAA, MX, TXT, SOA, SRV, CAA, DNSSEC… ; comparaison de serveurs et propagation."
+        case .dns: return "Résolution A, AAAA, MX, TXT, SOA, SRV, CAA, DNSSEC…\u{00A0}; comparaison de serveurs et propagation."
         case .whois: return "Propriétaire d’une adresse, d’un ASN ou d’un domaine."
         case .mtu: return "Recherche de la MTU du chemin avec le bit Don’t Fragment."
         case .iperf: return "Débit réel entre ce Mac et un serveur iperf3 du réseau."
@@ -313,11 +313,11 @@ final class ToolStore: ObservableObject {
             encoder.dateEncodingStrategy = .iso8601
             try encoder.encode(Snapshot(commands: commands, recents: recents, wakeLog: wakeLog)).write(to: url, options: .atomic)
         } catch {
-            NSLog("NetScope : enregistrement impossible de %@ : %@", url.path, error.localizedDescription)
+            NSLog("NetScope\u{00A0}: enregistrement impossible de %@\u{00A0}: %@", url.path, error.localizedDescription)
         }
     }
 
-    /// Outils courriel en démonstration : domaine fictif groupecouture.ca (réponses DNS fixes).
+    /// Outils courriel en démonstration : domaine exemple.ca (réponses DNS fixes).
     private func loadMailDemo() {
         mailSuper.startDemo()
         mailHealth.startDemo()

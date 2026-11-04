@@ -49,12 +49,37 @@ public struct SvcChecker: Sendable {
     public func check(_ service: SvcService, now: Date = Date()) async -> SvcSnapshot {
         async let feedResult = readFeed(service, now: now)
         async let endpointResults = probeAll(service.endpoints)
-        let (feed, feedError, source) = await feedResult
+        let (rawFeed, feedError, source) = await feedResult
+        let feed = rawFeed.map { Self.filtered($0, for: service) }
         let endpoints = await endpointResults
         let verdict = SvcVerdictRules.verdict(feed: feed, feedError: feedError, endpoints: endpoints,
                                               hasFeed: service.format != .none || usesGraph(service))
         return SvcSnapshot(serviceID: service.id, date: now, feed: feed, feedError: feedError, feedSource: source,
                            endpoints: endpoints, verdict: verdict)
+    }
+
+    /// Garde seulement les incidents qui touchent les parties suivies (`service.components`), ou le
+    /// service entier (aucune partie nommée, ou le nom du service) ; recalcule alors l'état de la page.
+    public static func filtered(_ feed: SvcFeedReport, for service: SvcService) -> SvcFeedReport {
+        guard !service.components.isEmpty else { return feed }
+        let followed = service.components.map { $0.lowercased() }
+        let whole = [service.name.lowercased()]
+        func concerns(_ text: String) -> Bool {
+            let lower = text.lowercased()
+            return followed.contains { lower.contains($0) || (!lower.isEmpty && $0.contains(lower)) }
+        }
+        func keep(_ incident: SvcIncident) -> Bool {
+            if incident.affected.isEmpty { return true }
+            if incident.affected.contains(where: { name in whole.contains { name.lowercased().hasPrefix($0) } }) { return true }
+            return incident.affected.contains(where: concerns) || concerns(incident.title)
+        }
+        let incidents = feed.incidents.filter(keep)
+        guard incidents.count != feed.incidents.count else { return feed }
+        let components = feed.components.filter { concerns($0.name) }
+        let worst = (incidents.filter { !$0.isResolved }.map(\.impact) + components.map(\.health)).max() ?? .operational
+        let health = feed.health.isProblem || feed.health == .maintenance ? worst : feed.health
+        return SvcFeedReport(health: health, description: SvcFeedParser.describe(health: health, incidents: incidents),
+                             incidents: incidents, components: feed.components)
     }
 
     private func usesGraph(_ service: SvcService) -> Bool {
