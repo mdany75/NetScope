@@ -50,6 +50,16 @@ enum MonDemo {
             value: "1,6\(s)ms · perte 0\(s)%", latency: 1.6, orange: [], red: []),
         Row(name: "Ping FortiAP-231F", kind: .ping, target: "10.182.122.102", sub: "Gi1/0/12 · VLAN 20", iv: 30, state: .ok,
             value: "2,3\(s)ms · perte 0\(s)%", latency: 2.3, orange: [], red: []),
+        // Ressources (note 21) : port saturé d'un switch, processeur d'un serveur, mémoire de ce Mac.
+        Row(name: "Uplink SW-ETG2-01 saturé", kind: .portLoad, target: "10.182.122.2", sub: "SW-CORE-01 · Gi1/0/47", iv: 60,
+            state: .ok, value: "Gi1/0/47 ↓\(s)241 Mb/s ↑\(s)622 Mb/s · 62\(s)% de 1\(s)Gb/s", latency: nil, orange: [15], red: [],
+            configure: { $0.resourcePort = "Gi1/0/47"; $0.resourceLimit = 80; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
+        Row(name: "Processeur SRV-AD-01", kind: .cpu, target: "10.10.0.10", sub: "Contrôleur de domaine", iv: 60, state: .ok,
+            value: "Processeur 22\(s)% · 8 cœurs", latency: nil, orange: [], red: [],
+            configure: { $0.resourceLimit = 90; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
+        Row(name: "Mémoire de ce Mac", kind: .memory, target: "ce Mac", sub: "Macmini-de-Dany", iv: 300, state: .ok,
+            value: "Mémoire 68\(s)% · 21,8 Go / 32 Go", latency: nil, orange: [], red: [], dependsOnGateway: false,
+            configure: { $0.resourceLimit = 90; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
     ]
 
     static func load(into store: MonStore) {

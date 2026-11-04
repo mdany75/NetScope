@@ -9,6 +9,10 @@ enum DemoData {
         state.ranges = ranges
         state.devices = devices()
         state.selectedDeviceID = "10.182.122.111"
+        // Captures : NETSCOPE_DEVICE=10.182.122.135 ouvre la fiche d'un autre appareil (ex. ce Mac).
+        if CommandLine.arguments.contains("--snapshot"), let ip = ProcessInfo.processInfo.environment["NETSCOPE_DEVICE"] {
+            state.selectedDeviceID = ip
+        }
         state.activeInterface = interface
         state.dnsServers = [IPv4Address("10.182.122.1")!]
         state.updateAvailable = "1.1.0"

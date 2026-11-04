@@ -44,6 +44,8 @@ private struct DeviceDetailView: View {
                     DevicePortsTab(device: device, model: session.portModel(for: device), store: store)
                 case .web:
                     DeviceWebTab(device: device, model: session.webModel(for: device), store: store)
+                case .ressources:
+                    DeviceResourcesTab(device: device)
                 case .historique:
                     DeviceHistoryTab(device: device, store: store)
                 case .notes:

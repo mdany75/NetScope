@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Onglets de la fiche appareil (croquis docs/croquis/Device.dc.html).
 enum DeviceTab: String, CaseIterable, Identifiable {
-    case apercu, ports, web, historique, notes
+    case apercu, ports, web, ressources, historique, notes
 
     var id: String { rawValue }
 
@@ -13,6 +13,7 @@ enum DeviceTab: String, CaseIterable, Identifiable {
         case .apercu: return "Aperçu"
         case .ports: return "Ports et services"
         case .web: return "Web"
+        case .ressources: return "Ressources"
         case .historique: return "Historique"
         case .notes: return "Notes"
         }

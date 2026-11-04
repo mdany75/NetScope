@@ -6,6 +6,8 @@ import Foundation
 /// Type de sonde.
 public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable {
     case ping, tcp, http, dns, snmp, switchPort, newDevices
+    /// Ressources (note 21) : processeur, mémoire, port saturé (ce Mac ou SNMP).
+    case cpu, memory, portLoad
 
     public var id: String { rawValue }
 
@@ -19,6 +21,9 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .snmp: return "SNMP"
         case .switchPort: return "Port de switch"
         case .newDevices: return "Nouveaux appareils"
+        case .cpu: return "Processeur > X\u{00A0}%"
+        case .memory: return "Mémoire > X\u{00A0}%"
+        case .portLoad: return "Port saturé > X\u{00A0}%"
         }
     }
 
@@ -32,6 +37,9 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .snmp: return "SNMP"
         case .switchPort: return "Port"
         case .newDevices: return "Découverte"
+        case .cpu: return "CPU"
+        case .memory: return "Mémoire"
+        case .portLoad: return "Débit"
         }
     }
 
@@ -45,10 +53,13 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .snmp: return "Adresse IP de l’agent SNMP"
         case .switchPort: return "Adresse MAC de l’appareil"
         case .newDevices: return "Plage (10.0.0.0/24)"
+        case .cpu, .memory: return "ce Mac, ou adresse IP de l’agent SNMP"
+        case .portLoad: return "ce Mac, ou adresse IP du switch"
         }
     }
 
-    /// Vrai si la sonde envoie du trafic (les deux dernières lisent l'inventaire déjà découvert).
+    /// Vrai si la sonde ne dépend pas de l'inventaire du Scanner (le port de switch et les nouveaux
+    /// appareils le lisent) ; les sondes de ressources de ce Mac n'envoient rien sur le réseau.
     public var usesNetwork: Bool {
         switch self {
         case .switchPort, .newDevices: return false
@@ -172,6 +183,10 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
     public var expectedLocation: String?
     /// Nouveaux appareils : adresses MAC déjà connues sur la plage.
     public var knownMACs: [String]?
+    /// Ressources : seuil d'alerte en pourcentage (processeur, mémoire, charge du lien).
+    public var resourceLimit: Double?
+    /// Port saturé : nom du port (« Gi1/0/48 », « en0 »).
+    public var resourcePort: String?
 
     public init(id: UUID = UUID(), name: String, kind: MonProbeKind, target: String, subtitle: String = "",
                 isEnabled: Bool = true, interval: Int = 60, thresholds: MonThresholds = MonThresholds(),
@@ -229,7 +244,19 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
             return expectedLocation.map { "Alerte si l’appareil quitte \($0)" } ?? "Alerte si l’appareil change de port"
         case .newDevices:
             return "Alerte à chaque nouvelle adresse MAC"
+        case .cpu:
+            return "Alerte si processeur > \(MonFormat.percent(resourceLimit ?? MonProbe.defaultResourceLimit(.cpu)))"
+        case .memory:
+            return "Alerte si mémoire > \(MonFormat.percent(resourceLimit ?? MonProbe.defaultResourceLimit(.memory)))"
+        case .portLoad:
+            let port = resourcePort.flatMap { $0.isEmpty ? nil : $0 } ?? "port à choisir"
+            return "Alerte si \(port) > \(MonFormat.percent(resourceLimit ?? MonProbe.defaultResourceLimit(.portLoad))) du lien"
         }
+    }
+
+    /// Seuil proposé pour une sonde de ressources (90 % processeur et mémoire, 80 % pour un port).
+    public static func defaultResourceLimit(_ kind: MonProbeKind) -> Double {
+        kind == .portLoad ? 80 : 90
     }
 
     /// Hôte et port d'une cible TCP (« 10.0.0.1:443 »).
@@ -286,6 +313,8 @@ extension MonProbe {
         snmpUnit = try? c.decodeIfPresent(String.self, forKey: .snmpUnit)
         expectedLocation = try? c.decodeIfPresent(String.self, forKey: .expectedLocation)
         knownMACs = try? c.decodeIfPresent([String].self, forKey: .knownMACs)
+        resourceLimit = try? c.decodeIfPresent(Double.self, forKey: .resourceLimit)
+        resourcePort = try? c.decodeIfPresent(String.self, forKey: .resourcePort)
     }
 }
 
