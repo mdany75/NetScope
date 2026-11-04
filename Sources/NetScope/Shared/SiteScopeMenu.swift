@@ -15,7 +15,8 @@ import SwiftUI
 final class SiteScopeStore: ObservableObject {
     static let shared = SiteScopeStore()
     /// Note 48 (0.15.0) : Switchs et ports et Wi-Fi ont aussi leur menu « Site ▾ ».
-    static let screens: [Screen] = [.analyse, .inventaire, .carte, .rapports, .switchs, .wifi]
+    /// Note 39 (0.17.0) : Outils, pour l'outil « WAN et VPN ».
+    static let screens: [Screen] = [.analyse, .inventaire, .carte, .rapports, .switchs, .wifi, .outils]
 
     @Published private var choices: [Screen: SiteSelection] = [:]
     private let defaults: UserDefaults?

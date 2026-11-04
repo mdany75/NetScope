@@ -229,6 +229,7 @@ private struct ToolMainPanel: View {
         case .dhcpScopes: DHCPScopesView(store: store)
         case .lldp: NeighborCaptureView(model: neighbors, store: store)
         case .cloud: ServiceStatusView(store: store)
+        case .wan: WANStatusView(scopeScreen: .outils)
         case .mailSuper: MailSuperToolView(model: mailSuper, store: store)
         case .mailHealth: MailHealthView(model: mailHealth, store: store)
         case .mx: MXLookupView(model: mx, store: store)
@@ -257,6 +258,7 @@ private struct ToolMainPanel: View {
         case .dhcpScopes: return "GET /api/v2/cmdb/system.dhcp/server · monitor/system/dhcp"
         case .lldp: return neighbors.command
         case .cloud: return SvcStore.shared.command
+        case .wan: return "GET virtual-wan/health-check · vpn/ipsec"
         case .mailSuper: return mailSuper.command
         case .mailHealth: return mailHealth.command
         case .mx: return mx.command

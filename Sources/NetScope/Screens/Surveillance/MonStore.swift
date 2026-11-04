@@ -323,6 +323,14 @@ final class MonStore: ObservableObject {
                 dhcpScopes = store.overview(devices: appState?.devices ?? devices)
                 dhcpScopesError = store.readError
             }
+            // WAN et VPN (note 39) : FortiGate activées relues si plus vieilles que l'intervalle.
+            var wan: WANOverview?
+            var wanError: String?
+            if probe.kind == .vpnTunnel || probe.kind == .wanLink {
+                await WANStore.shared.refreshForMonitoring(maxAge: TimeInterval(probe.interval))
+                wan = WANStore.shared.monitoringOverview
+                wanError = WANStore.shared.readError
+            }
             if perHost {
                 await SwitchStore.shared.loadVault()
                 let host = SwitchStore.shared.community(for: probe.target)
@@ -336,6 +344,8 @@ final class MonStore: ObservableObject {
             context.fortiWifiError = fortiWifiError
             context.dhcpScopes = dhcpScopes
             context.dhcpScopesError = dhcpScopesError
+            context.wan = wan
+            context.wanError = wanError
             let outcome = await MonRunner.run(probe, context: context)
             MonStore.shared.finish(probe.id, outcome: outcome, manual: manual)
         }

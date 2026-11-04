@@ -117,6 +117,7 @@ struct MonEditor: View {
                             MonResourceConditionFields.prepare(&draft.wrappedValue)
                             MonServiceConditionFields.prepare(&draft.wrappedValue)
                             MonDHCPScopeConditionFields.prepare(&draft.wrappedValue)
+                            MonWANConditionFields.prepare(&draft.wrappedValue)
                         }
                     }
                 }
@@ -387,6 +388,8 @@ private struct MonConditionFields: View {
             MonFortiAPConditionFields(probe: $probe)
         case .dhcpScope:
             MonDHCPScopeConditionFields(probe: $probe)
+        case .vpnTunnel, .wanLink:
+            MonWANConditionFields(probe: $probe)
         }
     }
 

@@ -14,6 +14,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
     case fortiAPOffline, fortiAPOverload
     /// Étendue DHCP presque pleine (note 37), lue par la FortiGate ou estimée par le Test DHCP.
     case dhcpScope
+    /// WAN des FortiGate (note 39) : tunnel VPN IPsec tombé, lien WAN dégradé (seuils).
+    case vpnTunnel, wanLink
 
     public var id: String { rawValue }
 
@@ -34,6 +36,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .fortiAPOffline: return "FortiAP hors ligne"
         case .fortiAPOverload: return "Borne surchargée"
         case .dhcpScope: return "Étendue DHCP presque pleine"
+        case .vpnTunnel: return "Tunnel VPN tombé"
+        case .wanLink: return "Lien WAN dégradé"
         }
     }
 
@@ -54,6 +58,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .fortiAPOffline: return "FortiAP"
         case .fortiAPOverload: return "Charge Wi-Fi"
         case .dhcpScope: return "DHCP"
+        case .vpnTunnel: return "VPN"
+        case .wanLink: return "WAN"
         }
     }
 
@@ -72,6 +78,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .onlineService: return "Service du catalogue (Microsoft 365, GitHub…)"
         case .fortiAPOffline, .fortiAPOverload: return "Nom ou numéro de série de la borne, ou «\u{00A0}*\u{00A0}» pour toutes"
         case .dhcpScope: return "Interface, VLAN ou nom de l’étendue, ou «\u{00A0}*\u{00A0}» pour toutes"
+        case .vpnTunnel: return "Nom du tunnel IPsec (Siège / VPN-QUEBEC), ou «\u{00A0}*\u{00A0}» pour tous"
+        case .wanLink: return "Interface ou nom du lien (Siège / wan2), ou «\u{00A0}*\u{00A0}» pour tous"
         }
     }
 
@@ -208,6 +216,8 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
     public var wifiThresholds: FortiWifiThresholds?
     /// Étendue DHCP presque pleine (note 37) : seuils d'occupation propres à la sonde.
     public var dhcpThresholds: DHCPScopeThresholds?
+    /// Lien WAN dégradé (note 39) : seuils de latence, de gigue et de perte propres à la sonde.
+    public var wanThresholds: WANThresholds?
 
     public init(id: UUID = UUID(), name: String, kind: MonProbeKind, target: String, subtitle: String = "",
                 isEnabled: Bool = true, interval: Int = 60, thresholds: MonThresholds = MonThresholds(),
@@ -282,6 +292,10 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
         case .dhcpScope:
             let t = dhcpThresholds ?? .standard
             return "Alerte à \(MonFormat.percent(t.warningPercent)) d’occupation, critique à \(MonFormat.percent(t.criticalPercent))"
+        case .vpnTunnel:
+            return "Panne si un tunnel est tombé, alerte si une phase 2 manque"
+        case .wanLink:
+            return "Panne si le lien tombe, alerte si " + (wanThresholds ?? .standard).label
         }
     }
 
@@ -348,6 +362,7 @@ extension MonProbe {
         resourcePort = try? c.decodeIfPresent(String.self, forKey: .resourcePort)
         wifiThresholds = try? c.decodeIfPresent(FortiWifiThresholds.self, forKey: .wifiThresholds)
         dhcpThresholds = try? c.decodeIfPresent(DHCPScopeThresholds.self, forKey: .dhcpThresholds)
+        wanThresholds = try? c.decodeIfPresent(WANThresholds.self, forKey: .wanThresholds)
     }
 }
 
