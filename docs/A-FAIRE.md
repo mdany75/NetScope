@@ -3,6 +3,21 @@
 > Les phases 2, 3 et 4 (notes 6, 10 et 11) peuvent se faire dans n'importe quel ordre
 > (décision de Dany).
 
+## Priorités (revues le 3 novembre 2026)
+
+Notes 1 à 5 : livrées dans la 0.3.0.
+
+1. **0.3.1, correctifs** : retours d'essai de la 0.3.0, note 18 (bilan périmé).
+2. **0.4.0, interface** : notes 8 (tableaux standard), 20 (colonne Type), 19 (préréglage de
+   ports), 9 (style Mac et petite fenêtre).
+3. **0.5.0, diagnostic du poste et du réseau local** : notes 12 (PoE), 21 (ressources),
+   17 (bouton Installer), 16 (serveur Speedtest).
+4. **0.6.0, Internet et nuage** : notes 15 (état des services), 14 (courriel et DNS).
+5. **0.7.0, analyse avancée** : notes 7 (capture de paquets), 22 (vitesse des disques).
+6. **0.8.0, réglages et alertes** : note 13 (sauvegarde, notifications, raccourcis…), alertes
+   par courriel et webhook.
+7. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
+
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
 
 - Constat de Dany : le clic sur le bouton ne fait rien, aucune fenêtre de macOS.
@@ -379,3 +394,27 @@ Dropbox, Zscaler, fournisseurs Internet courants… liste modifiable.
 - Historique court en mémoire, export CSV ; intervalle réglable.
 - Tests : calcul des débits à partir de compteurs fixes (y compris le retour à zéro des
   compteurs 32 bits), analyse des réponses SNMP fixes, sans réseau.
+
+## 22. Test de vitesse des disques : local, réseau et nuage — À PLANIFIER (demande de Dany)
+
+- Nouvel outil (Speedtest ou Boîte à outils) qui mesure la vitesse d'écriture et de lecture
+  d'un emplacement au choix :
+  - **disque local** (SSD interne, disque externe USB/Thunderbolt) ;
+  - **partage réseau** monté (SMB, NFS, AFP, NAS) : utile pour comparer au débit du lien ;
+  - **dossiers nuage** : OneDrive, Google Drive, iCloud Drive, Dropbox (dossiers File Provider).
+- Mesures : écriture et lecture séquentielles (Mo/s), accès aléatoires 4 Kio (IOPS, latence),
+  en direct sur des jauges et une courbe ; taille du fichier d'essai au choix (1, 5, 10 Gio) et
+  nombre de passes ; cache du système contourné (F_NOCACHE) pour des chiffres honnêtes.
+- Nuage : la copie locale va vite, l'envoi réel se fait ensuite. Mesurer les deux : vitesse
+  d'écriture dans le dossier, puis **temps jusqu'à « envoyé »** (état de synchronisation lu
+  par les attributs du fichier quand le service les fournit), et débit Internet effectif ;
+  le dire clairement quand un service ne donne pas cet état.
+- Partage réseau : afficher à côté le débit du lien (Ethernet/Wi-Fi) et la latence vers le
+  serveur, pour savoir si la limite vient du disque, du réseau ou du serveur.
+- Sécurité : fichier d'essai dans un dossier « NetScope-test » supprimé à la fin (et au
+  lancement suivant s'il reste), vérification de l'espace libre avant, bouton Arrêter ; aucun
+  autre fichier touché ; avertir avant d'écrire plusieurs Gio dans un dossier nuage (quota,
+  forfait).
+- Historique des tests par emplacement, export CSV, ajout possible dans un Rapport (note 4).
+- Tests : calculs de débit/IOPS sur des durées fixes, choix des emplacements, nettoyage, sans
+  écrire de gros fichiers.

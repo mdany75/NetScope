@@ -71,6 +71,17 @@ main .wrap { padding-block: 28px 48px; }
 .pulse { animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+.intro { max-width: 70ch; color: var(--muted); margin: 0 0 22px; }
+.timeline { display: flex; flex-direction: column; gap: 26px; }
+.release { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; border-top: 1px solid var(--line); padding-top: 16px; }
+@media (max-width: 760px) { .release { grid-template-columns: 1fr; } }
+.rel-head { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rel-head h2 { font-family: var(--f-display); font-weight: 700; font-size: 18px; margin: 0; text-wrap: balance; }
+.rel-head p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.rel-tag { align-self: flex-start; font-family: var(--f-mono); font-size: 12px; color: var(--c); background: var(--chip-bg); padding: 2px 8px; border-radius: 4px; border-left: 3px solid var(--c); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; align-items: start; }
+.release.done { --c: var(--ok); } .release.now { --c: var(--run); } .release.next { --c: var(--accent); } .release.later { --c: var(--later); }
+.state { color: var(--c); }
 footer { color: var(--muted); font-size: 13px; }
 footer .wrap { padding-block: 0 32px; }
 code { font-family: var(--f-mono); font-size: 12.5px; }
@@ -93,7 +104,7 @@ code { font-family: var(--f-mono); font-size: 12.5px; }
     </div>
     <div class="facts">
       <div>Dernière version<b>0.3.0</b></div>
-      <div>Prochaine version<b>0.4.0</b></div>
+      <div>Prochaine version<b>0.3.1</b></div>
       <div>Mise à jour<b>3 nov. 2026</b></div>
     </div>
   </div>
@@ -101,253 +112,16 @@ code { font-family: var(--f-mono); font-size: 12.5px; }
 
 <main>
   <div class="wrap">
-    <div class="legend" aria-label="Légende">
-      <span><i class="dot" style="background:var(--ok)"></i>Livré</span>
-      <span><i class="dot" style="background:var(--run)"></i>En cours</span>
-      <span><i class="dot" style="background:var(--plan)"></i>À planifier</span>
-      <span><i class="dot" style="background:var(--later)"></i>Phases 2 à 4</span>
-    </div>
-
-    <div class="board">
-      <section class="stage done">
-        <div class="stage-head">
-          <h2>Livré</h2>
-          <p>Publié sur GitHub, installé dans Applications</p>
-        </div>
-        <article class="card">
-          <h3><span class="tag">0.1.0</span>Première version</h3>
-          <ul>
-            <li>Scanner multi-plages, ping continu, traceroute et MTR</li>
-            <li>Switchs et ports (SNMP), Wi-Fi, boîte à outils</li>
-            <li>Inventaire, analyse, carte du réseau</li>
-            <li>Accès distant, Speedtest, mise à jour automatique</li>
-          </ul>
-        </article>
-        <article class="card">
-          <h3><span class="tag">0.2.0</span>Scanner automatique</h3>
-          <ul>
-            <li>Noms par DNS, mDNS, NetBIOS et SNMP</li>
-            <li>20 ports essentiels à chaque scan</li>
-            <li>Switchs découverts tout seuls, colonnes Switch / Port et VLAN remplies</li>
-          </ul>
-        </article>
-        <article class="card">
-          <h3><span class="tag">0.2.1</span>Fabricants complets</h3>
-          <ul>
-            <li>Registre IEEE : environ 53 700 préfixes MAC</li>
-            <li>Mise à jour de la base depuis l’IEEE, sur demande</li>
-          </ul>
-        </article>
-      </section>
-
-      <section class="stage done">
-        <div class="stage-head">
-          <h2>Livré <span class="tag">0.3.0</span></h2>
-          <p>Publié le 3 novembre 2026 ; reste à essayer sur le vrai réseau</p>
-        </div>
-        <article class="card">
-          <h3><span class="num">Note 1</span>Autorisation de la localisation</h3>
-          <ul>
-            <li>Le bouton du Wi-Fi ouvre la fenêtre de macOS</li>
-            <li>Si l’accès est refusé : lien vers Réglages Système</li>
-          </ul>
-          <span class="state" style="--c:var(--ok)"><i class="dot"></i>Livré dans la 0.3.0</span>
-        </article>
-        <article class="card">
-          <h3><span class="num">Note 2</span>Test DHCP et capture LLDP/CDP</h3>
-          <ul>
-            <li>Tous les serveurs DHCP du segment, alerte si un serveur n’est pas autorisé</li>
-            <li>« Ce Mac est branché sur… » : switch, port, VLAN, PoE</li>
-          </ul>
-          <span class="state" style="--c:var(--ok)"><i class="dot"></i>Livré dans la 0.3.0</span>
-        </article>
-        <article class="card">
-          <h3><span class="num">Note 3</span>Écran Surveillance</h3>
-          <ul>
-            <li>Sondes ping, TCP, HTTP, DNS, SNMP avec seuils</li>
-            <li>Notifications macOS et icône dans la barre de menus</li>
-          </ul>
-          <span class="state" style="--c:var(--ok)"><i class="dot"></i>Livré dans la 0.3.0</span>
-        </article>
-        <article class="card">
-          <h3><span class="num">Note 4</span>Écran Rapports</h3>
-          <ul>
-            <li>Rapport client en PDF (format lettre, « Page N de M »)</li>
-            <li>Exports CSV, JSON et HTML ; brouillon Mail avec le PDF joint</li>
-          </ul>
-          <span class="state" style="--c:var(--ok)"><i class="dot"></i>Livré dans la 0.3.0</span>
-        </article>
-        <article class="card">
-          <h3><span class="num">Note 5</span>RDP et VNC en fenêtre ou plein écran</h3>
-          <ul>
-            <li>Choix par connexion et au moment de « Connecter »</li>
-            <li>Taille de la fenêtre RDP, option « Tous les écrans »</li>
-          </ul>
-          <span class="state" style="--c:var(--ok)"><i class="dot"></i>Livré dans la 0.3.0</span>
-        </article>
-        <article class="card">
-          <h3><span class="num">Note 8</span>Tableaux standard dans tous les écrans</h3>
-          <ul>
-            <li>Tri par colonne, largeur réglable, comme le Scanner</li>
-            <li>Colonnes à masquer ou à ajouter (clic droit sur l’en-tête, bouton « Colonnes »)</li>
-            <li>Choix retenus par tableau</li>
-            <li>Colonne « Ports ouverts » plus large : plus de ports affichés, puis « +N »</li>
-            <li>Note 20 : colonne « Type » dans le Scanner, changeable par clic droit (retenu par MAC)</li>
-          </ul>
-          <span class="state" style="--c:var(--run)">Prochaine : 0.4.0</span>
-        </article>
-        <article class="card">
-          <h3><span class="num">Note 9</span>Style Mac et petite fenêtre</h3>
-          <ul>
-            <li>Allure d’app macOS native : barre latérale translucide, contrôles du système, mode sombre automatique</li>
-            <li>Fenêtre réduite : le panneau de droite défile de haut en bas au lieu d’être coupé</li>
-          </ul>
-          <p class="decide">À confirmer : Mac natif complet, hybride (garder le bleu nuit) ou mode sombre seulement.</p>
-          <span class="state" style="--c:var(--run)">Prochaine : 0.4.0, après la note 8</span>
-        </article>
-      </section>
-
-      <section class="stage plan">
-        <div class="stage-head">
-          <h2>À planifier</h2>
-          <p>Demandé, version à choisir</p>
-        </div>
-        <article class="card">
-          <h3><span class="num">Note 7</span>Capture et inspection de paquets</h3>
-          <ul>
-            <li>Capture avec filtre (<code>host</code>, <code>port</code>, <code>arp</code>…), liste en direct</li>
-            <li>Détail par couche et vue hexadécimale</li>
-            <li>« Suivre le flux TCP », statistiques</li>
-            <li>Enregistrer et ouvrir des fichiers <code>.pcap</code> (compatibles Wireshark)</li>
-          </ul>
-          <p class="decide">À décider : dans la 0.3.0 ou dans la version suivante. Réutilise la capture de la note 2.</p>
-        </article>
-        <article class="card">
-          <h3><span class="num">Note 12</span>« Suis-je sur un port PoE ? »</h3>
-          <ul>
-            <li>Ce Mac : port PoE ou non, courant fourni ou non, classe et puissance (d’après LLDP/CDP)</li>
-            <li>Tout appareil : état PoE de son port de switch par SNMP</li>
-            <li>Dans la fiche appareil, le Scanner (colonne PoE) et Switchs et ports</li>
-          </ul>
-        </article>
-        <article class="card">
-          <h3><span class="num">Note 13</span>Réglages encore « Bientôt »</h3>
-          <ul>
-            <li>Notifications : événements, son, heures de silence, notification de test</li>
-            <li>Export et sauvegarde : sauvegarde quotidienne, restauration, formats par défaut</li>
-            <li>Raccourcis clavier modifiables</li>
-            <li>Aussi : anglais, Test SNMP, identifiants SSH et WMI, méthodes de découverte</li>
-          </ul>
-        </article>
-        <article class="card">
-          <h3><span class="num">Note 14</span>Outils courriel et DNS</h3>
-          <ul>
-            <li>Super outil : un champ, toutes les vérifications utiles</li>
-            <li>Recherche MX, listes noires, DMARC / SPF / DKIM</li>
-            <li>Diagnostic SMTP et santé courriel d’un domaine</li>
-            <li>Recherche DNS enrichie, analyse d’en-têtes de courriel</li>
-          </ul>
-        </article>
-        <article class="card">
-          <h3><span class="num">Note 15</span>État des grands services en ligne</h3>
-          <ul>
-            <li>Microsoft 365, Azure, Apple, AWS, Google, Cloudflare, GitHub, Zoom… liste modifiable</li>
-            <li>Page d’état officielle et test depuis ce réseau</li>
-            <li>« Panne chez eux » ou « problème chez nous », incidents en cours, notifications</li>
-          </ul>
-        </article>
-        <article class="card">
-          <h3><span class="num">Note 16</span>Speedtest : choix du serveur</h3>
-          <ul>
-            <li>Serveur le plus proche ou choisi dans une liste, favoris, serveur personnalisé</li>
-            <li>Ookla par son outil officiel s’il est installé, serveurs ouverts (M-Lab, LibreSpeed), serveur du fournisseur</li>
-          </ul>
-        </article>
-        <article class="card">
-          <h3><span class="num">Note 17</span>Bouton « Installer » pour les outils manquants</h3>
-          <ul>
-            <li>iperf3, telnet… installés par Homebrew dans Terminal, en un clic</li>
-            <li>Sans Homebrew : lien d’installation officiel ; rien sans clic de Dany</li>
-          </ul>
-        </article>
-        <article class="card">
-          <h3><span class="num">Note 18</span>Bilan des switchs périmé</h3>
-          <ul>
-            <li>Un message d’un ancien scan (autre plage) disparaît ou passe en « ancien scan »</li>
-            <li>Même règle pour passerelle, VLAN, emplacements et « Ce Mac est branché sur… »</li>
-          </ul>
-        </article>
-        <article class="card">
-          <h3><span class="num">Note 19</span>Préréglage de ports dans le Scanner</h3>
-          <ul>
-            <li>Clic droit sur « Ports ouverts » ou sur des appareils : choix du préréglage de Réglages</li>
-            <li>« Rescanner les ports avec ce préréglage », rappel près de « Lancer le scan »</li>
-          </ul>
-        </article>
-        <article class="card">
-          <h3><span class="num">Note 21</span>Ressources : processeur, mémoire, réseau</h3>
-          <ul>
-            <li>Ce Mac : processeur, mémoire, débit par interface en direct</li>
-            <li>Appareils par SNMP : processeur, mémoire, trafic par port de switch</li>
-            <li>Sondes de Surveillance sur ces valeurs</li>
-          </ul>
-        </article>
-        <article class="card">
-          <h3><span class="num">Suite</span>Alertes par courriel et webhook</h3>
-          <ul>
-            <li>Teams, Slack ou courriel quand une sonde tombe</li>
-          </ul>
-        </article>
-      </section>
-
-      <section class="stage later">
-        <div class="stage-head">
-          <h2>Phase 2</h2>
-          <p>Reporté à plus tard, ordre libre avec les phases 3 et 4</p>
-        </div>
-        <article class="card">
-          <h3><span class="num">Note 6</span>Assistance à distance par RustDesk</h3>
-          <ul>
-            <li>Serveur RustDesk sur le serveur Ubuntu de Groupe Couture</li>
-            <li>Lien de téléchargement d’un client portable préconfiguré pour l’usager</li>
-            <li>Droits administrateur pendant l’assistance seulement (« Demander l’élévation »)</li>
-            <li>Protocole RustDesk dans Accès distant, carnet des postes</li>
-            <li>Lien publié sur 911.groupecouture.ca</li>
-          </ul>
-          <p class="decide">Décidé : RustDesk Server OSS, gratuit.</p>
-        </article>
-      </section>
-
-      <section class="stage later">
-        <div class="stage-head">
-          <h2>Phase 3</h2>
-          <p>Phases 2, 3 et 4 : dans n’importe quel ordre</p>
-        </div>
-        <article class="card">
-          <h3><span class="num">Note 10</span>Repenser le module Inventaire</h3>
-          <ul>
-            <li>Revoir son rôle, sa disposition et ses données</li>
-            <li>Ajout manuel d’appareils absents des scans, rapprochés ensuite par MAC ou IP</li>
-            <li>Gestion par site : sélecteur de site, site déduit de la plage scannée, exports et rapports par site</li>
-            <li>Ajout et suppression : ajout depuis le Scanner ou automatique au choix, retrait avec archive ou suppression, liste d’exclusion</li>
-            <li>D’ici là : seulement les tableaux standard et le style Mac</li>
-          </ul>
-          <p class="decide">À préciser avec Dany avant de commencer.</p>
-        </article>
-        <div class="stage-head">
-          <h2>Phase 4</h2>
-          <p>Ordre libre, comme les phases 2 et 3</p>
-        </div>
-        <article class="card">
-          <h3><span class="num">Note 11</span>Repenser le Ping continu</h3>
-          <ul>
-            <li>Revoir la disposition, les graphes, le journal, le multi-cibles, le traceroute et le MTR</li>
-            <li>Préréglages enregistrés (cibles et options) lancés en un clic, ex. « Passerelle + DNS + Internet », « Test MTU »</li>
-            <li>D’ici là : seulement les tableaux standard et le style Mac</li>
-          </ul>
-          <p class="decide">À préciser avec Dany avant de commencer.</p>
-        </article>
-      </section>
+    <p class="intro">Priorités revues le 3 novembre 2026 : d’abord ce qui est cassé, puis les bases de l’interface, puis les outils du plus utile au plus lourd. Chaque version passe par relecture, tests et notarisation.</p>
+    <div class="timeline">
+<section class="release done"><div class="rel-head"><span class="rel-tag">Livré</span><div><h2>0.1.0 à 0.3.0</h2><p>Tout est publié sur GitHub. La 0.3.0 reste à essayer sur le vrai réseau.</p></div></div><div class="cards"><article class="card"><h3><span class="tag">0.1.0</span>Première version</h3><ul><li>Scanner multi-plages, ping continu, traceroute et MTR</li><li>Switchs et ports (SNMP), Wi-Fi, boîte à outils, inventaire, analyse, carte</li><li>Accès distant, Speedtest, mise à jour automatique</li></ul></article><article class="card"><h3><span class="tag">0.2.0</span>Scanner automatique</h3><ul><li>Noms par DNS, mDNS, NetBIOS et SNMP</li><li>20 ports essentiels à chaque scan</li><li>Switchs découverts tout seuls, colonnes Switch / Port et VLAN</li></ul></article><article class="card"><h3><span class="tag">0.2.1</span>Fabricants complets</h3><ul><li>Registre IEEE : environ 53 700 préfixes MAC</li></ul></article><article class="card"><h3><span class="tag">0.3.0</span>Notes 1 à 5</h3><ul><li>Surveillance avec barre de menus et notifications</li><li>Rapports PDF, CSV, JSON, HTML</li><li>Test DHCP et capture LLDP/CDP</li><li>RDP et VNC en fenêtre ou plein écran</li><li>Fenêtre d’autorisation de la localisation (Wi-Fi)</li></ul></article></div></section>
+<section class="release now"><div class="rel-head"><span class="rel-tag">Priorité 1</span><div><h2>0.3.1 · Correctifs</h2><p>D’abord ce qui est faux ou cassé : les retours de tes essais de la 0.3.0, et une information périmée qui trompe.</p></div></div><div class="cards"><article class="card"><h3><span class="num">Essais</span>Retours d’essai de la 0.3.0</h3><ul><li>Localisation, Test DHCP, capture LLDP/CDP, notifications, plein écran VNC, mise à jour automatique</li><li>Corriger ce qui ne marche pas sur ton réseau</li></ul><span class="state">Attend tes essais</span></article><article class="card"><h3><span class="num">Note 18</span>Bilan des switchs périmé</h3><ul><li>Un message d’un ancien scan (autre plage) disparaît ou passe en « ancien scan »</li><li>Même règle pour passerelle, VLAN, emplacements et « Ce Mac est branché sur… »</li></ul></article></div></section>
+<section class="release next"><div class="rel-head"><span class="rel-tag">Priorité 2</span><div><h2>0.4.0 · Interface</h2><p>Les bases de l’interface avant d’ajouter d’autres écrans : tout ce qui suit en profitera sans être refait.</p></div></div><div class="cards"><article class="card"><h3><span class="num">Note 8</span>Tableaux standard dans tous les écrans</h3><ul><li>Tri, largeur réglable, colonnes à masquer ou à ajouter (clic droit sur l’en-tête, bouton « Colonnes »)</li><li>Choix retenus par tableau</li><li>« Ports ouverts » plus large : plus de ports, puis « +N »</li></ul></article><article class="card"><h3><span class="num">Note 20</span>Colonne « Type » modifiable</h3><ul><li>Dans le Scanner, changeable par clic droit</li><li>Retenue par MAC, reprise partout</li></ul></article><article class="card"><h3><span class="num">Note 19</span>Préréglage de ports dans le Scanner</h3><ul><li>Clic droit sur « Ports ouverts » ou sur des appareils</li><li>« Rescanner les ports avec ce préréglage »</li></ul></article><article class="card"><h3><span class="num">Note 9</span>Style Mac et petite fenêtre</h3><ul><li>Barre latérale translucide, contrôles du système, mode sombre automatique</li><li>Fenêtre réduite : le panneau de droite défile</li></ul><p class="decide">À confirmer : Mac natif complet (choix par défaut), hybride ou mode sombre seulement.</p></article></div></section>
+<section class="release next"><div class="rel-head"><span class="rel-tag">Priorité 3</span><div><h2>0.5.0 · Diagnostic du poste et du réseau local</h2><p>Ce qui sert tous les jours sur le terrain et s’appuie sur ce qui existe déjà (LLDP/CDP, SNMP, Speedtest).</p></div></div><div class="cards"><article class="card"><h3><span class="num">Note 12</span>« Suis-je sur un port PoE ? »</h3><ul><li>Ce Mac : d’après la capture LLDP/CDP (déjà décodée)</li><li>Tout appareil : état PoE de son port par SNMP</li></ul></article><article class="card"><h3><span class="num">Note 21</span>Ressources : processeur, mémoire, réseau</h3><ul><li>Ce Mac en direct, appareils par SNMP, trafic par port de switch</li><li>Sondes de Surveillance sur ces valeurs</li></ul></article><article class="card"><h3><span class="num">Note 17</span>Bouton « Installer » pour les outils manquants</h3><ul><li>iperf3, telnet… par Homebrew dans Terminal, en un clic</li></ul></article><article class="card"><h3><span class="num">Note 16</span>Speedtest : choix du serveur</h3><ul><li>Serveur le plus proche ou choisi, serveurs ouverts, serveur du fournisseur, Ookla s’il est installé</li></ul></article></div></section>
+<section class="release next"><div class="rel-head"><span class="rel-tag">Priorité 4</span><div><h2>0.6.0 · Internet et nuage</h2><p>Répondre à « est-ce chez nous ou chez eux ? » : services en ligne, courriel et DNS.</p></div></div><div class="cards"><article class="card"><h3><span class="num">Note 15</span>État des grands services en ligne</h3><ul><li>Microsoft 365, Azure, Apple, AWS, Google, Cloudflare…</li><li>Page d’état officielle et test depuis ce réseau</li></ul></article><article class="card"><h3><span class="num">Note 14</span>Outils courriel et DNS</h3><ul><li>Super outil, MX, listes noires, DMARC / SPF / DKIM</li><li>Diagnostic SMTP, santé courriel, analyse d’en-têtes</li></ul></article></div></section>
+<section class="release next"><div class="rel-head"><span class="rel-tag">Priorité 5</span><div><h2>0.7.0 · Analyse avancée</h2><p>Les deux plus gros outils, qui demandent le plus de travail et d’essais.</p></div></div><div class="cards"><article class="card"><h3><span class="num">Note 7</span>Capture et inspection de paquets</h3><ul><li>Capture filtrée, détail par couche, vue hexadécimale</li><li>« Suivre le flux TCP », fichiers .pcap compatibles Wireshark</li></ul></article><article class="card"><h3><span class="num">Note 22</span>Test de vitesse des disques</h3><ul><li>SSD, disque externe, partage réseau, dossiers nuage (temps jusqu’à l’envoi)</li></ul></article></div></section>
+<section class="release next"><div class="rel-head"><span class="rel-tag">Priorité 6</span><div><h2>0.8.0 · Réglages et alertes</h2><p>Compléter les réglages ; la sauvegarde passe avant la refonte de l’Inventaire (phase 3).</p></div></div><div class="cards"><article class="card"><h3><span class="num">Note 13</span>Réglages encore « Bientôt »</h3><ul><li>Export et sauvegarde quotidienne, restauration</li><li>Notifications, raccourcis clavier modifiables</li><li>Anglais, Test SNMP, identifiants SSH et WMI, méthodes de découverte</li></ul></article><article class="card"><h3><span class="num">Suite</span>Alertes par courriel et webhook</h3><ul><li>Teams, Slack ou courriel quand une sonde tombe</li></ul></article></div></section>
+<section class="release later"><div class="rel-head"><span class="rel-tag">Phases 2 à 4</span><div><h2>Ordre libre</h2><p>Gros chantiers à préciser avec toi avant de commencer, dans l’ordre que tu veux.</p></div></div><div class="cards"><article class="card"><h3><span class="num">Note 6</span>Phase 2 · Assistance par RustDesk</h3><ul><li>Serveur OSS gratuit sur l’Ubuntu de Groupe Couture</li><li>Client portable préconfiguré, élévation admin pendant l’assistance</li><li>Protocole RustDesk dans Accès distant, lien sur 911.groupecouture.ca</li></ul></article><article class="card"><h3><span class="num">Note 10</span>Phase 3 · Repenser l’Inventaire</h3><ul><li>Ajout manuel, gestion par site</li><li>Ajout et suppression, archive, liste d’exclusion</li></ul></article><article class="card"><h3><span class="num">Note 11</span>Phase 4 · Repenser le Ping continu</h3><ul><li>Disposition, graphes, journal, multi-cibles</li><li>Préréglages lancés en un clic</li></ul></article></div></section>
     </div>
   </div>
 </main>
