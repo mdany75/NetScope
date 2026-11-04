@@ -619,3 +619,19 @@ site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
 - Plusieurs appareils sur le port (téléphone + poste, petit switch, borne Wi-Fi) : liste à choisir,
   ou Inventaire filtré sur ce port (étiquette `switch:… port:…`).
 - Port sans appareil connu : message clair (port vide, uplink/trunk, ou appareil pas encore vu).
+
+## 34. Double-clic partout : une suite logique entre les modules — À PLANIFIER (demande de Dany)
+
+« Si je double-clique sur n'importe quel élément, il y a une suite logique dans l'application
+entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 33) :
+
+- Appareil (Scanner, Inventaire, Analyse, Carte, Surveillance, Wi-Fi clients) → sa fiche Appareil.
+- Switch → Switchs et ports sur ce switch ; port → l'appareil branché (note 33).
+- Borne FortiAP → Wi-Fi › FortiAP sur cette borne ; client Wi-Fi → sa fiche Appareil.
+- Groupe ou branche de la Carte → Inventaire filtré sur ces appareils (note 31).
+- Plage, VLAN ou site → Scanner (ou Inventaire) filtré sur cette plage, ce VLAN, ce site.
+- Sonde ou alerte de Surveillance → la sonde, puis l'appareil ou le service concerné ;
+  événement d'Analyse → l'appareil et sa chronologie.
+- Service en ligne, résultat d'outil, sauvegarde, connexion d'Accès distant → leur détail.
+- Toujours : le même geste partout (double-clic, ou ↩︎), un menu contextuel « Ouvrir dans… »
+  qui propose les autres modules, et « Retour » (⌘[) vers l'écran d'où l'on vient.
