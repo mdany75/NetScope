@@ -62,11 +62,11 @@ enum SwitchPortState {
     var badge: (background: Color, foreground: Color) {
         switch self {
         case .up1g: return (Theme.successSoft, Theme.success)
-        case .up100: return (Theme.successSoft, Color(hex: 0x14532D))
-        case .poe: return (Color(hex: 0xDBEAFE), Theme.accentStrong)
+        case .up100: return (Theme.successSoft, Color(light: 0x14532D, dark: 0x9CE7BA))
+        case .poe: return (Color(light: 0xDBEAFE, dark: 0x1B3250), Theme.accentStrong)
         case .down, .disabled: return (Theme.neutralSoft, Theme.textSecondary)
         case .err: return (Theme.criticalSoft, Theme.critical)
-        case .trunk: return (Color(hex: 0xE2E8F0), Color(hex: 0x0F172A))
+        case .trunk: return (Color(light: 0xE2E8F0, dark: 0x253347), Color(light: 0x0F172A, dark: 0xA5B6DF))
         }
     }
 }
@@ -77,6 +77,8 @@ struct SwitchFaceplate: View {
     let snapshot: SNMPSwitchSnapshot
     let selected: Int?
     let found: Int?
+    /// Largeur minimale du cadre (largeur de la carte) : le cadre va jusqu'au bord droit.
+    var minWidth: CGFloat = 0
     let onSelect: (Int) -> Void
 
     var body: some View {
@@ -124,8 +126,9 @@ struct SwitchFaceplate: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Color(hex: 0x1E293B)))
         .fixedSize()
+        .frame(minWidth: minWidth, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Color(hex: 0x1E293B)))
     }
 
     private func led(_ text: String) -> some View {
@@ -171,7 +174,8 @@ struct SwitchFaceplate: View {
 /// Légende des couleurs de la façade.
 struct SwitchLegend: View {
     var body: some View {
-        HStack(spacing: 14) {
+        // Passe à la ligne en petite fenêtre ; chaque libellé reste entier.
+        FlowLayout(spacing: 14, lineSpacing: 6) {
             item(.up1g, "Actif 1\u{00A0}Gb/s")
             item(.up100, "Actif 100\u{00A0}Mb/s")
             item(.poe, "PoE actif")
@@ -179,11 +183,12 @@ struct SwitchLegend: View {
             item(.err, "Erreurs")
             item(.down, "Inactif / désactivé")
             HStack(spacing: 6) {
-                RoundedRectangle(cornerRadius: 3).fill(Color.white).frame(width: 14, height: 12)
+                RoundedRectangle(cornerRadius: 3).fill(Theme.panel).frame(width: 14, height: 12)
                     .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Color(hex: 0xF59E0B), lineWidth: 2))
-                Text("Appareil trouvé")
+                Text("Appareil trouvé").fixedSize()
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .font(Theme.small)
         .foregroundStyle(Theme.textSecondary)
     }
@@ -192,7 +197,7 @@ struct SwitchLegend: View {
         HStack(spacing: 6) {
             RoundedRectangle(cornerRadius: 3).fill(state.fill).frame(width: 14, height: 12)
                 .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(state.stroke))
-            Text(label)
+            Text(label).fixedSize()
         }
     }
 }

@@ -37,7 +37,7 @@ struct RemoteDetailPanel: View {
                     .layoutPriority(1)
                     Spacer(minLength: 0)
                     Button {
-                        model.showDetails = false
+                        model.detailsVisible = false
                     } label: {
                         Image(systemName: "sidebar.right").font(.system(size: 12))
                     }

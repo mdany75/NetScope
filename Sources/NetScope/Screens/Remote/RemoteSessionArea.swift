@@ -13,8 +13,8 @@ struct RemoteSessionArea: View {
                 Text(model.draft == nil ? "Sessions" : (model.draft?.editingID == nil ? "Nouvelle connexion" : "Modifier la connexion"))
                     .font(.system(size: 12, weight: .semibold))
                 Text("SSH · Telnet · Console série · RDP · VNC").font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
                 Spacer()
-                Chip(text: "Terminal intégré : bientôt", tone: .neutral, systemImage: "clock")
             }
             .padding(.horizontal, 12)
             .frame(height: 38)
@@ -134,34 +134,34 @@ struct RemoteSessionArea: View {
         VStack(alignment: .leading, spacing: 3) {
             switch plan {
             case .success(.terminal(let command)):
-                (Text("\(speedLocalHostName) ~ % ").foregroundColor(Color(hex: 0x4ADE80)) + Text(command))
+                (Text("\(model.localHostName) ~ % ").foregroundColor(Color(hex: 0x4ADE80)) + Text(command))
                 Text(connection.proto == .serie ? "Quitter screen : Ctrl-A puis K" : "La session s’ouvre dans une nouvelle fenêtre de Terminal.")
-                    .foregroundStyle(Theme.sidebarHeading)
+                    .foregroundStyle(Theme.consoleMuted)
             case .success(.rdpFile(let contents, let fileName)):
                 Text(fileName).foregroundColor(Color(hex: 0x4ADE80))
                 ForEach(rdpPreviewLines(contents), id: \.self) { line in
-                    Text(line).foregroundStyle(Theme.sidebarHeading)
+                    Text(line).foregroundStyle(Theme.consoleMuted)
                 }
             case .success(.url(let url)):
                 Text("open ").foregroundColor(Color(hex: 0x4ADE80)) + Text(url.absoluteString)
-                Text("Partage d’écran demande le mot de passe du compte distant.").foregroundStyle(Theme.sidebarHeading)
+                Text("Partage d’écran demande le mot de passe du compte distant.").foregroundStyle(Theme.consoleMuted)
                 Text("Affichage\u{00A0}: \(connection.display.summary(for: .vnc).lowercased())"
                      + (connection.display.mode == .fullScreen ? " (après l’identification, avec l’autorisation Accessibilité)" : ""))
-                    .foregroundStyle(Theme.sidebarHeading)
+                    .foregroundStyle(Theme.consoleMuted)
             case .failure(let error):
                 Text((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
                     .foregroundColor(Color(hex: 0xFCA5A5))
             }
         }
         .font(Theme.mono(12.5))
-        .foregroundStyle(Theme.sidebarText)
+        .foregroundStyle(Theme.consoleText)
         .lineLimit(2)
         .fixedSize(horizontal: false, vertical: true)
         .textSelection(.enabled)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Color(hex: 0x0B1220)))
+        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.console))
     }
 
     /// Lignes du .rdp montrées dans l'aperçu : adresse, utilisateur et affichage.

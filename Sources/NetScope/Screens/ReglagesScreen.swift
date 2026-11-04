@@ -11,8 +11,13 @@ struct ReglagesScreen: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
-            sectionColumn
-                .frame(width: 230)
+            // La colonne des sections défile elle-même en petite fenêtre (pas de défilement global).
+            ScrollView {
+                sectionColumn
+                    .padding(.bottom, 20)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .frame(width: 218)
             ScrollView {
                 content
                     .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -38,6 +43,8 @@ struct ReglagesScreen: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Theme.success)
             }
+            // Marge avant le champ de recherche de la barre d'outils.
+            .padding(.trailing, 10)
             .help("Chaque modification est enregistrée aussitôt ; les secrets vont dans le Trousseau macOS.")
         }
     }
@@ -92,16 +99,20 @@ struct ReglagesScreen: View {
         return Button {
             navigation.section = section
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Image(systemName: section.symbol)
                     .font(.system(size: 13, weight: .regular))
                     .frame(width: 18)
                     .foregroundStyle(selected ? Theme.accentStrong : Theme.textSecondary)
+                // Une seule ligne pour toutes les sections : hauteur uniforme de la liste.
                 Text(section.label)
                     .font(.system(size: 13, weight: selected ? .semibold : .medium))
                     .foregroundStyle(selected ? Theme.accentStrong : Theme.text)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
                 Spacer(minLength: 4)
                 note(for: section)
+                    .fixedSize()
             }
             .padding(.horizontal, 10)
             .frame(height: 34)
@@ -126,7 +137,12 @@ struct ReglagesScreen: View {
         case .switchs:
             Text("\(SwitchStore.shared.hosts.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
         case .export, .raccourcis:
-            Text("bientôt").font(Theme.caption).foregroundStyle(Theme.textTertiary)
+            // Horloge plutôt que le mot : le libellé de la section garde toute la ligne.
+            Image(systemName: "clock")
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.textTertiary)
+                .help("Bientôt")
+                .accessibilityLabel("Bientôt")
         default:
             EmptyView()
         }

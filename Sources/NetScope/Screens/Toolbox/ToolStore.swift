@@ -286,7 +286,7 @@ final class ToolStore: ObservableObject {
             ToolRecent(tool: .dhcp, target: "en0 · 10.182.122.0/24", summary: "2 serveurs, dont 10.182.122.250 non autorisé",
                        date: ago(4), status: .warning),
             ToolRecent(tool: .lldp, target: "en7", summary: "SW-ETG2-01 · port 1/22 · VLAN 1", date: ago(9), status: .ok),
-            ToolRecent(tool: .ports, target: "10.182.122.111", summary: "4 ouverts : 80, 443, 631, 9100", date: ago(22), status: .ok),
+            ToolRecent(tool: .ports, target: "10.182.122.111", summary: "4 ouverts\u{00A0}: 80, 443, 631, 9100", date: ago(22), status: .ok),
             ToolRecent(tool: .dns, target: "10.182.122.111", summary: "PTR BRN94DDF818157D.bureau.local.", date: ago(31), status: .ok),
             ToolRecent(tool: .whois, target: "8.8.8.8", summary: "Google LLC · AS15169 · 8.8.8.0/24", date: ago(48), status: .ok),
             ToolRecent(tool: .wol, target: "WKS341 · B0:7B:25:44:9F:20", summary: "Aucune réponse après 60 s", date: ago(60 * 15), status: .warning),
@@ -295,7 +295,7 @@ final class ToolStore: ObservableObject {
             ToolWakeEntry(date: ago(35), name: "WKS346", mac: "B0:7B:25:44:A1:6C",
                           detail: "Paquet envoyé à 10.182.122.255:9 · répond après 18 s", status: .awake),
             ToolWakeEntry(date: ago(60 * 15), name: "WKS341", mac: "B0:7B:25:44:9F:20",
-                          detail: "Aucune réponse après 60 s (WoL désactivé dans le BIOS ?)", status: .noReply),
+                          detail: "Aucune réponse après 60 s (WoL désactivé dans le BIOS\u{00A0}?)", status: .noReply),
         ]
     }
 }
@@ -334,12 +334,12 @@ enum ToolText {
         return formatter.string(from: date)
     }
 
-    /// « il y a 4 min », « à l’instant », « hier 17:02 ».
+    /// « à l’instant », « il y a 4 min », « il y a 15 h », puis « hier 17:02 » au-delà de 24 h.
     static func relative(_ date: Date, now: Date = Date()) -> String {
         let seconds = now.timeIntervalSince(date)
         if seconds < 45 { return "à l’instant" }
         if seconds < 3600 { return "il y a \(Int((seconds / 60).rounded()))\u{00A0}min" }
-        if seconds < 6 * 3600 { return "il y a \(Int(seconds / 3600))\u{00A0}h" }
+        if seconds < 24 * 3600 { return "il y a \(Int(seconds / 3600))\u{00A0}h" }
         return time(date, now: now)
     }
 }

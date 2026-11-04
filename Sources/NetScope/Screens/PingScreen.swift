@@ -18,12 +18,12 @@ struct PingScreen: View {
                     Text(note).fixedSize(horizontal: false, vertical: true)
                 }
                 .font(Theme.small)
-                .foregroundStyle(Color(hex: 0x1E3A8A))
+                .foregroundStyle(Color(light: 0x1E3A8A, dark: 0x9AAFE9))
                 .padding(.horizontal, Theme.contentPadding)
                 .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Theme.accentSoft)
-                .overlay(alignment: .bottom) { Rectangle().fill(Color(hex: 0xDBEAFE)).frame(height: 1) }
+                .overlay(alignment: .bottom) { Rectangle().fill(Color(light: 0xDBEAFE, dark: 0x1B3250)).frame(height: 1) }
             }
             GeometryReader { geometry in
                 ScrollView {
@@ -53,6 +53,8 @@ struct PingScreen: View {
                     .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
             }
+            // Marge avant « Exporter CSV » : le texte d'état ne colle pas au bouton.
+            .padding(.trailing, 10)
         }
         Button { controller.exportCSV() } label: {
             Label("Exporter CSV", systemImage: "square.and.arrow.down")

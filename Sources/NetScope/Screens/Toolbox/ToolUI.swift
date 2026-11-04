@@ -20,7 +20,9 @@ struct ToolFieldLabel: View {
     }
 }
 
-/// Champ de saisie aux couleurs des croquis (fond blanc, bordure grise, rouge si invalide).
+/// Champ de saisie du système (bordure arrondie de macOS, suit le mode sombre), cadre rouge si la
+/// saisie est invalide. `height` choisit la taille du contrôle : 28 pt et plus, grande taille (même
+/// hauteur que les boutons `.primary` et `.secondary`) ; en dessous, taille normale.
 struct ToolTextField: View {
     let placeholder: String
     @Binding var text: String
@@ -30,16 +32,20 @@ struct ToolTextField: View {
     var onSubmit: () -> Void = {}
 
     var body: some View {
-        TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(Theme.textTertiary))
-            .textFieldStyle(.plain)
+        TextField("", text: $text, prompt: Text(placeholder))
+            .textFieldStyle(.roundedBorder)
+            .controlSize(height >= 28 ? .large : .regular)
             .font(mono ? Theme.mono(13, weight: .medium) : Theme.body)
-            .foregroundStyle(Theme.text)
             .autocorrectionDisabled()
             .onSubmit(onSubmit)
-            .padding(.horizontal, 10)
-            .frame(height: height)
-            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(invalid ? Color(hex: 0xFEF2F2) : Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(invalid ? Theme.critical : Theme.border))
+            .overlay {
+                if invalid {
+                    RoundedRectangle(cornerRadius: Theme.buttonRadius)
+                        .strokeBorder(Theme.critical, lineWidth: 1.5)
+                        .allowsHitTesting(false)
+                }
+            }
+            .accessibilityLabel(placeholder)
     }
 }
 
@@ -56,7 +62,8 @@ struct ToolLabeledField<Content: View>: View {
     }
 }
 
-/// Puce de choix (profil, type DNS, préfixe) : SF Mono 12, bordure accent si choisie.
+/// Choix parmi quelques valeurs (profil, plage récente, préfixe) : bouton bascule du système, mis
+/// en évidence par macOS quand il est choisi.
 struct ToolChoiceChip: View {
     let label: String
     let isSelected: Bool
@@ -64,18 +71,31 @@ struct ToolChoiceChip: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        // Un clic sur le choix déjà fait le garde choisi (l'action est idempotente).
+        Toggle(isOn: Binding(get: { isSelected }, set: { _ in action() })) {
             Text(label)
-                .font(mono ? Theme.mono(12, weight: isSelected ? .semibold : .medium) : .system(size: 12, weight: isSelected ? .semibold : .medium))
-                .foregroundStyle(isSelected ? Theme.accentStrong : Theme.text)
-                .padding(.horizontal, 10)
-                .frame(height: 28)
-                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(isSelected ? Theme.accentSoft : Theme.panel))
-                .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(isSelected ? Theme.accent : Theme.border))
-                .contentShape(Rectangle())
+                .font(mono ? Theme.mono(12, weight: isSelected ? .semibold : .medium)
+                           : .system(size: 12, weight: isSelected ? .semibold : .medium))
+                // Le fond « choisi » de macOS est la couleur d'accent : texte blanc pour le contraste.
+                .foregroundStyle(isSelected ? Theme.onAccent : Theme.text)
         }
-        .buttonStyle(.plain)
+        .toggleStyle(.button)
         .fixedSize()
+    }
+}
+
+/// Rangée de champs (étiquette au-dessus) qui passe en colonne quand la largeur manque (petite
+/// fenêtre). Donner aux champs souples une largeur minimale (`frame(minWidth:)`) : c'est elle qui
+/// décide du passage en colonne.
+struct ToolAdaptiveRow<Content: View>: View {
+    var spacing: CGFloat = 10
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .bottom, spacing: spacing) { content() }
+            VStack(alignment: .leading, spacing: spacing) { content() }
+        }
     }
 }
 
@@ -125,15 +145,27 @@ struct ToolCell: Identifiable {
     var detail: String? = nil
 }
 
-/// Grille de cellules séparées par des filets de 1 pt, dans un cadre arrondi.
+/// Grille de cellules séparées par des filets de 1 pt, dans un cadre arrondi. `columns` est le
+/// nombre de colonnes au plus : la grille en retire quand une colonne ferait moins de
+/// `minCellWidth` (petite fenêtre), pour que les valeurs tiennent sur une ligne.
 struct ToolCellGrid: View {
     let cells: [ToolCell]
     var columns = 3
     var valueSize: CGFloat = 14
+    var minCellWidth: CGFloat = 170
 
     var body: some View {
+        ViewThatFits(in: .horizontal) {
+            ForEach(Array(stride(from: max(columns, 1), through: 2, by: -1)), id: \.self) { count in
+                grid(count).frame(minWidth: CGFloat(count) * minCellWidth)
+            }
+            grid(1)
+        }
+    }
+
+    private func grid(_ columns: Int) -> some View {
         let rows = stride(from: 0, to: cells.count, by: columns).map { Array(cells[$0..<min($0 + columns, cells.count)]) }
-        VStack(spacing: 1) {
+        return VStack(spacing: 1) {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 HStack(spacing: 1) {
                     ForEach(0..<columns, id: \.self) { index in
@@ -159,7 +191,9 @@ struct ToolCellGrid: View {
                 .font(Theme.mono(valueSize, weight: .semibold))
                 .foregroundStyle(Theme.text)
                 .textSelection(.enabled)
-                .lineLimit(2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .help(cell.value)
             if let detail = cell.detail {
                 Text(detail).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
             }
@@ -179,27 +213,46 @@ struct ToolNotice<Trailing: View>: View {
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(tone.foreground)
-                .padding(.top, 1)
-            VStack(alignment: .leading, spacing: 2) {
-                if let title { Text(title).font(Theme.bodySemibold).foregroundStyle(tone.foreground) }
-                Text(message)
-                    .font(title == nil ? Theme.body : Theme.small)
-                    .foregroundStyle(tone == .accent ? Color(hex: 0x1E3A8A) : tone.foreground)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .textSelection(.enabled)
+        // Bouton à droite du texte s'il reste au moins 300 pt au texte, sinon dessous (petite
+        // fenêtre) : le texte n'est jamais coincé dans une colonne étroite.
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 10) {
+                symbol
+                text.frame(minWidth: 300, idealWidth: 300, maxWidth: .infinity, alignment: .leading)
+                trailing
             }
-            Spacer(minLength: 8)
-            trailing
+            HStack(alignment: .top, spacing: 10) {
+                symbol
+                VStack(alignment: .leading, spacing: 6) {
+                    text
+                    trailing
+                }
+                Spacer(minLength: 0)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(tone.background))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(border))
+    }
+
+    private var symbol: some View {
+        Image(systemName: icon)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(tone.foreground)
+            .padding(.top, 1)
+    }
+
+    private var text: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if let title { Text(title).font(Theme.bodySemibold).foregroundStyle(tone.foreground) }
+            Text(message)
+                .font(title == nil ? Theme.body : Theme.small)
+                .foregroundStyle(tone == .accent ? Color(light: 0x1E3A8A, dark: 0x9AAFE9) : tone.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
+        }
     }
 
     private var icon: String {
@@ -213,10 +266,10 @@ struct ToolNotice<Trailing: View>: View {
 
     private var border: Color {
         switch tone {
-        case .critical: return Color(hex: 0xFCA5A5)
-        case .warning: return Color(hex: 0xFED7AA)
-        case .success: return Color(hex: 0xBBF7D0)
-        case .accent: return Color(hex: 0xBFDBFE)
+        case .critical: return Color(light: 0xFCA5A5, dark: 0x501B1B)
+        case .warning: return Color(light: 0xFED7AA, dark: 0x50371B)
+        case .success: return Color(light: 0xBBF7D0, dark: 0x1B502E)
+        case .accent: return Color(light: 0xBFDBFE, dark: 0x1B3350)
         case .neutral: return Theme.border
         }
     }
@@ -228,43 +281,106 @@ extension ToolNotice where Trailing == EmptyView {
     }
 }
 
-/// Cadre de tableau (bordure, rayon 8) avec en-tête et lignes de 34 pt.
-struct ToolTable<Rows: View>: View {
-    let columns: [TableHeader.Column]
-    @ViewBuilder var rows: Rows
+// MARK: - Tableaux (tableau standard, note 8)
 
-    var body: some View {
-        VStack(spacing: 0) {
-            TableHeader(columns: columns)
-            rows
-        }
-        .background(Theme.panel)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
-        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
-    }
-}
-
-/// Ligne de tableau : cellules de largeur fixe ou extensible, filet en haut.
-struct ToolTableRow<Content: View>: View {
-    var height: CGFloat = 34
-    var highlight: Color? = nil
+/// Tableaux des outils et de la fiche appareil : tableau standard (Shared/StandardTable.swift) dans
+/// un cadre arrondi. L'outil défile avec la page : le tableau prend la hauteur de ses lignes (comme
+/// les tableaux des croquis) et ne défile lui-même qu'au-delà de `maxRows` lignes.
+///
+/// Mode d'emploi : le modèle `StandardTableModel` (clé « outils.xxx » ou « appareil.xxx ») est gardé
+/// par la vue qui affiche le tableau ; `Table(…)` va dans ce cadre ; `ToolColumnsMenu` se place dans
+/// la barre au-dessus du tableau (ou dans l'en-tête du panneau).
+struct ToolStandardTableFrame<Content: View>: View {
+    let rowCount: Int
+    var rowHeight: CGFloat = ToolTableMetrics.rowHeight
+    var maxRows = ToolTableMetrics.maxRows
+    /// Texte sous l'en-tête quand le tableau est vide.
+    var emptyText: String? = nil
+    /// Cadre arrondi ; false quand le tableau est déjà dans un bloc encadré (découpage en sous-réseaux).
+    var bordered = true
     @ViewBuilder var content: Content
 
     var body: some View {
-        HStack(spacing: 0) { content }
-            .frame(minHeight: height)
-            .background(highlight ?? Color.clear)
-            .overlay(alignment: .top) { Rectangle().fill(Theme.neutralSoft).frame(height: 1) }
+        let table = content
+            .standardTableStyle()
+            .frame(height: ToolTableMetrics.height(rows: rowCount, rowHeight: rowHeight, maxRows: maxRows))
+            .overlay(alignment: .top) {
+                if rowCount == 0, let emptyText {
+                    Text(emptyText)
+                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: ToolTableMetrics.emptyHeight)
+                        .padding(.top, ToolTableMetrics.headerHeight)
+                        .allowsHitTesting(false)
+                }
+            }
+            .background(Theme.panel)
+        if bordered {
+            table
+                .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+        } else {
+            table
+        }
     }
 }
 
-extension View {
-    /// Cellule de tableau alignée sur une colonne de `TableHeader`.
-    func toolCell(_ width: CGFloat?, alignment: Alignment = .leading) -> some View {
-        self.lineLimit(1)
-            .padding(.horizontal, 8)
-            .frame(width: width, alignment: alignment)
-            .frame(maxWidth: width == nil ? .infinity : width, alignment: alignment)
+/// Mesures des tableaux standard des outils (style `.inset` de macOS).
+enum ToolTableMetrics {
+    /// Ligne d'une seule ligne de texte (cellule d'au plus `cellHeight`).
+    static let rowHeight: CGFloat = 26
+    /// Hauteur maximale du contenu d'une cellule d'une ligne (un bouton plus haut agrandirait sa ligne).
+    static let cellHeight: CGFloat = 18
+    /// Ligne de deux lignes de texte (Test DHCP).
+    static let doubleRowHeight: CGFloat = 44
+    static let headerHeight: CGFloat = 28
+    /// Hauteur de la zone « Aucun… » d'un tableau vide.
+    static let emptyHeight: CGFloat = 40
+    static let maxRows = 14
+    /// Marges haute et basse du style `.inset`.
+    static let insets: CGFloat = 16
+
+    static func height(rows: Int, rowHeight: CGFloat = rowHeight, maxRows: Int = maxRows) -> CGFloat {
+        guard rows > 0 else { return headerHeight + emptyHeight + insets }
+        return headerHeight + CGFloat(min(rows, maxRows)) * rowHeight + insets
+    }
+}
+
+/// Texte d'une cellule de tableau d'outil : une ligne, tronquée à la fin.
+struct ToolTableText: View {
+    let text: String
+    var size: CGFloat = 12
+    var mono = true
+    var weight: Font.Weight = .regular
+    var color: Color = Theme.text
+    var alignment: Alignment = .leading
+
+    init(_ text: String, size: CGFloat = 12, mono: Bool = true, weight: Font.Weight = .regular,
+         color: Color = Theme.text, alignment: Alignment = .leading) {
+        self.text = text
+        self.size = size
+        self.mono = mono
+        self.weight = weight
+        self.color = color
+        self.alignment = alignment
+    }
+
+    var body: some View {
+        Text(text)
+            .font(mono ? Theme.mono(size, weight: weight) : .system(size: size, weight: weight))
+            .foregroundStyle(color)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .frame(maxWidth: .infinity, alignment: alignment)
+    }
+}
+
+/// Bouton « Colonnes » d'un tableau d'outil, en petit format (barre au-dessus du tableau).
+struct ToolColumnsMenu<Row: Identifiable>: View {
+    @ObservedObject var model: StandardTableModel<Row>
+
+    var body: some View {
+        StandardColumnsMenu(model: model)
+            .controlSize(.small)
     }
 }
 

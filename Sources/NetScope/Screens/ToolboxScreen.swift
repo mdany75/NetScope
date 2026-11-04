@@ -11,13 +11,17 @@ struct ToolboxScreen: View {
     var body: some View {
         ScrollView {
             HStack(alignment: .top, spacing: 16) {
+                // La liste des outils descend jusqu'au bas de la colonne la plus haute.
                 ToolListPanel(store: store)
                     .frame(width: 260)
-                ToolMainPanel(store: store)
-                    .frame(maxWidth: .infinity)
-                ToolSidePanel(store: store)
-                    .frame(width: 260)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                SidePanelSplit(sideWidth: 260, collapse: .below, spacing: 16, collapseBelow: 720) {
+                    ToolMainPanel(store: store)
+                } side: {
+                    ToolSidePanel(store: store)
+                }
             }
+            .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, Theme.contentPadding)
             .padding(.vertical, 16)
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -71,7 +75,7 @@ private struct ToolListPanel: View {
             }
         }
         .padding(10)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
     }
@@ -135,16 +139,39 @@ private struct ToolMainPanel: View {
     }
 
     private func header(_ tool: ToolKind) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                ToolFieldLabel(tool.group.rawValue)
-                HStack(spacing: 8) {
-                    Text(tool.label).font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.text)
-                }
-                Text(tool.summary).font(Theme.small).foregroundStyle(Theme.textSecondary)
+        let command = self.command(for: tool)
+        // Commande à droite du titre quand la place suffit ; sinon dessous, sur toute la largeur.
+        return ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 12) {
+                // Largeur idéale bornée : le résumé passe à la ligne plutôt que de chasser la commande.
+                titleBlock(tool)
+                    .frame(minWidth: 240, idealWidth: 280, maxWidth: .infinity, alignment: .leading)
+                Spacer(minLength: 8)
+                commandRow(command).frame(maxWidth: 320, alignment: .trailing)
             }
-            Spacer(minLength: 8)
-            let command = self.command(for: tool)
+            VStack(alignment: .leading, spacing: 10) {
+                titleBlock(tool)
+                commandRow(command)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
+        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+    }
+
+    private func titleBlock(_ tool: ToolKind) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            ToolFieldLabel(tool.group.rawValue)
+            Text(tool.label).font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.text)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(tool.summary).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func commandRow(_ command: String) -> some View {
+        HStack(spacing: 8) {
             Text(command)
                 .font(Theme.mono(12))
                 .foregroundStyle(Theme.neutralText)
@@ -154,7 +181,7 @@ private struct ToolMainPanel: View {
                 .frame(height: 26)
                 .background(RoundedRectangle(cornerRadius: Theme.chipRadius).fill(Theme.neutralSoft))
                 .overlay(RoundedRectangle(cornerRadius: Theme.chipRadius).strokeBorder(Theme.border))
-                .frame(maxWidth: 280, alignment: .trailing)
+                .layoutPriority(1)
             Button {
                 ToolActions.copy(command)
             } label: {
@@ -163,9 +190,6 @@ private struct ToolMainPanel: View {
             .buttonStyle(.secondary)
             .help("Copier la commande équivalente")
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
     }
 
     @ViewBuilder private func content(_ tool: ToolKind) -> some View {
@@ -260,16 +284,17 @@ private struct ToolSidePanel: View {
                     Button { ToolActions.copy(store.commands.joined(separator: "\n")) } label: {
                         Image(systemName: "doc.on.doc").font(.system(size: 11))
                     }
-                    .buttonStyle(ToolCompactButtonStyle())
+                    .buttonStyle(.secondary)
+                    .controlSize(.small)
                     .help("Copier l’historique")
                     .disabled(store.commands.isEmpty)
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     if store.commands.isEmpty {
-                        Text("# aucune commande pour l’instant").font(Theme.mono(11)).foregroundStyle(Color(hex: 0x94A3B8))
+                        Text("# aucune commande pour l’instant").font(Theme.mono(11)).foregroundStyle(Theme.consoleMuted)
                     }
                     ForEach(Array(store.commands.prefix(12).enumerated()), id: \.offset) { _, command in
-                        (Text("$ ").foregroundColor(Color(hex: 0x93C5FD)) + Text(command).foregroundColor(Theme.sidebarText))
+                        (Text("$ ").foregroundColor(Theme.consolePrompt) + Text(command).foregroundColor(Theme.consoleText))
                             .font(Theme.mono(11))
                             .lineLimit(2)
                             .textSelection(.enabled)
@@ -278,7 +303,7 @@ private struct ToolSidePanel: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.sidebar))
+                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.console))
             }
         }
     }
@@ -292,15 +317,3 @@ private struct ToolSidePanel: View {
     }
 }
 
-/// Petit bouton secondaire de 24 pt (« Copier »).
-struct ToolCompactButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(Theme.text)
-            .padding(.horizontal, 8)
-            .frame(height: 24)
-            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(configuration.isPressed ? Theme.panelMuted : Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
-    }
-}

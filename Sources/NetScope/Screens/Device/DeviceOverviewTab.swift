@@ -7,20 +7,37 @@ struct DeviceKVRow: View {
     let value: String
     var mono = true
     var valueColor: Color = Theme.text
+    /// Précision après la valeur (« mDNS (Bonjour) ») : sur la même ligne si tout tient, sinon
+    /// entière sur la ligne suivante (jamais coupée au milieu).
+    var detail: String? = nil
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(key).font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize()
             Spacer(minLength: 8)
-            Text(value)
-                .font(mono ? Theme.mono(12.5) : .system(size: 12.5))
-                .foregroundStyle(valueColor)
-                .multilineTextAlignment(.trailing)
-                .textSelection(.enabled)
-                .lineLimit(2)
+            if let detail {
+                ViewThatFits(in: .horizontal) {
+                    valueText(value + " · " + detail).fixedSize()
+                    VStack(alignment: .trailing, spacing: 1) {
+                        valueText(value)
+                        valueText(detail)
+                    }
+                }
+            } else {
+                valueText(value)
+            }
         }
         .padding(.vertical, 5)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.neutralSoft).frame(height: 1) }
+    }
+
+    private func valueText(_ text: String) -> some View {
+        Text(text)
+            .font(mono ? Theme.mono(12.5) : .system(size: 12.5))
+            .foregroundStyle(valueColor)
+            .multilineTextAlignment(.trailing)
+            .textSelection(.enabled)
+            .lineLimit(2)
     }
 }
 
@@ -79,7 +96,8 @@ struct DeviceOverviewTab: View {
                 DeviceKVRow(key: "Passerelle", value: gatewayText)
                 DeviceKVRow(key: "DNS", value: state.dnsServers.isEmpty ? "—" : state.dnsServers.map(\.description).joined(separator: ", "))
                 DeviceKVRow(key: "Plage", value: [device.rangeLabel, device.vlan.map { "VLAN \($0)" }].compactMap { $0 }.joined(separator: " · ").toolIfEmpty("—"), mono: false)
-                DeviceKVRow(key: "Nom d’hôte", value: device.hostnameLabel.map { name in device.nameSourceLabel.map { "\(name) · \($0)" } ?? name } ?? "—")
+                DeviceKVRow(key: "Nom d’hôte", value: device.hostnameLabel ?? "—",
+                            detail: device.hostnameLabel == nil ? nil : device.nameSourceLabel)
             }
         }
     }
@@ -124,13 +142,18 @@ struct DeviceOverviewTab: View {
                         Text(explanation).font(Theme.small).foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                    // Switch et port gardent leur largeur ; le nom de l'appareil passe sur deux lignes
+                    // si la carte est étroite, au lieu d'être coupé.
                     HStack(spacing: 8) {
                         node(title: switchName, detail: switchDevice?.ip.description ?? "switch", highlighted: false)
+                            .fixedSize()
                         Text("─").foregroundStyle(Theme.textSecondary)
                         node(title: device.switchPort ?? "?", detail: device.vlan.map { "VLAN \($0)" } ?? "port", highlighted: true)
+                            .fixedSize()
                         Text("─").foregroundStyle(Theme.textSecondary)
-                        node(title: device.hostname.map { String($0.prefix(18)) } ?? device.displayName,
-                             detail: ".\(device.ip.octets.3)", highlighted: false)
+                        node(title: device.hostname ?? device.displayName,
+                             detail: ".\(device.ip.octets.3)", highlighted: false, titleLines: 2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     .opacity(status.isCurrent ? 1 : 0.55)
                     VStack(spacing: 0) {
@@ -160,9 +183,9 @@ struct DeviceOverviewTab: View {
         }
     }
 
-    private func node(title: String, detail: String, highlighted: Bool) -> some View {
+    private func node(title: String, detail: String, highlighted: Bool, titleLines: Int = 1) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+            Text(title).font(.system(size: 12, weight: .semibold)).lineLimit(titleLines)
             Text(detail).font(Theme.mono(11)).foregroundStyle(highlighted ? Theme.accentStrong : Theme.textSecondary).lineLimit(1)
         }
         .padding(.horizontal, 8)

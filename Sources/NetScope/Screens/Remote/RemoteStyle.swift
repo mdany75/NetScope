@@ -6,21 +6,21 @@ import SwiftUI
 extension RemoteProtocol {
     var tint: Color {
         switch self {
-        case .ssh: return Color(hex: 0x1D4ED8)
-        case .telnet: return Color(hex: 0xC2410C)
-        case .rdp: return Color(hex: 0x4338CA)
-        case .vnc: return Color(hex: 0x374151)
-        case .serie: return Color(hex: 0x15803D)
+        case .ssh: return Color(light: 0x1D4ED8, dark: 0x93ACF1)
+        case .telnet: return Color(light: 0xC2410C, dark: 0xF6AC8E)
+        case .rdp: return Color(light: 0x4338CA, dark: 0xA49EE5)
+        case .vnc: return Color(light: 0x374151, dark: 0xB6BFCE)
+        case .serie: return Color(light: 0x15803D, dark: 0x96EEB7)
         }
     }
 
     var soft: Color {
         switch self {
-        case .ssh: return Color(hex: 0xEFF6FF)
-        case .telnet: return Color(hex: 0xFFEDD5)
-        case .rdp: return Color(hex: 0xEEF2FF)
-        case .vnc: return Color(hex: 0xF3F4F6)
-        case .serie: return Color(hex: 0xDCFCE7)
+        case .ssh: return Color(light: 0xEFF6FF, dark: 0x1B3250)
+        case .telnet: return Color(light: 0xFFEDD5, dark: 0x50391B)
+        case .rdp: return Color(light: 0xEEF2FF, dark: 0x1B2750)
+        case .vnc: return Color(light: 0xF3F4F6, dark: 0x2E333D)
+        case .serie: return Color(light: 0xDCFCE7, dark: 0x1B502D)
         }
     }
 
@@ -123,6 +123,7 @@ enum RemoteFormat {
 
     static func time(_ date: Date) -> String {
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "fr_CA")
         formatter.dateFormat = "HH:mm"
         return formatter.string(from: date)
     }
