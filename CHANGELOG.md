@@ -1,5 +1,90 @@
 # Changements
 
+## 0.8.0 — 2026-11-04
+
+Réglages et alertes : la plupart des sections « Bientôt » des Réglages fonctionnent (notifications,
+raccourcis, export et sauvegarde, identifiants SSH et WMI, méthodes de découverte), et les
+alertes peuvent partir hors du Mac, par courriel ou par webhook Teams, Slack ou JSON.
+
+### Ajouté
+- **Réglages › Notifications** : choix des événements signalés (sonde en panne, en alerte ou
+  rétablie, nouvel appareil sur une plage surveillée, appareil déplacé, conflit d’adresse IP,
+  serveur DHCP non autorisé, incident d’un service en ligne, mise à jour disponible, fin de
+  scan), son au choix (aucun, critiques seulement, tous) et heures « Ne pas déranger » (de… à…,
+  même par-dessus minuit), que les événements critiques peuvent passer outre.
+- Les rafales sont regroupées : au-delà de 3 événements du même type en 5 minutes, une seule
+  notification les résume.
+- Bouton « Envoyer une notification de test », état de l’autorisation de macOS avec un
+  raccourci vers Réglages Système si elle est refusée, et liste des derniers événements avec ce
+  qui en a été fait.
+- Nouvelles notifications : fin de scan (quand NetScope n’est pas au premier plan), conflit
+  d’adresse IP, serveur DHCP non autorisé, mise à jour disponible. Un clic sur une notification
+  ouvre directement la sonde, le service, l’appareil ou l’écran concerné.
+- **Menus Scan, Appareil et Aller** : lancer, arrêter ou relancer un scan, rescanner les ports
+  de la sélection, changer de profil, ping continu, fiche, copier l’IP ou la MAC, ouvrir dans le
+  navigateur, aller à chaque écran (⌘1 à ⌘9), rechercher partout (⌘F), exporter (⌘E),
+  Réglages (⌘,).
+- **Réglages › Raccourcis** : tous les raccourcis se modifient (cliquer puis taper la
+  combinaison) ; les conflits entre raccourcis ou avec macOS sont signalés ; retour aux valeurs
+  par défaut.
+- **Réglages › Export et sauvegarde** : sauvegarde automatique quotidienne et bouton
+  « Sauvegarder maintenant » (réglages, plages, profils, inventaire, historiques de
+  Surveillance, services en ligne, disques, identifiants), en archive .zip ou en dossier daté,
+  avec manifeste ; dossier au choix, nombre de sauvegardes gardées, copie facultative dans
+  iCloud Drive.
+- Liste des sauvegardes (date, type, taille, contenu) avec restauration après confirmation :
+  l’état actuel est d’abord gardé dans une sauvegarde de sécurité, puis NetScope redémarre ; on
+  peut aussi restaurer une sauvegarde venue d’un autre Mac.
+- Format d’export par défaut (CSV, JSON ou PDF) ; export JSON des résultats du Scanner.
+- **Identifiants** : bouton « Tester » pour la communauté SNMP v2c et l’utilisateur SNMP v3,
+  vers l’adresse choisie, qui affiche sysName, sysDescr et la durée de fonctionnement, ou une
+  erreur expliquée (délai, port fermé, utilisateur inconnu, authentification, déchiffrement).
+- **SNMP v3** pris en charge (authentification MD5 à SHA-512, chiffrement DES et AES).
+- **Identifiants SSH et WMI** : liste, mot de passe ou clé ~/.ssh choisie, DOMAINE\utilisateur
+  pour Windows, secrets au Trousseau, test SSH (« uname -a ») et test de joignabilité
+  WMI/WinRM (ports 135, 5985, 5986).
+- **Profils de scan** : choix des méthodes de découverte de chaque profil (ICMP, ARP, présence
+  TCP, UDP, DNS inverse, mDNS, NetBIOS, SNMP, écoute LLDP/CDP passive), appliquées par le
+  Scanner.
+- **Réglages › Alertes**, alertes hors du Mac : par courriel (serveur SMTP, port, STARTTLS sur
+  587 ou TLS sur 465, compte) et par webhook Microsoft Teams (Workflows), Slack ou JSON
+  générique. Désactivées par défaut : rien n’est envoyé tant qu’elles ne sont pas activées.
+- Bouton « Envoyer un test » sur chaque canal, avec confirmation avant l’envoi et résultat
+  affiché sous le bouton.
+- Règles d’envoi : choix des événements (sonde en panne, en alerte ou rétablie ; nouvel
+  appareil ; serveur DHCP non autorisé ; incident d’un service en ligne ; fin de scan), gravité
+  minimale, anti-rafale (au plus une alerte par événement et par intervalle), regroupement en un
+  seul résumé, heures de silence où les alertes critiques peuvent passer quand même.
+- Journal des envois : date, canal, alerte, résultat (envoyée ou échec) et détail, sans aucun
+  secret.
+- Surveillance : l’éditeur de sonde montre où partent les alertes de la sonde (courriel, Teams,
+  Slack…) et permet de l’exclure des alertes ; colonne facultative « Alertes externes » dans le
+  tableau des sondes.
+
+### Modifié
+- Le bouton « Exporter » du Scanner suit le format d’export par défaut.
+- Les profils de scan existants gardent leur comportement : leurs méthodes de découverte
+  reprennent celles d’avant.
+- Le mot de passe SMTP, les adresses des webhooks et l’en-tête d’authentification sont gardés
+  au Trousseau macOS, jamais dans les préférences ni dans le journal. Les sauvegardes ne copient
+  jamais les secrets du Trousseau : seuls les noms des comptes à ressaisir sont notés.
+
+### Corrigé
+- Erreurs d’envoi expliquées en français au lieu d’un code brut : authentification refusée
+  (avec conseil pour Microsoft 365 et Gmail), port bloqué, certificat refusé, relais refusé,
+  webhook révoqué ou introuvable.
+
+### Limites connues
+- Courriel : authentification SMTP par mot de passe seulement (AUTH PLAIN ou LOGIN), pas
+  d’OAuth 2 ; pour Microsoft 365, il faut que l’envoi SMTP authentifié soit permis sur la boîte,
+  et pour Gmail, un mot de passe d’application.
+- WMI : seulement un test de joignabilité (ports 135, 5985, 5986) ; NetScope n’interroge pas
+  encore WMI ni WinRM.
+- Après une restauration, les mots de passe, communautés et jetons sont à ressaisir.
+- Pas encore essayé sur de vrais serveurs SMTP, canaux Teams et Slack, ni de vrais équipements
+  SNMP v3 : essais réels à faire.
+- Toujours à venir dans les Réglages : plusieurs sites et la langue anglaise.
+
 ## 0.7.0 — 2026-11-04
 
 Analyse avancée : capture et inspection de paquets façon Wireshark, et mesure de la vitesse des

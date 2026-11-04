@@ -5,7 +5,7 @@
 
 ## Priorités (revues le 4 novembre 2026)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0.
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0.
 
 1. **0.4.x, retours d'essai** : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour) et de la 0.4.0 (menus de colonnes, type, ports, sombre) ;
@@ -17,8 +17,9 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
    réels à faire (pages d’état, Microsoft Graph, listes noires, SMTP, propagation DNS).
 4. ~~**0.7.0, analyse avancée**~~ : livrée le 4 novembre 2026 (notes 7 et 22) ; essais
    réels à faire (vraie capture, ChmodBPF, NAS SMB/NFS, dossiers OneDrive et iCloud Drive).
-5. **0.8.0, réglages et alertes** : note 13 (sauvegarde, notifications, raccourcis…), alertes
-   par courriel et webhook.
+5. ~~**0.8.0, réglages et alertes**~~ : livrée le 4 novembre 2026 (notes 13 et 23) ; essais
+   réels à faire (vrais serveurs SMTP, Microsoft 365 et Gmail, canaux Teams et Slack, SNMP v3,
+   SSH, restauration d’une sauvegarde sur un autre Mac).
 6. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
@@ -243,7 +244,10 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 - Limite : un Mac ne consomme pas de PoE ; pour lui, la réponse dit seulement si le port de la
   switch est PoE et s'il fournit du courant.
 
-## 13. Réglages encore « Bientôt » — À PLANIFIER (demande de Dany)
+## 13. Réglages encore « Bientôt » (demande de Dany)
+
+**Livrée dans la 0.8.0** (4 novembre 2026) ; restent à venir : plusieurs sites (avec la note 10)
+et la langue anglaise (reportée). Essais réels à faire (sauvegarde et restauration, SNMP v3, SSH).
 
 Sections de Réglages à réaliser, fidèles au croquis `docs/croquis/Reglages.dc.html` :
 
@@ -442,3 +446,17 @@ Dropbox, Zscaler, fournisseurs Internet courants… liste modifiable.
 - Historique des tests par emplacement, export CSV, ajout possible dans un Rapport (note 4).
 - Tests : calculs de débit/IOPS sur des durées fixes, choix des emplacements, nettoyage, sans
   écrire de gros fichiers.
+
+## 23. Alertes par courriel et webhook (demande de Dany)
+
+**Livrée dans la 0.8.0** (4 novembre 2026) ; essais réels à faire (vrais serveurs SMTP,
+Microsoft 365 et Gmail, canaux Teams et Slack).
+
+- Réglages › Alertes : courriel (SMTP, STARTTLS sur 587 ou TLS sur 465, compte) et webhooks
+  Microsoft Teams (Workflows), Slack ou JSON générique ; désactivées par défaut.
+- Secrets (mot de passe SMTP, adresses des webhooks, en-tête d’authentification) au Trousseau.
+- Règles : événements, gravité minimale, anti-rafale, regroupement, heures de silence ; journal
+  des envois sans secret ; erreurs expliquées en français.
+- Surveillance : canaux de chaque sonde dans l’éditeur, exclusion possible, colonne « Alertes
+  externes ».
+- Limites : authentification SMTP par mot de passe seulement (pas d’OAuth 2).
