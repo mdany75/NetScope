@@ -222,9 +222,11 @@ private struct DeviceDetailView: View {
             Label("Ouvrir dans le navigateur", systemImage: "safari")
         }
         .buttonStyle(.secondary)
-        Button { ToolActions.open("ssh://\(device.ip)") } label: { Label("SSH", systemImage: "terminal") }
-            .buttonStyle(.secondary)
-            .help("Ouvre ssh://\(device.ip.description) dans Terminal")
+        // Note 52 : l'utilisateur est demandé (feuille), puis retenu pour cet appareil.
+        QuickLoginSSHButton(target: QuickLoginTarget(device: device)) { entry in
+            Label(QuickLoginFormat.buttonTitle(entry), systemImage: "terminal")
+        }
+        .buttonStyle(.secondary)
         Menu {
             Button("Adresse IP") { copy(device.ip.description, label: "IP copiée") }
             if let mac = device.mac {

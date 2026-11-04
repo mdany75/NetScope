@@ -322,7 +322,7 @@ extension RemoteConnection: SearchableRecord {
         switch field.key {
         case "proto": return [proto.label, proto.rawValue, proto.fullName]
         case "nom": return [name]
-        case "ip": return [host]
+        case "ip": return [host] + userAtHost
         case "port": return [String(port)]
         case "user": return [username]
         case "dossier": return [folderLabel]
@@ -333,7 +333,12 @@ extension RemoteConnection: SearchableRecord {
 
     /// Colonnes de l'ancienne recherche de l'Accès distant.
     public var searchFreeText: [String] {
-        [name, host, String(port), proto.label, proto.rawValue, username, folder, note]
+        [name, host, String(port), proto.label, proto.rawValue, username, folder, note] + userAtHost
+    }
+
+    /// Note 52 : « admin@10.182.122.2 » (forme user@ip) trouve la connexion.
+    private var userAtHost: [String] {
+        username.isEmpty ? [] : ["\(username)@\(host)"]
     }
 }
 

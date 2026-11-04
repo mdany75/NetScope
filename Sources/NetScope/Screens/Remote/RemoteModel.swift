@@ -50,8 +50,17 @@ struct RemoteDraft: Equatable {
 
     /// Connexion validée, ou erreur à afficher.
     func connection(existing: RemoteConnection?) throws -> RemoteConnection {
-        guard let portValue = Int(port.trimmingCharacters(in: .whitespaces)) else {
+        guard var portValue = Int(port.trimmingCharacters(in: .whitespaces)) else {
             throw RemoteValidationError.invalidPort(0)
+        }
+        // Note 52 : « admin@10.0.0.2 » ou « admin@10.0.0.2:2222 » accepté dans le champ Hôte.
+        var host = self.host
+        var username = self.username
+        if proto != .serie, host.contains("@") || host.contains("://") {
+            let address = try QuickLoginAddress.parse(host)
+            host = address.host
+            if !address.user.isEmpty { username = address.user }
+            if let port = address.port { portValue = port }
         }
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         var connection = existing ?? RemoteConnection(name: "", proto: proto, host: "")
@@ -275,6 +284,23 @@ final class RemoteModel: ObservableObject {
         save()
     }
 
+    /// Note 52 : « Enregistrer dans le carnet » de la feuille de connexion rapide. Une connexion
+    /// de même protocole, hôte et port est mise à jour (nom d'utilisateur) au lieu d'être doublée.
+    @discardableResult
+    func saveQuickConnection(_ connection: RemoteConnection) -> Bool {
+        guard let valid = try? connection.validated() else { return false }
+        if let index = connections.firstIndex(where: { $0.proto == valid.proto && $0.host == valid.host && $0.port == valid.port }) {
+            connections[index].username = valid.username
+            connections[index].lastConnected = Date()
+        } else {
+            var added = valid
+            added.lastConnected = Date()
+            connections.append(added)
+        }
+        save()
+        return true
+    }
+
     // MARK: Import depuis le scan
 
     func importCandidates(from devices: [Device]) -> [RemoteImportCandidate] {
@@ -333,6 +359,11 @@ final class RemoteModel: ObservableObject {
     /// Ouvre la connexion ; `mode` : choix rapide du bouton « Connecter » (fenêtre ou plein
     /// écran pour cette fois seulement, sans changer la connexion enregistrée).
     func connect(_ connection: RemoteConnection, mode: RemoteDisplayMode? = nil) {
+        // Note 52 : connexion SSH ou Telnet du carnet sans utilisateur : le nom est demandé.
+        if [.ssh, .telnet].contains(connection.proto), connection.username.trimmingCharacters(in: .whitespaces).isEmpty {
+            QuickLoginModel.shared.ask(QuickLoginTarget(connection: connection))
+            return
+        }
         var target = connection
         if let mode { target.display = connection.display.with(mode: mode) }
         do {

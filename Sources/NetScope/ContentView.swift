@@ -32,6 +32,8 @@ struct ContentView: View {
                 .onPreferenceChange(SearchResultsKey.self) { searchResults = $0 }
             }
             .background(Theme.appBackground)
+            // Note 52 : feuille « Se connecter en SSH » des boutons SSH de tous les écrans.
+            .quickLoginPrompt()
             .id(state.screen)
                 .navigationTitle(state.screen.pageTitle)
                 .navigationSubtitle(SitePicker.windowSubtitle(activeName: sites.activeSite?.displayName))

@@ -351,6 +351,8 @@ struct ScanDetailLatency: View {
 
 struct ScanDetailActions: View {
     @EnvironmentObject private var state: AppState
+    /// Note 52 : nom d'utilisateur SSH retenu (libellé du bouton SSH).
+    @ObservedObject private var quickLogin = QuickLoginModel.shared
     let device: Device
     @ObservedObject var scan: ScanController
 
@@ -370,7 +372,11 @@ struct ScanDetailActions: View {
                     .help("Ports du préréglage en vigueur\u{00A0}: \(scan.portPreset.label) (autres préréglages au clic droit sur la ligne)")
                     action("Wake-on-LAN", "power") { scan.wake(device, state: state) }
                         .disabled(device.mac == nil)
-                    action("SSH", "terminal") { ScanFormat.open(URL(string: "ssh://\(device.ip)")!) }
+                    // Note 52 : feuille de l'utilisateur, nom retenu affiché sur le bouton.
+                    action(QuickLoginFormat.buttonTitle(QuickLoginModel.shared.remembered(QuickLoginTarget(device: device))), "terminal") {
+                        QuickLoginModel.shared.ask(QuickLoginTarget(device: device))
+                    }
+                    .help(QuickLoginFormat.help(entry: QuickLoginModel.shared.remembered(QuickLoginTarget(device: device)), host: device.ip.description))
                     action("Copier IP", "doc.on.doc") { scan.copy(device.ip.description, label: "IP") }
                     action("Copier MAC", "doc.on.doc") {
                         if let mac = device.mac { scan.copy(mac.formatted(.upperColon), label: "MAC") }

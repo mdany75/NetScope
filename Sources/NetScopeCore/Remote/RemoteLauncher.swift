@@ -54,13 +54,10 @@ public enum RemoteLauncher {
         }
     }
 
-    /// « ssh -p 22 -l netadmin -- 10.182.122.2 » (« -- » : l'hôte ne peut pas être lu comme une option).
+    /// « ssh -- netadmin@10.182.122.2 », « ssh -p 2222 -- netadmin@10.182.122.2 » (note 52 :
+    /// forme user@ip ; « -- » : la destination ne peut pas être lue comme une option).
     public static func sshCommand(_ c: RemoteConnection) -> String {
-        var words = ["ssh"]
-        if c.port != 22 { words += ["-p", String(c.port)] }
-        if !c.username.isEmpty { words += ["-l", c.username] }
-        words += ["--", c.host]
-        return RemoteShell.command(words)
+        QuickLogin.sshCommand(user: c.username, host: c.host, port: c.port)
     }
 
     /// « telnet -l manager 10.182.122.3 23 », ou « nc 10.182.122.3 23 » sans telnet installé.

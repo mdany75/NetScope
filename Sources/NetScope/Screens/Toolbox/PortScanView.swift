@@ -254,6 +254,7 @@ struct PortScanView: View {
 /// facultatives : protocole, adresse web, heure du relevé. Partagé par l'outil (« outils.ports ») et
 /// l'onglet Ports et services de la fiche appareil (« appareil.ports ») : chacun garde son modèle.
 struct PortResultsTable: View {
+    @EnvironmentObject private var appState: AppState
     let host: String
     let results: [PortScanResult]
     @ObservedObject var table: StandardTableModel<PortScanResult>
@@ -377,8 +378,15 @@ struct PortResultsTable: View {
         if let url = webURL(result) {
             Button("Ouvrir") { ToolActions.open(url) }
                 .buttonStyle(.ghost)
-        } else if result.state == .open, result.port == 22 {
-            Button("SSH") { ToolActions.open("ssh://\(host)") }.buttonStyle(.ghost)
+        } else if result.state == .open, result.port == 22 || (result.banner?.hasPrefix("SSH-") ?? false) {
+            // Note 52 : l'utilisateur est demandé avant d'ouvrir ssh user@ip (port non standard
+            // repris quand la bannière annonce SSH).
+            Button("SSH…") {
+                var target = QuickLoginTarget(host: host, state: appState)
+                if result.port != 22 { target.port = Int(result.port) }
+                QuickLoginModel.shared.ask(target)
+            }
+            .buttonStyle(.ghost)
         } else {
             Text("—").font(Theme.small).foregroundStyle(Theme.textTertiary)
         }

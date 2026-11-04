@@ -186,7 +186,7 @@ func registerSpeedRemoteTests(_ suite: TestSuite) {
 
     suite.add("Accès : commandes SSH, Telnet, série et URL VNC") {
         let ssh = RemoteConnection(name: "SW-CORE-01", proto: .ssh, host: "10.182.122.2", username: "netadmin")
-        try expectEqual(try RemoteLauncher.plan(for: ssh), .terminal(command: "ssh -l netadmin -- 10.182.122.2"), "SSH port 22")
+        try expectEqual(try RemoteLauncher.plan(for: ssh), .terminal(command: "ssh -- netadmin@10.182.122.2"), "SSH port 22")
         var custom = ssh
         custom.port = 2222
         custom.username = ""

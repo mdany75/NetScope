@@ -569,6 +569,8 @@ struct ScanDeviceMenu: View {
                 .disabled(device.mac == nil)
             Divider()
             Button("Ping continu") { state.sendToPing(device.ip.description) }
+            // Note 52 : utilisateur demandé (ou retenu) avant ssh user@ip.
+            Button("Se connecter en SSH…") { QuickLoginModel.shared.ask(QuickLoginTarget(device: device)) }
             Button("Ouvrir dans le navigateur (http)") { ScanFormat.open(URL(string: "http://\(device.ip)")!) }
             Button("Ouvrir dans le navigateur (https)") { ScanFormat.open(URL(string: "https://\(device.ip)")!) }
         } else {
