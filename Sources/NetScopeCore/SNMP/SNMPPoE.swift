@@ -257,36 +257,42 @@ public struct DevicePoEStatus: Hashable, Sendable {
     /// Des ports PSE du switch n'ont pas pu être rattachés à une interface : un port absent de la
     /// liste n'est donc pas forcément sans PoE.
     public var hasUnmatchedPorts: Bool
+    /// Le switch est connu sans aucun port PoE (FortiSwitch lu par la FortiGate, qui décrit tous
+    /// ses ports) : « Non » plutôt que « Inconnu ».
+    public var switchWithoutPoE: Bool
 
-    public init(switchName: String, portName: String, port: SNMPPoEPort?, switchHasPoE: Bool, hasUnmatchedPorts: Bool = false) {
+    public init(switchName: String, portName: String, port: SNMPPoEPort?, switchHasPoE: Bool, hasUnmatchedPorts: Bool = false,
+                switchWithoutPoE: Bool = false) {
         self.switchName = switchName
         self.portName = portName
         self.port = port
         self.switchHasPoE = switchHasPoE && !hasUnmatchedPorts
         self.hasUnmatchedPorts = hasUnmatchedPorts
+        self.switchWithoutPoE = switchWithoutPoE && port == nil && !switchHasPoE
     }
 
     /// Port PoE ? (nil : impossible à dire.)
     public var isPoEPort: Bool? {
         if port != nil { return true }
-        return switchHasPoE ? false : nil
+        return switchHasPoE || switchWithoutPoE ? false : nil
     }
 
     /// Alimenté par PoE en ce moment ?
     public var isPowered: Bool? {
         if let port { return port.isDelivering }
-        return switchHasPoE ? false : nil
+        return switchHasPoE || switchWithoutPoE ? false : nil
     }
 
     /// Texte de colonne : « Oui · 18,4 W », « Non (port PoE) », « Non (sans PoE) », « Inconnu ».
     public var shortLabel: String {
         if let port { return port.shortLabel }
-        return switchHasPoE ? "Non (sans PoE)" : "Inconnu"
+        return switchHasPoE || switchWithoutPoE ? "Non (sans PoE)" : "Inconnu"
     }
 
     /// Phrase de la fiche : « Alimenté par PoE · classe 4 · 18,4 W (Cisco) ».
     public var detailLabel: String {
         guard let port else {
+            if switchWithoutPoE { return "Non · \(switchName) n’a aucun port PoE" }
             if hasUnmatchedPorts { return "Inconnu · ports PoE de \(switchName) non rattachés aux interfaces" }
             return switchHasPoE ? "Non · le port \(portName) ne fournit pas de PoE"
                 : "Inconnu · \(switchName) ne répond pas à POWER-ETHERNET-MIB"
@@ -323,6 +329,7 @@ public enum SNMPPoELookup {
               let iface = snapshot.interface(named: portName), iface.isPhysical else { return nil }
         return DevicePoEStatus(switchName: snapshot.displayName, portName: iface.name, port: snapshot.poePort(iface.index),
                                switchHasPoE: snapshot.poeDetails?.isEmpty == false,
-                               hasUnmatchedPorts: snapshot.poeDetails?.contains { $0.ifIndex == nil } == true)
+                               hasUnmatchedPorts: snapshot.poeDetails?.contains { $0.ifIndex == nil } == true,
+                               switchWithoutPoE: snapshot.controllerName != nil && !snapshot.hasPoE)
     }
 }

@@ -201,6 +201,23 @@ func registerFortinetTests(_ suite: TestSuite) {
         try expectEqual(FortiConvert.snapshots(from: noIP)[1].host, IPv4Address(2), "adresse de remplacement")
     }
 
+    suite.add("FortiGate : FortiSwitch sans PoE, « Non » plutôt que « Inconnu »") {
+        let report = try await FortiGateReader(transport: FortiFakeTransport(FortiFixtures.v74())).read(now: now)
+        var bare = FortiConvert.snapshots(from: report)[0]
+        bare.poeDetails = []
+        bare.poePorts = []
+        bare.poeBudgetW = nil
+        bare.poeUsedW = nil
+        let status = SNMPPoELookup.status(switchName: bare.displayName, portName: "port1", in: [bare])
+        try expectEqual(status?.shortLabel, "Non (sans PoE)", "colonne")
+        try expectEqual(status?.isPowered, false, "pas alimenté")
+        try expect(status?.detailLabel.contains("aucun port PoE") == true, "fiche : \(status?.detailLabel ?? "nil")")
+        // Même relevé venu de SNMP (sans contrôleur) : impossible à dire.
+        bare.controllerName = nil
+        let snmp = SNMPPoELookup.status(switchName: bare.displayName, portName: "port1", in: [bare])
+        try expectEqual(snmp?.shortLabel, "Inconnu", "SNMP sans POWER-ETHERNET-MIB")
+    }
+
     suite.add("FortiGate : priorité sur SNMP pour l'emplacement, SNMP pour les autres switchs") {
         let report = try await FortiGateReader(transport: FortiFakeTransport(FortiFixtures.v74())).read(now: now)
         let cam = MACAddress("bc:ad:28:6f:01:5a")!

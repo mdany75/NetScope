@@ -1,7 +1,7 @@
 import Foundation
 import NetScopeCore
 
-/// Lecture fictive d'une FortiGate (note 24) : FortiGate-100F en FortiOS 7.4.4 et trois FortiSwitch
+/// Lecture fictive d'une FortiGate (note 24) : FortiGate-60F en FortiOS 7.2.8 (la passerelle des autres écrans) et trois FortiSwitch
 /// gérés par FortiLink (S248E, S124F-POE, S108F) en 10.255.1.x, avec leurs ports, le PoE et les
 /// appareils détectés. Les appareils du scan de démonstration branchés sur ces switchs ont les
 /// mêmes MAC que dans DemoData. Aucun accès réseau.
@@ -15,8 +15,8 @@ enum FortiGateDemo {
     static let warehouseCamMAC = MACAddress("BC:AD:28:6F:22:31")!
 
     static func report(now: Date = Date()) -> FortiGateReport {
-        let system = FortiGateSystem(hostname: "FGT-SIEGE", model: "FortiGate-100F", serial: "FG100FTK22004711",
-                                     version: "v7.4.4", build: 2662, vdom: "root")
+        let system = FortiGateSystem(hostname: "FGT-SIEGE", model: "FortiGate-60F", serial: "FGT60FTK22004711",
+                                     version: "v7.2.8", build: 1639, vdom: "root")
         func synth(_ prefix: [UInt8], _ n: Int) -> MACAddress {
             MACAddress(bytes: prefix + [UInt8((n * 7 + 21) % 256), UInt8((n * 13 + 5) % 256), UInt8((n * 19 + 11) % 256)])
         }
@@ -227,7 +227,7 @@ enum FortiGateDemo {
     /// Appels de la lecture fictive (réponses brutes courtes, sans jeton).
     private static func demoCalls(_ report: FortiGateReport) -> [FortiCallRecord] {
         [FortiCallRecord(path: FortiPaths.systemStatus, status: 200, outcome: .ok,
-                         body: #"{"results":{"model_name":"FortiGate","model_number":"100F","hostname":"FGT-SIEGE"},"version":"v7.4.4","build":2662,"status":"success"}"#, items: 1),
+                         body: #"{"results":{"model_name":"FortiGate","model_number":"60F","hostname":"FGT-SIEGE"},"version":"v7.2.8","build":1639,"status":"success"}"#, items: 1),
          FortiCallRecord(path: FortiPaths.switchStatus, status: 200, outcome: .ok, body: "(démonstration)", items: report.switches.count),
          FortiCallRecord(path: FortiPaths.switchConfig, status: 200, outcome: .ok, body: "(démonstration)", items: report.switches.count),
          FortiCallRecord(path: FortiPaths.portStats, status: 200, outcome: .ok, body: "(démonstration)", items: report.switches.count),

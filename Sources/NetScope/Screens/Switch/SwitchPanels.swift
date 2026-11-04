@@ -229,7 +229,12 @@ struct SwitchCard: View {
                                 cardName(snapshot)
                                 statusChip(snapshot)
                             }
-                            cardName(snapshot)
+                            // Nom trop long pour la puce sur la même ligne : l'état passe dessous
+                            // plutôt que de disparaître (FSW-ENTREPOT en petite fenêtre).
+                            VStack(alignment: .leading, spacing: 4) {
+                                cardName(snapshot)
+                                statusChip(snapshot)
+                            }
                         }
                         Group {
                             if let snapshot, store.isController(host) {

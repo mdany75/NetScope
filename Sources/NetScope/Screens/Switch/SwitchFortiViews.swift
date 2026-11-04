@@ -193,11 +193,12 @@ struct SwitchFortiPortTable: View {
         Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
             TableColumn(StandardTableHeading("PORT"), sortUsing: table.sort("port")) { row in
                 HStack(spacing: 6) {
-                    Text(row.port).font(Theme.mono(12, weight: .semibold)).foregroundStyle(Theme.text)
+                    // « port10 » entier à côté de la puce « Uplink ».
+                    Text(row.port).font(Theme.mono(12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1).fixedSize()
                     if row.isUplink { SwitchSourceTag(source: .uplink) }
                 }
             }
-            .width(min: 70, ideal: 96)
+            .width(min: 116, ideal: 124)
             .customizationID("port")
             .disabledCustomizationBehavior(.visibility)
 

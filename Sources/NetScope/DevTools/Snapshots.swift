@@ -147,6 +147,9 @@ private final class SnapshotWindow: NSWindow {
     override var isMainWindow: Bool { true }
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+    // Fenêtre hors écran : AppKit ne la ramène pas à la hauteur de l'écran (« --size 1440x2600 »
+    // montre alors toute la page, sans défilement).
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
     // Méthodes internes d'AppKit qui décident de l'aspect actif (outil de développement seulement).
     @objc func _hasActiveAppearance() -> Bool { true }
     @objc func _hasActiveAppearanceIgnoringKeyFocus() -> Bool { true }

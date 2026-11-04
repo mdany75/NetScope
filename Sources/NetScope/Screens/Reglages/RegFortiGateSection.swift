@@ -520,7 +520,7 @@ struct RegFortiSwitchTable: View {
             .width(min: 80, ideal: 100)
             .customizationID("etat")
 
-            TableColumn("APPAREILS DÉTECTÉS", sortUsing: table.sort("appareils")) { row in
+            TableColumn("APPAREILS", sortUsing: table.sort("appareils")) { row in
                 RegSwitchCell("\(row.devices)", mono: true)
             }
             .width(min: 70, ideal: 110)

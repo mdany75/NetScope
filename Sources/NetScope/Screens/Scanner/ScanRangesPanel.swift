@@ -64,6 +64,7 @@ struct ScanPipelineBar: View {
     @ObservedObject var scan: ScanController
     @ObservedObject private var switches = SwitchStore.shared
     @ObservedObject private var prefs = RegPrefs.shared
+    @ObservedObject private var fortigate = FortiGateStore.shared
 
     var body: some View {
         if scan.isRunning, let current = scan.phase {
@@ -152,6 +153,12 @@ struct ScanPipelineBar: View {
             : "\(prefix(result))\(count) switch\(count > 1 ? "s" : "") relevé\(count > 1 ? "s" : "")"
         var text = "\(head) (\(names)) · \(result.located) appareil\(result.located > 1 ? "s" : "") localisé\(result.located > 1 ? "s" : "")"
         if result.filledMACs > 0 { text += " · \(result.filledMACs) MAC complétée\(result.filledMACs > 1 ? "s" : "") par l’ARP SNMP" }
+        // FortiSwitch gérés relus par la FortiGate à la fin de ce scan (note 24) : ils localisent
+        // aussi des appareils, sans passer par SNMP.
+        if fortigate.isEnabled, let report = fortigate.report, !report.switches.isEmpty,
+           report.readAt >= result.date.addingTimeInterval(-600) {
+            text += " · FortiGate \(report.controllerName)\u{00A0}: \(report.switches.count) FortiSwitch"
+        }
         if !result.failed.isEmpty { text += " · \(result.failed.count) sans relevé" }
         let help = [text, rangesHelp(result)].filter { !$0.isEmpty }.joined(separator: "\n")
         return HStack(spacing: 8) {

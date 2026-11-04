@@ -223,7 +223,9 @@ struct ScanDetailLocation: View {
     private func box(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).font(Theme.caption).foregroundStyle(Theme.textSecondary)
-            Text(value).font(Theme.mono(12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.tail)
+            // « FSW-SERVEURS » tient dans la case plutôt que d'être coupé.
+            Text(value).font(Theme.mono(12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
+                .minimumScaleFactor(0.75).truncationMode(.tail)
         }
         .padding(8)
         .frame(maxWidth: .infinity, alignment: .leading)

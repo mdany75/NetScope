@@ -183,6 +183,8 @@ extension SwitchText {
             return iface.isUp ? port.summary : "—"
         }
         guard iface.isUp else { return "—" }
+        // FortiSwitch sans PoE (FS-108F) : la FortiGate décrit tous ses ports, aucun n'en a.
+        if snapshot.controllerName != nil, !snapshot.hasPoE { return "Port sans PoE" }
         return snapshot.poeDetails?.isEmpty == false ? "Port sans PoE" : "Aucune charge PoE"
     }
 }
