@@ -387,6 +387,8 @@ private struct MonConditionFields: View {
             MonFortiAPConditionFields(probe: $probe)
         case .dhcpScope:
             MonDHCPScopeConditionFields(probe: $probe)
+        case .linkSaturated, .heavyDevice, .newThreat:
+            MonTrafficConditionFields(probe: $probe)
         }
     }
 

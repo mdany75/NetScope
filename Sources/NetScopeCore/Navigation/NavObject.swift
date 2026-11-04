@@ -104,7 +104,8 @@ public struct NavProbeRef: Hashable, Sendable {
         case .http:
             let withScheme = text.contains("://") ? text : "http://" + text
             return URLComponents(string: withScheme)?.host
-        case .switchPort, .newDevices, .onlineService, .fortiAPOffline, .fortiAPOverload, .dhcpScope:
+        case .switchPort, .newDevices, .onlineService, .fortiAPOffline, .fortiAPOverload, .dhcpScope,
+             .linkSaturated, .heavyDevice, .newThreat:
             return nil
         }
     }

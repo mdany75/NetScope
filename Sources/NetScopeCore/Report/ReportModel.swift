@@ -70,6 +70,8 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
     case dhcp
     /// Diagnostics Wi-Fi retenus (note 47), facultative.
     case wifiDiag
+    /// Trafic FortiView et analyse complète du réseau (note 54), facultative.
+    case trafic
 
     public var id: String { rawValue }
 
@@ -87,13 +89,14 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
         case .fortiap: return "Wi-Fi FortiAP"
         case .dhcp: return "Étendues DHCP"
         case .wifiDiag: return "Diagnostic Wi-Fi"
+        case .trafic: return "Trafic et analyse"
         case .annexe: return "Annexe brute"
         }
     }
 
     /// Ordre dans le document : le détail (inventaire, annexe) vient après la synthèse. « Santé
     /// courriel » est facultative : aucun modèle ne la coche par défaut.
-    public static let documentOrder: [ReportSectionKind] = [.resume, .plan, .dhcp, .switchs, .wifi, .fortiap, .wifiDiag, .securite, .problemes,
+    public static let documentOrder: [ReportSectionKind] = [.resume, .plan, .dhcp, .switchs, .wifi, .fortiap, .wifiDiag, .trafic, .securite, .problemes,
                                                             .courriel, .disques, .inventaire, .annexe]
 }
 

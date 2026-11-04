@@ -189,6 +189,15 @@ public enum NavResolver {
             return .go(NavDestination(.wifi))
         case .dhcpScope:
             return .go(NavDestination(.outils, focus: .tool("dhcpscopes")))
+        case .linkSaturated, .newThreat:
+            return .go(NavDestination(.trafic))
+        case .heavyDevice:
+            // Un appareil précis (son IP) : sa fiche ; sinon l'écran Trafic.
+            let ip = probe.target.trimmingCharacters(in: .whitespaces)
+            if let found = context.scanner[ip] {
+                return .go(NavDestination(.appareil, focus: .device(found.ip)))
+            }
+            return .go(NavDestination(.trafic))
         case .switchPort:
             let ref = NavDeviceRef(ip: "", mac: probe.target)
             if let mac = ref.mac, let found = context.scannerDevice(mac: mac) {

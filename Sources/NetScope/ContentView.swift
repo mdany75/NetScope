@@ -76,6 +76,7 @@ struct ContentView: View {
         case .wifi: WifiScreen()
         case .outils: ToolboxScreen()
         case .surveillance: SurveillanceScreen()
+        case .trafic: TraficScreen()
         case .analyse: AnalyseScreen()
         case .rapports: RapportScreen()
         case .acces: RemoteScreen()

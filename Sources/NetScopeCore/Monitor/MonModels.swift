@@ -14,6 +14,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
     case fortiAPOffline, fortiAPOverload
     /// Étendue DHCP presque pleine (note 37), lue par la FortiGate ou estimée par le Test DHCP.
     case dhcpScope
+    /// Trafic lu par FortiView (note 54) : lien WAN saturé, appareil qui consomme trop, nouvelle menace.
+    case linkSaturated, heavyDevice, newThreat
 
     public var id: String { rawValue }
 
@@ -34,6 +36,9 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .fortiAPOffline: return "FortiAP hors ligne"
         case .fortiAPOverload: return "Borne surchargée"
         case .dhcpScope: return "Étendue DHCP presque pleine"
+        case .linkSaturated: return "Lien saturé"
+        case .heavyDevice: return "Appareil qui consomme trop"
+        case .newThreat: return "Nouvelle menace"
         }
     }
 
@@ -54,6 +59,9 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .fortiAPOffline: return "FortiAP"
         case .fortiAPOverload: return "Charge Wi-Fi"
         case .dhcpScope: return "DHCP"
+        case .linkSaturated: return "Lien WAN"
+        case .heavyDevice: return "Trafic"
+        case .newThreat: return "Menace"
         }
     }
 
@@ -72,6 +80,9 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .onlineService: return "Service du catalogue (Microsoft 365, GitHub…)"
         case .fortiAPOffline, .fortiAPOverload: return "Nom ou numéro de série de la borne, ou «\u{00A0}*\u{00A0}» pour toutes"
         case .dhcpScope: return "Interface, VLAN ou nom de l’étendue, ou «\u{00A0}*\u{00A0}» pour toutes"
+        case .linkSaturated: return "Interface WAN (wan1), ou «\u{00A0}*\u{00A0}» pour tous les liens"
+        case .heavyDevice: return "Adresse IP de l’appareil, ou «\u{00A0}*\u{00A0}» pour tous"
+        case .newThreat: return "Site, ou «\u{00A0}*\u{00A0}» pour tous les sites lus"
         }
     }
 
@@ -208,6 +219,8 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
     public var wifiThresholds: FortiWifiThresholds?
     /// Étendue DHCP presque pleine (note 37) : seuils d'occupation propres à la sonde.
     public var dhcpThresholds: DHCPScopeThresholds?
+    /// Nouvelle menace (note 54) : menaces déjà vues (clés « site|menace|adresse »), apprises au premier passage.
+    public var knownThreats: [String]?
 
     public init(id: UUID = UUID(), name: String, kind: MonProbeKind, target: String, subtitle: String = "",
                 isEnabled: Bool = true, interval: Int = 60, thresholds: MonThresholds = MonThresholds(),
@@ -282,12 +295,22 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
         case .dhcpScope:
             let t = dhcpThresholds ?? .standard
             return "Alerte à \(MonFormat.percent(t.warningPercent)) d’occupation, critique à \(MonFormat.percent(t.criticalPercent))"
+        case .linkSaturated:
+            return "Alerte si le lien dépasse \(MonFormat.percent(resourceLimit ?? MonProbe.defaultResourceLimit(.linkSaturated))) de sa capacité"
+        case .heavyDevice:
+            return "Alerte si un appareil dépasse \(MonFormat.number(resourceLimit ?? MonProbe.defaultResourceLimit(.heavyDevice)))\u{00A0}Mb/s"
+        case .newThreat:
+            return "Alerte à chaque nouvelle menace vue par FortiView" + (knownThreats.map { " (\($0.count) connues)" } ?? "")
         }
     }
 
     /// Seuil proposé pour une sonde de ressources (90 % processeur et mémoire, 80 % pour un port).
     public static func defaultResourceLimit(_ kind: MonProbeKind) -> Double {
-        kind == .portLoad ? 80 : 90
+        switch kind {
+        case .portLoad, .linkSaturated: return 80
+        case .heavyDevice: return 50
+        default: return 90
+        }
     }
 
     /// Hôte et port d'une cible TCP (« 10.0.0.1:443 »).
@@ -348,6 +371,7 @@ extension MonProbe {
         resourcePort = try? c.decodeIfPresent(String.self, forKey: .resourcePort)
         wifiThresholds = try? c.decodeIfPresent(FortiWifiThresholds.self, forKey: .wifiThresholds)
         dhcpThresholds = try? c.decodeIfPresent(DHCPScopeThresholds.self, forKey: .dhcpThresholds)
+        knownThreats = try? c.decodeIfPresent([String].self, forKey: .knownThreats)
     }
 }
 

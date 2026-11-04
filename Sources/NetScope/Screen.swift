@@ -4,7 +4,8 @@ import Foundation
 enum Screen: String, CaseIterable, Identifiable, Codable {
     case scanner, carte, inventaire, appareil
     case ping, switchs, wifi, outils
-    case surveillance, analyse, rapports
+    /// Note 54 : « Trafic » (FortiView et analyse complète), entre Surveillance et Analyse.
+    case surveillance, trafic, analyse, rapports
     case acces, speedtest
     case reglages
 
@@ -22,6 +23,7 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
         case .wifi: return "Wi-Fi"
         case .outils: return "Outils"
         case .surveillance: return "Surveillance"
+        case .trafic: return "Trafic"
         case .analyse: return "Analyse"
         case .rapports: return "Rapports"
         case .acces: return "Accès distant"
@@ -36,6 +38,7 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
         case .wifi: return "Analyseur Wi-Fi"
         case .outils: return "Boîte à outils"
         case .analyse: return "Analyse et alertes"
+        case .trafic: return "Trafic et analyse du réseau"
         default: return title
         }
     }
@@ -52,6 +55,7 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
         case .wifi: return "wifi"
         case .outils: return "wrench.and.screwdriver"
         case .surveillance: return "eye"
+        case .trafic: return "arrow.up.arrow.down.circle"
         case .analyse: return "chart.bar.xaxis"
         case .rapports: return "doc.text"
         case .acces: return "terminal"
@@ -65,7 +69,7 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .scanner, .carte, .inventaire, .appareil: return .decouverte
         case .ping, .switchs, .wifi, .outils: return .diagnostic
-        case .surveillance, .analyse, .rapports: return .suivi
+        case .surveillance, .trafic, .analyse, .rapports: return .suivi
         case .acces, .speedtest: return .acces
         case .reglages: return nil
         }
@@ -84,6 +88,8 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
         case .outils: return "Toolbox.dc.html"
         case .surveillance: return "Surveillance.dc.html"
         case .analyse: return "Analyse.dc.html"
+        // Pas de croquis propre : disposition de l'Analyse.
+        case .trafic: return "Analyse.dc.html"
         case .rapports: return "Rapport.dc.html"
         case .acces: return "Remote.dc.html"
         case .speedtest: return "Speedtest.dc.html"

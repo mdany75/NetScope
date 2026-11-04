@@ -55,6 +55,10 @@ enum RapportData {
         let scopes = dhcpScopes.overview(devices: devices)
         input.dhcpScopes = scopes.scopes.isEmpty ? nil : scopes
         input.dhcpThresholds = dhcpScopes.thresholds
+        // Note 54 : trafic des sites affichés par l'écran Trafic et dernière analyse complète.
+        let traffic = TrafficStore.shared
+        input.traffic = traffic.overview.isEmpty ? nil : traffic.overview
+        input.networkAnalysis = traffic.analysis
         // Diagnostic Wi-Fi (note 47) : diagnostics retenus pour le rapport du site actif.
         input.wifiDiagnoses = WifiDiagnosisStore.shared.reported(forKey: SiteModel.shared.activeKey)
         if demo, input.wifiDiagnoses.isEmpty { input.wifiDiagnoses = WifiDiagnosisDemo.reportResults(state: state) }
