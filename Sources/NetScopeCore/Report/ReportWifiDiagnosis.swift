@@ -16,6 +16,13 @@ extension WifiVerdict {
 }
 
 extension ReportBuilder {
+    /// Masque chaque adresse MAC d'un texte (« AA:BB:CC:xx:xx:xx »), comme `ReportText.mac`.
+    public static func maskMACs(_ text: String) -> String {
+        guard let regex = try? NSRegularExpression(pattern: "\\b((?:[0-9A-Fa-f]{2}[:-]){2}[0-9A-Fa-f]{2})(?:[:-][0-9A-Fa-f]{2}){3}\\b") else { return text }
+        let range = NSRange(text.startIndex..., in: text)
+        return regex.stringByReplacingMatches(in: text, range: range, withTemplate: "$1:xx:xx:xx")
+    }
+
     static func wifiDiagnosisBlocks(_ results: [WifiDiagnosisResult], masked: Bool) -> [ReportBlock] {
         guard !results.isEmpty else {
             return [.note("Aucun diagnostic Wi-Fi retenu\u{00A0}: lancer «\u{00A0}Diagnostiquer\u{00A0}» sur un client, une borne ou un SSID (Wi-Fi › FortiAP), puis «\u{00A0}Ajouter au rapport du site\u{00A0}».")]
@@ -27,6 +34,8 @@ extension ReportBuilder {
             guard masked, case .client(let mac, let name) = r.subject, name.uppercased() == mac.uppercased() else { return r.subject.name }
             return String(mac.prefix(8)) + ":xx:xx:xx"
         }
+        /// Preuves, contexte et constats : les MAC qu'ils citent (BSSID, clients sans nom) masquées.
+        func clean(_ text: String) -> String { masked ? maskMACs(text) : text }
         let sorted = results.sorted { ($0.overall, $0.date) > ($1.overall, $1.date) }
         let problems = sorted.filter { $0.overall == .problem }.count
         let watches = sorted.filter { $0.overall == .watch }.count
@@ -49,18 +58,18 @@ extension ReportBuilder {
             var text = "\(r.subject.kindLabel) \(name(r))"
             if !r.context.isEmpty { text += " (\(r.context))" }
             text += "\u{00A0}: \(r.headline.prefix(1).lowercased() + r.headline.dropFirst())"
-            blocks.append(.paragraph(text))
+            blocks.append(.paragraph(clean(text)))
             let shown = r.causes.filter { $0.verdict >= .watch }
             if !shown.isEmpty {
                 let causeRows = shown.map { c in
                     ReportRow([ReportCell(c.verdict.label, badge: c.verdict.reportTone), ReportCell(c.title, bold: true),
-                               ReportCell(([c.summary] + c.evidence.prefix(3)).joined(separator: " · "))])
+                               ReportCell(clean(([c.summary] + c.evidence.prefix(3)).joined(separator: " · ")))])
                 }
                 blocks.append(.table(ReportTable(columns: [ReportColumn("Verdict", weight: 0.8), ReportColumn("Cause", weight: 1.4), ReportColumn("Constat et mesures", weight: 3.8)],
                                                  rows: causeRows, wraps: true)))
             }
             if !r.actions.isEmpty {
-                blocks.append(.paragraph("Actions suggérées\u{00A0}: " + r.actions.prefix(6).enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: " ")))
+                blocks.append(.paragraph(clean("Actions suggérées\u{00A0}: " + r.actions.prefix(6).enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: " "))))
             }
             let okCount = r.oks.count
             let unchecked = r.unchecked.map(\.title)

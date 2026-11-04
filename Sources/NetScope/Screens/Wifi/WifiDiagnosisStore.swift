@@ -75,11 +75,19 @@ final class WifiDiagnosisStore: ObservableObject {
 
     // MARK: Sites et historique
 
-    /// Clé du site d'un diagnostic : le site enregistré de ce nom, sinon le site actif.
-    func siteKey(forSiteName name: String) -> String {
-        let model = SiteModel.shared
-        if let site = model.sites.first(where: { $0.displayName == name }) { return SiteFiles.key(for: site.id) }
-        return model.activeKey
+    /// Clé du site d'une cible : celui de sa FortiGate (comme l'historique du signal).
+    func siteKey(for target: WifiDiagnosisTarget) -> String {
+        let fortiAP = FortiAPStore.shared
+        switch target.kind {
+        case .client(let c, _): return fortiAP.siteKey(for: c)
+        case .ap(let a): return fortiAP.siteKey(forLabel: a.site)
+        case .ssid(let s): return fortiAP.siteKey(forLabel: s.site)
+        }
+    }
+
+    /// Clé du site d'un diagnostic : celle résolue au diagnostic, sinon d'après son libellé.
+    func siteKey(of result: WifiDiagnosisResult) -> String {
+        result.siteKey ?? FortiAPStore.shared.siteKey(forLabel: result.site)
     }
 
     private func url(for key: String) -> URL? {
@@ -94,7 +102,7 @@ final class WifiDiagnosisStore: ObservableObject {
         return loaded
     }
 
-    func history(forSiteName name: String) -> WifiDiagnosisHistory { history(forKey: siteKey(forSiteName: name)) }
+    func history(of result: WifiDiagnosisResult) -> WifiDiagnosisHistory { history(forKey: siteKey(of: result)) }
 
     private func update(_ key: String, _ change: (inout WifiDiagnosisHistory) -> Void) {
         var h = history(forKey: key)
@@ -111,21 +119,21 @@ final class WifiDiagnosisStore: ObservableObject {
 
     /// Garde le diagnostic dans le suivi du site.
     func record(_ result: WifiDiagnosisResult, rssi: Int?) {
-        update(siteKey(forSiteName: result.site)) { $0.add(result, rssi: rssi) }
+        update(siteKey(of: result)) { $0.add(result, rssi: rssi) }
     }
 
     /// « Ajouter au rapport du site » : retenu pour la section « Diagnostic Wi-Fi » (cochée).
     func addToReport(_ result: WifiDiagnosisResult) {
-        update(siteKey(forSiteName: result.site)) { $0.report(result) }
+        update(siteKey(of: result)) { $0.report(result) }
         RapportModel.shared.config.sections.insert(.wifiDiag)
     }
 
     func removeFromReport(_ result: WifiDiagnosisResult) {
-        update(siteKey(forSiteName: result.site)) { $0.unreport(result.subject.key) }
+        update(siteKey(of: result)) { $0.unreport(result.subject.key) }
     }
 
     func isReported(_ result: WifiDiagnosisResult) -> Bool {
-        history(forSiteName: result.site).isReported(result)
+        history(of: result).isReported(result)
     }
 
     /// Diagnostics retenus pour le rapport d'un site.
@@ -135,14 +143,36 @@ final class WifiDiagnosisStore: ObservableObject {
 
     /// Diagnostic immédiat (sans ping), puis, si demandé, avec les pings de ce Mac.
     func diagnose(_ target: WifiDiagnosisTarget, paths: [WifiPathMeasure], state: AppState) -> WifiDiagnosisResult {
+        var result = diagnoseNow(target, paths: paths, state: state)
+        result.siteKey = siteKey(for: target)
+        return result
+    }
+
+    /// Client d'une cible relu dans la lecture la plus récente (signal, borne, bande, radio à jour).
+    func currentClient(_ client: FortiWifiClient) -> FortiWifiClient {
+        let overview = FortiAPStore.shared.shownOverview.clients.contains(where: { $0.site == client.site })
+            ? FortiAPStore.shared.shownOverview : FortiAPStore.shared.overview
+        return overview.clients.first { $0.mac == client.mac && $0.site == client.site } ?? client
+    }
+
+    /// Détails d'un client : ceux donnés par l'appelant, sinon les mêmes que la fiche du client
+    /// (historique du signal du site ; en démonstration, complétés par WifiDiagnosisDemo).
+    func details(for client: FortiWifiClient, given: WifiClientDetails?) -> WifiClientDetails {
+        if let given { return given }
+        let details = WifiClientDetails(client: client, history: FortiAPStore.shared.signalHistory(for: client))
+        return isDemo ? details.filling(from: WifiDiagnosisDemo.details(for: client)) : details
+    }
+
+    private func diagnoseNow(_ target: WifiDiagnosisTarget, paths: [WifiPathMeasure], state: AppState) -> WifiDiagnosisResult {
         let fortiAP = FortiAPStore.shared
         let overview = overview(for: target)
         let thresholds = WifiDiagnosisThresholds(forti: fortiAP.thresholds)
         switch target.kind {
-        case .client(let client, let details):
+        case .client(let stale, let given):
+            let client = currentClient(stale)
             var measures = baseMeasures(ap: overview.ap(for: client), vlan: client.vlan, ip: client.ip, site: client.site, state: state)
             measures.paths = paths
-            let known = details ?? (isDemo ? WifiDiagnosisDemo.details(for: client) : WifiClientDetails())
+            let known = details(for: client, given: given)
             let input = WifiDiagnosisInput.from(overview: overview, client: client, details: known, measures: measures)
             return WifiDiagnosis.diagnose(input, thresholds: thresholds)
         case .ap(let ap):

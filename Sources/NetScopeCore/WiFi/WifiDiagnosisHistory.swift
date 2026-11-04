@@ -26,32 +26,72 @@ public struct WifiDiagnosisRecord: Codable, Hashable, Sendable {
     }
 }
 
-/// Historique d'un site : par sujet (« client|MAC »), les derniers résumés, et le dernier
-/// diagnostic complet ; les diagnostics ajoutés au rapport du site.
+/// Historique d'un site : par sujet (« client|MAC »), les derniers résumés ; les diagnostics
+/// ajoutés au rapport du site. Taille bornée (résumés par sujet, nombre de sujets).
 public struct WifiDiagnosisHistory: Codable, Hashable, Sendable {
     public static let fileName = "diagnostics-wifi.json"
     /// Résumés gardés par sujet.
     public static let keepPerSubject = 40
+    /// Sujets gardés (les moins récemment diagnostiqués tombent).
+    public static let keepSubjects = 300
 
     public var records: [String: [WifiDiagnosisRecord]]
-    public var latest: [String: WifiDiagnosisResult]
     /// Diagnostics retenus pour la section « Diagnostic Wi-Fi » du rapport du site.
     public var reported: [WifiDiagnosisResult]
 
-    public init(records: [String: [WifiDiagnosisRecord]] = [:], latest: [String: WifiDiagnosisResult] = [:], reported: [WifiDiagnosisResult] = []) {
+    private enum CodingKeys: String, CodingKey { case records, reported }
+
+    private struct AnyKey: CodingKey {
+        var stringValue: String
+        var intValue: Int? { nil }
+        init(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { nil }
+    }
+
+    /// Élément illisible, sauté.
+    private struct Skip: Decodable {
+        init(from decoder: Decoder) throws {}
+    }
+
+    public init(records: [String: [WifiDiagnosisRecord]] = [:], reported: [WifiDiagnosisResult] = []) {
         self.records = records
-        self.latest = latest
         self.reported = reported
     }
 
+    /// Lecture élément par élément : une entrée illisible (cause d'une version future…) est
+    /// ignorée sans faire tomber le reste. L'ancien champ « latest » n'est plus lu.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        records = (try? c.decodeIfPresent([String: [WifiDiagnosisRecord]].self, forKey: .records)) ?? [:]
-        latest = (try? c.decodeIfPresent([String: WifiDiagnosisResult].self, forKey: .latest)) ?? [:]
-        reported = (try? c.decodeIfPresent([WifiDiagnosisResult].self, forKey: .reported)) ?? []
+        var records: [String: [WifiDiagnosisRecord]] = [:]
+        if let byKey = try? c.nestedContainer(keyedBy: AnyKey.self, forKey: .records) {
+            for key in byKey.allKeys {
+                guard var list = try? byKey.nestedUnkeyedContainer(forKey: key) else { continue }
+                let kept: [WifiDiagnosisRecord] = Self.lossy(&list)
+                if !kept.isEmpty { records[key.stringValue] = kept }
+            }
+        }
+        self.records = records
+        if var list = try? c.nestedUnkeyedContainer(forKey: .reported) {
+            reported = Self.lossy(&list)
+        } else {
+            reported = []
+        }
     }
 
-    /// Ajoute un diagnostic (le plus récent devient « latest »).
+    private static func lossy<T: Decodable>(_ list: inout UnkeyedDecodingContainer) -> [T] {
+        var result: [T] = []
+        while !list.isAtEnd {
+            if let value = try? list.decode(T.self) {
+                result.append(value)
+            } else if (try? list.decode(Skip.self)) == nil {
+                break
+            }
+        }
+        return result
+    }
+
+    /// Ajoute un diagnostic ; au-delà de `keepSubjects`, les sujets les moins récemment
+    /// diagnostiqués tombent (ceux retenus pour le rapport restent).
     public mutating func add(_ result: WifiDiagnosisResult, rssi: Int? = nil) {
         let key = result.subject.key
         var list = records[key] ?? []
@@ -59,8 +99,15 @@ public struct WifiDiagnosisHistory: Codable, Hashable, Sendable {
         list.sort { $0.date < $1.date }
         if list.count > Self.keepPerSubject { list.removeFirst(list.count - Self.keepPerSubject) }
         records[key] = list
-        if let current = latest[key], current.date > result.date { return }
-        latest[key] = result
+        guard records.count > Self.keepSubjects else { return }
+        let kept = Set(reported.map(\.subject.key))
+        var candidates: [(key: String, date: Date)] = []
+        for (subject, list) in records where !kept.contains(subject) {
+            candidates.append((subject, list.last?.date ?? Date.distantPast))
+        }
+        candidates.sort { a, b in a.date != b.date ? a.date < b.date : a.key < b.key }
+        let excess = records.count - Self.keepSubjects
+        for item in candidates.prefix(excess) { records[item.key] = nil }
     }
 
     /// Retient un diagnostic pour le rapport (un seul par sujet : le plus récent remplace l'ancien).
@@ -137,26 +184,26 @@ public enum WifiDiagnosisText {
         lines.append("Diagnostic Wi-Fi — \(r.subject.kindLabel.lowercased()) \(r.subject.name)" + (r.site.isEmpty ? "" : " (\(r.site))"))
         lines.append(f.string(from: r.date) + (r.context.isEmpty ? "" : " · " + r.context))
         lines.append("")
-        lines.append("Verdict : \(r.overall.label). \(r.headline)")
+        lines.append("Verdict\u{00A0}: \(r.overall.label). \(r.headline)")
         if !r.actions.isEmpty {
             lines.append("")
-            lines.append("Actions suggérées :")
+            lines.append("Actions suggérées\u{00A0}:")
             for (i, a) in r.actions.enumerated() { lines.append("\(i + 1). \(a)") }
         }
         lines.append("")
-        lines.append("Causes vérifiées :")
+        lines.append("Causes vérifiées\u{00A0}:")
         for c in r.causes where c.verdict != .notMeasured {
-            lines.append("- [\(c.verdict.label)] \(c.title) : \(c.summary)")
+            lines.append("- [\(c.verdict.label)] \(c.title)\u{00A0}: \(c.summary)")
             for e in c.evidence { lines.append("    · \(e)") }
         }
         let unchecked = r.unchecked
         if !unchecked.isEmpty {
             lines.append("")
-            lines.append("Non vérifié : " + unchecked.map(\.title).joined(separator: ", ") + ".")
+            lines.append("Non vérifié\u{00A0}: " + unchecked.map(\.title).joined(separator: ", ") + ".")
         }
-        for n in r.notes { lines.append("Remarque : \(n)") }
+        for n in r.notes { lines.append("Remarque\u{00A0}: \(n)") }
         lines.append("")
-        lines.append("Lecture seule : NetScope n’a rien modifié sur la FortiGate.")
+        lines.append("Lecture seule\u{00A0}: NetScope n’a rien modifié sur la FortiGate.")
         return lines.joined(separator: "\n")
     }
 }

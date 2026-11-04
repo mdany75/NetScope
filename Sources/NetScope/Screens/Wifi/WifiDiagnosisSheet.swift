@@ -98,12 +98,13 @@ struct WifiDiagnoseButton: View {
     var body: some View {
         Button { shown = target } label: {
             if compact {
-                Image(systemName: "stethoscope").font(.system(size: 11, weight: .semibold))
+                Label(title, systemImage: "stethoscope").labelStyle(.iconOnly).font(.system(size: 11, weight: .semibold))
             } else {
                 Label(title, systemImage: "stethoscope")
             }
         }
-        .help("Vérifie chaque cause possible d’un problème Wi-Fi (signal, canal, charge, client, authentification, DHCP, réseau) et propose quoi faire. Lecture seule.")
+        .accessibilityLabel(title)
+        .help((compact ? title + ". " : "") + "Vérifie chaque cause possible d’un problème Wi-Fi (signal, canal, charge, client, authentification, DHCP, réseau) et propose quoi faire. Lecture seule.")
         .wifiDiagnosisSheet(item: $shown)
     }
 }
@@ -194,7 +195,7 @@ struct WifiDiagnosisSheet: View {
     }
 
     private var rssi: Int? {
-        if case .client(let c, _) = target.kind { return c.rssi }
+        if case .client(let c, _) = target.kind { return store.currentClient(c).rssi }
         return nil
     }
 
@@ -296,19 +297,18 @@ struct WifiDiagnosisSheet: View {
                     Text("Non vérifié (\(unchecked.count))").font(Theme.bodySemibold).foregroundStyle(Theme.textSecondary)
                 }
             }
-            if !r.notes.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(r.notes, id: \.self) { note in
-                        Label(note, systemImage: "info.circle").font(Theme.caption).foregroundStyle(Theme.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    if store.isDemo {
-                        Label("Démonstration\u{00A0}: lecture et mesures fictives, aucun ping envoyé.", systemImage: "theatermasks")
-                            .font(Theme.caption).foregroundStyle(Theme.textSecondary)
-                    }
-                    Label("Lecture seule\u{00A0}: NetScope propose, le technicien applique. Rien n’est modifié sur la FortiGate.", systemImage: "lock")
+            // Remarques du moteur (s'il y en a), puis les rappels toujours affichés.
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(r.notes, id: \.self) { note in
+                    Label(note, systemImage: "info.circle").font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if store.isDemo {
+                    Label("Démonstration\u{00A0}: lecture et mesures fictives, aucun ping envoyé.", systemImage: "theatermasks")
                         .font(Theme.caption).foregroundStyle(Theme.textSecondary)
                 }
+                Label("Lecture seule\u{00A0}: NetScope propose, le technicien applique. Rien n’est modifié sur la FortiGate.", systemImage: "lock")
+                    .font(Theme.caption).foregroundStyle(Theme.textSecondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -316,7 +316,7 @@ struct WifiDiagnosisSheet: View {
 
     private func banner(_ r: WifiDiagnosisResult) -> some View {
         let tone = r.overall.tone
-        let history = store.history(forSiteName: r.site)
+        let history = store.history(of: r)
         let previous = history.previous(r.subject.key, before: r.date.addingTimeInterval(-1))
         let recurrence = history.recurrence(r.subject.key)
         return HStack(alignment: .top, spacing: 10) {

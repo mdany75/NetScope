@@ -65,6 +65,8 @@ struct WifiClientFacts {
 
     var vendor: String {
         if let given = client.manufacturer, !given.isEmpty { return given }
+        // Même libellé que la fiche Appareil pour une adresse privée (OUIDatabase).
+        if client.mac.isRandomized { return OUIDatabase.randomizedLabel }
         let info = MACVendorLookup.info(for: client.mac)
         return info.vendor.map { "\($0) · \(info.oui)" } ?? info.vendorLabel
     }

@@ -458,10 +458,14 @@ public struct WifiDiagnosisResult: Codable, Hashable, Sendable, Identifiable {
     /// Mesures de ping faites pendant ce diagnostic.
     public var measured: Bool
     public var notes: [String]
+    /// Clé du site (dossier sites/<clé>) où ranger ce diagnostic, résolue par l'app d'après la
+    /// FortiGate de la cible (le libellé `site` peut être le nom de la FortiGate).
+    public var siteKey: String?
 
     public init(id: UUID = UUID(), subject: WifiDiagnosisSubject, site: String, date: Date, context: String, causes: [WifiCauseResult],
-                actions: [String], measured: Bool, notes: [String] = []) {
+                actions: [String], measured: Bool, notes: [String] = [], siteKey: String? = nil) {
         self.id = id
+        self.siteKey = siteKey
         self.subject = subject
         self.site = site
         self.date = date

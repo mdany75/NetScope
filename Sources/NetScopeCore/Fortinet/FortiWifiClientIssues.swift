@@ -32,7 +32,7 @@ public enum FortiWifiClientIssues {
 
         if let rssi = client.rssi, rssi < thresholds.weakRSSI {
             add(.weakSignal, rssi < -80 ? .critique : .alerte, "Signal faible (\(WifiQuality.dbm(rssi)))",
-                "Sous le seuil de \(thresholds.weakRSSI)\u{00A0}dBm\u{00A0}: client loin de la borne ou derrière un obstacle.")
+                "Sous le seuil de \(WifiQuality.dbm(thresholds.weakRSSI))\u{00A0}: client loin de la borne ou derrière un obstacle.")
         }
         if let snr = client.snr, snr < thresholds.weakSNR {
             add(.lowSNR, snr < 10 ? .critique : .alerte, "Rapport signal/bruit bas (\(snr)\u{00A0}dB)",

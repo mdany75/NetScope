@@ -35,9 +35,9 @@ struct FortiAPClientLine: View {
                 }
             }
             .frame(width: 96, alignment: .leading)
-            Text(client.snr.map { "SNR \($0)" } ?? "SNR —").font(Theme.mono(11))
+            Text(client.snr.map { "SNR \($0)\u{00A0}dB" } ?? "SNR —").font(Theme.mono(11))
                 .foregroundStyle((client.snr ?? 99) < store.thresholds.weakSNR ? Theme.critical : Theme.neutralText)
-                .frame(width: 56, alignment: .trailing)
+                .frame(width: 72, alignment: .trailing)
             Text(FortiAPText.rate(client.rateMbps)).font(Theme.mono(11)).foregroundStyle(Theme.neutralText)
                 .frame(width: 84, alignment: .trailing)
             Text(client.ip?.description ?? "—").font(Theme.mono(11)).foregroundStyle(client.ip == nil ? Theme.textTertiary : Theme.neutralText)

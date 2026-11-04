@@ -22,10 +22,15 @@ public struct WifiDiagnosisInput: Sendable {
     /// Clients du même SSID sur le site.
     public var ssidClientCount: Int?
     public var measures: WifiDiagnosisMeasures
+    /// La FortiGate donne l'adresse IP des clients (au moins un client de la lecture en a une).
+    /// Faux : un client sans adresse ne prouve rien (version de FortiOS, droits, client IPv6 seul).
+    public var ipFieldPresent: Bool
 
     public init(client: FortiWifiClient, details: WifiClientDetails = WifiClientDetails(), ap: FortiManagedAP? = nil,
                 siteAPs: [FortiManagedAP] = [], neighbors: [FortiRogueAP] = [], apClients: [FortiWifiClient] = [],
-                ssid: FortiSSID? = nil, ssidClientCount: Int? = nil, measures: WifiDiagnosisMeasures = .none) {
+                ssid: FortiSSID? = nil, ssidClientCount: Int? = nil, measures: WifiDiagnosisMeasures = .none,
+                ipFieldPresent: Bool = true) {
+        self.ipFieldPresent = ipFieldPresent
         self.client = client
         self.details = details
         self.ap = ap
@@ -47,7 +52,8 @@ public struct WifiDiagnosisInput: Sendable {
         let ssidCount = client.ssid.map { name in overview.clients.filter { $0.site == site && $0.ssid == name }.count }
         return WifiDiagnosisInput(client: client, details: details, ap: ap, siteAPs: overview.aps.filter { $0.site == site },
                                   neighbors: overview.rogues.filter { $0.site == site }, apClients: ap.map { overview.clients(of: $0) } ?? [client],
-                                  ssid: ssid, ssidClientCount: ssidCount, measures: measures)
+                                  ssid: ssid, ssidClientCount: ssidCount, measures: measures,
+                                  ipFieldPresent: overview.clients.contains { $0.ip != nil })
     }
 
     /// Radio du client sur sa borne : par numéro, sinon par bande.
@@ -758,6 +764,10 @@ public enum WifiDiagnosis {
         let vlan = c.vlan.map { " du VLAN \($0)" } ?? ""
         let serverAction = "Vérifier le serveur DHCP\(vlan) (étendue active, relais DHCP) et que le SSID \(c.ssid.map(quoted) ?? "") est bien sur le bon VLAN."
         guard let ip = c.ip else {
+            if !input.ipFieldPresent {
+                return WifiCauseResult(cause: .dhcp, verdict: .notMeasured, summary: "Adresse IP non donnée par la FortiGate.",
+                                       evidence: ["Aucun client de la lecture n’a d’adresse IP (champ absent de la réponse)"], actions: [], weight: 0)
+            }
             return WifiCauseResult(cause: .dhcp, verdict: .problem, summary: "Le client n’a pas d’adresse IP\(nb): il est associé mais ne peut rien faire.",
                                    evidence: ["Aucune adresse IP connue de la FortiGate"], actions: [serverAction], weight: 0.9)
         }

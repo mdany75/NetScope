@@ -73,7 +73,7 @@ struct WifiScreen: View {
         .onAppear {
             store.start()
             if !FortiAPDemo.opensFortiAP, !RegEnvironment.isSnapshot, let saved = WifiScreenPart(rawValue: savedPart) { part = saved }
-            if fortiAP.focusAP != nil || fortiAP.openFortiAPPart || fortiAP.openClientID != nil {
+            if fortiAP.focusAP != nil || fortiAP.openFortiAPPart {
                 part = .fortiap
                 fortiAP.openFortiAPPart = false
             }
@@ -84,11 +84,19 @@ struct WifiScreen: View {
         .onChange(of: fortiAP.openFortiAPPart) { _, wanted in
             if wanted { part = .fortiap; fortiAP.openFortiAPPart = false }
         }
-        .onDisappear { store.stop() }
+        .onDisappear {
+            store.stop()
+            // La fiche d'un client ne reste pas ouverte d'une visite à l'autre (Retour la rouvre).
+            if !RegEnvironment.isSnapshot { fortiAP.closeClient() }
+        }
         .onAppear { fortiAP.setScope(scopes.keys(for: .wifi)) }
         .onChange(of: scopes.keys(for: .wifi)) { _, keys in fortiAP.setScope(keys) }
         .onChange(of: sites.activeKey) { _, _ in fortiAP.setScope(scopes.keys(for: .wifi)) }
-        .onChange(of: part) { _, value in if !RegEnvironment.isSnapshot { savedPart = value.rawValue } }
+        .onChange(of: part) { _, value in
+            guard !RegEnvironment.isSnapshot else { return }
+            savedPart = value.rawValue
+            if value == .local { fortiAP.closeClient() }
+        }
         .screenToolbar {
             if part == .fortiap {
                 fortiToolbar

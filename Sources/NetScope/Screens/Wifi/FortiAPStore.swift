@@ -122,6 +122,13 @@ final class FortiAPStore: ObservableObject {
         }
         for site in sites { cache[site.controllerID] = site }
         recomputeShown()
+        dropMissingClient()
+    }
+
+    /// Après une lecture : la fiche d'un client qui n'est plus lu se ferme (elle ne se rouvrirait
+    /// pas d'elle-même à son retour).
+    private func dropMissingClient() {
+        if let id = openClientID, client(id: id) == nil { openClientID = nil }
     }
 
     /// Client Wi-Fi d'un appareil du Scanner : par MAC, sinon par adresse IP quand elle est unique
@@ -186,7 +193,7 @@ final class FortiAPStore: ObservableObject {
 
     /// Ce que montre la partie FortiAP, pour l'historique Retour / Avancer.
     var navFocus: NavFocus? {
-        if let id = openClientID { return .wifiClient(id) }
+        if let id = openClientID, openClient != nil { return .wifiClient(id) }
         if let ssid = viewedSSID { return .wifiSSID(ssid) }
         return viewedAP.map(NavFocus.accessPoint)
     }
@@ -209,10 +216,15 @@ final class FortiAPStore: ObservableObject {
     }
 
     /// Site d'un client affiché : celui de la FortiGate dont le libellé est le sien.
-    func siteKey(for client: FortiWifiClient) -> String {
-        if let report = sites.first(where: { $0.site == client.site }) { return siteKey(forController: report.controllerID) }
-        for key in scopeKeys ?? [] where reports(forKey: key).contains(where: { $0.site == client.site }) { return key }
-        for (id, report) in cache where report.site == client.site { return siteKey(forController: id) }
+    func siteKey(for client: FortiWifiClient) -> String { siteKey(forLabel: client.site) }
+
+    /// Site d'un libellé de lecture (nom de la FortiGate, nom du site, ou « Site · FGT-2 ») : par la
+    /// FortiGate qui porte ce libellé, sinon le site actif.
+    func siteKey(forLabel label: String) -> String {
+        if let report = sites.first(where: { $0.site == label }) { return siteKey(forController: report.controllerID) }
+        for key in scopeKeys ?? [] where reports(forKey: key).contains(where: { $0.site == label }) { return key }
+        for (id, report) in cache where report.site == label { return siteKey(forController: id) }
+        if let site = SiteModel.shared.sites.first(where: { $0.displayName == label }) { return SiteFiles.key(for: site.id) }
         return SiteModel.shared.activeKey
     }
 
@@ -228,25 +240,41 @@ final class FortiAPStore: ObservableObject {
         guard !isDemo, !signalLoaded.contains(key) else { return }
         signalLoaded.insert(key)
         guard signal.sites[key] == nil, let files = SiteModel.shared.files,
-              let data = try? Data(contentsOf: FortiWifiSignalHistory.url(in: files, siteKey: key)),
-              let history = FortiWifiSignalHistory.decode(data) else { return }
+              let data = try? Data(contentsOf: FortiWifiSignalHistory.url(in: files, siteKey: key)) else { return }
+        guard let history = FortiWifiSignalHistory.decode(data) else {
+            // Fichier illisible ou d'une version future : on ne l'écrase pas (historique en mémoire seulement).
+            signalReadOnly.insert(key)
+            return
+        }
         signal.sites[key] = history
     }
 
+    /// Sites dont le fichier wifi-signal.json n'a pas pu être relu : jamais réécrit.
+    private var signalReadOnly = Set<String>()
+    /// Dernière écriture lancée : chaque écriture attend la précédente (jamais dans le désordre).
+    private var signalWrite: Task<Void, Never>?
+
     /// Chaque lecture réussie des bornes ajoute un relevé par client dans l'historique de SON site
-    /// (jamais de mélange entre sites), puis l'écrit sur le disque (hors démonstration).
+    /// (jamais de mélange entre sites), à la date de la lecture de SA FortiGate, puis l'écrit sur
+    /// le disque (hors démonstration). Seules les FortiGate lues sont notées : une FortiGate en
+    /// échec ne fait pas passer ses clients pour déconnectés.
     private func recordSignal(_ reports: [FortiWifiSiteReport]) {
-        var readings: [String: [FortiWifiClient]] = [:]
-        for report in reports { readings[siteKey(forController: report.controllerID), default: []] += report.report.clients }
-        guard !readings.isEmpty else { return }
-        for key in readings.keys { loadSignal(key) }
-        let date = reports.map(\.report.readAt).max() ?? Date()
-        let changed = signal.record(readings, at: date)
+        guard !reports.isEmpty else { return }
+        var changed = Set<String>()
+        for report in reports {
+            let key = siteKey(forController: report.controllerID)
+            loadSignal(key)
+            if signal.record(site: key, controller: report.controllerID, clients: report.report.clients, at: report.report.readAt) {
+                changed.insert(key)
+            }
+        }
         guard !isDemo, !RegEnvironment.isSnapshot, let files = SiteModel.shared.files else { return }
-        for key in changed {
+        for key in changed.sorted() where !signalReadOnly.contains(key) {
             guard let data = signal.sites[key]?.encoded() else { continue }
             let url = FortiWifiSignalHistory.url(in: files, siteKey: key)
-            Task.detached(priority: .utility) {
+            let previous = signalWrite
+            signalWrite = Task.detached(priority: .utility) {
+                await previous?.value
                 try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
                 try? data.write(to: url, options: .atomic)
             }
@@ -458,6 +486,7 @@ final class FortiAPStore: ObservableObject {
             defer {
                 self.viewReading.subtract(wanted)
                 self.recomputeShown()
+                self.dropMissingClient()
             }
             if self.isDemo {
                 try? await Task.sleep(nanoseconds: 500_000_000)
@@ -474,12 +503,15 @@ final class FortiAPStore: ObservableObject {
                 await FortiAPStore.performRead(job)
             }
             for (id, reason) in targets.blocked { self.errors[id] = reason }
+            var fresh: [FortiWifiSiteReport] = []
+            defer { self.recordSignal(fresh) }
             for (job, result) in zip(jobs, results) {
                 switch result {
                 case .success(let report):
-                    self.cache[job.id] = FortiWifiSiteReport(controllerID: job.id, site: job.site, report: report)
+                    let site = FortiWifiSiteReport(controllerID: job.id, site: job.site, report: report)
+                    self.cache[job.id] = site
                     self.errors[job.id] = nil
-                    self.recordSignal([FortiWifiSiteReport(controllerID: job.id, site: job.site, report: report)])
+                    fresh.append(site)
                 case .failure(let message, _):
                     self.errors[job.id] = message
                 case .cancelled:

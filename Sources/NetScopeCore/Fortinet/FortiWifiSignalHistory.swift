@@ -16,10 +16,13 @@ public struct FortiWifiSignalSample: Codable, Hashable, Sendable {
     public var apName: String?
     public var band: WifiBand?
     public var channel: Int?
+    /// FortiGate qui a donné ce relevé (identifiant en texte ; absent dans les anciens fichiers).
+    public var controller: String?
 
     public init(date: Date, rssi: Int? = nil, snr: Int? = nil, rateMbps: Double? = nil, apName: String? = nil,
-                band: WifiBand? = nil, channel: Int? = nil) {
+                band: WifiBand? = nil, channel: Int? = nil, controller: String? = nil) {
         self.date = date
+        self.controller = controller
         self.rssi = rssi
         self.snr = snr
         self.rateMbps = rateMbps
@@ -28,9 +31,9 @@ public struct FortiWifiSignalSample: Codable, Hashable, Sendable {
         self.channel = channel
     }
 
-    public init(_ client: FortiWifiClient, at date: Date) {
+    public init(_ client: FortiWifiClient, at date: Date, controller: String? = nil) {
         self.init(date: date, rssi: client.rssi, snr: client.snr, rateMbps: client.rateMbps, apName: client.apName,
-                  band: client.band, channel: client.channel)
+                  band: client.band, channel: client.channel, controller: controller)
     }
 }
 
@@ -97,11 +100,16 @@ public struct FortiWifiSignalHistory: Codable, Hashable, Sendable {
     public var series: [String: [FortiWifiSignalSample]]
     /// Dates des lectures enregistrées (du plus ancien au plus récent), bornées comme les relevés.
     public var readings: [Date]
+    /// Dates des lectures de chaque FortiGate du site (identifiant en texte → dates). Un client
+    /// n'est compté absent qu'à une lecture de SA FortiGate : une FortiGate du site en échec, ou
+    /// lue à un autre moment, ne fait pas passer ses clients pour déconnectés.
+    public var controllerReadings: [String: [Date]]?
 
-    public init(series: [String: [FortiWifiSignalSample]] = [:], readings: [Date] = []) {
+    public init(series: [String: [FortiWifiSignalSample]] = [:], readings: [Date] = [], controllerReadings: [String: [Date]]? = nil) {
         version = Self.currentVersion
         self.series = series
         self.readings = readings
+        self.controllerReadings = controllerReadings
     }
 
     public var isEmpty: Bool { series.isEmpty }
@@ -109,16 +117,31 @@ public struct FortiWifiSignalHistory: Codable, Hashable, Sendable {
     static func key(_ mac: MACAddress) -> String { mac.formatted(.upperColon) }
 
     /// Ajoute une lecture des bornes : un relevé par client. Une lecture trop proche de la
-    /// précédente (`minInterval`) ou plus ancienne est ignorée (vrai : enregistrée).
+    /// précédente (`minInterval`) ou plus ancienne est ignorée (vrai : enregistrée). Avec
+    /// `controller`, l'écart se mesure aux lectures de cette FortiGate seulement, et la lecture
+    /// est notée pour elle (les déconnexions de ses clients ne se comptent qu'à ses lectures).
     @discardableResult
-    public mutating func record(_ clients: [FortiWifiClient], at date: Date, limits: Limits = .standard) -> Bool {
-        if let last = readings.last, date.timeIntervalSince(last) < limits.minInterval { return false }
-        readings.append(date)
+    public mutating func record(_ clients: [FortiWifiClient], at date: Date, controller: UUID? = nil, limits: Limits = .standard) -> Bool {
+        let tag = controller?.uuidString
+        if let tag {
+            if let last = controllerReadings?[tag]?.last, date.timeIntervalSince(last) < limits.minInterval { return false }
+            controllerReadings = controllerReadings ?? [:]
+            controllerReadings?[tag, default: []].append(date)
+            if !readings.contains(date) {
+                readings.append(date)
+                readings.sort()
+            }
+        } else {
+            if let last = readings.last, date.timeIntervalSince(last) < limits.minInterval { return false }
+            readings.append(date)
+        }
         var seen = Set<String>()
         for client in clients {
             let k = Self.key(client.mac)
             guard seen.insert(k).inserted else { continue }
-            series[k, default: []].append(FortiWifiSignalSample(client, at: date))
+            if series[k]?.last?.date == date { continue }
+            series[k, default: []].append(FortiWifiSignalSample(client, at: date, controller: tag))
+            if let list = series[k], list.count > 1, list[list.count - 2].date > date { series[k]?.sort { $0.date < $1.date } }
         }
         prune(now: date, limits: limits)
         return true
@@ -129,6 +152,14 @@ public struct FortiWifiSignalHistory: Codable, Hashable, Sendable {
         let oldest = now.addingTimeInterval(-limits.maxAge)
         readings.removeAll { $0 < oldest }
         if readings.count > limits.samplesPerClient * 4 { readings.removeFirst(readings.count - limits.samplesPerClient * 4) }
+        if var byController = controllerReadings {
+            for (k, dates) in byController {
+                var kept = dates.filter { $0 >= oldest }
+                if kept.count > limits.samplesPerClient * 4 { kept.removeFirst(kept.count - limits.samplesPerClient * 4) }
+                byController[k] = kept.isEmpty ? nil : kept
+            }
+            controllerReadings = byController
+        }
         for (k, list) in series {
             var kept = list.filter { $0.date >= oldest }
             if kept.count > limits.samplesPerClient { kept.removeFirst(kept.count - limits.samplesPerClient) }
@@ -166,17 +197,28 @@ public struct FortiWifiSignalHistory: Codable, Hashable, Sendable {
     }
 
     /// Déconnexions vues : lectures où le client, présent à la lecture précédente, n'était plus là
-    /// (dates de ces lectures). Avant son premier relevé, le client n'est pas compté.
+    /// (dates de ces lectures). Avant son premier relevé, le client n'est pas compté. Quand le
+    /// relevé précédent dit quelle FortiGate l'a donné, seules les lectures de cette FortiGate
+    /// comptent (une autre FortiGate du site lue entre-temps ne prouve pas son absence).
     public func disconnections(for mac: MACAddress) -> [Date] {
         let list = samples(for: mac)
         guard let first = list.first?.date else { return [] }
-        let present = Set(list.map(\.date))
+        var present: [Date: FortiWifiSignalSample] = [:]
+        for sample in list { present[sample.date] = sample }
+        let byController = (controllerReadings ?? [:]).mapValues { Set($0) }
         var result: [Date] = []
-        var wasPresent = false
+        var last: FortiWifiSignalSample?
         for date in readings where date >= first {
-            let here = present.contains(date)
-            if wasPresent && !here { result.append(date) }
-            wasPresent = here
+            if let sample = present[date] {
+                last = sample
+                continue
+            }
+            guard let previous = last else { continue }
+            if let tag = previous.controller, let dates = byController[tag] {
+                guard dates.contains(date) else { continue }
+            }
+            result.append(date)
+            last = nil
         }
         return result
     }
@@ -247,6 +289,17 @@ public struct FortiWifiSignalBook: Hashable, Sendable {
             }
         }
         return changed
+    }
+
+    /// Enregistre la lecture d'UNE FortiGate dans l'historique de son site, à la date de cette
+    /// lecture (vrai : enregistrée). Chaque FortiGate d'un site a ses propres dates de lecture.
+    @discardableResult
+    public mutating func record(site siteKey: String, controller: UUID, clients: [FortiWifiClient], at date: Date,
+                                limits: FortiWifiSignalHistory.Limits = .standard) -> Bool {
+        var history = sites[siteKey] ?? FortiWifiSignalHistory()
+        guard history.record(clients, at: date, controller: controller, limits: limits) else { return false }
+        sites[siteKey] = history
+        return true
     }
 
     public func history(site: String) -> FortiWifiSignalHistory { sites[site] ?? FortiWifiSignalHistory() }

@@ -87,6 +87,7 @@ struct DeviceWifiSection: View {
                     state.navigate(NavDestination(.wifi, focus: .accessPoint(ap.id)))
                 } else {
                     UserDefaults.standard.set(WifiScreenPart.fortiap.rawValue, forKey: "NetScope.wifi.partie")
+                    FortiAPStore.shared.closeClient()
                     state.open(.wifi)
                 }
             }

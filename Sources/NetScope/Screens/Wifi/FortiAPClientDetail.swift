@@ -103,11 +103,13 @@ struct FortiAPClientDetailView: View {
                     Button { open(.inventaire) } label: { Label("Inventaire", systemImage: Screen.inventaire.symbol) }
                         .buttonStyle(.secondary)
                         .disabled(destination(.inventaire) == nil)
+                        .help(destination(.inventaire) == nil ? "Ce client n’a pas de fiche d’inventaire" : "Ouvrir la fiche d’inventaire de ce client")
                     Button { if let ip = client.ip { state.navigate(NavDestination(.ping, focus: .pingTarget(ip.description))) } } label: {
                         Label("Ping continu", systemImage: Screen.ping.symbol)
                     }
                     .buttonStyle(.secondary)
                     .disabled(client.ip == nil)
+                    .help(client.ip == nil ? "Adresse IP inconnue\u{00A0}: rien à pinger" : "Ping continu vers \(client.ip?.description ?? "")")
                 }
                 .fixedSize()
             }
@@ -133,8 +135,8 @@ struct FortiAPClientDetailView: View {
     // MARK: Tuiles
 
     private func tiles(_ facts: WifiClientFacts) -> some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 128), spacing: 10)], spacing: 10) {
-            tile("Signal", FortiAPText.dbm(client.rssi), sub: facts.isWeak ? "sous le seuil de \(store.thresholds.weakRSSI)" : (client.rssi.map { WifiQuality(rssi: $0).label } ?? "inconnu"),
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 110), spacing: 10), count: 5), spacing: 10) {
+            tile("Signal", FortiAPText.dbm(client.rssi), sub: facts.isWeak ? "sous le seuil de \(FortiAPText.dbm(store.thresholds.weakRSSI))" : (client.rssi.map { WifiQuality(rssi: $0).label } ?? "inconnu"),
                  color: facts.rssiColor)
             tile("SNR", client.snr.map { "\($0)\u{00A0}dB" } ?? "—", sub: client.noise.map { "bruit \($0)\u{00A0}dBm" } ?? "bruit inconnu", color: facts.snrColor)
             tile("Débit négocié", FortiAPText.rate(client.rateMbps), sub: client.standard?.shortLabel ?? "standard inconnu", color: Theme.text)

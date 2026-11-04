@@ -217,6 +217,7 @@ public enum FortiWifiClientFields {
     public static func missing(_ clients: [FortiWifiClient]) -> [String] {
         guard !clients.isEmpty else { return [] }
         let checks: [(String, (FortiWifiClient) -> Bool)] = [
+            ("adresse IP (ip)", { $0.ip != nil }),
             ("signal (signal, rssi)", { $0.rssi != nil }),
             ("bruit (noise)", { $0.noise != nil }),
             ("débit négocié (data_rate_bps)", { $0.rateMbps != nil }),

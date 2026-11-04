@@ -466,7 +466,7 @@ struct FortiAPDetailPanel: View {
                                     .foregroundStyle(WifiText.qualityColor(rssi).foreground).frame(width: 62, alignment: .trailing)
                             }
                             // Note 47 : diagnostic de ce client.
-                            WifiDiagnoseButton(client: client, compact: true)
+                            WifiDiagnoseButton(client: client, title: "Diagnostiquer \(client.displayName)", compact: true)
                                 .buttonStyle(.borderless)
                                 .foregroundStyle(Theme.accentStrong)
                         }

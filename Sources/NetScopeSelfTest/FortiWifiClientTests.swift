@@ -233,6 +233,28 @@ func registerFortiWifiClientTests(_ suite: TestSuite) {
         try expectEqual(busy.map(\.kind), [.busyChannel], "canal occupé de la radio du client")
     }
 
+    suite.add("Wi-Fi clients : deux FortiGate sur un site, déconnexions comptées par FortiGate") {
+        var book = FortiWifiSignalBook()
+        let fgt1 = UUID(), fgt2 = UUID()
+        let a = ClientFixtures.client(1, rssi: -60), b = ClientFixtures.client(2, rssi: -62)
+        // Lectures séparées de quelques secondes : chacune est gardée, à sa propre date.
+        try expect(book.record(site: "s", controller: fgt1, clients: [a], at: now), "FortiGate 1")
+        try expect(book.record(site: "s", controller: fgt2, clients: [b], at: now.addingTimeInterval(5)), "FortiGate 2 (5 s après)")
+        // La FortiGate 2 ne répond pas : ses clients ne sont pas comptés déconnectés.
+        book.record(site: "s", controller: fgt1, clients: [a], at: now.addingTimeInterval(300))
+        book.record(site: "s", controller: fgt1, clients: [a], at: now.addingTimeInterval(600))
+        let h = book.history(site: "s")
+        try expectEqual(h.samples(for: b.mac).count, 1, "relevé du client de la FortiGate 2 gardé")
+        try expectEqual(h.disconnections(for: b.mac).count, 0, "FortiGate 2 non relue : pas de déconnexion")
+        try expectEqual(h.disconnections(for: a.mac).count, 0, "client de la FortiGate 1 toujours là")
+        // La FortiGate 2 relue sans le client : une déconnexion.
+        book.record(site: "s", controller: fgt2, clients: [], at: now.addingTimeInterval(605))
+        try expectEqual(book.history(site: "s").disconnections(for: b.mac).count, 1, "absent à une lecture de SA FortiGate")
+        try expect(!book.record(site: "s", controller: fgt2, clients: [b], at: now.addingTimeInterval(610)), "lecture trop rapprochée de la même FortiGate ignorée")
+        let back = try FortiWifiSignalHistory.decode(book.history(site: "s").encoded().unwrapWifi("encodé")).unwrapWifi("relu")
+        try expectEqual(back, book.history(site: "s"), "dates par FortiGate relues")
+    }
+
     suite.add("Wi-Fi clients : un historique par site, jamais fusionné (même MAC sur deux sites)") {
         var book = FortiWifiSignalBook()
         let siege = ClientFixtures.client(1, rssi: -50), laval = ClientFixtures.client(1, site: "Laval", rssi: -80)

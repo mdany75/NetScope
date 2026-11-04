@@ -38,8 +38,22 @@ private struct FortiAPTableHeader<Row: Identifiable, Filter: View>: View {
                 HStack(spacing: 8) {
                     filter
                     Spacer(minLength: 4)
-                    Text(summary).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                    Text(summary).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
                 }
+            }
+            // Petite fenêtre : filtres sur leur propre ligne, résumé dessous.
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    WifiHeading(title).fixedSize()
+                    field
+                    Spacer(minLength: 4)
+                    StandardColumnsMenu(model: model)
+                }
+                HStack(spacing: 8) {
+                    filter
+                    Spacer(minLength: 0)
+                }
+                Text(summary).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
@@ -318,6 +332,9 @@ struct FortiAPClientTable: View {
     @ObservedObject private var store = FortiAPStore.shared
     @StateObject private var table = StandardTableModel<FortiClientRow>(id: "wifi.fortiap.clients", columns: Self.columns,
                                                                         sortKeys: Self.sortKeys, defaultSort: "rssi", defaultAscending: true)
+    /// Vue par SSID : colonnes à part, sans la colonne SSID (elle répéterait le titre du groupe).
+    @StateObject private var groupTable = StandardTableModel<FortiClientRow>(id: "wifi.fortiap.clients.ssid", columns: Self.columns,
+                                                                             sortKeys: Self.sortKeys, defaultSort: "rssi", defaultAscending: true)
     @State private var search = ""
     /// Note 46 : filtres SSID, borne, bande et signal faible.
     @State private var filter = FortiWifiClientFilter()
@@ -369,7 +386,7 @@ struct FortiAPClientTable: View {
             .sorted(using: table.sortOrder + [KeyPathComparator(\FortiClientRow.mac)])
         FortiAPTableFrame {
             FortiAPTableHeader(title: "Clients Wi-Fi", summary: "\(rows.count) affiché\(rows.count > 1 ? "s" : "") sur \(all.count)",
-                               search: $search, prompt: "Nom, MAC, IP, SSID…", model: table) {
+                               search: $search, prompt: "Nom, MAC, IP, SSID…", model: store.clientsBySSID ? groupTable : table) {
                 filters(all)
             }
             Rectangle().fill(Theme.border).frame(height: 1)
@@ -524,7 +541,9 @@ struct FortiAPClientTable: View {
     }
 
     private func tableView(_ rows: [FortiClientRow], ssidGroup: String? = nil) -> some View {
-        Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+        let model = ssidGroup == nil ? table : groupTable
+        let customization = Binding(get: { model.customization }, set: { model.customization = $0 })
+        return Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: customization) {
             Group {
                 TableColumn(StandardTableHeading("CLIENT"), sortUsing: table.sort("nom")) { row in
                     HStack(spacing: 5) {
@@ -643,7 +662,13 @@ struct FortiAPClientTable: View {
         }
         .standardTableStyle()
         // Note 48 : plusieurs sites affichés, colonne « Site » montrée d’office.
-        .standardSiteColumn(table, multiple: store.shownOverview.isMultiSite)
+        .standardSiteColumn(model, multiple: store.shownOverview.isMultiSite)
+        .onAppear {
+            // Colonne SSID masquée d'office dans la vue par SSID (l'utilisateur peut la remontrer).
+            if ssidGroup != nil, groupTable.customization[visibility: "ssid"] == .automatic {
+                groupTable.customization[visibility: "ssid"] = .hidden
+            }
+        }
         // Note 46 : double-clic ou ↩︎ → fiche complète du client (Wi-Fi › FortiAP), qui mène à la fiche
         // Appareil, à l'Inventaire et au Ping ; clic droit → « Fiche du client » et « Ouvrir dans › ».
         .standardRowActions(selection: selection.map { [$0] } ?? [], object: { id in

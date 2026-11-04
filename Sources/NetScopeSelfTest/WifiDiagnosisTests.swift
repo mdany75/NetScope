@@ -303,6 +303,9 @@ func registerWifiDiagnosisTests(_ suite: TestSuite) {
         try expect(a.summary.contains("169.254"), "en clair")
         input.client.ip = nil
         try expectEqual(WifiDiagnosis.diagnose(input).cause(.dhcp)?.verdict, .problem, "pas d'adresse")
+        input.ipFieldPresent = false
+        try expectEqual(WifiDiagnosis.diagnose(input).cause(.dhcp)?.verdict, .notMeasured, "adresse IP non donnée par la FortiGate")
+        input.ipFieldPresent = true
         input.client.ip = IPv4Address("10.0.20.33")
         input.measures.dhcp = WifiDHCPStatus(scopeName: "VLAN 20", percent: 98, free: 2, poolSize: 100, critical: true)
         try expectEqual(WifiDiagnosis.diagnose(input).cause(.dhcp)?.verdict, .problem, "étendue pleine")
@@ -371,6 +374,7 @@ func registerWifiDiagnosisTests(_ suite: TestSuite) {
         let text = WifiDiagnosisText.plain(r)
         try expect(text.contains("1. ") && text.contains("[Problème] Signal"), "texte à copier")
         try expect(text.contains("Lecture seule"), "rappel lecture seule")
+        try expect(text.contains("Verdict\u{00A0}:") && !text.contains(" :"), "espace insécable avant « : »")
     }
 
     suite.add("Diagnostic Wi-Fi : entrée tirée d'une lecture") {
@@ -451,6 +455,11 @@ func registerWifiDiagnosisTests(_ suite: TestSuite) {
         try expectEqual(WifiDiagnosis.diagnose(ssid: ssid, overview: calm).cause(.ssid)?.verdict, .watch, "réseau ouvert")
     }
 
+    suite.add("Diagnostic Wi-Fi : MAC masquées dans les preuves du rapport") {
+        let text = ReportBuilder.maskMACs("Jumeau 5C:E9:1E:40:00:01 et 02-aa-bb-cc-dd-ee, pas 10.0.20.33")
+        try expectEqual(text, "Jumeau 5C:E9:1E:xx:xx:xx et 02-aa-bb:xx:xx:xx, pas 10.0.20.33", "MAC masquées : \(text)")
+    }
+
     suite.add("Diagnostic Wi-Fi : suivi dans le temps") {
         var history = WifiDiagnosisHistory()
         var cal = Calendar(identifier: .gregorian)
@@ -463,7 +472,7 @@ func registerWifiDiagnosisTests(_ suite: TestSuite) {
         history.add(WifiDiagnosis.diagnose(input, now: at(4, 15)), rssi: -52)
         let key = WifiDiagnosisSubject.client(mac: F.mac.formatted(.upperColon), name: "x").key
         try expectEqual(history.records[key]?.count, 4, "quatre résumés")
-        try expectEqual(history.latest[key]?.overall, .ok, "le dernier diagnostic complet")
+        try expectEqual(history.records[key]?.last?.overall, .ok, "le dernier diagnostic")
         let text = try history.recurrence(key, calendar: cal).unwrap("récurrence")
         try expect(text.contains("3 diagnostics sur 4"), "compte : \(text)")
         try expect(text.contains("entre 8\u{00A0}h et 10\u{00A0}h"), "heures : \(text)")
@@ -487,6 +496,23 @@ func registerWifiDiagnosisTests(_ suite: TestSuite) {
         try expectEqual(back.reported.first?.subject, history.reported.first?.subject, "rapport relu")
         try expect(WifiDiagnosisHistory.load(from: url.appendingPathExtension("absent")).records.isEmpty, "fichier absent : vide")
         try expect(WifiDiagnosisHistory.recurrence([]) == nil, "trop peu de diagnostics")
+        // Une entrée illisible (cause d'une version future) n'efface pas les autres.
+        let odd = Data(#"{"records":{"a":[{"date":"2026-11-04T10:00:00Z","overall":9,"problems":[]},{"date":"2026-11-04T11:00:00Z","overall":1,"problems":[]}],"b":[]},"reported":[{"x":1}]}"#.utf8)
+        let oddURL = url.appendingPathExtension("lossy")
+        defer { try? FileManager.default.removeItem(at: oddURL) }
+        try odd.write(to: oddURL)
+        let lossy = WifiDiagnosisHistory.load(from: oddURL)
+        try expectEqual(lossy.records["a"]?.count, 1, "entrée illisible ignorée, l'autre gardée")
+        try expect(lossy.reported.isEmpty, "rapport illisible ignoré")
+        // Nombre de sujets borné.
+        var many = WifiDiagnosisHistory()
+        for n in 0..<(WifiDiagnosisHistory.keepSubjects + 5) {
+            var r = WifiDiagnosis.diagnose(input, now: at(7, 0).addingTimeInterval(Double(n) * 60))
+            r.subject = .client(mac: String(format: "02:00:00:00:%02X:%02X", n / 256, n % 256), name: "c\(n)")
+            many.add(r)
+        }
+        try expectEqual(many.records.count, WifiDiagnosisHistory.keepSubjects, "sujets bornés")
+        try expect(many.records[WifiDiagnosisSubject.client(mac: "02:00:00:00:00:00", name: "").key] == nil, "le plus ancien tombe")
     }
 
     suite.add("Diagnostic Wi-Fi : seuils réglables et relus") {
