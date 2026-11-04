@@ -763,3 +763,18 @@ qui vérifie chaque cause possible, dit en clair ce qui ne va pas et propose quo
   tête, les mesures qui le prouvent, les actions suggérées dans l'ordre, et un export dans le
   rapport du site ; suivi dans le temps (le problème revient-il à certaines heures ?).
 - Lecture seule sur la FortiGate : NetScope propose, le technicien applique.
+
+## 48. Switchs et Wi-Fi : choisir le site — À PLANIFIER (demande de Dany)
+
+« Dans les modules Switch et Wi-Fi, avoir la possibilité de choisir le site. » Étend aux deux
+modules le menu « Site ▾ » que la note 28 donne à l'Analyse, à l'Inventaire, à la Carte et aux
+Rapports :
+
+- Menu « Site ▾ » en haut de Switchs et ports et de Wi-Fi, ouvert par défaut sur le site actif ;
+  choisir un autre site n'y change pas le site actif du Scanner.
+- Switchs : les FortiSwitch de la FortiGate du site choisi et les switchs SNMP associés à ce site ;
+  Wi-Fi : ses FortiAP, SSID, clients et AP voisins (notes 27 et 46), par sa FortiGate.
+- Option « Tous les sites » : liste groupée par site, colonne « Site », recherche commune ;
+  jamais de mélange entre deux sites qui partagent les mêmes plages.
+- Le site choisi est retenu par module et suit les sauts entre modules (double-clic sur une borne
+  ou un port, note 34 ; Retour, note 45) ; message clair si le site n'a ni FortiGate ni switch.
