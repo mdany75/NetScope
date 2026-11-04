@@ -14,9 +14,31 @@ struct SwitchSiteBanner: View {
     @ObservedObject private var scopes = SiteScopeStore.shared
 
     var body: some View {
-        let hidden = total - visible
         let browsing = scopes.keys(for: .switchs) != [sites.activeKey]
-        HStack(spacing: 10) {
+        Group {
+            if browsing {
+                row(browsing: true, badge: false)
+            } else {
+                // Note 29 : l'indication de la relecture automatique passe sous la ligne quand la
+                // fenêtre est étroite (le détail des switchs masqués reste lisible).
+                ViewThatFits(in: .horizontal) {
+                    row(browsing: false, badge: true)
+                    VStack(alignment: .leading, spacing: 4) {
+                        row(browsing: false, badge: false)
+                        AutoRefreshBadge()
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+    }
+
+    private func row(browsing: Bool, badge: Bool) -> some View {
+        let hidden = total - visible
+        return HStack(spacing: 10) {
             // Note 48 : menu « Site ▾ », ouvert par défaut sur le site actif ; un autre choix ne
             // change pas le site actif du Scanner.
             SiteScopeMenu(screen: .switchs)
@@ -35,6 +57,8 @@ struct SwitchSiteBanner: View {
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 8)
+                // Note 29 : relecture automatique du site actif (FortiGate, switchs SNMP).
+                if badge { AutoRefreshBadge() }
                 if hidden > 0 || sites.showAllSwitches {
                     Button(sites.showAllSwitches ? "Switchs du site seulement" : "Afficher tous les switchs") {
                         sites.showAllSwitches.toggle()
@@ -51,10 +75,6 @@ struct SwitchSiteBanner: View {
             .fixedSize()
             .help("Associer un switch SNMP à un site (Réglages › Switchs)")
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
-        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
     }
 
     private func detail(hidden: Int) -> String {
