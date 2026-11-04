@@ -201,6 +201,32 @@ func registerWANTests(_ suite: TestSuite) {
 
         let ssl = try WANParsers.sslUsers(data(WANFixtures.ssl74), now: now).unwrapWAN("ssl")
         try expect(ssl.count == 2 && ssl[0].user == "mgagnon" && ssl[0].loginAt != nil, "utilisateurs VPN SSL")
+
+        // Horodatages aberrants (1e30) : ignorés à la lecture, et jamais de plantage à l'affichage.
+        let absurd = """
+        {"results":[{"user_name":"x","last_login_time":1e30}]}
+        """
+        let odd = try WANParsers.sslUsers(data(absurd), now: now).unwrapWAN("ssl aberrant")
+        try expect(odd.first?.loginAt == nil, "horodatage de 1e30 ignoré")
+        let farTunnel = """
+        [{"name":"t","status":"up","creation_time":1e30}]
+        """
+        let far = try WANParsers.tunnels(data(farTunnel), now: now).unwrapWAN("tunnel aberrant")
+        try expect(far.first?.upSince == nil, "date de création dans le futur ignorée")
+        try expectEqual(WANFormat.duration(since: Date(timeIntervalSince1970: 1e30), now: now), "—", "durée d’une date lointaine")
+        try expectEqual(WANFormat.duration(since: Date(timeIntervalSince1970: -1e30), now: now), "—", "durée d’une date très ancienne")
+
+        // Une FortiGate en erreur parmi d'autres : les sondes qui la visent le disent.
+        let failing = ["Entrepôt Laval": "FortiGate injoignable"]
+        let all = MonWANChecks.tunnelDown(target: "*", overview: WANOverview(), siteErrors: failing, now: now)
+        try expect(!all.result.reachable && all.result.value == "Lecture impossible" && all.result.error?.contains("Entrepôt Laval") == true,
+                   "« * » : lecture impossible d’un site signalée")
+        let other = MonWANChecks.wanDegraded(target: "Siège / wan1", overview: WANOverview(), siteErrors: failing,
+                                             thresholds: .standard, now: now)
+        try expect(other.result.value != "Lecture impossible", "autre site visé : l’erreur de Laval ne compte pas")
+        let lavalProbe = MonWANChecks.wanDegraded(target: "Entrepôt Laval / wan1", overview: WANOverview(), siteErrors: failing,
+                                             thresholds: .standard, now: now)
+        try expectEqual(lavalProbe.result.value, "Lecture impossible", "site visé en erreur : lecture impossible, pas « introuvable »")
     }
 
     suite.add("WAN : interfaces WAN, état des liens, SLA et débit") {

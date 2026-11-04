@@ -27,6 +27,8 @@ public struct MonRunContext: Sendable {
     public var wan: WANOverview?
     /// Lecture du WAN tentée sans aucune FortiGate lue : son erreur.
     public var wanError: String?
+    /// Lecture du WAN en échec pour certaines FortiGate seulement : erreur par site (nom du site).
+    public var wanSiteErrors: [String: String] = [:]
     /// Dernière lecture du trafic des FortiGate (sondes de trafic, note 54) ; nil : aucune.
     public var traffic: TrafficOverview?
     /// Lecture du trafic tentée sans aucune FortiGate lue : son erreur.
@@ -105,9 +107,11 @@ public enum MonRunner {
             return MonDHCPScopeChecks.check(target: target, overview: context.dhcpScopes, error: context.dhcpScopesError,
                                             thresholds: probe.dhcpThresholds ?? .standard, now: context.now)
         case .vpnTunnel:
-            return MonWANChecks.tunnelDown(target: target, overview: context.wan, error: context.wanError, now: context.now)
+            return MonWANChecks.tunnelDown(target: target, overview: context.wan, error: context.wanError,
+                                           siteErrors: context.wanSiteErrors, now: context.now)
         case .wanLink:
             return MonWANChecks.wanDegraded(target: target, overview: context.wan, error: context.wanError,
+                                            siteErrors: context.wanSiteErrors,
                                             thresholds: probe.wanThresholds ?? .standard, now: context.now)
         case .linkSaturated, .heavyDevice, .newThreat:
             return MonTrafficChecks.run(probe, target: target, traffic: context.traffic, error: context.trafficError, now: context.now)

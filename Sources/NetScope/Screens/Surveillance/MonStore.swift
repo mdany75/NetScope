@@ -326,10 +326,12 @@ final class MonStore: ObservableObject {
             // WAN et VPN (note 39) : FortiGate activées relues si plus vieilles que l'intervalle.
             var wan: WANOverview?
             var wanError: String?
+            var wanSiteErrors: [String: String] = [:]
             if probe.kind == .vpnTunnel || probe.kind == .wanLink {
                 await WANStore.shared.refreshForMonitoring(maxAge: TimeInterval(probe.interval))
                 wan = WANStore.shared.monitoringOverview
                 wanError = WANStore.shared.readError
+                wanSiteErrors = WANStore.shared.monitoringErrors
             }
             // Trafic (note 54) : temps réel FortiView du site actif, relu si plus vieux que l'intervalle.
             var traffic: TrafficOverview?
@@ -355,6 +357,7 @@ final class MonStore: ObservableObject {
             context.dhcpScopesError = dhcpScopesError
             context.wan = wan
             context.wanError = wanError
+            context.wanSiteErrors = wanSiteErrors
             context.traffic = traffic
             context.trafficError = trafficError
             let outcome = await MonRunner.run(probe, context: context)

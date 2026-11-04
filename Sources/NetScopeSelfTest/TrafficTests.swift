@@ -143,6 +143,17 @@ func registerTrafficTests(_ suite: TestSuite) {
         let apps = try trafficRequire(TrafficParsers.entries(Data(TrafficFixtures.applications74.utf8), view: .applications), "applications")
         try expectEqual(apps.map(\.risk), [3, 4, 2], "risques texte et nombre")
         try expectEqual(apps[1].category, "P2P", "catégorie")
+        // Échelle FortiGuard : le libellé texte donne le même chiffre que le nombre.
+        let labels = ["low", "elevated", "medium", "high", "critical", "faible", "modéré", "moyen", "élevé", "critique"]
+        let riskJSON = "{\"results\":[" + labels.enumerated().map { i, label in
+            "{\"app_name\":\"App\(i)\",\"appid\":\(i + 1),\"apprisk\":\"\(label)\",\"bandwidth\":\(1000 - i),\"sessions\":1}"
+        }.joined(separator: ",") + "]}"
+        let risks = try trafficRequire(TrafficParsers.entries(Data(riskJSON.utf8), view: .applications), "risques en texte")
+        let byName = Dictionary(uniqueKeysWithValues: risks.map { ($0.name, $0.risk) })
+        try expectEqual(labels.indices.map { byName["App\($0)"] ?? nil }, [1, 2, 3, 4, 5, 1, 2, 3, 4, 5], "risques texte sur l’échelle 1-5")
+        try expectEqual(TrafficFormat.risk(2), "Modéré (2/5)", "libellé du risque 2")
+        try expectEqual(TrafficThreatLevel.parse("elevated"), .medium, "« elevated » n’est pas « élevé »")
+        try expectEqual(TrafficThreatLevel.parse("élevé"), .high, "« élevé » : élevé")
 
         let threats = try trafficRequire(TrafficParsers.entries(Data(TrafficFixtures.threats74.utf8), view: .threats), "menaces")
         try expectEqual(threats.map(\.threatLevel), [.critical, .high, .low], "niveaux")
@@ -252,7 +263,17 @@ func registerTrafficTests(_ suite: TestSuite) {
         try expect(verdict.isSaturated && verdict.headline.contains("wan1"), "seuil 60 % : saturé, lien nommé")
         try expect(verdict.advice.contains("sauvegarde"), "conseil adapté à une sauvegarde")
         try expectEqual(TrafficAnalysis.unexpectedApplications(overview).map(\.name), ["BitTorrent"], "application inattendue")
-        try expectEqual(TrafficAnalysis.unusualCountries(overview).map(\.country), ["Netherlands"], "pays inhabituel")
+        try expectEqual(TrafficAnalysis.unusualCountries(overview).map(\.country), ["Pays-Bas"], "pays inhabituel, nommé en français")
+        try expectEqual(TrafficFormat.country("United States"), "États-Unis", "pays FortiView en français")
+        let wan = [NetworkWANStatus(site: "Siège", name: "wan1", isUp: true, latencyMs: 120, lossPercent: 0, jitterMs: 5)]
+        try expect(NetworkAnalysis.analyze(NetworkAnalysisInput(wan: wan)).findings.filter { $0.id.hasPrefix("wan|") }.isEmpty,
+                   "120 ms : sous le seuil de l’onglet WAN (150 ms), pas dégradé")
+        try expect(!NetworkAnalysis.analyze(NetworkAnalysisInput(wan: wan, wanThresholds: WANThresholds(latencyMs: 100))).findings.filter { $0.id.hasPrefix("wan|") }.isEmpty,
+                   "seuils de l’onglet WAN appliqués à l’analyse")
+        try expectEqual(TrafficFormat.country("Russian Federation"), "Russie", "variante GeoIP")
+        try expectEqual(TrafficFormat.country("Reserved"), "Réservé", "adresse réservée")
+        try expectEqual(TrafficFormat.country("DE"), "Allemagne", "code ISO")
+        try expectEqual(TrafficFormat.country("Atlantide"), "Atlantide", "nom inconnu gardé")
         try expectEqual(TrafficAnalysis.threatenedDevices(overview).map(\.ip.description), ["10.182.122.133"], "appareil visé (menace moyenne ou plus)")
         try expectEqual(TrafficAnalysis.sorted(overview.entries(.sources), by: .sessions).first?.name, "10.182.122.100", "tri par sessions")
     }

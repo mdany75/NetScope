@@ -149,6 +149,8 @@ public struct NetworkAnalysisInput: Sendable {
     public var traffic: TrafficOverview?
     public var trafficThresholds: TrafficThresholds
     public var wan: [NetworkWANStatus]?
+    /// Seuils d'un lien dégradé : ceux de l'onglet WAN, pour que l'analyse et l'onglet concordent.
+    public var wanThresholds: WANThresholds
     public var ports: [NetworkPortIssue]?
     public var wifi: FortiWifiDiagnosis?
     public var dhcp: DHCPScopeOverview?
@@ -157,11 +159,12 @@ public struct NetworkAnalysisInput: Sendable {
     public var now: Date
 
     public init(traffic: TrafficOverview? = nil, trafficThresholds: TrafficThresholds = .standard, wan: [NetworkWANStatus]? = nil,
-                ports: [NetworkPortIssue]? = nil, wifi: FortiWifiDiagnosis? = nil, dhcp: DHCPScopeOverview? = nil,
+                wanThresholds: WANThresholds = .standard, ports: [NetworkPortIssue]? = nil, wifi: FortiWifiDiagnosis? = nil, dhcp: DHCPScopeOverview? = nil,
                 dhcpThresholds: DHCPScopeThresholds = .standard, unknownDevices: [NetworkUnknownDevice]? = nil, now: Date = Date()) {
         self.traffic = traffic
         self.trafficThresholds = trafficThresholds
         self.wan = wan
+        self.wanThresholds = wanThresholds
         self.ports = ports
         self.wifi = wifi
         self.dhcp = dhcp
@@ -216,9 +219,6 @@ public struct NetworkAnalysisResult: Hashable, Sendable {
 public enum NetworkAnalysis {
     /// Seuil d'erreurs d'un port signalé (compteur depuis le démarrage du switch).
     public static let portErrorThreshold: UInt64 = 1000
-    /// Latence et perte d'un lien WAN dégradé.
-    public static let wanLatencyMs: Double = 100
-    public static let wanLossPercent: Double = 2
     /// Un appareil inconnu vu depuis moins de 24 h est « nouveau ».
     public static let recentUnknown: TimeInterval = 86_400
 
@@ -241,7 +241,7 @@ public enum NetworkAnalysis {
         // MARK: Santé
         if let wan = input.wan {
             coverage.append(NetworkCoverage(part: "WAN et SD-WAN", analyzed: true, detail: "\(wan.count) lien\(wan.count > 1 ? "s" : "") ou tunnel\(wan.count > 1 ? "s" : "")"))
-            findings += wanFindings(wan)
+            findings += wanFindings(wan, thresholds: input.wanThresholds)
         } else {
             coverage.append(NetworkCoverage(part: "WAN et SD-WAN", analyzed: false,
                                             detail: "État des liens et des tunnels non lu (latence, perte, tunnels VPN)."))
@@ -415,7 +415,7 @@ public enum NetworkAnalysis {
 
     // MARK: Règles de santé
 
-    static func wanFindings(_ wan: [NetworkWANStatus]) -> [NetworkFinding] {
+    static func wanFindings(_ wan: [NetworkWANStatus], thresholds: WANThresholds = .standard) -> [NetworkFinding] {
         let multi = Set(wan.map(\.site)).count > 1
         func at(_ site: String) -> String { multi ? " (\(site))" : "" }
         var result: [NetworkFinding] = []
@@ -433,9 +433,9 @@ public enum NetworkAnalysis {
                 continue
             }
             var problems: [String] = []
-            if let latency = link.latencyMs, latency > wanLatencyMs { problems.append("latence \(ToolFormat.milliseconds(latency))") }
-            if let loss = link.lossPercent, loss > wanLossPercent { problems.append("perte \(ResourceFormat.percent(loss))") }
-            if let jitter = link.jitterMs, jitter > 30 { problems.append("gigue \(ToolFormat.milliseconds(jitter))") }
+            if let latency = link.latencyMs, latency > thresholds.latencyMs { problems.append("latence \(ToolFormat.milliseconds(latency))") }
+            if let loss = link.lossPercent, loss > thresholds.lossPercent { problems.append("perte \(ResourceFormat.percent(loss))") }
+            if let jitter = link.jitterMs, jitter > thresholds.jitterMs { problems.append("gigue \(ToolFormat.milliseconds(jitter))") }
             guard !problems.isEmpty else { continue }
             result.append(NetworkFinding(
                 id: "wan|\(link.site)|\(link.name)", severity: .warning, area: .health,

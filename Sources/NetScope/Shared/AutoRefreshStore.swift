@@ -39,8 +39,10 @@ final class AutoRefreshStore: ObservableObject {
     private var resumeAfter: Date?
     private var wasOnline = true
     /// Aucun switch SNMP du site n'a de communauté (constaté par une relecture) : plus d'essai
-    /// jusqu'au prochain changement de site.
+    /// jusqu'au prochain changement de site, d'hôtes ou de communauté.
     private var snmpUnusable = false
+    /// Switchs à relire au moment où aucun n'avait de communauté.
+    private var snmpUnusableHosts: [String] = []
     private var loop: Task<Void, Never>?
     private var job: Task<Void, Never>?
     private var observers: [NSObjectProtocol] = []
@@ -48,7 +50,7 @@ final class AutoRefreshStore: ObservableObject {
     init(demo: Bool = Launcher.isDemo || RegEnvironment.isSnapshot) {
         isDemo = demo
         siteKey = SiteFiles.noSiteKey
-        settings = demo ? AutoRefreshSettings() : AutoRefreshSettings.decode(UserDefaults.standard.data(forKey: Self.settingsKey))
+        settings = demo ? AutoRefreshSettings(includeSNMP: true) : AutoRefreshSettings.decode(UserDefaults.standard.data(forKey: Self.settingsKey))
         if demo { applyDemo() }
     }
 
@@ -105,6 +107,16 @@ final class AutoRefreshStore: ObservableObject {
     func setInterval(_ interval: AutoRefreshInterval, forSiteKey key: String) {
         guard self.interval(forSiteKey: key) != interval || !settings.isCustom(key) else { return }
         settings.set(interval, forSiteKey: key)
+        save()
+        evaluate()
+    }
+
+    /// Relire aussi les switchs SNMP (communauté envoyée à chaque relecture) : choix explicite.
+    var includeSNMP: Bool { settings.includeSNMP }
+
+    func setIncludeSNMP(_ include: Bool) {
+        guard settings.includeSNMP != include else { return }
+        settings.includeSNMP = include
         save()
         evaluate()
     }
@@ -210,8 +222,12 @@ final class AutoRefreshStore: ObservableObject {
         let wifiRead = wifiStore.sites.filter { ids.contains($0.controllerID) }.map(\.report.readAt).max()
         update(.wifi, available: !ids.isEmpty, blockedReason: blocked, inFlight: wifiStore.busy, read: wifiRead)
         let snmpHosts = switchStore.autoRefreshHosts()
+        // Autres switchs, ou une communauté saisie depuis (Réglages, Switchs) : on réessaie.
+        if snmpUnusable, snmpHosts != snmpUnusableHosts || snmpHosts.contains(where: { !switchStore.community(for: $0).isEmpty }) {
+            snmpUnusable = false
+        }
         let snmpRead = snmpHosts.compactMap { switchStore.snapshots[$0]?.polledAt }.max()
-        update(.snmp, available: !snmpHosts.isEmpty && !snmpUnusable, blockedReason: nil,
+        update(.snmp, available: settings.includeSNMP && !snmpHosts.isEmpty && !snmpUnusable, blockedReason: nil,
                inFlight: switchStore.isPolling || switchStore.isDiscovering, read: snmpRead)
         if next != tracks { tracks = next }
 
@@ -267,6 +283,7 @@ final class AutoRefreshStore: ObservableObject {
                 case .nothing:
                     outcomes[.snmp] = .some(nil)
                     self?.snmpUnusable = true
+                    self?.snmpUnusableHosts = SwitchStore.shared.autoRefreshHosts()
                 }
             }
             guard let self, self.siteKey == key, !Task.isCancelled else { return }

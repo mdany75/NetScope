@@ -48,13 +48,16 @@ public enum TrafficParsers {
         return amount
     }
 
-    /// Risque d'une application, ramené à 1 (faible) – 5 (critique).
+    /// Risque d'une application, sur l'échelle FortiGuard : 1 Low, 2 Elevated, 3 Medium, 4 High,
+    /// 5 Critical (le texte et le nombre donnent la même valeur, quelle que soit la version).
     static func risk(_ value: Any?) -> Int? {
         if let text = FortiJSON.string(value)?.lowercased(), Int(text) == nil {
             if text.hasPrefix("crit") { return 5 }
+            // « élevé » (français) : High ; « elevated » (anglais, sans accent) : Elevated.
             if text.hasPrefix("high") || text.hasPrefix("élev") { return 4 }
-            if text.hasPrefix("elev") || text.hasPrefix("med") || text.hasPrefix("moy") { return 3 }
-            if text.hasPrefix("low") || text.hasPrefix("faib") { return 2 }
+            if text.hasPrefix("med") || text.hasPrefix("moy") { return 3 }
+            if text.hasPrefix("elev") || text.hasPrefix("mod") { return 2 }
+            if text.hasPrefix("low") || text.hasPrefix("faib") { return 1 }
             return nil
         }
         guard let n = FortiJSON.int(value), n > 0 else { return nil }

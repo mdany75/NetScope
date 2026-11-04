@@ -113,6 +113,9 @@ struct MonEditor: View {
                 MonMenuField(title: draft.wrappedValue.kind.label) {
                     ForEach(MonProbeKind.allCases) { kind in
                         Button(kind.label) {
+                            // La limite n'a pas la même unité d'un type à l'autre (%, Mb/s) :
+                            // le nouveau type part de sa valeur par défaut.
+                            if draft.wrappedValue.kind != kind { draft.wrappedValue.resourceLimit = nil }
                             draft.wrappedValue.kind = kind
                             MonResourceConditionFields.prepare(&draft.wrappedValue)
                             MonServiceConditionFields.prepare(&draft.wrappedValue)

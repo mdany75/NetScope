@@ -145,8 +145,9 @@ public enum TrafficThreatLevel: Int, Codable, Sendable, Comparable, CaseIterable
     public static func parse(_ value: Any?) -> TrafficThreatLevel? {
         if let text = FortiJSON.string(value)?.lowercased() {
             if text.hasPrefix("crit") { return .critical }
-            if text.hasPrefix("high") || text.hasPrefix("élev") || text.hasPrefix("elev") { return .high }
-            if text.hasPrefix("med") || text.hasPrefix("moy") { return .medium }
+            if text.hasPrefix("high") || text.hasPrefix("élev") { return .high }
+            // « elevated » (anglais) : entre Low et Medium de FortiGuard, compté moyen.
+            if text.hasPrefix("med") || text.hasPrefix("moy") || text.hasPrefix("elev") { return .medium }
             if text.hasPrefix("low") || text.hasPrefix("faib") { return .low }
             if text.hasPrefix("info") || text.hasPrefix("notice") { return .info }
         }

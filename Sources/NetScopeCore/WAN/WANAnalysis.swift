@@ -435,8 +435,12 @@ public enum WANFormat {
     /// « 3 j 4 h », « 5 h 12 min », « 42 min », « < 1 min ».
     public static func duration(since date: Date?, now: Date = Date()) -> String {
         guard let date else { return "—" }
-        let seconds = Int(now.timeIntervalSince(date))
-        guard seconds >= 60 else { return "<\u{00A0}1\u{00A0}min" }
+        // Date venue de la FortiGate : hors bornes (valeur sentinelle, bogue), elle ne doit jamais
+        // faire déborder la conversion en entier.
+        let interval = now.timeIntervalSince(date)
+        guard interval.isFinite, interval > -86_400, interval < 1e10 else { return "—" }
+        guard interval >= 60 else { return "<\u{00A0}1\u{00A0}min" }
+        let seconds = Int(interval)
         let days = seconds / 86_400, hours = (seconds % 86_400) / 3600, minutes = (seconds % 3600) / 60
         if days > 0 { return "\(days)\u{00A0}j" + (hours > 0 ? " \(hours)\u{00A0}h" : "") }
         if hours > 0 { return "\(hours)\u{00A0}h" + (minutes > 0 ? " \(minutes)\u{00A0}min" : "") }

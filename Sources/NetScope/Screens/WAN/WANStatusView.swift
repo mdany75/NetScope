@@ -8,6 +8,9 @@ import SwiftUI
 struct WANStatusView: View {
     /// Écran qui retient le choix des sites du menu « Site ▾ ».
     var scopeScreen: Screen = .outils
+    /// Intégrée à un écran qui a déjà son menu « Site ▾ » et son « Ajouter au rapport » (Trafic) :
+    /// pas de second menu des sites, et le bouton du rapport dit qu'il ajoute la section WAN.
+    var embedded = false
 
     @EnvironmentObject private var state: AppState
     @ObservedObject private var store = WANStore.shared
@@ -65,7 +68,30 @@ struct WANStatusView: View {
 
     // MARK: Contrôles
 
-    private func controls(_ ids: [UUID], overview: WANOverview) -> some View {
+    @ViewBuilder private func controls(_ ids: [UUID], overview: WANOverview) -> some View {
+        if embedded {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .bottom, spacing: 10) {
+                    thresholdFields
+                    Spacer(minLength: 4)
+                    if store.isReading(ids) { ProgressView().controlSize(.small) }
+                    buttons(ids)
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        Spacer(minLength: 4)
+                        if store.isReading(ids) { ProgressView().controlSize(.small) }
+                        buttons(ids)
+                    }
+                    thresholdFields
+                }
+            }
+        } else {
+            fullControls(ids, overview: overview)
+        }
+    }
+
+    private func fullControls(_ ids: [UUID], overview: WANOverview) -> some View {
         ViewThatFits(in: .horizontal) {
             HStack(alignment: .bottom, spacing: 10) {
                 siteField(ids, overview: overview)
@@ -151,7 +177,8 @@ struct WANStatusView: View {
             Button {
                 store.addToReport()
             } label: {
-                Label(store.isInReport ? "Dans le rapport" : "Ajouter au rapport",
+                Label(store.isInReport ? (embedded ? "WAN dans le rapport" : "Dans le rapport")
+                                       : (embedded ? "Ajouter le WAN au rapport" : "Ajouter au rapport"),
                       systemImage: store.isInReport ? "checkmark" : "doc.badge.plus")
             }
             .buttonStyle(.secondary)
@@ -199,7 +226,7 @@ struct WANStatusView: View {
             }
         } else {
             ToolNotice(tone: .success, title: "WAN et VPN en bon état",
-                       message: "Tous les liens WAN répondent sous les seuils (\(store.thresholds.label)) et tous les tunnels IPsec sont montés.")
+                       message: "Tous les liens WAN répondent sous les seuils (\(store.thresholds.okLabel)) et tous les tunnels IPsec sont montés.")
         }
     }
 

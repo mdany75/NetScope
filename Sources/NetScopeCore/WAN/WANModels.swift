@@ -396,6 +396,11 @@ public struct WANThresholds: Codable, Hashable, Sendable {
     public var label: String {
         "latence > \(MonFormat.number(latencyMs))\u{00A0}ms, gigue > \(MonFormat.number(jitterMs))\u{00A0}ms ou perte > \(MonFormat.percent(lossPercent))"
     }
+
+    /// « latence ≤ 150 ms, gigue ≤ 30 ms, perte ≤ 2 % » : un lien en bon état.
+    public var okLabel: String {
+        "latence ≤ \(MonFormat.number(latencyMs))\u{00A0}ms, gigue ≤ \(MonFormat.number(jitterMs))\u{00A0}ms, perte ≤ \(MonFormat.percent(lossPercent))"
+    }
 }
 
 extension WANThresholds {

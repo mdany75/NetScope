@@ -253,7 +253,11 @@ struct ToolNotice<Trailing: View>: View {
 
     private var text: some View {
         VStack(alignment: .leading, spacing: 2) {
-            if let title { Text(title).font(Theme.bodySemibold).foregroundStyle(tone.foreground) }
+            if let title {
+                // Le titre passe à la ligne plutôt que d'être coupé (feuilles étroites).
+                Text(title).font(Theme.bodySemibold).foregroundStyle(tone.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Text(message)
                 .font(title == nil ? Theme.body : Theme.small)
                 .foregroundStyle(tone == .accent ? Color(light: 0x1E3A8A, dark: 0x9AAFE9) : tone.foreground)

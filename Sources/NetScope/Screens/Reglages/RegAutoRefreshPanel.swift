@@ -2,7 +2,8 @@ import NetScopeCore
 import SwiftUI
 
 // Note 29 : Réglages › Switchs › Relecture automatique. Intervalle de chaque site (Désactivée,
-// 1, 2, 5, 10, 15 ou 30 min ; 5 min par défaut) ; seul le site actif est relu, sans scan.
+// 1, 2, 5, 10, 15 ou 30 min ; 5 min par défaut) ; seul le site actif est relu, sans scan. Les
+// switchs SNMP ne sont relus que si l'utilisateur le demande (communauté envoyée en clair).
 
 /// Ligne du tableau des sites (tableau standard « reglages.relecture »).
 struct RegAutoRefreshRow: Identifiable {
@@ -15,6 +16,9 @@ struct RegAutoRefreshRow: Identifiable {
     let sources: String
 
     var id: String { key }
+    /// Texte de la colonne ÉTAT (tri par état).
+    let status: String
+
     var sortName: String { (isActive ? "0" : "1") + name.lowercased() }
     var sortInterval: Int { interval.isOn ? interval.rawValue : Int.max }
 }
@@ -38,15 +42,16 @@ struct RegAutoRefreshPanel: View {
     static let sortKeys: [String: KeyPathComparator<RegAutoRefreshRow>] = [
         "site": KeyPathComparator(\RegAutoRefreshRow.sortName),
         "intervalle": KeyPathComparator(\RegAutoRefreshRow.sortInterval),
-        "etat": KeyPathComparator(\RegAutoRefreshRow.sortName),
+        "etat": KeyPathComparator(\RegAutoRefreshRow.status),
         "sources": KeyPathComparator(\RegAutoRefreshRow.sources),
     ]
 
     var body: some View {
         RegPanel(title: "Relecture automatique",
-                 subtitle: "Sans relancer de scan, NetScope relit à intervalle régulier la FortiGate du site actif (FortiSwitch, emplacement des appareils, table ARP et baux DHCP), ses bornes FortiAP et ses switchs SNMP. Lecture seule\u{00A0}: requêtes GET et SNMP en lecture, rien n’est jamais modifié.",
+                 subtitle: "Sans relancer de scan, NetScope relit à intervalle régulier la FortiGate du site actif (FortiSwitch, emplacement des appareils, table ARP et baux DHCP), ses bornes FortiAP et, si vous le demandez, ses switchs SNMP. Lecture seule\u{00A0}: requêtes GET et SNMP en lecture, rien n’est jamais modifié.",
                  accessory: { StandardColumnsMenu(model: table) }) {
             activeRow
+            snmpToggle
             VStack(alignment: .leading, spacing: 6) {
                 rule("pause.circle", "En pause pendant un scan (la fin du scan relit elle-même), Mac en veille ou hors réseau, et pour tout site qui n’est pas le site actif.")
                 rule("arrow.triangle.2.circlepath", "Une lecture faite ailleurs («\u{00A0}Relire\u{00A0}», fin de scan, sondes de la Surveillance) repousse la suivante\u{00A0}: jamais deux lectures à la fois vers la même FortiGate.")
@@ -82,6 +87,21 @@ struct RegAutoRefreshPanel: View {
         .overlay(alignment: .top) { Rectangle().fill(Theme.neutralSoft).frame(height: 1) }
     }
 
+    /// Switchs SNMP : choix explicite (SNMP v2c envoie la communauté en clair à chaque relecture).
+    private var snmpToggle: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Toggle("Relire aussi les switchs SNMP", isOn: Binding(get: { store.includeSNMP }, set: { store.setIncludeSNMP($0) }))
+                .toggleStyle(.checkbox)
+                .font(Theme.body)
+            Text("Désactivé par défaut\u{00A0}: en SNMP v2c, la communauté part en clair sur le réseau à chaque relecture. Sans cette case, les switchs SNMP ne sont relus que par «\u{00A0}Relire\u{00A0}» ou une sonde.")
+                .font(Theme.small)
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.leading, 20)
+        }
+        .padding(.vertical, 8)
+    }
+
     private func intervalPicker(key: String, label: String) -> some View {
         Picker(label, selection: Binding(get: { store.interval(forSiteKey: key) },
                                          set: { store.setInterval($0, forSiteKey: key) })) {
@@ -114,13 +134,15 @@ struct RegAutoRefreshPanel: View {
             if snmp > 0 { parts.append("\(snmp) switch\(snmp > 1 ? "s" : "") SNMP") }
             return RegAutoRefreshRow(key: key, name: site.displayName, isActive: key == sites.activeKey,
                                      interval: store.interval(forSiteKey: key), isCustom: store.isCustom(key),
-                                     sources: parts.isEmpty ? "Switchs SNMP relevés dans ce site" : parts.joined(separator: " · "))
+                                     sources: parts.isEmpty ? "Rien à relire (aucune FortiGate ni switch SNMP associé)" : parts.joined(separator: " · "),
+                                     status: store.statusText(forSiteKey: key))
         }
         if sites.activeID == nil {
             let key = SiteFiles.noSiteKey
             list.append(RegAutoRefreshRow(key: key, name: "Aucun site (plages du Scanner)", isActive: true,
                                           interval: store.interval(forSiteKey: key), isCustom: store.isCustom(key),
-                                          sources: "FortiGate qui couvrent les plages cochées"))
+                                          sources: "FortiGate qui couvrent les plages cochées",
+                                          status: store.statusText(forSiteKey: key)))
         }
         return list.sorted(using: table.sortOrder)
     }

@@ -187,8 +187,17 @@ struct TrafficSaturationSheet: View {
                     Text(name).font(Theme.bodySemibold)
                     if let ip = entry.ip { Text(ip.description).font(Theme.mono(11)).foregroundStyle(Theme.textSecondary) }
                 }
-                Text([consumer.mainApplication, consumer.mainDestination, location].compactMap { $0 }.joined(separator: " · "))
-                    .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                let usage = [consumer.mainApplication, consumer.mainDestination].compactMap { $0 }.joined(separator: " · ")
+                if !usage.isEmpty {
+                    Text(usage).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                // Emplacement sur sa propre ligne : c'est lui qui sert à aller débrancher le poste.
+                if let location {
+                    Label(location, systemImage: "point.3.connected.trianglepath.dotted")
+                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 ProgressBar(fraction: consumer.sharePercent / 100, color: rank == 1 && TrafficAnalysis.whoSaturates(store.overview, thresholds: store.thresholds).isSaturated ? Theme.critical : Theme.accent)
                     .padding(.top, 2)
             }
@@ -224,8 +233,9 @@ struct TrafficSaturationSheet: View {
 
 // MARK: - WAN (note 39)
 
-/// Onglet « WAN » : état du WAN et des tunnels (`WANStatusView` de la note 39, choix des sites
-/// retenu pour l'écran Trafic), puis la charge des liens WAN lue par FortiView et leur capacité.
+/// Onglet « WAN » : état du WAN et des tunnels (`WANStatusView` de la note 39 intégrée, sites du
+/// menu « Site ▾ » de l'écran Trafic), puis la capacité des liens WAN lue par FortiView (leur charge
+/// est déjà dans le panneau « Liens WAN » au-dessus).
 struct TrafficWANSlot: View {
     @ObservedObject private var store = TrafficStore.shared
     let overview: TrafficOverview
@@ -233,8 +243,8 @@ struct TrafficWANSlot: View {
     var body: some View {
         let usages = TrafficAnalysis.linkUsage(overview, thresholds: store.thresholds)
         VStack(alignment: .leading, spacing: 10) {
-            WANStatusView(scopeScreen: .trafic)
-            Text("Charge des liens WAN (FortiView)").font(Theme.panelTitle)
+            WANStatusView(scopeScreen: .trafic, embedded: true)
+            Text("Capacité des liens WAN (FortiView)").font(Theme.panelTitle)
                 .padding(.top, 6)
             if usages.isEmpty {
                 Text("Aucun lien de rôle «\u{00A0}WAN\u{00A0}» lu sur ces FortiGate.").font(Theme.small).foregroundStyle(Theme.textSecondary)
@@ -242,9 +252,15 @@ struct TrafficWANSlot: View {
                 Panel(padding: 14) {
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(usages) { usage in
-                            TrafficLinkRow(usage: usage, multiSite: overview.isMultiSite)
-                            Text(TrafficStyle.capacityLabel(usage.link) + (usage.link.linkUp == false ? " · lien coupé" : ""))
-                                .font(Theme.caption).foregroundStyle(Theme.textTertiary)
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text(usage.link.label).font(Theme.bodySemibold).lineLimit(1)
+                                if overview.isMultiSite {
+                                    Text(usage.link.site).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                                }
+                                Text(TrafficStyle.capacityLabel(usage.link) + (usage.link.linkUp == false ? " · lien coupé" : ""))
+                                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                     }
                 }

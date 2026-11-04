@@ -251,7 +251,10 @@ public enum TrafficAnalysis {
         let expected = Set(thresholds.expectedCountries.map(SearchText.fold))
         var totals: [String: (site: String, bytes: UInt64)] = [:]
         for entry in overview.entries(.destinations) {
-            guard let country = entry.country, !expected.contains(SearchText.fold(country)) else { continue }
+            // Liste attendue en anglais (FortiView) ou en français : les deux noms sont comparés.
+            guard let raw = entry.country, !expected.contains(SearchText.fold(raw)) else { continue }
+            let country = TrafficFormat.country(raw)
+            guard !expected.contains(SearchText.fold(country)) else { continue }
             let key = entry.site + "|" + country
             totals[key] = (entry.site, (totals[key]?.bytes ?? 0) &+ entry.bytes)
         }
@@ -294,6 +297,53 @@ public enum TrafficAnalysis {
 
 /// Mise en forme du trafic (typographie française).
 public enum TrafficFormat {
+    /// Pays affiché en français : FortiView le donne en anglais (« United States », « Russian
+    /// Federation », « Reserved ») ou en code ISO (« US ») ; un nom inconnu reste tel quel.
+    public static func country(_ raw: String) -> String {
+        let text = raw.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return raw }
+        let folded = SearchText.fold(text)
+        if let special = specialCountries[folded] { return special }
+        let code: String?
+        if text.count == 2, text.allSatisfy({ $0.isASCII && $0.isLetter }) {
+            code = text.uppercased()
+        } else {
+            code = countryCodes[folded]
+        }
+        guard let code, let name = Locale(identifier: "fr_CA").localizedString(forRegionCode: code) else { return text }
+        return name
+    }
+
+    /// Valeurs de FortiView qui ne sont pas des pays.
+    private static let specialCountries: [String: String] = [
+        "reserved": "Réservé", "private": "Privé", "unknown": "Inconnu", "n/a": "Inconnu",
+        "european union": "Union européenne", "anonymous proxy": "Mandataire anonyme",
+        "satellite provider": "Fournisseur satellite",
+    ]
+
+    /// Nom anglais (replié) → code ISO, d'après les noms anglais de Foundation et les variantes
+    /// de la base GeoIP de FortiGuard.
+    private static let countryCodes: [String: String] = {
+        var map: [String: String] = [:]
+        let english = Locale(identifier: "en_US")
+        for code in Locale.Region.isoRegions.map(\.identifier) where code.count == 2 {
+            if let name = english.localizedString(forRegionCode: code) { map[SearchText.fold(name)] = code }
+        }
+        let aliases: [String: String] = [
+            "russian federation": "RU", "korea, republic of": "KR", "republic of korea": "KR",
+            "korea, democratic people's republic of": "KP", "iran, islamic republic of": "IR",
+            "viet nam": "VN", "taiwan, province of china": "TW", "moldova, republic of": "MD",
+            "czech republic": "CZ", "syrian arab republic": "SY", "tanzania, united republic of": "TZ",
+            "venezuela, bolivarian republic of": "VE", "bolivia, plurinational state of": "BO",
+            "lao people's democratic republic": "LA", "macedonia": "MK", "the former yugoslav republic of macedonia": "MK",
+            "united states of america": "US", "usa": "US", "great britain": "GB", "united kingdom of great britain and northern ireland": "GB",
+            "hong kong sar china": "HK", "macao": "MO", "palestinian territory": "PS", "turkey": "TR",
+            "ivory coast": "CI", "cote d'ivoire": "CI", "congo, the democratic republic of the": "CD",
+        ]
+        for (name, code) in aliases { map[SearchText.fold(name)] = code }
+        return map
+    }()
+
     public static func bytes(_ value: UInt64) -> String { SNMPFormat.bytes(value) }
     public static func rate(_ bps: Double) -> String { bps > 0 ? ResourceFormat.bitsPerSecond(bps) : "—" }
 
@@ -315,8 +365,8 @@ public enum TrafficFormat {
         case 5: label = "Critique"
         case 4: label = "Élevé"
         case 3: label = "Moyen"
-        case 2: label = "Faible"
-        default: label = "Très faible"
+        case 2: label = "Modéré"
+        default: label = "Faible"
         }
         return "\(label) (\(value)/5)"
     }

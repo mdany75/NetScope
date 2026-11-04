@@ -25,6 +25,7 @@ final class TrafficStore: ObservableObject {
             // Autre période : les lectures gardées ne valent plus, on relit les sites montrés.
             cache = [:]
             errors = [:]
+            invalidateAnalysisIfStale()
             recompute()
             refresh()
         }
@@ -53,6 +54,9 @@ final class TrafficStore: ObservableObject {
     @Published private(set) var shownKeys: [String] = []
     /// Dernière analyse complète du réseau.
     @Published private(set) var analysis: NetworkAnalysisResult?
+    /// Périmètre de l'analyse : sites montrés, période et présence du trafic au moment où elle a
+    /// été faite (une analyse ne vaut que pour ce périmètre).
+    private var analysisScope: (keys: [String], period: TrafficPeriod, withTraffic: Bool)?
     @Published var toast: String?
 
     /// Temps réel du site actif, pour les sondes (même si l'écran montre une autre période).
@@ -106,6 +110,7 @@ final class TrafficStore: ObservableObject {
     func setScope(_ keys: [String]) {
         guard keys != shownKeys else { return }
         shownKeys = keys
+        invalidateAnalysisIfStale()
         recompute()
         refreshIfNeeded()
     }
@@ -113,7 +118,20 @@ final class TrafficStore: ObservableObject {
     private func recompute() {
         let reports = shownControllerIDs.compactMap { cache[$0] }
         overview = named(TrafficAnalysis.merge(reports, period: period))
-        if let analysis, !analysis.findings.isEmpty, reports.isEmpty { self.analysis = nil }
+    }
+
+    /// L'analyse vaut-elle pour les sites montrés et la période choisie ? Une analyse faite sans
+    /// trafic ne dépend pas de la période.
+    private var analysisMatchesScope: Bool {
+        guard let scope = analysisScope else { return false }
+        return scope.keys == shownKeys && (!scope.withTraffic || scope.period == period)
+    }
+
+    /// Autres sites ou autre période : l'analyse d'avant ne correspond plus au trafic montré.
+    private func invalidateAnalysisIfStale() {
+        guard analysis != nil, !analysisMatchesScope else { return }
+        analysis = nil
+        analysisScope = nil
     }
 
     /// État de l'app (appareils du Scanner), pour nommer les sources comme dans NetScope.
@@ -196,6 +214,9 @@ final class TrafficStore: ObservableObject {
             defer {
                 self.reading.subtract(wanted)
                 self.recompute()
+                // Période changée pendant la lecture : la nouvelle lecture de ces FortiGate a été
+                // écartée (elles étaient en cours) ; on les relit pour la période choisie.
+                if chosenPeriod != self.period { self.refreshIfNeeded() }
             }
             if self.isDemo {
                 try? await Task.sleep(nanoseconds: RegEnvironment.isSnapshot ? 0 : 450_000_000)
@@ -382,11 +403,13 @@ final class TrafficStore: ObservableObject {
     /// l'analyse réunit ce que NetScope a déjà relevé.
     func runAnalysis(state: AppState) {
         analysis = makeAnalysis(state: state, traffic: overview, keys: shownKeys)
+        analysisScope = (shownKeys, period, !overview.isEmpty)
     }
 
     private func makeAnalysis(state: AppState, traffic overview: TrafficOverview, keys shownKeys: [String]) -> NetworkAnalysisResult {
         var input = NetworkAnalysisInput(traffic: overview.isEmpty ? nil : overview, trafficThresholds: thresholds, now: Date())
-        input.wan = wanStatuses(sites: overview.sites)
+        input.wan = wanStatuses(ids: shownKeys.flatMap(controllerIDs(forKey:)), sites: overview.sites)
+        input.wanThresholds = WANStore.shared.thresholds
         let active = SiteModel.shared.activeKey
         if shownKeys.contains(active) {
             let snapshots = SwitchStore.shared.orderedSnapshots
@@ -425,7 +448,9 @@ final class TrafficStore: ObservableObject {
     func reportContent(state: AppState) -> (traffic: TrafficOverview?, analysis: NetworkAnalysisResult?) {
         // Noms NetScope des appareils (sans republier : l'écran les recalcule à son ouverture).
         if appState == nil { appState = state }
-        if !overview.isEmpty || !isDemo { return (overview.isEmpty ? nil : overview, analysis) }
+        // L'analyse ne va au rapport que si elle porte sur le trafic montré (mêmes sites, même période).
+        let shownAnalysis = analysisMatchesScope ? analysis : nil
+        if !overview.isEmpty || !isDemo { return (overview.isEmpty ? nil : overview, shownAnalysis) }
         let key = SiteModel.shared.activeKey
         let reports = controllerIDs(forKey: key).compactMap { id -> TrafficSiteReport? in
             TrafficDemo.report(controllerID: id, period: period).map {
@@ -433,14 +458,27 @@ final class TrafficStore: ObservableObject {
             }
         }
         let demo = named(TrafficAnalysis.merge(reports, period: period))
-        return (demo.isEmpty ? nil : demo, analysis ?? makeAnalysis(state: state, traffic: demo, keys: [key]))
+        return (demo.isEmpty ? nil : demo, shownAnalysis ?? makeAnalysis(state: state, traffic: demo, keys: [key]))
     }
 
-    /// État du WAN et des tunnels pour l'analyse. Note 39 : à la fusion, renvoyer ici l'état lu
-    /// par la lecture du WAN des FortiGate (liens SD-WAN et tunnels IPsec des sites montrés) ;
-    /// nil tant qu'il n'est pas lu (l'analyse le dit dans sa couverture).
-    func wanStatuses(sites: [String]) -> [NetworkWANStatus]? {
-        isDemo ? TrafficDemo.wan(sites: sites) : nil
+    /// État du WAN et des tunnels pour l'analyse : liens et tunnels IPsec lus par la lecture du WAN
+    /// (WANStore) pour les FortiGate données ; nil si aucune n'a encore été lue (l'analyse le dit
+    /// dans sa couverture). Les liens désactivés et les tunnels en attente ne sont pas des pannes.
+    func wanStatuses(ids: [UUID], sites: [String]) -> [NetworkWANStatus]? {
+        if isDemo { return TrafficDemo.wan(sites: sites) }
+        let wan = WANStore.shared
+        var seen = Set<UUID>()
+        let read = ids.filter { wan.reports[$0] != nil && seen.insert($0).inserted }
+        guard !read.isEmpty else { return nil }
+        let view = wan.overview(read)
+        let links = view.links.filter { $0.state != .disabled }.map { link in
+            NetworkWANStatus(site: link.site, name: link.interface.displayName, isUp: link.state != .down,
+                             latencyMs: link.latencyMs, lossPercent: link.lossPercent, jitterMs: link.jitterMs)
+        }
+        let tunnels = view.tunnels.filter { $0.state != .idle }.map { tunnel in
+            NetworkWANStatus(site: tunnel.site, name: tunnel.tunnel.name, isTunnel: true, isUp: tunnel.state != .down)
+        }
+        return links + tunnels
     }
 
     // MARK: Rapport
@@ -487,7 +525,7 @@ final class TrafficStore: ObservableObject {
                 fields.append(String(e.receivedBytes))
                 fields.append(String(e.sessions))
                 fields.append(e.category ?? "")
-                fields.append(e.country ?? "")
+                fields.append(e.country.map(TrafficFormat.country) ?? "")
                 fields.append(e.risk.map(String.init) ?? "")
                 fields.append(e.threatLevel?.label ?? "")
                 fields.append(String(e.incidents))

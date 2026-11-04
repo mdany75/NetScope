@@ -178,6 +178,10 @@ func registerAutoRefreshTests(_ suite: TestSuite) {
         try expectEqual(odd.interval(forSiteKey: "Y"), .thirty, "90 min → 30 min")
         try expectEqual(odd.interval(forSiteKey: "Z"), .off, "négatif → désactivée")
         try expectEqual(AutoRefreshSettings.decode(Data("pas du JSON".utf8)), AutoRefreshSettings(), "illisible : défaut")
+        try expect(!AutoRefreshSettings().includeSNMP, "switchs SNMP : relecture automatique sur demande seulement")
+        try expect(!odd.includeSNMP, "ancien réglage (sans la case) : switchs SNMP non relus")
+        let withSNMP = AutoRefreshSettings(includeSNMP: true)
+        try expect(AutoRefreshSettings.decode(withSNMP.encoded()).includeSNMP, "case « switchs SNMP » gardée")
         settings.set(.two, forSiteKey: SiteFiles.noSiteKey)
         settings.prune(keeping: ["B"])
         try expect(!settings.isCustom("A") && settings.isCustom("B") && settings.isCustom(SiteFiles.noSiteKey),

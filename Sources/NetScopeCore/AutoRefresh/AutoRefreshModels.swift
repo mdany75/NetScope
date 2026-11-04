@@ -54,9 +54,13 @@ public enum AutoRefreshInterval: Int, CaseIterable, Codable, Sendable, Identifia
 /// Enregistré dans les préférences : aucune donnée sensible.
 public struct AutoRefreshSettings: Codable, Equatable, Sendable {
     public private(set) var intervals: [String: Int]
+    /// Relire aussi les switchs SNMP du site actif. Désactivé par défaut : la communauté SNMP v2c
+    /// part en clair sur le réseau, son envoi répété doit être un choix explicite.
+    public var includeSNMP: Bool
 
-    public init(intervals: [String: Int] = [:]) {
+    public init(intervals: [String: Int] = [:], includeSNMP: Bool = false) {
         self.intervals = intervals
+        self.includeSNMP = includeSNMP
     }
 
     public func interval(forSiteKey key: String) -> AutoRefreshInterval {
@@ -83,12 +87,13 @@ public struct AutoRefreshSettings: Codable, Equatable, Sendable {
         return value
     }
 
-    enum CodingKeys: String, CodingKey { case intervals }
+    enum CodingKeys: String, CodingKey { case intervals, includeSNMP }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let raw = ((try? c.decodeIfPresent([String: Int].self, forKey: .intervals)) ?? nil) ?? [:]
         intervals = raw.mapValues { AutoRefreshInterval(minutes: $0).rawValue }
+        includeSNMP = ((try? c.decodeIfPresent(Bool.self, forKey: .includeSNMP)) ?? nil) ?? false
     }
 }
 

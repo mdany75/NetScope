@@ -52,11 +52,42 @@ public enum MonWANChecks {
         return .noData(now, "En attente d’une lecture de la FortiGate")
     }
 
+    /// Sites visés par la cible dont la lecture a échoué (« Siège / wan1 » : Siège seulement ;
+    /// « * » ou un nom sans site : tous).
+    static func failedSites(_ target: String, siteErrors: [String: String]) -> [(site: String, message: String)] {
+        let site = parse(target).site
+        return siteErrors.filter { site == nil || SearchText.fold($0.key) == site }
+            .map { (site: $0.key, message: $0.value) }
+            .sorted { $0.site < $1.site }
+    }
+
+    /// Lecture impossible pour un site visé : la sonde le dit au lieu de rester verte sur les autres
+    /// sites ou de répondre « introuvable ». Une panne constatée ailleurs garde la priorité.
+    static func withSiteErrors(_ outcome: MonRunOutcome, target: String, siteErrors: [String: String], now: Date) -> MonRunOutcome {
+        let failed = failedSites(target, siteErrors: siteErrors)
+        guard !failed.isEmpty else { return outcome }
+        if !outcome.noData && !outcome.result.reachable { return outcome }
+        let (site, key) = parse(target)
+        // Nom sans site trouvé dans une lecture réussie : le site en erreur n'est pas en cause.
+        if site == nil, key != nil, !outcome.noData, !["Tunnel introuvable", "Lien introuvable"].contains(outcome.result.value) {
+            return outcome
+        }
+        let message = failed.map { failed.count > 1 || site == nil ? "\($0.site)\u{00A0}: \($0.message)" : $0.message }
+            .joined(separator: " ")
+        return MonRunOutcome(result: MonResult(date: now, reachable: false, value: "Lecture impossible", error: message))
+    }
+
     static func siteSuffix(_ site: String, _ overview: WANOverview) -> String {
         overview.isMultiSite ? " (\(site))" : ""
     }
 
-    public static func tunnelDown(target: String, overview: WANOverview?, error: String? = nil, now: Date) -> MonRunOutcome {
+    public static func tunnelDown(target: String, overview: WANOverview?, error: String? = nil,
+                                  siteErrors: [String: String] = [:], now: Date) -> MonRunOutcome {
+        withSiteErrors(tunnelState(target: target, overview: overview, error: error, now: now),
+                       target: target, siteErrors: siteErrors, now: now)
+    }
+
+    static func tunnelState(target: String, overview: WANOverview?, error: String?, now: Date) -> MonRunOutcome {
         if let pending = unread(overview, error: error, now: now) { return pending }
         guard let overview else { return .noData(now, "En attente d’une lecture de la FortiGate") }
         let chosen = tunnels(target, in: overview)
@@ -84,7 +115,13 @@ public enum MonWANChecks {
     }
 
     public static func wanDegraded(target: String, overview: WANOverview?, error: String? = nil,
-                                   thresholds: WANThresholds, now: Date) -> MonRunOutcome {
+                                   siteErrors: [String: String] = [:], thresholds: WANThresholds, now: Date) -> MonRunOutcome {
+        withSiteErrors(linkState(target: target, overview: overview, error: error, thresholds: thresholds, now: now),
+                       target: target, siteErrors: siteErrors, now: now)
+    }
+
+    static func linkState(target: String, overview: WANOverview?, error: String?,
+                          thresholds: WANThresholds, now: Date) -> MonRunOutcome {
         if let pending = unread(overview, error: error, now: now) { return pending }
         guard var overview else { return .noData(now, "En attente d’une lecture de la FortiGate") }
         // Seuils propres à la sonde : les liens sont réévalués avec eux.

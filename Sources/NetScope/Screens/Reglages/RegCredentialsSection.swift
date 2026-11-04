@@ -304,6 +304,7 @@ struct RegCredentialsSection: View {
         }
         do {
             try result.save()
+            SwitchStore.shared.credentialsSaved(community: result.community)
             saved = result
             draft = mergedDraft(from: result)
             message = ("Enregistré dans le Trousseau.", .success)

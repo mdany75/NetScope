@@ -208,6 +208,18 @@ final class WANStore: ObservableObject {
         return messages.isEmpty ? nil : messages.joined(separator: " ")
     }
 
+    /// Erreurs des FortiGate suivies dont la dernière lecture a échoué, par nom de site : une
+    /// FortiGate injoignable ne disparaît pas sans bruit des sondes (« Lecture impossible »).
+    var monitoringErrors: [String: String] {
+        let names = FortiGateStore.shared.controllerNames
+        var result: [String: String] = [:]
+        for id in monitoredIDs where reports[id] == nil {
+            guard let message = errors[id] else { continue }
+            result[names[id] ?? "FortiGate"] = message
+        }
+        return result
+    }
+
     /// Sonde de la Surveillance : relit les FortiGate dont la lecture date de plus de `maxAge`
     /// secondes, et attend la fin de la lecture.
     func refreshForMonitoring(maxAge: TimeInterval) async {

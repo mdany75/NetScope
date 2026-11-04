@@ -184,7 +184,8 @@ public enum WANParsers {
             }
             var upSince: Date?
             if let created = item.any("creation_time", "creation-time", "uptime"), let n = FortiJSON.double(created), n > 0 {
-                upSince = FortiParse.lastSeen(created, now: now)
+                // Date dans le futur (valeur aberrante) : inconnue plutôt que fausse.
+                upSince = FortiParse.lastSeen(created, now: now).flatMap { $0 <= now.addingTimeInterval(86_400) ? $0 : nil }
             }
             let gateway = item.string("rgwy", "remote_gateway", "remote-gw", "rgwy_ip")
             return WANTunnel(name: name, remoteGateway: gateway == "0.0.0.0" ? nil : gateway, type: item.string("type")?.lowercased(),
@@ -240,7 +241,8 @@ public enum WANParsers {
     /// Horodatage Unix (secondes ou millisecondes), ou texte ISO 8601 ; 0 : inconnu.
     static func timestamp(_ value: Any?) -> Date? {
         if let text = value as? String, Double(text) == nil { return ISO8601DateFormatter().date(from: text) }
-        guard let d = FortiJSON.double(value), d.isFinite, d > 1_000_000_000 else { return nil }
+        // Au-delà de 1e14 (millisecondes, an 5138) : valeur aberrante, ignorée.
+        guard let d = FortiJSON.double(value), d.isFinite, d > 1_000_000_000, d < 1e14 else { return nil }
         return Date(timeIntervalSince1970: d > 1_000_000_000_000 ? d / 1000 : d)
     }
 }

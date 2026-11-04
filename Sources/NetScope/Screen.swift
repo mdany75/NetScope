@@ -38,7 +38,7 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
         case .wifi: return "Analyseur Wi-Fi"
         case .outils: return "Boîte à outils"
         case .analyse: return "Analyse et alertes"
-        case .trafic: return "Trafic et analyse du réseau"
+        case .trafic: return "Trafic et analyse"
         default: return title
         }
     }

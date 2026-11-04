@@ -29,7 +29,7 @@ struct TrafficRow: Identifiable {
     var sortSessions: Int { entry.sessions }
     var sortIncidents: Int { entry.incidents }
     var sortBlocked: Int { entry.blocked }
-    var sortCountry: String { entry.country ?? "~" }
+    var sortCountry: String { entry.country.map(TrafficFormat.country) ?? "~" }
     var sortCategory: String { entry.category ?? "~" }
     var sortRisk: Int { entry.risk ?? 0 }
     var sortLevel: Int { -(entry.threatLevel?.rawValue ?? 9) }
@@ -128,7 +128,7 @@ struct TrafficSessionRow: Identifiable {
     var sortDuration: Int { session.duration ?? -1 }
     var sortPolicy: Int { session.policyID ?? .max }
     var sortSite: String { session.site }
-    var sortCountry: String { session.country ?? "~" }
+    var sortCountry: String { session.country.map(TrafficFormat.country) ?? "~" }
 
     static let columns: [StandardColumn] = [
         StandardColumn(id: "source", title: "Source", isRequired: true), StandardColumn(id: "destination", title: "Destination"),
@@ -186,6 +186,8 @@ struct TrafficEntryTable<Tools: View>: View {
         }
         .onAppear { applySort() }
         .onChange(of: store.sort) { _, _ in applySort() }
+        // La colonne du tri dépend de la période (débit en temps réel, volume sur l'historique).
+        .onChange(of: store.period) { _, _ in applySort() }
     }
 
     private var emptyText: String {
@@ -251,7 +253,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var nameColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn(nameTitle, sortUsing: table.sort(view == .policies ? "politique" : "nom")) { row in
+        TableColumn(nameTitle.uppercased(), sortUsing: table.sort(view == .policies ? "politique" : "nom")) { row in
             nameCell(row)
         }
         .width(min: 110, ideal: view == .threats ? 240 : 170)
@@ -260,7 +262,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var ipColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn(view == .threats ? "Appareil" : "Adresse IP", sortUsing: table.sort("ip")) { row in
+        TableColumn(view == .threats ? "APPAREIL" : "ADRESSE IP", sortUsing: table.sort("ip")) { row in
             if view == .threats {
                 ToolTableText(row.entry.ip.map { row.name == $0.description ? $0.description : "\(row.name) (\($0))" } ?? "Internet",
                               mono: false, color: row.entry.ip == nil ? Theme.textSecondary : Theme.text)
@@ -273,15 +275,15 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var countryColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Pays", sortUsing: table.sort("pays")) { row in
-            ToolTableText(row.entry.country ?? "—", mono: false, color: row.entry.country == nil ? Theme.textTertiary : Theme.text)
+        TableColumn("PAYS", sortUsing: table.sort("pays")) { row in
+            ToolTableText(row.entry.country.map(TrafficFormat.country) ?? "—", mono: false, color: row.entry.country == nil ? Theme.textTertiary : Theme.text)
         }
         .width(min: 70, ideal: 120)
         .customizationID("pays")
     }
 
     private var categoryColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Catégorie", sortUsing: table.sort("categorie")) { row in
+        TableColumn("CATÉGORIE", sortUsing: table.sort("categorie")) { row in
             ToolTableText(row.entry.category ?? "—", mono: false, color: Theme.textSecondary)
         }
         .width(min: 80, ideal: 130)
@@ -289,7 +291,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var riskColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Risque", sortUsing: table.sort("risque")) { row in
+        TableColumn("RISQUE", sortUsing: table.sort("risque")) { row in
             if let risk = row.entry.risk {
                 Chip(text: TrafficFormat.risk(risk), tone: risk >= 4 ? .critical : (risk == 3 ? .warning : .neutral))
             } else {
@@ -301,7 +303,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var typeColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Type", sortUsing: table.sort("type")) { row in
+        TableColumn("TYPE", sortUsing: table.sort("type")) { row in
             ToolTableText(row.entry.threatType ?? "—", mono: false)
         }
         .width(min: 70, ideal: 110)
@@ -309,7 +311,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var levelColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Niveau", sortUsing: table.sort("niveau")) { row in
+        TableColumn("NIVEAU", sortUsing: table.sort("niveau")) { row in
             let level = row.entry.threatLevel ?? .info
             Chip(text: level.label, tone: level <= .high ? .critical : (level == .medium ? .warning : .neutral))
         }
@@ -318,7 +320,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var loadColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Charge du lien", sortUsing: table.sort("charge")) { row in
+        TableColumn("CHARGE DU LIEN", sortUsing: table.sort("charge")) { row in
             TrafficLoadCell(link: row.link)
         }
         .width(min: 100, ideal: 150)
@@ -326,7 +328,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var rateColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Débit", sortUsing: table.sort("debit")) { row in
+        TableColumn("DÉBIT", sortUsing: table.sort("debit")) { row in
             ToolTableText(TrafficFormat.rate(row.entry.bandwidth), alignment: .trailing)
         }
         .width(min: 64, ideal: 84)
@@ -334,7 +336,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var sentColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Envoyé", sortUsing: table.sort("envoye")) { row in
+        TableColumn("ENVOYÉ", sortUsing: table.sort("envoye")) { row in
             ToolTableText(TrafficFormat.bytes(row.entry.sentBytes), alignment: .trailing)
         }
         .width(min: 64, ideal: 82)
@@ -342,7 +344,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var receivedColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Reçu", sortUsing: table.sort("recu")) { row in
+        TableColumn("REÇU", sortUsing: table.sort("recu")) { row in
             ToolTableText(TrafficFormat.bytes(row.entry.receivedBytes), alignment: .trailing)
         }
         .width(min: 64, ideal: 82)
@@ -350,7 +352,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var bytesColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Octets", sortUsing: table.sort("octets")) { row in
+        TableColumn("OCTETS", sortUsing: table.sort("octets")) { row in
             ToolTableText(TrafficFormat.bytes(row.entry.bytes), alignment: .trailing)
         }
         .width(min: 64, ideal: 86)
@@ -358,7 +360,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var sessionsColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Sessions", sortUsing: table.sort("sessions")) { row in
+        TableColumn("SESSIONS", sortUsing: table.sort("sessions")) { row in
             ToolTableText(ToolFormat.integer(row.entry.sessions), alignment: .trailing)
         }
         .width(min: 56, ideal: 70)
@@ -366,7 +368,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var incidentsColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Événements", sortUsing: table.sort("evenements")) { row in
+        TableColumn("ÉVÉNEMENTS", sortUsing: table.sort("evenements")) { row in
             ToolTableText(ToolFormat.integer(row.entry.incidents), alignment: .trailing)
         }
         .width(min: 60, ideal: 80)
@@ -374,7 +376,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var blockedColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn(view == .threats ? "Action" : "Requêtes bloquées", sortUsing: table.sort("bloques")) { row in
+        TableColumn(view == .threats ? "ACTION" : "REQUÊTES BLOQUÉES", sortUsing: table.sort("bloques")) { row in
             if view == .threats {
                 Chip(text: row.entry.isBlocked ? "Bloquée" : "Non bloquée", tone: row.entry.isBlocked ? .success : .critical,
                      systemImage: row.entry.isBlocked ? "hand.raised.fill" : "exclamationmark.triangle.fill")
@@ -389,7 +391,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var portColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Port de switch", sortUsing: table.sort("port")) { row in
+        TableColumn("PORT DE SWITCH", sortUsing: table.sort("port")) { row in
             ToolTableText(row.location ?? "—", color: row.location == nil ? Theme.textTertiary : Theme.text)
                 .help(row.location.map { "Branché sur \($0) (double-clic\u{00A0}: fiche de l’appareil, clic droit\u{00A0}: Voir le port)" } ?? "")
         }
@@ -398,7 +400,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var apColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Borne Wi-Fi", sortUsing: table.sort("borne")) { row in
+        TableColumn("BORNE WI-FI", sortUsing: table.sort("borne")) { row in
             ToolTableText(row.accessPoint ?? "—", mono: false, color: row.accessPoint == nil ? Theme.textTertiary : Theme.text)
         }
         .width(min: 70, ideal: 104)
@@ -406,7 +408,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var interfaceColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Interface", sortUsing: table.sort("interface")) { row in
+        TableColumn("INTERFACE", sortUsing: table.sort("interface")) { row in
             ToolTableText(row.entry.interface ?? "—", color: Theme.textSecondary)
         }
         .width(min: 60, ideal: 90)
@@ -415,7 +417,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var macColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Adresse MAC", sortUsing: table.sort("mac")) { row in
+        TableColumn("ADRESSE MAC", sortUsing: table.sort("mac")) { row in
             ToolTableText(row.entry.mac?.formatted(.upperColon) ?? "—", color: Theme.textSecondary)
         }
         .width(min: 120, ideal: 140)
@@ -424,7 +426,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var policyNameColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Politique", sortUsing: table.sort("nom")) { row in
+        TableColumn("POLITIQUE", sortUsing: table.sort("nom")) { row in
             ToolTableText(row.entry.name, mono: false)
         }
         .width(min: 120, ideal: 200)
@@ -432,7 +434,7 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private var siteColumn: some TableColumnContent<TrafficRow, KeyPathComparator<TrafficRow>> {
-        TableColumn("Site", sortUsing: table.sort("site")) { row in
+        TableColumn("SITE", sortUsing: table.sort("site")) { row in
             ToolTableText(row.entry.site, mono: false, color: Theme.textSecondary)
         }
         .width(min: 70, ideal: 110)
@@ -554,48 +556,48 @@ struct TrafficSessionTable<Tools: View>: View {
                                    emptyText: store.period.isRealtime ? "Aucune session lue." : "Sessions\u{00A0}: seulement en temps réel.") {
                 Table(sorted, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
                     Group {
-                        TableColumn("Source", sortUsing: table.sort("source")) { row in
+                        TableColumn("SOURCE", sortUsing: table.sort("source")) { row in
                             ToolTableText(row.session.source.map { ip in row.sourceName == ip.description ? ip.description : "\(row.sourceName) (\(ip))" } ?? "—",
                                           mono: false, weight: .semibold)
                         }
                         .width(min: 120, ideal: 220)
                         .customizationID("source").disabledCustomizationBehavior(.visibility)
-                        TableColumn("Destination", sortUsing: table.sort("destination")) { row in
+                        TableColumn("DESTINATION", sortUsing: table.sort("destination")) { row in
                             ToolTableText(row.session.destination?.description ?? "—")
                         }
                         .width(min: 90, ideal: 120).customizationID("destination")
-                        TableColumn("Port", sortUsing: table.sort("port")) { row in
+                        TableColumn("PORT", sortUsing: table.sort("port")) { row in
                             ToolTableText(row.session.destinationPort.map(String.init) ?? "—", alignment: .trailing)
                         }
                         .width(min: 44, ideal: 56).customizationID("port")
-                        TableColumn("Protocole", sortUsing: table.sort("proto")) { row in
+                        TableColumn("PROTOCOLE", sortUsing: table.sort("proto")) { row in
                             ToolTableText(row.session.proto, color: Theme.textSecondary)
                         }
                         .width(min: 50, ideal: 64).customizationID("proto")
-                        TableColumn("Application", sortUsing: table.sort("app")) { row in
+                        TableColumn("APPLICATION", sortUsing: table.sort("app")) { row in
                             ToolTableText(row.session.application ?? "—", mono: false)
                         }
                         .width(min: 90, ideal: 170).customizationID("app")
                     }
                     Group {
-                        TableColumn("Octets", sortUsing: table.sort("octets")) { row in
+                        TableColumn("OCTETS", sortUsing: table.sort("octets")) { row in
                             ToolTableText(TrafficFormat.bytes(row.session.bytes), alignment: .trailing)
                                 .help("Envoyé\u{00A0}: \(TrafficFormat.bytes(row.session.sentBytes)) · reçu\u{00A0}: \(TrafficFormat.bytes(row.session.receivedBytes))")
                         }
                         .width(min: 64, ideal: 86).customizationID("octets")
-                        TableColumn("Durée", sortUsing: table.sort("duree")) { row in
+                        TableColumn("DURÉE", sortUsing: table.sort("duree")) { row in
                             ToolTableText(TrafficFormat.duration(row.session.duration), alignment: .trailing)
                         }
                         .width(min: 56, ideal: 80).customizationID("duree")
-                        TableColumn("Politique", sortUsing: table.sort("politique")) { row in
+                        TableColumn("POLITIQUE", sortUsing: table.sort("politique")) { row in
                             ToolTableText(row.session.policyID.map(String.init) ?? "—", alignment: .trailing)
                         }
                         .width(min: 50, ideal: 64).customizationID("politique").defaultVisibility(.hidden)
-                        TableColumn("Pays", sortUsing: table.sort("pays")) { row in
-                            ToolTableText(row.session.country ?? "—", mono: false)
+                        TableColumn("PAYS", sortUsing: table.sort("pays")) { row in
+                            ToolTableText(row.session.country.map(TrafficFormat.country) ?? "—", mono: false)
                         }
                         .width(min: 60, ideal: 110).customizationID("pays").defaultVisibility(.hidden)
-                        TableColumn("Site", sortUsing: table.sort("site")) { row in
+                        TableColumn("SITE", sortUsing: table.sort("site")) { row in
                             ToolTableText(row.session.site, mono: false, color: Theme.textSecondary)
                         }
                         .width(min: 70, ideal: 110).customizationID("site").defaultVisibility(.hidden)

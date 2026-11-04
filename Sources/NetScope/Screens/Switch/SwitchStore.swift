@@ -134,6 +134,13 @@ final class SwitchStore: ObservableObject {
         Self.vaultQueue.async { RegSNMPDiscoveryVault.forgetHostCommunities() }
     }
 
+    /// Une communauté vient d'être enregistrée dans les Identifiants : elle sert aux relevés (et à la
+    /// relecture automatique) si aucune n'est encore en mémoire, sans attendre un redémarrage.
+    func credentialsSaved(community saved: String) {
+        guard !isDemo, !saved.isEmpty, community.isEmpty else { return }
+        community = saved
+    }
+
     /// La communauté des Identifiants vient d'être effacée : elle ne sert plus pour les relevés.
     func credentialsErased() {
         community = ""
