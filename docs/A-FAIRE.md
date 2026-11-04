@@ -610,3 +610,12 @@ site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
 - Plusieurs résultats : liste à parcourir (suivant / précédent) ; aucun : message clair.
 - Avec plusieurs sites (0.12.0) : cherche dans le site dessiné, et propose les autres sites où
   l'IP existe.
+
+## 33. Switchs et ports : double-clic sur un port → l'appareil — À PLANIFIER (demande de Dany)
+
+- Un double-clic sur un port (façade du switch ou tableau des ports, SNMP ou FortiSwitch) ouvre
+  la fiche de l'appareil branché sur ce port (fiche Appareil, ou Inventaire du site si l'appareil
+  n'est pas dans le dernier scan).
+- Plusieurs appareils sur le port (téléphone + poste, petit switch, borne Wi-Fi) : liste à choisir,
+  ou Inventaire filtré sur ce port (étiquette `switch:… port:…`).
+- Port sans appareil connu : message clair (port vide, uplink/trunk, ou appareil pas encore vu).
