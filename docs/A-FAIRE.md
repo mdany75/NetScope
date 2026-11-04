@@ -558,6 +558,8 @@ site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
   FortiGate de la 0.10.0 ; import et export CSV.
 - Résultats par site : changer de site met les résultats de côté et les retrouve au retour ;
   Scanner, Carte et Inventaire ne mélangent plus deux sites.
+- Inventaire unique à chaque site (demande de Dany) : appareils suivis, historique, archive,
+  exclusions et types choisis à la main propres au site ; l'inventaire actuel va au « Site principal ».
 - Réglages › Switchs : chaque switch SNMP (non Fortinet) peut être associé à un site.
   Switchs et ports n'affiche que les switchs du site actif (FortiSwitch par sa FortiGate, switchs
   SNMP associés) ; un switch sans site n'apparaît que s'il est dans les plages scannées.
