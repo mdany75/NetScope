@@ -53,6 +53,7 @@ struct ToolboxScreen: View {
 // MARK: - Liste des outils
 
 private struct ToolListPanel: View {
+    @EnvironmentObject private var state: AppState
     @ObservedObject var store: ToolStore
 
     var body: some View {
@@ -62,8 +63,13 @@ private struct ToolListPanel: View {
                 ToolTextField(placeholder: "ex. dns, mtu, lldp", text: $store.toolFilter, mono: false, height: 30)
             }
             .padding(.horizontal, 4)
-            let groups = ToolKind.Group.allCases.map { group in (group, group.tools.filter { $0.matches(store.toolFilter) }) }
-                .filter { !$0.1.isEmpty }
+            // Filtre du panneau et recherche de la barre d'outils (note 26), même moteur.
+            let local = SearchQuery(store.toolFilter, schema: .outils)
+            let global = state.searchQuery(for: .outils)
+            let groups = ToolKind.Group.allCases.map { group in
+                (group, group.tools.filter { local.matches($0.searchItem) && global.matches($0.searchItem) })
+            }
+            .filter { !$0.1.isEmpty }
             ForEach(groups, id: \.0) { group, tools in
                 VStack(alignment: .leading, spacing: 1) {
                     Text(group.rawValue.uppercased())
@@ -75,7 +81,8 @@ private struct ToolListPanel: View {
                 }
             }
             if groups.isEmpty {
-                Text("Aucun outil ne correspond à « \(store.toolFilter) ».")
+                Text(store.toolFilter.isEmpty ? "Aucun outil ne correspond à la recherche."
+                     : "Aucun outil ne correspond à\u{00A0}«\u{00A0}\(store.toolFilter)\u{00A0}».")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary).padding(8)
             }
         }
@@ -83,6 +90,8 @@ private struct ToolListPanel: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+        .searchResults(ToolKind.allCases.filter { SearchQuery(store.toolFilter, schema: .outils).matches($0.searchItem)
+            && state.searchQuery(for: .outils).matches($0.searchItem) }.count, "outil", "outils")
     }
 
     private func row(_ tool: ToolKind) -> some View {
@@ -262,6 +271,7 @@ private struct ToolMainPanel: View {
 // MARK: - Panneau droit
 
 private struct ToolSidePanel: View {
+    @EnvironmentObject private var state: AppState
     @ObservedObject var store: ToolStore
 
     var body: some View {
@@ -288,11 +298,16 @@ private struct ToolSidePanel: View {
             }
             box {
                 ToolFieldLabel("Résultats récents")
+                // Note 26 : la recherche de la barre d'outils filtre aussi l'historique.
+                let query = state.searchQuery(for: .outils)
+                let recents = store.recents.filter { query.matches($0.searchItem) }
                 if store.recents.isEmpty {
                     Text("Les résultats des outils apparaîtront ici.").font(Theme.small).foregroundStyle(Theme.textSecondary)
+                } else if recents.isEmpty {
+                    Text("Aucun résultat récent ne correspond à la recherche.").font(Theme.small).foregroundStyle(Theme.textSecondary)
                 }
                 VStack(alignment: .leading, spacing: 10) {
-                    ForEach(Array(store.recents.prefix(6))) { recent in
+                    ForEach(Array(recents.prefix(6))) { recent in
                         VStack(alignment: .leading, spacing: 3) {
                             HStack(alignment: .firstTextBaseline) {
                                 Text(recent.displayTitle).font(.system(size: 12, weight: .semibold))

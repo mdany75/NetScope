@@ -87,6 +87,7 @@ struct ScanResultsPanel: View {
             }
             footer(shown: rows.count, inView: scoped.count)
         }
+        .searchResults(rows.count, "appareil", "appareils")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
         .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
@@ -105,6 +106,7 @@ struct ScanResultsPanel: View {
                 TextField("", text: $state.searchText, prompt: Text("Filtrer : IP, MAC, hostname…").foregroundStyle(Theme.textTertiary))
                     .textFieldStyle(.plain)
                     .font(Theme.small)
+                    .help(SearchTokensBar.help(.scanner, .scanner))
             }
             .padding(.horizontal, 8)
             .frame(width: 200, height: 30)

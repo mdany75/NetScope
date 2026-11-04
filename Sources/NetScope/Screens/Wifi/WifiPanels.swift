@@ -759,7 +759,8 @@ struct WifiNetworksTable: View {
     }
 
     private var rows: [WifiNetworkRow] {
-        let query = store.filter.trimmingCharacters(in: .whitespaces).lowercased()
+        // Note 26 : moteur de recherche commun (`ssid:Bureau canal:36 -securite:WPA3`).
+        let query = SearchQuery(store.filter, schema: .wifi)
         return store.networks.filter { network in
             switch store.tableFilter {
             case .all: break
@@ -767,9 +768,12 @@ struct WifiNetworksTable: View {
             case .flagged: if !isFlagged(network) { return false }
             }
             guard !query.isEmpty else { return true }
-            let hay = [store.label(for: network), network.bssid?.formatted(.upperColon) ?? "", WifiText.vendor(network),
-                       "canal \(network.channel)", network.security.label, network.standard ?? ""].joined(separator: " ").lowercased()
-            return hay.contains(query)
+            let bssid = network.bssid?.formatted(.upperColon) ?? ""
+            return query.matches(SearchDocument([
+                "ssid": [store.label(for: network)], "mac": [bssid], "fab": [WifiText.vendor(network)],
+                "canal": [String(network.channel)], "bande": [network.band.label], "securite": [network.security.label],
+            ], freeText: [[store.label(for: network), bssid, WifiText.vendor(network), "canal \(network.channel)",
+                           network.security.label, network.standard ?? ""].joined(separator: " ")]))
         }
         .map { network in
             WifiNetworkRow(network: network, label: store.label(for: network), vendor: WifiText.vendor(network),

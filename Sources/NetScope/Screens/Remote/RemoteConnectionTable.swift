@@ -171,7 +171,7 @@ struct RemoteConnectionTable: View {
     }
 
     var body: some View {
-        let rows = model.connections.filter { $0.matches(model.searchText) }.sorted(using: table.sortOrder)
+        let rows = model.connections.filter(model.isVisible).sorted(using: table.sortOrder)
         Table(rows, selection: selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
             Group {
                 TableColumn("NOM", sortUsing: table.sort("nom")) { connection in

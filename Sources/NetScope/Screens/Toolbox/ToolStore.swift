@@ -130,15 +130,26 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     /// Outils qui prennent toute la largeur (sans le panneau des favoris et de l'historique).
     var usesFullWidth: Bool { self == .capture }
 
+    /// Recherche multiple (note 26) : `nom:dns`, `groupe:courriel` ; un mot seul lit le nom, la
+    /// clé et le résumé, comme avant.
     func matches(_ query: String) -> Bool {
-        let q = query.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { return true }
-        return [label, rawValue, summary].contains { $0.range(of: q, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
+        SearchQuery(query, schema: .outils).matches(searchItem)
+    }
+
+    var searchItem: SearchDocument {
+        SearchDocument(["nom": [label, rawValue], "groupe": [group.rawValue]], freeText: [label, rawValue, summary])
     }
 }
 
 /// Résultat récent d'un outil (panneau droit, historique de l'appareil).
 struct ToolRecent: Codable, Identifiable, Hashable {
+    /// Recherche de l'historique (note 26) : outil, groupe, cible, état, résumé.
+    var searchItem: SearchDocument {
+        SearchDocument(["nom": [tool.label, tool.rawValue], "groupe": [tool.group.rawValue], "cible": [target],
+                        "etat": [status.label]],
+                       freeText: [tool.label, target, summary, status.label])
+    }
+
     enum Status: String, Codable {
         case ok, warning, failure, info
         var tone: Tone {

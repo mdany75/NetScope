@@ -38,9 +38,9 @@ struct RemoteConnectionList: View {
                     let groups = model.groups
                     ForEach(groups) { group in groupView(group) }
                     if groups.isEmpty {
-                        Text(model.searchText.isEmpty
+                        Text(!model.isSearching
                              ? "Aucune connexion enregistrée. Créez-en une ou importez les appareils du scan."
-                             : "Aucune connexion ne correspond à « \(model.searchText) ».")
+                             : "Aucune connexion ne correspond à la recherche.")
                             .font(Theme.small).foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(12)
@@ -49,6 +49,7 @@ struct RemoteConnectionList: View {
                 .padding(.horizontal, 6)
                 .padding(.vertical, 8)
             }
+            .searchResults(model.connections.filter(model.isVisible).count, "connexion", "connexions")
 
             HStack(spacing: 8) {
                 HStack(spacing: 5) { RemoteReachDot(state: .reachable, size: 8); Text("Joignable") }
@@ -91,7 +92,7 @@ struct RemoteConnectionList: View {
     }
 
     private func groupView(_ group: RemoteModel.RemoteGroup) -> some View {
-        let open = !model.collapsedGroups.contains(group.id) || !model.searchText.isEmpty
+        let open = !model.collapsedGroups.contains(group.id) || model.isSearching
         return VStack(alignment: .leading, spacing: 1) {
             Button {
                 model.toggleGroup(group.id)

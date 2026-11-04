@@ -9,6 +9,10 @@ struct RemoteScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Note 26 : la recherche de la barre d'outils filtre aussi les connexions.
+            Color.clear.frame(height: 0)
+                .onAppear { model.toolbarSearch = state.searchText }
+                .onChange(of: state.searchText) { _, text in model.toolbarSearch = text }
             if let toast = model.toast {
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark.circle").font(.system(size: 13, weight: .semibold))

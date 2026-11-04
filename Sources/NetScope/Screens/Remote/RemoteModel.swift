@@ -78,6 +78,17 @@ final class RemoteModel: ObservableObject {
     @Published private(set) var connections: [RemoteConnection] = []
     @Published var selectedID: UUID?
     @Published var searchText = ""
+    /// Recherche de la barre d'outils (note 26), appliquée en plus de celle de la colonne.
+    @Published var toolbarSearch = ""
+
+    /// Connexion retenue par les deux recherches (moteur commun : `proto:ssh dossier:Réseau`…).
+    func isVisible(_ connection: RemoteConnection) -> Bool {
+        connection.matches(searchText) && connection.matches(toolbarSearch)
+    }
+
+    var isSearching: Bool {
+        !searchText.trimmingCharacters(in: .whitespaces).isEmpty || !toolbarSearch.trimmingCharacters(in: .whitespaces).isEmpty
+    }
     @Published var collapsedGroups: Set<String> = []
     @Published private(set) var reachability: [UUID: RemoteReachability] = [:]
     @Published private(set) var lastCheck: Date?
@@ -157,7 +168,7 @@ final class RemoteModel: ObservableObject {
 
     /// Favoris, puis un groupe par dossier (ordre alphabétique, « Importés du scan » à la fin).
     var groups: [RemoteGroup] {
-        let visible = connections.filter { $0.matches(searchText) }
+        let visible = connections.filter(isVisible)
         var result: [RemoteGroup] = []
         let favorites = visible.filter(\.isFavorite)
         if !favorites.isEmpty { result.append(RemoteGroup(id: "★", label: "Favoris", symbol: "star", items: favorites)) }

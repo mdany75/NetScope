@@ -113,16 +113,10 @@ public struct Device: Identifiable, Codable, Hashable, Sendable {
         }
     }
 
-    /// Vrai si le texte (insensible à la casse et aux accents) apparaît dans l'IP, la MAC, les noms,
-    /// le fabricant, l'emplacement de switch ou les ports ouverts.
+    /// Recherche multiple (moteur commun `SearchQuery`, champs du Scanner) : un mot seul est
+    /// cherché, sans casse ni accents, dans l'IP, la MAC, les noms, le fabricant, l'emplacement
+    /// de switch ou les ports ouverts ; « switch:SW-ETG2 type:imprimante », « -mot »… affinent.
     public func matches(_ query: String) -> Bool {
-        let q = query.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { return true }
-        var fields = [ip.description, displayName, vendorLabel, deviceType.label]
-        if let mac { fields += [mac.formatted(.colon), mac.formatted(.hyphen), mac.formatted(.cisco)] }
-        fields += [hostname, customName, switchName, switchPort, rangeLabel].compactMap { $0 }
-        if let vlan { fields.append("vlan \(vlan)") }
-        fields += openPorts.map(String.init)
-        return fields.contains { $0.range(of: q, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
+        matchesSearch(query)
     }
 }

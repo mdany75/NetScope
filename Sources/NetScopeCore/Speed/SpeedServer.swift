@@ -212,13 +212,10 @@ public enum SpeedServerPicker {
         SpeedServerSource.allCases.firstIndex(of: source) ?? 99
     }
 
-    /// Recherche (sans accents ni casse) dans le nom, la ville, le pays, l'opérateur et la source.
+    /// Recherche multiple (sans accents ni casse) dans le nom, la ville, le pays, l'opérateur et la
+    /// source (`ville:Montréal source:Ookla`).
     public static func matches(_ server: SpeedServer, query: String) -> Bool {
-        let words = query.split(separator: " ").map { fold(String($0)) }.filter { !$0.isEmpty }
-        guard !words.isEmpty else { return true }
-        let haystack = fold([server.name, server.city ?? "", server.country ?? "", server.sponsor ?? "",
-                             server.site ?? "", server.source.label].joined(separator: " "))
-        return words.allSatisfy { haystack.contains($0) }
+        server.matchesSearch(query)
     }
 
     static func fold(_ text: String) -> String {
