@@ -21,6 +21,7 @@ registerInventoryTests(suite)
 registerNamesTests(suite)
 registerAutoScanTests(suite)
 registerAutoScanReviewTests(suite)
+registerReportTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

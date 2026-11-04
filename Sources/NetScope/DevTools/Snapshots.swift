@@ -70,6 +70,7 @@ enum Snapshots {
                 ok = false
             }
         }
+        if demo { ok = RapportPDFCheck.write(into: directory, state: state) && ok }
         return ok
     }
 
