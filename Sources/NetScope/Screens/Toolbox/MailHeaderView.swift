@@ -80,9 +80,14 @@ struct MailHeaderView: View {
                     .buttonStyle(.ghost)
                     .disabled(model.text.isEmpty)
                 Spacer(minLength: 8)
-                Label("Analyse locale, rien n’est envoyé", systemImage: "lock")
-                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
+                // Fenêtre étroite : le cadenas seul, la phrase en infobulle.
+                ViewThatFits(in: .horizontal) {
+                    Label("Analyse locale, rien n’est envoyé", systemImage: "lock")
+                        .lineLimit(1).fixedSize()
+                    Image(systemName: "lock")
+                }
+                .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                .help("Analyse locale, rien n’est envoyé")
             }
             if let report = model.report {
                 result(report)
@@ -121,7 +126,7 @@ struct MailHeaderView: View {
     }
 
     private func authTiles(_ report: MailHeaderReport) -> some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .top, spacing: 8) {
             ForEach(["spf", "dkim", "dmarc"], id: \.self) { method in
                 let item = report.result(method)
                 ToolStatTile(label: method.uppercased(), value: item?.result ?? "absent",

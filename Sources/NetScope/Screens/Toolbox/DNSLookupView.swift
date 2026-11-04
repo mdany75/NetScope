@@ -545,20 +545,20 @@ struct DNSRecordTable: View {
                 TableColumn("NOM", sortUsing: table.sort("nom")) { row in
                     ToolTableText(row.record.name).help(row.record.name)
                 }
-                .width(min: 90, ideal: 110)
+                .width(min: 80, ideal: 100)
                 .customizationID("nom")
                 .disabledCustomizationBehavior(.visibility)
 
                 TableColumn("TYPE", sortUsing: table.sort("type")) { row in
                     Chip(text: row.record.typeLabel, tone: .accent, mono: true)
                 }
-                .width(min: 50, ideal: 58)
+                .width(min: 50, ideal: 54)
                 .customizationID("type")
 
                 TableColumn("TTL", sortUsing: table.sort("ttl")) { row in
                     ToolTableText(String(row.record.ttl), alignment: .trailing)
                 }
-                .width(min: 40, ideal: 46)
+                .width(min: 40, ideal: 44)
                 .customizationID("ttl")
 
                 TableColumn("VALEUR", sortUsing: table.sort("valeur")) { row in
@@ -571,13 +571,13 @@ struct DNSRecordTable: View {
                         .help(row.record.value)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .width(min: 100, ideal: 160)
+                .width(min: 90, ideal: 130)
                 .customizationID("valeur")
 
                 TableColumn("EXPLICATION", sortUsing: table.sort("explication")) { row in
                     ToolTableText(row.note, mono: false, color: Theme.textSecondary).help(row.note)
                 }
-                .width(min: 90, ideal: 150)
+                .width(min: 80, ideal: 110)
                 .customizationID("explication")
 
                 TableColumn("RANG", sortUsing: table.sort("rang")) { row in
@@ -682,7 +682,7 @@ struct DNSPropagationTable: View {
                 TableColumn("RÉSOLVEUR", sortUsing: table.sort("resolveur")) { row in
                     ToolTableText(row.name, mono: false, weight: .medium)
                 }
-                .width(min: 100, ideal: 130)
+                .width(min: 90, ideal: 112)
                 .customizationID("resolveur")
                 .disabledCustomizationBehavior(.visibility)
 
@@ -696,13 +696,13 @@ struct DNSPropagationTable: View {
                 TableColumn("RÉGION", sortUsing: table.sort("region")) { row in
                     ToolTableText(row.region, mono: false, color: Theme.textSecondary)
                 }
-                .width(min: 60, ideal: 96)
+                .width(min: 56, ideal: 70)
                 .customizationID("region")
 
                 TableColumn("ÉTAT", sortUsing: table.sort("etat")) { row in
                     Chip(text: row.agreement.label, tone: row.agreement == .agrees ? .success : (row.agreement == .differs ? .warning : .critical))
                 }
-                .width(min: 80, ideal: 86)
+                .width(min: 76, ideal: 80)
                 .customizationID("etat")
 
                 TableColumn("RÉPONSE", sortUsing: table.sort("reponse")) { row in
@@ -710,19 +710,19 @@ struct DNSPropagationTable: View {
                                   color: row.agreement == .differs ? Theme.warning : (row.agreement == .failed ? Theme.textSecondary : Theme.text))
                         .help(row.answer)
                 }
-                .width(min: 100, ideal: 136)
+                .width(min: 90, ideal: 96)
                 .customizationID("reponse")
 
                 TableColumn("TTL", sortUsing: table.sort("ttl")) { row in
                     ToolTableText(row.ttl.map(String.init) ?? "—", color: Theme.textSecondary, alignment: .trailing)
                 }
-                .width(min: 40, ideal: 44)
+                .width(min: 40, ideal: 40)
                 .customizationID("ttl")
 
                 TableColumn("TEMPS", sortUsing: table.sort("temps")) { row in
                     ToolTableText(row.durationMs.map(ToolFormat.milliseconds) ?? "—", color: Theme.textSecondary, alignment: .trailing)
                 }
-                .width(min: 48, ideal: 54)
+                .width(min: 46, ideal: 50)
                 .customizationID("temps")
             }
         }

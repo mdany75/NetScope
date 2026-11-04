@@ -206,7 +206,8 @@ struct SvcRow: Identifiable {
     var network: String {
         guard let endpoints = snapshot?.endpoints, !endpoints.isEmpty else { return "—" }
         if let failed = endpoints.first(where: { !$0.isReachable }) {
-            return "\(failed.failure?.shortLabel ?? "Échec") · \(failed.host)"
+            // Colonne étroite : la cause seulement ; l'adresse en échec est dans l'aide de la cellule.
+            return failed.failure?.shortLabel ?? "Échec"
         }
         return "\(endpoints.count)/\(endpoints.count) OK"
     }
@@ -302,13 +303,13 @@ struct SvcServiceTable: View {
                     ToolTableText(row.network, color: failed ? Theme.critical : Theme.textSecondary)
                         .help(row.snapshot?.endpoints.map { "\($0.host)\u{00A0}: \($0.summary)" }.joined(separator: "\n") ?? "")
                 }
-                .width(min: 52, ideal: 60)
+                .width(min: 52, ideal: 70)
                 .customizationID("reseau")
 
                 TableColumn("LATENCE", sortUsing: table.sort("latence")) { row in
                     ToolTableText(row.snapshot?.latencyMs.map(ToolFormat.milliseconds) ?? "—", alignment: .trailing)
                 }
-                .width(min: 58, ideal: 60)
+                .width(min: 62, ideal: 68)
                 .customizationID("latence")
 
                 TableColumn("INCIDENTS", sortUsing: table.sort("incidents")) { row in
