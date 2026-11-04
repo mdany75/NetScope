@@ -27,8 +27,9 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 8. ~~**0.11.0, recherche et Wi-Fi Fortinet**~~ : livrée le 4 novembre 2026 (notes 26 et 27) ;
    essai réel à faire sur les FortiGate et bornes FortiAP de Dany (droit « WiFi & Switch
    Controller », clients, AP voisins, sondes) et de la recherche sur un vrai scan.
-9. ~~**0.12.0, sites**~~ : livrée le 4 novembre 2026 (note 28 et correction de la Carte,
-   dernier scan seulement) ; essai réel à faire sur les sites de Dany (« Détecter mon site »,
+9. ~~**0.12.0, sites**~~ : livrée le 4 novembre 2026 (note 28 avec la suppression dans
+   l'Inventaire et le choix d'un ou plusieurs sites, et correction de la Carte, dernier scan
+   seulement) ; essai réel à faire sur les sites de Dany (« Détecter mon site »,
    migration de l'inventaire, import CSV, switchs SNMP associés).
 10. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
 
@@ -545,7 +546,7 @@ des bornes FortiAP (droit « WiFi & Switch Controller » en lecture).
 ## 28. Sites : préréglages du Scanner, switchs associés, mêmes plages sur plusieurs sites (demande de Dany)
 
 **Livrée dans la 0.12.0** (4 novembre 2026), avec la correction de la Carte du réseau (dernier
-scan seulement) ; essai réel à faire sur les sites de Dany (détection, migration, import CSV).
+scan seulement), la suppression dans l'Inventaire et le choix d'un ou plusieurs sites ; essai réel à faire sur les sites de Dany (détection, migration, import CSV).
 
 « Je voudrais avoir des presets de site dans le Scanner, car je delete et reconstruis à chaque
 fois. » « Dans Switchs et ports, il affiche aussi la switch qui n'est pas dans le range du scan
@@ -570,3 +571,9 @@ site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
 - FortiGate : choisie d'abord par le site actif ; la plage IP ne sert qu'en l'absence de site.
 - Barre latérale « Sites », Réglages › Sites et plages (fin du « Plusieurs sites : bientôt »),
   préfixe `site:` de la recherche.
+- Inventaire : suppression d'appareils (demande de Dany) : sélection multiple, clic droit,
+  touche ⌫ et corbeille ; confirmation avec le nombre d'appareils et les sites touchés, case
+  « Ne plus suivre ces appareils » (exclusion du site) ; Annuler et Rétablir.
+- Choix d'un ou plusieurs sites (menu « Site ▾ ») dans l'Analyse, l'Inventaire, la Carte et les
+  Rapports, sans changer le site actif du Scanner ; lignes jamais fusionnées entre sites, colonne
+  « Site », rapport multisite (une section par site), un dessin de carte par site.

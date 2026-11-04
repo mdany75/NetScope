@@ -30,6 +30,16 @@ chaque fois, et deux sites ne se mélangent plus, même sur les mêmes plages IP
   plusieurs sites.
 - **Switchs et ports** : bandeau « Site : <nom> · N switchs » avec « Afficher tous les
   switchs ».
+- **Inventaire › suppression** : sélection multiple (⌘-clic, ⇧-clic, ⌘A), « Supprimer de
+  l’inventaire… » au clic droit, touche ⌫ et bouton corbeille. La confirmation donne le nombre
+  d’appareils et les sites touchés ; la case « Ne plus suivre ces appareils » les exclut du site
+  (un scan ne les remet pas). Annuler (⌘Z) et Rétablir ; « N non suivis » pour les suivre de
+  nouveau.
+- **Choix d’un ou plusieurs sites** : menu « Site ▾ » dans l’Analyse, l’Inventaire, la Carte et
+  les Rapports (un, plusieurs ou tous les sites), sans changer le site actif du Scanner et
+  retenu par écran. Les lignes de deux sites ne sont jamais fusionnées ; la colonne « Site »
+  s’affiche d’office avec plusieurs sites. Analyse : alertes regroupées par site ; Carte : un
+  dessin par site ; Rapports : rapport multisite, une section par site.
 
 ### Modifié
 - **Barre latérale** : la section « Sites » remplace « Plages enregistrées » ; le site actif y
