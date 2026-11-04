@@ -27,7 +27,9 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 8. ~~**0.11.0, recherche et Wi-Fi Fortinet**~~ : livrée le 4 novembre 2026 (notes 26 et 27) ;
    essai réel à faire sur les FortiGate et bornes FortiAP de Dany (droit « WiFi & Switch
    Controller », clients, AP voisins, sondes) et de la recherche sur un vrai scan.
-9. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
+9. **0.12.0, sites** : note 28 (préréglages de site dans le Scanner, switchs SNMP associés à un
+   site, plusieurs sites sur les mêmes plages IP) et correction de la Carte (dernier scan seulement).
+10. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
 
@@ -538,3 +540,25 @@ des bornes FortiAP (droit « WiFi & Switch Controller » en lecture).
 - Scanner et fiche Appareil : borne FortiAP et SSID d'un appareil en Wi-Fi (comme Switch / port).
 - Surveillance (sonde FortiAP hors ligne, borne surchargée) et section Wi-Fi des Rapports.
 - Droit « WiFi » en lecture à ajouter au profil API si nécessaire.
+
+## 28. Sites : préréglages du Scanner, switchs associés, mêmes plages sur plusieurs sites (demande de Dany)
+
+« Je voudrais avoir des presets de site dans le Scanner, car je delete et reconstruis à chaque
+fois. » « Dans Switchs et ports, il affiche aussi la switch qui n'est pas dans le range du scan
+(pas une switch Fortinet). Associer dans les réglages des switchs une switch non Fortinet à un
+site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
+
+- Le site devient la référence : nom, plages (libellé, VLAN), FortiGate associée(s), switchs SNMP
+  associés. Plusieurs sites peuvent avoir les mêmes plages : l'IP seule ne choisit jamais le site.
+- Scanner : menu « Site » en haut des plages ; choisir un site remplace les plages ; enregistrer
+  les plages comme site, mettre à jour le site ; « Détecter mon site » par la passerelle (MAC,
+  numéro de série ou nom de la FortiGate), jamais par la seule IP ; création des sites depuis les
+  FortiGate de la 0.10.0 ; import et export CSV.
+- Résultats par site : changer de site met les résultats de côté et les retrouve au retour ;
+  Scanner, Carte et Inventaire ne mélangent plus deux sites.
+- Réglages › Switchs : chaque switch SNMP (non Fortinet) peut être associé à un site.
+  Switchs et ports n'affiche que les switchs du site actif (FortiSwitch par sa FortiGate, switchs
+  SNMP associés) ; un switch sans site n'apparaît que s'il est dans les plages scannées.
+- FortiGate : choisie d'abord par le site actif ; la plage IP ne sert qu'en l'absence de site.
+- Barre latérale « Sites », Réglages › Sites et plages (fin du « Plusieurs sites : bientôt »),
+  préfixe `site:` de la recherche.
