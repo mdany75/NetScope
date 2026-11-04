@@ -275,12 +275,22 @@ private struct MonJournalFollow: View {
                     .truncationMode(.tail)
                     .help(text)
             } else {
-                Button("Accuser réception") { store.acknowledge(alert.id) }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .fixedSize()
+                // « Résolue » et le bouton complet ne tiennent pas toujours dans la colonne :
+                // le bouton se raccourcit en « Accuser » plutôt que de déborder.
+                ViewThatFits(in: .horizontal) {
+                    ackButton("Accuser réception")
+                    ackButton("Accuser")
+                }
             }
         }
+    }
+
+    private func ackButton(_ title: String) -> some View {
+        Button(title) { store.acknowledge(alert.id) }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .fixedSize()
+            .help("Accuser réception de cette alerte")
     }
 
     /// « 11:49 », ou « hier 23:05 » si l'accusé date d'un autre jour.

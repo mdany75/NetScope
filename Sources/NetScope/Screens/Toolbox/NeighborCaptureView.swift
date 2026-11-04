@@ -542,8 +542,10 @@ struct NeighborCaptureView: View {
         guard neighbor.nativeVLAN == 1 else { return nil }
         var counts: [Int: Int] = [:]
         for device in InvModel.shared.withManualTypes(state.devices) where device.deviceType == .poste { if let vlan = device.vlan { counts[vlan, default: 0] += 1 } }
-        // Démonstration : VLAN des postes du croquis.
-        let usual = Launcher.isDemo ? CaptureDemo.workstationVLAN : counts.max { $0.value < $1.value }?.key
+        // VLAN le plus fréquent des postes connus (démonstration comprise, pour rester cohérent
+        // avec le Scanner) ; si les postes sont eux-mêmes en VLAN 1, l'astuce n'a pas lieu d'être.
+        let usual = counts.max { $0.value < $1.value }?.key
+        if usual == 1 { return nil }
         let hint = usual.flatMap { $0 != 1 ? " ici (les postes sont en VLAN\u{00A0}\($0))" : nil } ?? ""
         return "Astuce\u{00A0}: le VLAN\u{00A0}1 natif sur une prise de bureau est inhabituel\(hint). À vérifier dans Switchs et ports."
     }
