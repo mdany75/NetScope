@@ -328,7 +328,7 @@ private struct MonProbeGrid: View {
                     .help("\(line.probe.name)\n\(line.targetLabel)")
                     .monInactive(line)
                 }
-                .width(min: 100, ideal: 150)
+                .width(min: 100, ideal: 180)
                 .customizationID("sonde")
                 .disabledCustomizationBehavior(.visibility)
 
@@ -343,13 +343,13 @@ private struct MonProbeGrid: View {
                         .help(line.probe.kind.label)
                         .monInactive(line)
                 }
-                .width(min: 80, ideal: 84)
+                .width(min: 70, ideal: 74)
                 .customizationID("type")
 
                 TableColumn(StandardTableHeading("INTERVALLE"), sortUsing: table.sort("intervalle")) { line in
                     MonCellText(MonProbe.intervalLabel(line.probe.interval), mono: true).monInactive(line)
                 }
-                .width(min: 82, ideal: 84)
+                .width(min: 76, ideal: 84)
                 .customizationID("intervalle")
 
                 TableColumn(StandardTableHeading("ÉTAT"), sortUsing: table.sort("etat")) { line in
@@ -368,7 +368,7 @@ private struct MonProbeGrid: View {
                         .help(line.value)
                         .monInactive(line)
                 }
-                .width(min: 112, ideal: 112)
+                .width(min: 100, ideal: 116)
                 .customizationID("valeur")
 
                 TableColumn(StandardTableHeading("DISPONIBILITÉ 24 H"), sortUsing: table.sort("disponibilite")) { line in
@@ -376,7 +376,7 @@ private struct MonProbeGrid: View {
                                  enabled: line.probe.isEnabled, name: line.probe.name)
                         .monInactive(line)
                 }
-                .width(min: 130, ideal: 150)
+                .width(min: 110, ideal: 122)
                 .customizationID("disponibilite")
             }
 

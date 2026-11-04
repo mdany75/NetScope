@@ -199,10 +199,11 @@ struct ScanResultsPanel: View {
                 Text("\(shown) affichés sur \(inView) dans cette vue")
                 if let probe = scan.portProbe {
                     Text("Ports\u{00A0}: \(probe.done)/\(probe.total) appareils")
-                        .font(Theme.mono(12))
+                        .monospacedDigit()
                         .help("Sonde des ports en cours (\(probe.label))\u{00A0}; bouton Arrêter pour l’interrompre")
                 }
-                Text("Durée du scan : \(durationLabel(at: context.date))").font(Theme.mono(12))
+                // Même police que le reste du pied ; chiffres à chasse fixe pour que la durée ne danse pas.
+                Text("Durée du scan\u{00A0}: \(durationLabel(at: context.date))").monospacedDigit()
             }
             .font(Theme.small)
             .foregroundStyle(Theme.textSecondary)
@@ -271,14 +272,16 @@ struct ScanDeviceTable: View {
         StandardColumn(id: "ip", title: "IP", isRequired: true),
         StandardColumn(id: "type", title: "Type"),
         StandardColumn(id: "nom", title: "Nom personnalisé"),
-        StandardColumn(id: "hostname", title: "Hostname"),
+        // Hostname, latence et dernière vue : facultatifs pour que l'essentiel tienne à côté du
+        // panneau de détail à 1440 × 900 ; on les rajoute par « Colonnes ».
+        StandardColumn(id: "hostname", title: "Hostname", isDefaultVisible: false),
         StandardColumn(id: "fabricant", title: "Fabricant"),
         StandardColumn(id: "mac", title: "MAC"),
-        StandardColumn(id: "latence", title: "Latence"),
+        StandardColumn(id: "latence", title: "Latence", isDefaultVisible: false),
         StandardColumn(id: "ports", title: "Ports ouverts"),
         StandardColumn(id: "switch", title: "Switch / port"),
         StandardColumn(id: "vlan", title: "VLAN"),
-        StandardColumn(id: "derniereVue", title: "Vu la dernière fois"),
+        StandardColumn(id: "derniereVue", title: "Vu la dernière fois", isDefaultVisible: false),
         StandardColumn(id: "premiereVue", title: "Première vue", isDefaultVisible: false),
         StandardColumn(id: "sourceNom", title: "Source du nom", isDefaultVisible: false),
         StandardColumn(id: "groupe", title: "Groupe NetBIOS", isDefaultVisible: false),
@@ -316,24 +319,24 @@ struct ScanDeviceTable: View {
     var body: some View {
         Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
             Group {
-                TableColumn("IP", sortUsing: table.sort("ip")) { device in
+                TableColumn(StandardTableHeading("IP"), sortUsing: table.sort("ip")) { device in
                     HStack(spacing: 8) {
                         ScanStatusDot(online: device.isOnline)
                         Text(device.ip.description).font(Theme.mono(12, weight: .semibold)).foregroundStyle(Theme.text)
                     }
                     .frame(height: 26)
                 }
-                .width(min: 118, ideal: 128)
+                .width(min: 122, ideal: 122)
                 .customizationID("ip")
                 .disabledCustomizationBehavior(.visibility)
 
-                TableColumn("TYPE", sortUsing: table.sort("type")) { device in
+                TableColumn(StandardTableHeading("TYPE"), sortUsing: table.sort("type")) { device in
                     ScanTypeCell(type: device.deviceType, isManual: inventory.typeChoice(for: device).isManual)
                 }
-                .width(min: 90, ideal: 152)
+                .width(min: 28, ideal: 88)
                 .customizationID("type")
 
-                TableColumn("NOM PERSONNALISÉ", sortUsing: table.sort("nom")) { device in
+                TableColumn(StandardTableHeading("NOM"), sortUsing: table.sort("nom")) { device in
                     HStack(spacing: 6) {
                         Text(device.customName ?? "—")
                             .font(Theme.small)
@@ -342,29 +345,31 @@ struct ScanDeviceTable: View {
                         if scan.newIDs.contains(device.id) { ScanNewBadge() }
                     }
                 }
-                .width(min: 100, ideal: 125)
+                .width(min: 60, ideal: 80)
                 .customizationID("nom")
 
-                TableColumn("HOSTNAME", sortUsing: table.sort("hostname")) { device in
+                TableColumn(StandardTableHeading("HOSTNAME"), sortUsing: table.sort("hostname")) { device in
                     ScanCellText(device.hostnameLabel ?? "—", dimmed: device.hostname == nil)
                         .help(device.nameSourceLabel.map { "Nom obtenu par \($0)" } ?? "")
                 }
                 .width(min: 100, ideal: 135)
                 .customizationID("hostname")
+                .defaultVisibility(.hidden)
 
-                TableColumn("FABRICANT", sortUsing: table.sort("fabricant")) { device in
+                TableColumn(StandardTableHeading("FABRICANT"), sortUsing: table.sort("fabricant")) { device in
                     ScanCellText(device.vendorLabel, dimmed: device.vendor == nil && device.mac == nil)
                 }
-                .width(min: 80, ideal: 95)
+                .width(min: 50, ideal: 74)
                 .customizationID("fabricant")
 
-                TableColumn("MAC", sortUsing: table.sort("mac")) { device in
+                TableColumn(StandardTableHeading("MAC"), sortUsing: table.sort("mac")) { device in
                     ScanCellText(device.mac?.formatted(.upperColon) ?? "—", mono: true, dimmed: device.mac == nil)
                 }
-                .width(min: 120, ideal: 128)
+                // Toujours l'adresse complète (17 caractères en chasse fixe).
+                .width(min: 132, ideal: 132)
                 .customizationID("mac")
 
-                TableColumn("LATENCE", sortUsing: table.sort("latence")) { device in
+                TableColumn(StandardTableHeading("LATENCE"), sortUsing: table.sort("latence")) { device in
                     Text(ScanFormat.latency(device.latencyMs))
                         .font(Theme.mono(12))
                         .foregroundStyle(latencyColor(device.latencyMs))
@@ -372,24 +377,25 @@ struct ScanDeviceTable: View {
                 }
                 .width(min: 64, ideal: 72)
                 .customizationID("latence")
+                .defaultVisibility(.hidden)
 
-                TableColumn("PORTS OUVERTS", sortUsing: table.sort("ports")) { device in
+                TableColumn(StandardTableHeading("PORTS"), sortUsing: table.sort("ports")) { device in
                     ScanPortTags(ports: device.openPorts)
                 }
-                .width(min: 70, ideal: 130)
+                .width(min: 50, ideal: 58)
                 .customizationID("ports")
 
-                TableColumn("SWITCH / PORT", sortUsing: table.sort("switch")) { device in
+                TableColumn(StandardTableHeading("SWITCH / PORT"), sortUsing: table.sort("switch")) { device in
                     let status = state.locationStatus(device)
-                    ScanCellText(device.switchLocation ?? "—", mono: true, dimmed: device.switchLocation == nil || !status.isCurrent)
-                        .help(device.switchLocation != nil ? status.explanation ?? "" : "")
+                    SwitchPortCell(name: device.switchName, port: device.switchPort, dimmed: !status.isCurrent,
+                                   note: status.explanation)
                 }
-                .width(min: 110, ideal: 150)
+                .width(min: 80, ideal: 94)
                 .customizationID("switch")
             }
 
             Group {
-                TableColumn("VLAN", sortUsing: table.sort("vlan")) { device in
+                TableColumn(StandardTableHeading("VLAN"), sortUsing: table.sort("vlan")) { device in
                     if let vlan = device.vlan {
                         Chip(text: "\(vlan)", mono: true)
                             .opacity(state.vlanStatus(device).isCurrent ? 1 : 0.5)
@@ -397,46 +403,47 @@ struct ScanDeviceTable: View {
                         ScanCellText("—", dimmed: true)
                     }
                 }
-                .width(min: 44, ideal: 52)
+                .width(min: 34, ideal: 36)
                 .customizationID("vlan")
 
-                TableColumn("VU LA DERNIÈRE FOIS", sortUsing: table.sort("derniereVue")) { device in
+                TableColumn(StandardTableHeading("VU LA DERNIÈRE FOIS"), sortUsing: table.sort("derniereVue")) { device in
                     TimelineView(.periodic(from: .now, by: 30)) { context in
                         ScanCellText(ScanFormat.relative(device.lastSeen, now: context.date), secondary: true)
                     }
                 }
                 .width(min: 90, ideal: 120)
                 .customizationID("derniereVue")
+                .defaultVisibility(.hidden)
 
-                TableColumn("PREMIÈRE VUE", sortUsing: table.sort("premiereVue")) { device in
+                TableColumn(StandardTableHeading("PREMIÈRE VUE"), sortUsing: table.sort("premiereVue")) { device in
                     ScanCellText(ScanFormat.date(device.firstSeen), secondary: true)
                 }
                 .width(min: 110, ideal: 150)
                 .customizationID("premiereVue")
                 .defaultVisibility(.hidden)
 
-                TableColumn("SOURCE DU NOM", sortUsing: table.sort("sourceNom")) { device in
+                TableColumn(StandardTableHeading("SOURCE DU NOM"), sortUsing: table.sort("sourceNom")) { device in
                     ScanCellText(device.nameSourceLabel ?? "—", dimmed: device.nameSourceLabel == nil)
                 }
                 .width(min: 80, ideal: 165)
                 .customizationID("sourceNom")
                 .defaultVisibility(.hidden)
 
-                TableColumn("GROUPE NETBIOS", sortUsing: table.sort("groupe")) { device in
+                TableColumn(StandardTableHeading("GROUPE NETBIOS"), sortUsing: table.sort("groupe")) { device in
                     ScanCellText(device.nameDomain ?? "—", mono: true, dimmed: device.nameDomain == nil)
                 }
                 .width(min: 80, ideal: 135)
                 .customizationID("groupe")
                 .defaultVisibility(.hidden)
 
-                TableColumn("PLAGE", sortUsing: table.sort("plage")) { device in
+                TableColumn(StandardTableHeading("PLAGE"), sortUsing: table.sort("plage")) { device in
                     ScanCellText(device.rangeLabel ?? "—", dimmed: device.rangeLabel == nil)
                 }
                 .width(min: 70, ideal: 100)
                 .customizationID("plage")
                 .defaultVisibility(.hidden)
 
-                TableColumn("NATURE SNMP", sortUsing: table.sort("snmp")) { device in
+                TableColumn(StandardTableHeading("NATURE SNMP"), sortUsing: table.sort("snmp")) { device in
                     ScanCellText(device.snmpKind?.label ?? "—", dimmed: device.snmpKind == nil)
                         .help(device.snmpKind == nil ? "N’a pas répondu à la découverte SNMP" : "D’après la découverte SNMP")
                 }
@@ -444,7 +451,7 @@ struct ScanDeviceTable: View {
                 .customizationID("snmp")
                 .defaultVisibility(.hidden)
 
-                TableColumn("OUI", sortUsing: table.sort("oui")) { device in
+                TableColumn(StandardTableHeading("OUI"), sortUsing: table.sort("oui")) { device in
                     ScanCellText(device.scanSortVendorOUI.isEmpty ? "—" : device.scanSortVendorOUI, mono: true,
                                  dimmed: device.mac == nil)
                 }
@@ -452,7 +459,7 @@ struct ScanDeviceTable: View {
                 .customizationID("oui")
                 .defaultVisibility(.hidden)
 
-                TableColumn("ÉTAT DE L’EMPLACEMENT") { device in
+                TableColumn(StandardTableHeading("ÉTAT DE L’EMPLACEMENT")) { device in
                     let status = state.locationStatus(device)
                     ScanCellText(device.switchName == nil ? "—" : Self.locationLabel(status),
                                  dimmed: device.switchName == nil || !status.isCurrent)
@@ -625,6 +632,39 @@ struct ScanCellText: View {
             .foregroundStyle(dimmed ? Theme.textTertiary : (secondary ? Theme.textSecondary : Theme.neutralText))
             .lineLimit(1)
             .truncationMode(.tail)
+    }
+}
+
+/// Cellule « Switch / port » : « SW-CORE-01 · Gi1/0/40 » sur une ligne quand la colonne le permet,
+/// sinon le switch au-dessus du port (11 pt) pour que le port reste lisible ; emplacement complet
+/// en infobulle.
+struct SwitchPortCell: View {
+    let name: String?
+    let port: String?
+    var dimmed = false
+    /// Précision ajoutée à l'infobulle (ex. emplacement relevé sur un autre réseau).
+    var note: String? = nil
+
+    var body: some View {
+        if name == nil && port == nil {
+            ScanCellText("—", dimmed: true)
+        } else {
+            let full = [name, port].compactMap { $0 }.joined(separator: " · ")
+            ViewThatFits(in: .horizontal) {
+                Text(full).font(Theme.mono(12)).lineLimit(1).fixedSize()
+                if let name, let port {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(name).lineLimit(1).truncationMode(.middle)
+                        Text(port).lineLimit(1).truncationMode(.tail).foregroundStyle(Theme.textSecondary)
+                    }
+                    .font(Theme.mono(11))
+                } else {
+                    Text(full).font(Theme.mono(12)).lineLimit(1).truncationMode(.middle)
+                }
+            }
+            .foregroundStyle(dimmed ? Theme.textTertiary : Theme.neutralText)
+            .help(note.map { "\(full)\n\($0)" } ?? full)
+        }
     }
 }
 

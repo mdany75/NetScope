@@ -22,7 +22,7 @@ struct ContentView: View {
             .id(state.screen)
                 .navigationTitle(state.screen.pageTitle)
                 .searchable(text: $state.searchText, placement: .toolbar,
-                            prompt: Text("Rechercher IP, MAC, nom…"))
+                            prompt: Text("Rechercher"))
         }
         .font(Theme.body)
         .foregroundStyle(Theme.text)
