@@ -17,6 +17,16 @@ final class FortiGateStore: ObservableObject {
     private static let configKey = "NetScope.fortigate.reglages"
     private static let enabledKey = "NetScope.fortigate.actif"
 
+    /// Certificat présenté au premier contact (ou changé), avec l'adresse et le port de la FortiGate
+    /// qui l'a présenté : l'empreinte n'est jamais acceptée pour une autre adresse.
+    struct PendingCertificate: Equatable {
+        var fingerprint: String
+        var subject: String
+        var changed: Bool
+        var host: String
+        var port: Int
+    }
+
     /// Réglages enregistrés (adresse, port, VDOM, empreinte acceptée), jamais le jeton.
     @Published private(set) var config: FortiGateConfig
     /// Lecture à chaque scan et avec « Interroger les switchs ».
@@ -26,8 +36,8 @@ final class FortiGateStore: ObservableObject {
     @Published private(set) var hasToken = false
     @Published private(set) var report: FortiGateReport?
     @Published private(set) var lastError: String?
-    /// Certificat présenté au premier contact (ou changé), en attente de l'accord de l'utilisateur.
-    @Published private(set) var pendingCertificate: (fingerprint: String, subject: String, changed: Bool)?
+    /// Certificat en attente de l'accord de l'utilisateur.
+    @Published private(set) var pendingCertificate: PendingCertificate?
     @Published private(set) var isBusy = false
     /// Résultat du dernier bouton Tester (vrai = réussi).
     @Published private(set) var testOK: Bool?
@@ -38,6 +48,12 @@ final class FortiGateStore: ObservableObject {
     private var token: String?
     private var tokenLoaded = false
     private var task: Task<Void, Never>?
+    /// Numéro de la lecture la plus récente : seul son résultat est appliqué.
+    private var generation = 0
+    /// Lectures en cours (`isBusy` tant qu'il en reste une).
+    private var activeReads = 0 {
+        didSet { isBusy = activeReads > 0 }
+    }
 
     init(demo: Bool = Launcher.isDemo || RegEnvironment.isSnapshot) {
         isDemo = demo
@@ -65,16 +81,48 @@ final class FortiGateStore: ObservableObject {
     /// Adresse saisie (même sans jeton) : la section mérite d'être montrée.
     var isConfigured: Bool { config.isValid }
 
+    /// Raison pour laquelle la FortiGate ne peut pas encore être lue (nil si elle est prête).
+    var notReadyReason: String? {
+        guard !isDemo, config.isValid else { return nil }
+        if !hasToken { return "Jeton absent\u{00A0}: enregistrez-le dans Réglages › Switchs." }
+        if pendingCertificate != nil {
+            return "Empreinte du certificat à vérifier dans Réglages › Switchs."
+        }
+        if config.pinnedFingerprint == nil {
+            return "Empreinte du certificat à accepter\u{00A0}: cliquez sur «\u{00A0}Tester\u{00A0}» dans Réglages › Switchs."
+        }
+        return nil
+    }
+
+    /// Clé de comparaison de l'adresse configurée.
+    private var currentTarget: (host: String, port: Int) { (config.cleanHost.lowercased(), config.effectivePort) }
+
     func update(host: String, port: Int, vdom: String) {
         var next = config
-        let before = (config.cleanHost.lowercased(), config.effectivePort)
+        let before = currentTarget
         next.host = host.trimmingCharacters(in: .whitespacesAndNewlines)
         next.port = port
         next.vdom = vdom.trimmingCharacters(in: .whitespacesAndNewlines)
+        let changed = (next.cleanHost.lowercased(), next.effectivePort) != before
         // Autre FortiGate : l'empreinte acceptée ne vaut plus.
-        if (next.cleanHost.lowercased(), next.effectivePort) != before { next.pinnedFingerprint = nil }
+        if changed { next.pinnedFingerprint = nil }
         config = next
         saveConfig()
+        if changed { forgetLastRead() }
+    }
+
+    /// Oublie tout ce qui venait de l'ancienne FortiGate : lecture en cours, résultat, empreinte en
+    /// attente et FortiSwitch affichés.
+    private func forgetLastRead() {
+        task?.cancel()
+        task = nil
+        generation += 1
+        pendingCertificate = nil
+        testOK = nil
+        lastError = nil
+        report = nil
+        lastCalls = []
+        SwitchStore.shared.clearController()
     }
 
     private func saveConfig() {
@@ -117,19 +165,27 @@ final class FortiGateStore: ObservableObject {
         try? Self.keychain.delete(Self.tokenAccount)
         token = nil
         hasToken = false
+        testOK = nil
     }
 
-    /// Accepte l'empreinte du certificat présenté (premier contact ou renouvellement vérifié).
+    /// Accepte l'empreinte du certificat présenté (premier contact ou renouvellement vérifié), si
+    /// elle vient bien de la FortiGate configurée.
     func acceptPendingCertificate() {
         guard let pending = pendingCertificate else { return }
-        config.pinnedFingerprint = pending.fingerprint
         pendingCertificate = nil
+        testOK = nil
+        guard pending.host == currentTarget.host, pending.port == currentTarget.port else {
+            lastError = "L’adresse de la FortiGate a changé depuis\u{00A0}: cliquez de nouveau sur «\u{00A0}Tester\u{00A0}» pour vérifier son certificat."
+            return
+        }
+        config.pinnedFingerprint = pending.fingerprint
         lastError = nil
         saveConfig()
     }
 
     func rejectPendingCertificate() {
         pendingCertificate = nil
+        lastError = "Certificat refusé\u{00A0}: aucune connexion à cette FortiGate."
     }
 
     /// Oublie l'empreinte acceptée : le prochain contact demandera de nouveau l'accord.
@@ -141,23 +197,30 @@ final class FortiGateStore: ObservableObject {
 
     // MARK: Lecture
 
-    /// Bouton Tester : lecture complète, sans toucher aux appareils du scan.
-    func test() {
+    /// Bouton Tester : lecture complète ; les FortiSwitch lus apparaissent aussitôt dans
+    /// « Switchs et ports » (même source que le bandeau et le tableau des Réglages).
+    func test(state: AppState) {
         task?.cancel()
         task = Task { [weak self] in
             guard let self else { return }
-            _ = await self.read()
+            if let fresh = await self.read() {
+                SwitchStore.shared.applyController(fresh, state: state)
+            }
         }
     }
 
-    /// Lecture puis report sur l'écran Switchs et ports et les appareils du scan (fin de scan,
-    /// « Interroger les switchs », bouton Rafraîchir).
+    /// Lecture puis report sur l'écran Switchs et ports et les appareils du scan (« Interroger les
+    /// switchs », bouton Relire). Sans lecture réussie, les FortiSwitch d'une lecture précédente
+    /// sont retirés : ils ne servent plus à situer les appareils.
     func refresh(state: AppState) async {
-        guard isEnabled else { return }
+        guard isEnabled else {
+            if !isDemo { SwitchStore.shared.clearController() }
+            return
+        }
         if isDemo {
-            isBusy = true
+            activeReads += 1
             try? await Task.sleep(nanoseconds: 600_000_000)
-            isBusy = false
+            activeReads -= 1
             let fresh = FortiGateDemo.report()
             report = fresh
             lastCalls = fresh.calls
@@ -166,10 +229,25 @@ final class FortiGateStore: ObservableObject {
             return
         }
         await loadToken()
-        guard isReady else { return }
+        guard isReady else {
+            SwitchStore.shared.clearController()
+            return
+        }
+        let target = currentTarget
         if let fresh = await read() {
             SwitchStore.shared.applyController(fresh, state: state)
+        } else if !Task.isCancelled, !isBusy, currentTarget == target {
+            SwitchStore.shared.clearController()
         }
+    }
+
+    /// Lecture de fin de scan : attend une lecture déjà lancée, puis passe par `task` comme les
+    /// autres (jamais deux lectures à la fois).
+    func refreshAfterScan(state: AppState) async {
+        if let running = task { await running.value }
+        let next: Task<Void, Never> = Task { [weak self] in await self?.refresh(state: state) }
+        task = next
+        await withTaskCancellationHandler { await next.value } onCancel: { next.cancel() }
     }
 
     func refreshNow(state: AppState) {
@@ -177,12 +255,13 @@ final class FortiGateStore: ObservableObject {
         task = Task { [weak self] in await self?.refresh(state: state) }
     }
 
-    /// Lit la FortiGate ; nil en cas d'échec (message dans `lastError`).
+    /// Lit la FortiGate ; nil en cas d'échec (message dans `lastError`) ou quand une lecture plus
+    /// récente l'a remplacée (son résultat n'écrase jamais celui d'une lecture plus récente).
     private func read() async -> FortiGateReport? {
         if isDemo {
-            isBusy = true
+            activeReads += 1
             try? await Task.sleep(nanoseconds: 600_000_000)
-            isBusy = false
+            activeReads -= 1
             testOK = true
             lastError = nil
             return report
@@ -196,14 +275,17 @@ final class FortiGateStore: ObservableObject {
             fail(FortiGateError.missingToken)
             return nil
         }
-        isBusy = true
-        defer { isBusy = false }
+        generation += 1
+        let mine = generation
+        let target = currentTarget
+        activeReads += 1
+        defer { activeReads -= 1 }
         lastAttempt = Date()
         let transport = FortiURLSessionTransport(config: config, token: token)
         let reader = FortiGateReader(transport: transport, tokenForRedaction: token)
         do {
-            let fresh = try await reader.read()
-            guard !Task.isCancelled else { return nil }
+            let fresh = try await reader.readKeepingCalls()
+            guard !Task.isCancelled, mine == generation else { return nil }
             report = fresh
             lastCalls = fresh.calls
             lastError = nil
@@ -211,28 +293,35 @@ final class FortiGateStore: ObservableObject {
             return fresh
         } catch is CancellationError {
             return nil
+        } catch let failure as FortiReadFailure {
+            if mine == generation { fail(failure.error, calls: failure.calls, target: target) }
+            return nil
         } catch let error as FortiGateError {
-            fail(error)
+            if mine == generation { fail(error, target: target) }
             return nil
         } catch {
-            fail(.cannotConnect("erreur inattendue."))
+            if mine == generation { fail(.cannotConnect("erreur inattendue."), target: target) }
             return nil
         }
     }
 
-    private func fail(_ error: FortiGateError) {
+    private func fail(_ error: FortiGateError, calls: [FortiCallRecord] = [], target: (host: String, port: Int)? = nil) {
         testOK = false
+        let target = target ?? currentTarget
         switch error {
         case .certificateUnknown(let fingerprint, let subject):
-            pendingCertificate = (fingerprint, subject, false)
+            pendingCertificate = PendingCertificate(fingerprint: fingerprint, subject: subject, changed: false,
+                                                    host: target.host, port: target.port)
             lastError = "Premier contact\u{00A0}: vérifiez l’empreinte du certificat ci-dessous puis acceptez-la."
         case .certificateChanged(_, let presented):
-            pendingCertificate = (presented, "", true)
+            pendingCertificate = PendingCertificate(fingerprint: presented, subject: "", changed: true,
+                                                    host: target.host, port: target.port)
             lastError = error.errorDescription
         default:
             lastError = FortiRedact.clean(error.errorDescription ?? "Lecture impossible.", token: token)
         }
-        lastCalls = []
+        // Les réponses reçues avant l'échec restent copiables (diagnostic).
+        lastCalls = calls
     }
 
     // MARK: Diagnostic

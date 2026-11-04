@@ -78,16 +78,20 @@ struct SwitchFortiGatePanel: View {
             Chip(text: "Lecture…", tone: .accent)
         } else if !fortigate.isEnabled {
             Chip(text: "Désactivé", tone: .neutral)
+        } else if fortigate.pendingCertificate != nil || fortigate.notReadyReason != nil {
+            Chip(text: "À configurer", tone: .warning)
         } else if fortigate.lastError != nil {
             Chip(text: "Erreur", tone: .critical)
         } else if fortigate.report != nil {
-            Chip(text: "Connecté", tone: .success)
+            Chip(text: "Connectée", tone: .success)
         } else {
             Chip(text: "Pas encore lu", tone: .neutral)
         }
     }
 
     private var summary: Text {
+        // Rien de lisible tant que le jeton ou l'empreinte manque : la vraie raison, propre à cet écran.
+        if let reason = fortigate.notReadyReason { return Text(reason) }
         if let error = fortigate.lastError { return Text(error) }
         guard let report = fortigate.report else {
             return Text("Les FortiSwitch gérés par FortiLink seront lus à la fin du prochain scan, ou avec «\u{00A0}Relire la FortiGate\u{00A0}».")
@@ -167,7 +171,8 @@ struct SwitchFortiPortTable: View {
                     Text("Ports du FortiSwitch").font(Theme.panelTitle)
                     SwitchSourceTag(source: .fortigate)
                     Spacer(minLength: 8)
-                    Text("\(rows.filter { $0.stateRank == 0 }.count) actifs sur \(rows.count) · d’après \(snapshot.controllerName ?? "la FortiGate")")
+                    let up = rows.filter { $0.stateRank == 0 }.count
+                    Text("\(up) actif\(up > 1 ? "s" : "") sur \(rows.count) · d’après \(snapshot.controllerName ?? "la FortiGate")")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
                     StandardColumnsMenu(model: table)
                 }
@@ -251,7 +256,7 @@ struct SwitchFortiPortTable: View {
     }
 
     private func makeRows() -> [SwitchFortiPortRow] {
-        let uplinks = snapshot.uplinkInterfaces()
+        let uplinks = snapshot.locatedUplinks
         return snapshot.physicalPorts.map { iface in
             let entries = snapshot.entries(on: iface.index)
             let isUplink = uplinks.contains(iface.index)

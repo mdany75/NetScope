@@ -216,7 +216,7 @@ struct SwitchCard: View {
                                 cardName(snapshot)
                                 statusChip(snapshot)
                                 if store.isController(host) {
-                                    Chip(text: "via FortiGate", tone: .warning)
+                                    Chip(text: "via FortiGate", tone: .accent)
                                         .help("FortiSwitch géré par FortiLink\u{00A0}: lu par l’API REST de la FortiGate \(snapshot?.controllerName ?? ""), jamais interrogé directement (son adresse FortiLink n’est pas joignable depuis ce Mac).")
                                 } else if store.isAutoDiscovered(host) {
                                     Chip(text: "Découvert automatiquement", tone: .accent)
@@ -391,7 +391,7 @@ struct SwitchFaceplatePanel: View {
     @State private var faceplateWidth: CGFloat = 0
 
     var body: some View {
-        let uplinks = snapshot.uplinkInterfaces()
+        let uplinks = snapshot.locatedUplinks
         let ports = snapshot.physicalPorts
         let states = ports.map { SwitchPortState($0, snapshot: snapshot, uplinks: uplinks) }
         Panel(padding: 14) {
@@ -526,7 +526,7 @@ struct SwitchPortDetail: View {
     let iface: SNMPInterface
 
     var body: some View {
-        let uplinks = snapshot.uplinkInterfaces()
+        let uplinks = snapshot.locatedUplinks
         let portState = SwitchPortState(iface, snapshot: snapshot, uplinks: uplinks)
         let entries = snapshot.entries(on: iface.index)
         let neighbor = snapshot.neighbor(on: iface.index)
@@ -972,7 +972,7 @@ struct SwitchMacTable: View {
     }
 
     private var rows: [Row] {
-        let uplinks = snapshot.uplinkInterfaces()
+        let uplinks = snapshot.locatedUplinks
         let query = store.tableFilter.trimmingCharacters(in: .whitespaces).lowercased()
         // Appareils du scan par MAC, avec le type choisi à la main (note 20).
         var devices: [MACAddress: Device] = [:]
@@ -1138,7 +1138,7 @@ struct SwitchTopology: View {
     }
 
     private func uplinkPort(of snapshot: SNMPSwitchSnapshot) -> Int? {
-        snapshot.uplinkInterfaces().sorted().first
+        snapshot.locatedUplinks.sorted().first
     }
 
     private func link(_ text: String?, color: Color, width: CGFloat) -> some View {
@@ -1188,7 +1188,7 @@ struct SwitchTopology: View {
     private var vlanCounts: [(vlan: Int, count: Int, ports: String)] {
         var map: [Int: (Int, [String])] = [:]
         for snapshot in store.orderedSnapshots {
-            let uplinks = snapshot.uplinkInterfaces()
+            let uplinks = snapshot.locatedUplinks
             for entry in snapshot.fdb {
                 guard let i = entry.ifIndex, !uplinks.contains(i), let vlan = entry.vlan ?? snapshot.pvid[i], vlan != 1 else { continue }
                 var item = map[vlan] ?? (0, [])

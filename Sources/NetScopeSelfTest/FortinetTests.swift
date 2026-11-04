@@ -319,4 +319,68 @@ func registerFortinetTests(_ suite: TestSuite) {
         let encoded = String(decoding: try JSONEncoder().encode(FortiGateConfig(host: "10.182.122.1", pinnedFingerprint: "AA")), as: UTF8.self)
         try expect(!encoded.lowercased().contains("token") && !encoded.lowercased().contains("jeton"), "réglages sans jeton")
     }
+
+    suite.add("FortiGate : relecture (diagnostic d'un échec, trunks, valeurs aberrantes, appareils périmés)") {
+        // Lecture échouée : les appels déjà faits restent pour le diagnostic.
+        var forbidden = FortiFixtures.v74()
+        forbidden[FortiPaths.switchStatus] = (403, #"{"status":"error","http_status":403}"#)
+        do {
+            _ = try await FortiGateReader(transport: FortiFakeTransport(forbidden)).readKeepingCalls(now: now)
+            try expect(false, "403 sur les switchs doit arrêter la lecture")
+        } catch let failure as FortiReadFailure {
+            try expectEqual(failure.error, .forbidden(path: FortiPaths.switchStatus), "erreur portée")
+            try expectEqual(failure.calls.map(\.path), [FortiPaths.systemStatus, FortiPaths.switchStatus], "appels gardés")
+            try expectEqual(failure.calls.last?.outcome, .refused, "403 noté")
+        }
+        // Trunks de la configuration (FortiLink, ISL) : jamais des ports physiques.
+        let trunkConfig = #"""
+        {"results":[{"switch-id":"FSW-ENTREPOT","ports":[
+          {"port-name":"port1","description":"Caméra quai"},
+          {"port-name":"port50","description":"Libre"},
+          {"port-name":"__FoRtI1LiNk0__","type":"trunk","members":[{"member-name":"port49"}]},
+          {"port-name":"8DN4K16000000-0","type":"trunk","members":[{"member-name":"port47"}]},
+          {"port-name":"port47"},{"port-name":"port49"}]}]}
+        """#
+        let map = FortiParsers.switchConfig(Data(trunkConfig.utf8)) ?? [:]
+        let ports = map["fsw-entrepot"]?.ports ?? [:]
+        try expect(ports["__forti1link0__"] == nil && ports["8dn4k16000000-0"] == nil, "trunks écartés")
+        try expectEqual(ports["port49"]?.isFortiLink, true, "membre du trunk FortiLink marqué")
+        try expectEqual(ports["port47"]?.isISL, true, "membre du trunk ISL marqué")
+        let base = try await FortiGateReader(transport: FortiFakeTransport(FortiFixtures.v74())).read(now: now)
+        let merged = FortiConvert.merge(base.switches, config: map)
+        try expect(!merged[0].ports.contains { !FortiParse.isPhysicalPortName($0.name) }, "aucun faux port créé")
+        try expect(merged[0].ports.contains { $0.name == "port50" }, "port physique absent de l'état créé")
+        try expect(FortiParse.isPhysicalPortName("port1.2") && !FortiParse.isPhysicalPortName("__FoRtI1LiNk0__"), "nom de port physique")
+        // Modèles à quatre chiffres.
+        try expectEqual(FortiConvert.copperPorts(model: "FS-1048E"), 48, "1048E : 48")
+        try expectEqual(FortiConvert.copperPorts(model: "FS-1024E"), 24, "1024E : 24")
+        try expectEqual(FortiConvert.copperPorts(model: "FS-3032E"), 32, "3032E : 32")
+        // Valeurs aberrantes : rien ne s'arrête net.
+        try expectEqual(FortiParse.speedMbps("99999999999999999999999"), nil, "vitesse aberrante (texte)")
+        try expectEqual(FortiParse.speedMbps(NSNumber(value: 1e30)), nil, "vitesse aberrante (nombre)")
+        try expectEqual(FortiParse.speedMbps("999999999999G"), nil, "vitesse aberrante en Gb/s")
+        try expectEqual(FortiParse.speedMbps("100G"), 100_000, "100G accepté")
+        var hot = base
+        hot.switches[0].ports[0].poePowerW = 1e20
+        hot.switches[0].poeBudgetW = 1e30
+        let hotSnap = FortiConvert.snapshots(from: hot)[0]
+        try expectEqual(hotSnap.poeDetails?.first { $0.ifIndex == 1 }?.consumptionMW, nil, "puissance PoE aberrante ignorée")
+        try expectEqual(hotSnap.poeBudgetW, nil, "budget aberrant ignoré")
+        // Appareils périmés : ni situés, ni port fantôme actif.
+        let cam = MACAddress("bc:ad:28:6f:01:5a")!
+        let laptop = MACAddress("8c:16:45:2b:9e:77")!
+        var stale = base
+        stale.detected = [FortiDetectedDevice(mac: cam, switchID: "FSW-QUAI", portName: "port3", lastSeen: now.addingTimeInterval(-86_400))]
+        stale.userDevices = [FortiUserDevice(mac: laptop, switchID: "FSW-QUAI", portName: "port7", lastSeen: now.addingTimeInterval(-86_400)),
+                             FortiUserDevice(mac: cam, switchID: "FSW-QUAI", portName: "port9", lastSeen: now)]
+        try expect(stale.locatedDevices.isEmpty, "détecté hier et inventaire seul pour une MAC détectée : non situés")
+        stale.userDevices.append(FortiUserDevice(mac: laptop, switchID: "FSW-QUAI", portName: "port7", lastSeen: now.addingTimeInterval(-60)))
+        stale.userDevices.removeFirst()
+        try expectEqual(stale.locatedDevices.map(\.portName), ["port7"], "inventaire récent : situé")
+        let quai = FortiConvert.snapshots(from: stale)[1]
+        try expect(quai.interfaces.first { $0.name == "port7" }?.operStatus != .up, "pas de port actif tiré de l'inventaire")
+        // Même règle d'uplink pour l'affichage et la localisation.
+        try expectEqual(quai.uplinkThreshold, FortiLocate.controllerMacThreshold, "FortiSwitch : pas de seuil de MAC")
+        try expectEqual(quai.locatedUplinks, quai.uplinkInterfaces(macThreshold: FortiLocate.controllerMacThreshold), "uplinks affichés")
+    }
 }

@@ -201,7 +201,10 @@ final class ScanController: ObservableObject {
         finishedAt = nil
         isRunning = true
         phase = .ping
-        plannedPhases = plan.phases
+        // Lecture de la FortiGate en fin de scan : phase « Emplacements » même sans SNMP.
+        var phases = plan.phases
+        if FortiGateStore.shared.isEnabled, FortiGateStore.shared.isConfigured, !phases.contains(.locations) { phases.append(.locations) }
+        plannedPhases = phases
         let switches = SwitchStore.shared
         // Le bilan précédent disparaît même si ce scan ne fait aucune découverte ; le nouveau sera
         // rattaché à ces plages et à ce réseau.
@@ -256,8 +259,8 @@ final class ScanController: ObservableObject {
             // Note 24 : FortiSwitch gérés relus par la FortiGate, prioritaire sur SNMP.
             let fortigate = FortiGateStore.shared
             if !engineCancelled, !Task.isCancelled, fortigate.isEnabled, fortigate.isConfigured {
-                self.phase = .locations
-                await fortigate.refresh(state: state)
+                if self.plannedPhases.contains(.locations) { self.phase = .locations }
+                await fortigate.refreshAfterScan(state: state)
             }
             switches.scanEnded(interrupted: Task.isCancelled, planned: discoversSwitches)
             self.finish(state, targets: targets, found: foundIDs, engineCancelled: engineCancelled, snmpCancelled: Task.isCancelled)

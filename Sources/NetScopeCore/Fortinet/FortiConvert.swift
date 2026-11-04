@@ -32,7 +32,9 @@ public enum FortiConvert {
                 p.isISL = p.isISL || c.isISL
                 return p
             }
-            for (name, c) in entry.ports.sorted(by: { $0.key.localizedStandardCompare($1.key) == .orderedAscending }) where !seen.contains(name) {
+            // Seuls les ports physiques absents de l'état sont créés (jamais un trunk).
+            for (name, c) in entry.ports.sorted(by: { $0.key.localizedStandardCompare($1.key) == .orderedAscending })
+                where !seen.contains(name) && FortiParse.isPhysicalPortName(name) {
                 copy.ports.append(FortiSwitchPort(name: name, number: FortiParse.portNumber(name) ?? copy.ports.count + 1,
                                                   adminUp: c.adminUp, nativeVLAN: c.nativeVLAN,
                                                   nativeVLANID: FortiParse.vlanID(fromName: c.nativeVLAN), description: c.description,
@@ -119,9 +121,11 @@ public enum FortiConvert {
         var pvid: [Int: Int] = [:]
         var neighbors: [SNMPLLDPNeighbor] = []
         var poe: [SNMPPoEPort] = []
-        // Ports où un appareil est vu mais que l'état n'a pas listés.
+        // Ports où un appareil est vu mais que l'état n'a pas listés : actifs seulement d'après la
+        // table MAC des switchs (detected-device), pas d'après l'inventaire (dernier port connu).
         for device in devices where !ports.contains(where: { $0.name.lowercased() == device.portName.lowercased() }) {
-            ports.append(FortiSwitchPort(name: device.portName, number: FortiParse.portNumber(device.portName) ?? 9000 + ports.count, linkUp: true))
+            ports.append(FortiSwitchPort(name: device.portName, number: FortiParse.portNumber(device.portName) ?? 9000 + ports.count,
+                                         linkUp: device.fromInventory == true ? nil : true))
         }
         let copper = copperPorts(model: sw.model)
         for port in ports {
@@ -146,7 +150,7 @@ public enum FortiConvert {
             if port.poeCapable == true || port.poePowerW != nil || port.poeState != nil {
                 poe.append(SNMPPoEPort(group: 1, port: port.number, ifIndex: i, adminEnabled: port.poeEnabled,
                                        detection: port.poeDetection, powerClass: port.poeClass,
-                                       consumptionMW: port.poePowerW.map { Int(($0 * 1000).rounded()) }, wattsSource: "FortiGate"))
+                                       consumptionMW: port.poePowerW.flatMap(milliwatts), wattsSource: "FortiGate"))
             }
         }
         var fdb: [SNMPFDBEntry] = []
@@ -163,17 +167,24 @@ public enum FortiConvert {
         let system = SNMPSystemInfo(name: sw.name, descr: descr, objectID: fortinetObjectID, location: sw.description)
         return SNMPSwitchSnapshot(host: host, system: system, interfaces: interfaces, fdb: fdb, neighbors: neighbors, pvid: pvid,
                                   poePorts: Set(poe.filter(\.isDelivering).compactMap(\.ifIndex)),
-                                  poeBudgetW: sw.poeBudgetW.map { Int($0.rounded()) },
+                                  poeBudgetW: sw.poeBudgetW.flatMap { $0.isFinite && $0 >= 0 && $0 <= 100_000 ? Int($0.rounded()) : nil },
                                   poeUsedW: watts.isEmpty ? nil : Int((Double(watts.reduce(0, +)) / 1000).rounded()),
                                   poeDetails: poe.isEmpty ? [] : poe, arp: arp, polledAt: polledAt, controllerName: controller)
     }
 
-    /// Nombre de ports cuivre d'après le modèle : « FS-248E-POE » → 48, « FS-124F » → 24, « FS-108F » → 8.
+    /// Puissance d'un port en mW ; nil pour une valeur aberrante (au-delà de 1 000 W ou négative).
+    static func milliwatts(_ watts: Double) -> Int? {
+        guard watts.isFinite, watts >= 0, watts <= 1000 else { return nil }
+        return Int(exactly: (watts * 1000).rounded())
+    }
+
+    /// Nombre de ports cuivre d'après le modèle : « FS-248E-POE » → 48, « FS-124F » → 24,
+    /// « FS-108F » → 8 ; quatre chiffres : « FS-1048E » → 48, « FS-3032E » → 32.
     public static func copperPorts(model: String) -> Int? {
         let upper = model.uppercased()
-        guard let range = upper.range(of: #"\d{3}"#, options: .regularExpression) else { return nil }
+        guard let range = upper.range(of: #"\d{3,4}"#, options: .regularExpression) else { return nil }
         let digits = upper[range]
-        return Int(digits.dropFirst())
+        return Int(digits.count == 4 ? digits.suffix(2) : digits.dropFirst())
     }
 
     // MARK: Noms et ARP
@@ -207,7 +218,7 @@ public enum FortiConvert {
 public enum FortiLocate {
     /// Les ports d'accès d'un FortiSwitch viennent des appareils détectés par la FortiGate : seuls
     /// les liens FortiLink et ISL sont des uplinks (pas de seuil de nombre de MAC).
-    static let controllerMacThreshold = 1_000_000
+    public static let controllerMacThreshold = 1_000_000
 
     /// Relevés SNMP d'un switch déjà lu par la FortiGate (même nom ou même adresse) écartés.
     public static func withoutDuplicates(snmp: [SNMPSwitchSnapshot], controller: [SNMPSwitchSnapshot]) -> [SNMPSwitchSnapshot] {
@@ -270,4 +281,13 @@ public enum FortiLocate {
         let placed = locate(named.devices, controller: controller, snmp: snmp)
         return (placed.devices, placed.located, named.named, filled.filled)
     }
+}
+
+public extension SNMPSwitchSnapshot {
+    /// Seuil de MAC au-delà duquel un port passe pour un uplink : celui de la localisation
+    /// (aucun seuil pour un FortiSwitch lu par la FortiGate, 8 en SNMP).
+    var uplinkThreshold: Int { isViaController ? FortiLocate.controllerMacThreshold : 8 }
+
+    /// Uplinks selon la même règle que la localisation des appareils (affichage, export).
+    var locatedUplinks: Set<Int> { uplinkInterfaces(macThreshold: uplinkThreshold) }
 }

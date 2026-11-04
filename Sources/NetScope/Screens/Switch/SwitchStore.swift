@@ -23,6 +23,11 @@ final class SwitchStore: ObservableObject {
     @Published private(set) var controllerHosts: [String] = []
     /// Noms connus de la FortiGate (inventaire, baux DHCP), pour les appareils absents du scan.
     private(set) var controllerNames: [MACAddress: String] = [:]
+    /// Réseau sur lequel les FortiSwitch ont été lus : sur un autre réseau, ils ne servent plus à
+    /// situer les appareils (une table MAC périmée donnerait un faux port).
+    private var controllerNetwork: NetworkContext?
+    /// Heure de la lecture des FortiSwitch : au-delà de 15 min, la fin de scan les relit d'abord.
+    private var controllerReadAt: Date?
     @Published private(set) var errors: [String: String] = [:]
     @Published private(set) var isPolling = false
     /// Découverte automatique en cours (fin de scan) : l'interrogation manuelle attend.
@@ -65,6 +70,10 @@ final class SwitchStore: ObservableObject {
     private static let hostsKey = "NetScope.switchs.hotes"
     private static let autoHostsKey = "NetScope.switchs.decouverts"
     private static let ignoredKey = "NetScope.switchs.ignores"
+    private static let controllerSwitchesKey = "NetScope.fortigate.switchs"
+    /// FortiSwitch déjà lus par une FortiGate (nom du switch → nom du contrôleur), gardés entre deux
+    /// lancements : la source affichée de l'emplacement reste « FortiGate » avant la première lecture.
+    private var knownControllerSwitches: [String: String] = [:]
     /// Écritures au Trousseau, dans l'ordre, hors du fil principal.
     private static let vaultQueue = DispatchQueue(label: "netscope.switchs.trousseau")
     private var pollTask: Task<Void, Never>?
@@ -81,6 +90,7 @@ final class SwitchStore: ObservableObject {
             hosts = UserDefaults.standard.stringArray(forKey: Self.hostsKey) ?? []
             autoHosts = Set(UserDefaults.standard.stringArray(forKey: Self.autoHostsKey) ?? [])
             ignoredHosts = Set(UserDefaults.standard.stringArray(forKey: Self.ignoredKey) ?? [])
+            knownControllerSwitches = UserDefaults.standard.dictionary(forKey: Self.controllerSwitchesKey) as? [String: String] ?? [:]
         }
     }
 
@@ -191,7 +201,7 @@ final class SwitchStore: ObservableObject {
 
     /// Contrôleur (FortiGate) du switch qui porte ce nom, si c'est un FortiSwitch géré.
     func controllerName(forSwitch name: String) -> String? {
-        controllerSnapshots.first { $0.displayName == name }?.controllerName
+        controllerSnapshots.first { $0.displayName == name }?.controllerName ?? knownControllerSwitches[name]
     }
 
     /// Remplace les FortiSwitch lus par la FortiGate (une lecture remplace la précédente).
@@ -207,11 +217,36 @@ final class SwitchStore: ObservableObject {
         if selectedHost == nil || snapshots[selectedHost!] == nil { selectedHost = allHosts.first { snapshots[$0] != nil } }
     }
 
+    /// Retire les FortiSwitch lus par la FortiGate (lecture échouée, FortiGate changée ou désactivée).
+    func clearController() {
+        guard !isDemo, !controllerHosts.isEmpty || !controllerNames.isEmpty else { return }
+        setControllerSnapshots([])
+        controllerNames = [:]
+        controllerNetwork = nil
+        controllerReadAt = nil
+    }
+
+    /// FortiSwitch utilisables pour situer les appareils : lus sur le réseau actuel.
+    private func usableControllerSnapshots(_ state: AppState) -> [SNMPSwitchSnapshot] {
+        guard !isDemo else { return controllerSnapshots }
+        guard let read = controllerNetwork, let current = state.currentNetwork,
+              read.subnet == current.subnet, read.gateway == current.gateway,
+              let readAt = controllerReadAt, Date().timeIntervalSince(readAt) < FortiGateReport.locationMaxAge else { return [] }
+        return controllerSnapshots
+    }
+
     /// Lecture de la FortiGate reçue : FortiSwitch affichés, puis MAC, noms et emplacement des
     /// appareils du scan (FortiGate > SNMP).
     func applyController(_ report: FortiGateReport, state: AppState) {
         setControllerSnapshots(FortiConvert.snapshots(from: report))
         controllerNames = FortiConvert.names(from: report)
+        controllerNetwork = state.currentNetwork
+        controllerReadAt = Date()
+        if !isDemo {
+            // Emplacement donné par la FortiGate : la source est retenue avec le nom du switch.
+            for snapshot in controllerSnapshots { knownControllerSwitches[snapshot.displayName] = snapshot.controllerName ?? report.controllerName }
+            UserDefaults.standard.set(knownControllerSwitches, forKey: Self.controllerSwitchesKey)
+        }
         let result = FortiLocate.apply(report, to: state.devices, snmp: snmpSnapshots)
         state.devices = result.devices
         let ports = FortiLocate.accessPorts(controller: controllerSnapshots, snmp: snmpSnapshots)
@@ -282,7 +317,9 @@ final class SwitchStore: ObservableObject {
     var canPoll: Bool {
         guard !isPolling, !isDiscovering else { return false }
         let fortigate = FortiGateStore.shared
-        return hosts.contains { !isController($0) && !community(for: $0).isEmpty } || (fortigate.isEnabled && fortigate.isConfigured)
+        guard !fortigate.isBusy else { return false }
+        return hosts.contains { !isController($0) && !community(for: $0).isEmpty }
+            || (fortigate.isEnabled && (fortigate.isReady || fortigate.isDemo))
     }
 
     func poll(state: AppState) {
@@ -312,7 +349,7 @@ final class SwitchStore: ObservableObject {
         // Interrogation manuelle : les appareils localisés le sont sur le réseau actuel.
         locations.record(located.values.flatMap { $0 }, network: state.currentNetwork)
         // FortiSwitch gérés : relus par la FortiGate (prioritaire sur SNMP).
-        await FortiGateStore.shared.refresh(state: state)
+        await FortiGateStore.shared.refreshAfterScan(state: state)
     }
 
     /// Relève les switchs donnés (quatre à la fois), chacun avec sa communauté. Renvoie les
@@ -385,7 +422,7 @@ final class SwitchStore: ObservableObject {
             devices[index].deviceType = .switch
         }
         // Les FortiSwitch lus par la FortiGate passent avant SNMP (note 24).
-        let located = FortiLocate.locate(devices, controller: controllerSnapshots, snmp: all)
+        let located = FortiLocate.locate(devices, controller: usableControllerSnapshots(state), snmp: all)
         state.devices = located.devices
         let ports = located.ports
         var bySwitch: [IPv4Address: [IPv4Address]] = [:]
@@ -399,7 +436,7 @@ final class SwitchStore: ObservableObject {
     /// Reporte le switch, le port et le VLAN de chaque appareil localisé dans AppState (colonne du scanner).
     @discardableResult
     func applyLocations(to state: AppState) -> Int {
-        let result = FortiLocate.locate(state.devices, controller: controllerSnapshots, snmp: snmpSnapshots)
+        let result = FortiLocate.locate(state.devices, controller: usableControllerSnapshots(state), snmp: snmpSnapshots)
         if result.located > 0 { state.devices = result.devices }
         let ports = result.ports
         let placed = result.devices.filter { device in device.mac.map { ports[$0] != nil } ?? false }.map(\.ip)
@@ -632,7 +669,7 @@ final class SwitchStore: ObservableObject {
     func csv(devices: [Device]) -> String {
         var lines = ["Switch;Port;Alias;VLAN;MAC;IP;Nom;Fabricant;Uplink"]
         for snapshot in orderedSnapshots {
-            let uplinks = snapshot.uplinkInterfaces()
+            let uplinks = snapshot.locatedUplinks
             for entry in snapshot.fdb {
                 guard let i = entry.ifIndex else { continue }
                 let iface = snapshot.interface(i)

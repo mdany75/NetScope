@@ -289,8 +289,8 @@ struct RegFortiGatePanel: View {
                     RegFortiSwitchTable(table: switchTable, report: report)
                         .regTableFrame()
                 }
-                callsSummary
             }
+            callsSummary
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -319,7 +319,7 @@ struct RegFortiGatePanel: View {
             .regDisabled(fortigate.lastCalls.isEmpty)
             .help("Copie les réponses JSON de chaque appel de la dernière lecture, sans le jeton, pour ajuster la lecture à votre version de FortiOS.")
             Button {
-                fortigate.test()
+                fortigate.test(state: state)
             } label: {
                 HStack(spacing: 6) {
                     if fortigate.isBusy { ProgressView().controlSize(.small) }
@@ -339,7 +339,9 @@ struct RegFortiGatePanel: View {
         if !missing.isEmpty || !refused.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(refused, id: \.path) { call in
-                    Text("Refusé\u{00A0}: \(call.path)" + (call.status.map { " (HTTP \($0))" } ?? "") + (call.message.isEmpty ? "" : " — \(call.message)"))
+                    // Refusé : droit du profil ou hôte de confiance ; échec : délai, réseau ou réponse illisible.
+                    Text((call.outcome == .refused ? "Refusé" : "Échec") + "\u{00A0}: \(call.path)"
+                         + (call.status.map { " (HTTP \($0))" } ?? "") + (call.message.isEmpty ? "" : " — \(call.message)"))
                         .font(Theme.small).foregroundStyle(Theme.warning)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -376,11 +378,11 @@ struct RegFortiGatePanel: View {
     }
 
     private var helpSteps: [String] {
-        let mac = state.activeInterface?.address.description ?? "l’adresse IP de ce Mac"
+        let mac = state.activeInterface.map { "\($0.address.description)/32" } ?? "l’adresse IP de ce Mac suivie de /32"
         return [
             "Sur la FortiGate (ou dans FortiManager, si elle y est gérée), ouvrez System › Admin Profiles › Create New. Nom\u{00A0}: «\u{00A0}netscope-lecture\u{00A0}». Mettez tout à «\u{00A0}None\u{00A0}», sauf «\u{00A0}WiFi & Switch Controller\u{00A0}» en «\u{00A0}Read\u{00A0}» (indispensable). Pour la table ARP, les baux DHCP et les noms d’appareils, ajoutez «\u{00A0}Network\u{00A0}», «\u{00A0}System\u{00A0}» et «\u{00A0}User & Device\u{00A0}» en «\u{00A0}Read\u{00A0}». Aucun droit en écriture.",
             "System › Administrators › Create New › REST API Admin. Nom\u{00A0}: «\u{00A0}netscope\u{00A0}», profil\u{00A0}: «\u{00A0}netscope-lecture\u{00A0}». Laissez «\u{00A0}PKI Group\u{00A0}» et «\u{00A0}CORS\u{00A0}» décochés.",
-            "Cochez «\u{00A0}Trusted Hosts\u{00A0}» et saisissez \(mac)/32\u{00A0}: le jeton ne sera accepté que depuis ce Mac. Une autre adresse donnera «\u{00A0}Accès refusé (HTTP 403)\u{00A0}».",
+            "Cochez «\u{00A0}Trusted Hosts\u{00A0}» et saisissez \(mac)\u{00A0}: le jeton ne sera accepté que depuis ce Mac. Une autre adresse donnera «\u{00A0}Accès refusé (HTTP 403)\u{00A0}».",
             "Cliquez OK\u{00A0}: la FortiGate affiche le jeton une seule fois. Copiez-le, collez-le ci-dessus et cliquez «\u{00A0}Enregistrer au Trousseau\u{00A0}».",
             "Vérifiez que l’accès HTTPS d’administration est permis sur l’interface que joint ce Mac (Network › Interfaces › Administrative Access › HTTPS) et le port HTTPS (System › Settings, 443 par défaut, souvent 8443 ou 10443).",
             "Saisissez l’adresse de la FortiGate, le port et, seulement en mode multi-VDOM, le VDOM des FortiSwitch. Cliquez «\u{00A0}Tester\u{00A0}»\u{00A0}: au premier contact, comparez l’empreinte du certificat avec celle de la FortiGate puis acceptez-la, et cliquez de nouveau «\u{00A0}Tester\u{00A0}».",
@@ -411,9 +413,21 @@ struct RegFortiSwitchRow: Identifiable {
     let address: String
     let addressSort: UInt32
     let status: String
-    let connected: Bool
+    /// Rang de l'état, pour le tri et la couleur : 0 connecté et autorisé, 1 connecté,
+    /// 2 découvert ou non autorisé (inutilisable), 3 déconnecté.
+    let statusRank: Int
     let ports: String
+    /// Nombre de ports actifs (tri de la colonne « Ports actifs »).
+    let portsSort: Int
     let devices: Int
+
+    var statusTone: Tone {
+        switch statusRank {
+        case 0, 1: return .success
+        case 2: return .warning
+        default: return .critical
+        }
+    }
 }
 
 /// FortiSwitch lus par la FortiGate (tableau standard « reglages.fortiswitch »).
@@ -438,10 +452,10 @@ struct RegFortiSwitchTable: View {
         "modele": KeyPathComparator(\RegFortiSwitchRow.model),
         "logiciel": KeyPathComparator(\RegFortiSwitchRow.firmware),
         "adresse": KeyPathComparator(\RegFortiSwitchRow.addressSort),
-        "etat": KeyPathComparator(\RegFortiSwitchRow.status),
+        "etat": KeyPathComparator(\RegFortiSwitchRow.statusRank),
         "appareils": KeyPathComparator(\RegFortiSwitchRow.devices),
         "serie": KeyPathComparator(\RegFortiSwitchRow.serial),
-        "ports": KeyPathComparator(\RegFortiSwitchRow.ports),
+        "ports": KeyPathComparator(\RegFortiSwitchRow.portsSort),
     ]
 
     @MainActor
@@ -454,17 +468,18 @@ struct RegFortiSwitchTable: View {
         let rows = report.switches.map { sw -> RegFortiSwitchRow in
             let up = sw.ports.filter { $0.linkUp == true }.count
             let status: String
+            let rank: Int
             switch (sw.connected, sw.state?.lowercased()) {
-            case (false?, _): status = "Déconnecté"
-            case (_, "authorized"?): status = "Connecté · autorisé"
-            case (_, "discovered"?): status = "Découvert · à autoriser"
-            case (_, "unauthorized"?), (_, "deauthorized"?): status = "Non autorisé"
-            default: status = "Connecté"
+            case (false?, _): (status, rank) = ("Déconnecté", 3)
+            case (_, "authorized"?): (status, rank) = ("Connecté · autorisé", 0)
+            case (_, "discovered"?): (status, rank) = ("Découvert · à autoriser", 2)
+            case (_, "unauthorized"?), (_, "deauthorized"?): (status, rank) = ("Non autorisé", 2)
+            default: (status, rank) = ("Connecté", 1)
             }
             return RegFortiSwitchRow(id: sw.switchID, name: sw.name, model: sw.model.isEmpty ? "FortiSwitch" : sw.model, serial: sw.serial,
                                      firmware: sw.firmware, address: sw.fortilinkIP?.description ?? "—",
-                                     addressSort: sw.fortilinkIP?.value ?? .max, status: status, connected: sw.connected != false,
-                                     ports: "\(up) / \(sw.ports.count)",
+                                     addressSort: sw.fortilinkIP?.value ?? .max, status: status, statusRank: rank,
+                                     ports: "\(up) / \(sw.ports.count)", portsSort: up,
                                      devices: located.filter { sw.keys.contains($0.switchID.lowercased()) }.count)
         }
         .sorted(using: table.sortOrder)
@@ -500,7 +515,7 @@ struct RegFortiSwitchTable: View {
             .customizationID("adresse")
 
             TableColumn("ÉTAT", sortUsing: table.sort("etat")) { row in
-                Chip(text: row.status, tone: row.connected ? .success : .critical)
+                Chip(text: row.status, tone: row.statusTone)
             }
             .width(min: 80, ideal: 100)
             .customizationID("etat")
@@ -528,7 +543,7 @@ struct RegFortiSwitchTable: View {
         .standardTableStyle()
         .contextMenu(forSelectionType: RegFortiSwitchRow.ID.self) { ids in
             if let id = ids.first, let host = host(of: id) {
-                Button("Ouvrir dans « Switchs et ports »") {
+                Button("Ouvrir dans «\u{00A0}Switchs et ports\u{00A0}»") {
                     SwitchStore.shared.select(host: host)
                     state.open(.switchs)
                 }

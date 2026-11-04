@@ -82,7 +82,7 @@ struct SwitchFaceplate: View {
     let onSelect: (Int) -> Void
 
     var body: some View {
-        let uplinks = snapshot.uplinkInterfaces()
+        let uplinks = snapshot.locatedUplinks
         let ports = snapshot.physicalPorts
         let copper = ports.filter { !$0.isModular }
         let modules = ports.filter(\.isModular)

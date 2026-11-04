@@ -182,9 +182,31 @@ public struct FortiGateReader: Sendable {
     }
 
     public func read(now: Date = Date()) async throws -> FortiGateReport {
+        do {
+            return try await readKeepingCalls(now: now)
+        } catch let failure as FortiReadFailure {
+            throw failure.error
+        }
+    }
+
+    /// Comme `read`, mais une erreur emporte les appels déjà faits (`FortiReadFailure`) : le
+    /// diagnostic garde les réponses brutes justement quand la lecture échoue.
+    public func readKeepingCalls(now: Date = Date()) async throws -> FortiGateReport {
         var calls: [FortiCallRecord] = []
-        let (system, systemRecord) = try await system()
-        calls.append(systemRecord)
+        do {
+            return try await readAll(now: now, calls: &calls)
+        } catch let error as FortiGateError {
+            throw FortiReadFailure(error: error, calls: calls)
+        }
+    }
+
+    private func readAll(now: Date, calls: inout [FortiCallRecord]) async throws -> FortiGateReport {
+        let systemFetched = try await fetch(FortiPaths.systemStatus)
+        calls.append(systemFetched.record)
+        if let error = systemFetched.error { throw error }
+        guard let systemBody = systemFetched.response?.body, let system = FortiParsers.system(systemBody) else {
+            throw FortiGateError.invalidResponse(path: FortiPaths.systemStatus)
+        }
 
         // FortiSwitch gérés : adresse 7.x, sinon celle de 6.4 (avec PoE et compteurs).
         var switches: [FortiManagedSwitch] = []
@@ -241,10 +263,21 @@ public struct FortiGateReader: Sendable {
 
         let users = try await fetch(FortiPaths.userDevices)
         calls.append(users.record)
-        if let body = users.response?.body, users.error == nil { report.userDevices = FortiParsers.userDevices(body) ?? [] }
+        if let body = users.response?.body, users.error == nil { report.userDevices = FortiParsers.userDevices(body, now: now) ?? [] }
 
         report.calls = calls
         return report
+    }
+}
+
+/// Lecture interrompue : l'erreur et les appels faits avant elle (pour le diagnostic).
+public struct FortiReadFailure: Error, Sendable {
+    public var error: FortiGateError
+    public var calls: [FortiCallRecord]
+
+    public init(error: FortiGateError, calls: [FortiCallRecord]) {
+        self.error = error
+        self.calls = calls
     }
 }
 

@@ -229,9 +229,11 @@ public struct FortiDetectedDevice: Codable, Hashable, Sendable {
     public var lastSeen: Date?
     public var ip: IPv4Address?
     public var name: String?
+    /// Vrai si l'entrée vient de l'inventaire (dernier port connu) et non de la table MAC des switchs.
+    public var fromInventory: Bool?
 
     public init(mac: MACAddress, switchID: String, portName: String, vlan: Int? = nil, lastSeen: Date? = nil,
-                ip: IPv4Address? = nil, name: String? = nil) {
+                ip: IPv4Address? = nil, name: String? = nil, fromInventory: Bool? = nil) {
         self.mac = mac
         self.switchID = switchID
         self.portName = portName
@@ -239,6 +241,7 @@ public struct FortiDetectedDevice: Codable, Hashable, Sendable {
         self.lastSeen = lastSeen
         self.ip = ip
         self.name = name
+        self.fromInventory = fromInventory
     }
 }
 
@@ -285,9 +288,11 @@ public struct FortiUserDevice: Codable, Hashable, Sendable {
     public var switchID: String?
     public var portName: String?
     public var vlan: Int?
+    /// Dernière fois que la FortiGate a vu l'appareil (champ last_seen de l'inventaire).
+    public var lastSeen: Date?
 
     public init(mac: MACAddress, ip: IPv4Address? = nil, hostname: String? = nil, vendor: String? = nil, os: String? = nil,
-                switchID: String? = nil, portName: String? = nil, vlan: Int? = nil) {
+                switchID: String? = nil, portName: String? = nil, vlan: Int? = nil, lastSeen: Date? = nil) {
         self.mac = mac
         self.ip = ip
         self.hostname = hostname
@@ -296,6 +301,7 @@ public struct FortiUserDevice: Codable, Hashable, Sendable {
         self.switchID = switchID
         self.portName = portName
         self.vlan = vlan
+        self.lastSeen = lastSeen
     }
 }
 
@@ -353,16 +359,23 @@ public struct FortiGateReport: Codable, Hashable, Sendable {
         system.hostname.isEmpty ? (system.model.isEmpty ? "FortiGate" : system.model) : system.hostname
     }
 
-    /// Appareils localisés sur un port (détectés, sinon inventaire de la FortiGate).
+    /// Ancienneté maximale d'une observation pour situer un appareil (15 min avant la lecture).
+    public static let locationMaxAge: TimeInterval = 15 * 60
+
+    /// Appareils localisés sur un port (détectés, sinon inventaire de la FortiGate), vus depuis
+    /// moins de `locationMaxAge` : un appareil débranché depuis longtemps n'est plus situé.
     public var locatedDevices: [FortiDetectedDevice] {
+        let oldest = readAt.addingTimeInterval(-Self.locationMaxAge)
         var byMAC: [MACAddress: FortiDetectedDevice] = [:]
-        for device in userDevices {
-            guard let id = device.switchID, let port = device.portName else { continue }
-            byMAC[device.mac] = FortiDetectedDevice(mac: device.mac, switchID: id, portName: port, vlan: device.vlan, ip: device.ip,
-                                                    name: device.hostname)
+        // detected-device fait foi (table MAC des switchs) ; sans date, l'entrée est actuelle.
+        for device in detected where (device.lastSeen ?? readAt) >= oldest { byMAC[device.mac] = device }
+        // L'inventaire ne complète que les MAC absentes de detected-device, vues récemment.
+        let detectedMACs = Set(detected.map(\.mac))
+        for device in userDevices where !detectedMACs.contains(device.mac) && byMAC[device.mac] == nil {
+            guard let id = device.switchID, let port = device.portName, let seen = device.lastSeen, seen >= oldest else { continue }
+            byMAC[device.mac] = FortiDetectedDevice(mac: device.mac, switchID: id, portName: port, vlan: device.vlan, lastSeen: seen,
+                                                    ip: device.ip, name: device.hostname, fromInventory: true)
         }
-        // detected-device fait foi (table MAC des switchs) ; l'inventaire complète.
-        for device in detected { byMAC[device.mac] = device }
         return byMAC.values.sorted { ($0.switchID, $0.portName, $0.mac.value) < ($1.switchID, $1.portName, $1.mac.value) }
     }
 }

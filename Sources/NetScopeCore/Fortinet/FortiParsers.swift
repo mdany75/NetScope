@@ -149,15 +149,31 @@ public enum FortiParsers {
         for item in FortiJSON.objects(FortiJSON.results(json)) {
             guard let id = item.string("switch-id", "switch_id", "name", "sn", "_key") else { continue }
             var ports: [String: PortConfig] = [:]
+            // Agrégats (trunk FortiLink « __FoRtI1LiNk0__ », trunks ISL) : pas des ports physiques ;
+            // ils ne servent qu'à marquer leurs ports membres.
+            var trunks: [(members: [String], fortilink: Bool, isl: Bool)] = []
             for port in item.list("ports") {
                 guard let name = port.string("port-name", "port_name", "name", "interface") else { continue }
                 let fortilink = port.bool("fortilink-port", "fortilink_port") == true
                 let isl = port.string("isl-local-trunk-name", "isl_local_trunk_name", "isl-peer-device-name") != nil
+                let kind = port.string("type", "port_type", "port-type")?.lowercased()
+                let members = port.list("members").compactMap { $0.string("member-name", "member_name", "name") }
+                if kind == "trunk" || !members.isEmpty || !FortiParse.isPhysicalPortName(name) {
+                    let lower = name.lowercased()
+                    let linkTrunk = fortilink || (lower.contains("forti") && lower.contains("link"))
+                    trunks.append((members.map { $0.lowercased() }, linkTrunk, isl || !linkTrunk))
+                    continue
+                }
                 ports[name.lowercased()] = PortConfig(description: port.string("description"),
                                                       nativeVLAN: port.string("vlan", "native-vlan"),
                                                       adminUp: port.bool("status", "admin-status"),
                                                       poeEnabled: port.bool("poe-status", "poe_status"),
                                                       isFortiLink: fortilink, isISL: isl)
+            }
+            for trunk in trunks {
+                for member in trunk.members where ports[member] != nil {
+                    if trunk.fortilink { ports[member]?.isFortiLink = true } else if trunk.isl { ports[member]?.isISL = true }
+                }
             }
             let entry = (name: item.string("name"), description: item.string("description"), ports: ports)
             for key in [id, item.string("sn"), item.string("name")].compactMap({ $0?.lowercased() }) { result[key] = entry }
@@ -267,7 +283,7 @@ public enum FortiParsers {
     }
 
     /// /api/v2/monitor/user/device/query : inventaire des appareils (nom, fabricant, système, port).
-    public static func userDevices(_ data: Data) -> [FortiUserDevice]? {
+    public static func userDevices(_ data: Data, now: Date = Date()) -> [FortiUserDevice]? {
         guard let json = FortiJSON.parse(data) else { return nil }
         return FortiJSON.objects(FortiJSON.results(json)).compactMap { item in
             guard let mac = FortiParse.mac(item.any("mac", "master_mac", "mac_address")) else { return nil }
@@ -278,7 +294,8 @@ public enum FortiParsers {
                                    os: item.string("os_name", "os"),
                                    switchID: item.string("fortiswitch_id", "fortiswitch", "switch_id", "fortiswitch_serial"),
                                    portName: port.map { Int($0) != nil ? "port\($0)" : $0 },
-                                   vlan: item.int("fortiswitch_vlan_id", "vlan_id", "vlan"))
+                                   vlan: item.int("fortiswitch_vlan_id", "vlan_id", "vlan"),
+                                   lastSeen: FortiParse.lastSeen(item.any("last_seen", "last-seen", "lastseen"), now: now))
         }
     }
 

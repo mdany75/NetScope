@@ -177,17 +177,24 @@ public enum FortiParse {
             let d = n.doubleValue
             guard d > 0, d.isFinite else { return nil }
             // Valeur en b/s (certaines versions) : 1 000 000 000 → 1000.
-            return d >= 1_000_000 ? UInt64(d / 1_000_000) : UInt64(d)
+            return plausibleSpeed(d >= 1_000_000 ? d / 1_000_000 : d)
         }
         guard let text = (value as? String)?.lowercased().trimmingCharacters(in: .whitespaces), !text.isEmpty else { return nil }
         let number = text.prefix { $0.isNumber || $0 == "." }
         guard let amount = Double(number), amount > 0 else { return nil }
         let rest = text.dropFirst(number.count).trimmingCharacters(in: .whitespaces)
-        if rest.hasPrefix("g") { return UInt64((amount * 1000).rounded()) }
-        if rest.hasPrefix("m") || rest.isEmpty || rest.hasPrefix("full") || rest.hasPrefix("half") || rest.hasPrefix("auto") {
-            return UInt64(amount.rounded())
-        }
-        return UInt64(amount.rounded())
+        if rest.hasPrefix("g") { return plausibleSpeed(amount * 1000) }
+        return plausibleSpeed(amount)
+    }
+
+    /// Vitesse la plus haute acceptée (1 Tb/s) : au-delà, la valeur est aberrante.
+    static let maxSpeedMbps: Double = 1_000_000
+
+    /// Mb/s arrondis, nil pour une valeur aberrante (jamais de conversion qui s'arrête net).
+    static func plausibleSpeed(_ value: Double) -> UInt64? {
+        let rounded = value.rounded()
+        guard rounded.isFinite, rounded > 0, rounded <= maxSpeedMbps else { return nil }
+        return UInt64(exactly: rounded)
     }
 
     /// Duplex tiré de la vitesse (« 1000full ») ou d'un champ séparé.
@@ -204,6 +211,12 @@ public enum FortiParse {
     }
 
     /// Numéro du port : « port12 » → 12 ; « port1/12 » → 12 ; nil sans chiffre.
+    /// Nom d'un port physique de FortiSwitch : « port7 », « port1.2 » (port éclaté) ; pas un trunk
+    /// (« __FoRtI1LiNk0__ », « 8EF3X1234567890 »).
+    public static func isPhysicalPortName(_ name: String) -> Bool {
+        name.range(of: #"^port\d+(\.\d+)?$"#, options: [.regularExpression, .caseInsensitive]) != nil
+    }
+
     public static func portNumber(_ name: String) -> Int? {
         name.split(whereSeparator: { !$0.isNumber }).last.flatMap { Int($0) }
     }
