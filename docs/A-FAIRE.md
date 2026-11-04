@@ -703,3 +703,18 @@ entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 3
 
 - Accueil au premier lancement (autorisations, premier site, FortiGate), bouton « ? » dans
   chaque écran, menu Aide rempli (aujourd’hui vide).
+
+## 45. Retour à l'écran d'avant, dans tous les modules — À PLANIFIER (demande de Dany)
+
+« Revenir à l'écran d'avant, peu importe le module, après un double-clic sur un élément. »
+Exemple : Inventaire › double-clic sur une IP › fiche Appareil › Retour › Inventaire. Précise
+le « Retour » de la note 34 :
+
+- Un historique de navigation commun à toute l'app (dans `AppState`) : chaque saut par
+  double-clic, ↩︎ ou « Ouvrir dans… » empile l'écran de départ.
+- Bouton ‹ Retour dans la barre d'outils (et › Avancer), raccourcis ⌘[ et ⌘], menu
+  Présentation › Retour ; le bouton nomme l'écran d'origine (« ‹ Inventaire »).
+- Au retour, l'écran revient tel qu'on l'a laissé : filtre, recherche, tri, sélection et
+  position dans la liste (ex. la même ligne de l'Inventaire sélectionnée).
+- Un clic dans la barre latérale vers un autre module compte aussi comme un écran de
+  l'historique ; l'historique se vide en changeant de site.
