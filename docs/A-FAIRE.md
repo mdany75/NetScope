@@ -5,19 +5,18 @@
 
 ## Priorités (revues le 3 novembre 2026)
 
-Notes 1 à 5 : livrées dans la 0.3.0.
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0.
 
-1. **0.3.1, correctifs** : note 18 (bilan périmé) livrée dans la 0.3.1 ; retours d'essai de la
-   0.3.0 à venir (0.3.2 au besoin).
-2. **0.4.0, interface** : notes 8 (tableaux standard), 20 (colonne Type), 19 (préréglage de
-   ports), 9 (style Mac et petite fenêtre).
-3. **0.5.0, diagnostic du poste et du réseau local** : notes 12 (PoE), 21 (ressources),
+1. **0.4.x, retours d'essai** : essais réels de la 0.3.x (localisation, DHCP, capture,
+   notifications, VNC, mise à jour) et de la 0.4.0 (menus de colonnes, type, ports, sombre) ;
+   0.4.1 au besoin.
+2. **0.5.0, diagnostic du poste et du réseau local** : notes 12 (PoE), 21 (ressources),
    17 (bouton Installer), 16 (serveur Speedtest).
-4. **0.6.0, Internet et nuage** : notes 15 (état des services), 14 (courriel et DNS).
-5. **0.7.0, analyse avancée** : notes 7 (capture de paquets), 22 (vitesse des disques).
-6. **0.8.0, réglages et alertes** : note 13 (sauvegarde, notifications, raccourcis…), alertes
+3. **0.6.0, Internet et nuage** : notes 15 (état des services), 14 (courriel et DNS).
+4. **0.7.0, analyse avancée** : notes 7 (capture de paquets), 22 (vitesse des disques).
+5. **0.8.0, réglages et alertes** : note 13 (sauvegarde, notifications, raccourcis…), alertes
    par courriel et webhook.
-7. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
+6. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
 
