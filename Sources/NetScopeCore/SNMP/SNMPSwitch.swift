@@ -312,13 +312,17 @@ public struct SNMPSwitchSnapshot: Hashable, Sendable, Codable, Identifiable {
     /// Budget et consommation PoE, en watts.
     public var poeBudgetW: Int?
     public var poeUsedW: Int?
+    /// PoE détaillé par port (POWER-ETHERNET-MIB et MIB propriétaires) ; nil dans un relevé
+    /// antérieur à ce détail, vide si le switch ne répond pas à la MIB.
+    public var poeDetails: [SNMPPoEPort]?
     /// Table ARP du switch : MAC → IP (switchs de niveau 3).
     public var arp: [MACAddress: IPv4Address]
     public var polledAt: Date
 
     public init(host: IPv4Address, system: SNMPSystemInfo, interfaces: [SNMPInterface], fdb: [SNMPFDBEntry] = [],
                 neighbors: [SNMPLLDPNeighbor] = [], pvid: [Int: Int] = [:], poePorts: Set<Int> = [],
-                poeBudgetW: Int? = nil, poeUsedW: Int? = nil, arp: [MACAddress: IPv4Address] = [:], polledAt: Date = Date()) {
+                poeBudgetW: Int? = nil, poeUsedW: Int? = nil, poeDetails: [SNMPPoEPort]? = nil,
+                arp: [MACAddress: IPv4Address] = [:], polledAt: Date = Date()) {
         self.host = host
         self.system = system
         self.interfaces = interfaces
@@ -328,6 +332,7 @@ public struct SNMPSwitchSnapshot: Hashable, Sendable, Codable, Identifiable {
         self.poePorts = poePorts
         self.poeBudgetW = poeBudgetW
         self.poeUsedW = poeUsedW
+        self.poeDetails = poeDetails
         self.arp = arp
         self.polledAt = polledAt
     }
@@ -841,27 +846,34 @@ public struct SNMPSwitchPoller: Sendable {
         return nil
     }
 
-    /// Ports PoE qui délivrent du courant, et budget/consommation du premier bloc d'alimentation.
-    public func poe(interfaces: [SNMPInterface]) async throws -> (ports: Set<Int>, budget: Int?, used: Int?) {
-        var delivering: [(group: Int, port: Int)] = []
-        for bind in try await column(SNMPOIDs.pethPsePortDetectionStatus) {
-            guard let suffix = bind.oid.suffix(after: SNMPOIDs.pethPsePortDetectionStatus), suffix.count == 2 else { continue }
-            if bind.value.intValue == 3 { delivering.append((Int(suffix[0]), Int(suffix[1]))) }  // deliveringPower
-        }
-        let physical = interfaces.filter { $0.isPhysical && !$0.isModular }.sorted { $0.index < $1.index }
-        var ports: Set<Int> = []
-        for item in delivering {
-            // Nom « g/0/p » ou « g/p » d'abord, sinon le p-ième port physique.
-            let byName = physical.first { iface in
-                let parts = iface.name.split(whereSeparator: { !$0.isNumber }).compactMap { Int($0) }
-                return parts.count >= 2 && parts.first == item.group && parts.last == item.port
+    /// PoE : détail par port (état, classe, priorité, watts Cisco ou HPE), ports qui délivrent du
+    /// courant, budget et consommation du premier bloc d'alimentation.
+    public func poe(interfaces: [SNMPInterface], brand: String? = nil)
+        async throws -> (ports: Set<Int>, budget: Int?, used: Int?, details: [SNMPPoEPort]) {
+        var columns = SNMPPoEParser.Columns()
+        columns.detection = try await column(SNMPOIDs.pethPsePortDetectionStatus)
+        if !columns.detection.isEmpty {
+            columns.adminEnable = try await optionalColumn(SNMPOIDs.pethPsePortAdminEnable)
+            columns.classification = try await optionalColumn(SNMPOIDs.pethPsePortPowerClassifications)
+            columns.priority = try await optionalColumn(SNMPOIDs.pethPsePortPowerPriority)
+            // Watts par port : seulement sur les marques qui les publient (une table absente coûte un délai).
+            switch brand {
+            case "Cisco":
+                columns.ciscoConsumption = try await optionalColumn(SNMPOIDs.cpeExtPsePortPwrConsumption)
+                columns.ciscoAllocated = try await optionalColumn(SNMPOIDs.cpeExtPsePortPwrAllocated)
+            case "HP", "HPE", "Aruba":
+                columns.hpePower = try await optionalColumn(SNMPOIDs.hpicfPoePethPsePortPower)
+            default:
+                break
             }
-            if let byName { ports.insert(byName.index) }
-            else if item.group == 1, item.port >= 1, item.port <= physical.count { ports.insert(physical[item.port - 1].index) }
         }
-        let budget = try await column(SNMPOIDs.pethMainPsePower).first?.value.intValue.map(Int.init)
-        let used = try await column(SNMPOIDs.pethMainPseConsumptionPower).first?.value.intValue.map(Int.init)
-        return (ports, budget, used)
+        columns.mainPower = try await column(SNMPOIDs.pethMainPsePower)
+        columns.mainConsumption = try await column(SNMPOIDs.pethMainPseConsumptionPower)
+        columns.mainOperStatus = try await optionalColumn(SNMPOIDs.pethMainPseOperStatus)
+        let details = SNMPPoEParser.ports(columns, interfaces: interfaces)
+        let main = SNMPPoEParser.main(columns)
+        let ports = Set(details.filter(\.isDelivering).compactMap(\.ifIndex))
+        return (ports, main?.budgetW, main?.usedW, details)
     }
 
     /// Table ARP du switch (MAC → IP).
@@ -896,9 +908,10 @@ public struct SNMPSwitchPoller: Sendable {
         let fdb = try await fdb(bridgePorts: bridge)
         let pvid = try await pvid(bridgePorts: bridge)
         let neighbors = try await lldpNeighbors(interfaces: interfaces, bridgePorts: bridge)
-        let poe = try await poe(interfaces: interfaces)
+        let poe = try await poe(interfaces: interfaces, brand: system.brand)
         let arp = try await arp()
         return SNMPSwitchSnapshot(host: client.target.host, system: system, interfaces: interfaces, fdb: fdb, neighbors: neighbors,
-                                  pvid: pvid, poePorts: poe.ports, poeBudgetW: poe.budget, poeUsedW: poe.used, arp: arp)
+                                  pvid: pvid, poePorts: poe.ports, poeBudgetW: poe.budget, poeUsedW: poe.used,
+                                  poeDetails: poe.details, arp: arp)
     }
 }

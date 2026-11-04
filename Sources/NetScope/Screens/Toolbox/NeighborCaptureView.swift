@@ -319,6 +319,7 @@ struct NeighborCaptureView: View {
             if let neighbor = model.primary ?? (model.isRunning ? nil : model.lastNeighbor) {
                 summary(neighbor, isCurrent: model.primary != nil)
                 fields(neighbor)
+                PoEMacAnswer(power: neighbor.power, legacySummary: neighbor.poe)
                 if let tip = tip(for: neighbor) {
                     Text(tip).font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
                 }
@@ -526,7 +527,6 @@ struct NeighborCaptureView: View {
             ("Châssis ID", neighbor.chassisID ?? "—"),
             ("Modèle", neighbor.model ?? "—"),
             ("Capacités", neighbor.capabilities.isEmpty ? "—" : neighbor.capabilities.joined(separator: ", ")),
-            ("PoE", neighbor.poe ?? "—"),
             ("TTL", neighbor.ttl.map { "\($0)\u{00A0}s" } ?? "—"),
         ]
         if let voice = neighbor.voiceVLAN { rows.append(("VLAN voix", "\(voice)")) }

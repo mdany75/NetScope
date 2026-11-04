@@ -10,7 +10,7 @@ enum SwitchPortState {
         else if iface.operStatus != .up { self = .down }
         else if uplinks.contains(iface.index) { self = .trunk }
         else if (iface.inErrors ?? 0) >= 100 { self = .err }
-        else if snapshot.poePorts.contains(iface.index) { self = .poe }
+        else if snapshot.poePort(iface.index)?.isDelivering == true { self = .poe }
         else if (iface.speedMbps ?? 0) >= 1000 { self = .up1g }
         else { self = .up100 }
     }

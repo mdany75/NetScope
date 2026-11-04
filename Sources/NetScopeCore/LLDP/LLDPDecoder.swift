@@ -15,8 +15,8 @@ public enum LLDPDecoder {
         var sawChassis = false
         var medModel: String?
         var medManufacturer: String?
-        var poeBase: String?
-        var poeMED: String?
+        var poeBase: PoEPowerInfo?
+        var poeMED: PoEPowerInfo?
         while offset + 2 <= pdu.count {
             let header = CaptureBytes.u16(pdu, offset)
             let type = Int(header >> 9)
@@ -74,7 +74,7 @@ public enum LLDPDecoder {
                 case (0x00120F, 1):
                     if info.count >= 5 { neighbor.link = mauLabel(CaptureBytes.u16(info, 3)) }
                 case (0x00120F, 2):
-                    poeBase = powerViaMDI(info)
+                    poeBase = PoEDecoder.powerViaMDI(info)
                 case (0x00120F, 4):
                     if info.count >= 2 { neighbor.maxFrameSize = Int(CaptureBytes.u16(info, 0)) }
                 case (0x0012BB, 2):
@@ -86,10 +86,7 @@ public enum LLDPDecoder {
                         if !unknown, vlan > 0 { neighbor.voiceVLAN = vlan }
                     }
                 case (0x0012BB, 4):
-                    if info.count >= 3 {
-                        let watts = Double(CaptureBytes.u16(info, 1)) / 10
-                        poeMED = "LLDP-MED · \(wattsText(watts))"
-                    }
+                    poeMED = PoEDecoder.medExtendedPower(info)
                 case (0x0012BB, 7):
                     neighbor.softwareVersion = neighbor.softwareVersion ?? nonEmpty(CaptureBytes.text(info[...]))
                 case (0x0012BB, 9):
@@ -104,7 +101,11 @@ public enum LLDPDecoder {
             }
         }
         guard sawChassis, neighbor.portID != nil else { return nil }
-        neighbor.poe = poeBase ?? poeMED
+        switch (poeBase, poeMED) {
+        case let (base?, med?): neighbor.power = base.merged(with: med)
+        default: neighbor.power = poeBase ?? poeMED
+        }
+        neighbor.poe = neighbor.power?.summary
         if let medModel {
             neighbor.model = [medManufacturer, medModel].compactMap { $0 }.joined(separator: " ")
         } else if let description = neighbor.systemDescription {
@@ -148,24 +149,6 @@ public enum LLDPDecoder {
 
     static func names(_ bits: UInt16) -> [String] {
         capabilityNames.enumerated().compactMap { index, name in bits & (1 << index) != 0 ? name : nil }
-    }
-
-    /// Power via MDI (802.3) : prise en charge, état, et l'extension 802.3at (puissance allouée).
-    static func powerViaMDI(_ info: [UInt8]) -> String? {
-        guard info.count >= 3 else { return nil }
-        let support = info[0]
-        let isPSE = support & 0x01 != 0
-        let supported = support & 0x02 != 0
-        let enabled = support & 0x04 != 0
-        guard supported || isPSE else { return "Pas de PoE" }
-        let standard = info.count >= 8 ? "802.3at" : "802.3af"
-        guard enabled else { return "\(standard) · désactivé" }
-        if info.count >= 8 {
-            let allocated = Double(CaptureBytes.u16(info, 6)) / 10
-            return allocated > 0 ? "\(standard) · \(wattsText(allocated)) alloués" : "\(standard) · non utilisé"
-        }
-        let powerClass = Int(info[2])
-        return powerClass >= 1 ? "\(standard) · classe \(powerClass - 1)" : standard
     }
 
     static func wattsText(_ watts: Double) -> String {

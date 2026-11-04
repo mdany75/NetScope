@@ -58,6 +58,6 @@ enum CaptureDemo {
                         model: "Aruba 2930F-24G", softwareVersion: "WC.16.11.0012", nativeVLAN: 1,
                         managementAddresses: ["10.182.122.3"], capabilities: ["Bridge", "Router"],
                         poe: "802.3at · non utilisé", link: "1000BASE-T duplex intégral", ttl: 120,
-                        sourceMAC: "88:3A:30:9C:41:22", receivedAt: receivedAt, interface: "en7")
+                        sourceMAC: "88:3A:30:9C:41:22", receivedAt: receivedAt, interface: "en7", power: PoEDemo.macPower)
     }
 }

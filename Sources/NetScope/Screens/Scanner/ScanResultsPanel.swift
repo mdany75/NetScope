@@ -278,6 +278,8 @@ struct ScanDeviceTable: View {
         StandardColumn(id: "mac", title: "MAC"),
         StandardColumn(id: "switch", title: "Switch / port"),
         StandardColumn(id: "vlan", title: "VLAN"),
+        // « Suis-je sur un port PoE ? » (note 12) : d'après le relevé SNMP du switch où l'appareil est localisé.
+        StandardColumn(id: "poe", title: "PoE", isDefaultVisible: false),
         StandardColumn(id: "fabricant", title: "Fabricant"),
         StandardColumn(id: "ports", title: "Ports ouverts"),
         StandardColumn(id: "latence", title: "Latence", isDefaultVisible: false),
@@ -384,6 +386,13 @@ struct ScanDeviceTable: View {
                 .width(min: 40, ideal: 44)
                 .customizationID("vlan")
 
+                TableColumn(StandardTableHeading("POE")) { device in
+                    PoECell(status: switches.poeStatus(for: device), dimmed: !state.locationStatus(device).isCurrent)
+                }
+                .width(min: 70, ideal: 140)
+                .customizationID("poe")
+                .defaultVisibility(.hidden)
+
                 TableColumn(StandardTableHeading("FABRICANT"), sortUsing: table.sort("fabricant")) { device in
                     ScanCellText(device.vendorLabel, dimmed: device.vendor == nil && device.mac == nil)
                 }
@@ -396,15 +405,6 @@ struct ScanDeviceTable: View {
                 .width(min: 58, ideal: 66)
                 .customizationID("ports")
 
-                TableColumn(StandardTableHeading("LATENCE"), sortUsing: table.sort("latence")) { device in
-                    Text(ScanFormat.latency(device.latencyMs))
-                        .font(Theme.mono(12))
-                        .foregroundStyle(latencyColor(device.latencyMs))
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                }
-                .width(min: 64, ideal: 72)
-                .customizationID("latence")
-                .defaultVisibility(.hidden)
 
 
 
@@ -414,6 +414,15 @@ struct ScanDeviceTable: View {
             }
 
             Group {
+                TableColumn(StandardTableHeading("LATENCE"), sortUsing: table.sort("latence")) { device in
+                    Text(ScanFormat.latency(device.latencyMs))
+                        .font(Theme.mono(12))
+                        .foregroundStyle(latencyColor(device.latencyMs))
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .width(min: 64, ideal: 72)
+                .customizationID("latence")
+                .defaultVisibility(.hidden)
 
                 TableColumn(StandardTableHeading("VU LA DERNIÈRE FOIS"), sortUsing: table.sort("derniereVue")) { device in
                     TimelineView(.periodic(from: .now, by: 30)) { context in

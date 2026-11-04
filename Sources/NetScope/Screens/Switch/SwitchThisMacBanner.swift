@@ -106,9 +106,10 @@ struct SwitchThisMacBanner: View {
         if let interface = captured(neighbor)?.label ?? neighbor.interface, !interface.isEmpty { head += " sur \(interface)" }
         if stale { return head + "\u{00A0}: le lien a été coupé, ou l’interface ou le réseau a changé depuis\u{00A0}; ce relevé n’est plus actuel. Refaites une capture." }
         var parts = [head]
+        // « Suis-je sur un port PoE ? » (note 12) : la réponse vient juste après la capture.
+        if let power = neighbor.power { parts.append(power.bannerText) } else if let poe = neighbor.poe { parts.append("PoE \(poe)") }
         if let model = neighbor.model { parts.append(model) }
         if let address = neighbor.managementAddresses.first { parts.append("gestion \(address)") }
-        if let poe = neighbor.poe { parts.append("PoE \(poe)") }
         return parts.joined(separator: " · ")
     }
 }

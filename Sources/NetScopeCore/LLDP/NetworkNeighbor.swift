@@ -27,6 +27,8 @@ public struct NetworkNeighbor: Codable, Equatable, Sendable {
     public var capabilities: [String]
     /// Résumé PoE (« 802.3at · non utilisé », « 15,4 W alloués »).
     public var poe: String?
+    /// Détail PoE décodé (802.3, LLDP-MED, CDP) : port PoE, courant fourni, type, classe, puissance.
+    public var power: PoEPowerInfo?
     /// Type de lien négocié (MAU 802.3) : « 1000BASE-T duplex intégral ».
     public var link: String?
     public var duplex: String?
@@ -45,7 +47,7 @@ public struct NetworkNeighbor: Codable, Equatable, Sendable {
                 softwareVersion: String? = nil, nativeVLAN: Int? = nil, voiceVLAN: Int? = nil, vlanNames: [String] = [],
                 managementAddresses: [String] = [], capabilities: [String] = [], poe: String? = nil, link: String? = nil,
                 duplex: String? = nil, maxFrameSize: Int? = nil, vtpDomain: String? = nil, ttl: Int? = nil,
-                sourceMAC: String? = nil, receivedAt: Date? = nil, interface: String? = nil) {
+                sourceMAC: String? = nil, receivedAt: Date? = nil, interface: String? = nil, power: PoEPowerInfo? = nil) {
         self.protocols = protocols
         self.chassisID = chassisID
         self.systemName = systemName
@@ -68,6 +70,7 @@ public struct NetworkNeighbor: Codable, Equatable, Sendable {
         self.sourceMAC = sourceMAC
         self.receivedAt = receivedAt
         self.interface = interface
+        self.power = power
     }
 
     /// Nom du switch : nom système, sinon identifiant du châssis.
@@ -104,7 +107,11 @@ public struct NetworkNeighbor: Codable, Equatable, Sendable {
             result.managementAddresses.append(address)
         }
         result.capabilities = capabilities.isEmpty ? other.capabilities : capabilities
-        result.poe = poe ?? other.poe
+        switch (power, other.power) {
+        case let (a?, b?): result.power = a.merged(with: b)
+        default: result.power = power ?? other.power
+        }
+        result.poe = result.power?.summary ?? poe ?? other.poe
         result.link = link ?? other.link
         result.duplex = duplex ?? other.duplex
         result.maxFrameSize = maxFrameSize ?? other.maxFrameSize

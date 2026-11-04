@@ -229,6 +229,6 @@ enum SwitchDemo {
                                    objectID: "1.3.6.1.4.1.11.2.3.7.11.181", uptimeTicks: etgUptime, location: "Étage 2 · local réseau"),
             interfaces: etgIfs, fdb: etgFDB, neighbors: etgNeighbors, pvid: etgPvid, poePorts: etgPoE,
             poeBudgetW: 370, poeUsedW: 96, polledAt: now.addingTimeInterval(-93))
-        return Result(snapshots: [core, etg], names: names)
+        return Result(snapshots: PoEDemo.apply(to: [core, etg]), names: names)
     }
 }
