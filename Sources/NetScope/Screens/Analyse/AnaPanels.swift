@@ -181,23 +181,7 @@ struct AnaAlertsPanel: View {
             (.alertes, "Alertes (\(alerts.filter { $0.severity == .alerte }.count))"),
             (.info, "Info (\(alerts.filter { $0.severity == .info }.count))"),
         ]
-        return HStack(spacing: 2) {
-            ForEach(options, id: \.0) { value, label in
-                let on = value == filter
-                Button { filter = value } label: {
-                    Text(label).font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(on ? Theme.text : Theme.textSecondary)
-                        .padding(.horizontal, 9).frame(height: 24)
-                        .background(RoundedRectangle(cornerRadius: 4).fill(on ? Theme.panel : Color.clear))
-                        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(on ? Theme.border : Color.clear))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(2)
-        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.neutralSoft))
-        .fixedSize()
+        return InvSegmented(options: options, selection: $filter)
     }
 
     // MARK: Tableau
@@ -304,12 +288,12 @@ struct AnaAlertsPanel: View {
     private func statusCell(_ row: AnaAlertRow) -> some View {
         HStack(spacing: 6) {
             if row.event.status == .aTraiter {
-                Button("Accepter") { set(.accepte, [row]) }.buttonStyle(AnaSmallButtonStyle())
-                Button("Ignorer") { set(.ignore, [row]) }.buttonStyle(AnaSmallButtonStyle())
+                Button("Accepter") { set(.accepte, [row]) }.anaSmallButton()
+                Button("Ignorer") { set(.ignore, [row]) }.anaSmallButton()
             } else {
                 Text(row.statusLabel + (row.event.statusDate.map { " · \(InvFormat.time($0))" } ?? ""))
                     .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                Button("Annuler") { set(.aTraiter, [row]) }.buttonStyle(AnaSmallButtonStyle())
+                Button("Annuler") { set(.aTraiter, [row]) }.anaSmallButton()
             }
             Button("Voir") { open(row) }
                 .buttonStyle(.plain)
@@ -350,17 +334,10 @@ struct AnaAlertsPanel: View {
     }
 }
 
-/// Petit bouton blanc de 28 pt (Accepter, Ignorer, Annuler).
-struct AnaSmallButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(Theme.text)
-            .padding(.horizontal, 10)
-            .frame(height: 28)
-            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(configuration.isPressed ? Theme.panelMuted : Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
-            .contentShape(Rectangle())
+/// Petit bouton de ligne (Accepter, Ignorer, Annuler, Exporter) : bouton natif de macOS, petite taille.
+private extension View {
+    func anaSmallButton() -> some View {
+        buttonStyle(.bordered).controlSize(.small)
     }
 }
 
@@ -526,7 +503,7 @@ struct AnaComparePanel: View {
                 Button("Exporter l’écart CSV") {
                     onExport(csv(diff), "ecart-scans-\(InvFormat.day(after.date)).csv")
                 }
-                .buttonStyle(AnaSmallButtonStyle())
+                .anaSmallButton()
             }
         }
         .padding(16)

@@ -31,7 +31,8 @@ struct InvTile<Footer: View>: View {
                 Text(subtitle)
                     .font(Theme.small)
                     .foregroundStyle(tint == .critical ? Color(light: 0x7F1D1D, dark: 0xE89B9B) : Theme.textSecondary)
-                    .lineLimit(2)
+                    // Petite fenêtre : trois lignes plutôt qu'un sous-titre coupé.
+                    .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
             footer
@@ -58,35 +59,20 @@ extension InvTile where Footer == EmptyView {
     }
 }
 
-/// Groupe de boutons exclusifs (vues sauvegardées, périodes) : fond blanc, élément actif bleu pâle.
+/// Groupe de boutons exclusifs (vues sauvegardées, périodes, gravités) : contrôle segmenté natif
+/// de macOS, qui suit la couleur d'accent et le mode sombre du système.
 struct InvSegmented<Value: Hashable>: View {
     let options: [(Value, String)]
     @Binding var selection: Value
-    /// `filled` : élément actif plein (accent, texte blanc), comme le choix de période de l'analyse.
-    var filled: Bool = false
 
     var body: some View {
-        HStack(spacing: 2) {
+        Picker("", selection: $selection) {
             ForEach(options, id: \.0) { value, label in
-                let on = value == selection
-                Button { selection = value } label: {
-                    Text(label)
-                        .font(.system(size: 12, weight: filled ? .semibold : .medium))
-                        .foregroundStyle(on ? (filled ? Color.white : Theme.accentStrong) : (filled ? Theme.textSecondary : Theme.text))
-                        .padding(.horizontal, 12)
-                        .frame(height: 26)
-                        .background(RoundedRectangle(cornerRadius: filled ? 4 : 6)
-                            .fill(on ? (filled ? Theme.accent : Theme.accentSoft) : Color.clear))
-                        .overlay(RoundedRectangle(cornerRadius: 6)
-                            .strokeBorder(on && !filled ? Theme.accent : Color.clear))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+                Text(label).tag(value)
             }
         }
-        .padding(3)
-        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
-        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+        .pickerStyle(.segmented)
+        .labelsHidden()
         .fixedSize()
     }
 }
@@ -247,7 +233,7 @@ struct InvToast: View {
     }
 }
 
-/// Champ de saisie d'une fiche : intitulé 11 pt au-dessus, bordure grise, 30 pt de haut.
+/// Champ de saisie d'une fiche : intitulé 11 pt au-dessus, champ natif de macOS.
 struct InvField: View {
     let label: String
     @Binding var text: String
@@ -256,13 +242,9 @@ struct InvField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label).font(Theme.captionSemibold).foregroundStyle(Theme.textSecondary)
-            TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(Theme.textTertiary))
-                .textFieldStyle(.plain)
-                .font(Theme.small)
-                .padding(.horizontal, 8)
-                .frame(height: 30)
-                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
-                .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.borderStrong))
+            TextField(label, text: $text, prompt: Text(placeholder))
+                .labelsHidden()
+                .textFieldStyle(.roundedBorder)
         }
     }
 }

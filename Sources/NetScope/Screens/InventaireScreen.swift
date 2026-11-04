@@ -129,21 +129,22 @@ struct InventaireScreen: View {
     private func header(now: Date) -> some View {
         HStack(spacing: 12) {
             InvSegmented(options: InvView.allCases.map { ($0, $0.label) }, selection: $view)
-            Text(mergeCaption(now: now))
-                .font(Theme.small)
-                .foregroundStyle(Theme.textSecondary)
-                .lineLimit(1)
+            // Petite fenêtre : seule la date de fusion reste, plutôt qu'une phrase coupée.
+            ViewThatFits(in: .horizontal) {
+                Text("Base permanente de tous les appareils jamais vus · " + mergeCaption(now: now)).fixedSize()
+                Text(mergeCaption(now: now).prefix(1).uppercased() + mergeCaption(now: now).dropFirst()).lineLimit(1)
+            }
+            .font(Theme.small)
+            .foregroundStyle(Theme.textSecondary)
             Spacer(minLength: 0)
             if let toast = model.toast { InvToast(text: toast) }
         }
     }
 
     private func mergeCaption(now: Date) -> String {
-        guard let last = model.store.lastMerge else {
-            return "Base permanente de tous les appareils jamais vus · aucun scan fusionné pour l’instant"
-        }
+        guard let last = model.store.lastMerge else { return "aucun scan fusionné pour l’instant" }
         let when = InvFormat.relative(last, now: now)
-        return "Base permanente de tous les appareils jamais vus · dernier scan fusionné "
+        return "dernier scan fusionné "
             + (when == "À l’instant" ? "à l’instant" : when.replacingOccurrences(of: "Il y a", with: "il y a"))
     }
 

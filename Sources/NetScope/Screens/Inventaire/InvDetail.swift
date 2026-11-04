@@ -15,11 +15,40 @@ struct InvDetail: View {
     private var current: InvAnnotations { draft ?? record.annotations }
     private var isDirty: Bool { draft != nil && draft != record.annotations }
 
+    /// Largeurs minimales des trois blocs : en dessous, ils passent sur deux rangées, puis en colonne,
+    /// plutôt que d'écraser la chronologie en une colonne de quelques lettres.
+    private static let sheetWidth: CGFloat = 330
+    private static let timelineWidth: CGFloat = 290
+    private static let historiesWidth: CGFloat = 430
+
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            sheet.frame(maxWidth: .infinity)
-            timeline.frame(maxWidth: .infinity)
-            histories.frame(minWidth: 410, maxWidth: .infinity)
+        ViewThatFits(in: .horizontal) {
+            // Grande fenêtre : fiche, chronologie et historiques côte à côte.
+            HStack(alignment: .top, spacing: 14) {
+                sheet.frame(minWidth: Self.sheetWidth, idealWidth: Self.sheetWidth, maxWidth: .infinity)
+                timeline.frame(minWidth: Self.timelineWidth, idealWidth: Self.timelineWidth, maxWidth: .infinity)
+                histories(horizontal: false)
+                    .frame(minWidth: Self.historiesWidth, idealWidth: Self.historiesWidth, maxWidth: .infinity)
+            }
+            // Fenêtre moyenne : fiche et chronologie, puis les deux historiques, côte à côte s'ils tiennent.
+            VStack(spacing: 14) {
+                HStack(alignment: .top, spacing: 14) {
+                    sheet.frame(minWidth: Self.sheetWidth, idealWidth: Self.sheetWidth, maxWidth: .infinity)
+                    timeline.frame(minWidth: Self.timelineWidth, idealWidth: Self.timelineWidth, maxWidth: .infinity)
+                }
+                // Largeur idéale nulle : ce choix interne ne doit pas écarter l'agencement moyen.
+                ViewThatFits(in: .horizontal) {
+                    histories(horizontal: true)
+                    histories(horizontal: false)
+                }
+                .frame(minWidth: 0, idealWidth: 0, maxWidth: .infinity)
+            }
+            // Très petite fenêtre : tout en colonne.
+            VStack(spacing: 14) {
+                sheet
+                timeline.frame(maxWidth: .infinity)
+                histories(horizontal: false)
+            }
         }
     }
 
@@ -43,23 +72,33 @@ struct InvDetail: View {
                     }
                     .frame(width: 38, height: 38)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(record.displayName).font(Theme.panelTitle).lineLimit(1)
-                        HStack(spacing: 6) {
+                        Text(record.displayName).font(Theme.panelTitle).lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
                             let status = record.status(now: now)
                             let colors = InvStyle.status(status)
                             InvPill(text: status.label, foreground: colors.0, background: colors.1)
+                            // Fabricant et nom d'hôte sur deux lignes au besoin plutôt que coupés.
                             Text([record.vendorLabel, record.hostname].compactMap { $0 }.joined(separator: " · "))
-                                .font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                                .font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                     Spacer(minLength: 4)
-                    if state.device(withID: record.ip.description) != nil {
-                        Button("Fiche complète") { state.showDevice(record.ip.description) }.buttonStyle(.ghost)
+                }
+                // « Fiche complète » sur la ligne de l'adresse : le nom garde toute la largeur.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        addressLine.fixedSize()
+                        Spacer(minLength: 0)
+                        fullSheetButton
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        addressLine
+                        fullSheetButton.padding(.leading, -8)
                     }
                 }
-                Text("\(record.ip.description) · \(record.mac?.formatted(.upperColon) ?? "MAC inconnue")")
-                    .font(Theme.mono(12)).foregroundStyle(Theme.neutralText).textSelection(.enabled)
-                    .padding(.top, -6)
+                .padding(.top, -6)
 
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 10) {
                     GridRow {
@@ -84,21 +123,15 @@ struct InvDetail: View {
                     Text("Étiquettes").font(Theme.captionSemibold).foregroundStyle(Theme.textSecondary)
                     InvFlowLayout(spacing: 6) {
                         ForEach(availableTags, id: \.self) { tag in
-                            let on = current.tags.contains(tag)
-                            Button {
+                            // Bouton bascule natif : enfoncé et teinté d'accent quand l'étiquette est posée.
+                            Toggle(tag, isOn: Binding(get: { current.tags.contains(tag) }, set: { on in
                                 var updated = current
-                                if on { updated.tags.removeAll { $0 == tag } } else { updated.tags.append(tag) }
+                                updated.tags.removeAll { $0 == tag }
+                                if on { updated.tags.append(tag) }
                                 draft = updated
-                            } label: {
-                                Text(tag)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(on ? Theme.accentStrong : Theme.text)
-                                    .padding(.horizontal, 10)
-                                    .frame(height: 26)
-                                    .background(Capsule().fill(on ? Theme.accentSoft : Theme.panel))
-                                    .overlay(Capsule().strokeBorder(on ? Theme.accent : Theme.border))
-                            }
-                            .buttonStyle(.plain)
+                            }))
+                            .toggleStyle(.button)
+                            .controlSize(.small)
                         }
                     }
                 }
@@ -138,6 +171,18 @@ struct InvDetail: View {
         }
     }
 
+    private var addressLine: some View {
+        Text("\(record.ip.description) · \(record.mac?.formatted(.upperColon) ?? "MAC inconnue")")
+            .font(Theme.mono(12)).foregroundStyle(Theme.neutralText).textSelection(.enabled)
+    }
+
+    @ViewBuilder
+    private var fullSheetButton: some View {
+        if state.device(withID: record.ip.description) != nil {
+            Button("Fiche complète") { state.showDevice(record.ip.description) }.buttonStyle(.ghost)
+        }
+    }
+
     private var typePicker: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Type").font(Theme.captionSemibold).foregroundStyle(Theme.textSecondary)
@@ -152,7 +197,6 @@ struct InvDetail: View {
             }
             .labelsHidden()
             .pickerStyle(.menu)
-            .frame(height: 30)
         }
     }
 
@@ -212,36 +256,50 @@ struct InvDetail: View {
 
     // MARK: Historiques
 
-    private var histories: some View {
-        VStack(spacing: 14) {
-            Panel(padding: 16) {
-                VStack(alignment: .leading, spacing: 8) {
-                    SectionHeader("Historique des IP")
-                    InvIPHistoryTable(rows: record.ipHistory.enumerated().map { index, span in
-                        InvIPHistoryRow(id: index, ip: span.ip, from: span.from, until: untilDate(span.to),
-                                        untilLabel: until(span.to))
+    private func histories(horizontal: Bool) -> some View {
+        let layout = horizontal
+            ? AnyLayout(HStackLayout(alignment: .top, spacing: 14))
+            : AnyLayout(VStackLayout(spacing: 14))
+        // Côte à côte : largeurs qui laissent voir toutes les colonnes des tableaux sans défilement.
+        return layout {
+            ipHistory
+                .frame(minWidth: horizontal ? 360 : nil, idealWidth: horizontal ? 360 : nil, maxWidth: .infinity)
+            portHistory
+                .frame(minWidth: horizontal ? 430 : nil, idealWidth: horizontal ? 430 : nil, maxWidth: .infinity)
+        }
+    }
+
+    private var ipHistory: some View {
+        Panel(padding: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader("Historique des IP")
+                InvIPHistoryTable(rows: record.ipHistory.enumerated().map { index, span in
+                    InvIPHistoryRow(id: index, ip: span.ip, from: span.from, until: untilDate(span.to),
+                                    untilLabel: until(span.to))
+                })
+            }
+        }
+    }
+
+    private var portHistory: some View {
+        Panel(padding: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader("Historique des ports de switch")
+                if record.portHistory.isEmpty {
+                    Text("Port de switch inconnu : il sera relevé par SNMP (écran Switchs et ports).")
+                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    InvPortHistoryTable(rows: record.portHistory.enumerated().map { index, span in
+                        InvPortHistoryRow(id: index, switchName: span.switchName, port: span.port, vlan: span.vlan,
+                                          from: span.from, until: untilDate(span.to), untilLabel: until(span.to))
                     })
                 }
-            }
-            Panel(padding: 16) {
-                VStack(alignment: .leading, spacing: 8) {
-                    SectionHeader("Historique des ports de switch")
-                    if record.portHistory.isEmpty {
-                        Text("Port de switch inconnu : il sera relevé par SNMP (écran Switchs et ports).")
-                            .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    } else {
-                        InvPortHistoryTable(rows: record.portHistory.enumerated().map { index, span in
-                            InvPortHistoryRow(id: index, switchName: span.switchName, port: span.port, vlan: span.vlan,
-                                              from: span.from, until: untilDate(span.to), untilLabel: until(span.to))
-                        })
-                    }
-                    HStack(spacing: 4) {
-                        Button("Voir le port actuel") { state.open(.switchs) }.buttonStyle(.ghost)
-                        Button("Ping continu") { state.sendToPing(record.ip.description) }.buttonStyle(.ghost)
-                    }
-                    .padding(.leading, -8)
+                HStack(spacing: 4) {
+                    Button("Voir le port actuel") { state.open(.switchs) }.buttonStyle(.ghost)
+                    Button("Ping continu") { state.sendToPing(record.ip.description) }.buttonStyle(.ghost)
                 }
+                .padding(.leading, -8)
             }
         }
     }
@@ -333,13 +391,13 @@ struct InvIPHistoryTable: View {
             TableColumn("DU", sortUsing: table.sort("du")) { row in
                 InvHistoryMetrics.text(InvFormat.day(row.from))
             }
-            .width(min: 70, ideal: 74)
+            .width(min: 76, ideal: 78)
             .customizationID("du")
 
             TableColumn("AU", sortUsing: table.sort("au")) { row in
                 InvHistoryMetrics.text(row.untilLabel)
             }
-            .width(min: 62, ideal: 74)
+            .width(min: 76, ideal: 78)
             .customizationID("au")
         }
         .standardTableStyle()
@@ -385,7 +443,7 @@ struct InvPortHistoryTable: View {
                 .frame(height: 30)
                 .help(row.label)
             }
-            .width(min: 90, ideal: 100)
+            .width(min: 108, ideal: 112)
             .customizationID("switch")
             .disabledCustomizationBehavior(.visibility)
 
@@ -402,13 +460,13 @@ struct InvPortHistoryTable: View {
             TableColumn("DU", sortUsing: table.sort("du")) { row in
                 InvHistoryMetrics.text(InvFormat.day(row.from))
             }
-            .width(min: 70, ideal: 72)
+            .width(min: 76, ideal: 78)
             .customizationID("du")
 
             TableColumn("AU", sortUsing: table.sort("au")) { row in
                 InvHistoryMetrics.text(row.untilLabel)
             }
-            .width(min: 70, ideal: 74)
+            .width(min: 76, ideal: 78)
             .customizationID("au")
         }
         .standardTableStyle()

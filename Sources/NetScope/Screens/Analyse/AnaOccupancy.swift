@@ -61,7 +61,8 @@ struct AnaOccupancyPanel: View {
         case .horsLigne: return (Color(light: 0xCBD5E1, dark: 0x273444), Color(hex: 0x94A3B8))
         case .libre: return (Theme.panel, Theme.borderStrong)
         case .conflit: return (Color(hex: 0xB91C1C), Color(hex: 0x7F1D1D))
-        case .reseau: return (Color(hex: 0x374151), Color(hex: 0x1F2937))
+        // Sombre : gris plus clair que le fond du panneau, sinon les cases réseau et diffusion s'y perdent.
+        case .reseau: return (Color(light: 0x374151, dark: 0x6B7280), Color(light: 0x1F2937, dark: 0x9CA3AF))
         }
     }
 

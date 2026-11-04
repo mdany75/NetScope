@@ -57,26 +57,20 @@ struct AnalyseScreen: View {
             VStack(alignment: .leading, spacing: 14) {
                 filters(networks: networks, chosen: chosen, now: now, since: since)
                 tiles(records: records, chosen: chosen, alerts: alerts, now: now, since: since)
-                // Petite fenêtre : courbe et répartitions passent sous la carte d'occupation.
-                AdaptiveStack(breakpoint: 680 + 14 + 300, spacing: 14, horizontalAlignment: .top) {
-                    if let chosen {
-                        AnaOccupancyPanel(network: chosen, records: allRecords, now: now, recentWindow: max(period.seconds, 7 * 86_400))
+                // Petite fenêtre : courbe et répartitions passent sous la carte d'occupation, qui prend
+                // alors toute la largeur (pas de vide à sa droite).
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 14) {
+                        occupancy(chosen: chosen, allRecords: allRecords, now: now)
                             .frame(width: 680)
-                    } else {
-                        Panel(padding: 16) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                InvPanelTitle("Carte d’occupation")
-                                Text("Choisissez un /24 dans « Plage / VLAN » pour afficher la carte de ses 256 adresses.")
-                                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                            }
-                        }
-                        .frame(width: 680)
+                        charts(records: records, since: since)
+                            .frame(minWidth: 300, idealWidth: 300, maxWidth: .infinity)
                     }
-                    VStack(spacing: 14) {
-                        AnaOnlineChart(snapshots: model.store.snapshots.filter { $0.date >= since }, period: period)
-                        AnaBreakdownPanel(records: records)
+                    VStack(alignment: .leading, spacing: 14) {
+                        occupancy(chosen: chosen, allRecords: allRecords, now: now)
+                            .frame(maxWidth: .infinity)
+                        charts(records: records, since: since)
                     }
-                    .frame(maxWidth: .infinity)
                 }
                 // Alertes, puis comparaison, sur toute la largeur : leurs tableaux (note 8) ne tiennent
                 // pas côte à côte ; le croquis passe aussi à une colonne quand la place manque.
@@ -109,6 +103,32 @@ struct AnalyseScreen: View {
         }
     }
 
+    // MARK: Occupation et graphiques
+
+    @ViewBuilder
+    private func occupancy(chosen: IPv4Address?, allRecords: [InvRecord], now: Date) -> some View {
+        if let chosen {
+            AnaOccupancyPanel(network: chosen, records: allRecords, now: now, recentWindow: max(period.seconds, 7 * 86_400))
+        } else {
+            Panel(padding: 16) {
+                VStack(alignment: .leading, spacing: 8) {
+                    InvPanelTitle("Carte d’occupation")
+                    Text("Choisissez un /24 dans « Plage / VLAN » pour afficher la carte de ses 256 adresses.")
+                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private func charts(records: [InvRecord], since: Date) -> some View {
+        VStack(spacing: 14) {
+            AnaOnlineChart(snapshots: model.store.snapshots.filter { $0.date >= since }, period: period)
+            AnaBreakdownPanel(records: records)
+        }
+    }
+
     private func defaultNetwork(_ networks: [IPv4Address]) -> IPv4Address? {
         if let address = state.activeInterface?.address {
             let base = IPv4Address(address.value & 0xFFFF_FF00)
@@ -123,7 +143,7 @@ struct AnalyseScreen: View {
         let scans = model.store.snapshots.filter { $0.date >= since }.count
         let last = model.store.lastMerge
         return HStack(spacing: 12) {
-            InvSegmented(options: AnaPeriod.allCases.map { ($0, $0.label) }, selection: $period, filled: true)
+            InvSegmented(options: AnaPeriod.allCases.map { ($0, $0.label) }, selection: $period)
             HStack(spacing: 8) {
                 Text("Plage / VLAN").font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize()
                 Picker("", selection: Binding(get: { chosen }, set: { network = $0; networkChosen = true })) {
@@ -136,8 +156,15 @@ struct AnalyseScreen: View {
                 .pickerStyle(.menu)
                 .frame(width: 280)
             }
-            Text("\(scans) scan\(scans > 1 ? "s" : "") sur \(period.span)" + (last.map { " · dernier scan \(InvFormat.time($0))" } ?? ""))
-                .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            // Petite fenêtre : version courte plutôt qu'une phrase coupée.
+            ViewThatFits(in: .horizontal) {
+                Text("\(scans) scan\(scans > 1 ? "s" : "") sur \(period.span)" + (last.map { " · dernier scan \(InvFormat.time($0))" } ?? ""))
+                    .fixedSize()
+                Text("\(scans) scan\(scans > 1 ? "s" : "")" + (last.map { " · dernier \(InvFormat.time($0))" } ?? ""))
+                    .fixedSize()
+                Text("\(scans) scan\(scans > 1 ? "s" : "")").lineLimit(1)
+            }
+            .font(Theme.small).foregroundStyle(Theme.textSecondary)
             Spacer(minLength: 0)
             if let toast = model.toast { InvToast(text: toast) }
         }
