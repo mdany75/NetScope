@@ -1,5 +1,6 @@
 import AppKit
 import NetScopeCore
+import PDFKit
 import SwiftUI
 
 /// Rendu PDF natif : chaque page de la pagination est une `RapportPageView` dessinée par
@@ -57,11 +58,42 @@ enum RapportPDFCheck {
         let url = directory.appendingPathComponent("rapport-demo.pdf")
         do {
             try data.write(to: url, options: .atomic)
-            print("Rapport PDF\u{00A0}: \(url.path) (\(pages.count) pages)")
+            let problems = verify(data, document: document, pageCount: pages.count)
+            for problem in problems { print("Erreur\u{00A0}: rapport PDF\u{00A0}: \(problem)") }
+            guard problems.isEmpty else { return false }
+            print("Rapport PDF\u{00A0}: \(url.path) (\(pages.count) pages, vérifié)")
             return true
         } catch {
             print("Erreur\u{00A0}: \(url.path)\u{00A0}: \(error.localizedDescription)")
             return false
         }
+    }
+
+    /// Relit le PDF avec PDFKit : nombre de pages, format lettre, « Page N de M » sur chaque page,
+    /// titre de chaque section et signature (si demandée). Renvoie la liste des écarts.
+    static func verify(_ data: Data, document: ReportDocument, pageCount: Int) -> [String] {
+        guard let pdf = PDFDocument(data: data) else { return ["PDF illisible"] }
+        var problems: [String] = []
+        if pdf.pageCount != pageCount { problems.append("\(pdf.pageCount) pages au lieu de \(pageCount)") }
+        var all = ""
+        for index in 0..<pdf.pageCount {
+            guard let page = pdf.page(at: index) else { continue }
+            let box = page.bounds(for: .mediaBox)
+            if abs(box.width - 612) > 0.5 || abs(box.height - 792) > 0.5 {
+                problems.append("page \(index + 1)\u{00A0}: \(Int(box.width)) × \(Int(box.height)) au lieu de 612 × 792")
+            }
+            let text = page.string ?? ""
+            let footer = "Page \(index + 1) de \(pdf.pageCount)"
+            if !text.contains(footer) { problems.append("page \(index + 1)\u{00A0}: «\u{00A0}\(footer)\u{00A0}» absent") }
+            all += text + "\n"
+        }
+        let flat = all.replacingOccurrences(of: "\n", with: " ")
+        for section in document.sections where !flat.contains(section.heading) {
+            problems.append("section «\u{00A0}\(section.heading)\u{00A0}» absente du texte")
+        }
+        if document.signature, !document.technician.isEmpty, !flat.contains(document.technician) {
+            problems.append("signature du technicien absente")
+        }
+        return problems
     }
 }

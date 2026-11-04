@@ -570,24 +570,55 @@ public enum ReportPaginator {
         return pages
     }
 
-    /// Page finale portant la signature : si la page précédente finit par un tableau, ses dernières
-    /// lignes passent sur la nouvelle page (titre « (suite) ») pour que la signature n'y soit pas seule.
+    /// Page finale portant la signature, jamais seule : si la page précédente finit par un tableau,
+    /// ses deux dernières lignes passent sur la nouvelle page (titre « (suite) ») ; si elle finit par
+    /// un texte brut, ses trois dernières lignes ; sinon, son dernier bloc (avec son titre s'il
+    /// resterait seul en bas de page).
     static func signaturePage(after previous: inout ReportPage, number: Int, metrics: ReportPageMetrics) -> ReportPage {
         var page = ReportPage(number: number, items: [], sections: [], used: 0, hasSignature: true)
-        guard case .block(.table(var table))? = previous.items.last, table.rows.count >= 3,
-              let heading = previous.items.reversed().compactMap({ item -> String? in
-                  if case .heading(let title, _) = item { return title }
-                  return nil
-              }).first else { return page }
-        let moved = Array(table.rows.suffix(2))
-        let movedHeight = moved.map { metrics.rowHeight($0, in: table) }.reduce(0, +)
-        table.rows.removeLast(2)
-        previous.items[previous.items.count - 1] = .block(.table(table))
-        previous.used -= movedHeight
-        var part = table
-        part.rows = moved
-        page.items = [.heading(heading, continued: true), .block(.table(part))]
-        page.used = metrics.headingHeight + metrics.height(of: .table(part))
+        guard let heading = previous.items.reversed().compactMap({ item -> String? in
+            if case .heading(let title, _) = item { return title }
+            return nil
+        }).first, let last = previous.items.last else { return page }
+        let lastIndex = previous.items.count - 1
+        switch last {
+        case .block(.table(var table)) where table.rows.count >= 3:
+            let moved = Array(table.rows.suffix(2))
+            let movedHeight = moved.map { metrics.rowHeight($0, in: table) }.reduce(0, +)
+            table.rows.removeLast(2)
+            previous.items[lastIndex] = .block(.table(table))
+            previous.used -= movedHeight
+            var part = table
+            part.rows = moved
+            page.items = [.heading(heading, continued: true), .block(.table(part))]
+            page.used = metrics.headingHeight + metrics.height(of: .table(part))
+        case .block(.code(var lines)) where lines.count >= 4:
+            let moved = Array(lines.suffix(3))
+            lines.removeLast(3)
+            previous.items[lastIndex] = .block(.code(lines))
+            previous.used -= Double(moved.count) * metrics.codeLineHeight
+            page.items = [.heading(heading, continued: true), .block(.code(moved))]
+            page.used = metrics.headingHeight + metrics.height(of: .code(moved))
+        case .block(let block):
+            // La page précédente doit garder au moins un titre et un bloc.
+            guard previous.items.count >= 3 else { return page }
+            previous.items.removeLast()
+            previous.used -= metrics.height(of: block) + metrics.blockGap
+            var moved: [ReportPageItem] = [.block(block)]
+            if case .heading(let title, let continued)? = previous.items.last, previous.items.count >= 3 {
+                // Titre qui resterait seul en bas de page : il part avec son bloc.
+                previous.items.removeLast()
+                previous.used -= metrics.headingHeight + metrics.sectionGap
+                moved.insert(.heading(title, continued: continued), at: 0)
+                if !continued, let kind = previous.sections.popLast() { page.sections = [kind] }
+            } else {
+                moved.insert(.heading(heading, continued: true), at: 0)
+            }
+            page.items = moved
+            page.used = metrics.headingHeight + metrics.height(of: block)
+        case .heading:
+            break
+        }
         return page
     }
 

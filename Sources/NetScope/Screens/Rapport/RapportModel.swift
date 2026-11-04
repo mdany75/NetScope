@@ -119,12 +119,26 @@ final class RapportModel: ObservableObject {
         }
         logo = image
         guard !isDemo else { return }
+        let fm = FileManager.default
+        let old = Self.logoURL(in: directory)
+        // Le logo déjà enregistré choisi de nouveau : rien à copier.
+        if let old, old.standardizedFileURL.resolvingSymlinksInPath() == url.standardizedFileURL.resolvingSymlinksInPath() {
+            show("Ce logo est déjà enregistré.")
+            return
+        }
         do {
-            let fm = FileManager.default
             try fm.createDirectory(at: directory, withIntermediateDirectories: true)
-            if let old = Self.logoURL(in: directory) { try? fm.removeItem(at: old) }
             let ext = url.pathExtension.isEmpty ? "png" : url.pathExtension.lowercased()
-            try fm.copyItem(at: url, to: directory.appendingPathComponent("logo.\(ext)"))
+            // Copie d'abord sous un nom temporaire : l'ancien logo n'est retiré qu'une fois la copie réussie.
+            let temporary = directory.appendingPathComponent(".logo-\(UUID().uuidString).\(ext)")
+            try fm.copyItem(at: url, to: temporary)
+            let target = directory.appendingPathComponent("logo.\(ext)")
+            if fm.fileExists(atPath: target.path) {
+                _ = try fm.replaceItemAt(target, withItemAt: temporary)
+            } else {
+                try fm.moveItem(at: temporary, to: target)
+            }
+            if let old, old.lastPathComponent != target.lastPathComponent { try? fm.removeItem(at: old) }
             show("Logo enregistré\u{00A0}: il remplace [VOTRE LOGO] sur toutes les pages.")
         } catch {
             show("Logo affiché, mais pas enregistré\u{00A0}: \(error.localizedDescription)")
@@ -142,6 +156,10 @@ final class RapportModel: ObservableObject {
     @discardableResult
     func generate(state: AppState, format: ReportFormat? = nil, quiet: Bool = false) -> URL? {
         let format = format ?? config.format
+        guard config.isDateValid else {
+            show("Date invalide\u{00A0}: indiquez une date au format AAAA-MM-JJ avant de générer le rapport.")
+            return nil
+        }
         let document = document(state: state)
         let pages = pages(for: document)
         let data: Data?
@@ -196,18 +214,22 @@ final class RapportModel: ObservableObject {
 
     /// Prépare un brouillon dans Mail avec le PDF joint ; rien n'est envoyé : l'utilisateur relit et envoie.
     func emailDraft(state: AppState) {
+        let recipient = emailTo.trimmingCharacters(in: .whitespaces)
+        guard !recipient.isEmpty else {
+            show("Indiquez un destinataire avant de préparer le brouillon.")
+            return
+        }
         guard let url = generate(state: state, format: .pdf, quiet: true) else { return }
         guard let service = NSSharingService(named: .composeEmail), service.canPerform(withItems: [url]) else {
             show("Aucune app de courriel configurée\u{00A0}: le PDF est dans le dossier des rapports.")
             return
         }
-        let recipient = emailTo.trimmingCharacters(in: .whitespaces)
-        if !recipient.isEmpty { service.recipients = [recipient] }
+        service.recipients = [recipient]
         service.subject = emailSubject
         let body = "Bonjour,\n\nVous trouverez ci-joint le document «\u{00A0}\(config.documentTitle)\u{00A0}» du \(config.dateLabel).\n\n"
         service.perform(withItems: [body, url])
         emailOpen = false
-        show(recipient.isEmpty ? "Brouillon prêt dans Mail (rien n’est envoyé)." : "Brouillon prêt dans Mail pour \(recipient) (rien n’est envoyé).")
+        show("Brouillon prêt dans Mail pour \(recipient) (rien n’est envoyé).")
     }
 
     var emailSubject: String { config.documentTitle + " — " + config.dateLabel }

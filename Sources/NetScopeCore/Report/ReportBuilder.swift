@@ -219,11 +219,12 @@ public enum ReportBuilder {
 
     /// Problèmes constatés, du plus grave au moins grave : conflits IP, problèmes fournis (DHCP non
     /// autorisé, Wi-Fi, firmware), Telnet, appareils hors ligne, appareils non identifiés.
-    public static func problems(_ input: ReportInput) -> [ReportProblem] {
+    /// `masked` : MAC masquées (« 8C:16:45:xx:xx:xx »), comme dans l'inventaire et l'annexe.
+    public static func problems(_ input: ReportInput, masked: Bool = false) -> [ReportProblem] {
         var result: [ReportProblem] = []
         // Conflits IP (inventaire).
         for conflict in conflicts(input.records) {
-            let macs = conflict.macs.map { $0.formatted(.upperColon) }
+            let macs = conflict.macs.map { ReportText.mac($0, masked: masked) }
             let who = conflict.location.map { " L’appareil connu est sur \($0)." } ?? ""
             result.append(ReportProblem(
                 title: "Conflit IP sur \(conflict.ip)", severity: .critique,
@@ -249,7 +250,8 @@ public enum ReportBuilder {
         let offline = offlineDevices(input)
         if offline.count > 3 {
             result.append(ReportProblem(title: "\(offline.count) appareils hors ligne", severity: .moyen,
-                                        recommendation: "Vérifier l’alimentation et le câblage\u{00A0}: " + offline.prefix(5).map(\.name).joined(separator: ", ") + "…"))
+                                        recommendation: "Vérifier l’alimentation et le câblage\u{00A0}: " + offline.prefix(5).map(\.name).joined(separator: ", ")
+                                            + (offline.count > 5 ? " et \(offline.count - 5) autres." : ".")))
         } else {
             for item in offline {
                 let place = item.location.map { "Vérifier l’alimentation et le câble sur \($0)." } ?? "Vérifier l’alimentation et le câblage."
@@ -294,6 +296,19 @@ public enum ReportBuilder {
         }
     }
 
+    /// Fiches d'inventaire qui concernent le scan courant. L'inventaire est commun à tous les clients
+    /// et les plages privées se répètent d'un client à l'autre : on ne garde que les fiches dont
+    /// l'adresse figure parmi les appareils du scan, et dont la MAC (si les deux sont connues) est
+    /// celle de l'appareil ou l'une de celles en conflit avec lui. Sans appareil, aucune fiche.
+    public static func sessionRecords(_ records: [InvRecord], devices: [Device]) -> [InvRecord] {
+        let byIP = Dictionary(devices.map { ($0.ip, $0) }, uniquingKeysWith: { a, _ in a })
+        return records.filter { record in
+            guard let device = byIP[record.ip] else { return false }
+            guard let recordMAC = record.mac, let deviceMAC = device.mac else { return true }
+            return recordMAC == deviceMAC || record.conflictWith.contains(deviceMAC)
+        }
+    }
+
     struct OfflineItem {
         var name: String
         var ip: String
@@ -306,7 +321,7 @@ public enum ReportBuilder {
         var result: [OfflineItem] = []
         for device in input.devices where !device.isOnline {
             seen.insert(device.id)
-            result.append(OfflineItem(name: device.displayName, ip: device.id, location: device.switchLocation))
+            result.append(OfflineItem(name: device.hostnameLabel ?? device.displayName, ip: device.id, location: device.switchLocation))
         }
         for record in input.records where record.status(now: input.now) == .horsLigne && !seen.contains(record.ip.description) {
             // Une fiche hors ligne dont l'adresse est occupée par un appareil en ligne n'est plus pertinente.
@@ -320,7 +335,7 @@ public enum ReportBuilder {
     // MARK: Document
 
     public static func build(config: ReportConfig, input: ReportInput, generator: String = "NetScope") -> ReportDocument {
-        let problems = problems(input)
+        let problems = problems(input, masked: config.maskMAC)
         var sections: [ReportSection] = []
         var number = 0
         for kind in ReportSectionKind.documentOrder where config.includes(kind) {

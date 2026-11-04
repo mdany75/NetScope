@@ -136,6 +136,30 @@ public struct ReportConfig: Codable, Hashable, Sendable {
         self.format = format
     }
 
+    enum CodingKeys: String, CodingKey {
+        case template, sections, client, site, technician, date, maskMAC, signature, format
+    }
+
+    /// Décodage tolérant : un champ absent prend sa valeur par défaut, une valeur inconnue (format ou
+    /// section ajoutés par une autre version) est ignorée au lieu de rendre tout l'index illisible.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let template = (try? c.decodeIfPresent(String.self, forKey: .template)).flatMap(ReportTemplate.init(rawValue:)) ?? .audit
+        self.template = template
+        if let raw = try? c.decodeIfPresent([String].self, forKey: .sections) {
+            sections = Set(raw.compactMap(ReportSectionKind.init(rawValue:)))
+        } else {
+            sections = template.defaultSections
+        }
+        client = (try? c.decodeIfPresent(String.self, forKey: .client)) ?? ""
+        site = (try? c.decodeIfPresent(String.self, forKey: .site)) ?? ""
+        technician = (try? c.decodeIfPresent(String.self, forKey: .technician)) ?? ""
+        date = (try? c.decodeIfPresent(String.self, forKey: .date)) ?? ""
+        maskMAC = (try? c.decodeIfPresent(Bool.self, forKey: .maskMAC)) ?? false
+        signature = (try? c.decodeIfPresent(Bool.self, forKey: .signature)) ?? true
+        format = (try? c.decodeIfPresent(String.self, forKey: .format)).flatMap(ReportFormat.init(rawValue:)) ?? .pdf
+    }
+
     /// Change de modèle et recoche ses sections par défaut.
     public mutating func apply(_ template: ReportTemplate) {
         self.template = template
@@ -152,9 +176,12 @@ public struct ReportConfig: Codable, Hashable, Sendable {
     /// « 3 novembre 2026 », ou « [À COMPLÉTER] ».
     public var dateLabel: String { ReportText.longDate(date) ?? ReportText.missing }
 
-    /// « RPT-20261103-01 »
+    /// La date est une vraie date du calendrier, au format « 2026-11-03 ».
+    public var isDateValid: Bool { ReportText.longDate(date) != nil }
+
+    /// « RPT-20261103-01 » ; « RPT-SANS-DATE-01 » si la date est invalide.
     public var reference: String {
-        "RPT-" + date.replacingOccurrences(of: "-", with: "") + "-01"
+        "RPT-" + (isDateValid ? date.replacingOccurrences(of: "-", with: "") : "SANS-DATE") + "-01"
     }
 
     /// « rapport-audit-siege-2026-11-03.pdf »
@@ -162,7 +189,8 @@ public struct ReportConfig: Codable, Hashable, Sendable {
 
     public func fileName(for format: ReportFormat) -> String {
         let site = ReportText.slug(self.site.reportTrimmed.isEmpty ? "site" : self.site)
-        let day = date.isEmpty ? "sans-date" : date
+        // Une date invalide (« 2026/11/03 ») ne doit jamais produire de sous-dossier.
+        let day = isDateValid ? date : "sans-date"
         return "rapport-\(template.rawValue)-\(site)-\(day).\(format.fileExtension)"
     }
 }
@@ -232,6 +260,35 @@ public struct ReportLibrary: Codable, Hashable, Sendable {
         self.templates = templates
     }
 
+    enum CodingKeys: String, CodingKey { case version, recents, templates }
+
+    /// Entrées écartées au décodage (illisibles ou d'un format inconnu) ; non enregistré.
+    public private(set) var droppedEntries = 0
+
+    /// Décodage élément par élément : une entrée illisible est écartée, pas tout l'index.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = (try? c.decodeIfPresent(Int.self, forKey: .version)) ?? 1
+        let recents = (try? c.decodeIfPresent([Lossy<ReportRecent>].self, forKey: .recents)) ?? []
+        let templates = (try? c.decodeIfPresent([Lossy<ReportSavedTemplate>].self, forKey: .templates)) ?? []
+        self.recents = recents.compactMap(\.value)
+        self.templates = templates.compactMap(\.value)
+        droppedEntries = recents.count - self.recents.count + templates.count - self.templates.count
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(version, forKey: .version)
+        try c.encode(recents, forKey: .recents)
+        try c.encode(templates, forKey: .templates)
+    }
+
+    /// Élément d'un tableau dont le décodage peut échouer sans faire échouer le tableau.
+    struct Lossy<Value: Decodable>: Decodable {
+        var value: Value?
+        init(from decoder: Decoder) throws { value = try? Value(from: decoder) }
+    }
+
     public static var defaultDirectory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
@@ -269,12 +326,20 @@ public struct ReportLibrary: Codable, Hashable, Sendable {
         return "\(base)-\(n).\(ext)"
     }
 
+    static let backupName = "index.json.bak"
+
+    /// Lit l'index. S'il est illisible en tout ou en partie, une copie intacte est gardée dans
+    /// index.json.bak avant que le prochain enregistrement ne le réécrive.
     public static func load(from directory: URL) -> ReportLibrary {
         let url = directory.appendingPathComponent(indexName)
         guard let data = try? Data(contentsOf: url) else { return ReportLibrary() }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return (try? decoder.decode(ReportLibrary.self, from: data)) ?? ReportLibrary()
+        let library = try? decoder.decode(ReportLibrary.self, from: data)
+        if library == nil || library!.droppedEntries > 0 {
+            try? data.write(to: directory.appendingPathComponent(backupName), options: .atomic)
+        }
+        return library ?? ReportLibrary()
     }
 
     public func save(to directory: URL) throws {
@@ -295,11 +360,24 @@ public enum ReportText {
     static let months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre",
                          "octobre", "novembre", "décembre"]
 
-    /// « 2026-11-03 » → « 3 novembre 2026 » ; nil si la date est invalide.
+    /// « 2026-11-03 » → « 3 novembre 2026 » ; nil si la date est invalide (format autre que
+    /// AAAA-MM-JJ, ou jour qui n'existe pas : « 2026-02-31 »).
     public static func longDate(_ iso: String) -> String? {
-        let parts = iso.split(separator: "-").compactMap { Int($0) }
-        guard parts.count == 3, (1...12).contains(parts[1]), (1...31).contains(parts[2]) else { return nil }
-        return "\(parts[2]) \(months[parts[1] - 1]) \(parts[0])"
+        let pieces = iso.split(separator: "-", omittingEmptySubsequences: false)
+        guard pieces.count == 3, pieces[0].count == 4, pieces[1].count == 2, pieces[2].count == 2,
+              pieces.allSatisfy({ $0.allSatisfy { ("0"..."9").contains($0) } }),
+              let year = Int(pieces[0]), let month = Int(pieces[1]), let day = Int(pieces[2]),
+              year >= 1, (1...12).contains(month), day >= 1, day <= daysIn(month: month, year: year) else { return nil }
+        return "\(day) \(months[month - 1]) \(year)"
+    }
+
+    /// Nombre de jours du mois (calendrier grégorien).
+    static func daysIn(month: Int, year: Int) -> Int {
+        switch month {
+        case 2: return (year % 4 == 0 && year % 100 != 0) || year % 400 == 0 ? 29 : 28
+        case 4, 6, 9, 11: return 30
+        default: return 31
+        }
     }
 
     /// Date du jour au format « 2026-11-03 » (calendrier grégorien, fuseau local).

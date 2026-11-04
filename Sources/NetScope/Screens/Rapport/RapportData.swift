@@ -10,10 +10,13 @@ enum RapportData {
         let devices = state.devices
         let ranges = state.ranges.filter(\.isEnabled)
         let parsed = ranges.compactMap { try? $0.parsed() }
-        // L'inventaire est commun à tous les clients : on ne garde que les fiches des plages scannées.
-        let records = InvModel.shared.store.sortedRecords.filter { record in
-            parsed.isEmpty || parsed.contains { $0.contains(record.ip) }
+        // L'inventaire est commun à tous les clients : on ne garde que les fiches des plages scannées
+        // qui correspondent aux appareils de ce scan (une fiche d'un autre client sur la même plage
+        // privée n'entre pas dans le rapport).
+        let inRanges = InvModel.shared.store.sortedRecords.filter { record in
+            parsed.contains { $0.contains(record.ip) }
         }
+        let records = ReportBuilder.sessionRecords(inRanges, devices: devices)
 
         let snapshots = SwitchStore.shared.orderedSnapshots
         let switches = snapshots.map { ReportSwitch(snapshot: $0) }

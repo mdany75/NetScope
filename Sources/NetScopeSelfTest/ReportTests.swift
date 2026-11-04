@@ -332,4 +332,122 @@ func registerReportTests(_ suite: TestSuite) {
         try expectEqual(ReportLibrary.availableName("a.pdf", in: directory), "a-2.pdf", "nom libre")
         try expectEqual(ReportLibrary.availableName("c.pdf", in: directory), "c.pdf", "nom déjà libre")
     }
+
+    suite.add("Rapport\u{00A0}: MAC masquées partout (problèmes, CSV, JSON, HTML)") {
+        var config = sampleConfig()
+        config.sections = Set(ReportSectionKind.allCases)
+        config.maskMAC = true
+        let document = ReportBuilder.build(config: config, input: sampleInput())
+        let conflict = document.problems.first { $0.title.hasPrefix("Conflit IP") }
+        try expect(conflict?.recommendation.contains("5C:F9:38:xx:xx:xx") == true, "MAC masquée dans la recommandation")
+        let outputs = [("CSV", ReportExport.csv(document)), ("JSON", String(decoding: try ReportExport.json(document), as: UTF8.self)),
+                       ("HTML", ReportExport.html(document, logoDataURL: nil))]
+        let suffixes = sampleDevices().compactMap(\.mac).map { String($0.formatted(.upperColon).suffix(8)) } + ["02:7A:41"]
+        for (name, text) in outputs {
+            let upper = text.uppercased()
+            for suffix in suffixes { try expect(!upper.contains(suffix), "\(name)\u{00A0}: aucune MAC complète (\(suffix))") }
+        }
+    }
+
+    suite.add("Rapport\u{00A0}: appareils hors ligne, liste complète sans «\u{00A0}…\u{00A0}» superflu") {
+        func offline(_ count: Int) -> [ReportProblem] {
+            let devices = (1...count).map { rdev("10.2.0.\($0)", nil, host: "h\($0)", type: .poste, online: false) }
+            return ReportBuilder.problems(ReportInput(devices: devices)).filter { $0.title.hasSuffix("hors ligne") }
+        }
+        let four = offline(4).first?.recommendation ?? ""
+        try expect(four.hasSuffix("h4.") && !four.contains("…"), "4 appareils\u{00A0}: tous nommés (\(four))")
+        let seven = offline(7).first?.recommendation ?? ""
+        try expect(seven.hasSuffix("h5 et 2 autres."), "7 appareils\u{00A0}: «\u{00A0}et 2 autres\u{00A0}» (\(seven))")
+        try expectEqual(offline(2).map(\.title), ["h1 (10.2.0.1) hors ligne", "h2 (10.2.0.2) hors ligne"], "nom d'hôte, comme dans l'inventaire")
+    }
+
+    suite.add("Rapport\u{00A0}: fiches d’inventaire limitées aux appareils du scan (pas d’autre client)") {
+        let t0 = r0
+        let clientA = [rdev("192.168.1.20", "AA:00:00:00:00:20", host: "PC-COMPTA", type: .poste),
+                       rdev("192.168.1.30", "AA:00:00:00:00:30", host: "NAS-A", type: .serveur)]
+        let clientB = [rdev("192.168.1.20", "BB:00:00:00:00:20", host: "POSTE-B", type: .poste)]
+        var store = InventoryStore()
+        store.merge(clientA, at: t0)
+        store.merge(clientB, at: t0.addingTimeInterval(86_400))
+        let kept = ReportBuilder.sessionRecords(store.sortedRecords, devices: clientB)
+        try expectEqual(kept.compactMap(\.mac).map { $0.formatted(.upperColon) }, ["BB:00:00:00:00:20"], "seule la fiche du client B")
+        try expectEqual(ReportBuilder.sessionRecords(store.sortedRecords, devices: []).count, 0, "sans scan\u{00A0}: aucune fiche")
+        let input = ReportInput(devices: clientB, records: kept, now: t0.addingTimeInterval(86_500))
+        let problems = ReportBuilder.problems(input)
+        try expect(!problems.contains { $0.title.contains("PC-COMPTA") || $0.title.contains("NAS-A") || $0.recommendation.contains("NAS-A") },
+                   "aucun appareil du client A dans les problèmes")
+    }
+
+    suite.add("Rapport\u{00A0}: date validée (format, jours du mois), nom de fichier sûr") {
+        try expectEqual(ReportText.longDate("2026-02-31"), nil, "31 février refusé")
+        try expectEqual(ReportText.longDate("2025-02-29"), nil, "29 février hors bissextile")
+        try expectEqual(ReportText.longDate("2024-02-29"), "29 février 2024", "année bissextile")
+        try expectEqual(ReportText.longDate("2026/11/03"), nil, "barres obliques refusées")
+        try expectEqual(ReportText.longDate("2026-11-3"), nil, "jour sur deux chiffres")
+        var config = sampleConfig()
+        config.date = "2026/11/03"
+        try expect(!config.isDateValid, "date invalide signalée")
+        try expectEqual(config.fileName(for: .pdf), "rapport-audit-siege-social-sans-date.pdf", "aucun séparateur de chemin")
+        try expectEqual(config.reference, "RPT-SANS-DATE-01", "référence sans date")
+    }
+
+    suite.add("Rapport\u{00A0}: signature jamais seule, même après une annexe ou un paragraphe") {
+        let metrics = ReportPageMetrics()
+        let base = ReportDocument(title: "T", template: .inventaire, client: "", site: "", technician: "", date: "", dateLabel: "",
+                                  reference: "", generator: "", signature: true, sections: [], problems: [])
+        var checked = 0
+        for count in 1...160 {
+            var document = base
+            document.sections = [ReportSection(kind: .annexe, heading: "1. Annexe brute",
+                                               blocks: [.note("Extrait."), .code((1...count).map { "ligne \($0)" })])]
+            let pages = ReportPaginator.paginate(document, metrics: metrics)
+            try expect(!pages[pages.count - 1].items.isEmpty, "annexe de \(count) lignes\u{00A0}: signature accompagnée")
+            try expectEqual(pages.filter(\.hasSignature).count, 1, "une seule signature")
+            var seen: [String] = []
+            for page in pages {
+                try expect(page.used <= metrics.contentHeight + 0.5, "annexe de \(count) lignes\u{00A0}: page \(page.number) sans débordement")
+                for case .block(.code(let lines)) in page.items { seen += lines }
+            }
+            try expectEqual(seen.count, count, "annexe de \(count) lignes\u{00A0}: aucune ligne perdue")
+            if pages.count > 1 { checked += 1 }
+        }
+        try expect(checked > 0, "cas sur plusieurs pages essayés")
+        for count in 1...40 {
+            var document = base
+            document.sections = [ReportSection(kind: .resume, heading: "1. Résumé",
+                                               blocks: (1...count).map { .paragraph("Paragraphe \($0) assez long pour occuper quelques lignes de texte dans la page du rapport, afin de remplir la page.") })]
+            let pages = ReportPaginator.paginate(document, metrics: metrics)
+            try expect(!pages[pages.count - 1].items.isEmpty, "\(count) paragraphes\u{00A0}: signature accompagnée")
+            var paragraphs = 0
+            for page in pages { for case .block(.paragraph) in page.items { paragraphs += 1 } }
+            try expectEqual(paragraphs, count, "\(count) paragraphes\u{00A0}: aucun perdu")
+        }
+    }
+
+    suite.add("Rapport\u{00A0}: index tolérant (entrée inconnue écartée, copie de sécurité)") {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("netscope-rapports-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let json = """
+        {"version": 2, "nouveauChamp": true,
+         "recents": [
+           {"id": "\(UUID().uuidString)", "title": "Audit", "fileName": "a.docx", "format": "docx", "date": "2026-11-03", "technician": "", "created": "2026-11-03T10:00:00Z"},
+           {"id": "\(UUID().uuidString)", "title": "Audit", "fileName": "b.pdf", "format": "pdf", "date": "2026-11-03", "pages": 3, "technician": "Dany", "created": "2026-11-03T10:00:00Z"}
+         ],
+         "templates": [
+           {"id": "\(UUID().uuidString)", "name": "Mon modèle", "saved": "2026-11-03T10:00:00Z",
+            "config": {"template": "securite", "sections": ["resume", "chiffrement"], "format": "docx", "client": "X"}}
+         ]}
+        """
+        try Data(json.utf8).write(to: directory.appendingPathComponent("index.json"))
+        let library = ReportLibrary.load(from: directory)
+        try expectEqual(library.recents.map(\.fileName), ["b.pdf"], "entrée au format inconnu écartée, l'autre gardée")
+        try expectEqual(library.templates.count, 1, "modèle gardé")
+        let config = library.templates.first?.config
+        try expectEqual(config?.template, .securite, "modèle relu")
+        try expectEqual(config?.sections, [.resume], "section inconnue ignorée")
+        try expectEqual(config?.format, .pdf, "format inconnu\u{00A0}: PDF")
+        try expectEqual(config?.signature, true, "champ absent\u{00A0}: valeur par défaut")
+        try expect(FileManager.default.fileExists(atPath: directory.appendingPathComponent("index.json.bak").path), "copie de sécurité")
+    }
 }
