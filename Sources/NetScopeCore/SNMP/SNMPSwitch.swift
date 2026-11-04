@@ -318,11 +318,14 @@ public struct SNMPSwitchSnapshot: Hashable, Sendable, Codable, Identifiable {
     /// Table ARP du switch : MAC → IP (switchs de niveau 3).
     public var arp: [MACAddress: IPv4Address]
     public var polledAt: Date
+    /// Contrôleur qui a fourni ce relevé (FortiGate pour un FortiSwitch géré par FortiLink) ;
+    /// nil pour un relevé SNMP direct.
+    public var controllerName: String?
 
     public init(host: IPv4Address, system: SNMPSystemInfo, interfaces: [SNMPInterface], fdb: [SNMPFDBEntry] = [],
                 neighbors: [SNMPLLDPNeighbor] = [], pvid: [Int: Int] = [:], poePorts: Set<Int> = [],
                 poeBudgetW: Int? = nil, poeUsedW: Int? = nil, poeDetails: [SNMPPoEPort]? = nil,
-                arp: [MACAddress: IPv4Address] = [:], polledAt: Date = Date()) {
+                arp: [MACAddress: IPv4Address] = [:], polledAt: Date = Date(), controllerName: String? = nil) {
         self.host = host
         self.system = system
         self.interfaces = interfaces
@@ -335,7 +338,11 @@ public struct SNMPSwitchSnapshot: Hashable, Sendable, Codable, Identifiable {
         self.poeDetails = poeDetails
         self.arp = arp
         self.polledAt = polledAt
+        self.controllerName = controllerName
     }
+
+    /// Relevé fourni par un contrôleur (FortiGate) et non par SNMP.
+    public var isViaController: Bool { controllerName != nil }
 
     public var displayName: String { system.name.isEmpty ? host.description : system.name }
 

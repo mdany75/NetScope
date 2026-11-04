@@ -4,7 +4,7 @@ import Foundation
 public struct NameDetails: Hashable, Sendable {
     /// Origine du nom retenu.
     public enum Source: String, Hashable, Sendable, Codable {
-        case dns, mdns, netbios, snmp
+        case dns, mdns, netbios, snmp, fortigate
 
         public var label: String {
             switch self {
@@ -12,6 +12,7 @@ public struct NameDetails: Hashable, Sendable {
             case .mdns: return "mDNS (Bonjour)"
             case .netbios: return "NetBIOS"
             case .snmp: return "SNMP"
+            case .fortigate: return "FortiGate"
             }
         }
     }
