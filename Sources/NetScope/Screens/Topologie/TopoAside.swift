@@ -195,7 +195,7 @@ struct TopoAside: View {
                 VStack(spacing: 0) {
                     KeyValueRow(key: "Nœuds affichés", value: "\(graph.nodes.count)", keyWidth: 110)
                     KeyValueRow(key: "Liens affichés", value: "\(graph.links.count)", keyWidth: 110)
-                    KeyValueRow(key: "Sous-réseaux", value: networks.joined(separator: " · "), mono: true, keyWidth: 110)
+                    KeyValueRow(key: "Sous-réseaux", value: networks.isEmpty ? "—" : networks.joined(separator: "\n"), mono: true, keyWidth: 110)
                     KeyValueRow(key: "VLAN", value: vlans.isEmpty ? "—" : vlans.joined(separator: " · "), keyWidth: 110)
                 }
             }

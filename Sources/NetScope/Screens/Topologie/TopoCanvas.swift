@@ -5,8 +5,8 @@ import SwiftUI
 enum TopoStyle {
     static let wire = Color(hex: 0x94A3B8)
     static let wifi = Color(hex: 0x7C3AED)
-    static let nodeWidth: CGFloat = 150
-    static let nodeHeight: CGFloat = 46
+    static let nodeWidth: CGFloat = 172
+    static let nodeHeight: CGFloat = 54
 
     static func colors(kind: TopoNodeKind, type: DeviceType?) -> (fg: Color, bg: Color) {
         switch kind {
@@ -97,7 +97,7 @@ struct TopoCanvas: View {
 
     /// Ordonnée du palier horizontal entre un parent et ses enfants.
     private func busY(_ parent: CGPoint) -> CGFloat {
-        parent.y + TopoStyle.nodeHeight / 2 + 29
+        parent.y + TopoStyle.nodeHeight / 2 + 24
     }
 
     /// Lien en équerre : du bas du parent jusqu'au haut de l'enfant ; pour une feuille empilée,
@@ -157,6 +157,15 @@ struct TopoNodeView: View {
     let isSelected: Bool
     let isDimmed: Bool
 
+    private func labels(titleLines: Int, subtitleLines: Int) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(node.title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text)
+                .lineLimit(titleLines).truncationMode(.middle).fixedSize(horizontal: false, vertical: true)
+            Text(node.subtitle).font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary)
+                .lineLimit(subtitleLines).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     var body: some View {
         let colors = TopoStyle.colors(kind: node.kind, type: node.deviceType)
         let shape = RoundedRectangle(cornerRadius: 8)
@@ -167,10 +176,13 @@ struct TopoNodeView: View {
                     .foregroundStyle(colors.fg)
                     .frame(width: 26, height: 26)
                     .background(RoundedRectangle(cornerRadius: 6).fill(colors.bg))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(node.title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
-                    Text(node.subtitle).font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                // Libellés sur deux lignes au besoin plutôt que tronqués (« Contrôleur de domaine »,
+                // « VLAN 30 · 2 en ligne · 1 conflit ») : trois lignes au plus dans le nœud.
+                ViewThatFits(in: .vertical) {
+                    labels(titleLines: 2, subtitleLines: 2)
+                    labels(titleLines: 2, subtitleLines: 1)
                 }
+                .frame(maxHeight: TopoStyle.nodeHeight - 6)
                 Spacer(minLength: 0)
             }
             .padding(.leading, 7)

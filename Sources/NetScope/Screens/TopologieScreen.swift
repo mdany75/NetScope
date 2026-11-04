@@ -17,9 +17,6 @@ struct TopologieScreen: View {
     var body: some View {
         let graph = TopoGraph.build(devices: model.withManualTypes(state.devices), gateway: state.activeInterface?.gateway,
                                     conflictIPs: model.store.conflictIPs)
-        let layout = graph.layout(hidden: { node in
-            !showEndDevices && (node.kind == .groupe || node.kind == .appareil)
-        })
 
         Group {
             if state.devices.isEmpty {
@@ -32,7 +29,7 @@ struct TopologieScreen: View {
                 VStack(alignment: .leading, spacing: 14) {
                     tiles(graph)
                     SidePanelSplit(sideWidth: 320, title: "Détail du nœud") {
-                        mapPanel(graph, layout)
+                        mapPanel(graph)
                     } side: {
                         TopoAside(graph: graph, selectedID: $selectedID)
                     }
@@ -88,7 +85,32 @@ struct TopologieScreen: View {
 
     // MARK: Carte
 
-    private func mapPanel(_ graph: TopoGraph, _ layout: TopoGraph.Layout) -> some View {
+    /// Zoom automatique : jamais sous un seuil lisible (la carte défile alors), jamais trop gros.
+    private static let minFit: CGFloat = 0.75
+    private static let maxFit: CGFloat = 1.15
+
+    /// Disposition qui remplit le mieux le cadre réel : on essaie plusieurs hauteurs de piles de feuilles
+    /// (plus basses = carte plus large que haute) et on garde celle qui permet le plus grand zoom.
+    private func fittedLayout(_ graph: TopoGraph, in size: CGSize) -> (layout: TopoGraph.Layout, fit: CGFloat) {
+        let hideEnd = !showEndDevices
+        let hidden: (TopoNode) -> Bool = { node in hideEnd && (node.kind == .groupe || node.kind == .appareil) }
+        let width = max(size.width - 24, 1), height = max(size.height - 24, 1)
+        var best: (layout: TopoGraph.Layout, fit: CGFloat)?
+        for stack in (1...6).reversed() {
+            let layout = graph.layout(nodeWidth: TopoStyle.nodeWidth, nodeHeight: TopoStyle.nodeHeight,
+                                      levelGap: 50, stackGap: 20, maxStack: stack, margin: 22, hidden: hidden)
+            let fit = min(width / layout.width, height / layout.height)
+            // À zoom presque égal, on garde les piles les plus hautes (carte plus compacte).
+            if let current = best, fit <= current.fit + 0.01 { continue }
+            best = (layout, fit)
+        }
+        guard let result = best else {
+            return (graph.layout(nodeWidth: TopoStyle.nodeWidth, nodeHeight: TopoStyle.nodeHeight, hidden: hidden), 1)
+        }
+        return (result.layout, min(max(result.fit, Self.minFit), Self.maxFit))
+    }
+
+    private func mapPanel(_ graph: TopoGraph) -> some View {
         let scale = zoom ?? fitScale
         return VStack(spacing: 0) {
             HStack(spacing: 16) {
@@ -121,7 +143,10 @@ struct TopologieScreen: View {
             Rectangle().fill(Theme.border).frame(height: 1)
 
             GeometryReader { geometry in
-                let fit = min((geometry.size.width - 16) / layout.width, (geometry.size.height - 16) / layout.height, 1.2)
+                let fitted = fittedLayout(graph, in: geometry.size)
+                let layout = fitted.layout
+                let fit = fitted.fit
+                let scale = zoom ?? fit
                 ScrollView([.horizontal, .vertical]) {
                     TopoCanvas(graph: graph, layout: layout, selectedID: $selectedID, showPortLabels: showPortLabels)
                         .frame(width: layout.width, height: layout.height)
@@ -129,8 +154,8 @@ struct TopologieScreen: View {
                         .frame(width: layout.width * scale, height: layout.height * scale, alignment: .topLeading)
                         .frame(minWidth: geometry.size.width, minHeight: geometry.size.height)
                 }
-                .onAppear { fitScale = max(0.3, fit) }
-                .onChange(of: fit) { _, value in fitScale = max(0.3, value) }
+                .onAppear { fitScale = fit }
+                .onChange(of: fit) { _, value in fitScale = value }
             }
             .background(Theme.panelMuted)
 

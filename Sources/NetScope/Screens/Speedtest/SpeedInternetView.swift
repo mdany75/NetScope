@@ -61,8 +61,11 @@ struct SpeedInternetView: View {
                     liveCharts
                 }
 
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 10)], spacing: 10) {
-                    ForEach(Array(tiles.enumerated()), id: \.offset) { _, tile in tile }
+                // Six tuiles en rangées pleines (6, 3 ou 2 par ligne) : pas de case vide en bout de ligne.
+                ViewThatFits(in: .horizontal) {
+                    tileGrid(columns: 6)
+                    tileGrid(columns: 3)
+                    tileGrid(columns: 2)
                 }
             }
         }
@@ -154,18 +157,29 @@ struct SpeedInternetView: View {
         }()
         let isCurrent = current == phase
         let tone: Tone = isCurrent ? .accent : (done ? .success : .neutral)
-        return HStack(spacing: 6) {
+        return HStack(spacing: 5) {
             SpeedPulseDot(color: isCurrent ? Theme.accent : (done ? Theme.success : Color(light: 0xD1D5DB, dark: 0x2F343C)), pulsing: isCurrent)
-            Text(phase.label).font(.system(size: 12, weight: .semibold))
+            Text(chipLabel(phase)).font(.system(size: 12, weight: .semibold))
             if let value = stepValue(phase) {
                 Text(value).font(Theme.mono(11))
             }
         }
         .foregroundStyle(tone == .neutral ? Theme.textSecondary : tone.foreground)
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 9)
         .frame(height: 26)
         .background(Capsule().fill(tone.background))
         .fixedSize()
+        .help(phase.label)
+    }
+
+    /// Libellé court des étapes (comme les courbes « Descente » et « Montée ») : les trois pastilles
+    /// tiennent sur une ligne sous la jauge.
+    private func chipLabel(_ phase: SpeedPhase) -> String {
+        switch phase {
+        case .latency: return phase.label
+        case .download: return "Descente"
+        case .upload: return "Montée"
+        }
     }
 
     private func stepValue(_ phase: SpeedPhase) -> String? {
@@ -241,6 +255,19 @@ struct SpeedInternetView: View {
     }
 
     // MARK: Tuiles de résultats
+
+    private func tileGrid(columns: Int) -> some View {
+        let all = tiles
+        return Grid(horizontalSpacing: 10, verticalSpacing: 10) {
+            ForEach(Array(stride(from: 0, to: all.count, by: columns)), id: \.self) { start in
+                GridRow {
+                    ForEach(start..<min(start + columns, all.count), id: \.self) { index in
+                        all[index].frame(minWidth: 150)
+                    }
+                }
+            }
+        }
+    }
 
     private var tiles: [SpeedTile] {
         let summary = model.summary

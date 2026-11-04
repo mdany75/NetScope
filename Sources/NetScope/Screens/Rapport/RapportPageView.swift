@@ -270,7 +270,14 @@ struct RapportPageView: View {
                 }
                 .frame(height: pt(height), alignment: topAligned ? .top : .center)
                 .background(row.isTotal ? Color(hex: 0xF9FAFB) : Color.clear)
-                .overlay(alignment: .bottom) { Rectangle().fill(Self.line).frame(height: 1) }
+                // Sous-total : il ferme le groupe des lignes au-dessus (même réseau) ; un trait plus
+                // foncé le sépare du groupe suivant pour qu'il ne se lise pas comme un segment de plus.
+                .overlay(alignment: .top) {
+                    if row.isTotal { Rectangle().fill(Self.gray.opacity(0.45)).frame(height: 1) }
+                }
+                .overlay(alignment: .bottom) {
+                    Rectangle().fill(row.isTotal ? Self.gray : Self.line).frame(height: row.isTotal ? px(1.5) : 1)
+                }
             }
         }
     }

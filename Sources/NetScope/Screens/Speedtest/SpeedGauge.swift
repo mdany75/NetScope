@@ -19,7 +19,6 @@ struct SpeedGauge: View, Animatable {
     private static let box = CGSize(width: 300, height: 250)
     private static let center = CGPoint(x: 150, y: 150)
     private static let radius: CGFloat = 112
-    private static let labelRadius: CGFloat = 87
     private static let startAngle = 135.0
     private static let sweep = 270.0
 
@@ -45,11 +44,16 @@ struct SpeedGauge: View, Animatable {
                 ticks.addLine(to: SpeedGauge.point(angle, SpeedGauge.radius - (major ? 22 : 18)))
             }
             context.stroke(ticks, with: .color(Color(hex: 0x9CA3AF)), lineWidth: 1.4)
+            // Valeurs des grandes graduations : placées d'après leur taille réelle, pour garder
+            // un espace constant entre le bord du texte et le bout intérieur des traits.
             for index in 0...5 {
                 let mark = scale * Double(index) / 5
-                let position = SpeedGauge.point(SpeedGauge.angle(Double(index) / 5), SpeedGauge.labelRadius - 8)
-                context.draw(Text(SpeedGauge.markLabel(mark)).font(Theme.mono(11)).foregroundColor(Theme.textSecondary),
-                             at: position)
+                let angle = SpeedGauge.angle(Double(index) / 5)
+                let label = context.resolve(Text(SpeedGauge.markLabel(mark)).font(Theme.mono(11)).foregroundColor(Theme.textSecondary))
+                let size = label.measure(in: CGSize(width: 100, height: 40))
+                let extent = abs(cos(angle)) * size.width / 2 + abs(sin(angle)) * size.height / 2
+                let radius = SpeedGauge.radius - 22 - 5 - extent
+                context.draw(label, at: SpeedGauge.point(angle, radius))
             }
             // Aiguille et repère sur l'arc.
             let needleAngle = SpeedGauge.angle(fraction)
@@ -63,8 +67,9 @@ struct SpeedGauge: View, Animatable {
             context.fill(Path(ellipseIn: dotRect), with: .color(Theme.panel))
             context.stroke(Path(ellipseIn: dotRect), with: .color(color), lineWidth: 3)
 
-            context.draw(Text(phase).font(.system(size: 12, weight: .semibold)).foregroundColor(Theme.textSecondary),
-                         at: CGPoint(x: 150, y: 108))
+            // Phase : sous les valeurs du haut de l'échelle, assez bas pour ne pas toucher les graduations.
+            context.draw(Text(phase).font(.system(size: 11.5, weight: .semibold)).foregroundColor(Theme.textSecondary),
+                         at: CGPoint(x: 150, y: 120))
             context.draw(Text(valueText).font(Theme.mono(34, weight: .semibold)).foregroundColor(Theme.text),
                          at: CGPoint(x: 150, y: 184))
             context.draw(Text(unit).font(.system(size: 12)).foregroundColor(Theme.textSecondary),
