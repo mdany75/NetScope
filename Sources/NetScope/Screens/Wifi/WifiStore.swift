@@ -47,6 +47,12 @@ final class WifiStore: NSObject, ObservableObject {
     @Published private(set) var scanCount = 0
     @Published private(set) var scanError: String?
     @Published private(set) var authorization: CLAuthorizationStatus = .notDetermined
+    /// Service de localisation actif pour tout le Mac.
+    @Published private(set) var locationServicesEnabled = true
+    /// Demande d'autorisation envoyée, réponse attendue.
+    @Published private(set) var locationRequestPending = false
+    /// La demande est restée sans réponse après le délai : la fenêtre n'a peut-être pas paru.
+    @Published private(set) var locationRequestUnanswered = false
     /// RSSI de la connexion, toutes les 2 s, sur 2 minutes (nil : déconnecté).
     @Published private(set) var history: [Int?] = []
     @Published private(set) var roams: [Roam] = []
@@ -62,6 +68,7 @@ final class WifiStore: NSObject, ObservableObject {
 
     let isDemo: Bool
     private let locationManager = CLLocationManager()
+    private var pendingTimeout: Task<Void, Never>?
     private var timer: Timer?
     private var lastBSSID: String?
     static let historyLength = 60
@@ -74,6 +81,7 @@ final class WifiStore: NSObject, ObservableObject {
         } else {
             locationManager.delegate = self
             authorization = locationManager.authorizationStatus
+            updateLocationServicesEnabled()
         }
     }
 
@@ -99,20 +107,100 @@ final class WifiStore: NSObject, ObservableObject {
         authorization == .authorizedAlways || authorization == .authorized
     }
 
+    /// macOS ne donne pas le nom du réseau connecté. Un réseau connecté a toujours un nom (même
+    /// caché) : s'il manque, c'est l'autorisation qui manque ou qui n'est pas encore prise en compte.
+    /// Le bandeau s'affiche alors quel que soit l'état (y compris « autorisé », pour actualiser).
     var namesRedacted: Bool {
         guard let connection, connection.powerOn, let network = connection.network else { return false }
-        return network.ssid == nil && !locationAuthorized
+        return network.ssid == nil
     }
 
-    func requestLocation() {
-        guard !isDemo else { return }
-        if authorization == .denied || authorization == .restricted {
-            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices") {
-                NSWorkspace.shared.open(url)
-            }
-        } else {
-            locationManager.requestWhenInUseAuthorization()
+    /// État vu par NetScopeCore (service coupé dans macOS, non déterminé, refusé, restreint, autorisé).
+    var locationStatus: WifiLocationStatus {
+        let status: WifiLocationStatus
+        switch authorization {
+        case .notDetermined: status = .notDetermined
+        case .denied: status = .denied
+        case .restricted: status = .restricted
+        default: status = locationAuthorized ? .authorized : .notDetermined
         }
+        return WifiLocationStatus.from(servicesEnabled: locationServicesEnabled, status: status)
+    }
+
+    /// Bouton et message du bandeau de localisation.
+    var locationGuidance: WifiLocationGuidance {
+        WifiLocationGuidance.make(status: locationStatus, requestPending: locationRequestPending,
+                                  requestUnanswered: locationRequestUnanswered)
+    }
+
+    /// Bouton du bandeau : demande, ouvre les réglages ou actualise, selon l'état.
+    func requestLocation() {
+        perform(locationGuidance.action)
+    }
+
+    /// Second bouton du bandeau, s'il y en a un (« Redemander »).
+    func requestLocationSecondary() {
+        guard let action = locationGuidance.secondaryAction else { return }
+        perform(action)
+    }
+
+    private func perform(_ action: WifiLocationAction) {
+        guard !isDemo else { return }
+        switch action {
+        case .openSettings:
+            if let url = URL(string: WifiLocationGuidance.settingsURL) { NSWorkspace.shared.open(url) }
+        case .refresh:
+            refresh()
+            scan()
+        case .request:
+            askForAuthorization()
+        }
+        updateLocationServicesEnabled()
+    }
+
+    /// Sur macOS, requestWhenInUseAuthorization seul n'affiche pas toujours la fenêtre : une
+    /// demande de position la déclenche (arrêtée dès la réponse ; la position n'est pas utilisée).
+    private func askForAuthorization() {
+        locationRequestPending = true
+        locationRequestUnanswered = false
+        locationManager.delegate = self
+        locationManager.requestWhenInUseAuthorization()
+        locationManager.requestLocation()
+        pendingTimeout?.cancel()
+        pendingTimeout = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(WifiLocationGuidance.promptTimeout * 1_000_000_000))
+            guard let self, !Task.isCancelled, self.locationRequestPending,
+                  self.locationManager.authorizationStatus == .notDetermined else { return }
+            self.locationRequestUnanswered = true
+        }
+    }
+
+    /// CLLocationManager.locationServicesEnabled() peut bloquer le fil principal : lu à part.
+    private func updateLocationServicesEnabled() {
+        Task.detached(priority: .utility) { [weak self] in
+            let enabled = CLLocationManager.locationServicesEnabled()
+            await self?.setLocationServicesEnabled(enabled)
+        }
+    }
+
+    private func setLocationServicesEnabled(_ enabled: Bool) {
+        if locationServicesEnabled != enabled { locationServicesEnabled = enabled }
+    }
+
+    /// Réponse de macOS (locationManagerDidChangeAuthorization, seule voie) : met à jour le bandeau
+    /// et relit les noms. Un état inchangé hors demande en cours ne relance rien.
+    fileprivate func authorizationChanged(_ status: CLAuthorizationStatus) {
+        guard status != authorization || locationRequestPending else { return }
+        authorization = status
+        if status != .notDetermined {
+            locationRequestPending = false
+            locationRequestUnanswered = false
+            pendingTimeout?.cancel()
+            locationManager.stopUpdatingLocation()
+        }
+        updateLocationServicesEnabled()
+        refresh()
+        if locationAuthorized, !networks.isEmpty { scan() }
     }
 
     // MARK: Connexion actuelle (lecture locale)
@@ -284,10 +372,18 @@ final class WifiStore: NSObject, ObservableObject {
 extension WifiStore: CLLocationManagerDelegate {
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         let status = manager.authorizationStatus
-        Task { @MainActor in
-            self.authorization = status
-            self.refresh()
-        }
+        Task { @MainActor in self.authorizationChanged(status) }
+    }
+
+    /// Exigé par requestLocation : la position elle-même n'est pas utilisée.
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        manager.stopUpdatingLocation()
+    }
+
+    /// Refus ou position introuvable : la demande de position s'arrête ; le nouvel état arrive
+    /// par locationManagerDidChangeAuthorization (pas de second rafraîchissement ici).
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        manager.stopUpdatingLocation()
     }
 }
 
