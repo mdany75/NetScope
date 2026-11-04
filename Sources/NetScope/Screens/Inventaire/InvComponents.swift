@@ -145,7 +145,7 @@ enum InvStyle {
         switch kind {
         case .nouveau, .changementIP: return (Theme.accent, Theme.accentStrong, infoSoft)
         case .changementPort: return (Theme.warning, Theme.warning, Theme.warningSoft)
-        case .horsLigne, .conflitIP: return (Theme.critical, Theme.critical, Theme.criticalSoft)
+        case .horsLigne, .conflitIP, .dhcpNonAutorise: return (Theme.critical, Theme.critical, Theme.criticalSoft)
         case .retour: return (Theme.success, Theme.success, Theme.successSoft)
         case .fiche, .fusion, .importCSV: return (Theme.textSecondary, Theme.neutralText, Theme.neutralSoft)
         }

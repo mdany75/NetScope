@@ -88,12 +88,10 @@ private struct ToolListPanel: View {
                     .foregroundStyle(selected ? Theme.accentStrong : Theme.textSecondary)
                 Text(tool.label)
                     .font(.system(size: 13, weight: selected ? .semibold : .medium))
-                    .foregroundStyle(tool.isSoon ? Theme.textTertiary : (selected ? Theme.accentStrong : Theme.text))
+                    .foregroundStyle(selected ? Theme.accentStrong : Theme.text)
                     .lineLimit(1)
                 Spacer(minLength: 4)
-                if tool.isSoon {
-                    Chip(text: "Bientôt", tone: .neutral)
-                } else if tool.redirect != nil {
+                if tool.redirect != nil {
                     Image(systemName: "arrow.up.forward").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.textTertiary)
                 }
             }
@@ -118,6 +116,8 @@ private struct ToolMainPanel: View {
     @ObservedObject private var dns = ToolStore.shared.dns
     @ObservedObject private var whois = ToolStore.shared.whois
     @ObservedObject private var wol = ToolStore.shared.wol
+    @ObservedObject private var dhcp = ToolStore.shared.dhcp
+    @ObservedObject private var neighbors = ToolStore.shared.neighbors
 
     var body: some View {
         let tool = store.selectedTool
@@ -140,7 +140,6 @@ private struct ToolMainPanel: View {
                 ToolFieldLabel(tool.group.rawValue)
                 HStack(spacing: 8) {
                     Text(tool.label).font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.text)
-                    if tool.isSoon { Chip(text: "Bientôt", tone: .warning) }
                 }
                 Text(tool.summary).font(Theme.small).foregroundStyle(Theme.textSecondary)
             }
@@ -179,13 +178,13 @@ private struct ToolMainPanel: View {
         case .mtu: MTUToolView()
         case .iperf, .speedtest: SpeedRedirectView(tool: tool)
         case .wol: WakeOnLANView(model: wol, store: store)
-        case .dhcp, .lldp: SoonToolView(tool: tool)
+        case .dhcp: DHCPTestView(model: dhcp, store: store)
+        case .lldp: NeighborCaptureView(model: neighbors, store: store)
         }
     }
 
     /// Commande équivalente affichée dans l'en-tête de l'outil.
     private func command(for tool: ToolKind) -> String {
-        let iface = state.activeInterface?.name ?? "en0"
         switch tool {
         case .subnet: return "ipcalc \(subnet.cidr.trimmingCharacters(in: .whitespaces))"
         case .mac: return "oui \(mac.text.trimmingCharacters(in: .whitespaces))"
@@ -197,8 +196,8 @@ private struct ToolMainPanel: View {
         case .iperf: return "iperf3 -c <serveur> -P 4 -t 10"
         case .speedtest: return "speedtest"
         case .wol: return wol.command
-        case .dhcp: return "dhcp-probe -i \(iface)"
-        case .lldp: return "lldp-listen -i \(iface)"
+        case .dhcp: return dhcp.command
+        case .lldp: return neighbors.command
         }
     }
 }

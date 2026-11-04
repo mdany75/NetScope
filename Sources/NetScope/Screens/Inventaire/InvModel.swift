@@ -118,6 +118,14 @@ final class InvModel: ObservableObject {
         save()
     }
 
+    /// Alerte signalée par un outil ; faux si elle était déjà à traiter.
+    @discardableResult
+    func addAlert(_ event: InvEvent) -> Bool {
+        let added = store.addAlert(event)
+        if added { save() }
+        return added
+    }
+
     func setEventStatus(_ status: InvEventStatus, for id: UUID) {
         store.setEventStatus(status, for: id)
         save()

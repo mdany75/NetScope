@@ -70,9 +70,6 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    /// Outils pas encore disponibles (« Bientôt »).
-    var isSoon: Bool { self == .dhcp || self == .lldp }
-
     /// Outils qui renvoient vers un autre écran.
     var redirect: Screen? {
         switch self {
@@ -176,6 +173,8 @@ final class ToolStore: ObservableObject {
     let dns = ToolDNSModel()
     let whois = ToolWhoisModel()
     let wol = ToolWakeModel()
+    let dhcp = ToolDHCPModel()
+    let neighbors = ToolNeighborModel()
 
     /// Démonstration (--demo) : données des croquis.
     let isDemo: Bool
@@ -196,6 +195,10 @@ final class ToolStore: ObservableObject {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
         url = base.appendingPathComponent("NetScope", isDirectory: true).appendingPathComponent("outils.json")
+        // Captures de développement (--snapshot, --demo) : NETSCOPE_OUTIL_DEMO=dhcp (ou lldp…) ouvre cet outil.
+        if isEphemeral, let raw = ProcessInfo.processInfo.environment["NETSCOPE_OUTIL_DEMO"], let tool = ToolKind(rawValue: raw) {
+            selectedTool = tool
+        }
         if isDemo {
             loadDemo()
         } else if !isEphemeral, let data = try? Data(contentsOf: url), let saved = try? JSONDecoder().decode(Snapshot.self, from: data) {
@@ -275,10 +278,14 @@ final class ToolStore: ObservableObject {
         let now = Date()
         func ago(_ minutes: Double) -> Date { now.addingTimeInterval(-minutes * 60) }
         commands = [
+            "dhcp-probe -i en0 -t 5", "lldp-listen -i en7",
             "scan -sV -p 1-1024,9100 10.182.122.111", "dig -x 10.182.122.111 @10.182.122.1",
             "ipcalc 192.168.50.0/24 --split 26", "whois 8.8.8.8", "wol B0:7B:25:44:9F:20 -b 10.182.122.255 -p 9",
         ]
         recents = [
+            ToolRecent(tool: .dhcp, target: "en0 · 10.182.122.0/24", summary: "2 serveurs, dont 10.182.122.250 non autorisé",
+                       date: ago(4), status: .warning),
+            ToolRecent(tool: .lldp, target: "en7", summary: "SW-ETG2-01 · port 1/22 · VLAN 1", date: ago(9), status: .ok),
             ToolRecent(tool: .ports, target: "10.182.122.111", summary: "4 ouverts : 80, 443, 631, 9100", date: ago(22), status: .ok),
             ToolRecent(tool: .dns, target: "10.182.122.111", summary: "PTR BRN94DDF818157D.bureau.local.", date: ago(31), status: .ok),
             ToolRecent(tool: .whois, target: "8.8.8.8", summary: "Google LLC · AS15169 · 8.8.8.0/24", date: ago(48), status: .ok),

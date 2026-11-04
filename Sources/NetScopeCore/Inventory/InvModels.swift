@@ -215,6 +215,8 @@ public struct InvRecord: Codable, Hashable, Identifiable, Sendable {
 
 public enum InvEventKind: String, Codable, Sendable, CaseIterable {
     case nouveau, changementIP, changementPort, horsLigne, retour, conflitIP, fiche, fusion, importCSV
+    /// Serveur DHCP non autorisé signalé depuis le Test DHCP de la Boîte à outils.
+    case dhcpNonAutorise
 
     /// Libellé court de la chronologie.
     public var label: String {
@@ -226,6 +228,7 @@ public enum InvEventKind: String, Codable, Sendable, CaseIterable {
         case .conflitIP: return "Conflit IP"
         case .fiche, .fusion: return "Fiche"
         case .importCSV: return "Import"
+        case .dhcpNonAutorise: return "Serveur DHCP"
         }
     }
 
