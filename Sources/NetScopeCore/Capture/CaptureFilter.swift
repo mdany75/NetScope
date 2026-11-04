@@ -7,7 +7,7 @@ import Foundation
 /// écrit le programme. Sinon, les préréglages simples (host, port, arp, dns, dhcp, icmp, tcp, udp,
 /// LLDP/CDP) sont traduits par des programmes écrits à la main.
 public struct CompiledCaptureFilter: Sendable, Equatable {
-    public enum Source: String, Sendable { case none, tcpdump, handWritten }
+    public enum Source: String, Sendable { case unfiltered, tcpdump, handWritten }
 
     public var text: String
     public var program: [BPFInstruction]
@@ -77,7 +77,7 @@ public enum CaptureFilterCompiler {
     public static func compile(_ text: String, linkType: UInt32 = PcapLinkType.ethernet,
                                tcpdump: String? = PrivilegedCapture.tcpdumpPath) -> Result<CompiledCaptureFilter, ToolError> {
         let clean = normalized(text)
-        if clean.isEmpty { return .success(CompiledCaptureFilter(text: "", program: acceptAll, source: .none)) }
+        if clean.isEmpty { return .success(CompiledCaptureFilter(text: "", program: acceptAll, source: .unfiltered)) }
         guard isSafe(clean) else {
             return .failure(.invalidInput("Caractère refusé dans le filtre de capture (ni guillemets, ni apostrophe, ni « ; », « $ », « \\ »)."))
         }

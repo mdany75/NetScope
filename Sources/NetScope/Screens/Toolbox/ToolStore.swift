@@ -11,6 +11,8 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     case mailSuper, mailHealth, mx, blacklist, mailRecords
     // Courriel (note 14, partie 2)
     case smtp, headers = "entetes"
+    /// Capture et inspection de paquets (note 7).
+    case capture
 
     var id: String { rawValue }
 
@@ -24,7 +26,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     var group: Group {
         switch self {
         case .subnet, .mac: return .adressage
-        case .ports, .dns, .whois, .mtu: return .diagnostic
+        case .ports, .dns, .whois, .mtu, .capture: return .diagnostic
         case .iperf, .speedtest: return .performance
         case .wol, .dhcp, .lldp: return .services
         case .cloud: return .internet
@@ -54,6 +56,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .mailRecords: return "SPF, DKIM, DMARC…"
         case .smtp: return "Diagnostic SMTP"
         case .headers: return "Analyse d’en-têtes"
+        case .capture: return "Capture de paquets"
         }
     }
 
@@ -78,6 +81,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .mailRecords: return "Lit et explique SPF, DMARC, DKIM, BIMI, MTA-STS et TLS-RPT\u{00A0}; signale les erreurs."
         case .smtp: return "Bannière, EHLO, STARTTLS, certificat et temps de réponse d’un serveur de courriel, sans rien envoyer."
         case .headers: return "Trajet d’un courriel, SPF, DKIM, DMARC et alertes d’usurpation, à partir des en-têtes collés."
+        case .capture: return "Paquets en direct ou fichier .pcap\u{00A0}: détail par couche, hexadécimal, flux, statistiques, façon Wireshark."
         }
     }
 
@@ -102,6 +106,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .mailRecords: return "checkmark.shield"
         case .smtp: return "envelope.badge.shield.half.filled"
         case .headers: return "envelope.open"
+        case .capture: return "waveform.path.ecg.rectangle"
         }
     }
 
@@ -115,6 +120,9 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     }
 
     static let favorites: [ToolKind] = [.subnet, .ports, .dns, .wol]
+
+    /// Outils qui prennent toute la largeur (sans le panneau des favoris et de l'historique).
+    var usesFullWidth: Bool { self == .capture }
 
     func matches(_ query: String) -> Bool {
         let q = query.trimmingCharacters(in: .whitespaces)
@@ -218,6 +226,8 @@ final class ToolStore: ObservableObject {
     let mailRecords = ToolMailRecordsModel()
     let smtp = ToolSMTPModel()
     let headers = ToolHeaderModel()
+    /// Capture de paquets (note 7).
+    let capture = ToolPacketCaptureModel()
 
     /// Démonstration (--demo) : données des croquis.
     let isDemo: Bool

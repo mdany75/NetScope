@@ -567,7 +567,7 @@ func registerPacketCaptureTests(_ suite: TestSuite) {
             }
         }
         if case .success = CaptureFilterCompiler.compile("port pomme") { throw TestFailure(message: "syntaxe acceptée", file: #fileID, line: #line) }
-        if case .success(let none) = CaptureFilterCompiler.compile("  ") { try expectEqual(none.source, .none, "vide : tout le trafic") }
+        if case .success(let none) = CaptureFilterCompiler.compile("  ") { try expectEqual(none.source, .unfiltered, "vide : tout le trafic") }
     }
 
     suite.add("Filtre de capture : texte sûr et commande tcpdump administrateur") {

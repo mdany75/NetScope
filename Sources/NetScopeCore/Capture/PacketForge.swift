@@ -295,12 +295,23 @@ public enum PacketForge {
         extensions += tlsExtension(51, keyShare)
         body.appendBE16(UInt16(extensions.count))
         body += extensions
-        let encrypted = (0..<encryptedLength).map { UInt8(truncatingIfNeeded: Int(seed) &+ $0 &* 31) }
-        return record(22, version: 0x0303, handshake(2, body)) + record(20, version: 0x0303, [0x01]) + record(23, version: 0x0303, encrypted)
+        return record(22, version: 0x0303, handshake(2, body)) + record(20, version: 0x0303, [0x01])
+            + record(23, version: 0x0303, noise(encryptedLength, seed: seed))
     }
 
     /// Enregistrement de données applicatives chiffrées (contenu illisible, comme sur le fil).
     public static func tlsApplicationData(length: Int, seed: UInt8 = 0x77) -> [UInt8] {
-        record(23, version: 0x0303, (0..<length).map { UInt8(truncatingIfNeeded: Int(seed) &+ $0 &* 37) })
+        record(23, version: 0x0303, noise(length, seed: seed))
+    }
+
+    /// Octets d'apparence aléatoire mais reproductibles (xorshift), à la place d'un contenu chiffré.
+    public static func noise(_ count: Int, seed: UInt8) -> [UInt8] {
+        var state: UInt32 = 0x9E37_79B9 ^ (UInt32(seed) << 16 | UInt32(seed))
+        return (0..<count).map { _ in
+            state ^= state << 13
+            state ^= state >> 17
+            state ^= state << 5
+            return UInt8(truncatingIfNeeded: state >> 11)
+        }
     }
 }
