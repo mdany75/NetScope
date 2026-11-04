@@ -17,7 +17,7 @@ struct DeviceFortiAPCard: View {
                 HStack(spacing: 4) {
                     node(ap?.name ?? client.apName ?? "Borne", ap?.model ?? "FortiAP", highlighted: false)
                     Text("─").foregroundStyle(Theme.textSecondary)
-                    node(client.ssid ?? "SSID", [client.band?.label, client.channel.map { "canal \($0)" }].compactMap { $0 }.joined(separator: " · "),
+                    node(client.ssid ?? "SSID", client.band?.label ?? "Wi-Fi",
                          highlighted: true)
                     Text("─").foregroundStyle(Theme.textSecondary)
                     node(device.hostname ?? device.displayName, ".\(device.ip.octets.3)", highlighted: false)

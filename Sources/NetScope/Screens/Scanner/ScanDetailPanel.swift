@@ -186,9 +186,10 @@ struct ScanDetailLocation: View {
                     HStack(spacing: 8) {
                         box("Borne Wi-Fi", client.apName ?? "—")
                         box("SSID", client.ssid ?? "—")
-                        box("Signal", [client.band?.label, client.rssi.map(WifiQuality.dbm)].compactMap { $0 }.joined(separator: " · ").ifEmpty("—"))
+                        box("Signal", client.rssi.map(WifiQuality.dbm) ?? "—")
                     }
-                    Text("Client Wi-Fi de la FortiGate du site «\u{00A0}\(client.site)\u{00A0}»" + (client.channel.map { " · canal \($0)" } ?? "")
+                    Text("Client Wi-Fi de la FortiGate du site «\u{00A0}\(client.site)\u{00A0}»" + (client.band.map { " · \($0.label)" } ?? "")
+                         + (client.channel.map { " · canal \($0)" } ?? "")
                          + (client.snr.map { " · SNR \($0)\u{00A0}dB" } ?? "") + (fortiAP.isWeak(client) ? " · signal faible" : ""))
                         .font(Theme.small)
                         .foregroundStyle(fortiAP.isWeak(client) ? Theme.warning : Theme.textSecondary)
@@ -405,8 +406,4 @@ struct ScanDetailActions: View {
         }
         .buttonStyle(ScanOutlineButtonStyle(height: 34, font: .system(size: 12, weight: .medium), fullWidth: true))
     }
-}
-
-private extension String {
-    func ifEmpty(_ fallback: String) -> String { isEmpty ? fallback : self }
 }

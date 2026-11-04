@@ -143,7 +143,7 @@ struct FortiAPView: View {
         let o = store.overview
         let d = store.diagnosis
         let critical = d.advice.filter { $0.severity == .critique }.count
-        return LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 10)], spacing: 10) {
+        return LazyVGrid(columns: [GridItem(.adaptive(minimum: 128), spacing: 10)], spacing: 10) {
             tile("Bornes en ligne", "\(o.onlineAPs.count) / \(o.aps.count)",
                  sub: o.isMultiSite ? "\(o.sites.count) sites" : (o.sites.first ?? ""), color: Theme.success)
             tile("Hors ligne", "\(o.offlineAPs.count)", sub: o.offlineAPs.first.map { $0.name + (o.offlineAPs.count > 1 ? "…" : "") } ?? "aucune",
