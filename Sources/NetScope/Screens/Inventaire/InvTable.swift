@@ -503,6 +503,13 @@ struct InvTable: View {
             // Autre site : la même IP sur le réseau du site actif serait un autre appareil.
             Button("Ping continu") { state.sendToPing(record.ip.description) }
                 .disabled(!isActive(row))
+            // Note 52 : utilisateur demandé (ou retenu pour cet appareil) avant ssh user@ip.
+            Button("Se connecter en SSH…") {
+                QuickLoginModel.shared.ask(QuickLoginTarget(name: record.displayName,
+                                                            device: QuickLoginDevice(host: record.ip.description, mac: record.mac?.formatted(.upperColon),
+                                                                                     siteID: SiteModel.shared.list.activeID)))
+            }
+            .disabled(!isActive(row))
         } else {
             Text("\(chosen.count) appareils sélectionnés")
             Button("Copier les IP") {

@@ -57,6 +57,7 @@ registerNavigationTests(suite)
 registerTopoSearchTests(suite)
 registerPerformanceTests(suite)
 registerLoadTests(suite)
+registerQuickLoginTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)
