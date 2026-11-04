@@ -1,5 +1,27 @@
 # Changements
 
+## 0.3.1 — 2026-11-03
+
+Plus d’informations d’un autre réseau présentées comme actuelles.
+
+### Corrigé
+- Scanner : le bilan ne signale plus un switch d’un autre réseau (découvert lors d’un scan
+  précédent) comme « trouvé mais relevé impossible ». En fin de scan, les switchs d’un autre
+  réseau ne sont plus interrogés : pas d’attente inutile et pas de communauté SNMP envoyée
+  ailleurs. Les switchs ajoutés à la main restent relevés (VLAN de gestion routé).
+- Scanner : le bilan des switchs est rattaché aux plages et au réseau du scan qui l’a produit ;
+  il est masqué si les plages cochées ne les recouvrent plus, filtré en cas de recouvrement
+  partiel, grisé si le réseau a changé, et nomme la plage (« Plage 10.182.122.0/24 : … »).
+- Emplacements Switch / Port et VLAN : présentés comme actuels seulement s’ils ont été relevés
+  sur le réseau actuel et confirmés par la dernière découverte ; sinon grisés avec la raison
+  (plage décochée, réseau changé, ancien relevé non confirmé), dans le Scanner, la fiche
+  Appareil et la Carte du réseau.
+- Switchs et ports : l’encart « Ce Mac est branché sur… » indique la date, l’interface et le
+  réseau de la capture, et devient « Ce Mac était branché sur… », grisé, si l’interface, le
+  sous-réseau, la passerelle ou le lien (câble déplacé) a changé.
+- L’interface active, sa passerelle et ses DNS sont relus toutes les 15 s (lecture locale,
+  sans trafic) ; l’interface choisie dans Réglages › Interface est gardée.
+
 ## 0.3.0 — 2026-11-03
 
 Surveillance, Rapports, Test DHCP et capture LLDP/CDP : les deux derniers écrans en construction

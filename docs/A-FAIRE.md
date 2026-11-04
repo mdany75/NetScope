@@ -7,7 +7,8 @@
 
 Notes 1 à 5 : livrées dans la 0.3.0.
 
-1. **0.3.1, correctifs** : retours d'essai de la 0.3.0, note 18 (bilan périmé).
+1. **0.3.1, correctifs** : note 18 (bilan périmé) livrée dans la 0.3.1 ; retours d'essai de la
+   0.3.0 à venir (0.3.2 au besoin).
 2. **0.4.0, interface** : notes 8 (tableaux standard), 20 (colonne Type), 19 (préréglage de
    ports), 9 (style Mac et petite fenêtre).
 3. **0.5.0, diagnostic du poste et du réseau local** : notes 12 (PoE), 21 (ressources),
