@@ -70,6 +70,7 @@ alertes peuvent partir hors du Mac, par courriel ou par webhook Teams, Slack ou 
   jamais les secrets du Trousseau : seuls les noms des comptes à ressaisir sont notés.
 
 ### Corrigé
+- Réglages › Général ne présente plus comme « bientôt » le thème sombre (NetScope suit déjà l’apparence de macOS) ni l’icône de la barre de menus (elle apparaît dès que des sondes de Surveillance existent).
 - Erreurs d’envoi expliquées en français au lieu d’un code brut : authentification refusée
   (avec conseil pour Microsoft 365 et Gmail), port bloqué, certificat refusé, relais refusé,
   webhook révoqué ou introuvable.

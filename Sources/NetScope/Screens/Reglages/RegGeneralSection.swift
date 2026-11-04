@@ -1,12 +1,10 @@
 import NetScopeCore
 import SwiftUI
 
-/// Réglages › Général : langue, thème, ouverture de session, barre de menus, base des fabricants.
+/// Réglages › Général : langue, apparence, ouverture de session, base des fabricants.
 struct RegGeneralSection: View {
     @ObservedObject private var prefs = RegPrefs.shared
     @State private var language = "fr"
-    @State private var theme = "light"
-    @State private var menuBar = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -33,12 +31,9 @@ struct RegGeneralSection: View {
                 }
                 VStack(alignment: .leading, spacing: 6) {
                     RegLabel("Thème")
-                    RegSegmented(selection: $theme, options: [
-                        .init(value: "light", label: "Clair"),
-                        .init(value: "dark", label: "Sombre", enabled: false),
-                        .init(value: "auto", label: "Auto", enabled: false),
-                    ])
-                    Text("Thème sombre : bientôt.").font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    Text("Automatique, comme macOS").font(Theme.body)
+                    Text("NetScope passe en clair ou en sombre selon l’apparence choisie dans Réglages Système.")
+                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 }
             }
 
@@ -46,9 +41,6 @@ struct RegGeneralSection: View {
                 RegToggleRow(title: "Démarrer à l’ouverture de session",
                              detail: prefs.launchAtLoginMessage ?? "NetScope s’ouvre automatiquement quand vous ouvrez votre session macOS.",
                              isOn: Binding(get: { prefs.launchAtLogin }, set: { prefs.setLaunchAtLogin($0) }))
-                RegToggleRow(title: "Icône dans la barre de menus",
-                             detail: "Accès rapide : scan du réseau courant, ping, état des alertes.",
-                             isOn: $menuBar, soon: true)
                 RegToggleRow(title: "Confirmer avant de scanner une plage publique",
                              detail: "Évite de sonder par erreur des adresses hors RFC 1918.",
                              isOn: $prefs.confirmPublicRanges)
