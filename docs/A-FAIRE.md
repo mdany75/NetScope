@@ -549,7 +549,9 @@ fois. » « Dans Switchs et ports, il affiche aussi la switch qui n'est pas dans
 site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
 
 - Le site devient la référence : nom, plages (libellé, VLAN), FortiGate associée(s), switchs SNMP
-  associés. Plusieurs sites peuvent avoir les mêmes plages : l'IP seule ne choisit jamais le site.
+  associés.
+- Pas de niveau Client (décision de Dany) : un site porte au besoin le nom du client
+  (« Clinique Exemple », « Groupe X · Laval »). Plusieurs sites peuvent avoir les mêmes plages : l'IP seule ne choisit jamais le site.
 - Scanner : menu « Site » en haut des plages ; choisir un site remplace les plages ; enregistrer
   les plages comme site, mettre à jour le site ; « Détecter mon site » par la passerelle (MAC,
   numéro de série ou nom de la FortiGate), jamais par la seule IP ; création des sites depuis les
