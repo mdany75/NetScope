@@ -45,7 +45,7 @@ struct RemoteDisplayForm: View {
                 label("Affichage")
                 HStack(spacing: 12) {
                     RemoteSegmented(options: RemoteDisplayMode.allCases.map { ($0, $0.label) }, selection: $draft.display.mode)
-                    if proto == .rdp {
+                    if proto == .rdp, draft.display.mode == .fullScreen {
                         Toggle("Tous les écrans", isOn: $draft.display.allMonitors)
                             .toggleStyle(.checkbox).font(Theme.small)
                             .help("La session occupe tous les écrans du Mac (use multimon)")

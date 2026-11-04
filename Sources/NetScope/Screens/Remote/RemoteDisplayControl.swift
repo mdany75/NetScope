@@ -23,32 +23,62 @@ enum RemoteScreenSharingControl {
         return AXIsProcessTrustedWithOptions([key: prompt] as CFDictionary)
     }
 
-    /// Fenêtres de Partage d'écran présentes avant l'ouverture (pour reconnaître la nouvelle).
-    static func currentWindows() -> [AXUIElement] {
-        guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first else { return [] }
-        return windows(of: AXUIElementCreateApplication(app.processIdentifier))
+    /// État de Partage d'écran juste avant l'ouverture (pour reconnaître la nouvelle fenêtre).
+    struct Snapshot {
+        var appWasRunning: Bool
+        var windows: [AXUIElement]
+    }
+
+    enum Outcome: Equatable {
+        case done, cancelled, appClosed, timedOut
+    }
+
+    static func snapshot() -> Snapshot {
+        guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first else {
+            return Snapshot(appWasRunning: false, windows: [])
+        }
+        return Snapshot(appWasRunning: true, windows: windows(of: AXUIElementCreateApplication(app.processIdentifier)))
     }
 
     /// Attend la fenêtre de session (après l'authentification, deux minutes au plus) et la passe
-    /// en plein écran. Renvoie vrai si c'est fait.
-    static func enterFullScreen(host: String, before: [AXUIElement], timeout: TimeInterval = 120) async -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
+    /// en plein écran. S'arrête si la tâche est annulée ou si Partage d'écran se ferme (ou ne
+    /// démarre pas dans les 20 premières secondes).
+    static func enterFullScreen(host: String, name: String, before: Snapshot, timeout: TimeInterval = 120) async -> Outcome {
+        let start = Date()
+        var sawApp = before.appWasRunning
+        while Date().timeIntervalSince(start) < timeout {
             try? await Task.sleep(nanoseconds: 1_000_000_000)
-            guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first else { continue }
+            if Task.isCancelled { return .cancelled }
+            guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first else {
+                if sawApp || Date().timeIntervalSince(start) > 20 { return .appClosed }
+                continue
+            }
+            sawApp = true
             let all = windows(of: AXUIElementCreateApplication(app.processIdentifier))
             let survey = all.map { window in
                 RemoteFullScreenTarget.Window(
                     title: string(window, kAXTitleAttribute) ?? "",
                     subrole: string(window, kAXSubroleAttribute) ?? "",
-                    isNew: !before.contains { CFEqual($0, window) },
+                    identifier: string(window, kAXIdentifierAttribute) ?? "",
+                    isNew: !before.windows.contains { CFEqual($0, window) },
                     canFullScreen: isSettable(window, "AXFullScreen"),
                     isFullScreen: bool(window, "AXFullScreen") ?? false)
             }
-            guard let index = RemoteFullScreenTarget.pick(survey, host: host) else { continue }
-            return AXUIElementSetAttributeValue(all[index], "AXFullScreen" as CFString, kCFBooleanTrue) == .success
+            // Une session déjà ouverte vers le même hôte peut être réutilisée : elle ne compte
+            // qu'après quelques secondes, le temps qu'une nouvelle fenêtre apparaisse.
+            let decision = RemoteFullScreenTarget.pick(survey, host: host, name: name,
+                                                       appWasRunning: before.appWasRunning,
+                                                       allowExisting: Date().timeIntervalSince(start) > 5)
+            switch decision {
+            case .alreadyFullScreen?:
+                return .done
+            case .enter(let index)?:
+                if AXUIElementSetAttributeValue(all[index], "AXFullScreen" as CFString, kCFBooleanTrue) == .success { return .done }
+            case nil:
+                continue
+            }
         }
-        return false
+        return .timedOut
     }
 
     // MARK: Accessibilité

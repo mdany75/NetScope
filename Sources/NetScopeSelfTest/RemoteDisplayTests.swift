@@ -53,7 +53,7 @@ func registerRemoteDisplayTests(_ suite: TestSuite) {
 
         let custom = rdpLines(RemoteDisplaySettings(mode: .window, windowSize: .custom, customWidth: 1600, customHeight: 1000, allMonitors: true))
         try expect(custom.contains("desktopwidth:i:1600") && custom.contains("desktopheight:i:1000"), "personnalisée")
-        try expect(custom.contains("use multimon:i:1"), "personnalisée : tous les écrans")
+        try expect(custom.contains("use multimon:i:0"), "fenêtre : « tous les écrans » ignoré (plein écran seulement)")
         let clamped = rdpLines(RemoteDisplaySettings(mode: .window, windowSize: .custom, customWidth: 99_999, customHeight: 10))
         try expect(clamped.contains("desktopwidth:i:7680") && clamped.contains("desktopheight:i:480"), "personnalisée bornée")
 
@@ -72,6 +72,8 @@ func registerRemoteDisplayTests(_ suite: TestSuite) {
         try expectEqual(RemoteDisplaySettings(mode: .fullScreen, allMonitors: true).summary(for: .rdp),
                         "Plein écran · tous les écrans", "résumé RDP plein écran")
         try expectEqual(RemoteDisplaySettings(mode: .window).summary(for: .rdp), "Fenêtre · ajustée à la fenêtre", "résumé ajusté")
+        try expectEqual(RemoteDisplaySettings(mode: .window, windowSize: .r1440x900, allMonitors: true).summary(for: .rdp),
+                        "Fenêtre · 1440\u{00A0}×\u{00A0}900", "fenêtre : pas de « tous les écrans » au résumé")
         try expectEqual(RemoteDisplaySettings(mode: .window, vncScale: .actual).summary(for: .vnc), "Fenêtre · taille réelle", "résumé VNC")
         try expectEqual(RemoteDisplaySettings.defaults(for: .vnc).summary(for: .vnc), "Fenêtre", "VNC par défaut")
         try expectEqual(RemoteVNCScale.automatic.shouldScaleScreen, nil, "réglage de Partage d'écran inchangé")
@@ -85,18 +87,65 @@ func registerRemoteDisplayTests(_ suite: TestSuite) {
 
     suite.add("Accès : fenêtre de Partage d'écran à passer en plein écran") {
         typealias W = RemoteFullScreenTarget.Window
+        let host = "10.182.122.135", name = "Macmini-de-Dany"
+        func pick(_ windows: [W], running: Bool, existing: Bool = false) -> RemoteFullScreenTarget.Decision? {
+            RemoteFullScreenTarget.pick(windows, host: host, name: name, appWasRunning: running, allowExisting: existing)
+        }
         let connections = W(title: "Partage d’écran", subrole: "AXStandardWindow", isNew: false, canFullScreen: true)
         let dialog = W(title: "", subrole: "AXDialog", isNew: true, canFullScreen: false)
         let session = W(title: "10.182.122.135", subrole: "AXStandardWindow", isNew: true, canFullScreen: true)
-        try expectEqual(RemoteFullScreenTarget.pick([connections, dialog], host: "10.182.122.135"), nil, "identification en cours : attendre")
-        try expectEqual(RemoteFullScreenTarget.pick([connections, dialog, session], host: "10.182.122.135"), 2, "fenêtre de session")
+        try expectEqual(pick([connections, dialog], running: true), nil, "identification en cours : attendre")
+        try expectEqual(pick([connections, dialog, session], running: true), .enter(2), "fenêtre de session")
         let renamed = W(title: "Mac mini de Dany", subrole: "AXStandardWindow", isNew: true, canFullScreen: true)
-        try expectEqual(RemoteFullScreenTarget.pick([connections, renamed], host: "10.182.122.135"), 1, "seule nouvelle fenêtre")
+        try expectEqual(pick([connections, renamed], running: true), .enter(1), "titre = nom de la connexion (espaces, tirets)")
         let other = W(title: "Autre", subrole: "AXStandardWindow", isNew: true, canFullScreen: true)
-        try expectEqual(RemoteFullScreenTarget.pick([renamed, other], host: "10.182.122.135"), nil, "deux nouvelles sans l'hôte : ne rien deviner")
+        try expectEqual(pick([connections, other], running: true), .enter(1), "app déjà ouverte : seule nouvelle fenêtre")
+        try expectEqual(pick([other, W(title: "Encore", subrole: "AXStandardWindow", isNew: true, canFullScreen: true)], running: true),
+                        nil, "deux nouvelles sans l'hôte : ne rien deviner")
+
+        // Partage d'écran fermé avant : tout est « nouveau », y compris la fenêtre Connexions.
+        var freshConnections = connections
+        freshConnections.isNew = true
+        try expectEqual(pick([freshConnections], running: false), nil, "app lancée : la fenêtre Connexions n'est pas la session")
+        try expectEqual(pick([freshConnections, dialog], running: false), nil, "app lancée : identification en cours")
+        try expectEqual(pick([freshConnections, renamed], running: false), .enter(1), "app lancée : session reconnue par son nom")
+        try expectEqual(pick([freshConnections, other], running: false), nil, "app lancée : titre inconnu, ne rien deviner")
+        let byIdentifier = W(title: "10.182.122.135", subrole: "AXStandardWindow", identifier: "ConnectionsWindow", isNew: true, canFullScreen: true)
+        try expectEqual(pick([byIdentifier], running: false), nil, "fenêtre Connexions reconnue par son identifiant")
+
+        // Déjà en plein écran (second clic) : c'est réussi, pas un échec.
         var already = session
         already.isFullScreen = true
-        try expectEqual(RemoteFullScreenTarget.pick([already], host: "10.182.122.135"), nil, "déjà en plein écran")
+        try expectEqual(pick([already], running: true), .alreadyFullScreen, "nouvelle fenêtre déjà en plein écran")
+        already.isNew = false
+        try expectEqual(pick([already], running: true), nil, "session existante : attendre quelques secondes")
+        try expectEqual(pick([already], running: true, existing: true), .alreadyFullScreen, "session réutilisée, déjà en plein écran")
+        var reused = session
+        reused.isNew = false
+        try expectEqual(pick([connections, reused], running: true, existing: true), .enter(1), "session réutilisée en fenêtre")
+    }
+
+    suite.add("Accès : taille personnalisée lue seulement là où elle est affichée") {
+        let custom = RemoteDisplaySettings(mode: .window, windowSize: .custom, customWidth: 1600, customHeight: 1000)
+        let applied = try custom.applyingCustomSize(width: " 1700 ", height: "1050", for: .rdp)
+        try expectEqual(applied.customWidth, 1700, "largeur saisie")
+        try expectEqual(applied.customHeight, 1050, "hauteur saisie")
+        for (width, height) in [("", "1000"), ("1 600", "1000"), ("100", "1000"), ("1600", "99999")] {
+            do {
+                _ = try custom.applyingCustomSize(width: width, height: height, for: .rdp)
+                throw TestFailure(message: "« \(width) × \(height) » accepté", file: #fileID, line: #line)
+            } catch let error as RemoteDisplayError {
+                try expectEqual(error, .invalidCustomSize, "refusé : \(width) × \(height)")
+            }
+        }
+        // Champs masqués : plein écran, autre protocole, autre taille → valeurs enregistrées gardées.
+        try expectEqual(try custom.with(mode: .fullScreen).applyingCustomSize(width: "", height: "x", for: .rdp),
+                        custom.with(mode: .fullScreen), "plein écran : champs ignorés")
+        try expectEqual(try custom.applyingCustomSize(width: "", height: "", for: .ssh), custom, "SSH : champs ignorés")
+        try expectEqual(try custom.applyingCustomSize(width: "", height: "", for: .vnc), custom, "VNC : champs ignorés")
+        var fixed = custom
+        fixed.windowSize = .r1440x900
+        try expectEqual(try fixed.applyingCustomSize(width: "1 600", height: "", for: .rdp), fixed, "taille fixe : champs ignorés")
     }
 
     suite.add("Accès : connexions enregistrées avant les réglages d'affichage") {

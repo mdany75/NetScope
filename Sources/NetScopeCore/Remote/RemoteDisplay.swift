@@ -83,7 +83,8 @@ public struct RemoteDisplaySettings: Codable, Hashable, Sendable {
     public var windowSize: RemoteWindowSize
     public var customWidth: Int
     public var customHeight: Int
-    /// RDP : « use multimon:i:1 », la session occupe tous les écrans du Mac.
+    /// RDP en plein écran : « use multimon:i:1 », la session occupe tous les écrans du Mac
+    /// (les clients Microsoft l'ignorent en fenêtre).
     public var allMonitors: Bool
     public var vncScale: RemoteVNCScale
 
@@ -126,6 +127,21 @@ public struct RemoteDisplaySettings: Codable, Hashable, Sendable {
         return (Self.clamp(customWidth, Self.widthRange), Self.clamp(customHeight, Self.heightRange))
     }
 
+    /// Applique la taille personnalisée saisie (texte des champs), seulement là où elle est
+    /// affichée : RDP, en fenêtre, taille « Personnalisée ». Ailleurs, les valeurs enregistrées
+    /// sont gardées telles quelles, même si les champs (masqués) contiennent autre chose.
+    public func applyingCustomSize(width: String, height: String, for proto: RemoteProtocol) throws -> RemoteDisplaySettings {
+        guard proto == .rdp, mode == .window, windowSize == .custom else { return self }
+        guard let w = Int(width.trimmingCharacters(in: .whitespaces)), let h = Int(height.trimmingCharacters(in: .whitespaces)),
+              Self.widthRange.contains(w), Self.heightRange.contains(h) else {
+            throw RemoteDisplayError.invalidCustomSize
+        }
+        var copy = self
+        copy.customWidth = w
+        copy.customHeight = h
+        return copy
+    }
+
     /// Copie avec un autre mode (choix rapide au moment de « Connecter »).
     public func with(mode: RemoteDisplayMode) -> RemoteDisplaySettings {
         var copy = self
@@ -145,7 +161,7 @@ public struct RemoteDisplaySettings: Codable, Hashable, Sendable {
                     parts.append("ajustée à la fenêtre")
                 }
             }
-            if allMonitors { parts.append("tous les écrans") }
+            if mode == .fullScreen && allMonitors { parts.append("tous les écrans") }
         case .vnc:
             if vncScale == .fit { parts.append("ajustée à la fenêtre") }
             if vncScale == .actual { parts.append("taille réelle") }
@@ -165,6 +181,15 @@ public struct RemoteDisplaySettings: Codable, Hashable, Sendable {
     }
 }
 
+public enum RemoteDisplayError: LocalizedError, Equatable {
+    case invalidCustomSize
+
+    public var errorDescription: String? {
+        let w = RemoteDisplaySettings.widthRange, h = RemoteDisplaySettings.heightRange
+        return "Taille personnalisée invalide\u{00A0}: largeur de \(w.lowerBound) à \(w.upperBound), hauteur de \(h.lowerBound) à \(h.upperBound)."
+    }
+}
+
 /// Préférence de Partage d'écran (com.apple.ScreenSharing) qui règle la mise à l'échelle :
 /// c'est la clé liée à « Ajuster à l'espace disponible » / « Afficher la taille originale » de
 /// ses Réglages › Affichage. Elle est commune à toutes les sessions de Partage d'écran.
@@ -180,32 +205,72 @@ public enum RemoteFullScreenTarget {
     public struct Window: Equatable, Sendable {
         public var title: String
         public var subrole: String
+        /// Attribut AXIdentifier (vide s'il manque).
+        public var identifier: String
         /// Absente avant l'ouverture de la connexion.
         public var isNew: Bool
         public var canFullScreen: Bool
         public var isFullScreen: Bool
 
-        public init(title: String, subrole: String, isNew: Bool, canFullScreen: Bool, isFullScreen: Bool = false) {
+        public init(title: String, subrole: String, identifier: String = "", isNew: Bool, canFullScreen: Bool,
+                    isFullScreen: Bool = false) {
             self.title = title
             self.subrole = subrole
+            self.identifier = identifier
             self.isNew = isNew
             self.canFullScreen = canFullScreen
             self.isFullScreen = isFullScreen
         }
+
+        /// Fenêtre « Connexions » de Partage d'écran (fenêtre ConnectionsWindow, titrée du nom
+        /// de l'app) : jamais une session.
+        var isConnectionsWindow: Bool {
+            if identifier.lowercased().contains("connection") { return true }
+            let plain = title.replacingOccurrences(of: "\u{2019}", with: "'").lowercased()
+            return ["partage d'écran", "screen sharing", "connexions", "connections"].contains(plain)
+        }
     }
 
-    /// Fenêtre de session à passer en plein écran : une fenêtre standard apparue depuis
-    /// l'ouverture (ni dialogue d'identification ni fenêtre « Connexions »), de préférence celle
-    /// dont le titre contient l'hôte. nil : pas encore là (on réessaie plus tard).
-    public static func pick(_ windows: [Window], host: String) -> Int? {
-        let candidates = windows.indices.filter {
-            let w = windows[$0]
-            return w.isNew && w.canFullScreen && !w.isFullScreen && w.subrole == "AXStandardWindow"
+    public enum Decision: Equatable, Sendable {
+        /// Passer cette fenêtre en plein écran.
+        case enter(Int)
+        /// La fenêtre de session est déjà en plein écran : rien à faire.
+        case alreadyFullScreen
+    }
+
+    /// Fenêtre de session à passer en plein écran, parmi les fenêtres standard (ni dialogue
+    /// d'identification ni fenêtre « Connexions ») :
+    /// - d'abord celle dont le titre contient l'hôte ou le nom de la connexion (en ignorant
+    ///   espaces, tirets et casse : « Mac mini de Dany » ↔ « Macmini-de-Dany »), une nouvelle de
+    ///   préférence ; une fenêtre déjà ouverte avant ne compte qu'avec `allowExisting` (Partage
+    ///   d'écran peut réutiliser la session ouverte vers le même hôte) ;
+    /// - sinon, seulement si Partage d'écran tournait déjà (`appWasRunning`), l'unique nouvelle
+    ///   fenêtre : quand l'app vient d'être lancée, toutes ses fenêtres sont « nouvelles » et rien
+    ///   ne distingue la session d'une autre fenêtre ; on ne devine pas.
+    /// nil : pas encore là (on réessaie plus tard).
+    public static func pick(_ windows: [Window], host: String, name: String = "", appWasRunning: Bool,
+                            allowExisting: Bool = false) -> Decision? {
+        let eligible = windows.indices.filter {
+            windows[$0].subrole == "AXStandardWindow" && !windows[$0].isConnectionsWindow
         }
-        let needle = host.lowercased()
-        if !needle.isEmpty, let match = candidates.first(where: { windows[$0].title.lowercased().contains(needle) }) {
-            return match
+        let keys = [host, name].map(normalized).filter { !$0.isEmpty }
+        let matching = eligible.filter { index in
+            let title = normalized(windows[index].title)
+            return !title.isEmpty && keys.contains { title.contains($0) || $0.contains(title) }
         }
-        return candidates.count == 1 ? candidates[0] : nil
+        let ordered = matching.filter { windows[$0].isNew } + (allowExisting ? matching.filter { !windows[$0].isNew } : [])
+        for index in ordered {
+            if windows[index].isFullScreen { return .alreadyFullScreen }
+            if windows[index].canFullScreen { return .enter(index) }
+        }
+        guard appWasRunning else { return nil }
+        let fresh = eligible.filter { windows[$0].isNew && windows[$0].canFullScreen && !windows[$0].isFullScreen }
+        return fresh.count == 1 ? .enter(fresh[0]) : nil
+    }
+
+    /// Minuscules, sans accents ni ponctuation : « Mac mini de Dany » → « macminidedany ».
+    static func normalized(_ text: String) -> String {
+        let folded = text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "fr"))
+        return String(folded.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }.map(Character.init))
     }
 }

@@ -63,28 +63,10 @@ struct RemoteDraft: Equatable {
         connection.folder = folder
         connection.note = note
         connection.isFavorite = isFavorite
-        var display = display
-        if display.windowSize == .custom {
-            let width = Int(customWidth.trimmingCharacters(in: .whitespaces))
-            let height = Int(customHeight.trimmingCharacters(in: .whitespaces))
-            guard let width, let height,
-                  RemoteDisplaySettings.widthRange.contains(width), RemoteDisplaySettings.heightRange.contains(height) else {
-                throw RemoteDisplayError.invalidCustomSize
-            }
-            display.customWidth = width
-            display.customHeight = height
-        }
+        // Taille personnalisée lue seulement si ses champs sont affichés (RDP, fenêtre, personnalisée).
+        let display = try display.applyingCustomSize(width: customWidth, height: customHeight, for: proto)
         connection.display = display
         return try connection.validated()
-    }
-}
-
-enum RemoteDisplayError: LocalizedError {
-    case invalidCustomSize
-
-    var errorDescription: String? {
-        let w = RemoteDisplaySettings.widthRange, h = RemoteDisplaySettings.heightRange
-        return "Taille personnalisée invalide\u{00A0}: largeur de \(w.lowerBound) à \(w.upperBound), hauteur de \(h.lowerBound) à \(h.upperBound)."
     }
 }
 
@@ -108,6 +90,8 @@ final class RemoteModel: ObservableObject {
     @Published private(set) var serialPorts: [String] = []
 
     private let store: RemoteConnectionStore?
+    /// Passage en plein écran de Partage d'écran en attente, un seul par connexion.
+    private var fullScreenTasks: [UUID: Task<Void, Never>] = [:]
 
     private init() {
         let arguments = ProcessInfo.processInfo.arguments
@@ -322,18 +306,23 @@ final class RemoteModel: ObservableObject {
             let plan = try RemoteLauncher.plan(for: target)
             let wantsFullScreen = target.proto == .vnc && target.display.mode == .fullScreen
             let note = target.proto == .vnc ? prepareScreenSharing(target) : ""
-            let before = wantsFullScreen ? RemoteScreenSharingControl.currentWindows() : []
+            let before = wantsFullScreen ? RemoteScreenSharingControl.snapshot() : nil
             try RemoteExecutor.execute(plan, title: target.name)
             if let index = connections.firstIndex(where: { $0.id == connection.id }) {
                 connections[index].lastConnected = Date()
                 save()
             }
             toast = "Ouverture dans \(plan.appName)\u{00A0}: \(target.name)\(note)."
-            if wantsFullScreen, RemoteScreenSharingControl.isTrusted(prompt: false) {
-                let host = target.host, name = target.name
-                Task {
-                    let done = await RemoteScreenSharingControl.enterFullScreen(host: host, before: before)
-                    if !done {
+            fullScreenTasks[connection.id]?.cancel()
+            fullScreenTasks[connection.id] = nil
+            if let before, RemoteScreenSharingControl.isTrusted(prompt: false) {
+                let id = connection.id, host = target.host, name = target.name
+                fullScreenTasks[id] = Task {
+                    let outcome = await RemoteScreenSharingControl.enterFullScreen(host: host, name: name, before: before)
+                    // Une tâche remplacée (nouveau clic) ne touche plus à rien.
+                    guard !Task.isCancelled else { return }
+                    self.fullScreenTasks[id] = nil
+                    if outcome == .timedOut {
                         self.toast = "Plein écran non appliqué à « \(name) »\u{00A0}: utilisez Présentation › Passer en plein écran dans Partage d’écran."
                     }
                 }
