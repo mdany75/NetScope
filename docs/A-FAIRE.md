@@ -27,8 +27,8 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 8. ~~**0.11.0, recherche et Wi-Fi Fortinet**~~ : livrée le 4 novembre 2026 (notes 26 et 27) ;
    essai réel à faire sur les FortiGate et bornes FortiAP de Dany (droit « WiFi & Switch
    Controller », clients, AP voisins, sondes) et de la recherche sur un vrai scan.
-9. **0.12.0, sites** : note 28 (clients et sites dans le Scanner, switchs SNMP associés à un
-   site, plusieurs sites ou clients sur les mêmes plages IP) et correction de la Carte (dernier scan seulement).
+9. **0.12.0, sites** : note 28 (préréglages de site dans le Scanner, switchs SNMP associés à un
+   site, plusieurs sites sur les mêmes plages IP) et correction de la Carte (dernier scan seulement).
 10. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
@@ -548,10 +548,8 @@ fois. » « Dans Switchs et ports, il affiche aussi la switch qui n'est pas dans
 (pas une switch Fortinet). Associer dans les réglages des switchs une switch non Fortinet à un
 site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
 
-- « C'est un outil de tech, donc plusieurs sites ou clients » : deux niveaux, **Client → Sites**
-  (un client a un ou plusieurs sites ; un site appartient à un client).
-- Le site devient la référence : client, nom, plages (libellé, VLAN), FortiGate associée(s),
-  switchs SNMP associés. Plusieurs sites peuvent avoir les mêmes plages : l'IP seule ne choisit jamais le site.
+- Le site devient la référence : nom, plages (libellé, VLAN), FortiGate associée(s), switchs SNMP
+  associés. Plusieurs sites peuvent avoir les mêmes plages : l'IP seule ne choisit jamais le site.
 - Scanner : menu « Site » en haut des plages ; choisir un site remplace les plages ; enregistrer
   les plages comme site, mettre à jour le site ; « Détecter mon site » par la passerelle (MAC,
   numéro de série ou nom de la FortiGate), jamais par la seule IP ; création des sites depuis les
