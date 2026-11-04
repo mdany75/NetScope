@@ -5,11 +5,11 @@
 
 ## Priorités (revues le 4 novembre 2026)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0.
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0.
 
-1. **0.11.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer) : essais réels de la 0.3.x (localisation, DHCP, capture,
+1. **0.12.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
-   des 0.5.0 à 0.8.0 (voir ci-dessous) ; 0.11.1 au besoin.
+   des 0.5.0 à 0.8.0 (voir ci-dessous) ; 0.12.1 au besoin.
 2. ~~**0.5.0, diagnostic du poste et du réseau local**~~ : livrée le 4 novembre 2026
    (notes 12, 21, 17 et 16) ; essais réels à faire (PoE sur une vraie switch, SNMP, M-Lab,
    LibreSpeed, Ookla, bouton Installer).
@@ -27,8 +27,9 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 8. ~~**0.11.0, recherche et Wi-Fi Fortinet**~~ : livrée le 4 novembre 2026 (notes 26 et 27) ;
    essai réel à faire sur les FortiGate et bornes FortiAP de Dany (droit « WiFi & Switch
    Controller », clients, AP voisins, sondes) et de la recherche sur un vrai scan.
-9. **0.12.0, sites** : note 28 (préréglages de site dans le Scanner, switchs SNMP associés à un
-   site, plusieurs sites sur les mêmes plages IP) et correction de la Carte (dernier scan seulement).
+9. ~~**0.12.0, sites**~~ : livrée le 4 novembre 2026 (note 28 et correction de la Carte,
+   dernier scan seulement) ; essai réel à faire sur les sites de Dany (« Détecter mon site »,
+   migration de l'inventaire, import CSV, switchs SNMP associés).
 10. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
@@ -542,6 +543,9 @@ des bornes FortiAP (droit « WiFi & Switch Controller » en lecture).
 - Droit « WiFi » en lecture à ajouter au profil API si nécessaire.
 
 ## 28. Sites : préréglages du Scanner, switchs associés, mêmes plages sur plusieurs sites (demande de Dany)
+
+**Livrée dans la 0.12.0** (4 novembre 2026), avec la correction de la Carte du réseau (dernier
+scan seulement) ; essai réel à faire sur les sites de Dany (détection, migration, import CSV).
 
 « Je voudrais avoir des presets de site dans le Scanner, car je delete et reconstruis à chaque
 fois. » « Dans Switchs et ports, il affiche aussi la switch qui n'est pas dans le range du scan

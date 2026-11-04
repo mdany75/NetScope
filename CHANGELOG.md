@@ -1,5 +1,75 @@
 # Changements
 
+## 0.12.0 — 2026-11-04
+
+Sites : un site par client ou par lieu, avec ses plages, ses FortiGate, ses switchs SNMP et son
+propre inventaire ; on choisit le site dans le Scanner au lieu de reconstruire les plages à
+chaque fois, et deux sites ne se mélangent plus, même sur les mêmes plages IP.
+
+### Ajouté
+- **Sites** : chaque site a un nom, ses plages (libellé, VLAN), ses FortiGate et ses switchs
+  SNMP. Pas de niveau Client : le site porte au besoin le nom du client (« Clinique Exemple »,
+  « Groupe X · Laval »).
+- **Scanner** : menu « Site : <nom> ▾ » en haut des plages pour choisir un site, enregistrer
+  les plages comme site, mettre à jour le site, détecter son site ou gérer les sites. Les plages
+  modifiées et non enregistrées sont signalées.
+- **Inventaire unique à chaque site** : fiches, historique, événements de l’Analyse, archive,
+  exclusions, conflits IP, notes et types choisis à la main sont propres au site. La même IP ou
+  la même MAC sur deux sites donne deux fiches distinctes.
+- **Résultats par site** : changer de site met de côté les appareils, le bilan des switchs,
+  l’état du scan et les nouveautés, puis les retrouve au retour. Scanner, Carte, Inventaire,
+  Switchs, Wi-Fi FortiAP et Rapports ne mélangent plus deux sites.
+- **« Détecter mon site »** reconnaît le site par la MAC de la passerelle, le numéro de série
+  ou le nom de la FortiGate (le SSID aide à départager), jamais par l’adresse IP seule. Si
+  plusieurs sites ont les mêmes plages, NetScope demande, puis retient la passerelle.
+- **Réglages › Sites et plages** : tableau des sites (plages, FortiGate, switchs SNMP, appareils
+  en inventaire, dernier scan) ; ajouter, renommer, dupliquer et supprimer (avec confirmation :
+  son inventaire est supprimé aussi) ; « Créer depuis les FortiGate » ; import et export CSV
+  `site;plages;fortigate`, sans aucun secret.
+- **Réglages › Switchs** : chaque switch SNMP (non Fortinet) peut être associé à aucun, un ou
+  plusieurs sites.
+- **Switchs et ports** : bandeau « Site : <nom> · N switchs » avec « Afficher tous les
+  switchs ».
+
+### Modifié
+- **Barre latérale** : la section « Sites » remplace « Plages enregistrées » ; le site actif y
+  est marqué avec ses plages, et un clic change de site.
+- **FortiGate** : celles du site actif sont lues. Le choix par plage IP (0.10.0) ne sert plus
+  que sans site actif.
+- **Switchs et ports** : seuls les switchs du site actif sont affichés et interrogés. Un switch
+  sans site n’apparaît que s’il est dans les plages du dernier scan ; le relevé de fin de scan
+  n’interroge jamais un switch associé à un autre site.
+- **Inventaire et Rapports** : le nom du site actif est en évidence et figure dans l’en-tête du
+  rapport. La recherche `site:` vise le vrai site.
+- **Migration sans perte** : les plages, l’inventaire (avec son historique et les types choisis
+  à la main), les noms, les notes et la FortiGate actuels deviennent ceux de « Site principal ».
+  L’ancien inventaire est gardé en copie de sécurité (`inventory.avant-sites.json`). Les
+  sauvegardes incluent les inventaires de tous les sites.
+
+### Corrigé
+- **Carte du réseau** : elle ne dessine plus que les appareils vus pendant le dernier scan,
+  dans ses plages ; les appareils et switchs d’un scan précédent (autre plage ou autre site)
+  n’y apparaissent plus. La case « Scans précédents » les remet.
+- **Switchs et ports** : un switch SNMP hors des plages scannées (pas un Fortinet) n’est plus
+  affiché avec le site en cours.
+- **Analyse et Carte** : « Vu : Maintenant » seulement pour un appareil vu il y a moins de
+  10 minutes ; « dernier scan » donne la date quand le scan n’est pas du jour.
+- **Rapports** : la passerelle du Mac n’est notée que si elle est dans les plages du site.
+
+### Limites
+- Les sites n’ont pas encore été essayés sur les vrais sites de Dany : « Détecter mon site »,
+  la migration d’un vrai inventaire et l’import CSV sont vérifiés sur des données de
+  démonstration et par les tests.
+- La détection a besoin d’avoir vu la passerelle (MAC apprise lors d’un scan du site) ou d’une
+  FortiGate joignable ; sur un réseau jamais scanné et sans FortiGate, il faut choisir le site
+  à la main.
+- Changer de site ou supprimer le site actif est refusé pendant une interrogation des switchs
+  ou une lecture FortiGate : attendre la fin ou l’arrêter.
+- Supprimer un site supprime son inventaire (la copie de sécurité de la migration et les
+  sauvegardes automatiques restent).
+- Le fichier CSV ne contient ni jeton ni communauté SNMP : ils restent au Trousseau et sont à
+  saisir sur un autre Mac.
+
 ## 0.11.0 — 2026-11-04
 
 Recherche multiple dans tous les modules et Wi-Fi Fortinet : on combine plusieurs critères
