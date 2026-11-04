@@ -68,7 +68,7 @@ struct ScanSiteBar: View {
         var parts = ["\(count) fiche\(count > 1 ? "s" : "") en inventaire"]
         let fortiGates = site.fortiGateIDs.compactMap { FortiGateStore.shared.controller($0)?.displayName }
         if !fortiGates.isEmpty { parts.append("FortiGate \(fortiGates.joined(separator: ", "))") }
-        if let last = site.lastScan { parts.append("dernier scan \(ScanFormat.relative(last))") }
+        if let last = site.lastScan { parts.append("dernier scan \(ScanFormat.relative(last).lowercased())") }
         return parts.joined(separator: " · ")
     }
 }

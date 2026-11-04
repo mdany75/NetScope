@@ -53,7 +53,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        MainActor.assumeIsolated { MonStore.shared.save() }
+        MainActor.assumeIsolated {
+            MonStore.shared.save()
+            // Note 28 : derniers résultats et inventaire du site actif.
+            SiteModel.shared.saveOnQuit()
+        }
     }
 }
 

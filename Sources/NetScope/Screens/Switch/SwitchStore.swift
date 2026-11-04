@@ -345,6 +345,8 @@ final class SwitchStore: ObservableObject {
             try? await Task.sleep(nanoseconds: 800_000_000)
             let demo = SwitchDemo.make()
             snapshots = Dictionary(uniqueKeysWithValues: demo.snapshots.map { ($0.host.description, $0) })
+            let extra = SitesDemo.unassignedSwitch(now: demo.snapshots.first?.polledAt ?? Date())
+            snapshots[extra.host.description] = extra
             controllerHosts = []
             setControllerSnapshots(FortiMulti.snapshots(FortiGateSitesDemo.selectedSites()))
             lastPoll = Date()
@@ -352,7 +354,9 @@ final class SwitchStore: ObservableObject {
             return
         }
         await loadVault()
-        let fresh = await pollHosts(hosts.filter { !isController($0) })
+        // Note 28 : seulement les switchs du site actif (un switch d'un autre client peut avoir la
+        // même adresse qu'un appareil d'ici) ; « Afficher tous les switchs » les interroge tous.
+        let fresh = await pollHosts(siteHosts.filter { !isController($0) })
         guard !Task.isCancelled else { return }
         let (located, _) = complete(state, fresh: fresh, routerTables: [])
         // Interrogation manuelle : les appareils localisés le sont sur le réseau actuel.

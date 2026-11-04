@@ -13,7 +13,7 @@ import NetScopeCore
 ///   site se choisit par la passerelle, jamais par l'IP seule).
 ///
 /// Un switch SNMP sans site (172.16.9.2, hors des plages) est masqué dans « Switchs et ports ».
-/// Captures : NETSCOPE_SITE=laval (début du nom) choisit le site actif.
+/// Captures : NETSCOPE_SITE=laval (nom ou partie du nom) choisit le site actif.
 @MainActor
 enum SitesDemo {
     static let siegeID = UUID(uuidString: "5A7E0028-0001-4C1E-9A11-00000000A001")!
@@ -63,7 +63,10 @@ enum SitesDemo {
     static func results(now: Date = Date()) -> [String: SiteResults] {
         let devices = lavalDevices(now: now)
         let finished = now.addingTimeInterval(-2 * 86_400 - 3_600)
-        let laval = SiteResults(devices: devices, newIDs: ["10.20.40.24"],
+        let names = ["10.20.0.1": "Passerelle Laval", "10.20.0.47": "Poste expédition", "10.20.0.48": "Poste réception",
+                     "10.20.10.41": "Lecteur quai 1", "10.20.10.42": "Lecteur quai 2", "10.20.40.21": "Caméra quai 1",
+                     "10.20.40.24": "Caméra quai 4"]
+        let laval = SiteResults(devices: devices, customNames: names, newIDs: ["10.20.40.24"],
                                 lastScanRanges: ["10.20.0.0/24", "10.20.10.0/24", "10.20.40.0/24"],
                                 startedAt: finished.addingTimeInterval(-41), finishedAt: finished, portLabel: "Rapide")
         return [lavalKey: laval]

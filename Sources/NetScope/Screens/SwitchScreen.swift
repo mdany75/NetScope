@@ -108,9 +108,8 @@ struct SwitchScreen: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         // Switch choisi masqué (autre site, hors des plages) : le premier switch du site le remplace.
-        .onChange(of: visible) { _, list in
-            if let selected = store.selectedHost, !list.contains(selected), let first = list.first { store.select(host: first) }
-        }
+        .onChange(of: visible) { _, list in keepSelectionVisible(list) }
+        .onAppear { keepSelectionVisible(visibleHosts) }
         // Communautés lues au Trousseau à l'ouverture de l'écran, hors du fil principal.
         .task {
             await store.loadVault()
@@ -124,6 +123,12 @@ struct SwitchScreen: View {
                 .buttonStyle(.secondary)
                 .disabled(store.orderedSnapshots.isEmpty)
         }
+    }
+
+    private func keepSelectionVisible(_ list: [String]) {
+        guard let first = list.first(where: { store.snapshots[$0] != nil }) else { return }
+        if let selected = store.selectedHost, list.contains(selected) { return }
+        store.select(host: first)
     }
 
     private var addPopover: some View {

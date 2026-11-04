@@ -49,7 +49,8 @@ enum RapportData {
         let fortiAP = FortiAPStore.shared
         input.fortiWifi = fortiAP.hasData ? fortiAP.overview : nil
         input.fortiWifiThresholds = fortiAP.thresholds
-        if demo { RapportDemo.complete(&input) }
+        // Note 28 : les compléments du croquis décrivent le Siège seulement.
+        if demo, SiteModel.shared.activeID == SitesDemo.siegeID { RapportDemo.complete(&input) }
         return input
     }
 

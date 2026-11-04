@@ -28,6 +28,8 @@ final class SiteModel: ObservableObject {
     let files: SiteFiles?
     private var shelf: SiteResultsShelf
     private var attached = false
+    /// État partagé reçu au lancement (enregistrement des résultats à la fermeture).
+    private weak var attachedState: AppState?
     /// Message de la migration, montré une fois dans le Scanner.
     private var migrationMessage: String?
 
@@ -101,7 +103,11 @@ final class SiteModel: ObservableObject {
     func attach(to state: AppState) {
         guard !attached else { return }
         attached = true
-        let results = shelf.take(activeKey)
+        attachedState = state
+        var results = shelf.take(activeKey)
+        // Les noms personnalisés du site actif les plus récents sont ceux d'etat.json (écrits à
+        // chaque changement) ; resultats.json ne l'est qu'en fin de scan et au changement de site.
+        results.customNames = state.customNames
         apply(results, to: state)
         if let migrationMessage {
             ScanController.shared.show(migrationMessage, tone: .neutral)
@@ -116,9 +122,9 @@ final class SiteModel: ObservableObject {
         attached = true
         for (key, results) in SitesDemo.results() { shelf.preload(results, for: key) }
         if let wanted = ProcessInfo.processInfo.environment["NETSCOPE_SITE"]?.lowercased(),
-           let site = list.sites.first(where: { $0.displayName.lowercased() == wanted || $0.displayName.lowercased().hasPrefix(wanted) }),
+           let site = list.sites.first(where: { $0.displayName.lowercased() == wanted }) ?? list.sites.first(where: { $0.displayName.lowercased().contains(wanted) }),
            site.id != list.activeID {
-            activate(site.id, state: state, confirm: false)
+            activate(site.id, state: state, confirm: false, announce: false)
         } else {
             FortiGateStore.shared.siteChanged(state: state)
         }
@@ -129,7 +135,7 @@ final class SiteModel: ObservableObject {
 
     /// Passe au site donné (nil : aucun site, plages libres). Refusé pendant un scan ; confirmation
     /// si les plages du Scanner ne sont pas enregistrées dans le site quitté.
-    func activate(_ id: UUID?, state: AppState, confirm: Bool = true) {
+    func activate(_ id: UUID?, state: AppState, confirm: Bool = true, announce: Bool = true) {
         guard id != list.activeID else { return }
         let scan = ScanController.shared
         guard !scan.isBusy else {
@@ -144,6 +150,7 @@ final class SiteModel: ObservableObject {
             }
         }
         switchSite(to: id, state: state, adoptCurrent: false)
+        guard announce else { return }
         scan.show(id == nil ? "Aucun site actif\u{00A0}: plages libres, FortiGate choisie par plage."
                             : "Site «\u{00A0}\(activeName)\u{00A0}»\u{00A0}: plages, inventaire et résultats du site.", tone: .neutral)
     }
@@ -191,11 +198,22 @@ final class SiteModel: ObservableObject {
     private func apply(_ results: SiteResults, to state: AppState) {
         state.replaceCustomNames(results.customNames)
         state.selectedDeviceID = nil
-        state.devices = results.devices
+        state.devices = results.devices.map { device in
+            var copy = device
+            copy.customName = results.customNames[device.id] ?? device.customName
+            return copy
+        }
         // Appareils déjà fusionnés dans l'inventaire de leur site : pas de nouvelle fusion.
-        InvModel.shared.markIngested(results.devices)
+        InvModel.shared.markIngested(state.devices)
         ScanController.shared.restore(results)
         SwitchStore.shared.restore(results)
+    }
+
+    /// Fermeture de NetScope : résultats du site actif et fusion d'inventaire en attente enregistrés.
+    func saveOnQuit() {
+        guard !isEphemeral, let state = attachedState else { return }
+        InvModel.shared.flushAndSave()
+        shelf.shelve(collect(from: state), for: activeKey)
     }
 
     /// Fin d'un scan : date du scan, MAC de la passerelle apprise, résultats écrits sur le disque.
