@@ -153,6 +153,9 @@ struct ToolCellGrid: View {
     var columns = 3
     var valueSize: CGFloat = 14
     var minCellWidth: CGFloat = 170
+    /// Valeurs longues (objet d'un courriel, noms de certificat) : tronquées dans leur cellule au
+    /// lieu d'imposer moins de colonnes (le texte complet reste en infobulle).
+    var truncatesLongValues = false
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
@@ -192,10 +195,14 @@ struct ToolCellGrid: View {
                 .foregroundStyle(Theme.text)
                 .textSelection(.enabled)
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(truncatesLongValues ? 1 : 0.7)
                 .help(cell.value)
+                .frame(minWidth: truncatesLongValues ? 0 : nil, idealWidth: truncatesLongValues ? minCellWidth - 24 : nil,
+                       maxWidth: truncatesLongValues ? .infinity : nil, alignment: .leading)
             if let detail = cell.detail {
                 Text(detail).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                    .frame(minWidth: truncatesLongValues ? 0 : nil, idealWidth: truncatesLongValues ? minCellWidth - 24 : nil,
+                           maxWidth: truncatesLongValues ? .infinity : nil, alignment: .leading)
             }
         }
         .padding(.horizontal, 12)

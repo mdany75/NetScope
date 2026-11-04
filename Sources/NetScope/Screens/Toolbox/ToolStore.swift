@@ -5,11 +5,14 @@ import SwiftUI
 /// Les outils de la boîte à outils, dans l'ordre du croquis (docs/croquis/Toolbox.dc.html).
 enum ToolKind: String, CaseIterable, Identifiable, Codable {
     case subnet, mac, ports, dns, whois, mtu, iperf, speedtest, wol, dhcp, lldp
+    // Courriel (note 14, partie 2)
+    case smtp, headers = "entetes"
 
     var id: String { rawValue }
 
     enum Group: String, CaseIterable {
         case adressage = "Adressage", diagnostic = "Diagnostic", performance = "Performance", services = "Services"
+        case courriel = "Courriel"
         var tools: [ToolKind] { ToolKind.allCases.filter { $0.group == self } }
     }
 
@@ -19,6 +22,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .ports, .dns, .whois, .mtu: return .diagnostic
         case .iperf, .speedtest: return .performance
         case .wol, .dhcp, .lldp: return .services
+        case .smtp, .headers: return .courriel
         }
     }
 
@@ -35,6 +39,8 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .wol: return "Wake-on-LAN"
         case .dhcp: return "Test DHCP"
         case .lldp: return "Capture LLDP/CDP"
+        case .smtp: return "Diagnostic SMTP"
+        case .headers: return "Analyse d’en-têtes"
         }
     }
 
@@ -43,7 +49,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .subnet: return "Adresse réseau, masques, broadcast, plage d’hôtes et découpage."
         case .mac: return "Formats MAC, fabricant OUI et correspondance avec l’inventaire."
         case .ports: return "Ports TCP ouverts et bannières des services texte (SSH, FTP, SMTP, HTTP)."
-        case .dns: return "Résolution A, AAAA, MX, PTR, TXT, NS et CNAME sur le serveur choisi."
+        case .dns: return "Résolution A, AAAA, MX, TXT, SOA, SRV, CAA, DNSSEC… ; comparaison de serveurs et propagation."
         case .whois: return "Propriétaire d’une adresse, d’un ASN ou d’un domaine."
         case .mtu: return "Recherche de la MTU du chemin avec le bit Don’t Fragment."
         case .iperf: return "Débit réel entre ce Mac et un serveur iperf3 du réseau."
@@ -51,6 +57,8 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .wol: return "Envoie un paquet magique pour réveiller un poste."
         case .dhcp: return "Détecte tous les serveurs DHCP qui répondent sur le segment."
         case .lldp: return "Identifie le switch, le port et le VLAN où ce Mac est branché."
+        case .smtp: return "Bannière, EHLO, STARTTLS, certificat et temps de réponse d’un serveur de courriel, sans rien envoyer."
+        case .headers: return "Trajet d’un courriel, SPF, DKIM, DMARC et alertes d’usurpation, à partir des en-têtes collés."
         }
     }
 
@@ -67,6 +75,8 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .wol: return "power"
         case .dhcp: return "shield.lefthalf.filled"
         case .lldp: return "cable.connector"
+        case .smtp: return "envelope.badge.shield.half.filled"
+        case .headers: return "envelope.open"
         }
     }
 
@@ -175,6 +185,8 @@ final class ToolStore: ObservableObject {
     let wol = ToolWakeModel()
     let dhcp = ToolDHCPModel()
     let neighbors = ToolNeighborModel()
+    let smtp = ToolSMTPModel()
+    let headers = ToolHeaderModel()
 
     /// Démonstration (--demo) : données des croquis.
     let isDemo: Bool

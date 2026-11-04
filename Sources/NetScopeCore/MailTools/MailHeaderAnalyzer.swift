@@ -645,6 +645,10 @@ public enum MailHeaderAnalyzer {
             if let envelope = report.envelopeDomain { others.append(("Return-Path", envelope)) }
             if let replyTo = report.replyTo?.domain, !replyTo.isEmpty { others.append(("Reply-To", replyTo)) }
             for signature in report.dkimSignatures { others.append(("signature DKIM", signature.domain)) }
+            if let name = report.from?.displayName,
+               let embedded = name.range(of: #"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"#, options: .regularExpression) {
+                others.append(("le nom affiché", MailAddress(displayName: nil, address: String(name[embedded])).domain))
+            }
             for address in (report.to ?? "").split(separator: ",").compactMap({ parseAddress(String($0)) }) where !address.domain.isEmpty {
                 others.append(("destinataire", address.domain))
             }
