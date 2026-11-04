@@ -38,6 +38,10 @@ enum RapportData {
                 input.gateway = gateway.description + (name.map { " (\($0))" } ?? "")
             }
         }
+        // Bilans « Santé courriel » ajoutés depuis la Boîte à outils (en démonstration : le bilan affiché).
+        let mail = ToolStore.shared.mailHealth
+        input.mailHealth = mail.exported
+        if demo, input.mailHealth.isEmpty, let summary = mail.report?.summary { input.mailHealth = [summary] }
         if demo { RapportDemo.complete(&input) }
         return input
     }

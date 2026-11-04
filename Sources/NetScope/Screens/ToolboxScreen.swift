@@ -122,6 +122,11 @@ private struct ToolMainPanel: View {
     @ObservedObject private var wol = ToolStore.shared.wol
     @ObservedObject private var dhcp = ToolStore.shared.dhcp
     @ObservedObject private var neighbors = ToolStore.shared.neighbors
+    @ObservedObject private var mailSuper = ToolStore.shared.mailSuper
+    @ObservedObject private var mailHealth = ToolStore.shared.mailHealth
+    @ObservedObject private var mx = ToolStore.shared.mx
+    @ObservedObject private var blacklist = ToolStore.shared.blacklist
+    @ObservedObject private var mailRecords = ToolStore.shared.mailRecords
 
     var body: some View {
         let tool = store.selectedTool
@@ -204,6 +209,11 @@ private struct ToolMainPanel: View {
         case .wol: WakeOnLANView(model: wol, store: store)
         case .dhcp: DHCPTestView(model: dhcp, store: store)
         case .lldp: NeighborCaptureView(model: neighbors, store: store)
+        case .mailSuper: MailSuperToolView(model: mailSuper, store: store)
+        case .mailHealth: MailHealthView(model: mailHealth, store: store)
+        case .mx: MXLookupView(model: mx, store: store)
+        case .blacklist: BlacklistView(model: blacklist, store: store)
+        case .mailRecords: MailRecordsView(model: mailRecords, store: store)
         }
     }
 
@@ -222,6 +232,11 @@ private struct ToolMainPanel: View {
         case .wol: return wol.command
         case .dhcp: return dhcp.command
         case .lldp: return neighbors.command
+        case .mailSuper: return mailSuper.command
+        case .mailHealth: return mailHealth.command
+        case .mx: return mx.command
+        case .blacklist: return blacklist.command
+        case .mailRecords: return mailRecords.command
         }
     }
 }

@@ -31,7 +31,10 @@ final class RapportModel: ObservableObject {
         isDemo = demo
         if demo {
             directory = FileManager.default.temporaryDirectory.appendingPathComponent("netscope-rapports-demo", isDirectory: true)
-            config = RapportDemo.config
+            // Captures de développement : NETSCOPE_RAPPORT_COURRIEL=1 coche la section « Santé courriel ».
+            var demo = RapportDemo.config
+            if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_COURRIEL"] == "1" { demo.sections.insert(.courriel) }
+            config = demo
             library = ReportLibrary(recents: RapportDemo.recents)
         } else {
             directory = ReportLibrary.defaultDirectory

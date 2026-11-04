@@ -37,13 +37,21 @@ public struct MailHealthSummary: Codable, Hashable, Sendable, Identifiable {
     public var checks: [MailCheck]
     /// Corrections à faire, de la plus grave à la moins grave.
     public var recommendations: [MailFinding]
+    /// Chiffres clés des rapports : recherches DNS du SPF, politique DMARC, inscriptions.
+    public var spfLookups: Int?
+    public var dmarcPolicy: String?
+    public var listings: Int?
 
-    public init(domain: String, date: Date, score: Int, checks: [MailCheck], recommendations: [MailFinding]) {
+    public init(domain: String, date: Date, score: Int, checks: [MailCheck], recommendations: [MailFinding],
+                spfLookups: Int? = nil, dmarcPolicy: String? = nil, listings: Int? = nil) {
         self.domain = domain
         self.date = date
         self.score = score
         self.checks = checks
         self.recommendations = recommendations
+        self.spfLookups = spfLookups
+        self.dmarcPolicy = dmarcPolicy
+        self.listings = listings
     }
 
     public var grade: MailHealthGrade { MailHealthGrade(score: score) }
@@ -228,6 +236,9 @@ public enum MailHealth {
         }
         var seen: Set<String> = []
         recommendations = recommendations.bySeverity.filter { seen.insert($0.title).inserted }
-        return MailHealthSummary(domain: domain, date: date, score: score, checks: checks, recommendations: recommendations)
+        return MailHealthSummary(domain: domain, date: date, score: score, checks: checks, recommendations: recommendations,
+                                 spfLookups: spf.record == nil ? nil : spf.totalLookups,
+                                 dmarcPolicy: dmarc.record.flatMap { dmarc.inherited ? ($0.subdomainPolicy ?? $0.policy) : $0.policy },
+                                 listings: blacklists.checkedCount == 0 ? nil : blacklists.listed.count)
     }
 }

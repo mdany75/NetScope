@@ -217,7 +217,7 @@ public enum DKIMAnalyzer {
         where !selector.isEmpty && !unique.contains(selector) && MailDNSText.isDomainName(selector) {
             unique.append(selector)
         }
-        let results = await mailConcurrentMap(unique, limit: 4, spacing: 0.02) { selector in
+        let results = await mailConcurrentMap(unique, limit: 4, spacing: client.pacing / 2) { selector in
             await lookup(domain, selector: selector, client: client)
         }
         let found = results.filter { $0.key != nil }

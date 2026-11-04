@@ -252,11 +252,23 @@ public struct DNSBLReport: Hashable, Sendable {
 
     public var findings: [MailFinding] {
         var result: [MailFinding] = []
-        for item in listed {
-            result.append(MailFinding(item.list.weight == .major ? .error : .warning,
-                                      "\(item.target) listé dans \(item.list.name)", item.explanation,
-                                      fix: item.list.removalURL.map { "Corriger la cause, puis demander le retrait\u{00A0}: \($0)" }
-                                          ?? "Corriger la cause\u{00A0}; l’inscription expire d’elle-même."))
+        // Une inscription par liste (plusieurs adresses d'un même réseau listées ensemble).
+        var zones: [String] = []
+        for item in listed where !zones.contains(item.list.zone) { zones.append(item.list.zone) }
+        for zone in zones {
+            let items = listed.filter { $0.list.zone == zone }
+            let list = items[0].list
+            let who = items.count > 1 ? "\(items.count) adresses" : items[0].target
+            let title = "\(who) listé\(items.count > 1 ? "es" : "") dans \(list.name)"
+            let detail = (items.count > 1 ? items.map(\.target).joined(separator: ", ") + "\u{00A0}: " : "") + items[0].explanation
+            let fix: String
+            if list.weight == .minor {
+                fix = "Liste peu suivie\u{00A0}: surveiller plutôt qu’agir" + (list.removalURL.map { " (détail\u{00A0}: \($0))" } ?? "") + "."
+            } else {
+                fix = list.removalURL.map { "Corriger la cause (machine infectée, relais ouvert, envoi en masse), puis demander le retrait\u{00A0}: \($0)" }
+                    ?? "Corriger la cause\u{00A0}; l’inscription expire d’elle-même."
+            }
+            result.append(MailFinding(list.weight == .major ? .error : .warning, title, detail, fix: fix))
         }
         let refused = results.filter { if case .refused = $0.state { return true }; return false }
         if !refused.isEmpty {
@@ -314,9 +326,9 @@ public enum DNSBL {
     }
 
     /// Vérifie les cibles dans les listes de leur type. Au plus `concurrency` requêtes à la fois,
-    /// espacées de `spacing` secondes. Une adresse réservée (privée, boucle locale) n'est pas interrogée.
+    /// espacées de `spacing` secondes (par défaut, le rythme du client). Une adresse réservée (privée, boucle locale) n'est pas interrogée.
     public static func check(_ targets: [DNSBLTarget], lists: [DNSBLList] = DNSBLCatalog.active, client: MailDNSClient,
-                             concurrency: Int = 3, spacing: TimeInterval = 0.05) async -> DNSBLReport {
+                             concurrency: Int = 3, spacing: TimeInterval? = nil) async -> DNSBLReport {
         struct Job: Sendable { var target: DNSBLTarget; var list: DNSBLList }
         var jobs: [Job] = []
         var skipped: [DNSBLResult] = []
@@ -331,7 +343,7 @@ public enum DNSBL {
                 jobs.append(Job(target: target, list: list))
             }
         }
-        let results = await mailConcurrentMap(jobs, limit: concurrency, spacing: spacing) { job -> DNSBLResult in
+        let results = await mailConcurrentMap(jobs, limit: concurrency, spacing: spacing ?? client.pacing) { job -> DNSBLResult in
             let name = queryName(job.target, list: job.list)
             let start = Date()
             let answer = await client.query(name, .a)

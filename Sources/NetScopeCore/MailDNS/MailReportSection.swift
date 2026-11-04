@@ -39,9 +39,10 @@ extension ReportBuilder {
             let lists = summary.checks.first { $0.category == .blacklist }
             blocks.append(.kpis([
                 ReportKPI("\(summary.score)/100", "note de santé", tone: summary.grade.status.reportTone),
-                ReportKPI(spf?.result.components(separatedBy: " · ").first ?? "—", "SPF", tone: spf?.status.reportTone ?? .normal),
-                ReportKPI(dmarc?.result.components(separatedBy: " · ").first ?? "—", "DMARC", tone: dmarc?.status.reportTone ?? .normal),
-                ReportKPI(lists.map { $0.status == .ok ? "Aucune" : ($0.status == .info ? "—" : "Inscrit") } ?? "—", "listes noires",
+                ReportKPI(summary.spfLookups.map { "\($0)/\(SPFAnalyzer.lookupLimit)" } ?? "—", "recherches SPF",
+                          tone: spf?.status.reportTone ?? .normal),
+                ReportKPI(summary.dmarcPolicy.map { "p=\($0)" } ?? "—", "politique DMARC", tone: dmarc?.status.reportTone ?? .normal),
+                ReportKPI(summary.listings.map(String.init) ?? "—", (summary.listings ?? 0) > 1 ? "inscriptions" : "inscription",
                           tone: lists?.status.reportTone ?? .normal),
             ]))
             let rows = summary.checks.map { check in

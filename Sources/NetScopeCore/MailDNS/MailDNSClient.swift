@@ -46,6 +46,12 @@ public protocol MailDNSClient: Sendable {
     func dnssec(_ domain: String) async -> MailDNSSECState
     /// Contenu d'un fichier texte en HTTPS (politique MTA-STS), sans suivre de redirection.
     func fetchText(_ url: URL) async throws -> String
+    /// Délai entre deux départs de requêtes en rafale (listes noires, sélecteurs DKIM), en secondes.
+    var pacing: TimeInterval { get }
+}
+
+extension MailDNSClient {
+    public var pacing: TimeInterval { 0.05 }
 }
 
 public enum MailDNSError: Error, LocalizedError, Equatable, Sendable {
@@ -240,6 +246,8 @@ public struct MailDNSFixture: MailDNSClient {
     public var failures: [String: String]
     public var signedDomains: Set<String>
     public var files: [String: String]
+    /// Réponses fixes : aucune raison d'espacer les requêtes.
+    public var pacing: TimeInterval { 0 }
     /// Requêtes reçues (comptées par les tests) : tableau partagé protégé par un verrou.
     public let log = MailDNSFixtureLog()
 
