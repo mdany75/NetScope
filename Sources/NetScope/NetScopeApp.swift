@@ -37,11 +37,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        // Délégué des notifications en place avant tout : un clic sur une notification qui lance
+        // NetScope doit ouvrir la sonde.
+        MainActor.assumeIsolated { MonNotifier.shared.install() }
+    }
+
+    /// Tant que des sondes de surveillance sont actives, NetScope reste dans la barre de menus.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        MainActor.assumeIsolated { !MonStore.shared.hasActiveProbes }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        MainActor.assumeIsolated { MonStore.shared.save() }
+    }
 }
 
 struct NetScopeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @ObservedObject private var monitor = MonStore.shared
     @StateObject private var state: AppState = {
         if Launcher.isDemo {
             let state = AppState(store: nil)
@@ -52,8 +66,9 @@ struct NetScopeApp: App {
     }()
 
     var body: some Scene {
-        WindowGroup("NetScope") {
+        WindowGroup("NetScope", id: MonWindow.windowID) {
             ContentView()
+                .background(MonWindowHook())
                 .environmentObject(state)
                 .frame(minWidth: 1100, minHeight: 700)
                 .task {
@@ -61,6 +76,8 @@ struct NetScopeApp: App {
                     Task.detached(priority: .utility) { _ = OUIDatabase.builtIn.count }
                     guard !Launcher.isDemo else { return }
                     await state.detectInterface()
+                    // Sondes de surveillance : elles tournent dès le lancement, fenêtre fermée comprise.
+                    MonStore.shared.attach(to: state)
                     // Vérification des mises à jour (Releases GitHub) selon la fréquence choisie.
                     await UpdController.shared.applicationDidLaunch(state)
                 }
@@ -68,5 +85,14 @@ struct NetScopeApp: App {
         .defaultSize(width: 1440, height: 900)
         .windowResizability(.contentMinSize)
         .commands { UpdCommands(state: state) }
+
+        // Icône de la barre de menus : état, passerelle, alertes, « Scan rapide », « Ouvrir NetScope ».
+        MenuBarExtra(isInserted: .constant(!monitor.probes.isEmpty)) {
+            MonMenuContent(onScan: { MonWindow.open(screen: .scanner) }, onOpen: { MonWindow.open() })
+                .environmentObject(state)
+        } label: {
+            MonMenuLabel()
+        }
+        .menuBarExtraStyle(.window)
     }
 }

@@ -25,6 +25,8 @@ public struct HTTPProbeResult: Sendable {
     public var durationMs: Double
     public var certificate: HTTPCertificateInfo?
     public var bodyBytes: Int
+    /// Début du corps décodé (au plus maxBodyBytes), pour chercher un mot-clé (Surveillance).
+    public var bodyText: String = ""
 
     public var statusText: String {
         "\(statusCode) " + HTTPURLResponse.localizedString(forStatusCode: statusCode).capitalized
@@ -69,12 +71,13 @@ public enum HTTPProbe {
         }
         guard let http = response as? HTTPURLResponse else { throw ToolError.processFailed("Réponse non HTTP.") }
         let contentType = http.value(forHTTPHeaderField: "Content-Type")
+        let text = decode(body, contentType: contentType)
         return HTTPProbeResult(url: url, finalURL: http.url ?? url, statusCode: http.statusCode,
                                server: http.value(forHTTPHeaderField: "Server"),
-                               title: extractTitle(from: decode(body, contentType: contentType)),
+                               title: extractTitle(from: text),
                                contentType: contentType, redirects: delegate.redirects.value,
                                durationMs: Date().timeIntervalSince(start) * 1000,
-                               certificate: delegate.certificate.value, bodyBytes: body.count)
+                               certificate: delegate.certificate.value, bodyBytes: body.count, bodyText: text)
     }
 
     /// Requête HTTP/1.0 brute par NWConnection (sans redirection).
@@ -123,12 +126,13 @@ public enum HTTPProbe {
             }
         }
         let parsed = try parseRawResponse(data)
+        let text = decode(parsed.body, contentType: parsed.headers["content-type"])
         return HTTPProbeResult(url: url, finalURL: url, statusCode: parsed.status, server: parsed.headers["server"],
-                               title: extractTitle(from: decode(parsed.body, contentType: parsed.headers["content-type"])),
+                               title: extractTitle(from: text),
                                contentType: parsed.headers["content-type"],
                                redirects: parsed.headers["location"].map { ["\(parsed.status) → \($0)"] } ?? [],
                                durationMs: Date().timeIntervalSince(start) * 1000, certificate: nil,
-                               bodyBytes: parsed.body.count)
+                               bodyBytes: parsed.body.count, bodyText: text)
     }
 
     /// Ligne d'état, en-têtes (clés en minuscules) et corps d'une réponse HTTP brute.

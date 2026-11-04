@@ -23,6 +23,7 @@ registerAutoScanTests(suite)
 registerAutoScanReviewTests(suite)
 registerRemoteDisplayTests(suite)
 registerWifiLocationTests(suite)
+registerMonitorTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)
