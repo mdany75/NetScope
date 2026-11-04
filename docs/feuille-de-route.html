@@ -1,0 +1,320 @@
+<title>Feuille de route NetScope</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Mise en page : en-tête bleu nuit (comme la barre latérale de l'app), puis quatre étapes en colonnes qui s'empilent sur téléphone. */
+:root {
+  --bg: #f3f5f9;
+  --surface: #ffffff;
+  --ink: #142033;
+  --muted: #5b6a80;
+  --line: #dbe2ec;
+  --navy: #0f1d33;
+  --navy-ink: #e8eef8;
+  --accent: #2f6fe4;
+  --ok: #1f8a5b;
+  --run: #c27a12;
+  --plan: #6a5bd6;
+  --later: #7b8796;
+  --chip-bg: #eef2f8;
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Source Sans 3", -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1424; --surface: #142038; --ink: #e6ecf6; --muted: #98a6bb; --line: #26344f;
+    --navy: #08101e; --navy-ink: #e8eef8; --accent: #6f9ef5; --ok: #45c08a; --run: #f0aa45;
+    --plan: #a497f5; --later: #8e9aaa; --chip-bg: #1c2a46; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c1424; --surface: #142038; --ink: #e6ecf6; --muted: #98a6bb; --line: #26344f;
+  --navy: #08101e; --navy-ink: #e8eef8; --accent: #6f9ef5; --ok: #45c08a; --run: #f0aa45;
+  --plan: #a497f5; --later: #8e9aaa; --chip-bg: #1c2a46; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1440px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header { background: var(--navy); color: var(--navy-ink); }
+header .wrap { padding-block: 32px 28px; display: flex; flex-wrap: wrap; gap: 20px 40px; align-items: flex-end; justify-content: space-between; }
+.brand { display: flex; gap: 14px; align-items: center; }
+.radar { width: 44px; height: 44px; flex: none; }
+h1 { font-family: var(--f-display); font-weight: 800; font-size: clamp(26px, 4vw, 36px); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.sub { margin: 2px 0 0; color: #a9b8d0; font-size: 15px; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 13px; color: #a9b8d0; }
+.facts b { display: block; font-family: var(--f-mono); font-weight: 500; color: var(--navy-ink); font-size: 15px; }
+main .wrap { padding-block: 28px 48px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0 0 20px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+.board { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 1240px) { .board { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .board { grid-template-columns: 1fr; } }
+.stage { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.stage-head { border-top: 4px solid var(--c); padding-top: 10px; }
+.stage-head h2 { font-family: var(--f-display); font-weight: 700; font-size: 18px; margin: 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.tag { font-family: var(--f-mono); font-size: 12px; font-weight: 500; color: var(--c); background: var(--chip-bg); padding: 1px 7px; border-radius: 4px; }
+.stage-head p { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.card h3 { font-size: 15px; font-weight: 600; margin: 0; display: flex; gap: 8px; align-items: baseline; }
+.num { font-family: var(--f-mono); font-size: 11px; color: var(--muted); flex: none; }
+.card ul { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--muted); }
+.card li + li { margin-top: 2px; }
+.state { align-self: flex-start; font-size: 12px; font-weight: 600; color: var(--c); display: inline-flex; gap: 6px; align-items: center; }
+.state .dot { background: var(--c); }
+.decide { border-left: 3px solid var(--plan); padding: 2px 0 2px 10px; font-size: 13px; color: var(--ink); }
+.done { --c: var(--ok); } .run { --c: var(--run); } .plan { --c: var(--plan); } .later { --c: var(--later); }
+.pulse { animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+footer { color: var(--muted); font-size: 13px; }
+footer .wrap { padding-block: 0 32px; }
+code { font-family: var(--f-mono); font-size: 12.5px; }
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="brand">
+      <svg class="radar" viewBox="0 0 44 44" aria-hidden="true">
+        <circle cx="22" cy="22" r="20" fill="#16305a"/>
+        <circle cx="22" cy="22" r="14" fill="none" stroke="#3f7ee8" stroke-width="1.5"/>
+        <circle cx="22" cy="22" r="7" fill="none" stroke="#3f7ee8" stroke-width="1.5"/>
+        <path d="M22 22 L36 12 A17 17 0 0 1 39 22 Z" fill="#5d97f0" opacity=".75"/>
+        <circle cx="31" cy="16" r="2.2" fill="#9cc2ff"/>
+      </svg>
+      <div>
+        <h1>Feuille de route NetScope</h1>
+        <p class="sub">L’outil ultime du technicien réseau, pour macOS</p>
+      </div>
+    </div>
+    <div class="facts">
+      <div>Version installée<b>0.2.1</b></div>
+      <div>Prochaine version<b>0.3.0</b></div>
+      <div>Mise à jour<b>3 nov. 2026</b></div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="legend" aria-label="Légende">
+      <span><i class="dot" style="background:var(--ok)"></i>Livré</span>
+      <span><i class="dot" style="background:var(--run)"></i>En cours</span>
+      <span><i class="dot" style="background:var(--plan)"></i>À planifier</span>
+      <span><i class="dot" style="background:var(--later)"></i>Phases 2 à 4</span>
+    </div>
+
+    <div class="board">
+      <section class="stage done">
+        <div class="stage-head">
+          <h2>Livré</h2>
+          <p>Publié sur GitHub, installé dans Applications</p>
+        </div>
+        <article class="card">
+          <h3><span class="tag">0.1.0</span>Première version</h3>
+          <ul>
+            <li>Scanner multi-plages, ping continu, traceroute et MTR</li>
+            <li>Switchs et ports (SNMP), Wi-Fi, boîte à outils</li>
+            <li>Inventaire, analyse, carte du réseau</li>
+            <li>Accès distant, Speedtest, mise à jour automatique</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3><span class="tag">0.2.0</span>Scanner automatique</h3>
+          <ul>
+            <li>Noms par DNS, mDNS, NetBIOS et SNMP</li>
+            <li>20 ports essentiels à chaque scan</li>
+            <li>Switchs découverts tout seuls, colonnes Switch / Port et VLAN remplies</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3><span class="tag">0.2.1</span>Fabricants complets</h3>
+          <ul>
+            <li>Registre IEEE : environ 53 700 préfixes MAC</li>
+            <li>Mise à jour de la base depuis l’IEEE, sur demande</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="stage run">
+        <div class="stage-head">
+          <h2>En cours <span class="tag">0.3.0</span></h2>
+          <p>Réalisation, relecture et corrections en parallèle</p>
+        </div>
+        <article class="card">
+          <h3><span class="num">Note 1</span>Autorisation de la localisation</h3>
+          <ul>
+            <li>Le bouton du Wi-Fi ouvre la fenêtre de macOS</li>
+            <li>Si l’accès est refusé : lien vers Réglages Système</li>
+          </ul>
+          <span class="state"><i class="dot pulse"></i>En cours</span>
+        </article>
+        <article class="card">
+          <h3><span class="num">Note 2</span>Test DHCP et capture LLDP/CDP</h3>
+          <ul>
+            <li>Tous les serveurs DHCP du segment, alerte si un serveur n’est pas autorisé</li>
+            <li>« Ce Mac est branché sur… » : switch, port, VLAN, PoE</li>
+          </ul>
+          <span class="state"><i class="dot pulse"></i>En cours</span>
+        </article>
+        <article class="card">
+          <h3><span class="num">Note 3</span>Écran Surveillance</h3>
+          <ul>
+            <li>Sondes ping, TCP, HTTP, DNS, SNMP avec seuils</li>
+            <li>Notifications macOS et icône dans la barre de menus</li>
+          </ul>
+          <span class="state"><i class="dot pulse"></i>En cours</span>
+        </article>
+        <article class="card">
+          <h3><span class="num">Note 4</span>Écran Rapports</h3>
+          <ul>
+            <li>Rapport client en PDF (format lettre, « Page N de M »)</li>
+            <li>Exports CSV, JSON et HTML ; brouillon Mail avec le PDF joint</li>
+          </ul>
+          <span class="state"><i class="dot pulse"></i>En cours</span>
+        </article>
+        <article class="card">
+          <h3><span class="num">Note 5</span>RDP et VNC en fenêtre ou plein écran</h3>
+          <ul>
+            <li>Choix par connexion et au moment de « Connecter »</li>
+            <li>Taille de la fenêtre RDP, option « Tous les écrans »</li>
+          </ul>
+          <span class="state"><i class="dot pulse"></i>En cours</span>
+        </article>
+        <article class="card">
+          <h3><span class="num">Note 8</span>Tableaux standard dans tous les écrans</h3>
+          <ul>
+            <li>Tri par colonne, largeur réglable, comme le Scanner</li>
+            <li>Colonnes à masquer ou à ajouter (clic droit sur l’en-tête, bouton « Colonnes »)</li>
+            <li>Choix retenus par tableau</li>
+            <li>Colonne « Ports ouverts » plus large : plus de ports affichés, puis « +N »</li>
+          </ul>
+          <span class="state">Après la fusion des notes 1 à 5</span>
+        </article>
+        <article class="card">
+          <h3><span class="num">Note 9</span>Style Mac et petite fenêtre</h3>
+          <ul>
+            <li>Allure d’app macOS native : barre latérale translucide, contrôles du système, mode sombre automatique</li>
+            <li>Fenêtre réduite : le panneau de droite défile de haut en bas au lieu d’être coupé</li>
+          </ul>
+          <p class="decide">À confirmer : Mac natif complet, hybride (garder le bleu nuit) ou mode sombre seulement.</p>
+          <span class="state">Après la note 8</span>
+        </article>
+      </section>
+
+      <section class="stage plan">
+        <div class="stage-head">
+          <h2>À planifier</h2>
+          <p>Demandé, version à choisir</p>
+        </div>
+        <article class="card">
+          <h3><span class="num">Note 7</span>Capture et inspection de paquets</h3>
+          <ul>
+            <li>Capture avec filtre (<code>host</code>, <code>port</code>, <code>arp</code>…), liste en direct</li>
+            <li>Détail par couche et vue hexadécimale</li>
+            <li>« Suivre le flux TCP », statistiques</li>
+            <li>Enregistrer et ouvrir des fichiers <code>.pcap</code> (compatibles Wireshark)</li>
+          </ul>
+          <p class="decide">À décider : dans la 0.3.0 ou dans la version suivante. Réutilise la capture de la note 2.</p>
+        </article>
+        <article class="card">
+          <h3><span class="num">Note 12</span>« Suis-je sur un port PoE ? »</h3>
+          <ul>
+            <li>Ce Mac : port PoE ou non, courant fourni ou non, classe et puissance (d’après LLDP/CDP)</li>
+            <li>Tout appareil : état PoE de son port de switch par SNMP</li>
+            <li>Dans la fiche appareil, le Scanner (colonne PoE) et Switchs et ports</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3><span class="num">Note 13</span>Réglages encore « Bientôt »</h3>
+          <ul>
+            <li>Notifications : événements, son, heures de silence, notification de test</li>
+            <li>Export et sauvegarde : sauvegarde quotidienne, restauration, formats par défaut</li>
+            <li>Raccourcis clavier modifiables</li>
+            <li>Aussi : anglais, Test SNMP, identifiants SSH et WMI, méthodes de découverte</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3><span class="num">Note 14</span>Outils courriel et DNS</h3>
+          <ul>
+            <li>Super outil : un champ, toutes les vérifications utiles</li>
+            <li>Recherche MX, listes noires, DMARC / SPF / DKIM</li>
+            <li>Diagnostic SMTP et santé courriel d’un domaine</li>
+            <li>Recherche DNS enrichie, analyse d’en-têtes de courriel</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3><span class="num">Note 15</span>État des grands services en ligne</h3>
+          <ul>
+            <li>Microsoft 365, Azure, Apple, AWS, Google, Cloudflare, GitHub, Zoom… liste modifiable</li>
+            <li>Page d’état officielle et test depuis ce réseau</li>
+            <li>« Panne chez eux » ou « problème chez nous », incidents en cours, notifications</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3><span class="num">Suite</span>Alertes par courriel et webhook</h3>
+          <ul>
+            <li>Teams, Slack ou courriel quand une sonde tombe</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="stage later">
+        <div class="stage-head">
+          <h2>Phase 2</h2>
+          <p>Reporté à plus tard, ordre libre avec les phases 3 et 4</p>
+        </div>
+        <article class="card">
+          <h3><span class="num">Note 6</span>Assistance à distance par RustDesk</h3>
+          <ul>
+            <li>Serveur RustDesk sur le serveur Ubuntu de Groupe Couture</li>
+            <li>Lien de téléchargement d’un client portable préconfiguré pour l’usager</li>
+            <li>Droits administrateur pendant l’assistance seulement (« Demander l’élévation »)</li>
+            <li>Protocole RustDesk dans Accès distant, carnet des postes</li>
+            <li>Lien publié sur 911.groupecouture.ca</li>
+          </ul>
+          <p class="decide">Décidé : RustDesk Server OSS, gratuit.</p>
+        </article>
+      </section>
+
+      <section class="stage later">
+        <div class="stage-head">
+          <h2>Phase 3</h2>
+          <p>Phases 2, 3 et 4 : dans n’importe quel ordre</p>
+        </div>
+        <article class="card">
+          <h3><span class="num">Note 10</span>Repenser le module Inventaire</h3>
+          <ul>
+            <li>Revoir son rôle, sa disposition et ses données</li>
+            <li>Ajout manuel d’appareils absents des scans, rapprochés ensuite par MAC ou IP</li>
+            <li>Gestion par site : sélecteur de site, site déduit de la plage scannée, exports et rapports par site</li>
+            <li>Ajout et suppression : ajout depuis le Scanner ou automatique au choix, retrait avec archive ou suppression, liste d’exclusion</li>
+            <li>D’ici là : seulement les tableaux standard et le style Mac</li>
+          </ul>
+          <p class="decide">À préciser avec Dany avant de commencer.</p>
+        </article>
+        <div class="stage-head">
+          <h2>Phase 4</h2>
+          <p>Ordre libre, comme les phases 2 et 3</p>
+        </div>
+        <article class="card">
+          <h3><span class="num">Note 11</span>Repenser le Ping continu</h3>
+          <ul>
+            <li>Revoir la disposition, les graphes, le journal, le multi-cibles, le traceroute et le MTR</li>
+            <li>Préréglages enregistrés (cibles et options) lancés en un clic, ex. « Passerelle + DNS + Internet », « Test MTU »</li>
+            <li>D’ici là : seulement les tableaux standard et le style Mac</li>
+          </ul>
+          <p class="decide">À préciser avec Dany avant de commencer.</p>
+        </article>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">Dépôt : github.com/mdany75/NetScope · Détails de chaque note dans <code>docs/A-FAIRE.md</code></div>
+</footer>
