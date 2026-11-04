@@ -7,6 +7,9 @@ struct ReglagesScreen: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var navigation = RegNavigation.shared
     @ObservedObject private var updates = UpdController.shared
+    // Pastilles des sections Notifications (autorisation refusée) et Raccourcis (conflits).
+    @ObservedObject private var notifications = RegNotifStore.shared
+    @ObservedObject private var shortcuts = RegShortcutStore.shared
     @State private var query = ""
 
     var body: some View {
@@ -136,7 +139,20 @@ struct ReglagesScreen: View {
             if state.updateAvailable != nil { CountBadge(count: 1) }
         case .switchs:
             Text("\(SwitchStore.shared.hosts.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
-        case .export, .raccourcis:
+        case .raccourcis:
+            let conflicts = RegShortcutStore.shared.conflicts.count
+            if conflicts > 0 {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 11)).foregroundStyle(Theme.warning)
+                    .help("\(conflicts) raccourci\(conflicts > 1 ? "s" : "") en conflit")
+            }
+        case .notifications:
+            if RegNotifStore.shared.authorization == .denied {
+                Image(systemName: "bell.slash.fill")
+                    .font(.system(size: 11)).foregroundStyle(Theme.critical)
+                    .help("Notifications refusées par macOS")
+            }
+        case .export:
             // Petite pastille « bientôt » en police réduite : le libellé de la section reste sur une ligne.
             Text("bientôt")
                 .font(.system(size: 9.5, weight: .semibold))
@@ -162,14 +178,9 @@ struct ReglagesScreen: View {
         case .majs: RegUpdatesSection()
         case .apropos: RegAboutSection()
         case .switchs: RegSwitchesSection()
-        case .notifications:
-            RegPanel(title: navigation.section.label) {
-                RegNotice(text: "Les notifications macOS, le son, le courriel et le webhook se règlent sonde par sonde dans Surveillance (Actions d’alerte de chaque sonde).", tone: .accent) {
-                    Button("Ouvrir Surveillance") { state.open(.surveillance) }
-                        .buttonStyle(.secondary)
-                }
-            }
-        case .export, .raccourcis:
+        case .notifications: RegNotificationsSection()
+        case .raccourcis: RegShortcutsSection()
+        case .export:
             RegPanel(title: navigation.section.label) {
                 RegNotice("Section prévue au croquis, pas encore disponible dans cette version de NetScope.", tone: .neutral)
             }

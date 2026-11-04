@@ -386,6 +386,14 @@ final class ScanController: ObservableObject {
         } else {
             show("Scan terminé en \(seconds) : \(online) appareils en ligne, \(newIDs.count) nouveaux.")
         }
+        // Fin de scan : événement commun (notifié seulement si NetScope n'est pas au premier plan).
+        let fresh = newIDs.count
+        NetScopeEventCenter.shared.publish(NetScopeEvent(
+            id: "scan-\(Int(end.timeIntervalSince1970))", kind: .scanFinished,
+            severity: engineCancelled ? .warning : .info,
+            title: engineCancelled ? "Scan arrêté" : "Scan terminé",
+            detail: "\(online) appareil\(online > 1 ? "s" : "") en ligne en \(seconds)" + (fresh > 0 ? ", \(fresh) nouveau\(fresh > 1 ? "x" : "")." : "."),
+            date: end, link: .screen(Screen.scanner.rawValue), source: "scan"))
     }
 
     // MARK: Actions sur un appareil

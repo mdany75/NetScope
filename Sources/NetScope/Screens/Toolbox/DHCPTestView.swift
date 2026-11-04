@@ -288,6 +288,16 @@ final class ToolDHCPModel: ObservableObject {
             store.record(ToolRecent(tool: .dhcp, target: target, summary: "Aucune offre en \(wait)\u{00A0}s", status: .warning))
         } else if !rogue.isEmpty {
             let names = rogue.compactMap { $0.server?.description }.joined(separator: ", ")
+            // Serveur DHCP non autorisé : événement commun (notification critique, autres canaux).
+            for offer in rogue {
+                let ip = offer.server?.description ?? offer.offeredAddress.description
+                var detail = "Offre \(offer.offeredAddress) sur \(interfaceName)"
+                if let mac = offer.sourceMAC { detail += " · MAC \(mac.formatted(.upperColon))" }
+                NetScopeEventCenter.shared.publish(NetScopeEvent(
+                    id: "dhcp-\(ip)-\(Int(Date().timeIntervalSince1970))", kind: .rogueDHCP,
+                    title: "Serveur DHCP non autorisé\u{00A0}: \(ip)", detail: detail + ".",
+                    link: .screen(Screen.outils.rawValue), source: "dhcp-\(ip)"))
+            }
             store.record(ToolRecent(tool: .dhcp, target: target,
                                     summary: "\(offers.count) serveur\(offers.count > 1 ? "s" : "") · \(rogue.count) non autorisé\(rogue.count > 1 ? "s" : "") (\(names))",
                                     status: .warning))

@@ -99,7 +99,11 @@ struct NetScopeApp: App {
         }
         .defaultSize(width: 1440, height: 900)
         .windowResizability(.contentMinSize)
-        .commands { UpdCommands(state: state) }
+        .commands {
+            UpdCommands(state: state)
+            // Menus Scan, Appareil, Aller… : raccourcis de Réglages › Raccourcis.
+            AppCommands(state: state)
+        }
 
         // Icône de la barre de menus : état, passerelle, alertes, « Scan rapide », « Ouvrir NetScope ».
         MenuBarExtra(isInserted: .constant(!monitor.probes.isEmpty)) {

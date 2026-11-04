@@ -51,10 +51,10 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .profils: return "threads délai tentatives ports rapide complet personnalisé"
         case .identifiants: return "snmp v2c v3 communauté utilisateur authentification trousseau mot de passe"
         case .switchs: return "switch snmp lldp cdp port vlan découverte automatique communauté public"
-        case .notifications: return "alerte notification surveillance courriel"
+        case .notifications: return "alerte notification surveillance courriel son silence ne pas déranger regroupement dhcp conflit test"
         case .interface: return "en0 wi-fi ethernet masque passerelle getifaddrs"
         case .export: return "export sauvegarde csv json restauration"
-        case .raccourcis: return "raccourcis clavier touches"
+        case .raccourcis: return "raccourcis clavier touches commande menu conflit"
         case .majs: return "version github release bêta stable signature télécharger installer jeton"
         case .apropos: return "version licence oui journaux"
         }
@@ -69,8 +69,12 @@ enum RegEnvironment {
     /// Mode sans effet de bord (démonstration ou capture).
     static var isSandboxed: Bool { isSnapshot || isDemo }
 
-    /// Outil de développement : « --reglages-section majs » ouvre cette section (captures).
+    /// Outil de développement : « --reglages-section majs » ou la variable d'environnement
+    /// NETSCOPE_REGLAGES_SECTION=notifications|raccourcis… ouvre cette section (captures).
     static var initialSection: RegSection? {
+        if let name = ProcessInfo.processInfo.environment["NETSCOPE_REGLAGES_SECTION"], let section = RegSection(rawValue: name) {
+            return section
+        }
         let arguments = CommandLine.arguments
         guard let index = arguments.firstIndex(of: "--reglages-section"), index + 1 < arguments.count else { return nil }
         return RegSection(rawValue: arguments[index + 1])

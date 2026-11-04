@@ -56,13 +56,13 @@ struct ScannerScreen: View {
             .buttonStyle(.primary)
             .disabled(scan.isRunning)
             .opacity(scan.isRunning ? 0.55 : 1)
-            .keyboardShortcut("r", modifiers: .command)
+            // Raccourcis (⌘R, ⌘.) : menu Scan, réglables dans Réglages › Raccourcis.
+            .help(RegShortcutStore.shared.combo(ShortcutID.startScan).map { "Lancer le scan (\($0.display))" } ?? "Lancer le scan")
         Button { scan.stop() } label: { Label("Arrêter", systemImage: "stop.fill") }
             .buttonStyle(.secondary)
             .disabled(!scan.isBusy)
             .opacity(scan.isBusy ? 1 : 0.55)
             .help(scan.portProbe != nil ? "Arrêter la sonde des ports" : "Arrêter le scan")
-            .keyboardShortcut(".", modifiers: .command)
         Button { scan.clear(state) } label: { Image(systemName: "trash").accessibilityLabel("Effacer") }
             .buttonStyle(.secondary)
             .disabled(state.devices.isEmpty && !scan.isRunning)
