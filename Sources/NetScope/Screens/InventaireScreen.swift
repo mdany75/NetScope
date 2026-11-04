@@ -31,8 +31,7 @@ struct InventaireScreen: View {
     @ObservedObject private var model = InvModel.shared
 
     @State private var view: InvView = .tous
-    @State private var sort: InvSortKey = .derniere
-    @State private var ascending = false
+    @StateObject private var table = InvTable.makeModel()
     @State private var mergeOpen = false
     @State private var ignoredDuplicates: Set<String> = []
     @State private var importing = false
@@ -42,30 +41,28 @@ struct InventaireScreen: View {
     var body: some View {
         let now = Date()
         let records = model.store.sortedRecords
-        let rows = sorted(records.filter { view.includes($0, now: now) && $0.matches(state.searchText) })
+        let rows = InvTable.sorted(records.filter { view.includes($0, now: now) && $0.matches(state.searchText) }, by: table.sortOrder)
         let duplicates = model.store.probableDuplicates().filter { !ignoredDuplicates.contains($0.id) }
         let selected = model.record(model.selectedKey) ?? rows.first
 
-        GeometryReader { geometry in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    header(now: now)
-                    tiles(records, now: now)
-                    if mergeOpen { mergePanel(duplicates) }
-                    InvTable(rows: rows, total: records.count, width: geometry.size.width - Theme.contentPadding * 2,
-                             selectedKey: selected?.key, sort: $sort, ascending: $ascending, now: now,
-                             onSelect: { model.selectedKey = $0 }, onFavorite: { model.toggleFavorite($0) })
-                    if let selected {
-                        InvDetail(record: selected, events: model.store.events(for: selected.key), now: now)
-                            .id(selected.key)
-                    }
-                    help
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                header(now: now)
+                tiles(records, now: now)
+                if mergeOpen { mergePanel(duplicates) }
+                InvTable(rows: rows, total: records.count, selectedKey: selected?.key, table: table, now: now,
+                         onSelect: { model.selectedKey = $0 }, onFavorite: { model.toggleFavorite($0) })
+                if let selected {
+                    InvDetail(record: selected, events: model.store.events(for: selected.key), now: now)
+                        .id(selected.key)
                 }
-                .padding(Theme.contentPadding)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
+                help
             }
+            .padding(Theme.contentPadding)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .screenToolbar {
+            StandardColumnsMenu(model: table)
             Button { importing = true } label: { Label("Importer CSV", systemImage: "square.and.arrow.down") }
                 .buttonStyle(.secondary)
             Button {
@@ -240,30 +237,6 @@ struct InventaireScreen: View {
                 .font(Theme.small)
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    // MARK: Tri
-
-    private func sorted(_ records: [InvRecord]) -> [InvRecord] {
-        records.sorted { a, b in
-            let order: Bool
-            switch sort {
-            case .nom:
-                let result = a.displayName.localizedStandardCompare(b.displayName)
-                if result == .orderedSame { return a.ip < b.ip }
-                order = result == .orderedAscending
-            case .ip:
-                if a.ip == b.ip { return a.key < b.key }
-                order = a.ip < b.ip
-            case .premiere:
-                if a.firstSeen == b.firstSeen { return a.ip < b.ip }
-                order = a.firstSeen < b.firstSeen
-            case .derniere:
-                if a.lastSeen == b.lastSeen { return a.ip < b.ip }
-                order = a.lastSeen < b.lastSeen
-            }
-            return ascending ? order : !order
         }
     }
 }
