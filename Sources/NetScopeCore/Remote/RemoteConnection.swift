@@ -137,13 +137,10 @@ public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
     /// Dossier affiché.
     public var folderLabel: String { folder.trimmingCharacters(in: .whitespaces).isEmpty ? "Non classé" : folder }
 
-    /// Recherche : nom, hôte, port, protocole, utilisateur, dossier, note.
+    /// Recherche multiple : nom, hôte, port, protocole, utilisateur, dossier, note
+    /// (`proto:ssh dossier:Réseau`).
     public func matches(_ query: String) -> Bool {
-        let needle = query.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !needle.isEmpty else { return true }
-        let haystack = [name, host, String(port), proto.label, proto.rawValue, username, folder, note]
-            .joined(separator: " ").lowercased()
-        return needle.split(separator: " ").allSatisfy { haystack.contains($0) }
+        matchesSearch(query)
     }
 
     /// Copie à enregistrer sous un autre nom.

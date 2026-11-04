@@ -195,19 +195,10 @@ public struct InvRecord: Codable, Hashable, Identifiable, Sendable {
         return isGone(now: now) ? .disparu : .horsLigne
     }
 
-    /// Recherche insensible à la casse et aux accents : IP, MAC, noms, fabricant, étiquettes, local, prise…
+    /// Recherche multiple (champs de l'Inventaire) : IP, MAC, noms, fabricant, étiquettes, local,
+    /// prise… ; un mot seul lit les mêmes colonnes qu'avant.
     public func matches(_ query: String) -> Bool {
-        let q = query.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { return true }
-        var fields = [ip.description, displayName, vendorLabel, type.label]
-        if let mac { fields += [mac.formatted(.colon), mac.formatted(.hyphen), mac.formatted(.cisco), mac.formatted(.bare)] }
-        fields += [hostname, switchName, switchPort, rangeLabel].compactMap { $0 }
-        fields += annotations.tags
-        fields += [annotations.location, annotations.wallJack, "prise \(annotations.wallJack)", annotations.owner,
-                   annotations.assetNumber, annotations.notes]
-        fields += ipHistory.map { $0.ip.description }
-        if let vlan { fields.append("vlan \(vlan)") }
-        return fields.contains { $0.range(of: q, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
+        matchesSearch(query)
     }
 }
 
