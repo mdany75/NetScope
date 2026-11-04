@@ -178,11 +178,14 @@ public struct FortiWifiClient: Codable, Hashable, Sendable, Identifiable {
     public var os: String?
     public var vlan: Int?
     public var manufacturer: String?
+    /// Note 46 : détails de la fiche complète (débits montant et descendant, standard, sécurité,
+    /// octets…), nil si la réponse n'en donnait aucun. Lire `info` (jamais nil).
+    public var details: FortiWifiClientDetails?
 
     public init(site: String = "", mac: MACAddress, ip: IPv4Address? = nil, hostname: String? = nil, ssid: String? = nil, apName: String? = nil,
                 apKey: String? = nil, radioID: Int? = nil, band: WifiBand? = nil, channel: Int? = nil, rssi: Int? = nil, noise: Int? = nil,
                 snr: Int? = nil, rateMbps: Double? = nil, associatedFor: TimeInterval? = nil, os: String? = nil, vlan: Int? = nil,
-                manufacturer: String? = nil) {
+                manufacturer: String? = nil, details: FortiWifiClientDetails? = nil) {
         self.site = site
         self.mac = mac
         self.ip = ip
@@ -201,6 +204,7 @@ public struct FortiWifiClient: Codable, Hashable, Sendable, Identifiable {
         self.os = os
         self.vlan = vlan
         self.manufacturer = manufacturer
+        self.details = details
     }
 
     /// Nom affiché : hôte, sinon la MAC.

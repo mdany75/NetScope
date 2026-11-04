@@ -71,10 +71,17 @@ struct WifiScreen: View {
         .onAppear {
             store.start()
             if !FortiAPDemo.opensFortiAP, !RegEnvironment.isSnapshot, let saved = WifiScreenPart(rawValue: savedPart) { part = saved }
-            if fortiAP.focusAP != nil { part = .fortiap }
+            if fortiAP.focusAP != nil || fortiAP.openFortiAPPart || fortiAP.openClientID != nil {
+                part = .fortiap
+                fortiAP.openFortiAPPart = false
+            }
         }
         // Note 34 : une borne demandée par un autre écran ouvre la partie FortiAP.
         .onChange(of: fortiAP.focusAP) { _, id in if id != nil { part = .fortiap } }
+        // Note 46 : fiche d'un client ou SSID demandés (Retour, « Ouvrir dans › », fiche Appareil).
+        .onChange(of: fortiAP.openFortiAPPart) { _, wanted in
+            if wanted { part = .fortiap; fortiAP.openFortiAPPart = false }
+        }
         .onDisappear { store.stop() }
         .onAppear { fortiAP.setScope(scopes.keys(for: .wifi)) }
         .onChange(of: scopes.keys(for: .wifi)) { _, keys in fortiAP.setScope(keys) }

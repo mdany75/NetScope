@@ -666,6 +666,8 @@ final class FortiGateStore: ObservableObject {
         let wifi = wifiCalls.isEmpty ? "" : "\n\n" + FortiDiagnostic.text(calls: wifiCalls, config: c.config, system: nil, token: tokens[id],
                                                                         date: FortiAPStore.shared.lastRefresh ?? Date())
             .replacingOccurrences(of: "réponses brutes de la FortiGate", with: "réponses brutes Wi-Fi (FortiAP) de la FortiGate")
+            // Note 46 : champs de la fiche du client que cette FortiGate ne renvoie pas (« — » dans la fiche).
+            + (FortiAPStore.shared.clientFieldsNote(controller: id).map { "\n" + $0 } ?? "")
         // Note 37 : appels des étendues DHCP de la dernière lecture (même retrait du jeton).
         let dhcpCalls = calls == nil ? DHCPScopeStore.shared.calls[id] ?? [] : []
         let dhcp = dhcpCalls.isEmpty ? "" : "\n\n" + FortiDiagnostic.text(calls: dhcpCalls, config: c.config, system: nil, token: tokens[id],

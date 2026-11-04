@@ -139,6 +139,8 @@ enum FortiAPDemo {
                 n += 1
             }
         }
+        // Note 46 : détails de la fiche complète (FortiAPClientDemo).
+        clients = enrichClients(clients)
         // Clients par radio, d'après la liste.
         for i in aps.indices {
             for r in aps[i].radios.indices where aps[i].radios[r].isServing {
@@ -209,6 +211,7 @@ enum FortiAPDemo {
                                            band: quai ? .ghz24 : .ghz5, channel: quai ? 6 : 149, rssi: quai ? -60 - n * 2 : -54, noise: -94,
                                            rateMbps: quai ? 86.7 : 720.6, associatedFor: Double(600 + n * 900), os: quai ? "Android" : "Windows", vlan: 10))
         }
+        clients = enrichClients(clients)
         for i in aps.indices {
             for r in aps[i].radios.indices {
                 let id = aps[i].radios[r].radioID

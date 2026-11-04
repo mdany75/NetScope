@@ -72,6 +72,9 @@ extension AppState {
             return RemoteModel.shared.selectedID.map { .remote($0.uuidString) }
         case .outils:
             return .tool(ToolStore.shared.selectedTool.rawValue)
+        case .wifi:
+            // Note 46 : fiche d'un client, SSID déplié ou borne choisie (Retour vers la borne ou le SSID).
+            return FortiAPStore.shared.navFocus
         default:
             return shownFocus[screen]
         }
@@ -221,7 +224,16 @@ extension AppState {
             let index = port.flatMap { name in store.snapshots[host]?.interfaces.first { $0.name == name }?.index }
             store.select(host: host, port: index)
         case .accessPoint(let id):
+            FortiAPStore.shared.closeClient()
+            FortiAPStore.shared.viewedSSID = nil
+            FortiAPStore.shared.viewedAP = id
             FortiAPStore.shared.focusAP = id
+        case .wifiClient(let id):
+            FortiAPStore.shared.showClient(id)
+            FortiAPStore.shared.openFortiAPPart = true
+        case .wifiSSID(let id):
+            FortiAPStore.shared.showSSID(id)
+            FortiAPStore.shared.openFortiAPPart = true
         case .probe(let id):
             MonStore.shared.selectedID = UUID(uuidString: id)
         case .remote(let id):

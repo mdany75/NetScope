@@ -235,16 +235,19 @@ public enum FortiWifiParsers {
         let apName = item.string("wtp_name", "wtp-name", "ap_name", "ap", "wtp")
         let apKey = item.string("wtp_id", "wtp-id", "wtp_serial", "serial", "ap_serial") ?? apName
         let bandText = item.string("radio_type", "band", "radio-type", "frequency_band")
+        let clientBand = band(bandText, channel: channel)
         return FortiWifiClient(mac: mac, ip: FortiParse.ipv4(item.any("ip", "ipv4", "ip_address", "ipv4_address", "ip_addr")),
                                hostname: item.string("hostname", "host", "host_name", "name", "user", "device_name"),
                                ssid: item.string("ssid", "vap_ssid", "wlan", "vap_name", "vap"),
                                apName: apName, apKey: apKey, radioID: item.int("radio_id", "radio-id", "radio"),
-                               band: band(bandText, channel: channel), channel: channel, rssi: rssi, noise: noise,
+                               band: clientBand, channel: channel, rssi: rssi, noise: noise,
                                snr: snr.flatMap { (0...90).contains($0) ? $0 : nil },
                                rateMbps: rate.flatMap { $0 < 100_000 ? $0 : nil }, associatedFor: associated,
                                os: item.string("os", "os_name", "device_os", "os_version", "type", "device_type"),
                                vlan: item.int("vlan_id", "vlanid", "vlan").flatMap { (1...4094).contains($0) ? $0 : nil },
-                               manufacturer: item.string("manufacturer", "vendor", "hardware_vendor"))
+                               manufacturer: item.string("manufacturer", "vendor", "hardware_vendor"),
+                               // Note 46 : détails de la fiche complète, dans le même objet (aucun appel de plus).
+                               details: clientDetails(item, band: clientBand))
     }
 
     // MARK: SSID

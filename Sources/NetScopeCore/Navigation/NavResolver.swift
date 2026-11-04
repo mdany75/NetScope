@@ -230,6 +230,10 @@ public enum NavResolver {
         case .wifiClient(let mac, let ip, let name, let apID):
             deviceItems(NavDeviceRef(ip: ip ?? "", mac: mac, name: name), in: context, add: add)
             if let apID { add("Wi-Fi (sa borne)", NavDestination(.wifi, focus: .accessPoint(apID))) }
+            // Note 46 : fiche complète du client, dans le site de sa borne (« site|série »).
+            if let apID, let bar = apID.lastIndex(of: "|"), let parsed = mac.flatMap(MACAddress.init) {
+                add("Wi-Fi (fiche du client)", NavDestination(.wifi, focus: .wifiClient(String(apID[..<bar]) + "|" + parsed.description)))
+            }
         case .accessPoint(let id, let name, let ip):
             add("Wi-Fi › FortiAP", NavDestination(.wifi, focus: .accessPoint(id)))
             if let ip { deviceItems(NavDeviceRef(ip: ip, name: name), in: context, add: add) }

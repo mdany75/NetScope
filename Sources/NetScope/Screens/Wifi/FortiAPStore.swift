@@ -38,6 +38,19 @@ final class FortiAPStore: ObservableObject {
     /// FortiGate lues à la demande pour la vue d'un autre site.
     @Published private(set) var viewReading: Set<UUID> = []
     @Published var focusBand: WifiBand?
+    /// Note 46 : fiche du client ouverte dans Wi-Fi › FortiAP (identifiant `FortiWifiClient.id`).
+    @Published private(set) var openClientID: FortiWifiClient.ID?
+    /// Note 46 : section Clients regroupée par SSID, et SSID dépliés (`FortiWifiSSIDGroup.id`).
+    @Published var clientsBySSID = false
+    @Published var expandedSSIDs: Set<String> = []
+    /// Borne et SSID montrés en dernier (endroit retenu par Retour, note 45).
+    var viewedAP: FortiManagedAP.ID?
+    /// Demande d'ouvrir la partie FortiAP de l'écran Wi-Fi (fiche d'un client, SSID).
+    @Published var openFortiAPPart = false
+    var viewedSSID: String?
+    /// Note 46 : historique du signal des clients, un par site (fichier sites/<site>/wifi-signal.json).
+    @Published private(set) var signal = FortiWifiSignalBook()
+    private var signalLoaded = Set<String>()
     @Published var thresholds: FortiWifiThresholds {
         didSet {
             guard thresholds != oldValue else { return }
@@ -71,7 +84,10 @@ final class FortiAPStore: ObservableObject {
             cache[FortiGateSitesDemo.siegeID] = FortiWifiSiteReport(controllerID: FortiGateSitesDemo.siegeID, site: "Siège", report: FortiAPDemo.siege())
             cache[FortiGateSitesDemo.lavalID] = FortiWifiSiteReport(controllerID: FortiGateSitesDemo.lavalID, site: "Entrepôt Laval", report: FortiAPDemo.laval())
             for site in initial { cache[site.controllerID] = site }
+            // Note 46 : historique du signal de démonstration (rien n'est lu ni écrit sur le disque).
+            signal = FortiAPDemo.signalBook(now: Date())
             recompute()
+            FortiAPDemo.applySnapshotFocus(self)
         }
     }
 
@@ -109,11 +125,132 @@ final class FortiAPStore: ObservableObject {
     }
 
     /// Client Wi-Fi d'un appareil du Scanner : par MAC, sinon par adresse IP quand elle est unique
-    /// (même règle que `FortiWifiMerge.match`).
+    /// (même règle que `FortiWifiMerge.match`). Les clients du site actif seulement (`overview`).
     func client(for device: Device) -> FortiWifiClient? {
         if let mac = device.mac { return byMAC[mac] }
         if let list = byIP[device.ip], list.count == 1 { return list[0] }
         return nil
+    }
+
+    // MARK: Clients (note 46)
+
+    /// Libellés de site des clients du site actif, dans la vue de l'écran Wi-Fi (« Siège », ou le nom
+    /// de sa FortiGate pour la lecture habituelle) : seuls ces clients sont rattachés au Scanner.
+    var activeSiteLabels: Set<String> {
+        var labels = Set(overview.sites)
+        for report in reports(forKey: SiteModel.shared.activeKey) { labels.insert(report.site) }
+        return labels
+    }
+
+    /// Appareil du Scanner de chaque client affiché (site actif seulement, par MAC).
+    func deviceLinks(_ devices: [Device]) -> [FortiWifiClient.ID: Device.ID] {
+        FortiWifiClientLink.devices(for: shownOverview.clients, devices: devices, activeSites: activeSiteLabels)
+    }
+
+    /// Client d'un identifiant « site|mac » : dans la vue de l'écran Wi-Fi d'abord, sinon dans la
+    /// lecture du site actif. Le site d'un identifiant peut être le nom de la FortiGate (lecture
+    /// habituelle) ou celui du site (vue d'un site) : à défaut d'égalité, la même MAC dans le site
+    /// qui porte ce libellé, puis la même MAC n'importe où dans la vue.
+    func client(id: FortiWifiClient.ID) -> FortiWifiClient? {
+        if let c = shownOverview.clients.first(where: { $0.id == id }) ?? overview.clients.first(where: { $0.id == id }) { return c }
+        guard let bar = id.lastIndex(of: "|"), let mac = MACAddress(String(id[id.index(after: bar)...])) else { return nil }
+        let site = String(id[..<bar])
+        let all = shownOverview.clients + overview.clients
+        return all.first { $0.mac == mac && $0.site == site } ?? shownOverview.clients.first { $0.mac == mac } ?? overview.clients.first { $0.mac == mac }
+    }
+
+    /// Fiche du client ouverte (nil : aucune, ou le client n'est plus dans la lecture).
+    var openClient: FortiWifiClient? { openClientID.flatMap { client(id: $0) } }
+
+    /// Ouvre la fiche d'un client (appelé par la navigation : l'historique la retient aussitôt).
+    func showClient(_ id: FortiWifiClient.ID) {
+        let resolved = client(id: id)?.id ?? id
+        openClientID = resolved
+        if let c = client(id: resolved), let ap = ap(for: c) { viewedAP = shownAPID(for: ap.id) ?? ap.id }
+    }
+
+    func closeClient() { openClientID = nil }
+
+    /// Fiche d'un client affiché, dans SON site (ajouté aux sites montrés s'il n'y est pas).
+    func clientDestination(_ client: FortiWifiClient) -> NavDestination {
+        NavDestination(.wifi, focus: .wifiClient(client.id), sites: .include(siteKey(for: client)))
+    }
+
+    /// Montre un SSID déplié dans la section Clients (Retour vers le SSID d'origine).
+    func showSSID(_ id: String) {
+        openClientID = nil
+        clientsBySSID = true
+        expandedSSIDs.insert(id)
+        viewedSSID = id
+    }
+
+    /// Ce que montre la partie FortiAP, pour l'historique Retour / Avancer.
+    var navFocus: NavFocus? {
+        if let id = openClientID { return .wifiClient(id) }
+        if let ssid = viewedSSID { return .wifiSSID(ssid) }
+        return viewedAP.map(NavFocus.accessPoint)
+    }
+
+    /// Diagnostic brut : champs de la fiche du client absents de la dernière lecture de cette FortiGate.
+    func clientFieldsNote(controller id: UUID) -> String? {
+        let clients = sites.first { $0.controllerID == id }?.report.clients ?? cache[id]?.report.clients ?? []
+        return FortiWifiClientFields.diagnosticLine(clients)
+    }
+
+    // MARK: Historique du signal (note 46)
+
+    /// Site (clé `SiteFiles.key`) d'une FortiGate : le site actif s'il la contient, sinon le premier
+    /// site qui l'a ; à défaut, le site actif.
+    func siteKey(forController id: UUID) -> String {
+        let model = SiteModel.shared
+        if model.site(forKey: model.activeKey)?.fortiGateIDs.contains(id) == true { return model.activeKey }
+        if let site = model.sites.first(where: { $0.fortiGateIDs.contains(id) }) { return SiteFiles.key(for: site.id) }
+        return model.activeKey
+    }
+
+    /// Site d'un client affiché : celui de la FortiGate dont le libellé est le sien.
+    func siteKey(for client: FortiWifiClient) -> String {
+        if let report = sites.first(where: { $0.site == client.site }) { return siteKey(forController: report.controllerID) }
+        for key in scopeKeys ?? [] where reports(forKey: key).contains(where: { $0.site == client.site }) { return key }
+        for (id, report) in cache where report.site == client.site { return siteKey(forController: id) }
+        return SiteModel.shared.activeKey
+    }
+
+    /// Historique du signal d'un site (lu sur le disque à la première demande).
+    func signalHistory(siteKey: String) -> FortiWifiSignalHistory {
+        loadSignal(siteKey)
+        return signal.history(site: siteKey)
+    }
+
+    func signalHistory(for client: FortiWifiClient) -> FortiWifiSignalHistory { signalHistory(siteKey: siteKey(for: client)) }
+
+    private func loadSignal(_ key: String) {
+        guard !isDemo, !signalLoaded.contains(key) else { return }
+        signalLoaded.insert(key)
+        guard signal.sites[key] == nil, let files = SiteModel.shared.files,
+              let data = try? Data(contentsOf: FortiWifiSignalHistory.url(in: files, siteKey: key)),
+              let history = FortiWifiSignalHistory.decode(data) else { return }
+        signal.sites[key] = history
+    }
+
+    /// Chaque lecture réussie des bornes ajoute un relevé par client dans l'historique de SON site
+    /// (jamais de mélange entre sites), puis l'écrit sur le disque (hors démonstration).
+    private func recordSignal(_ reports: [FortiWifiSiteReport]) {
+        var readings: [String: [FortiWifiClient]] = [:]
+        for report in reports { readings[siteKey(forController: report.controllerID), default: []] += report.report.clients }
+        guard !readings.isEmpty else { return }
+        for key in readings.keys { loadSignal(key) }
+        let date = reports.map(\.report.readAt).max() ?? Date()
+        let changed = signal.record(readings, at: date)
+        guard !isDemo, !RegEnvironment.isSnapshot, let files = SiteModel.shared.files else { return }
+        for key in changed {
+            guard let data = signal.sites[key]?.encoded() else { continue }
+            let url = FortiWifiSignalHistory.url(in: files, siteKey: key)
+            Task.detached(priority: .utility) {
+                try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try? data.write(to: url, options: .atomic)
+            }
+        }
     }
 
     /// Borne d'un client : dans la vue de l'écran Wi-Fi (autre site compris), sinon du site actif.
@@ -205,6 +342,7 @@ final class FortiAPStore: ObservableObject {
             calls = Dictionary(uniqueKeysWithValues: sites.map { ($0.controllerID, $0.report.calls) })
             errors = [:]
             lastRefresh = Date()
+            recordSignal(sites)
             recompute()
             return
         }
@@ -242,6 +380,7 @@ final class FortiAPStore: ObservableObject {
         errors = newErrors
         calls = newCalls
         lastRefresh = Date()
+        recordSignal(fresh)
         recompute()
     }
 
@@ -340,6 +479,7 @@ final class FortiAPStore: ObservableObject {
                 case .success(let report):
                     self.cache[job.id] = FortiWifiSiteReport(controllerID: job.id, site: job.site, report: report)
                     self.errors[job.id] = nil
+                    self.recordSignal([FortiWifiSiteReport(controllerID: job.id, site: job.site, report: report)])
                 case .failure(let message, _):
                     self.errors[job.id] = message
                 case .cancelled:
