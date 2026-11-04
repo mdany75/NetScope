@@ -1,5 +1,67 @@
 # Changements
 
+## 0.15.0 — 2026-11-04
+
+Choix du site toujours visible sous le logo NetScope, Switchs et ports et Wi-Fi consultables
+pour n’importe quel site sans changer le site actif, un Retour qui nomme l’écran d’origine et
+retrouve la ligne choisie, et un nom d’utilisateur demandé avant chaque connexion SSH rapide.
+
+### Ajouté
+- **Choix du site sous le logo NetScope** : nom du site actif et pastille de sa FortiGate
+  (jointe, injoignable, jamais lue) ; liste des sites avec recherche (nom, plage, libellé,
+  VLAN), « Aucun site », « Tous les sites », « Détecter mon site » et « Gérer les sites… ».
+- Nouveau menu **« Site »** dans la barre de menus et raccourci ⌘⇧S « Choisir le site »
+  (modifiable dans Réglages › Raccourcis) ; le site actif est rappelé dans le titre de la
+  fenêtre.
+- **Switchs et ports** : menu « Site ▾ » en haut de l’écran pour voir les switchs d’un autre
+  site, ou de tous, sans changer le site actif. Une carte par site, un tableau commun avec
+  colonne « Site » et recherche, la façade et le détail du port, et « Lire la FortiGate » à la
+  demande (lecture seule).
+- **Wi-Fi › FortiAP** : menu « Site ▾ » pour voir les bornes, clients, SSID et AP voisins d’un
+  autre site, ou de plusieurs, avec colonne « Site » et « Lire les bornes » par site. Deux sites
+  ne sont jamais mélangés, même s’ils utilisent les mêmes adresses.
+- Messages clairs quand un site n’a ni FortiGate ni switch, quand sa FortiGate n’a pas encore
+  été lue ou quand ses switchs SNMP doivent être relevés sur place.
+- **Nom d’utilisateur SSH à la connexion** : NetScope le demande maintenant avant chaque
+  connexion rapide (fiche Appareil, Scanner, Inventaire, scan des ports), dans une petite
+  fenêtre préremplie avec le dernier nom utilisé pour l’appareil, sinon celui du site ou
+  l’identifiant SSH des Réglages.
+- Liste des noms déjà utilisés (admin, root, manager…) et saisie libre ; la forme
+  `admin@10.0.0.2:2222` est acceptée dans la fenêtre, dans le champ Hôte d’Accès distant et
+  dans sa recherche.
+- Choix du port et de l’identification (automatique, clé privée, mot de passe), avec la
+  commande exacte affichée avant l’ouverture dans Terminal (forme `ssh user@ip`).
+- Nom retenu par appareil, même s’il change d’IP ; case « Ne plus demander pour cet appareil »
+  (⌥-clic ou clic droit pour changer d’utilisateur ou l’oublier) et « Enregistrer dans le
+  carnet » d’Accès distant.
+
+### Modifié
+- Le bouton **‹ Retour** nomme l’écran d’origine (« ‹ Inventaire », « ‹ Carte ») et le menu
+  Aller dit « Retour à … ».
+- Au retour sur l’Inventaire ou le Scanner, la ligne choisie revient en vue, à la même place
+  dans la liste.
+- Changer de site vide l’historique Retour / Avancer ; Switchs et Wi-Fi suivent le site de
+  l’objet après un double-clic ou « Ouvrir dans › ».
+- Une connexion SSH ou Telnet du carnet enregistrée sans utilisateur demande aussi le nom avant
+  de s’ouvrir.
+- Aucun mot de passe n’est retenu par NetScope : les secrets restent au Trousseau ou sont
+  demandés par `ssh` dans Terminal.
+
+### Corrigé
+- « Ouvrir dans › Switchs et ports » sur un appareil d’un autre site ne propose plus le switch
+  du site actif qui porte le même nom.
+
+### Limites
+- Les switchs SNMP d’un autre site ne sont pas interrogés à distance : ils se relèvent sur
+  place, pendant un scan de ce site ; pour un site éloigné, seuls les FortiSwitch lus par sa
+  FortiGate sont à jour.
+- « Lire la FortiGate » et « Lire les bornes » ne lisent que les FortiGate joignables depuis le
+  Mac (jeton au Trousseau, lecture seule) ; sans nouvelle lecture, l’écran montre la dernière
+  lecture connue de ce site.
+- La fenêtre du nom d’utilisateur ne vaut pour l’instant que pour SSH (et Telnet depuis le
+  carnet) ; SFTP / FTP, RDP et VNC n’en profitent pas encore.
+- Essais réels à faire sur les sites, FortiGate et bornes de Dany.
+
 ## 0.14.0 — 2026-11-04
 
 Recherche dans la Carte du réseau, type « Téléphone IP » détecté automatiquement, occupation
