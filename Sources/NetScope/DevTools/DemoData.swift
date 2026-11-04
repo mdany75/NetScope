@@ -13,6 +13,12 @@ enum DemoData {
         if CommandLine.arguments.contains("--snapshot"), let ip = ProcessInfo.processInfo.environment["NETSCOPE_DEVICE"] {
             state.selectedDeviceID = ip
         }
+        // Captures (note 26) : NETSCOPE_RECHERCHE="switch:SW-ETG2 type:imprimante" applique cette
+        // recherche au Scanner (ou à l'écran NETSCOPE_RECHERCHE_ECRAN=inventaire, switchs…).
+        if CommandLine.arguments.contains("--snapshot"), let text = ProcessInfo.processInfo.environment["NETSCOPE_RECHERCHE"] {
+            let screen = ProcessInfo.processInfo.environment["NETSCOPE_RECHERCHE_ECRAN"].flatMap(Screen.init(rawValue:)) ?? .scanner
+            state.searchTexts[screen] = text
+        }
         state.activeInterface = interface
         state.dnsServers = [IPv4Address("10.182.122.1")!]
         state.updateAvailable = "1.1.0"

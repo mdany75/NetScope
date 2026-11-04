@@ -56,10 +56,16 @@ struct ReglagesScreen: View {
 
     // MARK: Colonne des sections
 
+    /// Sections retenues par la recherche de la colonne et celle de la barre d'outils (note 26 :
+    /// moteur commun, `section:alertes`, un mot seul lit le titre et les mots-clés comme avant).
     private var visibleSections: [RegSection] {
-        let needle = query.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !needle.isEmpty else { return RegSection.allCases }
-        return RegSection.allCases.filter { ($0.label + " " + $0.keywords).lowercased().contains(needle) }
+        let local = SearchQuery(query, schema: .reglages)
+        let global = state.searchQuery(for: .reglages)
+        guard !local.isEmpty || !global.isEmpty else { return RegSection.allCases }
+        return RegSection.allCases.filter { section in
+            let item = SearchDocument(["section": [section.label]], freeText: [section.label + " " + section.keywords])
+            return local.matches(item) && global.matches(item)
+        }
     }
 
     private var sectionColumn: some View {
@@ -80,7 +86,7 @@ struct ReglagesScreen: View {
                 sectionButton(section)
             }
             if visibleSections.isEmpty {
-                Text("Aucun réglage ne correspond à « \(query) ».")
+                Text(query.isEmpty ? "Aucun réglage ne correspond à la recherche." : "Aucun réglage ne correspond à « \(query) ».")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .padding(10)
             }
@@ -97,6 +103,7 @@ struct ReglagesScreen: View {
         .padding(8)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+        .searchResults(visibleSections.count, "section", "sections")
     }
 
     private func sectionButton(_ section: RegSection) -> some View {

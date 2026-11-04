@@ -31,6 +31,24 @@ public extension SearchSchema {
         .name.with(label: "Sonde", example: "passerelle"), .severity, .status.with(example: "résolue"), .message,
     ], example: "gravite:critique -etat:résolue")
 
+    /// Surveillance : sondes et journal des alertes (chaque liste applique les critères qu'elle connaît).
+    static let surveillance = SearchSchema(merging: [sondes, journal], example: "type:ping -etat:disponible")
+
+    /// Switchs et ports : table MAC du switch affiché.
+    static let switchs = SearchSchema([
+        .port, .vlan, .name.with(label: "Appareil", example: "brother"), .ip, .mac, .vendor, .type,
+        .status.with(label: "État du port", example: "up"), .poe, .speed, .source, .switchName, .site,
+    ], example: "vlan:30 type:imprimante")
+
+    /// Boîte à outils : outils et historique des résultats.
+    static let outils = SearchSchema([
+        .name.with(label: "Outil", example: "dns"), SearchAttribute("groupe", label: "Groupe", aliases: ["group", "categorie"], example: "diagnostic"),
+        .target.with(example: "exemple.ca"), .status.with(example: "échec"),
+    ], example: "groupe:courriel")
+
+    /// Réglages : sections.
+    static let reglages = SearchSchema([.section.with(example: "FortiGate")], example: "section:alertes")
+
     /// Accès distant : connexions enregistrées.
     static let acces = SearchSchema([
         .proto, .name.with(example: "core"), .ip.with(label: "Hôte", example: "10.182."), .port.with(example: "22"),
@@ -85,7 +103,7 @@ public struct DeviceSearchItem: SearchableRecord {
         self.notes = notes
     }
 
-    public func searchValues(for field: SearchField) -> [String] {
+    public func searchValues(for field: SearchAttribute) -> [String] {
         let d = device
         switch field.key {
         case "ip": return [d.ip.description]
@@ -119,7 +137,7 @@ public struct DeviceSearchItem: SearchableRecord {
 
 extension Device: SearchableRecord {
     public static var searchSchema: SearchSchema { .scanner }
-    public func searchValues(for field: SearchField) -> [String] { DeviceSearchItem(self).searchValues(for: field) }
+    public func searchValues(for field: SearchAttribute) -> [String] { DeviceSearchItem(self).searchValues(for: field) }
     public var searchFreeText: [String] { DeviceSearchItem(self).searchFreeText }
 }
 
@@ -128,7 +146,7 @@ extension Device: SearchableRecord {
 extension InvRecord: SearchableRecord {
     public static var searchSchema: SearchSchema { .inventaire }
 
-    public func searchValues(for field: SearchField) -> [String] {
+    public func searchValues(for field: SearchAttribute) -> [String] {
         switch field.key {
         case "ip": return [ip.description] + ipHistory.map { $0.ip.description }
         case "nom": return [displayName, hostname, annotations.customName].compactMap { $0 }
@@ -181,7 +199,7 @@ public struct InvEventSearchItem: SearchableRecord {
         self.mac = mac
     }
 
-    public func searchValues(for field: SearchField) -> [String] {
+    public func searchValues(for field: SearchAttribute) -> [String] {
         switch field.key {
         case "gravite": return [event.severity.label, event.severity.rawValue]
         case "type": return [event.kind.label, event.kind.rawValue]
@@ -219,7 +237,7 @@ public struct MonProbeSearchItem: SearchableRecord {
         self.stateLabels = stateLabels
     }
 
-    public func searchValues(for field: SearchField) -> [String] {
+    public func searchValues(for field: SearchAttribute) -> [String] {
         switch field.key {
         case "nom": return [probe.name, probe.subtitle]
         case "type": return [probe.kind.label, probe.kind.shortLabel, probe.kind.rawValue]
@@ -238,7 +256,7 @@ public struct MonProbeSearchItem: SearchableRecord {
 extension MonAlert: SearchableRecord {
     public static var searchSchema: SearchSchema { .journal }
 
-    public func searchValues(for field: SearchField) -> [String] {
+    public func searchValues(for field: SearchAttribute) -> [String] {
         switch field.key {
         case "nom": return [probeName]
         case "gravite": return [severity.label, severity.rawValue]
@@ -257,7 +275,7 @@ extension MonAlert: SearchableRecord {
 extension RemoteConnection: SearchableRecord {
     public static var searchSchema: SearchSchema { .acces }
 
-    public func searchValues(for field: SearchField) -> [String] {
+    public func searchValues(for field: SearchAttribute) -> [String] {
         switch field.key {
         case "proto": return [proto.label, proto.rawValue, proto.fullName]
         case "nom": return [name]
@@ -281,7 +299,7 @@ extension RemoteConnection: SearchableRecord {
 extension SpeedServer: SearchableRecord {
     public static var searchSchema: SearchSchema { .serveurs }
 
-    public func searchValues(for field: SearchField) -> [String] {
+    public func searchValues(for field: SearchAttribute) -> [String] {
         switch field.key {
         case "ville": return [city].compactMap { $0 }
         case "operateur": return [sponsor].compactMap { $0 }

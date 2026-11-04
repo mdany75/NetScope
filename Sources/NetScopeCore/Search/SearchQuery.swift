@@ -6,7 +6,7 @@ public struct SearchTerm: Hashable, Sendable, Identifiable {
     /// Rang du critère dans la requête.
     public let id: Int
     /// Champ visé ; nil pour un mot ou une phrase cherchés dans tous les champs.
-    public let field: SearchField?
+    public let field: SearchAttribute?
     /// Valeur telle qu'elle a été saisie (sans guillemets ni préfixe).
     public let value: String
     public let isNegated: Bool
@@ -64,6 +64,20 @@ public struct SearchQuery: Sendable {
         self.text = text
         self.schema = schema
         self.terms = SearchQuery.parse(text, schema: schema)
+    }
+
+    private init(text: String, schema: SearchSchema, terms: [SearchTerm]) {
+        self.text = text
+        self.schema = schema
+        self.terms = terms
+    }
+
+    /// Requête d'un écran à plusieurs listes (Surveillance : sondes et journal) appliquée à l'une
+    /// d'elles : les critères d'un champ que cette liste n'a pas sont laissés de côté.
+    public func restricted(to list: SearchSchema) -> SearchQuery {
+        SearchQuery(text: text, schema: list, terms: terms.filter { term in
+            term.field.map { list.field($0.key) != nil } ?? true
+        })
     }
 
     /// Aucun critère complet : tout correspond.
@@ -141,7 +155,7 @@ public struct SearchQuery: Sendable {
 
     /// Requête après le choix d'un préfixe dans les suggestions : le mot en cours de saisie est
     /// remplacé s'il commence ce préfixe (« sw » → « switch: »), sinon le préfixe est ajouté.
-    public func inserting(_ field: SearchField) -> String {
+    public func inserting(_ field: SearchAttribute) -> String {
         let prefix = field.key + ":"
         var kept = terms
         if let last = kept.last, !text.hasSuffix(" "), last.field == nil, !last.isPhrase, !last.isNegated,
@@ -177,7 +191,7 @@ public struct SearchQuery: Sendable {
             if j < chars.count { j += 1 }
             return (content.trimmingCharacters(in: .whitespaces), j)
         }
-        func add(_ field: SearchField?, _ value: String, negated: Bool, phrase: Bool, from start: Int, to end: Int) {
+        func add(_ field: SearchAttribute?, _ value: String, negated: Bool, phrase: Bool, from start: Int, to end: Int) {
             let source = String(chars[start..<end])
             terms.append(SearchTerm(id: terms.count, field: field, value: value, isNegated: negated, isPhrase: phrase,
                                     source: source, folded: SearchText.fold(value)))

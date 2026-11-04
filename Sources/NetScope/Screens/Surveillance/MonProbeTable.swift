@@ -103,6 +103,7 @@ struct MonProbeLine: Identifiable {
 
 /// Panneau « Sondes » : filtres, recherche, tableau standard (note 8) et légende.
 struct MonProbeTable: View {
+    @EnvironmentObject private var state: AppState
     @ObservedObject private var store = MonStore.shared
     @State private var filter: MonProbeFilter = .all
     @State private var query = ""
@@ -161,6 +162,7 @@ struct MonProbeTable: View {
         VStack(spacing: 0) {
             header
             let probes = filtered
+            Color.clear.frame(height: 0).searchResults(probes.count, "sonde", "sondes")
             if probes.isEmpty {
                 Text(store.probes.isEmpty ? "Aucune sonde. Créez-en une avec «\u{00A0}Nouvelle sonde\u{00A0}»."
                                           : "Aucune sonde ne correspond aux filtres actifs.")
@@ -189,8 +191,11 @@ struct MonProbeTable: View {
         .onGeometryChange(for: Bool.self) { $0.size.width < MonProbeGrid.compactWidth } action: { isCompact = $0 }
     }
 
+    /// Filtres, recherche du panneau et recherche de la barre d'outils (note 26 : critères des
+    /// sondes seulement, ceux du journal sont laissés de côté ici).
     private var filtered: [MonProbe] {
-        let q = query.trimmingCharacters(in: .whitespaces)
+        let local = SearchQuery(query, schema: .sondes)
+        let global = state.searchQuery(for: .surveillance).restricted(to: .sondes)
         return store.probes.filter { probe in
             switch filter {
             case .all: break
@@ -198,10 +203,16 @@ struct MonProbeTable: View {
             case .down: if store.state(of: probe) != .down { return false }
             case .paused: if probe.isEnabled { return false }
             }
-            guard !q.isEmpty else { return true }
-            let text = [probe.name, probe.target, probe.subtitle, probe.kind.label, probe.kind.shortLabel].joined(separator: " ")
-            return text.range(of: q, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+            guard !local.isEmpty || !global.isEmpty else { return true }
+            let item = MonProbeSearchItem(probe, stateLabels: stateLabels(probe))
+            return local.matches(item) && global.matches(item)
         }
+    }
+
+    /// États cherchés par « etat: » (« Disponible », « En alerte », « Hors ligne »…).
+    private func stateLabels(_ probe: MonProbe) -> [String] {
+        guard let current = store.state(of: probe) else { return [] }
+        return [current.label] + (current == .ok ? ["Disponible"] : [])
     }
 
     private func count(_ filter: MonProbeFilter) -> Int {

@@ -6,7 +6,7 @@ public protocol SearchableRecord {
     /// Champs du module, dans l'ordre du menu des préfixes.
     static var searchSchema: SearchSchema { get }
     /// Valeurs de l'élément pour un champ (vide : le champ ne s'applique pas à lui).
-    func searchValues(for field: SearchField) -> [String]
+    func searchValues(for field: SearchAttribute) -> [String]
     /// Textes lus par un mot sans préfixe ; par défaut, toutes les valeurs des champs. Un module
     /// qui avait déjà une recherche garde ici exactement ses anciennes colonnes, pour qu'une
     /// recherche d'un mot donne le même résultat qu'avant.
@@ -37,7 +37,7 @@ public struct SearchDocument: SearchableRecord {
         self.freeText = freeText ?? values.keys.sorted().flatMap { values[$0] ?? [] }
     }
 
-    public func searchValues(for field: SearchField) -> [String] { values[field.key] ?? [] }
+    public func searchValues(for field: SearchAttribute) -> [String] { values[field.key] ?? [] }
     public var searchFreeText: [String] { freeText }
 }
 

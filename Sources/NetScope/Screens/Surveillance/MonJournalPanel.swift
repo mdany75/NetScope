@@ -46,6 +46,7 @@ struct MonJournalLine: Identifiable {
 
 /// Panneau « Journal des alertes » : filtres, « Tout accuser réception », tableau standard (note 8).
 struct MonJournalPanel: View {
+    @EnvironmentObject private var state: AppState
     @ObservedObject private var store = MonStore.shared
     @State private var filter: MonJournalFilter = .all
     @StateObject private var table = StandardTableModel<MonJournalLine>(
@@ -86,9 +87,11 @@ struct MonJournalPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            let alerts = store.journal.filtered(filter)
+            // Note 26 : recherche de la barre d'outils (critères du journal seulement).
+            let alerts = state.searchQuery(for: .surveillance).restricted(to: .journal).filter(store.journal.filtered(filter))
+            Color.clear.frame(height: 0).searchResults(alerts.count, "alerte", "alertes")
             if alerts.isEmpty {
-                Text(store.journal.alerts.isEmpty ? "Aucune alerte pour l’instant." : "Aucune entrée pour ce filtre.")
+                Text(store.journal.alerts.isEmpty ? "Aucune alerte pour l’instant." : "Aucune entrée pour ce filtre ou cette recherche.")
                     .font(Theme.body)
                     .foregroundStyle(Theme.textSecondary)
                     .frame(maxWidth: .infinity)

@@ -53,7 +53,9 @@ struct InventaireScreen: View {
     var body: some View {
         let now = Date()
         let records = model.store.sortedRecords
-        let rows = InvTable.sorted(records.filter { view.includes($0, now: now) && $0.matches(state.searchText) }, by: table.sortOrder)
+        // Note 26 : recherche multiple, analysée une fois pour toutes les fiches.
+        let query = state.searchQuery(for: .inventaire)
+        let rows = InvTable.sorted(records.filter { view.includes($0, now: now) && query.matches($0) }, by: table.sortOrder)
         let duplicates = model.store.probableDuplicates().filter { !ignoredDuplicates.contains($0.id) }
         let selected = model.record(model.selectedKey) ?? rows.first
 
@@ -70,6 +72,7 @@ struct InventaireScreen: View {
                 }
                 help
             }
+            .searchResults(rows.count, "fiche", "fiches")
             .padding(Theme.contentPadding)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }

@@ -176,7 +176,8 @@ func registerSearchTests(_ suite: TestSuite) {
         try expect(SearchQuery("7,2", schema: schema).matches(doc), "document : texte libre")
         try expectEqual(schema.field(forPrefix: "Statut")?.key, "etat", "alias")
         try expectEqual(schema.field(forPrefix: "ssid")?.key, nil, "champ absent du module")
-        for module in [SearchSchema.scanner, .inventaire, .analyse, .sondes, .journal, .acces, .serveurs, .wifi] {
+        for module in [SearchSchema.scanner, .inventaire, .analyse, .sondes, .journal, .surveillance, .acces, .serveurs, .wifi,
+                       .switchs, .outils, .reglages] {
             var seen: [String: String] = [:]
             for field in module.fields {
                 for alias in field.aliases {
@@ -186,5 +187,18 @@ func registerSearchTests(_ suite: TestSuite) {
             }
             try expect(!SearchQuery(module.example, schema: module).fieldTerms.isEmpty, "exemple lu : \(module.example)")
         }
+    }
+
+    suite.add("Recherche : écran à deux listes (Surveillance : sondes et journal)") {
+        let query = SearchQuery("type:ping gravite:critique passerelle", schema: .surveillance)
+        try expectEqual(query.fieldTerms.compactMap(\.field?.key), ["type", "gravite"], "champs des deux listes reconnus")
+        let probes = query.restricted(to: .sondes)
+        try expectEqual(probes.terms.map(\.value), ["ping", "passerelle"], "sondes : gravité laissée de côté")
+        let journal = query.restricted(to: .journal)
+        try expectEqual(journal.terms.map(\.value), ["critique", "passerelle"], "journal : type laissé de côté")
+        let alert = MonAlert(date: Date(), probeID: nil, probeName: "Passerelle", severity: .critical, message: "Hors ligne")
+        try expect(journal.matches(alert), "journal : l'alerte critique de la passerelle")
+        try expect(!query.restricted(to: .journal).matches(MonAlert(date: Date(), probeID: nil, probeName: "Passerelle",
+                                                                      severity: .info, message: "Rétablie")), "journal : info exclue")
     }
 }

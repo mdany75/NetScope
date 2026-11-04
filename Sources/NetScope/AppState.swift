@@ -31,8 +31,20 @@ final class AppState: ObservableObject {
     // MARK: Navigation
 
     @Published var screen: Screen = .scanner
-    /// Recherche globale (barre d'outils du contenu) : IP, MAC, nom, fabricant, port de switch.
-    @Published var searchText = ""
+    /// Recherche de la barre d'outils, propre à chaque module (note 26) : les préfixes
+    /// (`switch:`, `type:`…) dépendent du module, une recherche du Scanner ne filtre pas les Réglages.
+    @Published var searchTexts: [Screen: String] = [:]
+
+    /// Recherche de l'écran courant (champ de la barre d'outils).
+    var searchText: String {
+        get { searchTexts[screen] ?? "" }
+        set { searchTexts[screen] = newValue.isEmpty ? nil : newValue }
+    }
+
+    /// Recherche d'un module, analysée avec ses champs (requête vide si l'écran n'en a pas).
+    func searchQuery(for screen: Screen) -> SearchQuery {
+        SearchQuery(searchTexts[screen] ?? "", schema: screen.searchSchema ?? .textOnly)
+    }
 
     // MARK: Réseau et appareils
 
@@ -104,9 +116,10 @@ final class AppState: ObservableObject {
         if shouldOpen { open(.ping) }
     }
 
-    /// Appareils filtrés par la recherche globale.
+    /// Appareils filtrés par la recherche du Scanner (type choisi à la main, site FortiGate et
+    /// notes de la fiche compris).
     var filteredDevices: [Device] {
-        devices.filter { $0.matches(searchText) }
+        DeviceSearch.filter(devices, searchQuery(for: .scanner))
     }
 
     /// Ajoute ou met à jour des appareils (par IP), en gardant `firstSeen` et le nom personnalisé.

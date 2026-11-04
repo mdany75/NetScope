@@ -837,7 +837,8 @@ struct SwitchMacTable: View {
             .padding(.vertical, 10)
             Rectangle().fill(Theme.border).frame(height: 1)
             if rows.isEmpty {
-                Text(store.tableFilter.isEmpty ? "Aucune adresse MAC apprise." : "Aucune entrée ne correspond à «\u{00A0}\(store.tableFilter)\u{00A0}».")
+                Text(!store.tableFilter.isEmpty ? "Aucune entrée ne correspond à «\u{00A0}\(store.tableFilter)\u{00A0}»."
+                     : (state.searchText.isEmpty ? "Aucune adresse MAC apprise." : "Aucune entrée ne correspond à la recherche."))
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .padding(20)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -849,6 +850,7 @@ struct SwitchMacTable: View {
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
         .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
+        .searchResults(rows.count, "entrée", "entrées")
     }
 
     private func tableView(_ rows: [Row]) -> some View {
@@ -985,9 +987,28 @@ struct SwitchMacTable: View {
         NSPasteboard.general.setString(text, forType: .string)
     }
 
+    /// Ligne de la table MAC vue par la recherche : un mot seul lit les colonnes de l'ancien filtre
+    /// (port, VLAN, MAC avec deux-points ou tirets, IP, nom, fabricant, source).
+    static func searchItem(_ row: Row, switchName: String, site: String?) -> SearchDocument {
+        var poe = [row.poeText]
+        if row.poe == true { poe += ["Actif", "PoE"] } else if row.poe == false { poe.append("Inactif") }
+        return SearchDocument([
+            "port": [row.port], "vlan": [row.vlan], "nom": [row.host, row.customName ?? ""], "ip": [row.ip],
+            "mac": [row.mac], "fab": [row.vendor], "type": row.type?.searchTerms ?? [], "etat": [row.portStatus],
+            "poe": poe, "vitesse": [row.speed], "source": [row.source.rawValue], "switch": [switchName],
+            "site": [site ?? ""],
+        ], freeText: [row.port, row.vlan, row.mac, row.mac.replacingOccurrences(of: ":", with: "-"), row.ip, row.host,
+                      row.vendor, row.source.rawValue])
+    }
+
     private var rows: [Row] {
         let uplinks = snapshot.locatedUplinks
-        let query = store.tableFilter.trimmingCharacters(in: .whitespaces).lowercased()
+        // Note 26 : filtre du tableau et recherche de la barre d'outils, même moteur.
+        let local = SearchQuery(store.tableFilter, schema: .switchs)
+        let global = state.searchQuery(for: .switchs)
+        let searching = !local.isEmpty || !global.isEmpty
+        let switchName = snapshot.displayName
+        let site = store.controllerName(forSwitch: switchName)
         // Appareils du scan par MAC, avec le type choisi à la main (note 20).
         var devices: [MACAddress: Device] = [:]
         for device in inventory.withManualTypes(state.devices) {
@@ -1025,9 +1046,9 @@ struct SwitchMacTable: View {
                           location: status.map(ScanDeviceTable.locationLabel) ?? "—",
                           locationCurrent: status?.isCurrent == true,
                           locationHelp: status.map { $0.explanation ?? "Relevé sur le réseau actuel" } ?? "")
-            if !query.isEmpty {
-                let hay = [row.port, row.vlan, row.mac, row.ip, row.host, row.vendor, row.source.rawValue].joined(separator: " ").lowercased()
-                if !hay.contains(query) && !hay.contains(query.replacingOccurrences(of: "-", with: ":")) { continue }
+            if searching {
+                let item = Self.searchItem(row, switchName: switchName, site: site)
+                if !(local.matches(item) && global.matches(item)) { continue }
             }
             result.append(row)
         }

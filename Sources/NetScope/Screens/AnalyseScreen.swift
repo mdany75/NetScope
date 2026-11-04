@@ -74,7 +74,7 @@ struct AnalyseScreen: View {
                 }
                 // Alertes, puis comparaison, sur toute la largeur : leurs tableaux (note 8) ne tiennent
                 // pas côte à côte ; le croquis passe aussi à une colonne quand la place manque.
-                AnaAlertsPanel(alerts: alerts, period: period, query: state.searchText)
+                AnaAlertsPanel(alerts: alerts, period: period, query: state.searchQuery(for: .analyse))
                     .frame(maxWidth: .infinity)
                 AnaComparePanel(snapshots: model.store.snapshots) { text, name in
                     exportDocument = InvCSVDocument(text: text)

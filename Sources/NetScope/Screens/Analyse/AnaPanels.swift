@@ -74,7 +74,8 @@ struct AnaAlertsPanel: View {
 
     let alerts: [InvEvent]
     let period: AnaPeriod
-    let query: String
+    /// Recherche multiple de l'écran (note 26).
+    let query: SearchQuery
 
     @State private var filter: AnaSeverityFilter = .toutes
     @State private var selection: Set<UUID> = []
@@ -158,6 +159,7 @@ struct AnaAlertsPanel: View {
                 }
             }
         }
+        .searchResults(rows.count, "alerte", "alertes")
     }
 
     private func row(_ event: InvEvent) -> AnaAlertRow {
@@ -167,11 +169,9 @@ struct AnaAlertsPanel: View {
     }
 
     private func matches(_ event: InvEvent) -> Bool {
-        let q = query.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { return true }
-        let device = model.record(event.key)?.displayName ?? ""
-        return (event.title + " " + event.detail + " " + event.ip.description + " " + device)
-            .range(of: q, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+        guard !query.isEmpty else { return true }
+        let record = model.record(event.key)
+        return query.matches(InvEventSearchItem(event, deviceName: record?.displayName ?? "", mac: record?.mac))
     }
 
     private func tabs(_ alerts: [InvEvent]) -> some View {

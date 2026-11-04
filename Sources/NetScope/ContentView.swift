@@ -7,22 +7,36 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var state: AppState
     @State private var columns = NavigationSplitViewVisibility.all
+    /// Nombre de résultats de la recherche, annoncé par l'écran courant.
+    @State private var searchResults: [String] = []
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columns) {
             Sidebar()
                 .navigationSplitViewColumnWidth(min: 190, ideal: Theme.sidebarWidth, max: 300)
         } detail: {
-            // Petite fenêtre : un écran plus grand que la place disponible défile au lieu d'être coupé.
-            MinimumSizeScroller {
-                screenView
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            VStack(spacing: 0) {
+                // Note 26 : étiquettes des critères de la recherche, sous la barre d'outils.
+                if let schema = state.screen.searchSchema, !state.searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+                    SearchTokensBar(schema: schema, results: searchResults)
+                }
+                // Petite fenêtre : un écran plus grand que la place disponible défile au lieu d'être coupé.
+                MinimumSizeScroller {
+                    screenView
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
+                .onPreferenceChange(SearchResultsKey.self) { searchResults = $0 }
             }
             .background(Theme.appBackground)
             .id(state.screen)
                 .navigationTitle(state.screen.pageTitle)
                 .searchable(text: $state.searchText, placement: .toolbar,
                             prompt: Text("Rechercher"))
+                .searchSuggestions {
+                    if let schema = state.screen.searchSchema {
+                        SearchPrefixSuggestions(text: state.searchText, schema: schema)
+                    }
+                }
         }
         .font(Theme.body)
         .foregroundStyle(Theme.text)
