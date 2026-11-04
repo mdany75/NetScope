@@ -1,5 +1,73 @@
 # Changements
 
+## 0.5.0 — 2026-11-04
+
+Diagnostic du poste et du réseau local : PoE de ce Mac et des appareils, ressources
+(processeur, mémoire, trafic) de ce Mac et des appareils SNMP, choix du serveur Speedtest et
+bouton « Installer » pour les outils manquants.
+
+### Ajouté
+- **« Suis-je sur un port PoE ? »** (Outils › Capture LLDP/CDP) : pour ce Mac, port PoE oui ou
+  non, alimentation fournie, type 802.3af/at/bt, classe, puissance demandée et allouée,
+  d’après les annonces PoE du switch (802.3, LLDP-MED et CDP).
+- **PoE port par port** dans Switchs et ports (activé, en charge, défaut, classe, priorité),
+  avec les watts réels sur Cisco et HPE/Aruba ; la façade et le détail du port l’affichent
+  (« Classe 4 · 18,4 W »).
+- **Scanner : colonne facultative « PoE »** (Colonnes › PoE) : chaque appareil est-il
+  alimenté par PoE sur son port de switch, et avec quelle puissance ; ligne « PoE » dans
+  l’emplacement physique de la fiche Appareil.
+- **Ressources** : nouvel onglet dans la fiche Appareil. Pour ce Mac : processeur total et
+  par cœur (performance et efficacité), mémoire comme le Moniteur d’activité avec la
+  pression, débit de chaque interface, sans aucun trafic réseau. Pour les appareils du réseau,
+  par SNMP v2c en lecture : processeur et mémoire (HOST-RESOURCES-MIB, puis MIB Cisco,
+  Fortinet et HPE) et trafic de chaque interface (compteurs 64 bits, ou 32 bits avec retour à
+  zéro corrigé), en pourcentage de la vitesse du lien, avec erreurs et rejets.
+- **Switchs et ports** : panneau « Ports les plus chargés » du switch (avec son processeur et
+  sa mémoire) et panneau « Trafic du port » pour le port choisi : débit en direct, charge du
+  lien, nouvelles erreurs, courbe des 5 dernières minutes.
+- Courbes des 5 dernières minutes, intervalle de relevé réglable, pause et export CSV de
+  l’historique.
+- **Barre de menus** : tuile « Ce Mac » avec le processeur, la mémoire et le réseau en direct.
+- **Surveillance** : sondes « Processeur > X % », « Mémoire > X % » et « Port saturé > X % »,
+  pour ce Mac ou pour un appareil SNMP ; la pression mémoire critique et les nouvelles erreurs
+  d’un port alertent aussi.
+- **Speedtest › Serveurs** : choix du serveur de test : automatique (le plus proche), liste
+  Cloudflare, M-Lab et LibreSpeed avec ville, opérateur et latence mesurée, favoris (étoile)
+  et serveur personnalisé (compatible LibreSpeed).
+- Speedtest : mesure par **M-Lab** (protocole NDT7) et par les serveurs **LibreSpeed**, en
+  plus de Cloudflare ; par **Ookla** (Speedtest.net) quand son outil officiel est installé,
+  avec mention de sa licence.
+- **Bouton « Installer »** pour les outils manquants (iperf3, telnet, Speedtest d’Ookla) : la
+  commande Homebrew est affichée, Terminal l’attend jusqu’à Entrée, puis NetScope détecte
+  l’outil de lui-même ; sans Homebrew, explication et liens officiels.
+- Speedtest › Réseau local : panneau « Sur l’appareil cible » avec la commande `iperf3 -s` à
+  copier et les liens pour Mac, Linux et Windows.
+
+### Modifié
+- Switchs et ports : l’encart « Ce Mac est branché sur… » dit si le port est PoE et s’il
+  fournit du courant.
+- Speedtest › Internet : le panneau « Serveur de test » remplace « bientôt » par un vrai choix
+  (automatique, favoris) et affiche le protocole utilisé.
+- Speedtest › Historique : le serveur de chaque test est retenu ; une « Comparaison par
+  serveur » montre les moyennes de descente, de montée et de latence ; colonne Source dans le
+  tableau et dans l’export CSV.
+
+### Corrigé
+- Speedtest : plus d’état « en cours » sans fin (test terminé sans résultat, Ookla arrêté,
+  M-Lab sans serveur) ; serveur et durée remis à zéro à chaque test.
+- Bouton « Installer » : le message de fin s’affiche enfin dans Terminal.
+- Surveillance : les sondes de ressources utilisent la communauté SNMP propre à l’appareil ;
+  les seuils de latence et de perte sont masqués quand ils sont sans objet.
+
+### Limites
+- Un Mac ne consomme pas de PoE : pour lui, NetScope dit seulement si le port du switch est
+  PoE et s’il fournit du courant, et seulement si le switch annonce son PoE en LLDP ou CDP
+  (capture : accès BPF ou autorisation d’administrateur).
+- Les watts réels par port ne sont lus que sur Cisco et HPE/Aruba ; ailleurs, l’état et la
+  classe PoE seulement. Ressources et PoE des autres appareils demandent SNMP v2c en lecture.
+- Le serveur du fournisseur n’est pas encore détecté automatiquement. Ookla n’est utilisé que
+  si son outil officiel est installé ; NetScope ne l’installe jamais sans ton clic.
+
 ## 0.4.1 — 2026-11-03
 
 ### Ajouté

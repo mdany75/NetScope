@@ -8,7 +8,7 @@ surveillance, rapports et accès distant, le tout en français.
 
 ## Fonctions
 
-Version 0.4.1 : les quatorze écrans fonctionnent, au style Mac (mode sombre, petite fenêtre), avec des tableaux à colonnes réglables. La suite prévue est dans
+Version 0.5.0 : les quatorze écrans fonctionnent, au style Mac (mode sombre, petite fenêtre), avec des tableaux à colonnes réglables. Nouveau : « Suis-je sur un port PoE ? », PoE par port et par appareil, ressources (processeur, mémoire, trafic) de ce Mac et des appareils SNMP, choix du serveur Speedtest (Cloudflare, M-Lab, LibreSpeed, Ookla) et bouton « Installer » pour les outils manquants. La suite prévue est dans
 [docs/A-FAIRE.md](docs/A-FAIRE.md).
 
 - **Scanner multi-plages qui se remplit tout seul** : plusieurs plages à la fois, ping ICMP
@@ -61,8 +61,16 @@ Version 0.4.1 : les quatorze écrans fonctionnent, au style Mac (mode sombre, pe
 - **Accès distant** : connexions SSH, Telnet, console série, RDP et VNC enregistrées par site,
   ouvertes dans Terminal, Windows App ou Partage d’écran ; import depuis le scan ; RDP et VNC
   **en fenêtre ou en plein écran** (taille de la fenêtre RDP, « Tous les écrans »).
-- **Speedtest** : débit Internet (multi-flux, latence au repos et en charge, gigue),
-  débit local avec iperf3, historique.
+- **Speedtest** : débit Internet (multi-flux, latence au repos et en charge, gigue) par
+  Cloudflare, M-Lab (NDT7), LibreSpeed ou Ookla (si son outil officiel est installé), choix du
+  serveur (automatique, favoris, personnalisé), débit local avec iperf3, historique comparé par
+  serveur ; bouton « Installer » (Homebrew, dans Terminal) pour iperf3, telnet et Ookla.
+- **Ressources** : processeur, mémoire et débit des interfaces de ce Mac (sans trafic) et des
+  appareils SNMP (HOST-RESOURCES-MIB, Cisco, Fortinet, HPE, IF-MIB), ports les plus chargés
+  d’un switch, courbes des 5 dernières minutes, export CSV, tuile dans la barre de menus et
+  sondes de Surveillance.
+- **PoE** : « Suis-je sur un port PoE ? » pour ce Mac (capture LLDP/CDP), PoE de chaque port
+  de switch (watts réels sur Cisco et HPE/Aruba) et colonne « PoE » du Scanner.
 - **Mise à jour automatique** depuis les Releases GitHub (canal Stable ou Bêta, vérification
   de la signature avant installation), menu « Rechercher les mises à jour… ».
 - Barre latérale à quatorze écrans, fidèle aux croquis.

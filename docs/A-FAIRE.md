@@ -3,15 +3,16 @@
 > Les phases 2, 3 et 4 (notes 6, 10 et 11) peuvent se faire dans n'importe quel ordre
 > (décision de Dany).
 
-## Priorités (revues le 3 novembre 2026)
+## Priorités (revues le 4 novembre 2026)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1.
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0.
 
 1. **0.4.x, retours d'essai** : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour) et de la 0.4.0 (menus de colonnes, type, ports, sombre) ;
    0.4.2 au besoin.
-2. **0.5.0, diagnostic du poste et du réseau local** : notes 12 (PoE), 21 (ressources),
-   17 (bouton Installer), 16 (serveur Speedtest).
+2. ~~**0.5.0, diagnostic du poste et du réseau local**~~ : livrée le 4 novembre 2026
+   (notes 12, 21, 17 et 16) ; essais réels à faire (PoE sur une vraie switch, SNMP, M-Lab,
+   LibreSpeed, Ookla, bouton Installer).
 3. **0.6.0, Internet et nuage** : notes 15 (état des services), 14 (courriel et DNS).
 4. **0.7.0, analyse avancée** : notes 7 (capture de paquets), 22 (vitesse des disques).
 5. **0.8.0, réglages et alertes** : note 13 (sauvegarde, notifications, raccourcis…), alertes
@@ -219,7 +220,9 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 - Ne rien changer au Ping continu d'ici là, sauf l'adoption des tableaux standard (note 8) et
   du style Mac (note 9).
 
-## 12. « Suis-je sur un port PoE ? » — À PLANIFIER (demande de Dany)
+## 12. « Suis-je sur un port PoE ? » (demande de Dany)
+
+**Livrée dans la 0.5.0.**
 
 - Répondre clairement, pour **ce Mac** (ou l'appareil de test branché) et pour **n'importe quel
   appareil** de l'inventaire : est-il branché sur un port PoE de la switch, et est-il alimenté
@@ -303,7 +306,9 @@ Dropbox, Zscaler, fournisseurs Internet courants… liste modifiable.
   alerte possible dans la Surveillance (note 3).
 - Tests : analyse de réponses JSON/RSS fixes de chaque format, sans réseau.
 
-## 16. Speedtest : choix du serveur — À PLANIFIER (demande de Dany)
+## 16. Speedtest : choix du serveur (demande de Dany)
+
+**Livrée dans la 0.5.0.**
 
 - Remplacer « Choix d'un autre serveur (Ookla, serveur du fournisseur) : bientôt » par un vrai
   sélecteur de serveur : le plus proche automatiquement, ou un serveur choisi dans une liste
@@ -320,7 +325,9 @@ Dropbox, Zscaler, fournisseurs Internet courants… liste modifiable.
 - Historique : retenir le serveur utilisé pour chaque test et pouvoir comparer par serveur.
 - Tests : analyse des listes de serveurs et des résultats fixes, sans réseau.
 
-## 17. Bouton « Installer » pour les outils manquants — À PLANIFIER (demande de Dany)
+## 17. Bouton « Installer » pour les outils manquants (demande de Dany)
+
+**Livrée dans la 0.5.0.**
 
 - Là où NetScope dit qu'un outil manque (iperf3 dans Speedtest › Local, telnet dans Accès
   distant, et tout outil externe ajouté plus tard), afficher un bouton **« Installer »** au lieu
@@ -383,7 +390,9 @@ Dropbox, Zscaler, fournisseurs Internet courants… liste modifiable.
 - Un scan ne remplace jamais un type choisi à la main.
 - À faire avec les tableaux standard (note 8), dans la même version.
 
-## 21. Ressources : processeur, mémoire, réseau — À PLANIFIER (demande de Dany)
+## 21. Ressources : processeur, mémoire, réseau (demande de Dany)
+
+**Livrée dans la 0.5.0.**
 
 - **Ce Mac** : processeur (total et par cœur), mémoire (utilisée, compressée, pression),
   réseau par interface (débit entrant/sortant en direct, totaux, erreurs), avec courbes sur
