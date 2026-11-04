@@ -52,6 +52,10 @@ public enum NavFocus: Hashable, Sendable {
     case switchPort(host: String, port: String?)
     /// Borne FortiAP (`FortiManagedAP.id`).
     case accessPoint(String)
+    /// Note 46 : client Wi-Fi (`FortiWifiClient.id`, « site|mac ») : sa fiche dans Wi-Fi › FortiAP.
+    case wifiClient(String)
+    /// Note 46 : SSID d'un site (`FortiWifiSSIDGroup.id`, « site|SSID ») : clients par SSID, ce SSID déplié.
+    case wifiSSID(String)
     /// Sonde de surveillance (UUID en texte).
     case probe(String)
     /// Connexion enregistrée de l'Accès distant (UUID en texte).

@@ -86,11 +86,16 @@ struct FortiAPView: View {
                 } else {
                     FortiAPBanner()
                 }
-                if !store.shownOverview.isEmpty {
+                if let client = store.openClient {
+                    // Note 46 : fiche complète du client (‹ ramène à la borne ou au SSID d'origine).
+                    FortiAPClientDetailView(client: client)
+                } else if !store.shownOverview.isEmpty {
                     tiles
                     SidePanelSplit(sideWidth: 320, collapse: .below) {
                         VStack(spacing: 14) {
                             FortiAPTable(selection: $selectedAP)
+                            // Note 46 : clients de la borne choisie, par radio et par SSID.
+                            FortiAPClientsOfAP(apID: selectedAP)
                             FortiAPChannelMap(band: $band, selectedAP: $selectedAP)
                             FortiAPClientTable()
                             FortiAPSSIDTable()
@@ -109,9 +114,14 @@ struct FortiAPView: View {
         }
         .onAppear {
             applyFocus()
+            // Captures : NETSCOPE_WIFI_BORNE=AP-ETG2 (note 46, FortiAPClientDemo).
+            if let name = FortiAPDemo.snapshotBorne, let ap = store.shownOverview.aps.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
+                selectedAP = ap.id
+            }
             if selectedAP == nil { selectedAP = store.shownOverview.aps.first?.id }
         }
         .onChange(of: store.focusAP) { _, _ in applyFocus() }
+        .onChange(of: selectedAP) { _, id in store.viewedAP = id }
         .onChange(of: store.shownOverview.aps.map(\.id)) { _, ids in
             if let id = selectedAP, ids.contains(id) { return }
             selectedAP = ids.first

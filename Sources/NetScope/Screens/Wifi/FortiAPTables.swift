@@ -291,11 +291,6 @@ struct FortiAPTable: View {
 
 // MARK: - Clients
 
-enum FortiClientFilter: String, CaseIterable, Identifiable {
-    case all, weak, ghz24, ghz5
-    var id: String { rawValue }
-}
-
 struct FortiClientRow: Identifiable {
     let client: FortiWifiClient
     let isWeak: Bool
@@ -324,7 +319,8 @@ struct FortiAPClientTable: View {
     @StateObject private var table = StandardTableModel<FortiClientRow>(id: "wifi.fortiap.clients", columns: Self.columns,
                                                                         sortKeys: Self.sortKeys, defaultSort: "rssi", defaultAscending: true)
     @State private var search = ""
-    @State private var filter: FortiClientFilter = .all
+    /// Note 46 : filtres SSID, borne, bande et signal faible.
+    @State private var filter = FortiWifiClientFilter()
     @State private var selection: FortiClientRow.ID?
 
     static let columns: [StandardColumn] = [
@@ -360,36 +356,27 @@ struct FortiAPClientTable: View {
         let all = store.shownOverview.clients
         let devices = deviceNames()
         let query = FortiSearch(search, global: state.searchQuery(for: .wifi), schema: .wifiClients)
-        let rows = all.filter { c in
-            switch filter {
-            case .all: break
-            case .weak: if !store.isWeak(c) { return false }
-            case .ghz24: if c.band != .ghz24 { return false }
-            case .ghz5: if c.band != .ghz5 && c.band != .ghz6 { return false }
-            }
-            return query.matches(["nom": [c.hostname, devices[c.mac]], "mac": [c.mac.formatted(.colon)], "ip": [c.ip?.description],
+        let kept = all.filter { c in
+            guard filter.matches(c, thresholds: store.thresholds) else { return false }
+            return query.matches(["nom": [c.hostname, devices[c.id]], "mac": [c.mac.formatted(.colon)], "ip": [c.ip?.description],
                                   "ssid": [c.ssid], "borne": [c.apName], "bande": bandTerms(c.band), "canal": [c.channel.map(String.init)],
                                   "vlan": [c.vlan.map(String.init)], "site": [c.site]],
-                                 freeText: [c.hostname, c.mac.formatted(.upperColon), c.ip?.description, c.ssid, c.apName, c.os, c.site, devices[c.mac]])
+                                 freeText: [c.hostname, c.mac.formatted(.upperColon), c.mac.formatted(.bare), c.ip?.description, c.ssid,
+                                            c.apName, c.os, c.site, devices[c.id]])
         }
-        .map { FortiClientRow(client: $0, isWeak: store.isWeak($0), deviceName: devices[$0.mac]) }
-        .sorted(using: table.sortOrder + [KeyPathComparator(\FortiClientRow.mac)])
+        let rows = kept
+            .map { FortiClientRow(client: $0, isWeak: store.isWeak($0), deviceName: devices[$0.id]) }
+            .sorted(using: table.sortOrder + [KeyPathComparator(\FortiClientRow.mac)])
         FortiAPTableFrame {
             FortiAPTableHeader(title: "Clients Wi-Fi", summary: "\(rows.count) affiché\(rows.count > 1 ? "s" : "") sur \(all.count)",
                                search: $search, prompt: "Nom, MAC, IP, SSID…", model: table) {
-                Picker("Clients affichés", selection: $filter) {
-                    Text("Tous (\(all.count))").tag(FortiClientFilter.all)
-                    Text("Signal faible (\(all.filter(store.isWeak).count))").tag(FortiClientFilter.weak)
-                    Text("2,4\u{00A0}GHz").tag(FortiClientFilter.ghz24)
-                    Text("5–6\u{00A0}GHz").tag(FortiClientFilter.ghz5)
-                }
-                .labelsHidden()
-                .pickerStyle(.segmented)
-                .fixedSize()
+                filters(all)
             }
             Rectangle().fill(Theme.border).frame(height: 1)
             if rows.isEmpty {
                 emptyLine(all.isEmpty ? "Aucun client Wi-Fi associé (ou liste des clients non lue)." : "Aucun client ne correspond à ce filtre.")
+            } else if store.clientsBySSID {
+                ssidGroups(kept, rows: rows)
             } else {
                 tableView(rows).standardTableHeight(rows: rows.count, rowHeight: fortiRowHeight, maxRows: 12)
             }
@@ -397,16 +384,146 @@ struct FortiAPClientTable: View {
         .searchResults(rows.count, "client", "clients")
     }
 
-    /// Nom de l'appareil du Scanner de chaque MAC cliente (rattachement par MAC).
-    private func deviceNames() -> [MACAddress: String] {
-        var result: [MACAddress: String] = [:]
-        for (id, client) in FortiWifiMerge.match(state.devices, overview: store.shownOverview) {
-            if let device = state.device(withID: id) { result[client.mac] = "\(device.displayName) · \(device.ip)" }
+    // MARK: Filtres et vue par SSID (note 46)
+
+    private func filters(_ all: [FortiWifiClient]) -> some View {
+        let ssids = Array(Set(all.compactMap(\.ssid))).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+        let aps = Array(Set(all.compactMap(\.apName))).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+        return HStack(spacing: 8) {
+            Picker("Présentation", selection: $store.clientsBySSID) {
+                Text("Liste").tag(false)
+                Text("Par SSID").tag(true)
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .fixedSize()
+            .help("Liste de tous les clients, ou regroupés par SSID (nombre de clients, bornes et bandes de chaque SSID)")
+            Picker("SSID", selection: $filter.ssid) {
+                Text("Tous les SSID").tag(String?.none)
+                Divider()
+                ForEach(ssids, id: \.self) { name in Text(name).tag(String?.some(name)) }
+            }
+            .labelsHidden()
+            .fixedSize()
+            Picker("Borne", selection: $filter.apName) {
+                Text("Toutes les bornes").tag(String?.none)
+                Divider()
+                ForEach(aps, id: \.self) { name in Text(name).tag(String?.some(name)) }
+            }
+            .labelsHidden()
+            .fixedSize()
+            Picker("Bande", selection: $filter.band) {
+                ForEach(FortiWifiClientFilter.BandChoice.allCases, id: \.self) { choice in Text(choice.label).tag(choice) }
+            }
+            .labelsHidden()
+            .fixedSize()
+            Toggle(isOn: $filter.weakOnly) {
+                Text("Signal faible (\(all.filter(store.isWeak).count))").font(Theme.small)
+            }
+            .toggleStyle(.checkbox)
+            .fixedSize()
+            if filter.isActive {
+                Button("Effacer") { filter = FortiWifiClientFilter() }
+                    .buttonStyle(.borderless)
+                    .font(Theme.small)
+                    .help("Retirer les filtres SSID, borne, bande et signal faible")
+            }
+        }
+        .controlSize(.small)
+    }
+
+    /// Un groupe dépliable par SSID (site par site) : nombre de clients, bornes, bandes, sécurité.
+    private func ssidGroups(_ clients: [FortiWifiClient], rows: [FortiClientRow]) -> some View {
+        let groups = FortiWifiClientGroups.bySSID(store.shownOverview, clients: clients).filter { $0.count > 0 }
+        return VStack(spacing: 0) {
+            ForEach(groups) { group in
+                let open = store.expandedSSIDs.contains(group.id)
+                Button {
+                    if open { store.expandedSSIDs.remove(group.id) } else { store.expandedSSIDs.insert(group.id) }
+                    store.viewedSSID = open ? nil : group.id
+                } label: {
+                    ssidHeader(group, open: open)
+                }
+                .buttonStyle(.plain)
+                if open {
+                    // Même ordre que le tri du tableau.
+                    let ids = Set(group.clients.map(\.id))
+                    let shown = rows.filter { ids.contains($0.id) }
+                    Rectangle().fill(Theme.border).frame(height: 1)
+                    tableView(shown, ssidGroup: group.id)
+                        .standardTableHeight(rows: shown.count, rowHeight: fortiRowHeight, maxRows: 10)
+                }
+                if group.id != groups.last?.id { Rectangle().fill(Theme.border).frame(height: 1) }
+            }
+        }
+    }
+
+    private func ssidHeader(_ group: FortiWifiSSIDGroup, open: Bool) -> some View {
+        let weak = group.clients.filter(store.isWeak).count
+        return ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                ssidTitle(group, open: open, weak: weak)
+                Spacer(minLength: 8)
+                ssidFacts(group)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                ssidTitle(group, open: open, weak: weak)
+                ssidFacts(group).padding(.leading, 22)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(open ? Theme.panelMuted : Color.clear)
+        .contentShape(Rectangle())
+        .help(open ? "Replier ce SSID" : "Déplier ce SSID")
+    }
+
+    private func ssidTitle(_ group: FortiWifiSSIDGroup, open: Bool, weak: Int) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "chevron.right").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.textSecondary)
+                .rotationEffect(.degrees(open ? 90 : 0))
+                .frame(width: 14)
+            Image(systemName: "wifi").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.accentStrong)
+            Text(group.ssid).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
+            Text("\(group.count) client\(group.count > 1 ? "s" : "")").font(Theme.mono(11, weight: .semibold)).foregroundStyle(Theme.neutralText)
+                .padding(.horizontal, 6).padding(.vertical, 1).background(Capsule().fill(Theme.neutralSoft))
+            if weak > 0 {
+                WifiPill(text: "\(weak) à signal faible", foreground: Theme.critical, background: Theme.criticalSoft)
+            }
+            if store.shownOverview.isMultiSite {
+                Text(group.site).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            }
+        }
+        .fixedSize()
+    }
+
+    private func ssidFacts(_ group: FortiWifiSSIDGroup) -> some View {
+        HStack(spacing: 12) {
+            Label(group.apNames.count > 3 ? "\(group.apNames.count) bornes" : group.apNames.joined(separator: ", "), systemImage: "wifi.router")
+                .help(group.apNames.joined(separator: ", "))
+            Label(group.bandsLabel, systemImage: "antenna.radiowaves.left.and.right")
+            if let config = group.config {
+                Text(config.securityLabel)
+                if let vlan = config.vlan { Text("VLAN\u{00A0}\(vlan)").font(Theme.mono(11)) }
+            }
+        }
+        .font(Theme.small)
+        .foregroundStyle(Theme.textSecondary)
+        .lineLimit(1)
+        .fixedSize()
+    }
+
+    /// Nom de l'appareil du Scanner de chaque client (site actif seulement, rattachement par MAC).
+    private func deviceNames() -> [FortiWifiClient.ID: String] {
+        var result: [FortiWifiClient.ID: String] = [:]
+        for (id, deviceID) in store.deviceLinks(state.devices) {
+            if let device = state.device(withID: deviceID) { result[id] = "\(device.displayName) · \(device.ip)" }
         }
         return result
     }
 
-    private func tableView(_ rows: [FortiClientRow]) -> some View {
+    private func tableView(_ rows: [FortiClientRow], ssidGroup: String? = nil) -> some View {
         Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
             Group {
                 TableColumn(StandardTableHeading("CLIENT"), sortUsing: table.sort("nom")) { row in
@@ -527,14 +644,28 @@ struct FortiAPClientTable: View {
         .standardTableStyle()
         // Note 48 : plusieurs sites affichés, colonne « Site » montrée d’office.
         .standardSiteColumn(table, multiple: store.shownOverview.isMultiSite)
-        // Note 34 : double-clic ou ↩︎ → fiche de l'appareil du Scanner rattaché par MAC (sinon sa fiche
-        // d'inventaire, sinon un message) ; clic droit → « Ouvrir dans › ».
-        .standardRowNavigation(selection: selection.map { [$0] } ?? [], object: { id in
+        // Note 46 : double-clic ou ↩︎ → fiche complète du client (Wi-Fi › FortiAP), qui mène à la fiche
+        // Appareil, à l'Inventaire et au Ping ; clic droit → « Fiche du client » et « Ouvrir dans › ».
+        .standardRowActions(selection: selection.map { [$0] } ?? [], object: { id in
             guard let client = store.shownOverview.clients.first(where: { $0.id == id }) else { return nil }
-            let matched = FortiWifiMerge.match(state.devices, overview: FortiWifiOverview(clients: [client])).keys.first
+            let matched = store.deviceLinks(state.devices)[client.id]
             return .wifiClient(mac: client.mac.formatted(.upperColon), ip: matched ?? client.ip?.description,
                                name: client.hostname ?? client.mac.formatted(.upperColon), apID: store.ap(for: client)?.id)
-        })
+        }, primary: { ids in
+            guard let client = store.shownOverview.clients.first(where: { ids.contains($0.id) }) else { return false }
+            openClient(client, ssidGroup: ssidGroup)
+            return true
+        }) { ids in
+            if ids.count == 1, let client = store.shownOverview.clients.first(where: { ids.contains($0.id) }) {
+                Button("Fiche du client") { openClient(client, ssidGroup: ssidGroup) }
+            }
+        }
+    }
+
+    /// Fiche du client ; le Retour ramène au SSID déplié (vue par SSID) ou à la liste.
+    private func openClient(_ client: FortiWifiClient, ssidGroup: String?) {
+        store.viewedSSID = ssidGroup
+        state.navigate(store.clientDestination(client))
     }
 }
 

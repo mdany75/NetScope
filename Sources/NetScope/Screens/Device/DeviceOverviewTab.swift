@@ -64,21 +64,24 @@ struct DeviceOverviewTab: View {
     @EnvironmentObject private var state: AppState
     /// Emplacements relevés (note 18) : un ancien relevé est grisé comme dans le Scanner.
     @ObservedObject private var switches = SwitchStore.shared
-    /// Note 27 : client Wi-Fi vu par la FortiGate (borne FortiAP, SSID, bande, signal).
+    /// Notes 27 et 46 : client Wi-Fi vu par la FortiGate (section Wi-Fi sous les cartes).
     @ObservedObject private var fortiAP = FortiAPStore.shared
     let device: Device
     var onScanPorts: () -> Void
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 340), spacing: 14, alignment: .top)], alignment: .leading, spacing: 14) {
-            networkCard
-            hardwareCard
-            locationCard
-            if let client = fortiAP.client(for: device) {
-                DeviceFortiAPCard(device: device, client: client)
+        VStack(alignment: .leading, spacing: 14) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 340), spacing: 14, alignment: .top)], alignment: .leading, spacing: 14) {
+                networkCard
+                hardwareCard
+                locationCard
+                availabilityCard
+                servicesCard
             }
-            availabilityCard
-            servicesCard
+            // Notes 27 et 46 : client Wi-Fi vu par la FortiGate du site actif, tout ce qui sert au diagnostic.
+            if let client = fortiAP.client(for: device) {
+                DeviceWifiSection(device: device, client: client)
+            }
         }
     }
 
