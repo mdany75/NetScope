@@ -8,7 +8,7 @@ surveillance, rapports et accès distant, le tout en français.
 
 ## Fonctions
 
-Version 0.3.1 : les quatorze écrans fonctionnent. La suite prévue est dans
+Version 0.4.0 : les quatorze écrans fonctionnent, au style Mac (mode sombre, petite fenêtre), avec des tableaux à colonnes réglables. La suite prévue est dans
 [docs/A-FAIRE.md](docs/A-FAIRE.md).
 
 - **Scanner multi-plages qui se remplit tout seul** : plusieurs plages à la fois, ping ICMP

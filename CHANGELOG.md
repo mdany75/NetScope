@@ -1,5 +1,43 @@
 # Changements
 
+## 0.4.0 — 2026-11-03
+
+Tableaux standard dans tous les écrans, colonne Type modifiable, préréglages de ports dans le
+Scanner et style Mac natif (mode sombre, petite fenêtre).
+
+### Ajouté
+- **Tableaux standard** dans tous les écrans (Scanner, Inventaire, Analyse, Switchs, Wi-Fi,
+  Outils, Appareil, Surveillance, Ping continu, Speedtest, Accès distant, Réglages) : tri par
+  en-tête, colonnes redimensionnables, masquables et ajoutables (menu « Colonnes », clic droit
+  sur l’en-tête, « Rétablir les colonnes par défaut ») ; colonnes, largeurs et tri retenus par
+  tableau. De nombreuses colonnes facultatives (première vue, OUI, plage, PoE, SNR…).
+- La colonne « Ports ouverts » affiche autant de ports que la largeur le permet, puis « +N »,
+  avec la liste complète en infobulle.
+- **Scanner : colonne Type** (icône et libellé, triable) ; clic droit « Changer le type › … »
+  sur un ou plusieurs appareils, aussi depuis le panneau de détail et la fiche Appareil, avec
+  « Revenir au type détecté ». Le type choisi est retenu dans l’inventaire, repris par la Carte,
+  l’Analyse, le Wi-Fi et les Rapports ; un scan ne le remplace jamais.
+- **Scanner : préréglage de ports** : menu « Ports : 20 essentiels » dans la barre d’outils
+  (« Rescanner les ports avec ce préréglage », « Modifier les préréglages… ») et clic droit
+  « Scanner les ports › … » sur les appareils choisis, avec avancement et « Arrêter ».
+- Wake-on-LAN : tableau de tous les postes réveillables ; Capture LLDP/CDP : tableau des
+  voisins quand plusieurs répondent.
+
+### Modifié
+- **Style Mac natif** : barre latérale et barre d’outils du système, contrôles natifs, couleur
+  d’accent de macOS.
+- **Mode sombre** automatique sur tous les écrans.
+- **Petite fenêtre** (jusqu’à 900 × 600) : les écrans défilent et se réorganisent au lieu
+  d’être coupés ; le panneau de droite se replie ou passe sous le contenu.
+- Les ports du profil Personnalisé n’ont plus qu’une source : Réglages › Profils de scan
+  (l’ancienne liste est reprise automatiquement).
+- « Profil : … » du Scanner devient un menu ; recherche globale plus courte.
+
+### Corrigé
+- Analyse : l’axe d’« Appareils en ligne » ne chevauche plus le premier point ; nombre et
+  pourcentage par fabricant séparés.
+- Espaces insécables avant « : ; ? ! % » dans les textes restants.
+
 ## 0.3.1 — 2026-11-03
 
 Plus d’informations d’un autre réseau présentées comme actuelles.
