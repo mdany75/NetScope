@@ -143,6 +143,7 @@ final class RegBackupController: ObservableObject {
         defer { workCount -= 1 }
         // Les fichiers en mémoire sont écrits d'abord : la sauvegarde contient l'état actuel.
         MonStore.shared.save()
+        InvModel.shared.flushPendingWrites()
         let folder = target ?? self.folder
         let format = chosen ?? self.format
         let copyToICloud = self.copyToICloud && target == nil

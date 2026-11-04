@@ -89,14 +89,14 @@ public struct SearchQuery: Sendable {
     // MARK: Correspondance
 
     public func matches<Record: SearchableRecord>(_ record: Record) -> Bool {
-        var freeText: [String]?
+        var freeText: String?
         for term in terms where term.isComplete {
             let found: Bool
             if let field = term.field {
                 found = SearchQuery.match(term, kind: field.kind, values: record.searchValues(for: field))
             } else {
-                if freeText == nil { freeText = record.searchFreeText.map(SearchText.fold) }
-                found = freeText!.contains { $0.contains(term.folded) }
+                if freeText == nil { freeText = record.searchFoldedText }
+                found = freeText!.contains(term.folded)
             }
             if found == term.isNegated { return false }
         }

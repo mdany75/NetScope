@@ -718,3 +718,19 @@ le « Retour » de la note 34 :
   position dans la liste (ex. la même ligne de l'Inventaire sélectionnée).
 - Un clic dans la barre latérale vers un autre module compte aussi comme un écran de
   l'historique ; l'historique se vide en changeant de site.
+
+## 46. Wi-Fi : clients par borne et par SSID, fiche complète du client — À PLANIFIER (demande de Dany)
+
+« Si je clique sur un AP, je vois qui est connecté ; dans la section Wi-Fi, clients vs SSID,
+donc l'info complète du client. » Prolonge la note 27 (liste des clients livrée dans la 0.11.0) :
+
+- Clic (ou double-clic) sur une borne FortiAP → la liste des clients connectés à cette borne,
+  par radio (2,4 / 5 / 6 GHz) et par SSID, avec le nombre de clients de chaque SSID.
+- Section Wi-Fi › Clients : vue regroupée par SSID (chaque SSID dépliable, avec son nombre de
+  clients, ses bornes et sa bande), recherche par nom, IP ou MAC, tri et filtres (SSID, borne,
+  bande, signal faible).
+- Fiche complète du client : nom, fabricant (OUI), MAC, IP, VLAN, SSID, borne et radio, bande,
+  canal, RSSI, SNR, débit montant et descendant, standard (Wi-Fi 4/5/6/6E/7), authentification
+  (PSK, 802.1X, utilisateur), durée de connexion, octets échangés, historique d'itinérance
+  entre bornes ; liens vers la fiche Appareil, l'Inventaire et le Ping continu (note 34).
+- Retour vers la borne ou le SSID d'origine (note 45).

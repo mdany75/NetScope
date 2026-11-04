@@ -330,9 +330,10 @@ public enum ReportBuilder {
             seen.insert(device.id)
             result.append(OfflineItem(name: device.hostnameLabel ?? device.displayName, ip: device.id, location: device.switchLocation))
         }
+        let onlineIPs = Set(input.devices.lazy.filter(\.isOnline).map(\.ip))
         for record in input.records where record.status(now: input.now) == .horsLigne && !seen.contains(record.ip.description) {
             // Une fiche hors ligne dont l'adresse est occupée par un appareil en ligne n'est plus pertinente.
-            if input.devices.contains(where: { $0.ip == record.ip && $0.isOnline }) { continue }
+            if onlineIPs.contains(record.ip) { continue }
             seen.insert(record.ip.description)
             result.append(OfflineItem(name: record.displayName, ip: record.ip.description, location: record.switchLocation))
         }
@@ -452,13 +453,16 @@ public enum ReportBuilder {
                              isTotal: total)
         }
         var notes: [String] = []
+        // Appareils de chaque /24 et plages lues une seule fois (note 36 : un /16 compte 256 réseaux).
+        let byNetwork = Dictionary(grouping: input.devices, by: { $0.ip.value & 0xFFFF_FF00 })
+        let parsedRanges = input.ranges.map { (range: $0, parsed: try? IPRange(parsing: $0.text)) }
         for base in networks {
             let subnet = Subnet(address: base, prefix: 24)
-            let here = input.devices.filter { subnet.contains($0.ip) }
-            let range = input.ranges.first { range in
-                guard let parsed = try? IPRange(parsing: range.text) else { return false }
+            let here = byNetwork[base.value] ?? []
+            let range = parsedRanges.first { item in
+                guard let parsed = item.parsed else { return false }
                 return here.contains { parsed.contains($0.ip) }
-            }
+            }?.range
             let groups = Dictionary(grouping: here, by: { $0.vlan ?? -1 })
             let keys = groups.keys.sorted()
             for vlan in keys {
@@ -474,12 +478,9 @@ public enum ReportBuilder {
             }
         }
         // Adresses libres du /24 le plus peuplé.
-        if let busiest = networks.max(by: { a, b in
-            let sa = Subnet(address: a, prefix: 24), sb = Subnet(address: b, prefix: 24)
-            return input.devices.filter { sa.contains($0.ip) }.count < input.devices.filter { sb.contains($0.ip) }.count
-        }) {
+        if let busiest = networks.max(by: { a, b in (byNetwork[a.value]?.count ?? 0) < (byNetwork[b.value]?.count ?? 0) }) {
             let subnet = Subnet(address: busiest, prefix: 24)
-            notes.append("Adresses libres sur \(subnet)\u{00A0}: \(max(0, 254 - input.devices.filter { subnet.contains($0.ip) }.count))")
+            notes.append("Adresses libres sur \(subnet)\u{00A0}: \(max(0, 254 - (byNetwork[busiest.value]?.count ?? 0)))")
         }
         notes.append("Étendue DHCP\u{00A0}: \(ReportText.missing)")
         if let gateway = input.gateway { notes.append("Passerelle \(gateway)") }

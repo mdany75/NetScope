@@ -245,6 +245,8 @@ final class SiteModel: ObservableObject {
         let current = collect(from: state)
         let inventory = InvModel.shared
         if adoptCurrent {
+            // Écriture différée de l'inventaire faite avant de déplacer le dossier (note 36).
+            inventory.flushPendingWrites()
             files?.adoptNoSiteFolder(into: newKey)
             shelf.forget(oldKey)
             shelf.shelve(current, for: newKey)

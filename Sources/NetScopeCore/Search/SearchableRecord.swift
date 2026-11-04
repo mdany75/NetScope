@@ -11,12 +11,18 @@ public protocol SearchableRecord {
     /// qui avait déjà une recherche garde ici exactement ses anciennes colonnes, pour qu'une
     /// recherche d'un mot donne le même résultat qu'avant.
     var searchFreeText: [String] { get }
+    /// `searchFreeText` plié et réuni en un seul texte (séparateur U+0001, qu'aucune recherche ne
+    /// contient : un mot ne chevauche jamais deux colonnes). Un module peut le garder en mémoire
+    /// (note 36 : lignes de l'Inventaire).
+    var searchFoldedText: String { get }
 }
 
 public extension SearchableRecord {
     var searchFreeText: [String] {
         Self.searchSchema.fields.flatMap { searchValues(for: $0) }
     }
+
+    var searchFoldedText: String { SearchText.foldedJoined(searchFreeText) }
 
     /// Recherche multiple avec les champs du module (une requête vide trouve tout).
     func matchesSearch(_ text: String) -> Bool {

@@ -15,6 +15,11 @@ public struct IPv4Address: Hashable, Comparable, Sendable, Codable, CustomString
     /// Lit une adresse en notation pointée stricte (« 192.168.1.10 ») ; nil si invalide.
     /// Les zéros en tête sont refusés (« 010.0.0.1 » est ambigu : octal ou décimal).
     public init?(_ text: String) {
+        // Chemin rapide (note 36) : chiffres et points seulement, lus octet par octet, mêmes règles.
+        if let fast = IPv4Address.parseDotted(text) {
+            value = fast
+            return
+        }
         let parts = text.trimmingCharacters(in: .whitespaces).split(separator: ".", omittingEmptySubsequences: false)
         guard parts.count == 4 else { return nil }
         var result: UInt32 = 0
@@ -34,6 +39,35 @@ public struct IPv4Address: Hashable, Comparable, Sendable, Codable, CustomString
     public var description: String {
         let o = octets
         return "\(o.0).\(o.1).\(o.2).\(o.3)"
+    }
+
+    /// « a.b.c.d » sans espace ni zéro en tête ; nil sinon (la lecture complète tranche alors).
+    private static func parseDotted(_ text: String) -> UInt32? {
+        var result: UInt32 = 0
+        var octet: UInt32 = 0
+        var digits = 0
+        var parts = 0
+        var leadingZero = false
+        for byte in text.utf8 {
+            if byte == UInt8(ascii: ".") {
+                guard digits > 0, parts < 3 else { return nil }
+                result = result << 8 | octet
+                parts += 1
+                octet = 0
+                digits = 0
+                leadingZero = false
+            } else if byte >= UInt8(ascii: "0") && byte <= UInt8(ascii: "9") {
+                guard !leadingZero, digits < 3 else { return nil }
+                if digits == 0 && byte == UInt8(ascii: "0") { leadingZero = true }
+                octet = octet * 10 + UInt32(byte - UInt8(ascii: "0"))
+                digits += 1
+                guard octet <= 255 else { return nil }
+            } else {
+                return nil
+            }
+        }
+        guard digits > 0, parts == 3 else { return nil }
+        return result << 8 | octet
     }
 
     /// Adresse précédente ou suivante (nil aux bornes).

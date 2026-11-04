@@ -57,7 +57,9 @@ final class SiteScopeStore: ObservableObject {
     /// Inventaires des sites affichés (lus depuis leur fichier pour les autres sites).
     func inventories(for screen: Screen) -> [SiteInventory] {
         let model = InvModel.shared
-        return keys(for: screen).map { key in
+        let keys = keys(for: screen)
+        model.prefetch(keys)
+        return keys.map { key in
             SiteInventory(key: key, name: SiteModel.shared.name(forKey: key), store: model.inventory(for: key))
         }
     }

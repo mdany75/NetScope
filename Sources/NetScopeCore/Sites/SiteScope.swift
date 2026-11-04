@@ -102,7 +102,12 @@ public struct SiteInventory: Sendable {
 public struct SiteScopedRecord: Identifiable, Hashable, Sendable {
     public var siteKey: String
     public var siteName: String
-    public var record: InvRecord
+    public var record: InvRecord {
+        didSet { memo = nil }
+    }
+    /// Mémoire de l’inventaire d’où vient la ligne (note 36 : texte de recherche plié une fois).
+    /// Référence faible : la mémoire garde elle-même ces lignes.
+    weak var memo: InvMemo?
 
     public init(siteKey: String, siteName: String, record: InvRecord) {
         self.siteKey = siteKey
@@ -112,6 +117,17 @@ public struct SiteScopedRecord: Identifiable, Hashable, Sendable {
 
     /// « site|fiche » : jamais deux lignes au même identifiant, même à IP ou MAC égale.
     public var id: String { SiteScope.id(site: siteKey, key: record.key) }
+
+    // Le texte plié n'est qu'une mémoire : il ne compte pas dans l'égalité.
+    public static func == (lhs: SiteScopedRecord, rhs: SiteScopedRecord) -> Bool {
+        lhs.siteKey == rhs.siteKey && lhs.siteName == rhs.siteName && lhs.record == rhs.record
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(siteKey)
+        hasher.combine(siteName)
+        hasher.combine(record)
+    }
 }
 
 /// Événement d'inventaire avec son site (alertes de l'Analyse).
@@ -145,10 +161,15 @@ public enum SiteScope {
 
     /// Fiches de plusieurs sites, une ligne par site et par fiche (aucune fusion), dans l'ordre des
     /// sites puis par IP.
+    /// Les lignes de chaque inventaire sont gardées en mémoire tant qu'il ne change pas (note 36).
     public static func records(_ inventories: [SiteInventory]) -> [SiteScopedRecord] {
-        inventories.flatMap { inventory in
-            inventory.store.sortedRecords.map { SiteScopedRecord(siteKey: inventory.key, siteName: inventory.name, record: $0) }
+        guard inventories.count > 1 else {
+            return inventories.first.map { $0.store.scopedRecords(site: $0.key, name: $0.name) } ?? []
         }
+        var rows: [SiteScopedRecord] = []
+        rows.reserveCapacity(inventories.reduce(0) { $0 + $1.store.count })
+        for inventory in inventories { rows += inventory.store.scopedRecords(site: inventory.key, name: inventory.name) }
+        return rows
     }
 
     /// Alertes (hors référence) de plusieurs sites depuis `since`, regroupées par site (ordre des
@@ -185,4 +206,6 @@ extension SiteScopedRecord: SearchableRecord {
 
     /// Mêmes colonnes que l'Inventaire d'un seul site : un mot seul donne le même résultat.
     public var searchFreeText: [String] { record.searchFreeText }
+
+    public var searchFoldedText: String { memo?.foldedText(for: record) ?? SearchText.foldedJoined(searchFreeText) }
 }
