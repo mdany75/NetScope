@@ -352,18 +352,24 @@ struct WifiRoamList: View {
 
 // MARK: - Diagnostiquer (note 47)
 
-/// Emplacement du bouton « Diagnostiquer » (note 47) dans la fiche du client et dans la section
-/// Wi-Fi de la fiche Appareil. À LA FUSION avec la note 47 : remplacer le corps par
-/// `WifiDiagnoseButton(client: client, site: site)`.
+/// Bouton « Diagnostiquer » (note 47) dans la fiche du client et dans la section Wi-Fi de la
+/// fiche Appareil, avec les détails lus par la fiche (note 46).
 struct WifiDiagnoseSlot: View {
     let client: FortiWifiClient
     /// Site du client (clé `SiteFiles.key`).
     let site: String
+    @ObservedObject private var store = FortiAPStore.shared
 
     var body: some View {
-        Button {} label: { Label("Diagnostiquer — bientôt", systemImage: "stethoscope") }
+        WifiDiagnoseButton(client: client, details: details)
             .buttonStyle(.secondary)
-            .disabled(true)
-            .help("Diagnostic complet du Wi-Fi de ce client, avec les solutions (note 47)")
+    }
+
+    /// Détails de la fiche (note 46) et historique du signal du site, pour le diagnostic (note 47).
+    /// En démonstration, ce que la fiche ne dit pas (antennes, économie d'énergie, DHCP…) vient de
+    /// WifiDiagnosisDemo.
+    private var details: WifiClientDetails {
+        let read = WifiClientDetails(client: client, history: store.signalHistory(siteKey: site))
+        return store.isDemo ? read.filling(from: WifiDiagnosisDemo.details(for: client)) : read
     }
 }

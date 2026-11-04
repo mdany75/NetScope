@@ -47,6 +47,15 @@ public enum WifiStandard: String, Codable, Hashable, Sendable, CaseIterable, Com
     /// « HE », « VHT », « HT ») et la bande (802.11ax en 6 GHz : Wi-Fi 6E). nil si rien ne la dit.
     public static func parse(_ text: String?, band: WifiBand? = nil) -> WifiStandard? {
         guard let raw = text?.lowercased().replacingOccurrences(of: " ", with: ""), !raw.isEmpty else { return nil }
+        // Formes courtes (« be », « ax », « ac », « n », « g ») : nom de la norme seul.
+        switch raw.replacingOccurrences(of: "802.11", with: "") {
+        case "be": return .wifi7
+        case "ax": return band == .ghz6 ? .wifi6E : .wifi6
+        case "ac": return .wifi5
+        case "n": return .wifi4
+        case "a", "b", "g": return .legacy
+        default: break
+        }
         if raw.contains("11be") || raw.contains("wifi7") || raw.contains("wi-fi7") || raw.hasPrefix("eht") { return .wifi7 }
         if raw.contains("11ax") || raw.contains("wifi6") || raw.contains("wi-fi6") || raw.hasPrefix("he") {
             if raw.contains("6e") || raw.contains("6g") || band == .ghz6 { return .wifi6E }

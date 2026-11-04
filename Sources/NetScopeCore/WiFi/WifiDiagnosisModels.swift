@@ -198,41 +198,8 @@ public struct WifiDiagnosisThresholds: Codable, Hashable, Sendable {
 
 // MARK: - Données facultatives du client
 
-/// Génération Wi-Fi du client.
-public enum WifiStandard: String, Codable, Sendable, CaseIterable, Comparable {
-    /// 802.11a, b ou g.
-    case legacy
-    case wifi4, wifi5, wifi6, wifi6E, wifi7
-
-    public static func < (lhs: WifiStandard, rhs: WifiStandard) -> Bool {
-        (allCases.firstIndex(of: lhs) ?? 0) < (allCases.firstIndex(of: rhs) ?? 0)
-    }
-
-    public var label: String {
-        switch self {
-        case .legacy: return "802.11a/b/g"
-        case .wifi4: return "Wi-Fi 4 (802.11n)"
-        case .wifi5: return "Wi-Fi 5 (802.11ac)"
-        case .wifi6: return "Wi-Fi 6 (802.11ax)"
-        case .wifi6E: return "Wi-Fi 6E (802.11ax, 6\u{00A0}GHz)"
-        case .wifi7: return "Wi-Fi 7 (802.11be)"
-        }
-    }
-
-    /// Lit « 802.11ax », « 11ac », « ax », « Wi-Fi 6E », « be », « n », « g »…
-    public static func parse(_ text: String?) -> WifiStandard? {
-        guard var t = text?.lowercased().trimmingCharacters(in: .whitespaces), !t.isEmpty else { return nil }
-        t = t.replacingOccurrences(of: "802.11", with: "").replacingOccurrences(of: "wi-fi", with: "wifi")
-            .replacingOccurrences(of: " ", with: "")
-        if t.contains("wifi7") || t.hasPrefix("be") || t.contains("11be") { return .wifi7 }
-        if t.contains("wifi6e") || t.contains("6e") || (t.hasPrefix("ax") && t.contains("6g")) { return .wifi6E }
-        if t.contains("wifi6") || t.hasPrefix("ax") || t.contains("11ax") || t == "he" { return .wifi6 }
-        if t.contains("wifi5") || t.hasPrefix("ac") || t.contains("11ac") || t == "vht" { return .wifi5 }
-        if t.contains("wifi4") || t.hasPrefix("n") || t.contains("11n") || t == "ht" { return .wifi4 }
-        if t.hasPrefix("a") || t.hasPrefix("b") || t.hasPrefix("g") { return .legacy }
-        return nil
-    }
-}
+// WifiStandard (génération Wi-Fi du client) est défini avec les détails des clients, dans
+// Fortinet/FortiWifiClientDetails.swift (note 46), et sert aussi au diagnostic.
 
 /// Borne entendue par le client (rapport de voisinage 802.11k, sondes), avec son niveau.
 public struct WifiHeardAP: Codable, Hashable, Sendable {
