@@ -27,6 +27,10 @@ public struct MonRunContext: Sendable {
     public var wan: WANOverview?
     /// Lecture du WAN tentée sans aucune FortiGate lue : son erreur.
     public var wanError: String?
+    /// Dernière lecture du trafic des FortiGate (sondes de trafic, note 54) ; nil : aucune.
+    public var traffic: TrafficOverview?
+    /// Lecture du trafic tentée sans aucune FortiGate lue : son erreur.
+    public var trafficError: String?
 
     public init(pinger: ScanPinging?, snmpCommunity: String?, devices: [Device], inventoryReady: Bool = true,
                 now: Date = Date()) {
@@ -43,6 +47,8 @@ public struct MonRunOutcome: Sendable {
     public var result: MonResult
     public var learnedLocation: String?
     public var knownMACs: [String]?
+    /// Nouvelle menace (note 54) : menaces connues après ce passage.
+    public var knownThreats: [String]?
     /// Rien à évaluer (inventaire vide, appareil absent, scan en cours) : ni réussite ni échec.
     /// Le suivi reste tel quel, sans événement ni case d'historique.
     public var noData: Bool
@@ -103,6 +109,8 @@ public enum MonRunner {
         case .wanLink:
             return MonWANChecks.wanDegraded(target: target, overview: context.wan, error: context.wanError,
                                             thresholds: probe.wanThresholds ?? .standard, now: context.now)
+        case .linkSaturated, .heavyDevice, .newThreat:
+            return MonTrafficChecks.run(probe, target: target, traffic: context.traffic, error: context.trafficError, now: context.now)
         }
     }
 

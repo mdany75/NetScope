@@ -390,6 +390,8 @@ private struct MonConditionFields: View {
             MonDHCPScopeConditionFields(probe: $probe)
         case .vpnTunnel, .wanLink:
             MonWANConditionFields(probe: $probe)
+        case .linkSaturated, .heavyDevice, .newThreat:
+            MonTrafficConditionFields(probe: $probe)
         }
     }
 

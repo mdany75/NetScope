@@ -163,6 +163,10 @@ public struct ReportInput: Sendable {
     public var wanThresholds: WANThresholds = .standard
     /// Diagnostics Wi-Fi retenus pour le rapport du site (section facultative « Diagnostic Wi-Fi »).
     public var wifiDiagnoses: [WifiDiagnosisResult] = []
+    /// Trafic FortiView (section facultative « Trafic et analyse ») ; nil : aucune lecture.
+    public var traffic: TrafficOverview?
+    /// Analyse complète du réseau, si elle a été lancée.
+    public var networkAnalysis: NetworkAnalysisResult?
     public var now: Date
 
     public init(devices: [Device], records: [InvRecord] = [], ranges: [ReportRange] = [], switches: [ReportSwitch] = [],
@@ -372,6 +376,7 @@ public enum ReportBuilder {
             case .dhcp: blocks = dhcpScopeBlocks(input.dhcpScopes, thresholds: input.dhcpThresholds)
             case .wifiDiag: blocks = wifiDiagnosisBlocks(input.wifiDiagnoses, masked: config.maskMAC)
             case .wan: blocks = wanBlocks(input.wan, thresholds: input.wanThresholds)
+            case .trafic: blocks = trafficBlocks(input.traffic, analysis: input.networkAnalysis, masked: config.maskMAC)
             case .annexe: blocks = annex(input, masked: config.maskMAC)
             }
             sections.append(ReportSection(kind: kind, heading: heading, blocks: blocks))

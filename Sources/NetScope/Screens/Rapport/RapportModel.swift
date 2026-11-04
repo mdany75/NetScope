@@ -43,6 +43,8 @@ final class RapportModel: ObservableObject {
             // NETSCOPE_RAPPORT_WIFIDIAG=1 coche la section « Diagnostic Wi-Fi ».
             if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_WIFIDIAG"] == "1" { demo.sections.insert(.wifiDiag) }
             if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_WAN"] == "1" { demo.sections.insert(.wan) }
+            // NETSCOPE_RAPPORT_TRAFIC=1 coche la section « Trafic et analyse » (note 54).
+            if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_TRAFIC"] == "1" { demo.sections.insert(.trafic) }
             config = demo
             library = ReportLibrary(recents: RapportDemo.recents)
         } else {

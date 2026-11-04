@@ -12,7 +12,7 @@ struct Sidebar: View {
 
     /// Hauteur de liste sous laquelle « Plages enregistrées » serait coupée sous son titre (petite
     /// fenêtre) : les quatre groupes d'écrans, puis le titre et au moins une plage.
-    private static let rangesMinListHeight: CGFloat = 548
+    private static let rangesMinListHeight: CGFloat = 576
 
     /// Hauteur de la barre latérale (sous la barre de titre) à partir de laquelle la carte
     /// « Interface active » s'affiche entière au-dessus de Réglages : logo, quatre groupes d'écrans,

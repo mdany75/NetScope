@@ -16,6 +16,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
     case dhcpScope
     /// WAN des FortiGate (note 39) : tunnel VPN IPsec tombé, lien WAN dégradé (seuils).
     case vpnTunnel, wanLink
+    /// Trafic lu par FortiView (note 54) : lien WAN saturé, appareil qui consomme trop, nouvelle menace.
+    case linkSaturated, heavyDevice, newThreat
 
     public var id: String { rawValue }
 
@@ -38,6 +40,9 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .dhcpScope: return "Étendue DHCP presque pleine"
         case .vpnTunnel: return "Tunnel VPN tombé"
         case .wanLink: return "Lien WAN dégradé"
+        case .linkSaturated: return "Lien saturé"
+        case .heavyDevice: return "Appareil qui consomme trop"
+        case .newThreat: return "Nouvelle menace"
         }
     }
 
@@ -60,6 +65,9 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .dhcpScope: return "DHCP"
         case .vpnTunnel: return "VPN"
         case .wanLink: return "WAN"
+        case .linkSaturated: return "Lien WAN"
+        case .heavyDevice: return "Trafic"
+        case .newThreat: return "Menace"
         }
     }
 
@@ -80,6 +88,9 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .dhcpScope: return "Interface, VLAN ou nom de l’étendue, ou «\u{00A0}*\u{00A0}» pour toutes"
         case .vpnTunnel: return "Nom du tunnel IPsec (Siège / VPN-QUEBEC), ou «\u{00A0}*\u{00A0}» pour tous"
         case .wanLink: return "Interface ou nom du lien (Siège / wan2), ou «\u{00A0}*\u{00A0}» pour tous"
+        case .linkSaturated: return "Interface WAN (wan1), ou «\u{00A0}*\u{00A0}» pour tous les liens"
+        case .heavyDevice: return "Adresse IP de l’appareil, ou «\u{00A0}*\u{00A0}» pour tous"
+        case .newThreat: return "Site, ou «\u{00A0}*\u{00A0}» pour tous les sites lus"
         }
     }
 
@@ -218,6 +229,8 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
     public var dhcpThresholds: DHCPScopeThresholds?
     /// Lien WAN dégradé (note 39) : seuils de latence, de gigue et de perte propres à la sonde.
     public var wanThresholds: WANThresholds?
+    /// Nouvelle menace (note 54) : menaces déjà vues (clés « site|menace|adresse »), apprises au premier passage.
+    public var knownThreats: [String]?
 
     public init(id: UUID = UUID(), name: String, kind: MonProbeKind, target: String, subtitle: String = "",
                 isEnabled: Bool = true, interval: Int = 60, thresholds: MonThresholds = MonThresholds(),
@@ -296,12 +309,22 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
             return "Panne si un tunnel est tombé, alerte si une phase 2 manque"
         case .wanLink:
             return "Panne si le lien tombe, alerte si " + (wanThresholds ?? .standard).label
+        case .linkSaturated:
+            return "Alerte si le lien dépasse \(MonFormat.percent(resourceLimit ?? MonProbe.defaultResourceLimit(.linkSaturated))) de sa capacité"
+        case .heavyDevice:
+            return "Alerte si un appareil dépasse \(MonFormat.number(resourceLimit ?? MonProbe.defaultResourceLimit(.heavyDevice)))\u{00A0}Mb/s"
+        case .newThreat:
+            return "Alerte à chaque nouvelle menace vue par FortiView" + (knownThreats.map { " (\($0.count) connues)" } ?? "")
         }
     }
 
     /// Seuil proposé pour une sonde de ressources (90 % processeur et mémoire, 80 % pour un port).
     public static func defaultResourceLimit(_ kind: MonProbeKind) -> Double {
-        kind == .portLoad ? 80 : 90
+        switch kind {
+        case .portLoad, .linkSaturated: return 80
+        case .heavyDevice: return 50
+        default: return 90
+        }
     }
 
     /// Hôte et port d'une cible TCP (« 10.0.0.1:443 »).
@@ -363,6 +386,7 @@ extension MonProbe {
         wifiThresholds = try? c.decodeIfPresent(FortiWifiThresholds.self, forKey: .wifiThresholds)
         dhcpThresholds = try? c.decodeIfPresent(DHCPScopeThresholds.self, forKey: .dhcpThresholds)
         wanThresholds = try? c.decodeIfPresent(WANThresholds.self, forKey: .wanThresholds)
+        knownThreats = try? c.decodeIfPresent([String].self, forKey: .knownThreats)
     }
 }
 

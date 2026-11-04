@@ -58,6 +58,8 @@ enum RapportData {
         // WAN et VPN (note 39) : dernière lecture des FortiGate du site actif.
         input.wan = WANStore.shared.reportOverview(state: state)
         input.wanThresholds = WANStore.shared.thresholds
+        // Note 54 : trafic des sites affichés par l'écran Trafic et dernière analyse complète.
+        (input.traffic, input.networkAnalysis) = TrafficStore.shared.reportContent(state: state)
         // Diagnostic Wi-Fi (note 47) : diagnostics retenus pour le rapport du site actif.
         input.wifiDiagnoses = WifiDiagnosisStore.shared.reported(forKey: SiteModel.shared.activeKey)
         if demo, input.wifiDiagnoses.isEmpty { input.wifiDiagnoses = WifiDiagnosisDemo.reportResults(state: state) }

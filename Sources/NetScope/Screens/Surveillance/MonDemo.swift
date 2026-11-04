@@ -85,6 +85,13 @@ enum MonDemo {
         Row(name: "Liens WAN du Siège", kind: .wanLink, target: "Siège / *", sub: "FortiGate · Siège · wan1, wan2", iv: 300,
             state: .warning, value: "2 actifs sur 2 · 44\(s)ms · perte 4\(s)%", latency: nil, orange: [22, 23], red: [], dependsOnGateway: false,
             configure: { $0.wanThresholds = .standard; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
+        // Trafic (note 54) : envoi du lien wan1 saturé par une sauvegarde OneDrive, menaces bloquées.
+        Row(name: "Lien Internet du Siège", kind: .linkSaturated, target: "wan1", sub: "FortiView · Vidéotron 500/50", iv: 300,
+            state: .warning, value: "wan1 · 96\(s)%", latency: nil, orange: [13, 14], red: [], dependsOnGateway: false,
+            configure: { $0.resourceLimit = 80; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
+        Row(name: "Nouvelles menaces", kind: .newThreat, target: "*", sub: "FortiView · IPS, antivirus, botnet", iv: 300,
+            state: .ok, value: "3 menaces · 3 bloquées", latency: nil, orange: [], red: [], dependsOnGateway: false,
+            configure: { $0.knownThreats = []; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
     ]
 
     static func load(into store: MonStore) {

@@ -331,6 +331,15 @@ final class MonStore: ObservableObject {
                 wan = WANStore.shared.monitoringOverview
                 wanError = WANStore.shared.readError
             }
+            // Trafic (note 54) : temps réel FortiView du site actif, relu si plus vieux que l'intervalle.
+            var traffic: TrafficOverview?
+            var trafficError: String?
+            if [.linkSaturated, .heavyDevice, .newThreat].contains(probe.kind) {
+                let store = TrafficStore.shared
+                await store.refreshForMonitoring(maxAge: TimeInterval(probe.interval))
+                traffic = store.monitorOverview
+                trafficError = store.monitorReadError
+            }
             if perHost {
                 await SwitchStore.shared.loadVault()
                 let host = SwitchStore.shared.community(for: probe.target)
@@ -346,6 +355,8 @@ final class MonStore: ObservableObject {
             context.dhcpScopesError = dhcpScopesError
             context.wan = wan
             context.wanError = wanError
+            context.traffic = traffic
+            context.trafficError = trafficError
             let outcome = await MonRunner.run(probe, context: context)
             MonStore.shared.finish(probe.id, outcome: outcome, manual: manual)
         }
@@ -365,6 +376,7 @@ final class MonStore: ObservableObject {
             changed()
             return
         }
+        if let threats = outcome.knownThreats { probes[index].knownThreats = threats }
         if let location = outcome.learnedLocation, probes[index].expectedLocation == nil {
             probes[index].expectedLocation = location
         }
