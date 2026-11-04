@@ -132,8 +132,10 @@ struct ScanDetailLocation: View {
     let device: Device
     @ObservedObject private var switches = SwitchStore.shared
 
-    /// Emplacement présentable comme actuel (appareil dans les plages cochées, même réseau).
-    private var isCurrent: Bool { state.isLocationCurrent(device, bilan: switches.autoResult) }
+    /// État de l'emplacement : actuel, plage décochée, réseau changé ou non confirmé.
+    private var status: LocationStatus {
+        device.switchName != nil ? state.locationStatus(device) : state.vlanStatus(device)
+    }
 
     var body: some View {
         Panel {
@@ -144,7 +146,7 @@ struct ScanDetailLocation: View {
                     box("Port", device.switchPort ?? "—")
                     box("VLAN", device.vlan.map(String.init) ?? "—")
                 }
-                .opacity(isCurrent || device.switchName == nil ? 1 : 0.55)
+                .opacity((device.switchName == nil && device.vlan == nil) || status.isCurrent ? 1 : 0.55)
                 Text(detail)
                     .font(Theme.small)
                     .foregroundStyle(Theme.textSecondary)
@@ -154,8 +156,11 @@ struct ScanDetailLocation: View {
     }
 
     private var detail: String {
-        if !isCurrent, device.switchName != nil || device.vlan != nil {
-            return "Relevé lors d’un scan précédent (autre plage ou autre réseau)\u{00A0}: cochez la plage de cet appareil et relancez le scan pour le confirmer."
+        if device.switchName == nil, device.vlan != nil, status == .rangeUnchecked {
+            return "Plage décochée\u{00A0}: VLAN de la plage, qui n’est pas comprise dans le prochain scan."
+        }
+        if device.switchName != nil || device.vlan != nil, let explanation = status.explanation {
+            return explanation
         }
         if device.switchPort == "Wi-Fi", let name = device.switchName { return "Client sans fil associé à \(name)" }
         if let name = device.switchName {

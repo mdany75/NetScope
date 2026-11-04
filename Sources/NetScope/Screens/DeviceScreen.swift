@@ -24,6 +24,8 @@ private struct DeviceDetailView: View {
     @ObservedObject private var session = DeviceSession.shared
     @ObservedObject private var store = ToolStore.shared
     @ObservedObject private var notes = DeviceNotesStore.shared
+    /// Emplacements relevés (note 18) : un ancien relevé est grisé comme dans le Scanner.
+    @ObservedObject private var switches = SwitchStore.shared
     @State private var nameDraft = ""
     @State private var copied: String?
     @FocusState private var nameFocused: Bool
@@ -94,10 +96,17 @@ private struct DeviceDetailView: View {
                     metaRow
                     HStack(spacing: 6) {
                         Chip(text: device.deviceType.label, tone: .accent, systemImage: device.deviceType.toolSymbol)
-                        if let vlan = device.vlan { Chip(text: "VLAN \(vlan)", tone: .neutral) }
+                        if let vlan = device.vlan {
+                            let status = state.vlanStatus(device)
+                            Chip(text: "VLAN \(vlan)", tone: .neutral).opacity(status.isCurrent ? 1 : 0.5).help(status.explanation ?? "")
+                        }
                         if let range = device.rangeLabel { Chip(text: range, tone: .neutral) }
                         if device.mac?.isRandomized == true { Chip(text: "MAC privée", tone: .warning) }
-                        if let port = device.switchLocation { Chip(text: port, tone: .neutral, mono: true, systemImage: "cable.connector") }
+                        if let port = device.switchLocation {
+                            let status = state.locationStatus(device)
+                            Chip(text: port, tone: .neutral, mono: true, systemImage: "cable.connector")
+                                .opacity(status.isCurrent ? 1 : 0.5).help(status.explanation ?? "")
+                        }
                     }
                     .padding(.top, 2)
                 }

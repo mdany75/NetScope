@@ -45,6 +45,8 @@ struct DeviceCard<Content: View>: View {
 /// Onglet Aperçu : Réseau, Matériel, Emplacement physique, Disponibilité, Services connus.
 struct DeviceOverviewTab: View {
     @EnvironmentObject private var state: AppState
+    /// Emplacements relevés (note 18) : un ancien relevé est grisé comme dans le Scanner.
+    @ObservedObject private var switches = SwitchStore.shared
     let device: Device
     var onScanPorts: () -> Void
 
@@ -116,7 +118,12 @@ struct DeviceOverviewTab: View {
         DeviceCard(title: "Emplacement physique") {
             if let switchName = device.switchName {
                 let switchDevice = state.devices.first { $0.hostname == switchName || $0.customName == switchName }
+                let status = state.locationStatus(device)
                 VStack(alignment: .leading, spacing: 10) {
+                    if let explanation = status.explanation {
+                        Text(explanation).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     HStack(spacing: 8) {
                         node(title: switchName, detail: switchDevice?.ip.description ?? "switch", highlighted: false)
                         Text("─").foregroundStyle(Theme.textSecondary)
@@ -125,12 +132,15 @@ struct DeviceOverviewTab: View {
                         node(title: device.hostname.map { String($0.prefix(18)) } ?? device.displayName,
                              detail: ".\(device.ip.octets.3)", highlighted: false)
                     }
+                    .opacity(status.isCurrent ? 1 : 0.55)
                     VStack(spacing: 0) {
                         DeviceKVRow(key: "Switch", value: switchName + (switchDevice.map { " · \($0.vendorLabel)" } ?? ""))
                         DeviceKVRow(key: "Port", value: device.switchPort ?? "Inconnu")
                         DeviceKVRow(key: "VLAN", value: device.vlan.map(String.init) ?? "Inconnu")
-                        DeviceKVRow(key: "Source", value: "Inventaire (dernier relevé des switchs)", mono: false)
+                        DeviceKVRow(key: "Source", value: status.isCurrent ? "Inventaire (dernier relevé des switchs)"
+                                    : "Ancien relevé des switchs (non confirmé)", mono: false)
                     }
+                    .opacity(status.isCurrent ? 1 : 0.55)
                     Button("Voir le port dans Switchs et ports →") { state.open(.switchs) }
                         .buttonStyle(.ghost)
                         .padding(.leading, -8)

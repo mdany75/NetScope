@@ -75,8 +75,10 @@ struct ScanPipelineBar: View {
             if shown.isStale {
                 // Autre interface, autre sous-réseau ou autre passerelle depuis ce scan : rien n'est présenté comme actuel.
                 note("\(prefix(result))bilan des switchs d’un scan précédent sur \(result.network?.label ?? "un autre réseau")\u{00A0}; le réseau a changé depuis. Relancez le scan pour le mettre à jour.")
+                    .help(rangesHelp(result))
             } else if result.interrupted {
                 note("\(prefix(result))découverte des switchs interrompue\u{00A0}: relancez le scan pour la terminer.")
+                    .help(rangesHelp(result))
             } else if result.foundSwitch {
                 found(result)
             } else {
@@ -84,13 +86,20 @@ struct ScanPipelineBar: View {
                     Button { openSettings(result) } label: { Label("Ouvrir les Réglages", systemImage: "gearshape") }
                         .buttonStyle(.secondary)
                 }
+                .help(rangesHelp(result))
             }
         }
     }
 
-    /// « Plage 10.182.122.0/24 : » devant chaque message du bilan (vide pour un bilan sans plage).
+    /// « Plage 10.182.122.0/24 : » devant chaque message du bilan (vide pour un bilan sans plage) ;
+    /// plages nommées par leur texte saisi, « 3 plages » au-delà de deux.
     private func prefix(_ result: SwitchAutoResult) -> String {
-        result.ranges.isEmpty ? "" : "\(result.rangesLabel)\u{00A0}: "
+        result.ranges.isEmpty ? "" : "\(result.rangesLabel(names: state.rangeNames))\u{00A0}: "
+    }
+
+    /// Liste complète des plages du bilan (aide au survol).
+    private func rangesHelp(_ result: SwitchAutoResult) -> String {
+        result.ranges.isEmpty ? "" : "Plages du bilan\u{00A0}: " + ScanRelevance.rangesList(result.ranges, names: state.rangeNames)
     }
 
     /// Première lettre en majuscule quand le message n'a pas de préfixe de plage.
@@ -138,12 +147,13 @@ struct ScanPipelineBar: View {
     private func found(_ result: SwitchAutoResult) -> some View {
         let count = result.switchNames.count
         let names = result.switchNames.prefix(4).joined(separator: ", ") + (count > 4 ? "…" : "")
-        var text = "Switchs\u{00A0}: \(count) relevé\(count > 1 ? "s" : "") (\(names)) · \(result.located) appareil\(result.located > 1 ? "s" : "") localisé\(result.located > 1 ? "s" : "")"
+        // Même place que dans les autres messages : « Plage 10.182.122.0/24 : 2 switchs relevés (…) ».
+        let head = result.ranges.isEmpty ? "Switchs\u{00A0}: \(count) relevé\(count > 1 ? "s" : "")"
+            : "\(prefix(result))\(count) switch\(count > 1 ? "s" : "") relevé\(count > 1 ? "s" : "")"
+        var text = "\(head) (\(names)) · \(result.located) appareil\(result.located > 1 ? "s" : "") localisé\(result.located > 1 ? "s" : "")"
         if result.filledMACs > 0 { text += " · \(result.filledMACs) MAC complétée\(result.filledMACs > 1 ? "s" : "") par l’ARP SNMP" }
         if !result.failed.isEmpty { text += " · \(result.failed.count) sans relevé" }
-        // Plages du bilan en fin de ligne : les noms des switchs restent lisibles si la place manque.
-        if !result.ranges.isEmpty { text += " · \(result.rangesLabel)" }
-        let help = text
+        let help = [text, rangesHelp(result)].filter { !$0.isEmpty }.joined(separator: "\n")
         return HStack(spacing: 8) {
             Image(systemName: "rectangle.connected.to.line.below").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.success)
             Text(text).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.tail)
@@ -168,7 +178,7 @@ struct ScanPipelineBar: View {
         let queried = "\(result.queried) hôte\(result.queried > 1 ? "s" : "") interrogé\(result.queried > 1 ? "s" : "") avec \(result.communitiesTried) communauté\(result.communitiesTried > 1 ? "s" : "")"
         if !result.failed.isEmpty {
             let names = result.failedNames.prefix(3).joined(separator: ", ")
-            return sentence(result, "switch trouvé mais relevé impossible (\(names))\u{00A0}: il a répondu à la découverte, pas au relevé complet (délai dépassé ou accès refusé à la table MAC). Réessayez depuis «\u{00A0}Switchs et ports\u{00A0}».")
+            return sentence(result, "switch interrogé mais relevé impossible (\(names))\u{00A0}: délai dépassé ou accès refusé à la table MAC. Réessayez depuis «\u{00A0}Switchs et ports\u{00A0}».")
         }
         if result.responded > 0 {
             return sentence(result, "\(queried)\u{00A0}: \(result.responded) appareil\(result.responded > 1 ? "s ont" : " a") répondu en SNMP, mais aucun n’est un switch. Si vos switchs sont sur un VLAN de gestion, ajoutez cette plage au scan ou ajoutez le switch à la main.")

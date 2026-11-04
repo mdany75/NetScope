@@ -138,20 +138,30 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// Rafraîchit l'interface active (lecture locale par getifaddrs, aucun trafic) : un changement
-    /// d'interface ou de sous-réseau rend périmés le bilan des switchs et l'encart LLDP/CDP.
+    /// Interface choisie dans Réglages › Interface : gardée tant qu'elle existe, reprise quand
+    /// elle revient après une coupure.
+    var preferredInterfaceName: String?
+
+    /// Rafraîchit l'interface active, sa passerelle et les serveurs DNS (getifaddrs, table de
+    /// routage, resolv.conf : lecture locale, aucun trafic), quel que soit l'écran affiché. Un
+    /// changement d'interface, de sous-réseau ou de passerelle rend périmés le bilan des switchs,
+    /// les emplacements relevés et l'encart LLDP/CDP.
     func refreshInterface() async {
-        let interfaces = await Task.detached(priority: .utility) { LocalInterfaces.list() }.value
+        let (interfaces, gateway, servers) = await Task.detached(priority: .utility) {
+            (LocalInterfaces.list(), ScanNetwork.defaultGateway(), ScanNetwork.dnsServers())
+        }.value
+        if !servers.isEmpty, servers != dnsServers { dnsServers = servers }
         if activeInterface == nil, interfaces.isEmpty { return }
-        let current = activeInterface.flatMap { active in interfaces.first { $0.name == active.name } }
-        if let current, let active = activeInterface, current.address == active.address, current.netmask == active.netmask {
-            return
+        switch InterfaceRefresh.decide(active: activeInterface, preferred: preferredInterfaceName,
+                                       listed: interfaces, defaultGateway: gateway) {
+        case .keep(let updated):
+            if updated != activeInterface { activeInterface = updated }
+        case .choose:
+            // Interface disparue (ou choix de l'utilisateur revenu) : on relit les types (Wi-Fi, Ethernet).
+            let withKinds = await LocalInterfaces.listWithKinds()
+            let choice = InterfaceRefresh.pick(from: withKinds, preferred: preferredInterfaceName, defaultGateway: gateway)
+            if choice != activeInterface { activeInterface = choice }
         }
-        // Interface disparue ou readressée : on relit les types (Wi-Fi, Ethernet) ; la passerelle
-        // est relue par le Scanner (`fillLocalInfo`) au changement d'interface ou de réseau.
-        let withKinds = await LocalInterfaces.listWithKinds()
-        let primary = withKinds.first { $0.kind == .wifi || $0.kind == .ethernet } ?? withKinds.first
-        if primary != activeInterface { activeInterface = primary }
     }
 
     // MARK: Pertinence (note 18)
@@ -171,11 +181,23 @@ final class AppState: ObservableObject {
         result?.presentation(checked: checkedRanges, network: currentNetwork)
     }
 
-    /// Vrai si l'emplacement (switch, port, VLAN) de l'appareil peut être présenté comme actuel :
-    /// appareil dans les plages cochées, réseau inchangé depuis le dernier bilan.
-    func isLocationCurrent(_ device: Device, bilan: SwitchAutoResult?) -> Bool {
-        let stale = bilan?.network.map { $0.isStale(comparedTo: currentNetwork) } ?? false
-        return ScanRelevance.isLocationCurrent(device.ip, checked: checkedRanges, networkStale: stale)
+    /// Noms saisis des plages (« 10.10.0.1-50 »), pour nommer les plages d'un bilan.
+    var rangeNames: [IPRange: String] {
+        var names: [IPRange: String] = [:]
+        for config in ranges { if let range = try? config.parsed(), names[range] == nil { names[range] = config.text } }
+        return names
+    }
+
+    /// État de l'emplacement (switch, port) d'un appareil : actuel seulement s'il a été relevé ou
+    /// confirmé sur le réseau actuel et que sa plage est cochée. Même règle dans tous les écrans.
+    func locationStatus(_ device: Device) -> LocationStatus {
+        SwitchStore.shared.locations.status(of: device.ip, checked: checkedRanges, network: currentNetwork)
+    }
+
+    /// État du VLAN affiché (celui d'un emplacement relevé, ou celui de la plage).
+    func vlanStatus(_ device: Device) -> LocationStatus {
+        SwitchStore.shared.locations.vlanStatus(of: device.ip, hasSwitchLocation: device.switchName != nil,
+                                                checked: checkedRanges, network: currentNetwork)
     }
 
     // MARK: Persistance

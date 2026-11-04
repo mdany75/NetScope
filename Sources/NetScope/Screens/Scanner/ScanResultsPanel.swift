@@ -305,16 +305,16 @@ struct ScanDeviceTable: View {
             .width(min: 100, ideal: 130)
 
             TableColumn("SWITCH / PORT", value: \Device.scanSortSwitch) { device in
-                let current = state.isLocationCurrent(device, bilan: switches.autoResult)
-                ScanCellText(device.switchLocation ?? "—", mono: true, dimmed: device.switchLocation == nil || !current)
-                    .help(device.switchLocation != nil && !current ? "Relevé lors d’un scan précédent (autre plage ou autre réseau)" : "")
+                let status = state.locationStatus(device)
+                ScanCellText(device.switchLocation ?? "—", mono: true, dimmed: device.switchLocation == nil || !status.isCurrent)
+                    .help(device.switchLocation != nil ? status.explanation ?? "" : "")
             }
             .width(min: 110, ideal: 150)
 
             TableColumn("VLAN", value: \Device.scanSortVLAN) { device in
                 if let vlan = device.vlan {
                     Chip(text: "\(vlan)", mono: true)
-                        .opacity(state.isLocationCurrent(device, bilan: switches.autoResult) ? 1 : 0.5)
+                        .opacity(state.vlanStatus(device).isCurrent ? 1 : 0.5)
                 } else {
                     ScanCellText("—", dimmed: true)
                 }

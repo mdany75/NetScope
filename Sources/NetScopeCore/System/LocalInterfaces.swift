@@ -194,6 +194,24 @@ public enum LocalInterfaces {
         }
     }
 
+    /// Dernier changement d'état du lien de chaque interface (`ifi_lastchange` des entrées AF_LINK
+    /// de getifaddrs), en microsecondes : une coupure ou un débranchement le fait changer.
+    /// Lecture locale, aucun trafic ; la valeur ne sert qu'à être comparée.
+    public static func linkStamps() -> [String: UInt64] {
+        var head: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&head) == 0, let first = head else { return [:] }
+        defer { freeifaddrs(head) }
+        var stamps: [String: UInt64] = [:]
+        var cursor: UnsafeMutablePointer<ifaddrs>? = first
+        while let entry = cursor?.pointee {
+            defer { cursor = entry.ifa_next }
+            guard let addr = entry.ifa_addr, addr.pointee.sa_family == UInt8(AF_LINK), let data = entry.ifa_data else { continue }
+            let change = data.assumingMemoryBound(to: if_data.self).pointee.ifi_lastchange
+            stamps[String(cString: entry.ifa_name)] = UInt64(max(0, Int64(change.tv_sec))) &* 1_000_000 &+ UInt64(max(0, Int64(change.tv_usec)))
+        }
+        return stamps
+    }
+
     /// Interfaces de `list()` complétées de leur type.
     public static func listWithKinds() async -> [LocalInterface] {
         let kinds = await kinds()

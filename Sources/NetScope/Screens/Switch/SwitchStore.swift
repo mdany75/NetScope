@@ -44,6 +44,9 @@ final class SwitchStore: ObservableObject {
     /// (nil pendant un scan, après un scan sans découverte et après « Effacer »).
     var autoResult: SwitchAutoResult? { ledger.result }
     @Published private var ledger = SwitchAutoLedger()
+    /// Réseau sur lequel l'emplacement de chaque appareil a été relevé (note 18) : un emplacement
+    /// d'un autre réseau, ou non confirmé par la dernière découverte, n'est pas présenté comme actuel.
+    @Published private(set) var locations = LocationLedger()
     /// Nombre de communautés retenues par switch (pour Réglages › Switchs).
     @Published private(set) var rememberedCommunities = 0
     /// Communauté qui a répondu, par switch (adresse IP → communauté), lue au Trousseau.
@@ -137,6 +140,7 @@ final class SwitchStore: ObservableObject {
                                              located: devices.filter { $0.switchName == snapshot.displayName }.map(\.ip))
             },
             locatedHosts: locatedHosts, filledHosts: Array(locatedHosts.prefix(3)), communitiesTried: 2))
+        locations.record(devices.filter { $0.switchName != nil }.map(\.ip), network: NetworkContext(DemoData.interface))
     }
 
     /// Vrai si le switch a été trouvé par la découverte automatique.
@@ -236,7 +240,9 @@ final class SwitchStore: ObservableObject {
         await loadVault()
         let fresh = await pollHosts(hosts)
         guard !Task.isCancelled else { return }
-        _ = complete(state, fresh: fresh, routerTables: [])
+        let (located, _) = complete(state, fresh: fresh, routerTables: [])
+        // Interrogation manuelle : les appareils localisés le sont sur le réseau actuel.
+        locations.record(located.values.flatMap { $0 }, network: state.currentNetwork)
     }
 
     /// Relève les switchs donnés (quatre à la fois), chacun avec sa communauté. Renvoie les
@@ -324,6 +330,9 @@ final class SwitchStore: ObservableObject {
     func applyLocations(to state: AppState) -> Int {
         let result = SNMPAutoLocate.locate(state.devices, in: orderedSnapshots)
         if result.located > 0 { state.devices = result.devices }
+        let ports = orderedSnapshots.isEmpty ? [:] : SNMPAutoLocate.accessPorts(in: orderedSnapshots)
+        let placed = result.devices.filter { device in device.mac.map { ports[$0] != nil } ?? false }.map(\.ip)
+        locations.record(placed, network: isDemo ? NetworkContext(DemoData.interface) : state.currentNetwork)
         return result.located
     }
 
@@ -354,6 +363,7 @@ final class SwitchStore: ObservableObject {
     func clearResult() {
         guard !isDemo else { return }
         ledger.clear()
+        locations.clear()
     }
 
     /// Un seul équipement par switch : un switch de niveau 3 répond sur chacune de ses adresses
@@ -427,26 +437,30 @@ final class SwitchStore: ObservableObject {
         }
         guard !Task.isCancelled else { return interrupted(result) }
 
-        // Relevé complet des switchs (découverts et ajoutés à la main), puis emplacements.
-        let polled = hosts.filter { !community(for: $0).isEmpty }
+        // Relevé complet des switchs de ce réseau (plages scannées, sous-réseau de l'interface,
+        // découverts à l'instant, ajoutés à la main), puis emplacements. Un switch découvert sur un
+        // autre réseau n'est pas interrogé : ni délai d'attente, ni communauté envoyée ailleurs.
+        let ranges = ledger.scanRanges
+        let discoveredNow = Set(switches.map(\.host))
+        let relevant = Set(SwitchAutoResult.hostsToPoll(
+            known: hosts.compactMap(IPv4Address.init), manual: Set(hosts.filter { !autoHosts.contains($0) }.compactMap(IPv4Address.init)),
+            discoveredNow: discoveredNow, ranges: ranges, localSubnet: ledger.scanNetwork?.subnet).map(\.description))
+        let polled = hosts.filter { relevant.contains($0) && !community(for: $0).isEmpty }
         let fresh = await pollHosts(polled)
         guard !Task.isCancelled else { return interrupted(result) }
         phase(.locations)
         let (located, filled) = complete(state, fresh: fresh, routerTables: routerTables)
-        let ranges = ledger.scanRanges
+        locations.discoveryFinished(ranges: ranges, located: located.values.flatMap { $0 }, network: ledger.scanNetwork)
         func inScan(_ ip: IPv4Address) -> Bool { ranges.isEmpty || ScanRelevance.contains(ranges, ip) }
         result.switches = hosts.filter(fresh.contains).compactMap { host in
             guard let snapshot = snapshots[host] else { return nil }
             return SwitchAutoResult.SwitchEntry(name: snapshot.displayName, host: snapshot.host,
                                                 located: (located[snapshot.host] ?? []).filter(inScan))
         }
-        // Seuls les échecs des switchs des plages scannées (ou découverts à l'instant) sont signalés :
-        // un switch d'un autre réseau, connu d'un scan précédent, ne répond évidemment pas.
-        let entries = polled.map { host in
+        // Seuls les switchs de ce réseau ont été interrogés : chacun de leurs échecs est signalé.
+        result.failed = polled.filter { !fresh.contains($0) }.map { host in
             SwitchAutoResult.SwitchEntry(name: snapshots[host]?.displayName ?? host, host: IPv4Address(host))
         }
-        result.failed = SwitchAutoResult.reportedFailures(polled: entries, succeeded: Set(fresh.compactMap(IPv4Address.init)),
-                                                          discoveredNow: Set(switches.map(\.host)), ranges: ranges)
         result.locatedHosts = located.values.flatMap { $0 }.filter(inScan).sorted()
         result.filledHosts = filled.filter(inScan)
         result.date = Date()

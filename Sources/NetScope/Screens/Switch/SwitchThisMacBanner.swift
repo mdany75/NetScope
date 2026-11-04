@@ -4,7 +4,8 @@ import SwiftUI
 /// Encart « Ce Mac est branché sur… » de Switchs et ports, alimenté par la dernière capture
 /// LLDP/CDP de la boîte à outils. Rien n'est affiché tant qu'aucune capture n'a abouti.
 /// L'encart dit quand et sur quelle interface la capture a été faite ; il se grise si cette
-/// interface n'est plus active ou si son réseau (sous-réseau, passerelle) a changé depuis.
+/// interface n’est plus active, si son lien a été coupé (câble déplacé) ou si son réseau
+/// (sous-réseau, passerelle) a changé depuis.
 struct SwitchThisMacBanner: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var switches: SwitchStore
@@ -17,9 +18,12 @@ struct SwitchThisMacBanner: View {
         capture.lastContext ?? neighbor.interface.map { NetworkContext(interface: $0) }
     }
 
+    /// Avant la première lecture périodique, l'état est lu tout de suite : l'encart n'affirme rien
+    /// au présent sans avoir vérifié l'interface (pas de bascule « est » → « était »).
     private func isStale(_ neighbor: NetworkNeighbor) -> Bool {
-        guard let captured = captured(neighbor), let current else { return false }
-        return captured.isStale(comparedTo: current)
+        guard let captured = captured(neighbor) else { return false }
+        let now: NetworkContext? = current ?? captured.interface.flatMap { capture.currentContextNow(of: $0, active: state.activeInterface) }
+        return captured.isStale(comparedTo: now)
     }
 
     var body: some View {
@@ -71,7 +75,7 @@ struct SwitchThisMacBanner: View {
         var head = "Capture \(neighbor.protocolLabel)"
         if let date = neighbor.receivedAt { head += " du \(SwitchText.dateTime(date))" }
         if let interface = captured(neighbor)?.label ?? neighbor.interface, !interface.isEmpty { head += " sur \(interface)" }
-        if stale { return head + "\u{00A0}: l’interface ou le réseau a changé depuis, ce relevé n’est plus actuel. Refaites une capture." }
+        if stale { return head + "\u{00A0}: le lien a été coupé, ou l’interface ou le réseau a changé depuis\u{00A0}; ce relevé n’est plus actuel. Refaites une capture." }
         var parts = [head]
         if let model = neighbor.model { parts.append(model) }
         if let address = neighbor.managementAddresses.first { parts.append("gestion \(address)") }

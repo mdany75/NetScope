@@ -63,6 +63,7 @@ struct RegInterfaceSection: View {
             var choice = interface
             if choice.gateway == nil, state.activeInterface?.name == interface.name { choice.gateway = state.activeInterface?.gateway }
             state.activeInterface = choice
+            state.preferredInterfaceName = choice.name
         } label: {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {

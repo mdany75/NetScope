@@ -5,6 +5,8 @@ import SwiftUI
 struct TopoAside: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var model = InvModel.shared
+    /// Emplacements relevés (note 18) : un ancien relevé est signalé comme dans le Scanner.
+    @ObservedObject private var switches = SwitchStore.shared
 
     let graph: TopoGraph
     @Binding var selectedID: String?
@@ -67,7 +69,9 @@ struct TopoAside: View {
                         KeyValueRow(key: "MAC", value: device.mac?.formatted(.upperColon) ?? "—", mono: true, keyWidth: 92)
                         KeyValueRow(key: "Fabricant", value: device.vendorLabel, keyWidth: 92)
                         KeyValueRow(key: "VLAN", value: device.vlan.map(String.init) ?? "—", keyWidth: 92)
-                        KeyValueRow(key: "Emplacement", value: device.switchLocation ?? "Port inconnu", mono: device.switchLocation != nil, keyWidth: 92)
+                        KeyValueRow(key: "Emplacement", value: device.switchLocation.map { state.locationStatus(device).isCurrent ? $0 : "\($0) (ancien relevé)" } ?? "Port inconnu",
+                                    mono: device.switchLocation != nil, keyWidth: 92)
+                            .help(device.switchLocation == nil ? "" : state.locationStatus(device).explanation ?? "")
                         KeyValueRow(key: "Découverte", value: "Scan (ARP, ping)" + (device.openPorts.isEmpty ? "" : ", ports TCP"), keyWidth: 92)
                         KeyValueRow(key: "Vu", value: device.isOnline ? "Maintenant" : InvFormat.relative(device.lastSeen), keyWidth: 92)
                     }

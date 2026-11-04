@@ -66,17 +66,30 @@ final class ToolNeighborModel: ObservableObject {
     var isRunning: Bool { phase == .authorizing || phase == .listening }
 
     /// Réseau d'une interface ; la passerelle vient de l'interface active quand c'est la même.
-    static func context(of interface: LocalInterface, active: LocalInterface?) -> NetworkContext {
+    /// `linkStamp` : dernier changement d'état du lien (un câble débranché puis rebranché ailleurs).
+    nonisolated static func context(of interface: LocalInterface, active: LocalInterface?, linkStamp: UInt64? = nil) -> NetworkContext {
         var context = NetworkContext(interface)
         if context.gateway == nil, let active, active.name == interface.name { context.gateway = active.gateway }
+        context.linkStamp = linkStamp
         return context
     }
 
     /// Réseau actuel de l'interface de la dernière capture (lecture locale, aucun trafic) ;
     /// nil si l'interface n'est plus active.
     func currentContext(of name: String, active: LocalInterface?) async -> NetworkContext? {
-        let list = isDemo ? CaptureDemo.interfaces : await Task.detached(priority: .utility) { LocalInterfaces.linkInterfaces() }.value
-        return list.first { $0.name == name }.map { Self.context(of: $0, active: active) }
+        if isDemo { return currentContextNow(of: name, active: active) }
+        return await Task.detached(priority: .utility) { Self.readContext(of: name, active: active) }.value
+    }
+
+    /// Même lecture, immédiate (premier affichage de l'encart : rien n'est affirmé avant elle).
+    func currentContextNow(of name: String, active: LocalInterface?) -> NetworkContext? {
+        if isDemo { return CaptureDemo.interfaces.first { $0.name == name }.map { Self.context(of: $0, active: active) } }
+        return Self.readContext(of: name, active: active)
+    }
+
+    nonisolated private static func readContext(of name: String, active: LocalInterface?) -> NetworkContext? {
+        guard let interface = LocalInterfaces.linkInterfaces().first(where: { $0.name == name }) else { return nil }
+        return context(of: interface, active: active, linkStamp: LocalInterfaces.linkStamps()[name])
     }
 
     var selectedInterface: LocalInterface? { interfaces.first { $0.name == interfaceName } }
@@ -244,7 +257,7 @@ final class ToolNeighborModel: ObservableObject {
         if let primary {
             lastNeighbor = primary
             lastContext = Self.context(of: interfaces.first { $0.name == name } ?? LocalInterface(name: name, address: IPv4Address(0), netmask: IPv4Address(0)),
-                                       active: activeHint)
+                                       active: activeHint, linkStamp: isDemo ? nil : LocalInterfaces.linkStamps()[name])
             save()
             store?.record(ToolRecent(tool: .lldp, target: name, summary: primary.headline, status: .ok))
         } else if recordResult {

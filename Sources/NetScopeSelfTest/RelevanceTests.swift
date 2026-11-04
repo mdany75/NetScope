@@ -29,7 +29,13 @@ func registerRelevanceTests(_ suite: TestSuite) {
         try expect(ScanRelevance.contains([range("10.0.0.0/24")], ip("10.0.0.7")), "adresse dans la plage")
         try expectEqual(ScanRelevance.rangesLabel([range("10.182.122.0/24")]), "Plage 10.182.122.0/24", "libellé d'une plage")
         try expectEqual(ScanRelevance.rangesLabel([range("10.0.1.0/24"), range("10.0.2.0/24")]),
-                        "Plages 10.0.1.0/24, 10.0.2.0/24", "libellé de deux plages")
+                        "Plages 10.0.1.0/24 et 10.0.2.0/24", "libellé de deux plages")
+        let trois = [range("10.182.122.0/24"), range("192.168.50.0/24"), range("10.10.0.1-50")]
+        try expectEqual(ScanRelevance.rangesLabel(trois), "3 plages", "au-delà de deux : le nombre")
+        try expectEqual(ScanRelevance.rangesLabel([range("10.10.0.1-50")], names: [range("10.10.0.1-50"): "10.10.0.1-50"]),
+                        "Plage 10.10.0.1-50", "texte saisi plutôt que la forme lue")
+        try expectEqual(ScanRelevance.rangesList(trois, names: [range("10.10.0.1-50"): "10.10.0.1-50"]),
+                        "10.182.122.0/24\u{00A0}; 192.168.50.0/24\u{00A0}; 10.10.0.1-50", "liste complète pour l'aide")
     }
 
     suite.add("Pertinence : bilan gardé pour la même plage") {
@@ -69,6 +75,18 @@ func registerRelevanceTests(_ suite: TestSuite) {
         try expect(part.failed.isEmpty, "échec de l'autre plage écarté")
         // Plages cochées plus larges : le bilan entier reste.
         try expectEqual(bilan.relevant(to: [range("10.0.0.0/16")]), bilan, "plages couvertes : inchangé")
+        // Le switch de gestion (hors des plages du bilan) reste même s'il n'a rien localisé ici.
+        let part2 = bilan.relevant(to: [range("10.0.2.0/24")])
+        try expectEqual(part2?.switchNames, ["SW-A", "SW-B", "SW-GESTION"], "SW-A y a localisé 10.0.2.20 ; gestion gardé")
+        try expectEqual(part2?.failedNames, ["SW-C"], "échec de la plage cochée gardé")
+        // Le libellé nomme la partie cochée, pas toute la plage du scan (compteurs cohérents).
+        let large = SwitchAutoResult(ranges: [range("10.0.0.0/16")], network: bureau,
+                                     queriedHosts: [ip("10.0.1.5"), ip("10.0.7.5")])
+        let cochee = large.relevant(to: [range("10.0.1.0/24")])
+        try expectEqual(cochee?.rangesLabel, "Plage 10.0.1.0/24", "partie cochée d'un /16")
+        try expectEqual(cochee?.queried, 1, "compteur de la partie cochée")
+        let chevauche = large.relevant(to: [range("10.0.255.200-10.1.0.20")])
+        try expectEqual(chevauche?.rangesLabel, "Plage 10.0.255.200-10.0.255.254", "portion commune quand rien n'est inclus")
     }
 
     suite.add("Pertinence : un nouveau scan efface le bilan, même sans découverte") {
@@ -92,19 +110,17 @@ func registerRelevanceTests(_ suite: TestSuite) {
         try expect(ledger.result == nil, "« Effacer »")
     }
 
-    suite.add("Pertinence : un switch d'un autre réseau qui ne répond pas n'est pas signalé") {
-        // Cause du constat : 10.182.122.124, découvert sur l'ancien réseau, est encore interrogé
-        // pendant le scan de 192.168.1.0/24 ; son échec ne concerne pas cette plage.
-        let polled: [SwitchAutoResult.SwitchEntry] = [
-            .init(name: "10.182.122.124", host: ip("10.182.122.124")),
-            .init(name: "SW-MAISON", host: ip("192.168.1.2")),
-            .init(name: "SW-OK", host: ip("192.168.1.3")),
-            .init(name: "SW-GESTION", host: ip("10.9.9.2")),
-        ]
-        let failures = SwitchAutoResult.reportedFailures(polled: polled, succeeded: [ip("192.168.1.3")],
-                                                         discoveredNow: [ip("10.9.9.2")], ranges: [range("192.168.1.0/24")])
-        try expectEqual(failures.map(\.name), ["SW-MAISON", "SW-GESTION"],
-                        "échecs de la plage scannée et des switchs découverts à l'instant seulement")
+    suite.add("Pertinence : seuls les switchs de ce réseau sont relevés en fin de scan") {
+        // Cause du constat : 10.182.122.124, découvert sur l'ancien réseau, était encore interrogé
+        // pendant le scan de 192.168.1.0/24 ; son échec était signalé pour cette plage.
+        let known = [ip("10.182.122.124"), ip("192.168.1.2"), ip("10.9.9.2"), ip("172.16.0.2"), ip("10.0.5.2")]
+        let polled = SwitchAutoResult.hostsToPoll(known: known, manual: [ip("10.9.9.2")], discoveredNow: [ip("10.0.5.2")],
+                                                  ranges: [range("192.168.1.0/24")], localSubnet: maison.subnet)
+        try expectEqual(polled, [ip("192.168.1.2"), ip("10.9.9.2"), ip("10.0.5.2")],
+                        "plage scannée, switch ajouté à la main (gestion routée), découvert à l'instant ; pas l'ancien réseau")
+        let local = SwitchAutoResult.hostsToPoll(known: [ip("192.168.1.250")], manual: [], discoveredNow: [],
+                                                 ranges: [range("192.168.1.1-100")], localSubnet: maison.subnet)
+        try expectEqual(local, [ip("192.168.1.250")], "sous-réseau de l'interface")
     }
 
     suite.add("Pertinence : changement d'interface ou de passerelle, encart et bilan périmés") {
@@ -126,10 +142,81 @@ func registerRelevanceTests(_ suite: TestSuite) {
         // Bilan de la même plage, mais le Mac a changé de réseau : affiché comme ancien.
         let shown = try failedBilan().presentation(checked: [range("10.182.122.0/24")], network: maison)
         try expectEqual(shown?.isStale, true, "bilan d'un autre réseau : périmé")
-        // Emplacement d'un appareil : actuel seulement dans les plages cochées, sur le même réseau.
+        // Câble débranché puis rebranché (autre port) : même réseau, mais lien changé.
+        var cable = capture
+        cable.linkStamp = 1_000
+        var moved = cable
+        moved.linkStamp = 2_000
+        try expect(cable.isStale(comparedTo: moved), "lien coupé depuis la capture : périmé")
+        try expect(!cable.isStale(comparedTo: cable), "même lien : actuel")
+        try expect(!capture.isStale(comparedTo: moved), "capture sans indicateur de lien : ignoré")
+    }
+
+    suite.add("Pertinence : emplacements relevés, actuels seulement sur leur réseau et confirmés") {
+        var ledger = LocationLedger()
         let checked = [range("192.168.1.0/24")]
-        try expect(ScanRelevance.isLocationCurrent(ip("192.168.1.20"), checked: checked, networkStale: false), "plage cochée : actuel")
-        try expect(!ScanRelevance.isLocationCurrent(ip("10.182.122.111"), checked: checked, networkStale: false), "autre plage : ancien")
-        try expect(!ScanRelevance.isLocationCurrent(ip("192.168.1.20"), checked: checked, networkStale: true), "réseau changé : ancien")
+        // Site A (maison) : 192.168.1.20 localisé par la découverte.
+        ledger.discoveryFinished(ranges: checked, located: [ip("192.168.1.20")], network: maison)
+        try expectEqual(ledger.status(of: ip("192.168.1.20"), checked: checked, network: maison), .current, "même plage, même réseau")
+        try expectEqual(ledger.status(of: ip("192.168.1.20"), checked: [], network: maison), .rangeUnchecked, "plage décochée")
+        try expectEqual(ledger.status(of: ip("192.168.1.30"), checked: checked, network: maison), .unconfirmed, "jamais relevé")
+        // Site B, même plage, autre passerelle : l'emplacement du site A n'est plus actuel.
+        let siteB = NetworkContext(interface: "en0", subnet: maison.subnet, gateway: ip("192.168.1.254"))
+        try expectEqual(ledger.status(of: ip("192.168.1.20"), checked: checked, network: siteB), .networkChanged, "autre site")
+        // Bureau puis retour sur la plage du bureau sans rescan : ancien réseau.
+        ledger.record([ip("10.182.122.111")], network: bureau)
+        try expectEqual(ledger.status(of: ip("10.182.122.111"), checked: [range("10.182.122.0/24")], network: maison),
+                        .networkChanged, "plage du bureau recochée à la maison")
+        // Nouvelle découverte sur la plage : l'appareil non relocalisé (switch muet) perd sa confirmation,
+        // celui d'une autre plage la garde.
+        ledger.discoveryFinished(ranges: checked, located: [], network: maison)
+        try expectEqual(ledger.status(of: ip("192.168.1.20"), checked: checked, network: maison), .unconfirmed, "non relocalisé")
+        try expectEqual(ledger.status(of: ip("10.182.122.111"), checked: [range("10.182.122.0/24")], network: bureau),
+                        .current, "autre plage non touchée")
+        // VLAN : celui d'un emplacement suit l'emplacement ; sinon (VLAN de la plage) seulement la plage cochée.
+        try expectEqual(ledger.vlanStatus(of: ip("192.168.1.20"), hasSwitchLocation: true, checked: checked, network: maison),
+                        .unconfirmed, "VLAN relevé non confirmé")
+        try expectEqual(ledger.vlanStatus(of: ip("192.168.1.20"), hasSwitchLocation: false, checked: checked, network: maison),
+                        .current, "VLAN de la plage cochée")
+        try expect(LocationStatus.current.explanation == nil && LocationStatus.rangeUnchecked.explanation != nil, "explications")
+        ledger.clear()
+        try expectEqual(ledger.status(of: ip("10.182.122.111"), checked: [range("10.182.122.0/24")], network: bureau),
+                        .unconfirmed, "« Effacer »")
+    }
+
+    suite.add("Pertinence : relecture de l'interface active (choix gardé, passerelle relue)") {
+        let mask = ip("255.255.255.0")
+        let wifi = LocalInterface(name: "en0", address: ip("192.168.1.57"), netmask: mask, kind: .wifi, gateway: ip("192.168.1.1"))
+        let cable = LocalInterface(name: "en7", address: ip("10.0.0.20"), netmask: mask, kind: .ethernet, gateway: ip("10.0.0.1"))
+        let listed = [LocalInterface(name: "en0", address: ip("192.168.1.57"), netmask: mask),
+                      LocalInterface(name: "en7", address: ip("10.0.0.33"), netmask: mask)]
+        // en7 choisie dans Réglages, renouvellement DHCP : en7 gardée (pas en0, listée avant), type et passerelle gardés.
+        guard case .keep(let kept) = InterfaceRefresh.decide(active: cable, preferred: "en7", listed: listed,
+                                                             defaultGateway: ip("192.168.1.1")) else {
+            throw TestFailure(message: "en7 attendue", file: #fileID, line: #line)
+        }
+        try expectEqual(kept.name, "en7", "interface choisie gardée")
+        try expectEqual(kept.address, ip("10.0.0.33"), "nouvelle adresse")
+        try expectEqual(kept.kind, .ethernet, "type gardé")
+        try expectEqual(kept.gateway, ip("10.0.0.1"), "même sous-réseau : passerelle gardée (route par défaut ailleurs)")
+        // Même adresse, autre passerelle (autre site sur la même plage) : vue.
+        guard case .keep(let moved) = InterfaceRefresh.decide(active: wifi, preferred: nil, listed: listed,
+                                                              defaultGateway: ip("192.168.1.254")) else {
+            throw TestFailure(message: "en0 attendue", file: #fileID, line: #line)
+        }
+        try expectEqual(moved.gateway, ip("192.168.1.254"), "changement de passerelle à adresse égale")
+        try expect(NetworkContext(wifi).isStale(comparedTo: NetworkContext(moved)), "bilan du site A périmé")
+        // Interface disparue : il faut choisir ; le choix de l'utilisateur revient dès qu'elle reparaît.
+        try expectEqual(InterfaceRefresh.decide(active: cable, preferred: nil, listed: [listed[0]], defaultGateway: nil), .choose,
+                        "interface disparue")
+        try expectEqual(InterfaceRefresh.decide(active: wifi, preferred: "en7", listed: listed, defaultGateway: nil), .choose,
+                        "choix de l'utilisateur revenu")
+        var kinds = listed
+        kinds[0].kind = .wifi
+        kinds[1].kind = .ethernet
+        try expectEqual(InterfaceRefresh.pick(from: kinds, preferred: "en7", defaultGateway: ip("192.168.1.1"))?.name, "en7",
+                        "choix de l'utilisateur")
+        try expectEqual(InterfaceRefresh.pick(from: kinds, preferred: nil, defaultGateway: ip("192.168.1.1"))?.gateway,
+                        ip("192.168.1.1"), "passerelle relue pour l'interface choisie")
     }
 }
