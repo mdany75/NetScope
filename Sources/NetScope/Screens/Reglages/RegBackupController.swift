@@ -7,6 +7,8 @@ import UniformTypeIdentifiers
 /// « Sauvegarder maintenant », liste, rotation et restauration. La restauration se termine au
 /// lancement suivant (avant que les écrans ne lisent leurs fichiers), pour qu'aucune donnée en
 /// mémoire ne réécrive l'état restauré en quittant.
+/// Note 38 : chiffrement par mot de passe (option), avec les secrets du Trousseau en option ; le
+/// mot de passe n'est jamais écrit ailleurs qu'au Trousseau, et seulement sur demande.
 @MainActor
 final class RegBackupController: ObservableObject {
     static let shared = RegBackupController()
@@ -19,7 +21,31 @@ final class RegBackupController: ObservableObject {
         static let iCloud = "sauvegarde.copieICloud"
         static let last = "sauvegarde.derniere"
         static let pending = "sauvegarde.restaurationEnAttente"
+        /// Note 38 : chiffrement par mot de passe et secrets du Trousseau inclus.
+        static let encrypt = "sauvegarde.chiffrer"
+        static let includeSecrets = "sauvegarde.inclureSecrets"
+        /// Archive en attente tirée d'une sauvegarde chiffrée (à effacer après la restauration).
+        static let pendingIsTemporary = "sauvegarde.restaurationTemporaire"
+        static let restoredSecrets = "sauvegarde.secretsRemis"
     }
+
+    /// Mot de passe demandé par une feuille (aucun n'est mémorisé, ou il faut le définir).
+    enum PasswordRequest: Identifiable, Equatable {
+        case backupNow
+        case export(URL)
+        case define
+
+        var id: String {
+            switch self {
+            case .backupNow: return "sauvegarde"
+            case .export(let url): return "export:" + url.path
+            case .define: return "definir"
+            }
+        }
+    }
+
+    /// Mot de passe des sauvegardes chiffrées (Trousseau, seulement si « Mémoriser » est coché).
+    nonisolated static let passwordKeychain = UpdKeychain(service: BackupPasswordKeychain.service)
 
     /// Nombre de sauvegardes gardées (0 : toutes).
     static let keepChoices = [5, 10, 30, 60, 0]
@@ -41,6 +67,14 @@ final class RegBackupController: ObservableObject {
     @Published private(set) var keychainItems: [BackupKeychainItem] = []
     /// Restauration prête, en attente du redémarrage.
     @Published private(set) var pendingRestore: String?
+    /// Note 38 : sauvegardes chiffrées par mot de passe.
+    @Published var encrypt: Bool { didSet { defaults?.set(encrypt, forKey: Key.encrypt) } }
+    /// Note 38 : jetons et secrets du Trousseau rangés dans la partie chiffrée.
+    @Published var includeSecrets: Bool { didSet { defaults?.set(includeSecrets, forKey: Key.includeSecrets) } }
+    /// Mot de passe mémorisé au Trousseau (sauvegarde automatique chiffrée).
+    @Published private(set) var hasStoredPassword = false
+    /// Feuille de mot de passe à montrer.
+    @Published var passwordRequest: PasswordRequest?
 
     private let defaults: UserDefaults?
     private var timer: Timer?
@@ -77,6 +111,8 @@ final class RegBackupController: ObservableObject {
         folder = defaults?.string(forKey: Key.folder).map { URL(fileURLWithPath: $0, isDirectory: true) } ?? Self.defaultFolder
         lastBackup = defaults?.object(forKey: Key.last) as? Date
         pendingRestore = defaults?.string(forKey: Key.pending)
+        encrypt = defaults?.bool(forKey: Key.encrypt) ?? false
+        includeSecrets = defaults?.bool(forKey: Key.includeSecrets) ?? false
         if RegEnvironment.isDemo { loadDemo() }
     }
 
@@ -91,8 +127,10 @@ final class RegBackupController: ObservableObject {
             let list = await Task.detached { BackupEngine.list(in: folder) }.value
             // Note 25 : un jeton par FortiGate, nommé par son site dans la liste à ressaisir.
             let items = await Task.detached { BackupKeychainScan.describe(BackupKeychainScan.items(), fortiGates: FortiGateStore.savedControllers()) }.value
+            let stored = await Task.detached { Self.storedPassword() != nil }.value
             self.backups = list
             self.keychainItems = items
+            self.hasStoredPassword = stored
             if let newest = list.first?.date, newest > (self.lastBackup ?? .distantPast) { self.lastBackup = newest }
         }
     }
@@ -113,7 +151,7 @@ final class RegBackupController: ObservableObject {
 
     private func runIfDue() {
         guard automatic, !isWorking, pendingRestore == nil, BackupEngine.isAutomaticBackupDue(last: lastBackup) else { return }
-        Task { await backup(kind: .automatique) }
+        Task { await backup(kind: .automatique, encryption: scheduledEncryption()) }
     }
 
     func backupNow() {
@@ -122,22 +160,102 @@ final class RegBackupController: ObservableObject {
             return
         }
         guard !isWorking else { return }
-        Task { await backup(kind: .manuelle) }
+        let encryption = scheduledEncryption()
+        if encrypt, encryption == nil {
+            // Aucun mot de passe mémorisé (ou illisible) : il est demandé, jamais de repli en clair.
+            passwordRequest = .backupNow
+            return
+        }
+        Task { await backup(kind: .manuelle, encryption: encryption) }
     }
 
-    /// Source de la sauvegarde : fichiers JSON, préférences de l'app, noms des comptes du Trousseau.
-    nonisolated static func makeSource() -> BackupSource {
+    // MARK: Chiffrement (note 38)
+
+    /// Mot de passe mémorisé au Trousseau, s'il y en a un.
+    nonisolated static func storedPassword() -> String? {
+        guard !RegEnvironment.isSandboxed else { return nil }
+        return passwordKeychain.string(for: BackupPasswordKeychain.account).flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    /// Chiffrement des sauvegardes faites sans feuille (automatique, sécurité, « Sauvegarder
+    /// maintenant » avec un mot de passe mémorisé) : seulement si un mot de passe est mémorisé ;
+    /// sinon la sauvegarde habituelle, sans secret.
+    private func scheduledEncryption() -> BackupEncryption? {
+        guard encrypt, let password = Self.storedPassword() else { return nil }
+        return BackupEncryption(password: password, includeSecrets: includeSecrets)
+    }
+
+    /// Mot de passe saisi dans la feuille : mémorisé au Trousseau si demandé, puis la sauvegarde
+    /// ou l'export en attente. Le mot de passe n'est gardé nulle part ailleurs.
+    func submitPassword(_ password: String, remember: Bool, for request: PasswordRequest) {
+        passwordRequest = nil
+        if RegEnvironment.isDemo {
+            message = ("Démonstration\u{00A0}: aucun mot de passe n’est enregistré, aucune sauvegarde n’est écrite.", .neutral)
+            return
+        }
+        if remember {
+            do {
+                try Self.passwordKeychain.set(password, for: BackupPasswordKeychain.account)
+                hasStoredPassword = true
+            } catch {
+                message = ("Mot de passe non mémorisé\u{00A0}: \(error.localizedDescription)", .warning)
+            }
+        }
+        let encryption = BackupEncryption(password: password, includeSecrets: includeSecrets)
+        switch request {
+        case .backupNow:
+            Task { await backup(kind: .manuelle, encryption: encryption) }
+        case .export(let url):
+            Task { await backup(kind: .manuelle, to: url, format: .zip, encryption: encryption) }
+        case .define:
+            if remember, hasStoredPassword {
+                message = ("Mot de passe mémorisé dans le Trousseau\u{00A0}: la sauvegarde automatique quotidienne sera chiffrée.", .success)
+            }
+        }
+    }
+
+    /// Retire le mot de passe du Trousseau : la sauvegarde automatique redevient non chiffrée.
+    func forgetPassword() {
+        guard !RegEnvironment.isSandboxed else {
+            message = ("Démonstration\u{00A0}: le Trousseau n’est pas modifié.", .neutral)
+            return
+        }
+        do {
+            try Self.passwordKeychain.delete(BackupPasswordKeychain.account)
+            hasStoredPassword = false
+            message = ("Mot de passe retiré du Trousseau. Les sauvegardes déjà chiffrées le demanderont à la restauration.", .success)
+        } catch {
+            message = (error.localizedDescription, .critical)
+        }
+    }
+
+    /// Source de la sauvegarde : fichiers JSON, préférences de l'app, noms des comptes du Trousseau,
+    /// et, pour une sauvegarde chiffrée « avec jetons et secrets », les secrets eux-mêmes.
+    nonisolated static func makeSource(includingSecrets: Bool = false) -> BackupSource {
         UserDefaults.standard.synchronize()
         let domain = UserDefaults.standard.persistentDomain(forName: preferencesDomain) ?? [:]
         let preferences = try? PropertyListSerialization.data(fromPropertyList: domain, format: .binary, options: 0)
         let info = Bundle.main.infoDictionary
-        return BackupSource(dataDirectory: dataDirectory, preferences: preferences, keychain: BackupKeychainScan.describe(BackupKeychainScan.items(), fortiGates: FortiGateStore.savedControllers()),
+        let controllers = FortiGateStore.savedControllers()
+        var secrets: [BackupSecret] = []
+        if includingSecrets {
+            // Usages lisibles (« Jeton de l’API REST de la FortiGate · Siège ») pour l'écran de restauration.
+            let usages = Dictionary(BackupKeychainScan.describe(BackupKeychainScan.items(), fortiGates: controllers)
+                .map { ($0.service + "|" + $0.account, $0.usage) }, uniquingKeysWith: { a, _ in a })
+            secrets = ((try? BackupKeychainSecrets().readSecrets()) ?? []).map { secret in
+                var copy = secret
+                copy.usage = usages[secret.service + "|" + secret.account] ?? secret.usage
+                return copy
+            }
+        }
+        return BackupSource(dataDirectory: dataDirectory, preferences: preferences, keychain: BackupKeychainScan.describe(BackupKeychainScan.items(), fortiGates: controllers),
                             appVersion: info?["CFBundleShortVersionString"] as? String ?? "dev",
-                            appBuild: info?["CFBundleVersion"] as? String ?? "dev")
+                            appBuild: info?["CFBundleVersion"] as? String ?? "dev", secrets: secrets)
     }
 
     @discardableResult
-    func backup(kind: BackupKind, to target: URL? = nil, format chosen: BackupFormat? = nil) async -> BackupInfo? {
+    func backup(kind: BackupKind, to target: URL? = nil, format chosen: BackupFormat? = nil,
+                encryption: BackupEncryption? = nil) async -> BackupInfo? {
         guard !RegEnvironment.isSandboxed else { return nil }
         workCount += 1
         defer { workCount -= 1 }
@@ -149,7 +267,8 @@ final class RegBackupController: ObservableObject {
         let copyToICloud = self.copyToICloud && target == nil
         do {
             let info = try await Task.detached(priority: .utility) { () throws -> BackupInfo in
-                let info = try BackupEngine.create(Self.makeSource(), in: folder, format: format, kind: kind)
+                let source = Self.makeSource(includingSecrets: encryption?.includeSecrets == true)
+                let info = try BackupEngine.create(source, in: folder, format: format, kind: kind, encryption: encryption)
                 if copyToICloud, let cloud = Self.iCloudFolder {
                     try? FileManager.default.createDirectory(at: cloud, withIntermediateDirectories: true)
                     try? FileManager.default.copyItem(at: info.url, to: cloud.appendingPathComponent(info.url.lastPathComponent))
@@ -162,8 +281,9 @@ final class RegBackupController: ObservableObject {
                 rotate()
             }
             if kind != .automatique {
-                let label = kind == .securite ? "Sauvegarde de sécurité créée" : "Sauvegarde créée"
-                message = ("\(label)\u{00A0}: \(info.manifest.summary) (\(info.url.lastPathComponent)).", .success)
+                var label = kind == .securite ? "Sauvegarde de sécurité créée" : "Sauvegarde créée"
+                if info.isEncrypted { label += info.includesSecrets ? " (chiffrée, avec les secrets du Trousseau)" : " (chiffrée)" }
+                message = ("\(label)\u{00A0}: \(info.summary) (\(info.url.lastPathComponent)).", .success)
             }
             refresh()
             return info
@@ -245,13 +365,20 @@ final class RegBackupController: ObservableObject {
         }
         let panel = NSOpenPanel()
         panel.title = "Exporter une sauvegarde"
-        panel.message = "Choisissez le dossier où enregistrer l’archive (.zip) de la sauvegarde."
+        panel.message = encrypt
+            ? "Choisissez le dossier où enregistrer l’archive chiffrée (.netscope-backup) de la sauvegarde."
+            : "Choisissez le dossier où enregistrer l’archive (.zip) de la sauvegarde."
         panel.prompt = "Exporter ici"
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
         guard !isWorking, panel.runModal() == .OK, let url = panel.url else { return }
-        Task { await backup(kind: .manuelle, to: url, format: .zip) }
+        let encryption = scheduledEncryption()
+        if encrypt, encryption == nil {
+            passwordRequest = .export(url)
+            return
+        }
+        Task { await backup(kind: .manuelle, to: url, format: .zip, encryption: encryption) }
     }
 
     /// Choix d'une sauvegarde hors du dossier (autre Mac, clé USB), à restaurer.
@@ -262,7 +389,7 @@ final class RegBackupController: ObservableObject {
         panel.prompt = "Choisir"
         panel.canChooseDirectories = true
         panel.canChooseFiles = true
-        panel.allowedContentTypes = [.zip, .folder]
+        panel.allowedContentTypes = [.zip, .folder] + [UTType(filenameExtension: BackupEngine.encryptedExtension) ?? .data]
         guard panel.runModal() == .OK, let url = panel.url else { return nil }
         do {
             return try BackupEngine.info(at: url)
@@ -299,14 +426,68 @@ final class RegBackupController: ObservableObject {
                 message = (error.localizedDescription, .critical)
                 return
             }
-            guard await backup(kind: .securite) != nil else {
+            guard await backup(kind: .securite, encryption: scheduledEncryption()) != nil else {
                 message = ("Restauration annulée\u{00A0}: la sauvegarde de sécurité de l’état actuel a échoué.", .critical)
                 return
             }
             defaults?.set(info.url.path, forKey: Key.pending)
+            defaults?.removeObject(forKey: Key.pendingIsTemporary)
+            defaults?.removeObject(forKey: Key.restoredSecrets)
             defaults?.synchronize()
             pendingRestore = info.url.path
             relaunch()
+        }
+    }
+
+    /// Note 38 : ouvre une sauvegarde chiffrée avec le mot de passe saisi (dérivation lente, hors du
+    /// fil principal). Mauvais mot de passe ou fichier modifié : une erreur, rien n'est restauré.
+    nonisolated func unlock(_ info: BackupInfo, password: String) async -> Result<BackupContents, Error> {
+        if RegEnvironment.isDemo {
+            return password == ReglagesDemo.demoPassword ? .success(ReglagesDemo.unlockedContents(info)) : .failure(BackupCryptoError.wrongPassword)
+        }
+        return await Task.detached(priority: .userInitiated) {
+            Result { try BackupEngine.read(info.url, password: password) }
+        }.value
+    }
+
+    /// Restauration confirmée d'une sauvegarde chiffrée déjà ouverte : sauvegarde de sécurité de
+    /// l'état actuel, archive en attente SANS secret (le mot de passe n'est pas gardé jusqu'au
+    /// redémarrage), secrets remis au Trousseau si demandé, puis redémarrage.
+    func restoreEncrypted(_ info: BackupInfo, contents: BackupContents, restoreSecrets: Bool) {
+        if RegEnvironment.isDemo {
+            message = ("Démonstration\u{00A0}: rien n’est restauré, le Trousseau n’est pas modifié.", .neutral)
+            return
+        }
+        Task {
+            guard await backup(kind: .securite, encryption: scheduledEncryption()) != nil else {
+                message = ("Restauration annulée\u{00A0}: la sauvegarde de sécurité de l’état actuel a échoué.", .critical)
+                return
+            }
+            let staged = Self.dataDirectory.appendingPathComponent(".restauration-en-attente.zip")
+            do {
+                try FileManager.default.createDirectory(at: Self.dataDirectory, withIntermediateDirectories: true)
+                try BackupEngine.plainArchive(of: contents).write(to: staged, options: .atomic)
+            } catch {
+                message = ("Restauration annulée\u{00A0}: \(error.localizedDescription)", .critical)
+                return
+            }
+            var restored = 0
+            if restoreSecrets, !contents.secrets.isEmpty {
+                let secrets = contents.secrets
+                let failed = await Task.detached { BackupEngine.restoreSecrets(secrets, to: BackupKeychainSecrets()) }.value
+                restored = secrets.count - failed.count
+                if !failed.isEmpty {
+                    // Le redémarrage attend : l'utilisateur voit quels secrets ressaisir.
+                    message = ("\(failed.count) secret\(failed.count > 1 ? "s" : "") non remis au Trousseau\u{00A0}: "
+                               + failed.map(\.usage).joined(separator: ", ") + ". La restauration des fichiers se fera au prochain lancement.", .warning)
+                }
+            }
+            defaults?.set(staged.path, forKey: Key.pending)
+            defaults?.set(true, forKey: Key.pendingIsTemporary)
+            defaults?.set(restored, forKey: Key.restoredSecrets)
+            defaults?.synchronize()
+            pendingRestore = staged.path
+            if message?.tone != .warning { relaunch() }
         }
     }
 
@@ -332,13 +513,19 @@ final class RegBackupController: ObservableObject {
         let defaults = UserDefaults.standard
         guard let path = defaults.string(forKey: Key.pending) else { return }
         defaults.removeObject(forKey: Key.pending)
+        let temporary = defaults.bool(forKey: Key.pendingIsTemporary)
+        defaults.removeObject(forKey: Key.pendingIsTemporary)
+        // Archive tirée d'une sauvegarde chiffrée : effacée, réussite ou non.
+        defer { if temporary { try? FileManager.default.removeItem(atPath: path) } }
         do {
             let contents = try BackupEngine.read(URL(fileURLWithPath: path))
             try BackupEngine.restoreFiles(contents, to: dataDirectory)
             let current = defaults.persistentDomain(forName: preferencesDomain) ?? [:]
             var merged = BackupEngine.mergedPreferences(backup: contents.preferences, current: current, preserving: ["sauvegarde."])
             merged.removeValue(forKey: Key.pending)
-            merged["sauvegarde.derniereRestauration"] = (path as NSString).lastPathComponent
+            merged.removeValue(forKey: Key.pendingIsTemporary)
+            merged["sauvegarde.derniereRestauration"] = temporary ? "sauvegarde chiffrée du \(contents.manifest.createdAt.formatted(.dateTime.day().month(.wide).year().hour().minute().locale(Locale(identifier: "fr_FR"))))"
+                : (path as NSString).lastPathComponent
             defaults.setPersistentDomain(merged, forName: preferencesDomain)
             defaults.synchronize()
         } catch {
@@ -353,8 +540,13 @@ final class RegBackupController: ObservableObject {
             message = (error, .critical)
             defaults.removeObject(forKey: "sauvegarde.erreurRestauration")
         } else if let name = defaults.string(forKey: "sauvegarde.derniereRestauration") {
-            message = ("Sauvegarde restaurée\u{00A0}: \(name). Ressaisissez au besoin les secrets du Trousseau (ils ne sont jamais sauvegardés).", .success)
+            let secrets = defaults.integer(forKey: Key.restoredSecrets)
+            let tail = secrets > 0
+                ? " \(secrets) secret\(secrets > 1 ? "s" : "") remis au Trousseau."
+                : " Ressaisissez au besoin les secrets du Trousseau (une sauvegarde non chiffrée n’en contient jamais)."
+            message = ("Sauvegarde restaurée\u{00A0}: \(name).\(tail)", .success)
             defaults.removeObject(forKey: "sauvegarde.derniereRestauration")
+            defaults.removeObject(forKey: Key.restoredSecrets)
         }
     }
 
@@ -364,7 +556,10 @@ final class RegBackupController: ObservableObject {
         let demo = ReglagesDemo.backups()
         backups = demo
         lastBackup = demo.first?.date
-        keychainItems = ReglagesDemo.keychainItems
+        keychainItems = ReglagesDemo.encryptedSecrets.map(\.item)
         folder = Self.defaultFolder
+        encrypt = true
+        includeSecrets = true
+        hasStoredPassword = true
     }
 }
