@@ -32,6 +32,15 @@ final class InvModel: ObservableObject {
     /// Appareils en attente de fusion et site auquel ils appartiennent.
     private var pendingDevices: (devices: [Device], site: String)?
     private var toastTask: Task<Void, Never>?
+    /// Suppressions de la session, par site : les appareils du Scanner vus avant la suppression ne
+    /// recréent pas la fiche (`InvRemoval.holds`) ; un scan qui les revoit les remet.
+    private var held: [String: [InvRemoval]] = [:]
+    /// Renommages de site (plages libres enregistrées comme site), pour qu'une annulation
+    /// enregistrée avant aille au nouveau site : (génération, ancienne clé, nouvelle clé).
+    private var renames: [(generation: Int, from: String, to: String)] = []
+    private var generation = 0
+    /// Autres sites dont l'inventaire est illisible (affichés vides, avec un message).
+    private(set) var unreadableSites: Set<String> = []
 
     init() {
         let arguments = CommandLine.arguments
@@ -99,9 +108,19 @@ final class InvModel: ObservableObject {
             pendingDevices = nil
             ingest(waiting.devices, site: waiting.site, saving: false)
         }
+        renames.append((generation, siteKey, key))
+        generation += 1
+        if let kept = held.removeValue(forKey: siteKey) { held[key, default: []] += kept }
         siteKey = key
         url = newURL
         save()
+    }
+
+    /// Clé actuelle d'un site désigné à la génération donnée (renommages appliqués depuis).
+    private func currentKey(_ key: String, since start: Int) -> String {
+        var key = key
+        for rename in renames where rename.generation >= start && rename.from == key { key = rename.to }
+        return key
     }
 
     /// Appareils rechargés avec leur site : ils sont déjà dans son inventaire.
@@ -142,6 +161,9 @@ final class InvModel: ObservableObject {
         let signature = Self.signature(devices)
         guard signature != lastSignature else { return }
         lastSignature = signature
+        // Appareils supprimés pendant la session et pas revus depuis : la fiche ne revient pas.
+        let holds = held[site] ?? []
+        let devices = holds.isEmpty ? devices : devices.filter { device in !holds.contains { $0.holds(device) } }
         if isEphemeral && store.isEmpty && Launcher.isDemo && siteKey == SitesDemo.siegeKey {
             InvDemo.seed(&store, devices: devices, now: date)
         } else {
@@ -200,48 +222,69 @@ final class InvModel: ObservableObject {
         guard let fileURL = SiteModel.shared.inventoryURL(for: key) else { return InventoryStore() }
         let date = (try? FileManager.default.attributesOfItem(atPath: fileURL.path))?[.modificationDate] as? Date
         if let cached = readCache[key], cached.date == date { return cached.store }
-        let loaded = (try? InventoryStore.load(from: fileURL)) ?? InventoryStore()
+        let loaded: InventoryStore
+        do {
+            loaded = try InventoryStore.load(from: fileURL)
+            unreadableSites.remove(key)
+        } catch {
+            NSLog("NetScope : inventaire du site %@ illisible : %@", key, error.localizedDescription)
+            loaded = InventoryStore()
+            unreadableSites.insert(key)
+        }
         readCache[key] = (date, loaded)
         return loaded
     }
 
+    /// Le site existe-t-il encore (site actif, plages libres, ou site de la liste) ?
+    private func siteExists(_ key: String) -> Bool {
+        key == siteKey || key == SiteFiles.noSiteKey || SiteModel.shared.site(forKey: key) != nil
+    }
+
     /// Modifie l'inventaire d'UN site, et lui seul : le site actif en mémoire (puis enregistré),
-    /// un autre site dans son fichier (lu juste avant, écrit juste après).
+    /// un autre site dans son fichier (lu juste avant, écrit juste après). nil, sans rien changer,
+    /// si le site n'existe plus, si son fichier manque ou est illisible, ou si l'écriture échoue :
+    /// un message le dit.
     @discardableResult
-    func mutate<T>(site key: String, _ body: (inout InventoryStore) -> T) -> T {
+    func mutate<T>(site key: String, _ body: (inout InventoryStore) -> T) -> T? {
         if key == siteKey {
             let result = body(&store)
             save()
             return result
         }
+        let name = SiteModel.shared.name(forKey: key)
         var other: InventoryStore
         if isEphemeral {
             other = inventory(for: key)
-        } else if let fileURL = SiteModel.shared.inventoryURL(for: key) {
+        } else {
+            // Site supprimé, ou plages libres devenues un site : aucun fichier recréé à sa place.
+            guard siteExists(key), let fileURL = SiteModel.shared.inventoryURL(for: key),
+                  FileManager.default.fileExists(atPath: fileURL.path) else {
+                show("Inventaire introuvable (site supprimé ou déplacé)\u{00A0}: rien n’est modifié")
+                return nil
+            }
             do {
                 other = try InventoryStore.load(from: fileURL)
             } catch {
                 // Fichier illisible : on n'écrit rien par-dessus.
                 NSLog("NetScope : inventaire du site %@ illisible, rien n’est modifié : %@", key, error.localizedDescription)
-                var empty = InventoryStore()
-                return body(&empty)
+                show("Inventaire de «\u{00A0}\(name)\u{00A0}» illisible\u{00A0}: rien n’est modifié")
+                return nil
             }
-        } else {
-            other = InventoryStore()
         }
-        objectWillChange.send()
-        let result = body(&other)
-        if isEphemeral {
-            demoStores[key] = other
-        } else if let fileURL = SiteModel.shared.inventoryURL(for: key) {
+        var changed = other
+        let result = body(&changed)
+        if !isEphemeral, let fileURL = SiteModel.shared.inventoryURL(for: key) {
             do {
-                try other.save(to: fileURL)
+                try changed.save(to: fileURL)
             } catch {
                 NSLog("NetScope : enregistrement impossible de %@ : %@", fileURL.path, error.localizedDescription)
+                show("Enregistrement impossible de l’inventaire de «\u{00A0}\(name)\u{00A0}»\u{00A0}: rien n’est modifié")
+                return nil
             }
-            readCache[key] = nil
         }
-        SiteModel.shared.setInventoryCount(other.count, for: key)
+        objectWillChange.send()
+        if isEphemeral { demoStores[key] = changed } else { readCache[key] = nil }
+        SiteModel.shared.setInventoryCount(changed.count, for: key)
         return result
     }
 
@@ -250,6 +293,8 @@ final class InvModel: ObservableObject {
     /// Ce qu'une suppression a retiré dans chaque site, pour « Annuler ».
     struct Removal {
         var parts: [(site: String, removal: InvRemoval)]
+        /// Génération des clés de site (un renommage ultérieur est suivi).
+        var generation: Int
         var count: Int { parts.reduce(0) { $0 + $1.removal.count } }
     }
 
@@ -258,21 +303,44 @@ final class InvModel: ObservableObject {
     func remove(_ ids: [String], exclude: Bool) -> Removal {
         var parts: [(String, InvRemoval)] = []
         for group in SiteScope.grouped(ids) {
-            let removal = mutate(site: group.site) { $0.removeRecords(group.keys, exclude: exclude) }
-            if !removal.isEmpty { parts.append((group.site, removal)) }
-            if group.site == siteKey, let selected = selectedKey, group.keys.contains(selected) { selectedKey = nil }
+            let site = group.site
+            guard let removal = mutate(site: site, { $0.removeRecords(group.keys, exclude: exclude) }) else { continue }
+            if !removal.isEmpty {
+                parts.append((site, removal))
+                if !exclude { held[site, default: []].append(removal) }
+            }
+            if site == siteKey, let selected = selectedKey, group.keys.contains(selected) { selectedKey = nil }
         }
-        return Removal(parts: parts)
+        return Removal(parts: parts, generation: generation)
     }
 
-    /// Annule une suppression, site par site.
-    func restore(_ removal: Removal) {
-        for part in removal.parts { mutate(site: part.site) { $0.restore(part.removal) } }
+    /// Annule une suppression, site par site ; renvoie ce qui a vraiment été remis.
+    func restore(_ removal: Removal) -> InvRestoreResult {
+        var total = InvRestoreResult()
+        for part in removal.parts {
+            let site = currentKey(part.site, since: removal.generation)
+            held[site]?.removeAll { $0 == part.removal }
+            guard let result = mutate(site: site, { $0.restore(part.removal) }) else { continue }
+            total.restored += result.restored
+            total.merged += result.merged
+        }
+        return total
+    }
+
+    /// Identifiants « site|fiche » d'une suppression, avec les clés de site actuelles (Rétablir
+    /// après « Enregistrer comme site »).
+    func currentIDs(_ ids: [String], since removal: Removal) -> [String] {
+        ids.map { id in
+            guard let parts = SiteScope.split(id) else { return id }
+            return SiteScope.id(site: currentKey(parts.site, since: removal.generation), key: parts.key)
+        }
     }
 
     /// « Suivre de nouveau » un appareil exclu d'un site.
-    func include(_ key: String, site: String) {
-        mutate(site: site) { $0.include(key) }
+    /// Faux si l'inventaire du site n'a pas pu être modifié (un message le dit déjà).
+    @discardableResult
+    func include(_ key: String, site: String) -> Bool {
+        mutate(site: site) { $0.include(key) } != nil
     }
 
     // MARK: Fiches
@@ -337,11 +405,14 @@ final class InvModel: ObservableObject {
     /// Importe un CSV ; renvoie le compte rendu à afficher.
     func importCSV(_ text: String) -> String {
         do {
-            let rows = try InvCSV.parse(text)
-            let result = store.importRows(rows)
+            let parsed = InvCSV.rows(try InvCSV.parse(text), forSite: SiteModel.shared.activeName)
+            let result = store.importRows(parsed.rows)
             save()
+            let others = parsed.otherSites
+            let skippedSites = others == 0 ? ""
+                : " · \(others) ligne\(others > 1 ? "s" : "") d’autres sites écartée\(others > 1 ? "s" : "") (seul le site actif est importé)"
             return "Import CSV : \(result.created) fiche\(result.created > 1 ? "s" : "") créée\(result.created > 1 ? "s" : ""), "
-                + "\(result.updated) complétée\(result.updated > 1 ? "s" : ""), \(result.skipped) inchangée\(result.skipped > 1 ? "s" : "")"
+                + "\(result.updated) complétée\(result.updated > 1 ? "s" : ""), \(result.skipped) inchangée\(result.skipped > 1 ? "s" : "")" + skippedSites
         } catch {
             return "Import impossible : \(error.localizedDescription)"
         }

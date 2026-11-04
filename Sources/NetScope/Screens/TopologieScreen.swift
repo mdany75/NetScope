@@ -69,8 +69,7 @@ struct TopologieScreen: View {
     var body: some View {
         let devices = mapDevices
         let conflicts = model.inventory(for: drawnKey).conflictIPs
-        let graph = TopoGraph.build(devices: devices, gateway: isActiveDrawing ? state.activeInterface?.gateway : nil,
-                                    conflictIPs: conflicts)
+        let graph = TopoGraph.build(devices: devices, gateway: drawnGateway(devices), conflictIPs: conflicts)
 
         VStack(alignment: .leading, spacing: 14) {
             siteBar
@@ -121,12 +120,15 @@ struct TopologieScreen: View {
             SiteScopeMenu(screen: .carte)
             if keys.count > 1 {
                 Text("Dessin").font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize()
-                Picker("Dessin", selection: Binding(get: { drawnKey }, set: { drawingSite = $0 })) {
-                    ForEach(keys, id: \.self) { key in Text(sites.name(forKey: key)).tag(key) }
+                // Segments s'ils tiennent (deux ou trois sites courts), sinon menu déroulant : jamais
+                // de segments coupés qui élargiraient l'écran.
+                ViewThatFits(in: .horizontal) {
+                    if keys.count <= 3 {
+                        drawingPicker(keys).pickerStyle(.segmented).fixedSize()
+                    }
+                    drawingPicker(keys).pickerStyle(.menu).fixedSize()
                 }
-                .labelsHidden()
-                .pickerStyle(.segmented)
-                .fixedSize()
+                .layoutPriority(1)
                 ViewThatFits(in: .horizontal) {
                     Text("Un dessin par site\u{00A0}: jamais deux réseaux dans le même dessin").fixedSize()
                     Text("Un dessin par site").fixedSize()
@@ -145,6 +147,22 @@ struct TopologieScreen: View {
             }
             Spacer(minLength: 0)
         }
+    }
+
+    private func drawingPicker(_ keys: [String]) -> some View {
+        Picker("Dessin", selection: Binding(get: { drawnKey }, set: { drawingSite = $0 })) {
+            ForEach(keys, id: \.self) { key in Text(sites.name(forKey: key)).tag(key) }
+        }
+        .labelsHidden()
+        .help("Site dessiné\u{00A0}: un dessin par site")
+    }
+
+    /// Passerelle du dessin : celle de l'interface pour le site actif ; pour un autre site,
+    /// l'appareil de son dernier scan qui a la MAC de passerelle apprise par le site.
+    private func drawnGateway(_ devices: [Device]) -> IPv4Address? {
+        if isActiveDrawing { return state.activeInterface?.gateway }
+        guard let macs = sites.site(forKey: drawnKey)?.hints.gatewayMACs, !macs.isEmpty else { return nil }
+        return devices.first { device in device.mac.map(macs.contains) ?? false }?.ip
     }
 
     // MARK: Indicateurs

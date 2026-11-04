@@ -14,6 +14,8 @@ public struct InvCSVRow: Hashable, Sendable {
     public var assetNumber: String?
     public var notes: String?
     public var isFavorite: Bool?
+    /// Colonne « Site » d'un export de plusieurs sites (nil : aucune).
+    public var site: String?
 
     public init(ip: IPv4Address? = nil, mac: MACAddress? = nil, name: String? = nil, hostname: String? = nil,
                 type: DeviceType? = nil, tags: [String]? = nil, location: String? = nil, wallJack: String? = nil,
@@ -179,7 +181,16 @@ public enum InvCSV {
         "n° d'actif": "asset", "no d'actif": "asset", "numero d'actif": "asset", "actif": "asset",
         "notes": "notes",
         "favori": "favorite",
+        "site": "site",
     ]
+
+    /// Lignes d'un autre site écartées (colonne « Site » d'un export de plusieurs sites) : un CSV
+    /// importé ne va qu'à l'inventaire du site actif, jamais une fiche de Laval dans celui du Siège.
+    public static func rows(_ rows: [InvCSVRow], forSite name: String) -> (rows: [InvCSVRow], otherSites: Int) {
+        let wanted = normalize(name)
+        let kept = rows.filter { row in row.site.map { normalize($0) == wanted } ?? true }
+        return (kept, rows.count - kept.count)
+    }
 
     /// Lignes d'inventaire ; lève une erreur si aucune colonne IP ni MAC n'est trouvée.
     public static func parse(_ text: String) throws -> [InvCSVRow] {
@@ -210,6 +221,7 @@ public enum InvCSV {
             row.owner = value("owner")
             row.assetNumber = value("asset")
             row.notes = value("notes")
+            row.site = value("site")
             row.isFavorite = value("favorite").map { ["oui", "yes", "1", "vrai", "true", "x"].contains(normalize($0)) }
             return row
         }

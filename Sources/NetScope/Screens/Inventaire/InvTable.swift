@@ -50,6 +50,8 @@ struct InvTable: View {
     var inventoryEmpty = false
     /// Sites affichés (titre du message d'inventaire vide).
     var siteNames: [String] = []
+    /// Sites affichés dont l'inventaire est illisible (affichés vides).
+    var unreadableNames: [String] = []
     /// Appareils qu'on ne suit plus, dans les sites affichés.
     var excluded: [InvExcludedRow] = []
     let onFavorite: (SiteScopedRecord) -> Void
@@ -156,7 +158,17 @@ struct InvTable: View {
             .frame(height: 40)
             Rectangle().fill(Theme.border).frame(height: 1)
 
-            if rows.isEmpty, inventoryEmpty, !siteNames.isEmpty, SiteModel.shared.activeSite != nil || siteNames.count > 1 {
+            if !unreadableNames.isEmpty {
+                // Fichier illisible : jamais présenté comme un inventaire vide.
+                Label("Inventaire illisible\u{00A0}: " + unreadableNames.joined(separator: ", ")
+                      + ". Ses fiches ne sont pas affichées et rien n’y est modifié.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(Theme.small).foregroundStyle(Theme.warning)
+                    .padding(.horizontal, 14).padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Rectangle().fill(Theme.border).frame(height: 1)
+            }
+            if rows.isEmpty, inventoryEmpty, !siteNames.isEmpty, unreadableNames.count < siteNames.count, SiteModel.shared.activeSite != nil || siteNames.count > 1 {
                 // Inventaire propre au site : vide tant que ce site n'a pas été scanné.
                 EmptyState(systemImage: "tray",
                            title: siteNames.count > 1 ? "Inventaires de ces \(siteNames.count) sites vides"
@@ -209,10 +221,12 @@ struct InvTable: View {
 
                 // Plusieurs sites : colonne affichée d'office (InventaireScreen, `standardSiteColumn`).
                 TableColumn("SITE", sortUsing: table.sort("site")) { row in
-                    Text(row.siteName).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.accentStrong)
+                    // Texte secondaire : la cellule ne fait rien au clic (pas d'allure de lien).
+                    Text(row.siteName).font(Theme.small).foregroundStyle(Theme.textSecondary)
                         .lineLimit(1).help("Inventaire du site «\u{00A0}\(row.siteName)\u{00A0}»")
                 }
-                .width(min: 70, ideal: 110)
+                // Étroite : l'IP, colonne obligatoire, n'est jamais coupée par la colonne des sites.
+                .width(min: 60, ideal: 76)
                 .customizationID("site")
                 .defaultVisibility(.hidden)
 
@@ -241,7 +255,8 @@ struct InvTable: View {
                     let record = row.record
                     Text(record.ip.description).font(Theme.mono(12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
                 }
-                .width(min: 100, ideal: 112)
+                // Largeur d'une adresse complète (255.255.255.255) : jamais tronquée.
+                .width(min: 116, ideal: 116)
                 .customizationID("ip")
                 .disabledCustomizationBehavior(.visibility)
 
@@ -249,7 +264,8 @@ struct InvTable: View {
                     let record = row.record
                     ScanCellText(record.mac?.formatted(.upperColon) ?? "—", mono: true, dimmed: record.mac == nil)
                 }
-                .width(min: 110, ideal: 128)
+                // Une MAC entière (17 caractères à chasse fixe) tient sans être coupée.
+                .width(min: 134, ideal: 136)
                 .customizationID("mac")
 
                 TableColumn("FABRICANT", sortUsing: table.sort("fabricant")) { row in
@@ -469,7 +485,9 @@ struct InvTable: View {
             Divider()
             Button("Fiche complète") { state.showDevice(record.ip.description) }
                 .disabled(!isActive(row) || state.device(withID: record.ip.description) == nil)
+            // Autre site : la même IP sur le réseau du site actif serait un autre appareil.
             Button("Ping continu") { state.sendToPing(record.ip.description) }
+                .disabled(!isActive(row))
         } else {
             Text("\(chosen.count) appareils sélectionnés")
             Button("Copier les IP") {

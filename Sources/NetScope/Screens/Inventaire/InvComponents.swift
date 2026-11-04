@@ -199,12 +199,22 @@ struct InvFlowLayout: Layout {
 struct InvPanelTitle<Accessory: View>: View {
     let title: String
     var subtitle: String? = nil
+    /// Versions plus courtes du sous-titre, essayées dans l'ordre quand il ne tient pas (jamais une
+    /// phrase coupée ; le sous-titre complet reste au survol).
+    var shorterSubtitles: [String] = []
     @ViewBuilder var accessory: Accessory
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1).fixedSize()
-            if let subtitle {
+            if let subtitle, !shorterSubtitles.isEmpty {
+                ViewThatFits(in: .horizontal) {
+                    ForEach([subtitle] + shorterSubtitles, id: \.self) { Text($0).fixedSize() }
+                    Color.clear.frame(width: 0, height: 0)
+                }
+                .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                .help(subtitle)
+            } else if let subtitle {
                 Text(subtitle).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
             }
             Spacer(minLength: 8)
@@ -320,10 +330,16 @@ struct InvExcludedButton: View {
                                     Text([row.siteName, row.exclusion.ip.description,
                                           row.exclusion.mac?.formatted(.upperColon) ?? "sans MAC"].joined(separator: " · "))
                                         .font(Theme.mono(11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                                    if row.exclusion.mac == nil {
+                                        // Exclusion par adresse : elle vise l'adresse, pas un appareil précis.
+                                        Text("Par adresse\u{00A0}: tout appareil vu sans MAC à \(row.exclusion.ip.description) est ignoré")
+                                            .font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
                                 }
                                 Spacer(minLength: 8)
                                 Button("Suivre de nouveau") {
-                                    InvModel.shared.include(row.exclusion.key, site: row.site)
+                                    guard InvModel.shared.include(row.exclusion.key, site: row.site) else { return }
                                     InvModel.shared.show("\(row.exclusion.name) sera remis dans l’inventaire au prochain scan de «\u{00A0}\(row.siteName)\u{00A0}».")
                                 }
                                 .controlSize(.small)

@@ -71,24 +71,37 @@ struct AnalyseScreen: View {
             ?? inventories.flatMap { Array($0.store.records.values) }
         let alerts = SiteScope.alerts(inventories, since: since)
         let siteName = multiple ? focus.name : nil
+        // Plusieurs sites : tuiles et répartitions portent sur le même périmètre, écrit en clair —
+        // le /24 choisi d'un site (alertes de ce site), ou tous les sites réunis.
+        let tileAlerts = multiple && chosen != nil ? alerts.filter { $0.siteKey == focus.key } : alerts
+        let scopeLabel: String? = !multiple ? nil
+            : chosen.map { "\(focus.name) · \(Subnet(address: $0.base, prefix: 24).description)" }
+            ?? "\(inventories.count) sites réunis\u{00A0}: " + inventories.map(\.name).joined(separator: ", ")
 
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 filters(networks: networks, chosen: chosen, inventories: inventories, now: now, since: since)
-                tiles(records: records, chosen: chosen, alerts: alerts.map(\.event), now: now, since: since)
+                if let scopeLabel {
+                    Label("Indicateurs\u{00A0}: " + scopeLabel, systemImage: "mappin.and.ellipse")
+                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        .lineLimit(1)
+                        .help("Tuiles et répartitions\u{00A0}: " + scopeLabel
+                              + (chosen == nil ? "" : ". La courbe, la carte d’occupation et la comparaison portent sur ce site."))
+                }
+                tiles(records: records, chosen: chosen, alerts: tileAlerts.map(\.event), now: now, since: since)
                 // Petite fenêtre : courbe et répartitions passent sous la carte d'occupation, qui prend
                 // alors toute la largeur (pas de vide à sa droite).
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .top, spacing: 14) {
                         occupancy(chosen: chosen, allRecords: focusRecords, siteName: siteName, now: now)
                             .frame(width: 680)
-                        charts(records: records, snapshots: focus.store.snapshots, siteName: siteName, since: since)
+                        charts(records: records, snapshots: focus.store.snapshots, siteName: siteName, scope: scopeLabel, since: since)
                             .frame(minWidth: 300, idealWidth: 300, maxWidth: .infinity)
                     }
                     VStack(alignment: .leading, spacing: 14) {
                         occupancy(chosen: chosen, allRecords: focusRecords, siteName: siteName, now: now)
                             .frame(maxWidth: .infinity)
-                        charts(records: records, snapshots: focus.store.snapshots, siteName: siteName, since: since)
+                        charts(records: records, snapshots: focus.store.snapshots, siteName: siteName, scope: scopeLabel, since: since)
                     }
                 }
                 // Alertes, puis comparaison, sur toute la largeur : leurs tableaux (note 8) ne tiennent
@@ -143,10 +156,10 @@ struct AnalyseScreen: View {
         }
     }
 
-    private func charts(records: [InvRecord], snapshots: [InvSnapshot], siteName: String?, since: Date) -> some View {
+    private func charts(records: [InvRecord], snapshots: [InvSnapshot], siteName: String?, scope: String?, since: Date) -> some View {
         VStack(spacing: 14) {
             AnaOnlineChart(snapshots: snapshots.filter { $0.date >= since }, period: period, siteName: siteName)
-            AnaBreakdownPanel(records: records)
+            AnaBreakdownPanel(records: records, scope: scope)
         }
     }
 
@@ -176,7 +189,8 @@ struct AnalyseScreen: View {
                         ForEach(inventories, id: \.key) { inventory in
                             Section(inventory.name) {
                                 ForEach(networks.filter { $0.site == inventory.key }, id: \.self) { item in
-                                    Text(networkLabel(item, store: inventory.store)).tag(Optional(item))
+                                    // Le site est dans le libellé : le bouton fermé le montre aussi.
+                                    Text(inventory.name + " · " + networkLabel(item, store: inventory.store)).tag(Optional(item))
                                 }
                             }
                         }

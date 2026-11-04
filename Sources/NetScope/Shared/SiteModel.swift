@@ -27,6 +27,8 @@ final class SiteModel: ObservableObject {
     let isEphemeral: Bool
     let files: SiteFiles?
     private var shelf: SiteResultsShelf
+    /// Résultats des autres sites lus sur le disque, avec la date du fichier lu.
+    private var resultsCache: [String: (date: Date, results: SiteResults?)] = [:]
     private var attached = false
     /// État partagé reçu au lancement (enregistrement des résultats à la fermeture).
     private weak var attachedState: AppState?
@@ -137,8 +139,17 @@ final class SiteModel: ObservableObject {
 
     /// Résultats du dernier scan d'un site (Carte, Rapports de plusieurs sites), en lecture seule :
     /// ceux mis de côté en mémoire, sinon ceux du disque. Le site actif n'est pas rechargé.
+    /// Le fichier n'est relu et décodé que s'il a changé (Carte et Rapports l'appellent à chaque rendu).
     func storedResults(for key: String) -> SiteResults? {
-        shelf.memory[key] ?? files?.loadResults(for: key)
+        if let kept = shelf.memory[key] { return kept }
+        guard let files else { return nil }
+        let url = files.resultsURL(for: key)
+        let date = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date
+        guard let date else { return nil }
+        if let cached = resultsCache[key], cached.date == date { return cached.results }
+        let loaded = files.loadResults(for: key)
+        resultsCache[key] = (date, loaded)
+        return loaded
     }
 
     /// Nom d'un site par sa clé (« Aucun site » pour les plages libres).

@@ -140,8 +140,10 @@ struct TopoAside: View {
                     }
                     if node.kind == .groupe, let first = devices.first {
                         Button {
-                            model.selectedSite = siteKey
-                            model.selectedKey = model.inventory(for: siteKey).record(forIP: first.ip)?.key
+                            // Pas de fiche : aucun site retenu (un « Voir » suivant ne l'hériterait pas).
+                            let key = model.inventory(for: siteKey).record(forIP: first.ip)?.key
+                            model.selectedSite = key == nil ? nil : siteKey
+                            model.selectedKey = key
                             state.open(.inventaire)
                         } label: { Label("Inventaire", systemImage: Screen.inventaire.symbol) }
                             .buttonStyle(.secondary)

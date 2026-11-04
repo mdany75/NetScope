@@ -7,7 +7,8 @@ struct RapportConfigPanel: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var model: RapportModel
     /// Page de début de chaque section, d'après la pagination de l'aperçu.
-    let startPages: [ReportSectionKind: Int]
+    /// Première page de chaque partie de section (une par site dans un rapport multisite).
+    let startPages: [ReportSectionKind: [Int]]
     let totalPages: Int
     @State private var calendarOpen = false
 
@@ -46,7 +47,21 @@ struct RapportConfigPanel: View {
                 }
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
                     field("Client", text: $model.config.client, placeholder: ReportText.missing)
-                    field("Site", text: $model.config.site, placeholder: "Siège")
+                    if let names = model.menuSiteNames {
+                        // Rapport d'un autre site ou de plusieurs : le nom vient du menu « Site ▾ ».
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Site").font(Theme.small).foregroundStyle(Theme.textSecondary)
+                            TextField("Site", text: .constant(names))
+                                .textFieldStyle(.roundedBorder)
+                                .labelsHidden()
+                                .font(Theme.body)
+                                .controlSize(.large)
+                                .disabled(true)
+                                .help("Déterminé par le menu «\u{00A0}Site\u{00A0}» du rapport\u{00A0}: " + names)
+                        }
+                    } else {
+                        field("Site", text: $model.config.site, placeholder: "Siège")
+                    }
                     field("Technicien", text: $model.config.technician, placeholder: ReportText.missing)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Date").font(Theme.small).foregroundStyle(Theme.textSecondary)
@@ -160,8 +175,10 @@ struct RapportConfigPanel: View {
                         }
                         .toggleStyle(.checkbox)
                         Spacer(minLength: 4)
-                        if let start = startPages[kind] {
-                            Text("p. \(start)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+                        if let starts = startPages[kind], let start = starts.first {
+                            Text("p. \(start)" + (starts.count > 1 ? "…" : "")).font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+                                .help(starts.count > 1 ? "Une partie par site\u{00A0}: p. " + starts.map(String.init).joined(separator: ", ")
+                                      : "Page \(start)")
                         }
                     }
                     .padding(.horizontal, 4)
@@ -258,7 +275,7 @@ struct RapportConfigPanel: View {
             (Text("Objet\u{00A0}: ").foregroundColor(Theme.textSecondary) + Text(model.emailSubject).foregroundColor(Theme.text))
                 .font(Theme.small)
             (Text("Pièce jointe\u{00A0}: ").foregroundColor(Theme.textSecondary)
-                + Text(model.config.fileName(for: .pdf)).font(Theme.mono(12)).foregroundColor(Theme.text))
+                + Text(model.fileName(for: .pdf)).font(Theme.mono(12)).foregroundColor(Theme.text))
                 .font(Theme.small)
                 .lineLimit(1)
                 .truncationMode(.middle)

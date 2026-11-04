@@ -38,9 +38,10 @@ final class SiteScopeStore: ObservableObject {
 
     func selection(for screen: Screen) -> SiteSelection { choices[screen] ?? .active }
 
-    func set(_ selection: SiteSelection, for screen: Screen) {
+    /// `persist` faux : pour cette session seulement (le choix retenu de l'écran ne change pas).
+    func set(_ selection: SiteSelection, for screen: Screen, persist: Bool = true) {
         choices[screen] = selection
-        defaults?.set(selection.stored, forKey: Self.defaultsKey(screen))
+        if persist { defaults?.set(selection.stored, forKey: Self.defaultsKey(screen)) }
     }
 
     /// Clés des sites existants, triés par nom.
@@ -65,10 +66,12 @@ final class SiteScopeStore: ObservableObject {
         set(selection(for: screen).toggling(key, activeKey: SiteModel.shared.activeKey, available: availableKeys), for: screen)
     }
 
-    /// Ajoute un site au choix de l'écran (« Voir » une alerte d'un autre site dans l'Inventaire).
+    /// Ajoute un site au choix de l'écran (« Voir » une alerte d'un autre site dans l'Inventaire),
+    /// pour cette session seulement : le choix retenu de l'écran reste celui de l'utilisateur.
     func include(_ key: String, in screen: Screen) {
         guard !keys(for: screen).contains(key) else { return }
-        toggle(key, for: screen)
+        set(selection(for: screen).toggling(key, activeKey: SiteModel.shared.activeKey, available: availableKeys),
+            for: screen, persist: false)
     }
 
     /// Libellé du bouton : « Siège », « Siège, Entrepôt Laval », « Siège + 3 sites », « Tous les sites (5) ».

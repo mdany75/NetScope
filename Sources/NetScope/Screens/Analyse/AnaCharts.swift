@@ -10,10 +10,14 @@ struct AnaOnlineChart: View {
 
     var body: some View {
         let values = snapshots.map { Double($0.onlineCount) }
+        let scans = "\(snapshots.count) scan\(snapshots.count > 1 ? "s" : "")"
+        // Le nom du site reste entier : la période, puis le nombre de scans, cèdent la place d'abord.
+        let shorter = siteName.map { [$0 + " · " + scans, $0] } ?? [scans]
         Panel(padding: 16) {
             VStack(alignment: .leading, spacing: 10) {
                 InvPanelTitle(title: "Appareils en ligne",
-                              subtitle: (siteName.map { $0 + " · " } ?? "") + "\(snapshots.count) scan\(snapshots.count > 1 ? "s" : "") · \(period.span)") {
+                              subtitle: (siteName.map { $0 + " · " } ?? "") + scans + " · \(period.span)",
+                              shorterSubtitles: shorter) {
                     if let peak = values.max(), let low = values.min() {
                         HStack(spacing: 10) {
                             stat("Pic", Int(peak))
@@ -122,6 +126,8 @@ struct AnaOnlineChart: View {
 /// Répartition des fiches par fabricant (barres) et par type (barre empilée).
 struct AnaBreakdownPanel: View {
     let records: [InvRecord]
+    /// Plusieurs sites affichés : périmètre des répartitions (« Siège · 10.182.122.0/24 », « 2 sites réunis »).
+    var scope: String?
 
     private static let typeColors: [(String, [DeviceType], UInt32)] = [
         ("Postes de travail", [.poste], 0x1E3A8A),
@@ -144,58 +150,64 @@ struct AnaBreakdownPanel: View {
         }.filter { $0.1 > 0 }
 
         Panel(padding: 16) {
-            HStack(alignment: .top, spacing: 20) {
-                VStack(alignment: .leading, spacing: 8) {
-                    InvPanelTitle("Répartition par fabricant")
-                    ForEach(vendors, id: \.0) { name, count in
-                        HStack(spacing: 8) {
-                            Text(name).font(Theme.small).lineLimit(1).frame(width: 78, alignment: .leading)
-                            GeometryReader { geometry in
-                                ZStack(alignment: .leading) {
-                                    RoundedRectangle(cornerRadius: 3).fill(Theme.neutralSoft)
-                                    RoundedRectangle(cornerRadius: 3)
-                                        .fill(name == OUIDatabase.unknownLabel ? Color(hex: 0x9CA3AF) : Theme.accent)
-                                        .frame(width: geometry.size.width * CGFloat(count) / CGFloat(largest))
+            VStack(alignment: .leading, spacing: 10) {
+                if let scope {
+                    Text(scope).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                HStack(alignment: .top, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        InvPanelTitle("Répartition par fabricant")
+                        ForEach(vendors, id: \.0) { name, count in
+                            HStack(spacing: 8) {
+                                Text(name).font(Theme.small).lineLimit(1).frame(width: 78, alignment: .leading)
+                                GeometryReader { geometry in
+                                    ZStack(alignment: .leading) {
+                                        RoundedRectangle(cornerRadius: 3).fill(Theme.neutralSoft)
+                                        RoundedRectangle(cornerRadius: 3)
+                                            .fill(name == OUIDatabase.unknownLabel ? Color(hex: 0x9CA3AF) : Theme.accent)
+                                            .frame(width: geometry.size.width * CGFloat(count) / CGFloat(largest))
+                                    }
+                                }
+                                .frame(height: 10)
+                                // Deux colonnes alignées : on ne lit jamais « 3 18 % » comme « 318 % ».
+                                HStack(spacing: 8) {
+                                    Text("\(count)").font(Theme.mono(11, weight: .semibold))
+                                        .frame(width: 24, alignment: .trailing)
+                                    Text("\(Int((Double(count) / Double(total) * 100).rounded()))\u{00A0}%")
+                                        .font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+                                        .frame(width: 40, alignment: .trailing)
                                 }
                             }
-                            .frame(height: 10)
-                            // Deux colonnes alignées : on ne lit jamais « 3 18 % » comme « 318 % ».
-                            HStack(spacing: 8) {
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    VStack(alignment: .leading, spacing: 8) {
+                        InvPanelTitle("Par type d’appareil")
+                        GeometryReader { geometry in
+                            HStack(spacing: 1) {
+                                ForEach(types, id: \.0) { _, count, color in
+                                    Rectangle().fill(Color(hex: color))
+                                        .frame(width: max(geometry.size.width * CGFloat(count) / CGFloat(total) - 1, 2))
+                                }
+                            }
+                        }
+                        .frame(height: 14)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        ForEach(types, id: \.0) { name, count, color in
+                            HStack(spacing: 6) {
+                                RoundedRectangle(cornerRadius: 2).fill(Color(hex: color)).frame(width: 10, height: 10)
+                                Text(name).font(Theme.small).lineLimit(1)
+                                Spacer(minLength: 4)
                                 Text("\(count)").font(Theme.mono(11, weight: .semibold))
-                                    .frame(width: 24, alignment: .trailing)
-                                Text("\(Int((Double(count) / Double(total) * 100).rounded()))\u{00A0}%")
+                                Text("\(Int((Double(count) / Double(total) * 100).rounded())) %")
                                     .font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
-                                    .frame(width: 40, alignment: .trailing)
+                                    .frame(width: 38, alignment: .trailing)
                             }
                         }
                     }
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
-                VStack(alignment: .leading, spacing: 8) {
-                    InvPanelTitle("Par type d’appareil")
-                    GeometryReader { geometry in
-                        HStack(spacing: 1) {
-                            ForEach(types, id: \.0) { _, count, color in
-                                Rectangle().fill(Color(hex: color))
-                                    .frame(width: max(geometry.size.width * CGFloat(count) / CGFloat(total) - 1, 2))
-                            }
-                        }
-                    }
-                    .frame(height: 14)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-                    ForEach(types, id: \.0) { name, count, color in
-                        HStack(spacing: 6) {
-                            RoundedRectangle(cornerRadius: 2).fill(Color(hex: color)).frame(width: 10, height: 10)
-                            Text(name).font(Theme.small).lineLimit(1)
-                            Spacer(minLength: 4)
-                            Text("\(count)").font(Theme.mono(11, weight: .semibold))
-                            Text("\(Int((Double(count) / Double(total) * 100).rounded())) %")
-                                .font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
-                                .frame(width: 38, alignment: .trailing)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity)
             }
         }
     }

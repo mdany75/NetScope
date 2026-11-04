@@ -65,6 +65,21 @@ final class RapportModel: ObservableObject {
         return ReportBuilder.buildMultisite(config: chosen, sites: inputs, generator: generator)
     }
 
+    /// Sites du rapport quand ce n'est pas le site actif seul (menu « Site ▾ ») : ils remplacent le
+    /// champ « Site » dans l'en-tête et le nom du fichier.
+    var menuSiteNames: String? {
+        let keys = SiteScopeStore.shared.keys(for: .rapports)
+        guard keys != [SiteModel.shared.activeKey] else { return nil }
+        return keys.map { SiteModel.shared.name(forKey: $0) }.joined(separator: ", ")
+    }
+
+    /// Nom du fichier produit : celui des sites du rapport.
+    func fileName(for format: ReportFormat) -> String {
+        var named = config
+        if let names = menuSiteNames { named.site = names }
+        return named.fileName(for: format)
+    }
+
     func pages(for document: ReportDocument) -> [ReportPage] {
         ReportPaginator.paginate(document)
     }
@@ -204,7 +219,7 @@ final class RapportModel: ObservableObject {
         }
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            let name = ReportLibrary.availableName(config.fileName(for: format), in: directory)
+            let name = ReportLibrary.availableName(fileName(for: format), in: directory)
             let url = directory.appendingPathComponent(name)
             try data.write(to: url, options: .atomic)
             let site = document.site.trimmingCharacters(in: .whitespaces)

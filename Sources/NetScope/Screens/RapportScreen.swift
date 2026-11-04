@@ -19,7 +19,7 @@ struct RapportScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     siteRow
-                    RapportConfigPanel(model: model, startPages: ReportPaginator.startPages(pages), totalPages: pages.count)
+                    RapportConfigPanel(model: model, startPages: ReportPaginator.startPageRuns(pages), totalPages: pages.count)
                 }
                     .padding(.vertical, 16)
                     .padding(.leading, Theme.contentPadding)

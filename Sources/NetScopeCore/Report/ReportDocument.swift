@@ -747,4 +747,13 @@ public enum ReportPaginator {
         for page in pages { for kind in page.sections where result[kind] == nil { result[kind] = page.number } }
         return result
     }
+
+    /// Pages où commence chaque section : une par site dans un rapport multisite.
+    public static func startPageRuns(_ pages: [ReportPage]) -> [ReportSectionKind: [Int]] {
+        var result: [ReportSectionKind: [Int]] = [:]
+        for page in pages {
+            for kind in page.sections where result[kind]?.last != page.number { result[kind, default: []].append(page.number) }
+        }
+        return result
+    }
 }

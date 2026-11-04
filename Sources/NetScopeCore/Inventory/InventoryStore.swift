@@ -62,8 +62,19 @@ public struct InventoryStore: Codable, Sendable {
     @discardableResult
     public mutating func merge(_ devices: [Device], at date: Date = Date(), coverage: InvCoverage = .none,
                                snapshot: Bool = true) -> [InvEvent] {
-        // Appareils qu'on ne suit plus : jamais remis dans l'inventaire par un scan.
-        let devices = devices.filter { !isExcluded($0) }
+        // Appareils qu'on ne suit plus : jamais remis dans l'inventaire par un scan, mais toujours
+        // comptés pour les conflits IP et les adresses reprises (étapes 2 et 4).
+        var ignored: [(key: String, device: Device)] = []
+        var tracked: [Device] = []
+        for device in devices {
+            if let key = exclusionKey(for: device) {
+                adoptMAC(of: device, exclusion: key)
+                ignored.append((device.mac.map { Self.key(mac: $0) } ?? key, device))
+            } else {
+                tracked.append(device)
+            }
+        }
+        let devices = tracked
         let baseline = records.isEmpty
         var produced: [InvEvent] = []
         func emit(_ kind: InvEventKind, _ severity: InvSeverity, key: String, ip: IPv4Address, date eventDate: Date? = nil,
@@ -93,7 +104,7 @@ public struct InventoryStore: Codable, Sendable {
         // 2. Conflits IP : plusieurs MAC sur la même IP dans ce scan…
         var conflicts: [IPv4Address: Set<MACAddress>] = [:]
         var macsByIP: [IPv4Address: Set<MACAddress>] = [:]
-        for (_, device) in resolved where device.isOnline {
+        for (_, device) in resolved + ignored where device.isOnline {
             if let mac = device.mac { macsByIP[device.ip, default: []].insert(mac) }
         }
         for (ip, macs) in macsByIP where macs.count > 1 { conflicts[ip] = macs }
@@ -102,7 +113,7 @@ public struct InventoryStore: Codable, Sendable {
         var keysByIP: [IPv4Address: [String]] = [:]
         for record in records.values { keysByIP[record.ip, default: []].append(record.key) }
         var displaced: [String: (by: Device, key: String)] = [:]
-        for (key, device) in resolved where device.isOnline {
+        for (key, device) in resolved + ignored where device.isOnline {
             for otherKey in keysByIP[device.ip] ?? [] where otherKey != key && !incomingKeys.contains(otherKey) {
                 guard let other = records[otherKey], other.isOnline else { continue }
                 if let otherMAC = other.mac, let mac = device.mac, otherMAC != mac,
@@ -141,7 +152,8 @@ public struct InventoryStore: Codable, Sendable {
             other.latencyMs = nil
             other.conflictWith = []
             records[otherKey] = other
-            let takerName = records[taker.key]?.displayName ?? taker.by.ip.description
+            let takerName = records[taker.key]?.displayName ?? exclusions?[taker.key].map { "\($0.name) (non suivi)" }
+                ?? taker.by.ip.description
             emit(.horsLigne, severityForOffline(other), key: otherKey, ip: other.ip,
                  title: "Hors ligne : \(other.displayName)",
                  detail: "Adresse \(other.ip) reprise par \(takerName)" + (taker.by.mac.map { " (\($0.formatted(.upperColon)))" } ?? ""))
@@ -419,6 +431,7 @@ public struct InventoryStore: Codable, Sendable {
         if records[key] == nil {
             var record = makeRecord(key: key, device: device, at: date)
             record.isOnline = device.isOnline
+            liftExclusions(for: record)
             records[key] = record
         }
         guard var annotations = records[key]?.annotations else { return false }
@@ -623,6 +636,7 @@ public struct InventoryStore: Codable, Sendable {
                                        firstSeen: date, lastSeen: date, offlineSince: date,
                                        ipHistory: [InvIPSpan(ip: ip, from: date)], isImported: true)
                 record.annotations = row.apply(to: InvAnnotations())
+                liftExclusions(for: record)
                 records[newKey] = record
                 events.append(InvEvent(date: date, kind: .importCSV, severity: .info, key: newKey, ip: ip,
                                        title: "Fiche importée (CSV)", detail: "Créée à partir d’un fichier importé"))

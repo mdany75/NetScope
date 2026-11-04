@@ -138,8 +138,10 @@ struct AnaAlertsPanel: View {
         let matching = alerts.filter { matches($0) }
         let shown = matching.filter { filter.includes($0.event) }
         let pending = alerts.filter { $0.event.status == .aTraiter }.count
-        // Plusieurs sites : alertes regroupées par site (ordre du choix), triées dans chaque site.
-        let order = (multiple ? [KeyPathComparator(\AnaAlertRow.siteRank)] : []) + table.sortOrder
+        // Plusieurs sites : alertes regroupées par site (ordre du choix), triées dans chaque site ;
+        // un clic sur l'en-tête SITE inverse l'ordre des groupes.
+        let siteFirst = table.sortOrder.first.flatMap { $0.keyPath == \AnaAlertRow.siteName ? $0.order : nil }
+        let order = (multiple ? [KeyPathComparator(\AnaAlertRow.siteRank, order: siteFirst ?? .forward)] : []) + table.sortOrder
             + [KeyPathComparator(\AnaAlertRow.date, order: .reverse)]
         let rows = shown.map(row).sorted(using: order)
 
@@ -149,7 +151,7 @@ struct AnaAlertsPanel: View {
                     HStack(spacing: 10) {
                         Text("Alertes et changements").font(.system(size: 14, weight: .semibold))
                         Text("\(pending) à traiter · \(alerts.count) changement\(alerts.count > 1 ? "s" : "") sur \(period.label)"
-                             + (multiple ? " · \(siteOrder.count) sites, regroupés par site" : ""))
+                             + (multiple ? " · \(siteOrder.count) sites, classés par site (colonne Site)" : ""))
                             .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
                         Spacer(minLength: 0)
                         StandardColumnsMenu(model: table)
@@ -207,10 +209,12 @@ struct AnaAlertsPanel: View {
         Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
             Group {
                 TableColumn("SITE", sortUsing: table.sort("site")) { row in
-                    Text(row.siteName).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.accentStrong)
+                    // Texte secondaire : la cellule ne fait rien au clic (pas d'allure de lien).
+                    Text(row.siteName).font(Theme.small).foregroundStyle(Theme.textSecondary)
                         .lineLimit(1).help("Inventaire du site «\u{00A0}\(row.siteName)\u{00A0}»")
                 }
-                .width(min: 70, ideal: 110)
+                // Étroite : l'IP n'est jamais coupée par la colonne des sites.
+                .width(min: 60, ideal: 76)
                 .customizationID("site")
                 .defaultVisibility(.hidden)
 
@@ -249,7 +253,8 @@ struct AnaAlertsPanel: View {
                 TableColumn("IP", sortUsing: table.sort("ip")) { row in
                     ScanCellText(row.ip.description, mono: true)
                 }
-                .width(min: 90, ideal: 110)
+                // Largeur d'une adresse complète : jamais tronquée.
+                .width(min: 108, ideal: 110)
                 .customizationID("ip")
 
                 TableColumn("TITRE", sortUsing: table.sort("titre")) { row in

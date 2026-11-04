@@ -25,15 +25,16 @@ enum InvView: String, CaseIterable, Hashable {
     }
 }
 
-/// Doublons probables d'un site (jamais entre deux sites).
 /// Conflit IP d'un site (tuile « Alertes d'inventaire »).
 private struct InvSiteConflict: Identifiable {
     let site: String
+    let siteName: String
     let ip: IPv4Address
     let key: String?
     var id: String { site + "|" + ip.description }
 }
 
+/// Doublons probables d'un site (jamais entre deux sites).
 private struct InvSiteDuplicate: Identifiable {
     let site: String
     let pair: InvDuplicate
@@ -50,8 +51,10 @@ struct InventaireScreen: View {
     @ObservedObject private var scope = SiteScopeStore.shared
     @ObservedObject private var sites = SiteModel.shared
     @Environment(\.undoManager) private var undoManager
-    /// Lignes choisies (identifiants « site|fiche ») ; vide : la première ligne.
+    /// Lignes choisies (identifiants « site|fiche »).
     @State private var selection: Set<String> = []
+    /// Première ligne choisie à l'ouverture (une seule fois).
+    @State private var initialPick = false
 
     @State private var view: InvView = .tous
     @StateObject private var table = InvTable.makeModel()
@@ -69,8 +72,14 @@ struct InventaireScreen: View {
             .fixedSize()
     }
 
-    private func conflictIP(_ ip: IPv4Address) -> some View {
-        Text(ip.description).font(Theme.mono(12)).foregroundStyle(Theme.text).fixedSize()
+    /// Adresse en conflit ; avec plusieurs sites, suivie du site (la même IP peut exister sur deux sites).
+    private func conflictIP(_ ip: IPv4Address, site: String?) -> some View {
+        HStack(spacing: 4) {
+            Text(ip.description).font(Theme.mono(12)).foregroundStyle(Theme.text).fixedSize()
+            if let site {
+                Text("· " + site).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            }
+        }
     }
 
     var body: some View {
@@ -97,7 +106,8 @@ struct InventaireScreen: View {
                 tiles(records, now: now, inventories: inventories)
                 if mergeOpen { mergePanel(duplicates, inventories: inventories) }
                 InvTable(rows: rows, total: records.count, selection: selectionBinding(rows), table: table, now: now,
-                         inventoryEmpty: records.isEmpty, siteNames: inventories.map(\.name), excluded: excluded,
+                         inventoryEmpty: records.isEmpty, siteNames: inventories.map(\.name),
+                         unreadableNames: inventories.filter { model.unreadableSites.contains($0.key) }.map(\.name), excluded: excluded,
                          onFavorite: { model.toggleFavorite($0.record.key, site: $0.siteKey) },
                          onDelete: { confirmDelete($0, rows: rows) })
                 if selectedRows.count > 1 {
@@ -106,6 +116,10 @@ struct InventaireScreen: View {
                     InvDetail(record: row.record, events: model.inventory(for: row.siteKey).events(for: row.record.key), now: now,
                               siteKey: row.siteKey)
                         .id(row.id)
+                } else if !rows.isEmpty {
+                    Text("Choisissez un appareil dans le tableau pour ouvrir sa fiche.")
+                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        .padding(.horizontal, 4)
                 }
                 help
             }
@@ -147,7 +161,11 @@ struct InventaireScreen: View {
             .buttonStyle(.primary)
         }
         .feedsInventory(state)
-        .onAppear { adoptRequestedSelection() }
+        .onAppear {
+            adoptRequestedSelection()
+            pickFirstRowIfNeeded(rows)
+        }
+        .onChange(of: rows.first?.id) { _, _ in pickFirstRowIfNeeded(rows) }
         .onChange(of: model.selectedKey) { _, _ in adoptRequestedSelection() }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.commaSeparatedText, .plainText, .text]) { result in
             switch result {
@@ -215,11 +233,13 @@ struct InventaireScreen: View {
         let unidentified = records.filter(\.isUnidentified).count
         let gone = records.filter { $0.isGone(now: now) }.count
         // Conflits de chaque site (jamais une IP d'un site comparée à celle d'un autre).
-        let conflicts = inventories.flatMap { inventory in inventory.store.conflictIPs.sorted().map { InvSiteConflict(site: inventory.key, ip: $0, key: inventory.store.record(forIP: $0)?.key) } }
+        let conflicts = inventories.flatMap { inventory in inventory.store.conflictIPs.sorted().map { InvSiteConflict(site: inventory.key, siteName: inventory.name, ip: $0, key: inventory.store.record(forIP: $0)?.key) } }
+        let multiple = inventories.count > 1
 
         return HStack(alignment: .top, spacing: 12) {
             InvTile(title: "Appareils connus", value: "\(records.count)", subtitle: "Toutes plages confondues") { view = .tous }
-            InvTile(title: "Vus aujourd’hui", value: "\(seenToday)", subtitle: "\(online) en ligne au dernier scan",
+            InvTile(title: "Vus aujourd’hui", value: "\(seenToday)", // Plusieurs sites : chaque site a son propre dernier scan (pas forcément aujourd'hui).
+                    subtitle: multiple ? "\(online) en ligne au dernier scan de chaque site" : "\(online) en ligne au dernier scan",
                     valueColor: Theme.success)
             InvTile(title: "Non identifiés", value: "\(unidentified)", subtitle: "MAC aléatoire ou empreinte insuffisante",
                     valueColor: Theme.warning) { view = .nonIdentifies }
@@ -232,16 +252,18 @@ struct InventaireScreen: View {
                     }
                     ForEach(Array(conflicts.prefix(3))) { conflict in
                         let ip = conflict.ip
+                        let site = multiple ? conflict.siteName : nil
                         Button {
                             if let key = conflict.key { selection = [SiteScope.id(site: conflict.site, key: key)] }
                         } label: {
                             // Petite fenêtre : l'adresse passe sous la puce plutôt que de la couper.
                             ViewThatFits(in: .horizontal) {
-                                HStack(spacing: 6) { conflictChip; conflictIP(ip) }
-                                VStack(alignment: .leading, spacing: 2) { conflictChip; conflictIP(ip) }
+                                HStack(spacing: 6) { conflictChip; conflictIP(ip, site: site) }
+                                VStack(alignment: .leading, spacing: 2) { conflictChip; conflictIP(ip, site: site) }
                             }
                         }
                         .buttonStyle(.plain)
+                        .help(site.map { "Conflit IP \(ip.description) sur le site «\u{00A0}\($0)\u{00A0}»" } ?? "Conflit IP \(ip.description)")
                     }
                 }
                 .padding(.top, 4)
@@ -303,12 +325,18 @@ struct InventaireScreen: View {
 
     // MARK: Sélection
 
-    /// Lignes choisies parmi celles affichées ; aucune : la première (comme avant la sélection multiple).
+    /// Lignes choisies parmi celles affichées. Jamais de cible implicite : sans sélection (tout
+    /// désélectionné, après une suppression, lignes choisies masquées par la recherche), rien n'est
+    /// choisi et « Supprimer » est désactivé.
     private func effectiveSelection(_ rows: [SiteScopedRecord]) -> Set<String> {
-        let shown = Set(rows.map(\.id))
-        let kept = selection.intersection(shown)
-        if !kept.isEmpty { return kept }
-        return rows.first.map { [$0.id] } ?? []
+        selection.intersection(Set(rows.map(\.id)))
+    }
+
+    /// À l'ouverture de l'écran, la première ligne est choisie (et surlignée) pour montrer sa fiche.
+    private func pickFirstRowIfNeeded(_ rows: [SiteScopedRecord]) {
+        guard !initialPick, let first = rows.first else { return }
+        initialPick = true
+        if selection.isEmpty { selection = [first.id] }
     }
 
     private func selectionBinding(_ rows: [SiteScopedRecord]) -> Binding<Set<String>> {
@@ -337,7 +365,7 @@ struct InventaireScreen: View {
                 Image(systemName: "checklist").font(.system(size: 20)).foregroundStyle(Theme.accentStrong)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("\(chosen.count) appareils sélectionnés").font(Theme.bodySemibold)
-                    Text(Self.siteSummary(chosen) + " · ⌘-clic ou ⇧-clic pour changer la sélection, ⌘A pour tout choisir")
+                    Text((Set(chosen.map(\.siteKey)).count > 1 ? "" : "Site ") + Self.siteSummary(chosen) + " · ⌘-clic ou ⇧-clic pour changer la sélection, ⌘A pour tout choisir")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -351,7 +379,7 @@ struct InventaireScreen: View {
         }
     }
 
-    /// « Siège (2), Entrepôt Laval (1) »
+    /// « « Siège » », ou « Siège (2), Entrepôt Laval (1) »
     private static func siteSummary(_ rows: [SiteScopedRecord]) -> String {
         var order: [String] = []
         var counts: [String: Int] = [:]
@@ -359,7 +387,7 @@ struct InventaireScreen: View {
             if counts[row.siteName] == nil { order.append(row.siteName) }
             counts[row.siteName, default: 0] += 1
         }
-        if order.count == 1 { return "Site «\u{00A0}\(order[0])\u{00A0}»" }
+        if order.count == 1 { return "«\u{00A0}\(order[0])\u{00A0}»" }
         return order.map { "\($0) (\(counts[$0] ?? 0))" }.joined(separator: ", ")
     }
 
@@ -379,7 +407,8 @@ struct InventaireScreen: View {
             + (Set(chosen.map(\.siteKey)).count > 1 ? "Sites touchés\u{00A0}: " : "Site touché\u{00A0}: ") + Self.siteSummary(chosen)
             + " (les autres sites ne changent pas).\n\n"
             + "La fiche, ses notes et son historique d’événements sont retirés. Sans «\u{00A0}Ne plus suivre\u{00A0}», "
-            + (count > 1 ? "ces appareils peuvent revenir" : "l’appareil peut revenir") + " au prochain scan de son site.\n\n"
+            + (count > 1 ? "ces appareils reviendront si un prochain scan de leur site les revoit"
+               : "l’appareil reviendra si un prochain scan de son site le revoit") + ".\n\n"
             + "Vous pourrez annuler juste après (⌘Z ou Édition › Annuler)."
         alert.showsSuppressionButton = true
         alert.suppressionButton?.title = count > 1 ? "Ne plus suivre ces appareils (un scan ne les remettra pas)"
@@ -390,7 +419,9 @@ struct InventaireScreen: View {
         alert.addButton(withTitle: "Annuler")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         let exclude = alert.suppressionButton?.state == .on
-        delete(ids: chosen.map(\.id), exclude: exclude, summary: Self.siteSummary(chosen))
+        let several = Set(chosen.map(\.siteKey)).count > 1
+        delete(ids: chosen.map(\.id), exclude: exclude,
+               summary: several ? "(" + Self.siteSummary(chosen) + ")" : "du site " + Self.siteSummary(chosen))
     }
 
     private func delete(ids: [String], exclude: Bool, summary: String) {
@@ -399,9 +430,22 @@ struct InventaireScreen: View {
         selection = []
         Self.registerUndo(undoManager, removal: removal, ids: ids, exclude: exclude, summary: summary)
         let count = removal.count
-        model.show("\(count) appareil\(count > 1 ? "s" : "") supprimé\(count > 1 ? "s" : "") (\(summary))"
+        model.show("\(count) appareil\(count > 1 ? "s" : "") supprimé\(count > 1 ? "s" : "") \(summary)"
                    + (exclude ? ", plus suivi\(count > 1 ? "s" : "")" : "") + " · ⌘Z pour annuler")
         model.updateBadge(state)
+    }
+
+    /// Message d'annulation : ce qui a vraiment été remis (une fiche recréée entre-temps par un
+    /// scan reçoit ses notes et son historique ; un site supprimé ne reçoit rien).
+    private static func restoreMessage(_ result: InvRestoreResult, expected: Int, summary: String) -> String {
+        guard result.total > 0 else { return "Suppression non annulée\u{00A0}: l’inventaire du site n’est plus disponible" }
+        let place = summary.hasPrefix("du site ") ? "dans le site " + summary.dropFirst("du site ".count) : summary
+        var text = "Suppression annulée\u{00A0}: \(result.total) appareil\(result.total > 1 ? "s" : "") remis \(place)"
+        if result.merged > 0 {
+            text += " · \(result.merged) revenu\(result.merged > 1 ? "s" : "") entre-temps, notes et historique repris"
+        }
+        if result.total < expected { text += " · \(expected - result.total) non remis (site indisponible)" }
+        return text
     }
 
     /// Édition › Annuler « Supprimer de l'inventaire » (⌘Z), puis Rétablir (⇧⌘Z).
@@ -409,12 +453,15 @@ struct InventaireScreen: View {
         guard let manager else { return }
         let model = InvModel.shared
         manager.registerUndo(withTarget: model) { target in
-            target.restore(removal)
-            target.show("Suppression annulée\u{00A0}: \(removal.count) appareil\(removal.count > 1 ? "s" : "") remis (\(summary))")
+            let result = target.restore(removal)
+            target.show(restoreMessage(result, expected: removal.count, summary: summary))
+            guard result.total > 0 else { return }
             manager.registerUndo(withTarget: target) { again in
-                let redone = again.remove(ids, exclude: exclude)
+                let current = again.currentIDs(ids, since: removal)
+                let redone = again.remove(current, exclude: exclude)
                 again.show("\(redone.count) appareil\(redone.count > 1 ? "s" : "") supprimé\(redone.count > 1 ? "s" : "") de nouveau")
-                registerUndo(manager, removal: redone, ids: ids, exclude: exclude, summary: summary)
+                guard redone.count > 0 else { return }
+                registerUndo(manager, removal: redone, ids: current, exclude: exclude, summary: summary)
             }
             manager.setActionName("Supprimer de l’inventaire")
         }

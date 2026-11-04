@@ -106,6 +106,125 @@ func registerSiteScopeTests(_ suite: TestSuite) {
         try expectEqual(twice.excluded.map(\.key), [camera], "l'exclusion précédente reste")
     }
 
+    suite.add("Inventaire : un appareil supprimé ne revient que si un scan le revoit après") {
+        var inventory = store()
+        let removal = inventory.removeRecords([printer], exclude: false, at: now)
+        // Résultats du Scanner déjà affichés (vus avant la suppression) : retenus.
+        try expect(removal.holds(device("10.0.0.21", "94:DD:F8:18:15:7D", at: now)), "vu avant : retenu")
+        try expect(removal.holds(device("10.0.0.21", "94:DD:F8:18:15:7D", at: now.addingTimeInterval(-60))), "vu bien avant : retenu")
+        try expect(!removal.holds(device("10.0.0.21", "94:DD:F8:18:15:7D", at: now.addingTimeInterval(30))), "revu après : revient")
+        try expect(!removal.holds(device("10.0.0.30", "B0:7B:25:20:00:07", at: now)), "autre appareil : jamais retenu")
+        let cameraRemoval = inventory.removeRecords([camera], exclude: false, at: now)
+        try expect(cameraRemoval.holds(device("10.0.0.40", nil, at: now)), "sans MAC : retenu par son adresse")
+    }
+
+    suite.add("Inventaire : annuler après le retour de l'appareil remet ses notes et son historique") {
+        var inventory = store()
+        var notes = inventory.record(printer)!.annotations
+        notes.customName = "Imprimante RH"
+        notes.notes = "Bac 2 capricieux"
+        notes.tags = ["RH"]
+        inventory.setAnnotations(notes, for: printer, at: now)
+        let before = inventory.record(printer)!
+        let oldEvents = inventory.events(for: printer)
+        let removal = inventory.removeRecords([printer], exclude: false, at: now)
+        // Un scan revoit l'imprimante avant l'annulation : fiche vierge recréée.
+        let later = now.addingTimeInterval(90)
+        inventory.merge([device("10.0.0.22", "94:DD:F8:18:15:7D", host: "imprimante", at: later)], at: later)
+        try expectEqual(inventory.record(printer)?.annotations.customName, nil, "fiche recréée vierge")
+        let result = inventory.restore(removal)
+        try expectEqual(result, InvRestoreResult(restored: 0, merged: 1), "une fiche complétée, comptée")
+        let back = inventory.record(printer)!
+        try expectEqual(back.annotations, before.annotations, "notes, nom et étiquettes repris")
+        try expectEqual(back.ip, IPv4Address("10.0.0.22")!, "adresse vue par le dernier scan")
+        try expectEqual(back.firstSeen, before.firstSeen, "première vue d'avant")
+        try expectEqual(back.ipHistory.map(\.ip.description), ["10.0.0.20", "10.0.0.21", "10.0.0.22"], "historique d'IP réuni")
+        let events = inventory.events(for: printer)
+        try expect(oldEvents.allSatisfy { old in events.contains { $0.id == old.id } }, "anciens événements remis")
+        try expect(!events.contains { $0.kind == .nouveau && $0.date >= now }, "pas de « Nouvel appareil » de recréation")
+        try expectEqual(events.map(\.date), events.map(\.date).sorted(), "chronologie dans l'ordre")
+    }
+
+    suite.add("Inventaire : annulation, journal modifié entre-temps : ordre chronologique") {
+        var inventory = store()
+        let removal = inventory.removeRecords([printer], exclude: false, at: now)
+        inventory.merge([device("10.0.0.30", "B0:7B:25:20:00:07", host: "poste-7", online: false, at: now)],
+                        at: now.addingTimeInterval(60), coverage: .none)
+        inventory.restore(removal)
+        try expectEqual(inventory.events.map(\.date), inventory.events.map(\.date).sorted(), "événements triés par date")
+        try expectEqual(inventory.events(for: printer).count, removal.events.count, "tous remis")
+    }
+
+    suite.add("Inventaire : exclusion par MAC ou par adresse, dans les deux sens") {
+        // 1. Exclu par sa MAC, revu sans MAC (plage routée) à la même adresse : toujours exclu.
+        var inventory = store()
+        inventory.removeRecords([printer], exclude: true, at: now)
+        let later = now.addingTimeInterval(120)
+        inventory.merge([device("10.0.0.21", nil, host: "imprimante", at: later)], at: later)
+        try expect(inventory.record(InventoryStore.key(ip: IPv4Address("10.0.0.21")!)) == nil, "MAC exclue revue sans MAC : pas de fiche")
+        // … sauf si une fiche suivie à MAC a cette adresse : c'est elle.
+        inventory.merge([device("10.0.0.21", "B0:7B:25:20:00:07", host: "poste-7", at: later)], at: later)
+        inventory.merge([device("10.0.0.21", nil, host: "poste-7", at: later.addingTimeInterval(60))], at: later.addingTimeInterval(60))
+        try expectEqual(inventory.record(desktop)?.lastSeen, later.addingTimeInterval(60), "fiche suivie mise à jour par l'IP")
+        // 2. Exclu par adresse (sans MAC), revu avec sa MAC à cette adresse : exclu, par sa MAC désormais.
+        var byIP = store()
+        byIP.removeRecords([camera], exclude: true, at: now)
+        let cameraMAC = MACAddress("BC:AD:28:20:40:01")!
+        byIP.merge([device("10.0.0.40", "BC:AD:28:20:40:01", host: "camera", at: later)], at: later)
+        try expect(byIP.record(InventoryStore.key(mac: cameraMAC)) == nil, "revu avec sa MAC : toujours exclu")
+        try expectEqual(byIP.excluded.map(\.key), [InventoryStore.key(mac: cameraMAC)], "exclusion rattachée à la MAC")
+        byIP.merge([device("10.0.0.41", "BC:AD:28:20:40:01", host: "camera", at: later.addingTimeInterval(60))], at: later.addingTimeInterval(60))
+        try expect(byIP.record(InventoryStore.key(mac: cameraMAC)) == nil, "exclu même à une autre adresse")
+        try expectEqual(byIP.excluded.first?.ip, IPv4Address("10.0.0.41")!, "adresse de l'exclusion suivie")
+        byIP.merge([device("10.0.0.40", nil, host: "autre", at: later.addingTimeInterval(120))], at: later.addingTimeInterval(120))
+        try expect(byIP.record(camera) != nil, "l'ancienne adresse redevient libre pour un appareil sans MAC")
+    }
+
+    suite.add("Inventaire : un appareil exclu compte pour les conflits IP et les adresses reprises") {
+        var inventory = store()
+        inventory.removeRecords([printer], exclude: true, at: now)
+        let later = now.addingTimeInterval(120)
+        // L'imprimante exclue répond sur l'adresse du poste suivi, dans le même scan.
+        let produced = inventory.merge([device("10.0.0.30", "B0:7B:25:20:00:07", host: "poste-7", at: later),
+                                        device("10.0.0.30", "94:DD:F8:18:15:7D", host: "imprimante", at: later)], at: later)
+        let conflict = produced.first { $0.kind == .conflitIP }
+        try expectEqual(conflict?.severity, .critique, "conflit IP critique")
+        try expectEqual(conflict?.key, desktop, "rattaché à la fiche suivie")
+        try expect(inventory.record(desktop)?.hasConflict == true, "fiche suivie en conflit")
+        try expect(inventory.record(printer) == nil, "l'exclue n'a toujours pas de fiche")
+        // Adresse reprise par un appareil exclu, l'ancien titulaire hors du délai de conflit.
+        var taken = store()
+        taken.removeRecords([printer], exclude: true, at: now)
+        let much = now.addingTimeInterval(3_600)
+        let events = taken.merge([device("10.0.0.30", "94:DD:F8:18:15:7D", host: "imprimante", at: much)], at: much)
+        try expect(taken.record(desktop)?.isOnline == false, "fiche suivie hors ligne")
+        try expect(events.contains { $0.key == desktop && $0.detail.contains("reprise par imprimante (non suivi)") }, "adresse reprise, dite")
+    }
+
+    suite.add("Inventaire : une fiche créée à la main lève l'exclusion") {
+        var inventory = store()
+        inventory.removeRecords([printer], exclude: true, at: now)
+        inventory.importRows([InvCSVRow(ip: IPv4Address("10.0.0.21")!, mac: MACAddress("94:DD:F8:18:15:7D")!, name: "Imprimante")], at: now)
+        try expect(inventory.excluded.isEmpty, "import CSV : exclusion levée")
+        var manual = store()
+        manual.removeRecords([printer], exclude: true, at: now)
+        manual.setManualType(.imprimante, for: device("10.0.0.21", "94:DD:F8:18:15:7D"), at: now)
+        try expect(manual.excluded.isEmpty, "type choisi : exclusion levée")
+        let later = now.addingTimeInterval(60)
+        manual.merge([device("10.0.0.21", "94:DD:F8:18:15:7D", host: "imprimante", at: later)], at: later)
+        try expectEqual(manual.record(printer)?.lastSeen, later, "fiche de nouveau mise à jour par les scans")
+    }
+
+    suite.add("Inventaire : import d'un CSV de plusieurs sites, seul le site actif") {
+        let text = "Site;IP;MAC;Nom\r\nSiège;10.0.0.20;94:DD:F8:18:15:7D;Imprimante\r\nEntrepôt Laval;10.0.0.20;00:09:0F:AA:10:01;Autre\r\n"
+        let rows = try InvCSV.parse(text)
+        try expectEqual(rows.map(\.site), ["Siège", "Entrepôt Laval"], "colonne Site lue")
+        let kept = InvCSV.rows(rows, forSite: "siege")
+        try expectEqual(kept.rows.map(\.name), ["Imprimante"], "lignes du site actif (accents et casse ignorés)")
+        try expectEqual(kept.otherSites, 1, "une ligne d'un autre site écartée")
+        try expectEqual(InvCSV.rows(try InvCSV.parse("IP;Nom\r\n10.0.0.1;A\r\n"), forSite: "Siège").rows.count, 1, "sans colonne Site : tout")
+    }
+
     suite.add("Inventaire : la suppression d'un site ne touche pas les autres sites") {
         // Deux sites aux mêmes adresses et à la même MAC : deux inventaires distincts.
         let base = FileManager.default.temporaryDirectory.appendingPathComponent("netscope-scope-\(UUID().uuidString)", isDirectory: true)
@@ -194,5 +313,7 @@ func registerSiteScopeTests(_ suite: TestSuite) {
         try expectEqual(one.site, "Siège", "nom du site repris")
         let json = try ReportExport.json(document)
         try expect(String(decoding: json, as: UTF8.self).contains("Entrepôt Laval|resume"), "JSON : sections distinctes")
+        let runs = ReportPaginator.startPageRuns(ReportPaginator.paginate(document))
+        try expectEqual(runs[.inventaire]?.count, 2, "panneau des sections : une page de départ par site")
     }
 }
