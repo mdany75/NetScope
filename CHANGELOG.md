@@ -1,5 +1,67 @@
 # Changements
 
+## 0.16.0 — 2026-11-04
+
+Les clients Wi-Fi des bornes FortiAP en détail : par borne, par radio et par SSID, une fiche
+complète pour chaque client avec l’historique de son signal, et un bouton « Diagnostiquer »
+qui vérifie chaque cause possible d’un problème Wi-Fi et propose quoi faire, dans l’ordre.
+
+### Ajouté
+- **Wi-Fi › FortiAP, clients d’une borne** : un clic sur une borne affiche ses clients, par
+  radio (2,4, 5 et 6 GHz) puis par SSID, avec le nombre de clients de chaque SSID.
+- **Wi-Fi › Clients, vue « Par SSID »** : chaque SSID se déplie, avec son nombre de clients,
+  ses bornes, ses bandes, sa sécurité et son VLAN ; filtres par SSID, borne, bande et signal
+  faible.
+- **Fiche complète d’un client Wi-Fi** (double-clic) : nom, fabricant, MAC, IP, VLAN, SSID,
+  borne et radio, canal et largeur, standard (Wi-Fi 4 à 7), sécurité, authentification et
+  utilisateur, débits montant et descendant, octets échangés, durée de connexion, itinérances
+  et déconnexions ; liens vers la fiche Appareil, l’Inventaire et le Ping continu. Le bouton ‹
+  ramène à la borne ou au SSID d’origine.
+- **Historique du signal** de chaque client Wi-Fi (RSSI, SNR, débit, borne), gardé par site
+  sur ce Mac et complété à chaque lecture des bornes, avec une courbe qui montre aussi les
+  changements de borne.
+- **Fiche Appareil, section Wi-Fi** : si l’appareil est un client Wi-Fi, elle donne tout ce
+  qu’il faut pour le diagnostic (signal et son historique, borne et canal, charge de la radio,
+  débits, problèmes repérés) et le bouton « Diagnostiquer ».
+- **Diagnostic Wi-Fi** : bouton « Diagnostiquer » sur un client, une borne ou un SSID FortiAP.
+  Il vérifie chaque cause possible : signal, client collant, canal et chevauchements,
+  interférences et AP voisins, largeur, DFS, charge, clients lents, poste du client, bande
+  2,4 GHz, authentification et déconnexions, DHCP et 169.254, réseau au-delà du Wi-Fi, lien
+  de la borne vers son switch, limites du SSID.
+- Un verdict par cause (OK, à surveiller, problème) avec les mesures qui le prouvent, la cause
+  la plus probable en tête, des actions numérotées dans l’ordre et un canal conseillé.
+- Ping facultatif de quelques secondes depuis ce Mac vers la passerelle, le DNS et Internet,
+  pour savoir si le problème dépasse le Wi-Fi.
+- Suivi dans le temps : le dernier diagnostic de chaque client est gardé dans le site, avec le
+  diagnostic précédent et l’heure où le problème revient.
+- « Copier » le résultat en texte et « Ajouter au rapport du site » ; nouvelle section
+  facultative « Diagnostic Wi-Fi » dans les Rapports.
+- **Wi-Fi › FortiAP** : menu « Diagnostiquer une borne, un SSID ou un client » dans les
+  Conseils, bouton « Diagnostiquer la borne » dans la fiche de la borne et diagnostic direct
+  des clients les plus faibles.
+
+### Modifié
+- Le diagnostic brut de la FortiGate liste les champs des clients Wi-Fi que cette version de
+  FortiOS ne renvoie pas ; ils sont affichés « — » dans la fiche du client.
+
+### Corrigé
+- La colonne « Appareil du Scanner » des clients Wi-Fi ne rattache plus un client d’un autre
+  site qui a la même adresse MAC.
+- **Vitesse des disques, iCloud Drive** : une erreur d’envoi passagère d’iCloud ne fait plus
+  échouer le test ; le message exact du service est affiché et gardé.
+
+### Limites
+- Lecture seule : le diagnostic ne modifie rien sur la FortiGate ni sur les bornes ; NetScope
+  propose, le technicien applique.
+- Certains champs (bruit, itinérances, déconnexions, utilisateur 802.1X…) dépendent de la
+  version de FortiOS ; quand elle ne les renvoie pas, ils restent « — » et les causes qui en
+  dépendent ne peuvent pas être tranchées.
+- L’historique du signal ne se remplit qu’à chaque lecture des bornes par NetScope (la relecture
+  automatique est prévue dans la 0.17.0) ; il reste sur ce Mac (14 jours au plus).
+- Le ping du diagnostic part de ce Mac, pas du client : il dit si le réseau au-delà du Wi-Fi
+  répond, pas ce que vit le poste du client. Le WAN du site n’est pas encore vérifié (note 39).
+- Fonctions à essayer sur une vraie FortiGate avec bornes FortiAP.
+
 ## 0.15.0 — 2026-11-04
 
 Choix du site toujours visible sous le logo NetScope, Switchs et ports et Wi-Fi consultables

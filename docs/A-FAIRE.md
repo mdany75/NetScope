@@ -5,9 +5,9 @@
 
 ## Priorités (revues le 4 novembre 2026, réorganisées avec les notes 45 à 53)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0.
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0.
 
-1. **0.13.x à 0.15.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer) : essais réels de la 0.3.x (localisation, DHCP, capture,
+1. **0.13.x à 0.16.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
    des 0.5.0 à 0.8.0 (voir ci-dessous) ; 0.13.1 au besoin.
 2. ~~**0.5.0, diagnostic du poste et du réseau local**~~ : livrée le 4 novembre 2026
@@ -41,7 +41,12 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 12. ~~**0.15.0, sites et navigation**~~ : livrée le 4 novembre 2026 (notes 49 : site sous le
     logo, menu « Site » et ⌘⇧S ; 48 : site dans Switchs et Wi-Fi ; 45 : fin du Retour ; 52 : nom
     d'utilisateur SSH) ; essai réel à faire sur les sites, FortiGate et bornes de Dany.
-13. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany ;
+13. ~~**0.16.0, Wi-Fi des clients**~~ : livrée le 4 novembre 2026 (notes 46 : clients par borne
+    et par SSID, fiche complète du client, historique du signal, section Wi-Fi de la fiche
+    Appareil ; 47 : diagnostic Wi-Fi d'un client, d'une borne ou d'un SSID, avec suivi et
+    rapport ; correctif iCloud de Vitesse des disques) ; essai réel à faire sur les FortiGate
+    et bornes FortiAP de Dany (champs renvoyés par FortiOS, diagnostic sur un vrai client).
+14. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany ;
     réorganisé le même jour pour placer les notes 45 à 53, ordre accepté par Dany) :
     - **0.13.1** : essais réels (sites, FortiGate, FortiAP, navigation) et correctifs ; note 35
       (journal et diagnostic).
@@ -50,8 +55,8 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
     - ~~**0.15.0, sites et navigation**~~ (livrée) : notes 49 (site sous le logo), 48 (site dans
       Switchs et Wi-Fi), 45 (fin du Retour : bouton qui nomme l'écran, position dans la liste,
       historique vidé au changement de site), 52 (nom d'utilisateur SSH).
-    - **0.16.0, Wi-Fi des clients** : notes 46 (clients par borne et par SSID, fiche complète),
-      47 (diagnostic Wi-Fi d'un client, avec solutions).
+    - ~~**0.16.0, Wi-Fi des clients**~~ (livrée) : notes 46 (clients par borne et par SSID,
+      fiche complète), 47 (diagnostic Wi-Fi d'un client, avec solutions).
     - **0.17.0, suivi automatique et trafic** : notes 29 (relire en automatique), 39 (WAN des
       FortiGate), 54 (FortiView : trafic et analyse complète du réseau).
     - **0.18.0, transferts et services** : notes 50 (FTP, FTPS, SFTP), 51 (TFTP), 53 (réseaux
@@ -72,7 +77,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 | Scanner et sites | 18, 19, 20, 26, 28, 48, 49 | — |
 | Navigation entre les modules | 31, 33, 34, 36, 45 | — |
 | Switchs et ports, Fortinet | 12, 24, 25 | 29, 39 et 54 (0.17.0), 40 et 41 (0.19.0) |
-| Wi-Fi | 1, 27 | 46 et 47 (0.16.0) |
+| Wi-Fi | 1, 27, 46, 47 | — |
 | Carte du réseau | 32 | — |
 | Inventaire | 8, 30 | 10 (0.20.0) |
 | Ping continu | — | 11 (plus tard) |
@@ -777,6 +782,8 @@ le « Retour » de la note 34 :
 
 ## 46. Wi-Fi : clients par borne et par SSID, fiche complète du client — 0.16.0 (demande de Dany)
 
+**Livrée dans la 0.16.0** (4 novembre 2026) ; essai réel à faire sur les FortiGate et bornes FortiAP de Dany.
+
 « Si je clique sur un AP, je vois qui est connecté ; dans la section Wi-Fi, clients vs SSID,
 donc l'info complète du client. » Prolonge la note 27 (liste des clients livrée dans la 0.11.0) :
 
@@ -798,6 +805,9 @@ donc l'info complète du client. » Prolonge la note 27 (liste des clients livr�
   (note 47).
 
 ## 47. Diagnostic des problèmes Wi-Fi d'un client, avec solutions — 0.16.0 (demande de Dany)
+
+**Livrée dans la 0.16.0** (4 novembre 2026), avec le correctif iCloud de Vitesse des disques
+(fusionné en 4c18dbd) ; essai réel à faire sur un vrai client Wi-Fi.
 
 « Diagnostiquer les troubles Wi-Fi des clients, la lenteur, toutes les possibilités, et
 suggérer la résolution. » Va plus loin que le diagnostic général de la note 27 : un bouton
