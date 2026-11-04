@@ -13,6 +13,7 @@ struct SpeedHistoryView: View {
     var body: some View {
         VStack(spacing: 14) {
             evolutionPanel
+            SpeedServerComparisonPanel(model: model)
             tablePanel
         }
     }
@@ -240,6 +241,7 @@ struct SpeedHistoryView: View {
         StandardColumn(id: "latenceCharge", title: "Latence en charge", isDefaultVisible: false),
         StandardColumn(id: "flux", title: "Flux", isDefaultVisible: false),
         StandardColumn(id: "origine", title: "Origine", isDefaultVisible: false),
+        StandardColumn(id: "source", title: "Source", isDefaultVisible: false),
     ]
 
     /// « ordre » : ordre de l'historique (le plus récent d'abord), sans colonne. Les débits et
@@ -257,6 +259,7 @@ struct SpeedHistoryView: View {
         "latenceCharge": KeyPathComparator(\SpeedHistoryLine.sortLoadedLatency),
         "flux": KeyPathComparator(\SpeedHistoryLine.sortStreams),
         "origine": KeyPathComparator(\SpeedHistoryLine.sortOrigin),
+        "source": KeyPathComparator(\SpeedHistoryLine.sortSource),
     ]
 }
 
@@ -280,6 +283,7 @@ struct SpeedHistoryLine: Identifiable {
     var sortLoadedLatency: Double { record.loadedLatencyMs ?? .greatestFiniteMagnitude }
     var sortStreams: Int { record.streams }
     var sortOrigin: String { record.origin }
+    var sortSource: String { record.sourceLabel }
 }
 
 /// Tableau des tests enregistrés : le test qui vient de se terminer est sélectionné.
@@ -383,6 +387,13 @@ private struct SpeedHistoryTable: View {
                 }
                 .width(min: 70, ideal: 90)
                 .customizationID("origine")
+                .defaultVisibility(.hidden)
+
+                TableColumn(StandardTableHeading("SOURCE"), sortUsing: table.sort("source")) { line in
+                    Text(line.record.sourceLabel).font(Theme.small).foregroundStyle(Theme.neutralText).lineLimit(1)
+                }
+                .width(min: 70, ideal: 90)
+                .customizationID("source")
                 .defaultVisibility(.hidden)
             }
         }

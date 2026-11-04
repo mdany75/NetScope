@@ -1,9 +1,10 @@
 import Foundation
 
-// Test de débit Internet par les points d'accès publics de Cloudflare :
+// Test de débit Internet en HTTP multi-flux, par les points d'accès publics de Cloudflare :
 //   GET  https://speed.cloudflare.com/__down?bytes=N   (téléchargement, et latence avec N = 0)
 //   POST https://speed.cloudflare.com/__up             (téléversement)
 //   GET  https://speed.cloudflare.com/meta             (IP publique, fournisseur, nœud)
+// ou par un serveur LibreSpeed (liste publique ou serveur personnalisé, voir LibreSpeed.swift).
 // Chaque flux a sa propre URLSession, donc sa propre connexion TCP.
 
 /// Réglages d'un test Internet.
@@ -16,6 +17,10 @@ public struct SpeedTestConfig: Sendable, Hashable {
     public var uploadDuration: TimeInterval
     public var latencyProbes: Int
     public var baseURL: URL
+    /// Serveur LibreSpeed ; nil : Cloudflare (`baseURL`).
+    public var libreSpeed: LibreSpeedEndpoints?
+    /// Description du serveur choisi (nom, ville), complétée par l'IP publique au début du test.
+    public var serverInfo: SpeedServerInfo?
     public var downloadChunkBytes: Int
     public var uploadChunkBytes: Int
     /// Intervalle de publication de la progression.
@@ -24,8 +29,11 @@ public struct SpeedTestConfig: Sendable, Hashable {
     public init(streams: Int = 4, downloadDuration: TimeInterval = 10, uploadDuration: TimeInterval = 10,
                 latencyProbes: Int = 10, baseURL: URL = SpeedTestConfig.cloudflare,
                 downloadChunkBytes: Int = 25_000_000, uploadChunkBytes: Int = 10_000_000,
-                sampleInterval: TimeInterval = 0.2) {
+                sampleInterval: TimeInterval = 0.2, libreSpeed: LibreSpeedEndpoints? = nil,
+                serverInfo: SpeedServerInfo? = nil) {
         self.streams = max(1, min(streams, 16))
+        self.libreSpeed = libreSpeed
+        self.serverInfo = serverInfo
         self.downloadDuration = downloadDuration
         self.uploadDuration = uploadDuration
         self.latencyProbes = max(1, latencyProbes)
@@ -36,13 +44,20 @@ public struct SpeedTestConfig: Sendable, Hashable {
     }
 
     public func downloadURL(bytes: Int) -> URL {
+        if let libreSpeed {
+            return bytes == 0 ? libreSpeed.pingURL(nonce: Self.nonce()) : libreSpeed.downloadURL(bytes: bytes, nonce: Self.nonce())
+        }
         var components = URLComponents(url: baseURL.appendingPathComponent("__down"), resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "bytes", value: String(max(0, bytes)))]
         return components.url!
     }
 
-    public var uploadURL: URL { baseURL.appendingPathComponent("__up") }
-    public var metaURL: URL { baseURL.appendingPathComponent("meta") }
+    public var uploadURL: URL { libreSpeed?.uploadURL(nonce: Self.nonce()) ?? baseURL.appendingPathComponent("__up") }
+    /// IP publique et fournisseur : /meta (Cloudflare) ou getIP.php (LibreSpeed).
+    public var metaURL: URL { libreSpeed?.ipURL ?? baseURL.appendingPathComponent("meta") }
+
+    /// Valeur aléatoire contre les caches intermédiaires (LibreSpeed).
+    static func nonce() -> String { String(UInt32.random(in: 0...UInt32.max)) }
 
     /// Durée totale approximative (s), pour la barre de progression.
     public var estimatedDuration: TimeInterval { Double(latencyProbes) * 0.15 + downloadDuration + uploadDuration }
@@ -99,9 +114,22 @@ public struct SpeedServerInfo: Codable, Hashable, Sendable {
     public var clientIP: String?
     public var asn: Int?
     public var asOrganization: String?
+    /// Source du serveur (« M-Lab », « LibreSpeed », « Ookla ») ; nil : Cloudflare.
+    public var source: String?
+    /// Nom du serveur (« Montréal (yul04) ») pour les sources autres que Cloudflare.
+    public var serverName: String?
+    /// Identifiant du serveur dans NetScope (`SpeedServer.id`).
+    public var serverID: String?
+    /// Lien vers le résultat publié par la source (Ookla).
+    public var resultURL: String?
 
     public init(colo: String? = nil, city: String? = nil, country: String? = nil, clientIP: String? = nil,
-                asn: Int? = nil, asOrganization: String? = nil) {
+                asn: Int? = nil, asOrganization: String? = nil, source: String? = nil, serverName: String? = nil,
+                serverID: String? = nil, resultURL: String? = nil) {
+        self.source = source
+        self.serverName = serverName
+        self.serverID = serverID
+        self.resultURL = resultURL
         self.colo = colo
         self.city = city
         self.country = country
@@ -136,9 +164,25 @@ public struct SpeedServerInfo: Codable, Hashable, Sendable {
         if self.colo == nil && clientIP == nil { return nil }
     }
 
-    /// « Cloudflare · YUL · Montreal »
+    /// Complète cette description (serveur choisi) avec ce qu'a renvoyé le serveur (IP, fournisseur).
+    public func merged(with other: SpeedServerInfo) -> SpeedServerInfo {
+        var copy = self
+        copy.colo = colo ?? other.colo
+        copy.city = city ?? other.city
+        copy.country = country ?? other.country
+        copy.clientIP = other.clientIP ?? clientIP
+        copy.asn = other.asn ?? asn
+        copy.asOrganization = other.asOrganization ?? asOrganization
+        copy.resultURL = other.resultURL ?? resultURL
+        return copy
+    }
+
+    /// « Cloudflare · YUL · Montreal », « M-Lab · Montréal (yul04) »
     public var label: String {
-        var parts = ["Cloudflare"]
+        if let serverName, !serverName.isEmpty {
+            return [source ?? "Serveur", serverName].joined(separator: " · ")
+        }
+        var parts = [source ?? "Cloudflare"]
         if let colo { parts.append(colo) }
         if let city { parts.append(city) }
         return parts.joined(separator: " · ")
@@ -213,9 +257,15 @@ public enum SpeedEvent: Sendable {
     case failed(String)
 }
 
+/// Moteur de test Internet (Cloudflare et LibreSpeed, M-Lab NDT7, Ookla). `run()` publie la
+/// progression ; annuler la tâche qui lit le flux arrête le test.
+public protocol SpeedTestEngine: Sendable {
+    func run() -> AsyncStream<SpeedEvent>
+}
+
 /// Test de débit Internet. `run()` publie la progression ; annuler la tâche qui lit le flux
 /// (ou cesser de le lire) arrête le test et ferme toutes les connexions.
-public final class SpeedTester: @unchecked Sendable {
+public final class SpeedTester: SpeedTestEngine, @unchecked Sendable {
     public let config: SpeedTestConfig
 
     public init(config: SpeedTestConfig = SpeedTestConfig()) {
@@ -248,10 +298,13 @@ public final class SpeedTester: @unchecked Sendable {
 
         // Serveur et IP publique (facultatif).
         var server: SpeedServerInfo?
-        if let (data, _) = try? await session.data(from: config.metaURL), let info = SpeedServerInfo(metaJSON: data) {
-            server = info
-            out.yield(.server(info))
+        if let (data, _) = try? await session.data(from: config.metaURL),
+           let info = config.libreSpeed == nil ? SpeedServerInfo(metaJSON: data) : LibreSpeedParser.clientInfo(data) {
+            server = config.serverInfo.map { $0.merged(with: info) } ?? info
+        } else {
+            server = config.serverInfo
         }
+        if let server { out.yield(.server(server)) }
         if Task.isCancelled { return }
 
         // Latence au repos : médiane de N requêtes de 0 octet, après une requête d'échauffement.
@@ -315,7 +368,7 @@ public final class SpeedTester: @unchecked Sendable {
         let start = DispatchTime.now().uptimeNanoseconds
         let (_, response) = try await session.data(for: request)
         let elapsed = Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw URLError(.badServerResponse)
         }
         let serverMs = SpeedServerInfo.serverTimingDuration(http.value(forHTTPHeaderField: "Server-Timing")) ?? 0

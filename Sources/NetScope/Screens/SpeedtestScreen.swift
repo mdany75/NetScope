@@ -1,8 +1,8 @@
 import NetScopeCore
 import SwiftUI
 
-/// Écran `Screen.speedtest` (croquis docs/croquis/Speedtest.dc.html) : débit Internet par
-/// Cloudflare, débit local par iperf3, historique.
+/// Écran `Screen.speedtest` (croquis docs/croquis/Speedtest.dc.html) : débit Internet (Cloudflare,
+/// M-Lab, LibreSpeed, Ookla), choix du serveur, débit local par iperf3, historique.
 struct SpeedtestScreen: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var model = SpeedtestModel.shared
@@ -14,6 +14,7 @@ struct SpeedtestScreen: View {
                 Group {
                     switch model.tab {
                     case .internet: SpeedInternetView(model: model)
+                    case .serveurs: SpeedServersView(model: model)
                     case .lan: SpeedLanView(model: model)
                     case .historique: SpeedHistoryView(model: model)
                     }
