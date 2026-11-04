@@ -18,7 +18,11 @@ public enum CDPDecoder {
         guard packet.count >= 4, packet[0] == 1 || packet[0] == 2 else { return nil }
         var neighbor = NetworkNeighbor(protocols: [.cdp], ttl: Int(packet[1]))
         var offset = 4
-        var power: String?
+        var power: PoEPowerInfo?
+        func add(_ info: PoEPowerInfo?) {
+            guard let info else { return }
+            power = power.map { $0.merged(with: info) } ?? info
+        }
         while offset + 4 <= packet.count {
             let type = CaptureBytes.u16(packet, offset)
             let length = Int(CaptureBytes.u16(packet, offset + 2))
@@ -56,22 +60,19 @@ public enum CDPDecoder {
                     if vlan > 0 && vlan < 4095 { neighbor.voiceVLAN = vlan }
                 }
             case 0x0010:
-                if value.count >= 2 {
-                    let watts = Double(CaptureBytes.u16(value, 0)) / 1000
-                    power = "CDP · \(LLDPDecoder.wattsText(watts))"
-                }
+                add(PoEDecoder.cdpPower(value))
+            case 0x0019:
+                add(PoEDecoder.cdpPowerRequested(value))
             case 0x001A:
-                // Power Available : demande (2), gestion (2), puissance disponible (4, en mW)…
-                if value.count >= 8, power == nil {
-                    let watts = Double(CaptureBytes.u32(value, 4)) / 1000
-                    power = "CDP · \(LLDPDecoder.wattsText(watts)) disponibles"
-                }
+                // Power Available : envoyé par le switch sur un port PoE.
+                add(PoEDecoder.cdpPowerAvailable(value))
             default:
                 break
             }
         }
         guard neighbor.systemName != nil || neighbor.portID != nil else { return nil }
-        neighbor.poe = power
+        neighbor.power = power
+        neighbor.poe = power?.summary
         return neighbor
     }
 
