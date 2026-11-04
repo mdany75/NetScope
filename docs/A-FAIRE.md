@@ -5,7 +5,7 @@
 
 ## Priorités (revues le 4 novembre 2026)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0.
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0.
 
 1. **0.4.x, retours d'essai** : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour) et de la 0.4.0 (menus de colonnes, type, ports, sombre) ;
@@ -15,7 +15,8 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
    LibreSpeed, Ookla, bouton Installer).
 3. ~~**0.6.0, Internet et nuage**~~ : livrée le 4 novembre 2026 (notes 15 et 14) ; essais
    réels à faire (pages d’état, Microsoft Graph, listes noires, SMTP, propagation DNS).
-4. **0.7.0, analyse avancée** : notes 7 (capture de paquets), 22 (vitesse des disques).
+4. ~~**0.7.0, analyse avancée**~~ : livrée le 4 novembre 2026 (notes 7 et 22) ; essais
+   réels à faire (vraie capture, ChmodBPF, NAS SMB/NFS, dossiers OneDrive et iCloud Drive).
 5. **0.8.0, réglages et alertes** : note 13 (sauvegarde, notifications, raccourcis…), alertes
    par courriel et webhook.
 6. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
@@ -132,6 +133,8 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
   portable est préconfiguré par son nom de fichier.
 
 ## 7. Capture et inspection de paquets, façon Wireshark (demande de Dany)
+
+**Livrée dans la 0.7.0** (4 novembre 2026) ; essais réels à faire (vraie capture, ChmodBPF).
 
 - Nouvel outil (écran ou onglet de la Boîte à outils) : choix de l'interface, filtre de capture
   (syntaxe BPF : `host 10.0.0.5`, `port 53`, `arp`…) et préréglages simples, démarrer / arrêter,
@@ -414,7 +417,9 @@ Dropbox, Zscaler, fournisseurs Internet courants… liste modifiable.
 - Tests : calcul des débits à partir de compteurs fixes (y compris le retour à zéro des
   compteurs 32 bits), analyse des réponses SNMP fixes, sans réseau.
 
-## 22. Test de vitesse des disques : local, réseau et nuage — À PLANIFIER (demande de Dany)
+## 22. Test de vitesse des disques : local, réseau et nuage (demande de Dany)
+
+**Livrée dans la 0.7.0** (4 novembre 2026) ; essais réels à faire (NAS, dossiers nuage).
 
 - Nouvel outil (Speedtest ou Boîte à outils) qui mesure la vitesse d'écriture et de lecture
   d'un emplacement au choix :

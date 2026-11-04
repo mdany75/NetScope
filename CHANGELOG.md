@@ -1,5 +1,73 @@
 # Changements
 
+## 0.7.0 — 2026-11-04
+
+Analyse avancée : capture et inspection de paquets façon Wireshark, et mesure de la vitesse des
+disques (internes, externes, partages réseau et dossiers nuage), toutes deux dans la Boîte à
+outils.
+
+### Ajouté
+- **Capture de paquets** (Boîte à outils), façon Wireshark : choix de l’interface, filtre de
+  capture (syntaxe tcpdump) avec préréglages (hôte, port, ARP, DNS, DHCP, ICMP, LLDP/CDP) et
+  limites de durée, de nombre de paquets et de taille.
+- Liste des paquets en direct (n°, temps, source, destination, protocole, longueur, résumé), une
+  couleur par protocole, retransmissions et réinitialisations TCP repérées.
+- Filtre d’affichage simple (ex. « dns || tcp.port == 443 », « ip.addr == 10.0.0.0/24 »,
+  « tls.sni contains office ») et filtres rapides.
+- Détail de chaque paquet en arbre par couche, avec vue hexadécimale et ASCII où le champ choisi
+  est surligné ; un clic sur un octet montre le champ qui le contient.
+- Décodage d’Ethernet, VLAN 802.1Q, ARP, IPv4/IPv6, ICMP/ICMPv6, TCP, UDP, DNS, mDNS, NetBIOS,
+  DHCP, HTTP, TLS (version, SNI), LLDP/CDP et STP.
+- **Suivre le flux** : les données d’une conversation TCP ou UDP remises dans l’ordre, sans les
+  retransmissions.
+- Statistiques de capture : protocoles, conversations, plus gros émetteurs, retransmissions,
+  paquets hors ordre, ACK en double et RST.
+- Ouverture d’un fichier .pcap ou .pcapng ; enregistrement en .pcap (tous les paquets ou
+  seulement ceux affichés), ouvrable dans Wireshark.
+- Capture sans mot de passe si l’accès BPF est déjà donné (ChmodBPF de Wireshark), sinon une
+  seule autorisation d’administrateur. La capture écoute seulement : rien n’est envoyé sur le
+  réseau.
+- **Vitesse des disques** (Boîte à outils, groupe Performance, aussi accessible depuis le
+  Speedtest) : écriture et lecture d’un disque interne ou externe, d’un partage réseau monté
+  (SMB, NFS, AFP) ou d’un dossier nuage (OneDrive, Google Drive, Dropbox, iCloud Drive).
+- Mesures honnêtes : blocs de 1 Mio sans passer par le cache du système, accès aléatoires
+  4 Kio (IOPS, latence moyenne et p95), jauges et courbe en direct, taille de 256 Mio à 10 Gio,
+  plusieurs passes et bouton Arrêter.
+- Partages réseau : débit du lien Wi-Fi ou Ethernet et latence vers le serveur affichés à côté,
+  avec un bilan en clair (« Limité par le réseau Wi-Fi à 866 Mbit/s », limité par la latence
+  ou par le serveur).
+- Dossiers nuage : vitesse de la copie locale, puis temps jusqu’à « envoyé » quand le service
+  le signale ; confirmation demandée avant d’écrire plus de 1 Gio.
+- Historique des tests par emplacement, export CSV et nouvelle section facultative « Vitesse
+  des disques » dans les Rapports.
+
+### Modifié
+- Speedtest : lien direct vers le nouvel outil « Vitesse des disques ».
+- Vitesse des disques, sécurité : le fichier d’essai va seulement dans un dossier
+  « NetScope-test », supprimé à la fin, à l’arrêt ou au lancement suivant ; l’espace libre est
+  vérifié avant le test et aucun autre fichier n’est touché.
+
+### Corrigé
+- Capture de paquets : un filtre de capture ne peut plus glisser d’option dans tcpdump ;
+  « Arrêter » pendant la préparation annule vraiment ; une capture sans paquet est signalée.
+- Ouverture d’un gros .pcap sans figer l’interface (plafond de 200 000 paquets, avec avis
+  « fichier tronqué ») ; plus de plantage du filtre d’affichage sur un nombre immense.
+- Suivre le flux : copie conforme à l’affichage (ASCII ou hexadécimal) et message d’aide sans
+  paquet TCP ou UDP ; sélection conservée après un filtre.
+- Vitesse des disques : un test relancé juste après un arrêt n’est plus perturbé par le
+  précédent ; bilan correct quand l’envoi nuage finit pendant l’écriture ; export CSV raté
+  signalé.
+
+### Limites
+- Capture : pas de déchiffrement TLS (seuls la version et le SNI sont lus) ; les décodeurs sont
+  de base, loin de la profondeur de Wireshark ; le filtre d’affichage ne couvre qu’une partie de
+  sa syntaxe. Sans ChmodBPF, chaque capture demande l’autorisation d’administrateur.
+- Vitesse des disques : un partage réseau ou un dossier nuage mesure aussi le réseau et le
+  service ; plusieurs services nuage ne signalent pas l’état « envoyé », et NetScope le dit
+  alors clairement au lieu de deviner.
+- Ces deux outils n’ont pas encore été essayés en vrai en dehors des données de démonstration
+  (vraie capture, vrais NAS et dossiers nuage) ; essais réels à faire.
+
 ## 0.6.0 — 2026-11-04
 
 Internet et nuage : état des grands services en ligne (vu par leur page officielle et testé
