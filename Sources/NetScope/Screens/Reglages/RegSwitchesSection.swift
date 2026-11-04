@@ -19,6 +19,9 @@ struct RegSwitchesSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // Note 29 : relecture automatique du site actif, intervalle par site (en tête : le menu
+            // de l'indication « Relu il y a… » de Switchs et ports et de Wi-Fi mène ici).
+            RegAutoRefreshPanel()
             // Note 24 : FortiSwitch gérés, lus par la FortiGate (prioritaire sur SNMP).
             RegFortiGatePanel()
             snmpPanel

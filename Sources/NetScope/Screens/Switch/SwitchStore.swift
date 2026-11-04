@@ -793,6 +793,54 @@ struct SwitchFindResult: Equatable {
     var ifIndex: Int? = nil
 }
 
+// MARK: - Relecture automatique (note 29)
+
+extension SwitchStore {
+    /// Résultat d'une relecture automatique des switchs SNMP.
+    enum AutoOutcome: Equatable {
+        /// Au moins un switch relevé.
+        case success
+        /// Aucun n'a répondu : délai croissant.
+        case failure
+        /// Rien de fait (relevé ou découverte en cours, site changé, aucun switch avec sa communauté).
+        case skipped
+        /// Aucun switch du site relisible (communauté absente) : rien à relire.
+        case nothing
+    }
+
+    /// Switchs SNMP que la relecture automatique peut relever pour le site actif : jamais un
+    /// switch d'un autre site (sa communauté partirait vers l'appareil qui porte la même adresse ici).
+    func autoRefreshHosts() -> [String] {
+        let sites = SiteModel.shared
+        return AutoRefreshTargets.snmpHosts(hosts, controllerHosts: Set(controllerHosts), activeSite: sites.activeSite,
+                                            sites: sites.sites, readingSites: readingSites,
+                                            scanRanges: ScanController.shared.lastScanRanges)
+    }
+
+    /// Relecture automatique : relève les switchs SNMP du site actif (quatre à la fois), puis
+    /// replace chaque appareil sur son switch, son port et son VLAN. Sans relancer de scan ni
+    /// relire la FortiGate (la relecture automatique s'en charge à part).
+    func autoPoll(state: AppState) async -> AutoOutcome {
+        guard !isPolling, !isDiscovering else { return .skipped }
+        if isDemo {
+            // Démonstration : aucun trafic, les relevés fictifs restent ceux affichés.
+            lastPoll = Date()
+            return .success
+        }
+        let siteKey = SiteModel.shared.activeKey
+        await loadVault()
+        guard !Task.isCancelled, SiteModel.shared.activeKey == siteKey, !isPolling, !isDiscovering else { return .skipped }
+        let list = autoRefreshHosts().filter { !community(for: $0).isEmpty }
+        guard !list.isEmpty else { return .nothing }
+        let fresh = await pollHosts(list)
+        guard !Task.isCancelled, SiteModel.shared.activeKey == siteKey else { return .skipped }
+        guard !fresh.isEmpty else { return .failure }
+        let (located, _) = complete(state, fresh: fresh, routerTables: [])
+        locations.record(located.values.flatMap { $0 }, network: state.currentNetwork)
+        return .success
+    }
+}
+
 /// Champ CSV sûr : sans séparateur ni saut de ligne, et neutralisé s'il ressemble à une formule
 /// (un alias de port ou un SSID peut commencer par « = », « + », « - » ou « @ »).
 enum CSVText {

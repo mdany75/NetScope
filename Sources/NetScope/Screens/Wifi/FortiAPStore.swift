@@ -339,6 +339,15 @@ final class FortiAPStore: ObservableObject {
     /// et attend la fin de la lecture.
     func refreshForMonitoring(maxAge: TimeInterval, state: AppState?) async {
         if let last = lastRefresh, Date().timeIntervalSince(last) < maxAge { return }
+        // Note 29 : une lecture de la FortiGate (bouton, fin de scan, relecture automatique) est en
+        // cours : jamais deux lectures à la fois vers elle. Elle relit aussi les bornes juste après :
+        // on l'attend (60 s au plus), puis on ne relit que si rien de récent n'en est sorti.
+        var waited = 0
+        while FortiGateStore.shared.isBusy, waited < 120, !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            waited += 1
+        }
+        if waited > 0 { try? await Task.sleep(nanoseconds: 200_000_000) }
         // Une lecture en cours (`task` est remis à nil à la fin de chaque lecture) : l'attendre,
         // puis relire seulement si elle n'a rien donné de récent (annulée par une plus récente).
         if let running = task {

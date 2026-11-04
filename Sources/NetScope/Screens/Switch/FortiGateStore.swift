@@ -398,7 +398,12 @@ final class FortiGateStore: ObservableObject {
         refreshTask = Task { [weak self] in await self?.refresh(state: state, ranges: ranges) }
     }
 
-    private func refresh(state: AppState, ranges: [IPRange]) async {
+    /// - Parameters:
+    ///   - wifi: relire aussi les bornes FortiAP (non : la relecture automatique les a lues il y a
+    ///     peu, par exemple pour une sonde de la Surveillance).
+    ///   - keepOnFailure: relecture automatique (note 29) : une FortiGate injoignable garde sa
+    ///     dernière lecture affichée (avec son heure) au lieu de disparaître de « Switchs et ports ».
+    private func refresh(state: AppState, ranges: [IPRange], wifi: Bool = true, keepOnFailure: Bool = false) async {
         guard isEnabled else {
             if !isDemo {
                 sites = []
@@ -418,7 +423,7 @@ final class FortiGateStore: ObservableObject {
             sites = FortiGateSitesDemo.sites(for: chosen)
             lastRefresh = Date()
             applySites(state: state)
-            FortiAPStore.shared.refresh(selection: chosen, state: state)
+            if wifi { FortiAPStore.shared.refresh(selection: chosen, state: state) }
             DHCPScopeStore.shared.refresh(selection: chosen)
             return
         }
@@ -447,11 +452,16 @@ final class FortiGateStore: ObservableObject {
             }
         }
         guard mine == refreshGeneration, !Task.isCancelled, SiteModel.shared.activeID == siteID else { return }
+        if keepOnFailure {
+            let readIDs = Set(fresh.map(\.controllerID))
+            let chosenIDs = Set(chosen.controllerIDs)
+            fresh += sites.filter { chosenIDs.contains($0.controllerID) && !readIDs.contains($0.controllerID) }
+        }
         sites = fresh
         lastRefresh = Date()
         applySites(state: state)
         // Note 27 : Wi-Fi des mêmes FortiGate, lu à part une fois les switchs appliqués.
-        FortiAPStore.shared.refresh(selection: chosen, state: state)
+        if wifi { FortiAPStore.shared.refresh(selection: chosen, state: state) }
         // Note 37 : étendues DHCP des mêmes FortiGate (configuration des serveurs et baux).
         DHCPScopeStore.shared.refresh(selection: chosen)
     }
@@ -758,5 +768,77 @@ extension FortiGateStore {
             }
             for (job, result) in zip(jobs, results) { _ = self.finishRead(job, result) }
         }
+    }
+}
+
+// MARK: - Relecture automatique (note 29)
+
+extension FortiGateStore {
+    /// Résultat d'une relecture automatique.
+    enum AutoOutcome: Equatable {
+        /// Au moins une FortiGate du site lue.
+        case success
+        /// Toutes en erreur (injoignable, API) : délai croissant.
+        case failure
+        /// Rien de fait (lecture déjà en cours, lecture désactivée, site changé, annulée).
+        case skipped
+    }
+
+    /// FortiGate du site actif que la relecture automatique peut lire (activées).
+    func autoRefreshIDs(state: AppState) -> [UUID] {
+        guard isEnabled else { return [] }
+        return previewSelection(state: state).controllerIDs.filter { controller($0)?.isEnabled == true }
+    }
+
+    /// Raison courte pour laquelle aucune de ces FortiGate ne peut être relue sans action de
+    /// l'utilisateur (nil : au moins une est prête, ou le Trousseau n'est pas encore lu).
+    func autoRefreshBlockReason(_ ids: [UUID]) -> String? {
+        guard !isDemo, !ids.isEmpty, tokensLoaded else { return nil }
+        var reasons: [String] = []
+        for id in ids {
+            guard let c = controller(id) else { continue }
+            if !c.config.isValid {
+                reasons.append("adresse de la FortiGate invalide")
+            } else if !hasToken(id) {
+                reasons.append("jeton de la FortiGate absent")
+            } else if runtime[id]?.pending != nil || c.pinnedFingerprint == nil {
+                reasons.append("certificat de la FortiGate à accepter")
+            } else {
+                return nil
+            }
+        }
+        return reasons.first
+    }
+
+    /// Relecture automatique : comme « Relire la FortiGate » (FortiSwitch, emplacements, ARP,
+    /// DHCP, et les bornes si `includeWifi`), sans relancer de scan. Jamais pendant une autre
+    /// lecture de ces FortiGate (bouton, fin de scan, « Tester tout »).
+    func autoRefresh(state: AppState, includeWifi: Bool) async -> AutoOutcome {
+        let ids = autoRefreshIDs(state: state)
+        guard !ids.isEmpty, !isBusy, !isTestingAll else { return .skipped }
+        let started = Date()
+        let ranges = state.checkedRanges
+        let next: Task<Void, Never> = Task { [weak self] in
+            await self?.refresh(state: state, ranges: ranges, wifi: includeWifi, keepOnFailure: true)
+        }
+        refreshTask = next
+        await next.value
+        // « Relire » ou un changement de site a pris la place de cette lecture.
+        guard !next.isCancelled, let last = lastRefresh, last >= started else { return .skipped }
+        if isDemo { return .success }
+        let read = ids.contains { id in
+            guard let r = runtime[id], let attempt = r.lastAttempt, attempt >= started else { return false }
+            return r.error == nil && !r.busy
+        }
+        return read ? .success : .failure
+    }
+
+    /// Dernière lecture réussie d'une de ces FortiGate, quelle qu'en soit l'origine (bouton, fin
+    /// de scan, relecture automatique).
+    func lastSuccess(_ ids: [UUID]) -> Date? {
+        ids.compactMap { id -> Date? in
+            guard let r = runtime[id], r.error == nil, !r.busy else { return nil }
+            return r.report?.readAt
+        }.max()
     }
 }

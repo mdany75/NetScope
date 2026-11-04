@@ -217,6 +217,8 @@ struct FortiAPBanner: View {
                         Text(detail(selection)).font(Theme.small).foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                             .help("Adresses lues en GET\u{00A0}: " + FortiWifiPaths.all.joined(separator: ", "))
+                        // Note 29 : relecture automatique des bornes du site actif.
+                        if fortigate.isEnabled, !selection.isEmpty { AutoRefreshBadge() }
                         ForEach(selection.picks.filter { store.errors[$0.controllerID] != nil }) { pick in
                             Label("\(pick.site)\u{00A0}: \(store.errors[pick.controllerID] ?? "")", systemImage: "exclamationmark.triangle.fill")
                                 .font(Theme.small).foregroundStyle(Theme.warning)
