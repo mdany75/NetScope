@@ -24,6 +24,8 @@ public struct DiskTestRecord: Codable, Hashable, Sendable, Identifiable {
     public var cloudStatus: DiskCloudStatus?
     public var uploadSeconds: Double?
     public var uploadMbps: Double?
+    /// Message d'erreur d'envoi du service nuage, s'il y en a eu un.
+    public var cloudError: String?
     public var network: DiskNetworkContext?
     public var limit: DiskLimit
     public var verdict: String
@@ -49,6 +51,7 @@ public struct DiskTestRecord: Codable, Hashable, Sendable, Identifiable {
         cloudStatus = result.cloudStatus
         uploadSeconds = result.uploadSeconds
         uploadMbps = result.uploadMbps
+        cloudError = result.cloudError
         self.network = network
         limit = verdict.limit
         self.verdict = verdict.title
