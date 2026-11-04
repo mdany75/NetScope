@@ -153,14 +153,9 @@ struct ReglagesScreen: View {
                     .help("Notifications refusées par macOS")
             }
         case .export:
-            // Petite pastille « bientôt » en police réduite : le libellé de la section reste sur une ligne.
-            Text("bientôt")
-                .font(.system(size: 9.5, weight: .semibold))
-                .foregroundStyle(Theme.textSecondary)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 1.5)
-                .background(Capsule().fill(Theme.neutralSoft))
-                .help("Section pas encore disponible dans cette version")
+            if !RegBackupController.shared.backups.isEmpty {
+                Text("\(RegBackupController.shared.backups.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+            }
         default:
             EmptyView()
         }
@@ -180,10 +175,7 @@ struct ReglagesScreen: View {
         case .switchs: RegSwitchesSection()
         case .notifications: RegNotificationsSection()
         case .raccourcis: RegShortcutsSection()
-        case .export:
-            RegPanel(title: navigation.section.label) {
-                RegNotice("Section prévue au croquis, pas encore disponible dans cette version de NetScope.", tone: .neutral)
-            }
+        case .export: RegBackupSection()
         }
     }
 }

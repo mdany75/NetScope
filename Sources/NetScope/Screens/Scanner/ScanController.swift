@@ -162,14 +162,24 @@ final class ScanController: ObservableObject {
 
         var options = ScanOptions(profile: state.scanProfile, customPorts: prefs.tuning.ports)
         options.portOverride = portPreset.ports
+        // Méthodes de découverte du profil (Réglages › Profils de scan).
+        options.methods = prefs.methods(for: state.scanProfile)
+        let plan = ScanPlan(options: options, autoDiscoverSwitches: prefs.autoDiscoverSwitches)
+        guard !plan.findsNothing else {
+            show("Le profil « \(state.scanProfile.label) » n’a aucune méthode de présence (ICMP, ARP, TCP ou UDP)\u{00A0}: voir Réglages › Profils de scan.", tone: .warning)
+            return
+        }
         lastScanPortLabel = portPreset.label
         portLabels = [:]
-        // Découverte SNMP des switchs : réglage automatique (activé par défaut) ou profil Complet.
-        let discoversSwitches = prefs.autoDiscoverSwitches || state.scanProfile.alwaysDiscoversSwitches
+        // Découverte SNMP des switchs : réglage automatique (activé par défaut) ou profil Complet,
+        // sauf si la méthode SNMP du profil est décochée.
+        let discoversSwitches = plan.snmp
         let readGatewayARP = prefs.readGatewayARP
         let probed = Set(options.ports)
         let pinger: any ScanPinging
-        if let icmp = self.pinger {
+        if !plan.ping {
+            pinger = ScanNullPinger()
+        } else if let icmp = self.pinger {
             pinger = icmp
         } else {
             pinger = ScanNullPinger()
@@ -187,14 +197,15 @@ final class ScanController: ObservableObject {
         finishedAt = nil
         isRunning = true
         phase = .ping
-        plannedPhases = discoversSwitches ? ScanPhase.allCases : [.ping, .arp, .details]
+        plannedPhases = plan.phases
         let switches = SwitchStore.shared
         // Le bilan précédent disparaît même si ce scan ne fait aucune découverte ; le nouveau sera
         // rattaché à ces plages et à ce réseau.
         switches.scanStarted(ranges: targets.map(\.range), network: state.activeInterface.map(NetworkContext.init),
                              discovers: discoversSwitches)
 
-        let stream = ScanEngine(pinger: pinger).scan(targets, options: options)
+        let stream = ScanEngine(pinger: pinger, names: options.methods.nameResolver() ?? ScanNoNames()).scan(targets, options: options)
+        if plan.lldp { listenForNeighbor(state) }
         scanTask = Task { [weak self] in
             var foundIDs = Set<Device.ID>()
             var sweep: Task<SNMPSweep, Never>?

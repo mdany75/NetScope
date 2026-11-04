@@ -48,12 +48,12 @@ enum RegSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "langue thème démarrage ouverture de session barre de menus"
         case .sites: return "cidr plage vlan site passerelle début-fin"
-        case .profils: return "threads délai tentatives ports rapide complet personnalisé"
-        case .identifiants: return "snmp v2c v3 communauté utilisateur authentification trousseau mot de passe"
+        case .profils: return "threads délai tentatives ports rapide complet personnalisé méthodes découverte icmp arp tcp udp mdns bonjour netbios snmp lldp cdp"
+        case .identifiants: return "snmp v2c v3 communauté utilisateur authentification trousseau mot de passe tester ssh wmi clé winrm"
         case .switchs: return "switch snmp lldp cdp port vlan découverte automatique communauté public"
         case .notifications: return "alerte notification surveillance courriel son silence ne pas déranger regroupement dhcp conflit test"
         case .interface: return "en0 wi-fi ethernet masque passerelle getifaddrs"
-        case .export: return "export sauvegarde csv json restauration"
+        case .export: return "export sauvegarde csv json pdf restauration zip manifeste rotation icloud dossier"
         case .raccourcis: return "raccourcis clavier touches commande menu conflit"
         case .majs: return "version github release bêta stable signature télécharger installer jeton"
         case .apropos: return "version licence oui journaux"
@@ -69,11 +69,17 @@ enum RegEnvironment {
     /// Mode sans effet de bord (démonstration ou capture).
     static var isSandboxed: Bool { isSnapshot || isDemo }
 
-    /// Outil de développement : « --reglages-section majs » ou la variable d'environnement
-    /// NETSCOPE_REGLAGES_SECTION=notifications|raccourcis… ouvre cette section (captures).
+    /// Outil de développement : « --reglages-section majs » ouvre cette section (captures).
+    /// Captures : NETSCOPE_REGLAGES_SECTION=sauvegarde|identifiants|decouverte|notifications|raccourcis (ou le nom d'une section)
+    /// ouvre cette section, comme « --reglages-section ».
     static var initialSection: RegSection? {
-        if let name = ProcessInfo.processInfo.environment["NETSCOPE_REGLAGES_SECTION"], let section = RegSection(rawValue: name) {
-            return section
+        if let raw = ProcessInfo.processInfo.environment["NETSCOPE_REGLAGES_SECTION"] {
+            switch raw {
+            case "sauvegarde": return .export
+            case "identifiants": return .identifiants
+            case "decouverte": return .profils
+            default: if let section = RegSection(rawValue: raw) { return section }
+            }
         }
         let arguments = CommandLine.arguments
         guard let index = arguments.firstIndex(of: "--reglages-section"), index + 1 < arguments.count else { return nil }
@@ -135,6 +141,8 @@ final class RegPrefs: ObservableObject {
         static let confirmPublic = "reglages.general.confirmerPlagePublique"
         static let autoSwitches = "reglages.switchs.decouverteAuto"
         static let gatewayARP = "reglages.switchs.arpPasserelle"
+        static let scanMethods = "reglages.scan.methodes"
+        static let exportFormat = "reglages.export.format"
     }
 
     private let defaults: UserDefaults?
@@ -146,6 +154,22 @@ final class RegPrefs: ObservableObject {
     @Published var autoDiscoverSwitches: Bool { didSet { defaults?.set(autoDiscoverSwitches, forKey: Key.autoSwitches) } }
     /// Lecture SNMP de la table ARP de la passerelle et des routeurs découverts (activée par défaut).
     @Published var readGatewayARP: Bool { didSet { defaults?.set(readGatewayARP, forKey: Key.gatewayARP) } }
+
+    /// Méthodes de découverte de chaque profil (JSON) ; un profil absent garde le comportement d'avant.
+    @Published var scanMethods: ScanProfileMethods {
+        didSet { defaults?.set(scanMethods.encoded(), forKey: Key.scanMethods) }
+    }
+    /// Format d'export par défaut (bouton « Exporter » du Scanner).
+    @Published var exportFormat: ExportFormat { didSet { defaults?.set(exportFormat.rawValue, forKey: Key.exportFormat) } }
+
+    /// Méthodes de découverte d'un profil.
+    func methods(for profile: ScanProfile) -> ScanMethods { scanMethods.methods(for: profile) }
+
+    func setMethods(_ methods: ScanMethods, for profile: ScanProfile) {
+        var copy = scanMethods
+        copy.set(methods, for: profile)
+        scanMethods = copy
+    }
 
     /// Ouverture de session (SMAppService) : état lu au système, erreur éventuelle.
     @Published private(set) var launchAtLogin = false
@@ -159,7 +183,19 @@ final class RegPrefs: ObservableObject {
         confirmPublicRanges = defaults?.object(forKey: Key.confirmPublic) as? Bool ?? true
         autoDiscoverSwitches = defaults?.object(forKey: Key.autoSwitches) as? Bool ?? true
         readGatewayARP = defaults?.object(forKey: Key.gatewayARP) as? Bool ?? true
+        scanMethods = RegEnvironment.isDemo ? RegPrefs.demoMethods : ScanProfileMethods.decode(defaults?.data(forKey: Key.scanMethods))
+        exportFormat = defaults?.string(forKey: Key.exportFormat).flatMap(ExportFormat.init(rawValue:)) ?? .csv
         refreshLaunchAtLogin()
+    }
+
+    /// Démonstration : le profil Complet écoute aussi LLDP/CDP et sonde en UDP (croquis).
+    private static var demoMethods: ScanProfileMethods {
+        var complet = ScanMethods()
+        complet.lldp = true
+        complet.udp = true
+        var custom = ScanMethods()
+        custom.tcp = true
+        return ScanProfileMethods(byProfile: [ScanProfile.complet.rawValue: complet, ScanProfile.personnalise.rawValue: custom])
     }
 
     private func saveTuning() {

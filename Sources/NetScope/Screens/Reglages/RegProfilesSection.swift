@@ -12,26 +12,30 @@ struct RegProfilesSection: View {
     var body: some View {
         RegPanel(title: "Profils de scan",
                  subtitle: "Cliquez sur un profil pour en faire le profil par défaut du Scanner. Le profil Personnalisé se règle ci-dessous.") {
-            HStack(alignment: .top, spacing: 10) {
+            // Quatre cartes côte à côte ; deux par ligne en petite fenêtre.
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 10, alignment: .top)], alignment: .leading, spacing: 10) {
                 ForEach(ScanProfile.allCases) { profile in
                     profileCard(profile)
                 }
             }
+            RegMethodsPanel().padding(.top, 14)
             customPanel.padding(.top, 14)
         }
     }
 
     // MARK: Cartes
 
+    /// Étiquettes d'après les méthodes du profil (ce que le Scanner fera vraiment) et ses ports.
     private func tags(for profile: ScanProfile) -> [String] {
-        switch profile {
-        case .rapide:
-            let base = ["ICMP", "ARP", "DNS · mDNS · NetBIOS", "TCP \(ScanProfile.essentialPorts.count) ports"]
-            return prefs.autoDiscoverSwitches ? base + ["SNMP"] : base
-        case .complet: return ["ICMP", "ARP", "\(ScanProfile.extendedPorts.count) ports TCP", "SNMP"]
-        case .portsCourants: return ["ICMP", "ARP", "TCP \(ScanProfile.commonPorts.count) ports"] + (prefs.autoDiscoverSwitches ? ["SNMP"] : [])
-        case .personnalise: return ["ICMP", "ARP", "\(tuning.ports.count) ports"] + (prefs.autoDiscoverSwitches ? ["SNMP"] : [])
-        }
+        var options = ScanOptions(profile: profile, customPorts: tuning.ports)
+        options.methods = prefs.methods(for: profile)
+        let plan = ScanPlan(options: options, autoDiscoverSwitches: prefs.autoDiscoverSwitches)
+        var tags = options.methods.tags.filter { $0 != "SNMP" }
+        let count = profile.ports(custom: tuning.ports).count
+        tags.append(profile == .complet ? "\(count) ports TCP" : "TCP \(count) ports")
+        if plan.snmp { tags.append("SNMP") }
+        if let index = tags.firstIndex(of: "LLDP/CDP") { tags.append(tags.remove(at: index)) }
+        return tags
     }
 
     private func detail(for profile: ScanProfile) -> String {
@@ -124,16 +128,11 @@ struct RegProfilesSection: View {
                         }
                     }
                     portsControl
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("MÉTHODES DE DÉCOUVERTE").font(Theme.captionSemibold).kerning(0.55).foregroundStyle(Theme.textSecondary)
-                    RegNotice("ICMP, ARP, TCP SYN, mDNS, NetBIOS, SNMP, LLDP : le choix des méthodes arrivera avec le moteur de scan (bientôt).", tone: .neutral)
-                    Text("Ces réglages sont enregistrés tout de suite ; le Scanner les lira pour le profil Personnalisé.")
+                    Text("Ces réglages sont enregistrés tout de suite ; le Scanner les lit pour le profil Personnalisé. Ses méthodes de découverte se choisissent ci-dessus.")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .frame(width: 300)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(14)
