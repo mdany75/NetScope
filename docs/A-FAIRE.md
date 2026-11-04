@@ -591,3 +591,12 @@ site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
   distinct de « Téléphone » (cellulaires).
 - Détection : fabricant (OUI), ports SIP 5060/5061, annonce LLDP-MED, VLAN voix.
 - Clic droit « Changer le type », import CSV, Carte, Rapports, comme les autres types.
+
+## 31. Carte → Inventaire filtré sur la branche choisie — À PLANIFIER (demande de Dany)
+
+- Dans la Carte du réseau, quand on choisit une branche ou un groupe (ex. « Téléphones ×11 », un
+  switch et ce qui est branché dessous) puis « Inventaire », l'Inventaire s'ouvre filtré sur ces
+  appareils seulement (aujourd'hui : il s'ouvre sans filtre).
+- Le filtre s'affiche comme une étiquette retirable (recherche multiple, note 26), par exemple
+  « Carte : Téléphones ×11 · SW-ETG2-01 », et garde le site affiché sur la Carte.
+- Même chose vers le Scanner et Switchs et ports depuis le détail du nœud.
