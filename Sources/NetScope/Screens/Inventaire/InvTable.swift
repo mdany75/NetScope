@@ -195,7 +195,7 @@ struct InvTable: View {
                     .help(record.annotations.customType != nil ? "\(record.type.label) · choisi à la main"
                           : "\(record.type.label) · détecté par le scan")
                 }
-                .width(min: 80, ideal: 135)
+                .width(min: 80, ideal: 128)
                 .customizationID("type")
 
                 TableColumn("IP ACTUELLE", sortUsing: table.sort("ip")) { record in
@@ -214,21 +214,21 @@ struct InvTable: View {
                 TableColumn("FABRICANT", sortUsing: table.sort("fabricant")) { record in
                     ScanCellText(record.vendorLabel)
                 }
-                .width(min: 70, ideal: 80)
+                .width(min: 70, ideal: 79)
                 .customizationID("fabricant")
 
                 TableColumn("SWITCH / PORT", sortUsing: table.sort("switch")) { record in
-                    ScanCellText(record.switchLocation ?? "—", mono: true, dimmed: record.switchLocation == nil)
-                        .help(record.switchLocation ?? "")
+                    // Le port reste lisible : switch au-dessus du port quand la colonne est étroite.
+                    SwitchPortCell(name: record.switchName, port: record.switchPort)
                 }
-                .width(min: 100, ideal: 155)
+                .width(min: 90, ideal: 172)
                 .customizationID("switch")
 
                 TableColumn("DERNIÈRE VUE", sortUsing: table.sort("derniereVue")) { record in
                     ScanCellText(InvFormat.relative(record.lastSeen, now: now), secondary: true)
                         .help(InvFormat.stamp(record.lastSeen))
                 }
-                .width(min: 80, ideal: 125)
+                .width(min: 80, ideal: 120)
                 .customizationID("derniereVue")
 
                 TableColumn("STATUT", sortUsing: table.sort("statut")) { record in
@@ -236,7 +236,7 @@ struct InvTable: View {
                     let colors = InvStyle.status(status)
                     InvPill(text: status.label, foreground: colors.0, background: colors.1)
                 }
-                .width(min: 70, ideal: 80)
+                .width(min: 70, ideal: 76)
                 .customizationID("statut")
             }
 

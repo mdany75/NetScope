@@ -11,21 +11,41 @@ struct ScannerScreen: View {
     /// Tableau standard des résultats (colonnes et tri retenus, note 8).
     @StateObject private var table = ScanDeviceTable.makeModel()
 
+    /// Panneau de détail un peu plus étroit que le croquis (340, qui le laisse rétrécir), pour laisser
+    /// au tableau la place de ses colonnes essentielles à 1440 × 900.
+    static let detailWidth: CGFloat = 320
+    /// Filtres (deux lignes), en-tête, huit lignes (36 pt au plus) et pied.
+    static let resultsMinHeight: CGFloat = 480
+
+    /// Hauteur mesurée du panneau des plages (pour donner le reste de la hauteur aux résultats).
+    @State private var rangesHeight: CGFloat = 0
+
     var body: some View {
-        VStack(spacing: 14) {
-            ScanRangesPanel(scan: scan)
-            SidePanelSplit(sideWidth: 360, scrolls: false, title: "Détail de l’appareil") {
-                ScanResultsPanel(scan: scan, filter: $filter, table: table)
-            } side: {
-                ScanDetailPanel(scan: scan)
-                    .frame(maxHeight: .infinity, alignment: .top)
+        // L'écran défile lui-même, verticalement seulement : en fenêtre basse, la barre de défilement
+        // verticale prend sa place dans la largeur au lieu de provoquer un défilement horizontal de
+        // toute la page. Quand tout tient, rien ne défile et les résultats prennent la hauteur restante.
+        GeometryReader { geometry in
+            let padding: CGFloat = 16
+            let spacing: CGFloat = 14
+            let remaining = geometry.size.height - 2 * padding - spacing - rangesHeight
+            ScrollView(.vertical) {
+                VStack(spacing: spacing) {
+                    ScanRangesPanel(scan: scan)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { rangesHeight = $0 }
+                    SidePanelSplit(sideWidth: Self.detailWidth, scrolls: false, title: "Détail de l’appareil") {
+                        ScanResultsPanel(scan: scan, filter: $filter, table: table)
+                    } side: {
+                        ScanDetailPanel(scan: scan)
+                            .frame(maxHeight: .infinity, alignment: .top)
+                    }
+                    // Fenêtre basse : le tableau garde au moins huit lignes visibles ; l’écran défile.
+                    .frame(height: max(Self.resultsMinHeight, remaining))
+                }
+                .padding(.horizontal, Theme.contentPadding)
+                .padding(.vertical, padding)
             }
-            // Fenêtre basse : le tableau garde quelques lignes visibles ; l'écran défile au besoin.
-            .frame(minHeight: 340, maxHeight: .infinity)
+            .scrollBounceBehavior(.basedOnSize, axes: .vertical)
         }
-        .padding(.horizontal, Theme.contentPadding)
-        .padding(.vertical, 16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .screenToolbar { toolbar }
         // Passerelle et DNS de la barre latérale : lus sur la machine, sans trafic.
         .task(id: state.activeInterface.map { "\($0.name) \($0.subnet)" }) { scan.fillLocalInfo(state) }
@@ -37,7 +57,7 @@ struct ScannerScreen: View {
             .disabled(scan.isRunning)
             .opacity(scan.isRunning ? 0.55 : 1)
             .keyboardShortcut("r", modifiers: .command)
-        Button { scan.stop() } label: { Label("Arrêter", systemImage: "stop") }
+        Button { scan.stop() } label: { Label("Arrêter", systemImage: "stop.fill") }
             .buttonStyle(.secondary)
             .disabled(!scan.isBusy)
             .opacity(scan.isBusy ? 1 : 0.55)

@@ -128,7 +128,14 @@ struct InventaireScreen: View {
 
     private func header(now: Date) -> some View {
         HStack(spacing: 12) {
-            InvSegmented(options: InvView.allCases.map { ($0, $0.label) }, selection: $view)
+            // Segments égaux, plus larges que le plus long libellé : « Disparus > 30 j » n'est pas serré.
+            Picker("Vue de l’inventaire", selection: $view) {
+                ForEach(InvView.allCases, id: \.self) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 452)
+            .fixedSize()
             // Petite fenêtre : seule la date de fusion reste, plutôt qu'une phrase coupée.
             ViewThatFits(in: .horizontal) {
                 Text("Base permanente de tous les appareils jamais vus · " + mergeCaption(now: now)).fixedSize()

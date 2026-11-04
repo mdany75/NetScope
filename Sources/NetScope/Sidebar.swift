@@ -9,7 +9,21 @@ import SwiftUI
 struct Sidebar: View {
     @EnvironmentObject private var state: AppState
 
+    /// Hauteur de liste sous laquelle « Plages enregistrées » serait coupée sous son titre (petite
+    /// fenêtre) : les quatre groupes d'écrans, puis le titre et au moins une plage.
+    private static let rangesMinListHeight: CGFloat = 548
+
     var body: some View {
+        // Hauteur de la liste (entre le logo et Réglages), lue dans la même passe de mise en page :
+        // les plages enregistrées sont masquées quand elles n'ont pas la place.
+        GeometryReader { geometry in
+            list(height: geometry.size.height)
+        }
+        .safeAreaInset(edge: .top, spacing: 0) { logo }
+        .safeAreaInset(edge: .bottom, spacing: 0) { footer }
+    }
+
+    private func list(height listHeight: CGFloat) -> some View {
         List(selection: selection) {
             ForEach(Screen.Group.allCases, id: \.self) { group in
                 Section(group.title) {
@@ -18,7 +32,7 @@ struct Sidebar: View {
                     }
                 }
             }
-            if !state.ranges.isEmpty {
+            if !state.ranges.isEmpty && listHeight >= Self.rangesMinListHeight {
                 Section("Plages enregistrées") {
                     ForEach(state.ranges.prefix(4)) { range in
                         HStack {
@@ -39,8 +53,6 @@ struct Sidebar: View {
             }
         }
         .listStyle(.sidebar)
-        .safeAreaInset(edge: .top, spacing: 0) { logo }
-        .safeAreaInset(edge: .bottom, spacing: 0) { footer }
     }
 
     /// Sélection de la liste : l'écran courant (Réglages est en bas, hors de la liste).
@@ -135,17 +147,35 @@ struct Sidebar: View {
                 Circle()
                     .fill(state.activeInterface == nil ? Theme.neutralDot : Theme.successDot)
                     .frame(width: 8, height: 8)
-                Text(state.activeInterface?.summary ?? "Aucune interface active")
-                    .font(Theme.mono(11))
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+                // Lignes logiques : « en0 · 10.182.122.135 », puis le type (« Wi-Fi »).
+                if let interface = state.activeInterface {
+                    VStack(alignment: .leading, spacing: 1) {
+                        // Barre latérale étroite : l'IP passe sous le nom plutôt que d'être coupée.
+                        ViewThatFits(in: .horizontal) {
+                            Text("\(interface.name) · \(interface.address.description)").lineLimit(1).fixedSize()
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(interface.name).lineLimit(1)
+                                Text(interface.address.description).lineLimit(1)
+                            }
+                        }
+                        .font(Theme.mono(11))
+                        Text(interface.kind.label)
+                            .font(Theme.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                } else {
+                    Text("Aucune interface active").font(Theme.mono(11)).lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
-            if let line = gatewayLine {
+            // Une ligne pour la passerelle, une pour le DNS (jamais coupées au milieu).
+            ForEach(gatewayLines, id: \.self) { line in
                 Text(line)
                     .font(Theme.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
             Text("Version \(AppInfo.version)").font(Theme.caption).foregroundStyle(.secondary)
             if let update = state.updateAvailable {
@@ -180,10 +210,10 @@ struct Sidebar: View {
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.hover))
     }
 
-    private var gatewayLine: String? {
-        var parts: [String] = []
-        if let gateway = state.activeInterface?.gateway { parts.append("Passerelle \(gateway)") }
-        if let dns = state.dnsServers.first { parts.append("DNS \(dns)") }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    private var gatewayLines: [String] {
+        var lines: [String] = []
+        if let gateway = state.activeInterface?.gateway { lines.append("Passerelle \(gateway)") }
+        if let dns = state.dnsServers.first { lines.append("DNS \(dns)") }
+        return lines
     }
 }

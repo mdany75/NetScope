@@ -199,7 +199,7 @@ private struct MonJournalTable: View {
                     .frame(height: Self.cellHeight, alignment: .leading)
                     .help(line.alert.probeName)
             }
-            .width(min: 80, ideal: 104)
+            .width(min: 80, ideal: 92)
             .customizationID("sonde")
 
             TableColumn(StandardTableHeading("ÉVÉNEMENT"), sortUsing: table.sort("evenement")) { line in
@@ -211,14 +211,14 @@ private struct MonJournalTable: View {
                     .frame(height: Self.cellHeight, alignment: .leading)
                     .help(line.alert.fullMessage)
             }
-            .width(min: 140, ideal: 192)
+            .width(min: 140, ideal: 260)
             .customizationID("evenement")
             .disabledCustomizationBehavior(.visibility)
 
             TableColumn(StandardTableHeading("SUIVI"), sortUsing: table.sort("suivi")) { line in
                 MonJournalFollow(alert: line.alert)
             }
-            .width(min: 120, ideal: 206)
+            .width(min: 120, ideal: 142)
             .customizationID("suivi")
 
             TableColumn(StandardTableHeading("DURÉE"), sortUsing: table.sort("duree")) { line in
