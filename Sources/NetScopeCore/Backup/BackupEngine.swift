@@ -4,7 +4,9 @@ import Foundation
 // JSON de ~/Library/Application Support/NetScope (plages, inventaire, Surveillance, services en
 // ligne, disques, identifiants SSH/WMI sans secret…) et les préférences de l'app, dans une archive
 // .zip ou un dossier daté, avec un manifeste JSON versionné. Les secrets du Trousseau ne sont
-// jamais copiés : le manifeste nomme seulement les comptes à ressaisir après une restauration.
+// jamais copiés en clair : le manifeste nomme seulement les comptes à ressaisir après une restauration.
+// Note 38 : avec un mot de passe, l'archive est chiffrée (BackupCrypto, extension .netscope-backup)
+// et peut contenir, dans sa partie chiffrée seulement, les secrets du Trousseau (« secrets.json »).
 
 /// Origine d'une sauvegarde.
 public enum BackupKind: String, Codable, CaseIterable, Sendable {
@@ -31,8 +33,19 @@ public enum BackupKind: String, Codable, CaseIterable, Sendable {
 /// Forme d'une sauvegarde sur le disque.
 public enum BackupFormat: String, Codable, CaseIterable, Sendable {
     case zip, dossier
+    /// Archive .zip chiffrée par mot de passe (note 38), extension .netscope-backup.
+    case chiffree
 
-    public var label: String { self == .zip ? "Archive .zip" : "Dossier daté" }
+    public var label: String {
+        switch self {
+        case .zip: return "Archive .zip"
+        case .dossier: return "Dossier daté"
+        case .chiffree: return "Archive chiffrée"
+        }
+    }
+
+    /// Formes proposées dans « Forme » (le chiffrement se choisit à part).
+    public static let selectable: [BackupFormat] = [.zip, .dossier]
 }
 
 /// Compte du Trousseau à ressaisir après une restauration (le secret lui-même n'est jamais copié).
@@ -82,10 +95,15 @@ public struct BackupManifest: Codable, Equatable, Sendable {
     /// Comptes du Trousseau à ressaisir : noms seulement.
     public var keychain: [BackupKeychainItem]
     public var note: String
+    /// Note 38 : vrai pour une sauvegarde chiffrée (absent des sauvegardes d'avant la 0.14.0).
+    public var encrypted: Bool?
+    /// Note 38 : secrets rangés dans la partie chiffrée (noms seulement ; les valeurs sont dans
+    /// « secrets.json », chiffré avec le reste). Nil ou vide : aucun secret.
+    public var secrets: [BackupKeychainItem]?
 
     public init(createdAt: Date, kind: BackupKind, appVersion: String, appBuild: String, files: [File],
                 preferencesFile: String?, preferenceCount: Int, excludedPreferenceKeys: [String], skippedFiles: [String],
-                keychain: [BackupKeychainItem], note: String) {
+                keychain: [BackupKeychainItem], note: String, encrypted: Bool? = nil, secrets: [BackupKeychainItem]? = nil) {
         self.createdAt = createdAt
         self.kind = kind
         self.appVersion = appVersion
@@ -97,6 +115,8 @@ public struct BackupManifest: Codable, Equatable, Sendable {
         self.skippedFiles = skippedFiles
         self.keychain = keychain
         self.note = note
+        self.encrypted = encrypted
+        self.secrets = secrets
     }
 
     /// « 9 fichiers · 42 préférences ».
@@ -120,13 +140,18 @@ public struct BackupSource: Sendable {
     public var keychain: [BackupKeychainItem]
     public var appVersion: String
     public var appBuild: String
+    /// Secrets du Trousseau lus pour une sauvegarde chiffrée « avec jetons et secrets » ; jamais
+    /// écrits dans une sauvegarde non chiffrée.
+    public var secrets: [BackupSecret]
 
-    public init(dataDirectory: URL, preferences: Data?, keychain: [BackupKeychainItem], appVersion: String, appBuild: String) {
+    public init(dataDirectory: URL, preferences: Data?, keychain: [BackupKeychainItem], appVersion: String, appBuild: String,
+                secrets: [BackupSecret] = []) {
         self.dataDirectory = dataDirectory
         self.preferences = preferences
         self.keychain = keychain
         self.appVersion = appVersion
         self.appBuild = appBuild
+        self.secrets = secrets
     }
 }
 
@@ -137,16 +162,33 @@ public struct BackupInfo: Identifiable, Hashable, Sendable {
     public var manifest: BackupManifest
     /// Taille sur le disque (archive, ou total du dossier).
     public var bytes: Int64
+    /// En-tête en clair d'une sauvegarde chiffrée (note 38) ; nil : sauvegarde non chiffrée.
+    /// Le manifeste d'une sauvegarde chiffrée, lui, reste chiffré : `manifest` est alors tiré de
+    /// l'en-tête (date, type, version), sans liste de fichiers ni de comptes.
+    public var encryption: BackupEncryptedHeader?
 
-    public init(url: URL, format: BackupFormat, manifest: BackupManifest, bytes: Int64) {
+    public init(url: URL, format: BackupFormat, manifest: BackupManifest, bytes: Int64, encryption: BackupEncryptedHeader? = nil) {
         self.url = url
         self.format = format
         self.manifest = manifest
         self.bytes = bytes
+        self.encryption = encryption
     }
 
     public var id: String { url.path }
     public var date: Date { manifest.createdAt }
+    public var isEncrypted: Bool { encryption != nil }
+    /// Vrai si la partie chiffrée contient des secrets du Trousseau.
+    public var includesSecrets: Bool { encryption?.includesSecrets ?? false }
+
+    /// « 9 fichiers · 42 préférences » (et « · 12 secrets » pour une sauvegarde chiffrée qui en contient).
+    public var summary: String {
+        guard let encryption else { return manifest.summary }
+        let files = "\(encryption.fileCount) fichier\(encryption.fileCount > 1 ? "s" : "")"
+        let prefs = "\(encryption.preferenceCount) préférence\(encryption.preferenceCount > 1 ? "s" : "")"
+        guard encryption.secretCount > 0 else { return "\(files) · \(prefs)" }
+        return "\(files) · \(prefs) · \(encryption.secretCount) secret\(encryption.secretCount > 1 ? "s" : "")"
+    }
 
     public static func == (lhs: BackupInfo, rhs: BackupInfo) -> Bool { lhs.url == rhs.url && lhs.bytes == rhs.bytes }
     public func hash(into hasher: inout Hasher) { hasher.combine(url) }
@@ -157,6 +199,10 @@ public struct BackupContents: Sendable {
     public var manifest: BackupManifest
     public var files: [BackupZip.Entry]
     public var preferences: Data?
+    /// Secrets de la partie chiffrée (note 38) ; toujours vide pour une sauvegarde non chiffrée.
+    public var secrets: [BackupSecret] = []
+    /// En-tête d'une sauvegarde chiffrée.
+    public var encryption: BackupEncryptedHeader?
 }
 
 public enum BackupError: Error, LocalizedError, Equatable {
@@ -177,6 +223,9 @@ public enum BackupEngine {
     public static let manifestName = "manifeste.json"
     public static let preferencesName = "preferences.plist"
     public static let filesFolder = "fichiers"
+    /// Secrets du Trousseau, dans la partie chiffrée seulement (note 38).
+    public static let secretsName = "secrets.json"
+    public static let encryptedExtension = "netscope-backup"
     public static let namePrefix = "NetScope-sauvegarde-"
     /// Taille maximale d'un fichier de données copié (garde-fou).
     public static let maxFileBytes = 64 * 1_048_576
@@ -265,7 +314,11 @@ public enum BackupEngine {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd-HHmmss"
         let base = namePrefix + formatter.string(from: date) + "-" + kind.suffix
-        return format == .zip ? base + ".zip" : base
+        switch format {
+        case .zip: return base + ".zip"
+        case .dossier: return base
+        case .chiffree: return base + "." + encryptedExtension
+        }
     }
 
     public static func encoder() -> JSONEncoder {
@@ -281,10 +334,14 @@ public enum BackupEngine {
         return decoder
     }
 
-    /// Crée une sauvegarde dans `folder`.
+    /// Crée une sauvegarde dans `folder`. Avec `encryption`, une archive chiffrée (la forme choisie
+    /// est ignorée) ; sans, la sauvegarde habituelle, où `source.secrets` n'est jamais écrit.
     @discardableResult
-    public static func create(_ source: BackupSource, in folder: URL, format: BackupFormat, kind: BackupKind,
-                              date: Date = Date()) throws -> BackupInfo {
+    public static func create(_ source: BackupSource, in folder: URL, format requested: BackupFormat, kind: BackupKind,
+                              date: Date = Date(), encryption: BackupEncryption? = nil) throws -> BackupInfo {
+        if let encryption, encryption.password.isEmpty { throw BackupCryptoError.emptyPassword }
+        let format: BackupFormat = encryption != nil ? .chiffree : (requested == .chiffree ? .zip : requested)
+        let secrets = encryption?.includeSecrets == true ? source.secrets.sorted { ($0.service, $0.account) < ($1.service, $1.account) } : []
         let manager = FileManager.default
         try manager.createDirectory(at: folder, withIntermediateDirectories: true)
         let (paths, skippedPaths) = dataFiles(in: source.dataDirectory)
@@ -319,20 +376,40 @@ public enum BackupEngine {
                                       files: files, preferencesFile: preferencesFile, preferenceCount: preferenceCount,
                                       excludedPreferenceKeys: excluded, skippedFiles: skipped.sorted(),
                                       keychain: source.keychain.sorted { ($0.service, $0.account) < ($1.service, $1.account) },
-                                      note: "Les secrets du Trousseau macOS ne sont jamais copiés : ressaisissez-les après une restauration sur un autre Mac.")
+                                      note: encryption == nil || secrets.isEmpty
+                                          ? "Les secrets du Trousseau macOS ne sont jamais copiés : ressaisissez-les après une restauration sur un autre Mac."
+                                          : "Sauvegarde chiffrée : les secrets du Trousseau sont dans la partie chiffrée et peuvent être remis au Trousseau à la restauration.",
+                                      encrypted: encryption != nil ? true : nil,
+                                      secrets: secrets.isEmpty ? nil : secrets.map(\.item))
         let manifestData = try encoder().encode(manifest)
         entries.insert(BackupZip.Entry(path: manifestName, data: manifestData), at: 0)
+        if !secrets.isEmpty {
+            entries.append(BackupZip.Entry(path: secretsName, data: try encoder().encode(secrets)))
+        }
 
         var target = folder.appendingPathComponent(name(for: date, kind: kind, format: format))
         var counter = 2
         while manager.fileExists(atPath: target.path) {
             let base = (name(for: date, kind: kind, format: .dossier)) + "-\(counter)"
-            target = folder.appendingPathComponent(format == .zip ? base + ".zip" : base)
+            switch format {
+            case .zip: target = folder.appendingPathComponent(base + ".zip")
+            case .dossier: target = folder.appendingPathComponent(base)
+            case .chiffree: target = folder.appendingPathComponent(base + "." + encryptedExtension)
+            }
             counter += 1
         }
+        var header: BackupEncryptedHeader?
         switch format {
         case .zip:
             try BackupZip.archive(entries, date: date).write(to: target, options: .atomic)
+        case .chiffree:
+            guard let encryption else { throw BackupCryptoError.emptyPassword }
+            let sealed = try BackupCrypto.seal(BackupZip.archive(entries, date: date), password: encryption.password,
+                                               iterations: encryption.iterations, createdAt: date, kind: kind,
+                                               appVersion: source.appVersion, appBuild: source.appBuild, fileCount: files.count,
+                                               preferenceCount: preferenceCount, secretCount: secrets.count)
+            header = try BackupCrypto.header(of: sealed).header
+            try sealed.write(to: target, options: .atomic)
         case .dossier:
             // Écrit dans un dossier temporaire voisin, puis renommé : jamais de sauvegarde à moitié faite.
             let staging = folder.appendingPathComponent(".en-cours-\(UUID().uuidString)", isDirectory: true)
@@ -348,7 +425,7 @@ public enum BackupEngine {
                 throw error
             }
         }
-        return BackupInfo(url: target, format: format, manifest: manifest, bytes: size(of: target))
+        return BackupInfo(url: target, format: format, manifest: manifest, bytes: size(of: target), encryption: header)
     }
 
     // MARK: Liste et rotation
@@ -365,11 +442,19 @@ public enum BackupEngine {
         return result.sorted { $0.date > $1.date }
     }
 
-    /// Manifeste et taille d'une sauvegarde.
+    /// Manifeste et taille d'une sauvegarde (en-tête en clair pour une sauvegarde chiffrée : aucun
+    /// mot de passe n'est demandé pour la lister).
     public static func info(at url: URL) throws -> BackupInfo {
         let contents = try read(url, manifestOnly: true)
-        let format: BackupFormat = url.pathExtension.lowercased() == "zip" ? .zip : .dossier
-        return BackupInfo(url: url, format: format, manifest: contents.manifest, bytes: size(of: url))
+        let format: BackupFormat = contents.encryption != nil ? .chiffree : (url.pathExtension.lowercased() == "zip" ? .zip : .dossier)
+        return BackupInfo(url: url, format: format, manifest: contents.manifest, bytes: size(of: url), encryption: contents.encryption)
+    }
+
+    /// Manifeste tiré de l'en-tête en clair d'une sauvegarde chiffrée (pour la liste).
+    static func publicManifest(_ header: BackupEncryptedHeader) -> BackupManifest {
+        BackupManifest(createdAt: header.createdAt, kind: header.kind, appVersion: header.appVersion, appBuild: header.appBuild,
+                       files: [], preferencesFile: nil, preferenceCount: header.preferenceCount, excludedPreferenceKeys: [],
+                       skippedFiles: [], keychain: [], note: "", encrypted: true)
     }
 
     /// Garde les `keep` sauvegardes automatiques et manuelles les plus récentes (0 : toutes) et les
@@ -396,13 +481,31 @@ public enum BackupEngine {
 
     // MARK: Lecture et restauration
 
-    /// Lit une sauvegarde (archive ou dossier) et vérifie son manifeste.
-    public static func read(_ url: URL, manifestOnly: Bool = false) throws -> BackupContents {
+    /// Lit une sauvegarde (archive, dossier ou archive chiffrée) et vérifie son manifeste. Une
+    /// sauvegarde chiffrée demande `password` (sauf `manifestOnly`, qui lit l'en-tête en clair) ;
+    /// mauvais mot de passe ou fichier modifié : une erreur, et rien n'est renvoyé.
+    public static func read(_ url: URL, password: String? = nil, manifestOnly: Bool = false) throws -> BackupContents {
         let manager = FileManager.default
         var isDirectory: ObjCBool = false
         guard manager.fileExists(atPath: url.path, isDirectory: &isDirectory) else { throw BackupError.notABackup(url.lastPathComponent) }
         var entries: [BackupZip.Entry] = []
-        if isDirectory.boolValue {
+        var header: BackupEncryptedHeader?
+        if !isDirectory.boolValue, BackupCrypto.isEncryptedFile(url) {
+            let data = try Data(contentsOf: url)
+            if manifestOnly {
+                let found = try BackupCrypto.header(of: data).header
+                return BackupContents(manifest: publicManifest(found), files: [], preferences: nil, encryption: found)
+            }
+            guard let password, !password.isEmpty else { throw BackupCryptoError.passwordRequired }
+            let opened = try BackupCrypto.open(data, password: password)
+            header = opened.header
+            do {
+                entries = try BackupZip.entries(of: opened.plaintext)
+            } catch {
+                // Authentifié mais illisible : jamais restauré.
+                throw BackupCryptoError.tampered
+            }
+        } else if isDirectory.boolValue {
             let manifestURL = url.appendingPathComponent(manifestName)
             guard let data = try? Data(contentsOf: manifestURL) else { throw BackupError.notABackup(url.lastPathComponent) }
             entries.append(BackupZip.Entry(path: manifestName, data: data))
@@ -435,6 +538,7 @@ public enum BackupEngine {
         guard manifest.format == BackupManifest.formatName else { throw BackupError.notABackup(url.lastPathComponent) }
         guard manifest.version <= BackupManifest.currentVersion else { throw BackupError.newerVersion(manifest.version) }
         if manifestOnly { return BackupContents(manifest: manifest, files: [], preferences: nil) }
+        if header != nil, manifest.encrypted != true { throw BackupCryptoError.tampered }
 
         var files: [BackupZip.Entry] = []
         for file in manifest.files {
@@ -446,7 +550,48 @@ public enum BackupEngine {
             files.append(BackupZip.Entry(path: file.path, data: entry.data))
         }
         let preferences = manifest.preferencesFile.flatMap { name in entries.first { $0.path == name }?.data }
-        return BackupContents(manifest: manifest, files: files, preferences: preferences)
+        // Secrets : seulement dans une sauvegarde chiffrée, et tels que le manifeste les nomme.
+        var secrets: [BackupSecret] = []
+        if let header {
+            if let data = entries.first(where: { $0.path == secretsName })?.data {
+                guard let decoded = try? decoder().decode([BackupSecret].self, from: data) else { throw BackupCryptoError.tampered }
+                secrets = decoded
+            }
+            guard secrets.map(\.item) == (manifest.secrets ?? []), secrets.count == header.secretCount else { throw BackupCryptoError.tampered }
+            guard secrets.allSatisfy({ $0.service.hasPrefix(BackupKeychainScan.servicePrefix + ".") }) else {
+                throw BackupError.corrupted("secret d’un autre service refusé")
+            }
+        }
+        return BackupContents(manifest: manifest, files: files, preferences: preferences, secrets: secrets, encryption: header)
+    }
+
+    /// Archive .zip non chiffrée et SANS secret d'un contenu déjà vérifié : ce qui attend le
+    /// redémarrage pour une restauration (le mot de passe n'est pas gardé jusque-là).
+    public static func plainArchive(of contents: BackupContents, date: Date = Date()) throws -> Data {
+        var manifest = contents.manifest
+        manifest.secrets = nil
+        var entries = [BackupZip.Entry(path: manifestName, data: try encoder().encode(manifest))]
+        for file in contents.files {
+            entries.append(BackupZip.Entry(path: filesFolder + "/" + file.path, data: file.data))
+        }
+        if let name = manifest.preferencesFile, let preferences = contents.preferences {
+            entries.append(BackupZip.Entry(path: name, data: preferences))
+        }
+        return BackupZip.archive(entries, date: date)
+    }
+
+    /// Remet les secrets au Trousseau (après confirmation) ; renvoie ceux qui n'ont pas pu l'être.
+    @discardableResult
+    public static func restoreSecrets(_ secrets: [BackupSecret], to store: BackupSecretStore) -> [BackupKeychainItem] {
+        var failed: [BackupKeychainItem] = []
+        for secret in secrets {
+            do {
+                try store.write(secret)
+            } catch {
+                failed.append(secret.item)
+            }
+        }
+        return failed
     }
 
     /// Chemin relatif sans « .. » ni racine (rien n'est écrit hors du dossier de données), fichier
