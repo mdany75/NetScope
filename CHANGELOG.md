@@ -1,5 +1,86 @@
 # Changements
 
+## 0.6.0 — 2026-11-04
+
+Internet et nuage : état des grands services en ligne (vu par leur page officielle et testé
+depuis votre réseau) et nouveau groupe « Courriel » dans la Boîte à outils (santé d’un domaine,
+MX, listes noires, SPF/DKIM/DMARC, diagnostic SMTP, analyse d’en-têtes), avec une Recherche DNS
+plus complète.
+
+### Ajouté
+- **État des services** (Boîte à outils) : Microsoft 365 (Outlook, Teams, SharePoint,
+  OneDrive), Azure, Apple, AWS, Google Workspace et Cloud, Cloudflare, Zscaler, Okta, GitHub,
+  Atlassian, Zoom, Slack et Dropbox d’un coup d’œil.
+- Pour chaque service, deux sources : sa page d’état officielle et un test **depuis votre
+  réseau** (résolution DNS, connexion TLS, réponse HTTPS, avec latence). Le bilan distingue
+  « panne chez eux » et « injoignable d’ici » (DNS, pare-feu, proxy ou lien Internet).
+- Incidents en cours avec titre, services touchés, début, dernière mise à jour et lien vers la
+  page officielle ; historique sur 30 jours.
+- Liste des services modifiable : chaque service peut être désactivé, et on peut ajouter les
+  siens (page Statuspage, RSS…, et adresses clés à tester).
+- **Microsoft 365, en option** : santé détaillée de votre locataire par Microsoft Graph, le
+  secret de l’application étant gardé au Trousseau.
+- Vérification automatique réglable (toutes les 5 minutes par défaut) et notification macOS à
+  chaque nouvel incident ou service injoignable.
+- **Surveillance** : tuile « Services en ligne », section dans le menu de la barre de menus et
+  nouveau type de sonde « Service en ligne ».
+- **Nouveau groupe « Courriel »** dans la Boîte à outils :
+  - **Super outil courriel** : un seul champ qui reconnaît un domaine, une adresse courriel,
+    une adresse IP ou un nom d’hôte et lance les vérifications utiles, avec un bilan coloré
+    (OK, alerte, erreur).
+  - **Santé courriel** : note sur 100 d’un domaine (MX, SPF, DKIM, DMARC, listes noires,
+    MTA-STS, TLS-RPT, DNSSEC, BIMI) avec recommandations classées par gravité ; bilan à copier
+    ou à ajouter au rapport.
+  - **Recherche MX** : serveurs par priorité, adresses IPv4 et IPv6, DNS inverse et cohérence
+    (le PTR revient-il à la même adresse ?).
+  - **Listes noires** : une IP ou un domaine (et les adresses de ses MX) dans 21 listes
+    DNSBL/RBL (Spamhaus ZEN et DBL, Barracuda, SpamCop, UCEPROTECT, PSBL, Mailspike, SURBL,
+    URIBL…), codes de retour expliqués et lien de retrait ; trois requêtes à la fois, espacées.
+  - **SPF, DKIM, DMARC…** : lecture et explication terme à terme de SPF, DMARC, DKIM, BIMI,
+    MTA-STS et TLS-RPT ; erreurs détectées (plus de 10 recherches DNS SPF, boucle d’include,
+    « +all », politique DMARC « none », clé DKIM trop courte ou révoquée, fautes de syntaxe) ;
+    arbre des include SPF ; 34 sélecteurs DKIM courants essayés, plus le vôtre.
+  - **Diagnostic SMTP** d’un serveur ou des MX d’un domaine (ports 25, 587 et 465) : bannière,
+    EHLO et extensions expliquées, STARTTLS, poignée TLS et certificat (émetteur, validité,
+    noms couverts), temps de chaque étape et échange complet. **Aucun courriel n’est envoyé**
+    (seulement EHLO, STARTTLS et QUIT). Avertit quand le port 25 sortant semble bloqué par le
+    fournisseur d’accès, et vérifie la cohérence de la bannière, du DNS inverse (PTR confirmé)
+    et du nom du certificat.
+  - **Analyse d’en-têtes** : coller les en-têtes d’un courriel pour voir son trajet (chaque
+    saut avec heure et délai, IP d’origine), les résultats SPF, DKIM et DMARC, et les alertes
+    d’usurpation (domaine sosie, nom affiché trompeur, Reply-To ou Return-Path vers un autre
+    domaine, échec DMARC). Tout reste sur le Mac.
+- **Rapports** : section facultative « Santé courriel » (note, vérifications,
+  recommandations), dans les exports PDF, CSV, JSON et HTML.
+
+### Modifié
+- **Recherche DNS** : nouveaux types SOA, SRV, CAA, DNSKEY et DS, avec une explication en clair
+  de chaque enregistrement (numéro de clé DNSSEC, autorité de certification permise…).
+- Recherche DNS : vue « Comparer » (la même question à plusieurs serveurs, réponses côte à
+  côte, écarts signalés) et vue « Propagation » (dix résolveurs publics, dont CIRA Canadian
+  Shield, pour voir qui a déjà la nouvelle réponse).
+
+### Corrigé
+- Outils courriel et état des services : corrections de relecture (libellés, colonnes des
+  tableaux DNS et de l’état des services, tuiles et en-têtes, mode sombre et petite fenêtre).
+
+### Limites
+- L’état des services dépend des pages officielles publiques : un incident n’apparaît que
+  lorsque le fournisseur le publie, et certaines pages (Apple, AWS, Azure…) donnent moins de
+  détails que les pages Statuspage. La santé détaillée Microsoft 365 demande une application
+  inscrite dans Entra ID (droit ServiceHealth.Read.All) ; sans elle, seule la page publique
+  est lue.
+- Listes noires : Spamhaus (et quelques autres listes) refusent les requêtes venant des
+  résolveurs publics (8.8.8.8, 1.1.1.1…) ; ces refus sont signalés et ne sont pas comptés comme
+  inscriptions, mais il faut un DNS du fournisseur ou un résolveur local pour un vrai résultat.
+- Diagnostic SMTP : beaucoup de fournisseurs d’accès bloquent le port 25 sortant ; il faut
+  alors tester sur 587 ou 465, ou depuis un autre réseau. Aucun test de relais ouvert n’est fait.
+- DKIM : sans le sélecteur réel, une clé n’est trouvée que si elle porte un des 34 noms
+  courants. La vue « Propagation » interroge directement des résolveurs publics (port 53) : un
+  pare-feu qui force le DNS local peut fausser le résultat.
+- Ces outils n’ont pas encore été essayés sur de vrais domaines et serveurs en dehors des
+  données de démonstration ; essais réels à faire.
+
 ## 0.5.0 — 2026-11-04
 
 Diagnostic du poste et du réseau local : PoE de ce Mac et des appareils, ressources

@@ -8,7 +8,7 @@ surveillance, rapports et accès distant, le tout en français.
 
 ## Fonctions
 
-Version 0.5.0 : les quatorze écrans fonctionnent, au style Mac (mode sombre, petite fenêtre), avec des tableaux à colonnes réglables. Nouveau : « Suis-je sur un port PoE ? », PoE par port et par appareil, ressources (processeur, mémoire, trafic) de ce Mac et des appareils SNMP, choix du serveur Speedtest (Cloudflare, M-Lab, LibreSpeed, Ookla) et bouton « Installer » pour les outils manquants. La suite prévue est dans
+Version 0.6.0 : les quatorze écrans fonctionnent, au style Mac (mode sombre, petite fenêtre), avec des tableaux à colonnes réglables. Nouveau : « État des services » (Microsoft 365, Azure, Apple, AWS, Google, Cloudflare… vus par leur page officielle et testés depuis votre réseau) et un groupe « Courriel » dans la Boîte à outils (santé d’un domaine sur 100, MX, listes noires, SPF/DKIM/DMARC, diagnostic SMTP, analyse d’en-têtes), avec une Recherche DNS plus complète (SOA, SRV, CAA, DNSSEC, comparaison et propagation). La suite prévue est dans
 [docs/A-FAIRE.md](docs/A-FAIRE.md).
 
 - **Scanner multi-plages qui se remplit tout seul** : plusieurs plages à la fois, ping ICMP

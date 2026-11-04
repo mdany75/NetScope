@@ -5,7 +5,7 @@
 
 ## Priorités (revues le 4 novembre 2026)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0.
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0.
 
 1. **0.4.x, retours d'essai** : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour) et de la 0.4.0 (menus de colonnes, type, ports, sombre) ;
@@ -13,7 +13,8 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 2. ~~**0.5.0, diagnostic du poste et du réseau local**~~ : livrée le 4 novembre 2026
    (notes 12, 21, 17 et 16) ; essais réels à faire (PoE sur une vraie switch, SNMP, M-Lab,
    LibreSpeed, Ookla, bouton Installer).
-3. **0.6.0, Internet et nuage** : notes 15 (état des services), 14 (courriel et DNS).
+3. ~~**0.6.0, Internet et nuage**~~ : livrée le 4 novembre 2026 (notes 15 et 14) ; essais
+   réels à faire (pages d’état, Microsoft Graph, listes noires, SMTP, propagation DNS).
 4. **0.7.0, analyse avancée** : notes 7 (capture de paquets), 22 (vitesse des disques).
 5. **0.8.0, réglages et alertes** : note 13 (sauvegarde, notifications, raccourcis…), alertes
    par courriel et webhook.
@@ -258,7 +259,9 @@ Sections de Réglages à réaliser, fidèles au croquis `docs/croquis/Reglages.d
   « Test SNMP » des identifiants, identifiants SSH et WMI, choix des méthodes de découverte dans
   les profils de scan, plusieurs sites (avec la gestion par site, note 10).
 
-## 14. Outils courriel et DNS (style « super outil ») — À PLANIFIER (demande de Dany)
+## 14. Outils courriel et DNS (style « super outil ») (demande de Dany)
+
+**Livrée dans la 0.6.0** (4 novembre 2026) ; essais réels à faire sur de vrais domaines et serveurs.
 
 Nouveaux outils dans la Boîte à outils, sur le modèle d'une barre d'outils courriel/DNS :
 
@@ -283,7 +286,9 @@ Nouveaux outils dans la Boîte à outils, sur le modèle d'une barre d'outils co
   tout se fait en local, rien n'est envoyé.
 - Tests : analyse d'enregistrements SPF/DMARC/DKIM et d'en-têtes fixes, sans réseau.
 
-## 15. État des grands services en ligne — À PLANIFIER (demande de Dany)
+## 15. État des grands services en ligne (demande de Dany)
+
+**Livrée dans la 0.6.0** (4 novembre 2026) ; essais réels à faire (pages d’état, Microsoft Graph).
 
 Outil (Boîte à outils, et tuile dans Surveillance / barre de menus) qui montre d'un coup d'œil si
 les grands services fonctionnent : Microsoft 365 (Outlook, Teams, SharePoint, OneDrive), Azure,
