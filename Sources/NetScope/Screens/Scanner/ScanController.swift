@@ -43,18 +43,37 @@ final class ScanController: ObservableObject {
     @Published private(set) var measuring: Set<Device.ID> = []
     @Published private(set) var probing: Set<Device.ID> = []
     @Published var toast: ScanToast?
-    /// Ports du profil personnalisé (« 22, 80, 8000-8010 »), conservés d'un lancement à l'autre.
-    @Published var customPortsText: String {
-        didSet { UserDefaults.standard.set(customPortsText, forKey: "scan.customPorts") }
+    /// Préréglage de ports du Scanner (note 19) : profil dont on prend les ports, retenu d'un
+    /// lancement à l'autre (rien n'est écrit en démonstration).
+    @Published var portPresetProfile: ScanProfile {
+        didSet { if !Launcher.isDemo { UserDefaults.standard.set(portPresetProfile.rawValue, forKey: Self.portPresetKey) } }
     }
 
     private var scanTask: Task<Void, Never>?
     private var toastTask: Task<Void, Never>?
     private var pingerCache: ICMPPinger?
 
+    private static let portPresetKey = "scan.prereglagePorts"
+
     init() {
-        customPortsText = UserDefaults.standard.string(forKey: "scan.customPorts") ?? "22, 80, 443, 3389, 8080"
+        let defaults = UserDefaults.standard
+        let saved = Launcher.isDemo ? nil : defaults.string(forKey: Self.portPresetKey).flatMap(ScanProfile.init(rawValue:))
+        portPresetProfile = saved ?? RegPrefs.shared.defaultProfile
+        // Ancienne liste du profil Personnalisé propre au Scanner : reprise une fois par les Réglages,
+        // désormais la seule source des ports personnalisés.
+        if !Launcher.isDemo, let old = defaults.string(forKey: "scan.customPorts") {
+            if defaults.string(forKey: RegPrefs.Key.ports) == nil { RegPrefs.shared.tuning.portsText = old }
+            defaults.removeObject(forKey: "scan.customPorts")
+        }
     }
+
+    // MARK: Préréglages de ports (note 19)
+
+    /// Préréglages de Réglages › Profils de scan (Personnalisé : ports saisis dans les Réglages).
+    var portPresets: [PortPreset] { PortPreset.all(customPorts: RegPrefs.shared.tuning.ports) }
+
+    /// Préréglage en vigueur.
+    var portPreset: PortPreset { PortPreset(profile: portPresetProfile, customPorts: RegPrefs.shared.tuning.ports) }
 
     /// Socket ICMP partagé, ouvert au premier besoin.
     private var pinger: ICMPPinger? {
@@ -94,8 +113,8 @@ final class ScanController: ObservableObject {
             show("Plage ignorée (invalide) : \(invalid.joined(separator: ", "))", tone: .warning)
         }
 
-        let customPorts = ScanProfile.parsePorts(customPortsText) ?? []
-        let options = ScanOptions(profile: state.scanProfile, customPorts: customPorts)
+        var options = ScanOptions(profile: state.scanProfile, customPorts: prefs.tuning.ports)
+        options.portOverride = portPreset.ports
         // Découverte SNMP des switchs : réglage automatique (activé par défaut) ou profil Complet.
         let discoversSwitches = prefs.autoDiscoverSwitches || state.scanProfile.alwaysDiscoversSwitches
         let readGatewayARP = prefs.readGatewayARP
@@ -334,29 +353,49 @@ final class ScanController: ObservableObject {
         }
     }
 
-    /// Scan approfondi des ports d'un seul appareil (environ 1000 ports TCP, profil Complet).
-    func probePorts(of device: Device, state: AppState) {
-        guard !probing.contains(device.id) else { return }
+    /// Sonde les ports des appareils donnés avec un préréglage (menu contextuel, barre d'outils,
+    /// panneau de détail). Les ports connus hors du préréglage sont gardés. En démonstration, rien
+    /// ne part sur le réseau.
+    func probePorts(of devices: [Device], preset: PortPreset, state: AppState) {
+        let targets = devices.filter { !probing.contains($0.id) }
+        guard !targets.isEmpty else { return }
         guard !Launcher.isDemo else {
-            show("Démonstration\u{00A0}: aucun port n’est sondé sur cet appareil fictif.", tone: .neutral, place: .actions)
+            show("Démonstration\u{00A0}: aucun port n’est sondé (\(preset.label), \(Self.count(targets.count))).",
+                 tone: .neutral, place: .actions)
             return
         }
-        probing.insert(device.id)
-        let ip = device.ip
-        let id = device.id
-        Task { [weak self] in
-            let open = await PortProber().openPorts(ip, ports: ScanProfile.extendedPorts, timeout: .milliseconds(800), concurrency: 64)
-            guard let self else { return }
-            self.probing.remove(id)
-            if var current = state.device(withID: id) {
-                current.openPorts = Self.mergedPorts(open, probed: Set(ScanProfile.extendedPorts), known: current.openPorts)
-                current.lastSeen = Date()
-                let guessed = ScanDeviceClassifier.guess(current)
-                if guessed != .inconnu { current.deviceType = guessed }
-                state.merge([current])
-            }
-            self.show(open.isEmpty ? "Aucun port ouvert sur \(ip) (\(ScanProfile.extendedPorts.count) ports sondés)." : "\(open.count) ports ouverts sur \(ip) (\(ScanProfile.extendedPorts.count) ports sondés).", place: .actions)
+        guard !preset.ports.isEmpty else {
+            show("Le préréglage « \(preset.profile.label) » n’a aucun port : réglez-le dans Réglages › Profils de scan.",
+                 tone: .warning, place: .actions)
+            return
         }
+        for device in targets { probing.insert(device.id) }
+        let ports = preset.ports
+        let probed = Set(ports)
+        Task { [weak self] in
+            var openTotal = 0
+            for device in targets {
+                let open = await PortProber().openPorts(device.ip, ports: ports, timeout: .milliseconds(800), concurrency: 64)
+                guard let self else { return }
+                self.probing.remove(device.id)
+                openTotal += open.count
+                if var current = state.device(withID: device.id) {
+                    current.openPorts = Self.mergedPorts(open, probed: probed, known: current.openPorts)
+                    current.lastSeen = Date()
+                    let guessed = ScanDeviceClassifier.guess(current)
+                    if guessed != .inconnu { current.deviceType = guessed }
+                    state.merge([current])
+                }
+            }
+            guard let self else { return }
+            let subject = targets.count == 1 ? targets[0].ip.description : Self.count(targets.count)
+            self.show(openTotal == 0 ? "Aucun port ouvert sur \(subject) (\(preset.label))."
+                                     : "\(openTotal) ports ouverts sur \(subject) (\(preset.label)).", place: .actions)
+        }
+    }
+
+    private static func count(_ devices: Int) -> String {
+        devices > 1 ? "\(devices) appareils" : "\(devices) appareil"
     }
 
     /// Paquet magique Wake-on-LAN, diffusé sur le réseau de l'appareil.

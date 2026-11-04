@@ -14,6 +14,9 @@ final class InvModel: ObservableObject {
     @Published var selectedKey: String?
     /// Message bref affiché sous la barre d'outils (« Fiche enregistrée »).
     @Published var toast: String?
+    /// Types choisis à la main pour des appareils sans MAC, par IP, pour cette session seulement
+    /// (note 20 ; voir Shared/DeviceTypeMenu.swift).
+    @Published var sessionTypes: [String: DeviceType] = [:]
 
     let isEphemeral: Bool
     private let url: URL
@@ -105,6 +108,20 @@ final class InvModel: ObservableObject {
     func setAnnotations(_ annotations: InvAnnotations, for key: String) {
         store.setAnnotations(annotations, for: key)
         save()
+    }
+
+    /// Retient le type choisi à la main (nil : type détecté) ; `all` : appareils du scan, fusionnés
+    /// d'abord pour que chaque fiche existe. Renvoie le nombre d'appareils sans MAC (choix de session).
+    @discardableResult
+    func setManualType(_ type: DeviceType?, for devices: [Device], all: [Device]) -> Int {
+        observe(all, immediately: true)
+        var sessionOnly = 0
+        for device in devices where !store.setManualType(type, for: device) {
+            sessionTypes[device.id] = type
+            sessionOnly += 1
+        }
+        save()
+        return sessionOnly
     }
 
     func toggleFavorite(_ key: String) {

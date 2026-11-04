@@ -6,15 +6,17 @@ import SwiftUI
 struct ScannerScreen: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var scan = ScanController.shared
+    @ObservedObject private var prefs = RegPrefs.shared
     @State private var filter = ScanFilter()
-    @State private var sortOrder = [KeyPathComparator(\Device.ip)]
+    /// Tableau standard des résultats (colonnes et tri retenus, note 8).
+    @StateObject private var table = ScanDeviceTable.makeModel()
     @State private var showProfiles = false
 
     var body: some View {
         VStack(spacing: 14) {
             ScanRangesPanel(scan: scan)
             HStack(alignment: .top, spacing: 14) {
-                ScanResultsPanel(scan: scan, filter: $filter, sortOrder: $sortOrder)
+                ScanResultsPanel(scan: scan, filter: $filter, table: table)
                 ScanDetailPanel(scan: scan)
                     .frame(width: 360)
                     .frame(maxHeight: .infinity, alignment: .top)
@@ -40,7 +42,7 @@ struct ScannerScreen: View {
             .disabled(!scan.isRunning)
             .opacity(scan.isRunning ? 1 : 0.55)
             .keyboardShortcut(".", modifiers: .command)
-        Button { scan.clear(state) } label: { Label("Effacer", systemImage: "trash") }
+        Button { scan.clear(state) } label: { Image(systemName: "trash").accessibilityLabel("Effacer") }
             .buttonStyle(.secondary)
             .disabled(state.devices.isEmpty && !scan.isRunning)
             .help("Effacer les résultats du scan")
@@ -55,6 +57,7 @@ struct ScannerScreen: View {
         .popover(isPresented: $showProfiles, arrowEdge: .bottom) {
             ScanProfilePicker(scan: scan) { showProfiles = false }
         }
+        portsMenu
         Button { scan.exportCSV(exportRows) } label: { Label("Exporter", systemImage: "square.and.arrow.down") }
             .buttonStyle(.secondary)
             .disabled(state.devices.isEmpty)
@@ -63,7 +66,36 @@ struct ScannerScreen: View {
 
     /// Appareils affichés (filtres et tri du tableau), pour l'export.
     private var exportRows: [Device] {
-        ScanResultsPanel.visibleRows(state: state, scan: scan, filter: filter, sortOrder: sortOrder)
+        ScanResultsPanel.visibleRows(state: state, scan: scan, filter: filter, sortOrder: table.sortOrder)
+    }
+
+    /// « Ports : 20 essentiels ▾ » (note 19) : préréglages des Réglages, coche sur celui en vigueur.
+    private var portsMenu: some View {
+        let current = scan.portPreset
+        let online = exportRows.filter(\.isOnline)
+        return Menu {
+            Section("Préréglage de ports") {
+                ForEach(scan.portPresets) { preset in
+                    Toggle(preset.label, isOn: Binding(get: { preset.profile == current.profile },
+                                                       set: { _ in scan.portPresetProfile = preset.profile }))
+                }
+            }
+            Divider()
+            Button("Rescanner les ports avec ce préréglage (\(online.count) en ligne)") {
+                scan.probePorts(of: online, preset: current, state: state)
+            }
+            .disabled(scan.isRunning || online.isEmpty)
+            Button("Modifier les préréglages…") {
+                RegNavigation.shared.section = .profils
+                state.open(.reglages)
+            }
+        } label: {
+            Text("Ports\u{00A0}: \(current.shortLabel)")
+        }
+        .menuStyle(.button)
+        .controlSize(.large)
+        .fixedSize()
+        .help("Ports TCP sondés par le prochain scan (\(PortPreset.count(current.ports.count)))")
     }
 }
 
@@ -73,13 +105,17 @@ struct ScanProfilePicker: View {
     @ObservedObject var scan: ScanController
     let close: () -> Void
 
-    private var portsValid: Bool { ScanProfile.parsePorts(scan.customPortsText).map { !$0.isEmpty } ?? false }
+    @ObservedObject private var prefs = RegPrefs.shared
+
+    private var portsValid: Bool { !prefs.tuning.ports.isEmpty }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             ForEach(ScanProfile.allCases) { profile in
                 Button {
                     state.scanProfile = profile
+                    // Choisir un profil reprend ses ports ; le menu « Ports » permet ensuite d'en changer.
+                    scan.portPresetProfile = profile
                     if profile != .personnalise { close() }
                 } label: {
                     VStack(alignment: .leading, spacing: 1) {
@@ -98,7 +134,7 @@ struct ScanProfilePicker: View {
             if state.scanProfile == .personnalise {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Ports TCP").font(Theme.captionSemibold).foregroundStyle(Theme.textSecondary)
-                    TextField("", text: $scan.customPortsText, prompt: Text("22, 80, 8000-8010"))
+                    TextField("", text: $prefs.tuning.portsText, prompt: Text("22, 80, 8000-8010"))
                         .textFieldStyle(.roundedBorder)
                         .font(Theme.mono(12))
                     if !portsValid {

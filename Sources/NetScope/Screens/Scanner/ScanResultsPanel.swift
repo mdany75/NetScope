@@ -39,7 +39,8 @@ struct ScanResultsPanel: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var scan: ScanController
     @Binding var filter: ScanFilter
-    @Binding var sortOrder: [KeyPathComparator<Device>]
+    @ObservedObject var table: StandardTableModel<Device>
+    @ObservedObject private var inventory = InvModel.shared
 
     /// Appareils après la recherche, la plage et le VLAN (avant le filtre rapide).
     static func scoped(state: AppState, filter: ScanFilter) -> [Device] {
@@ -61,11 +62,11 @@ struct ScanResultsPanel: View {
         }
     }
 
-    /// Lignes affichées, filtrées et triées (aussi pour l'export).
+    /// Lignes affichées, filtrées et triées (aussi pour l'export), avec le type choisi à la main.
     static func visibleRows(state: AppState, scan: ScanController, filter: ScanFilter,
                             sortOrder: [KeyPathComparator<Device>]) -> [Device] {
-        scoped(state: state, filter: filter)
-            .filter { matches($0, filter.quick, newIDs: scan.newIDs) }
+        InvModel.shared.withManualTypes(scoped(state: state, filter: filter)
+            .filter { matches($0, filter.quick, newIDs: scan.newIDs) })
             .sorted(using: sortOrder)
     }
 
@@ -75,14 +76,14 @@ struct ScanResultsPanel: View {
 
     var body: some View {
         let scoped = ScanResultsPanel.scoped(state: state, filter: filter)
-        let rows = scoped.filter { matches($0, filter.quick) }.sorted(using: sortOrder)
+        let rows = ScanResultsPanel.visibleRows(state: state, scan: scan, filter: filter, sortOrder: table.sortOrder)
         VStack(spacing: 0) {
             filterBar(scoped)
             Rectangle().fill(Theme.border).frame(height: 1)
             if rows.isEmpty {
                 emptyView
             } else {
-                ScanDeviceTable(rows: rows, scan: scan, sortOrder: $sortOrder)
+                ScanDeviceTable(rows: rows, scan: scan, table: table)
             }
             footer(shown: rows.count, inView: scoped.count)
         }
@@ -117,6 +118,7 @@ struct ScanResultsPanel: View {
             }
             rangePicker
             vlanPicker
+            StandardColumnsMenu(model: table)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
@@ -246,95 +248,233 @@ struct ScanQuickChip: View {
 
 // MARK: - Tableau
 
+/// Tableau des appareils : tableau standard (note 8), colonnes facultatives masquées par défaut,
+/// sélection multiple pour le menu contextuel (type, ports).
 struct ScanDeviceTable: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var switches = SwitchStore.shared
+    @ObservedObject private var inventory = InvModel.shared
+    /// Appareils affichés, avec le type choisi à la main.
     let rows: [Device]
     @ObservedObject var scan: ScanController
-    @Binding var sortOrder: [KeyPathComparator<Device>]
+    @ObservedObject var table: StandardTableModel<Device>
+    @State private var selection: Set<Device.ID> = []
+
+    // MARK: Colonnes
+
+    static let columns: [StandardColumn] = [
+        StandardColumn(id: "ip", title: "IP", isRequired: true),
+        StandardColumn(id: "type", title: "Type"),
+        StandardColumn(id: "nom", title: "Nom personnalisé"),
+        StandardColumn(id: "hostname", title: "Hostname"),
+        StandardColumn(id: "fabricant", title: "Fabricant"),
+        StandardColumn(id: "mac", title: "MAC"),
+        StandardColumn(id: "latence", title: "Latence"),
+        StandardColumn(id: "ports", title: "Ports ouverts"),
+        StandardColumn(id: "switch", title: "Switch / port"),
+        StandardColumn(id: "vlan", title: "VLAN"),
+        StandardColumn(id: "derniereVue", title: "Vu la dernière fois"),
+        StandardColumn(id: "premiereVue", title: "Première vue", isDefaultVisible: false),
+        StandardColumn(id: "sourceNom", title: "Source du nom", isDefaultVisible: false),
+        StandardColumn(id: "groupe", title: "Groupe NetBIOS", isDefaultVisible: false),
+        StandardColumn(id: "plage", title: "Plage", isDefaultVisible: false),
+        StandardColumn(id: "snmp", title: "Nature SNMP", isDefaultVisible: false),
+        StandardColumn(id: "oui", title: "OUI", isDefaultVisible: false),
+        StandardColumn(id: "emplacement", title: "État de l’emplacement", isDefaultVisible: false),
+    ]
+
+    static let sortKeys: [String: KeyPathComparator<Device>] = [
+        "ip": KeyPathComparator(\Device.ip),
+        "type": KeyPathComparator(\Device.scanSortType),
+        "nom": KeyPathComparator(\Device.scanSortName),
+        "hostname": KeyPathComparator(\Device.scanSortHostname),
+        "fabricant": KeyPathComparator(\Device.scanSortVendor),
+        "mac": KeyPathComparator(\Device.scanSortMAC),
+        "latence": KeyPathComparator(\Device.scanSortLatency),
+        "ports": KeyPathComparator(\Device.scanSortPorts),
+        "switch": KeyPathComparator(\Device.scanSortSwitch),
+        "vlan": KeyPathComparator(\Device.scanSortVLAN),
+        "derniereVue": KeyPathComparator(\Device.lastSeen),
+        "premiereVue": KeyPathComparator(\Device.firstSeen),
+        "sourceNom": KeyPathComparator(\Device.scanSortNameSource),
+        "groupe": KeyPathComparator(\Device.scanSortDomain),
+        "plage": KeyPathComparator(\Device.scanSortRange),
+        "snmp": KeyPathComparator(\Device.scanSortSNMP),
+        "oui": KeyPathComparator(\Device.scanSortVendorOUI),
+    ]
+
+    @MainActor
+    static func makeModel() -> StandardTableModel<Device> {
+        StandardTableModel(id: "scanner", columns: columns, sortKeys: sortKeys, defaultSort: "ip")
+    }
 
     var body: some View {
-        Table(rows, selection: $state.selectedDeviceID, sortOrder: $sortOrder) {
-            TableColumn("IP", value: \Device.ip) { device in
-                HStack(spacing: 8) {
-                    ScanStatusDot(online: device.isOnline)
-                    Text(device.ip.description).font(Theme.mono(12, weight: .semibold)).foregroundStyle(Theme.text)
+        Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+            Group {
+                TableColumn("IP", sortUsing: table.sort("ip")) { device in
+                    HStack(spacing: 8) {
+                        ScanStatusDot(online: device.isOnline)
+                        Text(device.ip.description).font(Theme.mono(12, weight: .semibold)).foregroundStyle(Theme.text)
+                    }
+                    .frame(height: 26)
                 }
-                .frame(height: 26)
-            }
-            .width(min: 118, ideal: 128)
+                .width(min: 118, ideal: 128)
+                .customizationID("ip")
+                .disabledCustomizationBehavior(.visibility)
 
-            TableColumn("NOM PERSONNALISÉ", value: \Device.scanSortName) { device in
-                HStack(spacing: 6) {
-                    Text(device.customName ?? "—")
-                        .font(Theme.small)
-                        .foregroundStyle(device.customName == nil ? Theme.textTertiary : Theme.text)
-                        .lineLimit(1)
-                    if scan.newIDs.contains(device.id) { ScanNewBadge() }
+                TableColumn("TYPE", sortUsing: table.sort("type")) { device in
+                    ScanTypeCell(type: device.deviceType, isManual: inventory.typeChoice(for: device).isManual)
                 }
-            }
-            .width(min: 100, ideal: 125)
+                .width(min: 90, ideal: 152)
+                .customizationID("type")
 
-            TableColumn("HOSTNAME", value: \Device.scanSortHostname) { device in
-                ScanCellText(device.hostnameLabel ?? "—", dimmed: device.hostname == nil)
-                    .help(device.nameSourceLabel.map { "Nom obtenu par \($0)" } ?? "")
-            }
-            .width(min: 100, ideal: 135)
-
-            TableColumn("FABRICANT", value: \Device.scanSortVendor) { device in
-                ScanCellText(device.vendorLabel, dimmed: device.vendor == nil && device.mac == nil)
-            }
-            .width(min: 80, ideal: 95)
-
-            TableColumn("MAC", value: \Device.scanSortMAC) { device in
-                ScanCellText(device.mac?.formatted(.upperColon) ?? "—", mono: true, dimmed: device.mac == nil)
-            }
-            .width(min: 120, ideal: 128)
-
-            TableColumn("LATENCE", value: \Device.scanSortLatency) { device in
-                Text(ScanFormat.latency(device.latencyMs))
-                    .font(Theme.mono(12))
-                    .foregroundStyle(latencyColor(device.latencyMs))
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-            .width(min: 64, ideal: 72)
-
-            TableColumn("PORTS OUVERTS", value: \Device.scanSortPorts) { device in
-                ScanPortTags(ports: device.openPorts)
-            }
-            .width(min: 100, ideal: 130)
-
-            TableColumn("SWITCH / PORT", value: \Device.scanSortSwitch) { device in
-                let status = state.locationStatus(device)
-                ScanCellText(device.switchLocation ?? "—", mono: true, dimmed: device.switchLocation == nil || !status.isCurrent)
-                    .help(device.switchLocation != nil ? status.explanation ?? "" : "")
-            }
-            .width(min: 110, ideal: 150)
-
-            TableColumn("VLAN", value: \Device.scanSortVLAN) { device in
-                if let vlan = device.vlan {
-                    Chip(text: "\(vlan)", mono: true)
-                        .opacity(state.vlanStatus(device).isCurrent ? 1 : 0.5)
-                } else {
-                    ScanCellText("—", dimmed: true)
+                TableColumn("NOM PERSONNALISÉ", sortUsing: table.sort("nom")) { device in
+                    HStack(spacing: 6) {
+                        Text(device.customName ?? "—")
+                            .font(Theme.small)
+                            .foregroundStyle(device.customName == nil ? Theme.textTertiary : Theme.text)
+                            .lineLimit(1)
+                        if scan.newIDs.contains(device.id) { ScanNewBadge() }
+                    }
                 }
-            }
-            .width(min: 44, ideal: 52)
+                .width(min: 100, ideal: 125)
+                .customizationID("nom")
 
-            TableColumn("VU LA DERNIÈRE FOIS", value: \Device.lastSeen) { device in
-                TimelineView(.periodic(from: .now, by: 30)) { context in
-                    ScanCellText(ScanFormat.relative(device.lastSeen, now: context.date), secondary: true)
+                TableColumn("HOSTNAME", sortUsing: table.sort("hostname")) { device in
+                    ScanCellText(device.hostnameLabel ?? "—", dimmed: device.hostname == nil)
+                        .help(device.nameSourceLabel.map { "Nom obtenu par \($0)" } ?? "")
                 }
+                .width(min: 100, ideal: 135)
+                .customizationID("hostname")
+
+                TableColumn("FABRICANT", sortUsing: table.sort("fabricant")) { device in
+                    ScanCellText(device.vendorLabel, dimmed: device.vendor == nil && device.mac == nil)
+                }
+                .width(min: 80, ideal: 95)
+                .customizationID("fabricant")
+
+                TableColumn("MAC", sortUsing: table.sort("mac")) { device in
+                    ScanCellText(device.mac?.formatted(.upperColon) ?? "—", mono: true, dimmed: device.mac == nil)
+                }
+                .width(min: 120, ideal: 128)
+                .customizationID("mac")
+
+                TableColumn("LATENCE", sortUsing: table.sort("latence")) { device in
+                    Text(ScanFormat.latency(device.latencyMs))
+                        .font(Theme.mono(12))
+                        .foregroundStyle(latencyColor(device.latencyMs))
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .width(min: 64, ideal: 72)
+                .customizationID("latence")
+
+                TableColumn("PORTS OUVERTS", sortUsing: table.sort("ports")) { device in
+                    ScanPortTags(ports: device.openPorts)
+                }
+                .width(min: 70, ideal: 130)
+                .customizationID("ports")
+
+                TableColumn("SWITCH / PORT", sortUsing: table.sort("switch")) { device in
+                    let status = state.locationStatus(device)
+                    ScanCellText(device.switchLocation ?? "—", mono: true, dimmed: device.switchLocation == nil || !status.isCurrent)
+                        .help(device.switchLocation != nil ? status.explanation ?? "" : "")
+                }
+                .width(min: 110, ideal: 150)
+                .customizationID("switch")
             }
-            .width(min: 90, ideal: 120)
+
+            Group {
+                TableColumn("VLAN", sortUsing: table.sort("vlan")) { device in
+                    if let vlan = device.vlan {
+                        Chip(text: "\(vlan)", mono: true)
+                            .opacity(state.vlanStatus(device).isCurrent ? 1 : 0.5)
+                    } else {
+                        ScanCellText("—", dimmed: true)
+                    }
+                }
+                .width(min: 44, ideal: 52)
+                .customizationID("vlan")
+
+                TableColumn("VU LA DERNIÈRE FOIS", sortUsing: table.sort("derniereVue")) { device in
+                    TimelineView(.periodic(from: .now, by: 30)) { context in
+                        ScanCellText(ScanFormat.relative(device.lastSeen, now: context.date), secondary: true)
+                    }
+                }
+                .width(min: 90, ideal: 120)
+                .customizationID("derniereVue")
+
+                TableColumn("PREMIÈRE VUE", sortUsing: table.sort("premiereVue")) { device in
+                    ScanCellText(ScanFormat.date(device.firstSeen), secondary: true)
+                }
+                .width(min: 110, ideal: 150)
+                .customizationID("premiereVue")
+                .defaultVisibility(.hidden)
+
+                TableColumn("SOURCE DU NOM", sortUsing: table.sort("sourceNom")) { device in
+                    ScanCellText(device.nameSourceLabel ?? "—", dimmed: device.nameSourceLabel == nil)
+                }
+                .width(min: 80, ideal: 165)
+                .customizationID("sourceNom")
+                .defaultVisibility(.hidden)
+
+                TableColumn("GROUPE NETBIOS", sortUsing: table.sort("groupe")) { device in
+                    ScanCellText(device.nameDomain ?? "—", mono: true, dimmed: device.nameDomain == nil)
+                }
+                .width(min: 80, ideal: 135)
+                .customizationID("groupe")
+                .defaultVisibility(.hidden)
+
+                TableColumn("PLAGE", sortUsing: table.sort("plage")) { device in
+                    ScanCellText(device.rangeLabel ?? "—", dimmed: device.rangeLabel == nil)
+                }
+                .width(min: 70, ideal: 100)
+                .customizationID("plage")
+                .defaultVisibility(.hidden)
+
+                TableColumn("NATURE SNMP", sortUsing: table.sort("snmp")) { device in
+                    ScanCellText(device.snmpKind?.label ?? "—", dimmed: device.snmpKind == nil)
+                        .help(device.snmpKind == nil ? "N’a pas répondu à la découverte SNMP" : "D’après la découverte SNMP")
+                }
+                .width(min: 70, ideal: 150)
+                .customizationID("snmp")
+                .defaultVisibility(.hidden)
+
+                TableColumn("OUI", sortUsing: table.sort("oui")) { device in
+                    ScanCellText(device.scanSortVendorOUI.isEmpty ? "—" : device.scanSortVendorOUI, mono: true,
+                                 dimmed: device.mac == nil)
+                }
+                .width(min: 70, ideal: 80)
+                .customizationID("oui")
+                .defaultVisibility(.hidden)
+
+                TableColumn("ÉTAT DE L’EMPLACEMENT") { device in
+                    let status = state.locationStatus(device)
+                    ScanCellText(device.switchName == nil ? "—" : Self.locationLabel(status),
+                                 dimmed: device.switchName == nil || !status.isCurrent)
+                        .help(device.switchName == nil ? "" : status.explanation ?? "Relevé sur le réseau actuel")
+                }
+                .width(min: 90, ideal: 175)
+                .customizationID("emplacement")
+                .defaultVisibility(.hidden)
+            }
         }
-        .tableStyle(.inset(alternatesRowBackgrounds: false))
+        .standardTableStyle()
         .contextMenu(forSelectionType: Device.ID.self) { ids in
-            if let id = ids.first, let device = state.device(withID: id) {
-                ScanDeviceMenu(device: device, scan: scan)
+            let devices = ids.compactMap { state.device(withID: $0) }.sorted { $0.ip < $1.ip }
+            if !devices.isEmpty {
+                ScanDeviceMenu(devices: devices, scan: scan)
             }
         } primaryAction: { ids in
             if let id = ids.first { state.showDevice(id) }
+        }
+        .onAppear { selection = state.selectedDeviceID.map { [$0] } ?? [] }
+        .onChange(of: selection) { _, ids in
+            // Le panneau de détail suit la ligne choisie (la première d'une sélection multiple).
+            if let current = state.selectedDeviceID, ids.contains(current) { return }
+            state.selectedDeviceID = rows.first { ids.contains($0.id) }?.id
+        }
+        .onChange(of: state.selectedDeviceID) { _, id in
+            if let id, !selection.contains(id) { selection = [id] }
         }
     }
 
@@ -342,26 +482,91 @@ struct ScanDeviceTable: View {
         guard let value else { return Theme.textTertiary }
         return value > 15 ? Theme.warning : Theme.text
     }
+
+    static func locationLabel(_ status: LocationStatus) -> String {
+        switch status {
+        case .current: return "Actuel"
+        case .rangeUnchecked: return "Plage décochée"
+        case .networkChanged: return "Réseau changé"
+        case .unconfirmed: return "Non confirmé"
+        }
+    }
 }
 
-/// Menu contextuel d'un appareil (tableau).
+/// Menu contextuel d'un ou de plusieurs appareils (tableau).
 struct ScanDeviceMenu: View {
     @EnvironmentObject private var state: AppState
-    let device: Device
+    let devices: [Device]
     @ObservedObject var scan: ScanController
 
     var body: some View {
-        Button("Copier l’IP") { scan.copy(device.ip.description, label: "IP") }
-        Button("Copier la MAC") { if let mac = device.mac { scan.copy(mac.formatted(.upperColon), label: "MAC") } }
-            .disabled(device.mac == nil)
-        Divider()
-        Button("Ping continu") { state.sendToPing(device.ip.description) }
-        Button("Ouvrir dans le navigateur (http)") { ScanFormat.open(URL(string: "http://\(device.ip)")!) }
-        Button("Ouvrir dans le navigateur (https)") { ScanFormat.open(URL(string: "https://\(device.ip)")!) }
-        Button("Scanner les ports (approfondi, \(ScanProfile.extendedPorts.count) ports)") { scan.probePorts(of: device, state: state) }
-        Button("Wake-on-LAN") { scan.wake(device, state: state) }.disabled(device.mac == nil)
-        Divider()
-        Button("Voir la fiche complète") { state.showDevice(device.id) }
+        if devices.count == 1, let device = devices.first {
+            Button("Copier l’IP") { scan.copy(device.ip.description, label: "IP") }
+            Button("Copier la MAC") { if let mac = device.mac { scan.copy(mac.formatted(.upperColon), label: "MAC") } }
+                .disabled(device.mac == nil)
+            Divider()
+            Button("Ping continu") { state.sendToPing(device.ip.description) }
+            Button("Ouvrir dans le navigateur (http)") { ScanFormat.open(URL(string: "http://\(device.ip)")!) }
+            Button("Ouvrir dans le navigateur (https)") { ScanFormat.open(URL(string: "https://\(device.ip)")!) }
+        } else {
+            Text("\(devices.count) appareils sélectionnés")
+            Button("Copier les IP") {
+                scan.copy(devices.map(\.ip.description).joined(separator: "\n"), label: "Liste d’IP")
+            }
+            Divider()
+        }
+        ScanPortPresetMenu(devices: devices, scan: scan)
+        DeviceTypeMenu(devices: devices) { scan.show($0, place: .actions) }
+        if devices.count == 1, let device = devices.first {
+            Button("Wake-on-LAN") { scan.wake(device, state: state) }.disabled(device.mac == nil)
+            Divider()
+            Button("Voir la fiche complète") { state.showDevice(device.id) }
+        }
+    }
+}
+
+/// Sous-menu « Scanner les ports › <préréglage> » (note 19), mêmes préréglages que les Réglages.
+struct ScanPortPresetMenu: View {
+    @EnvironmentObject private var state: AppState
+    @ObservedObject private var prefs = RegPrefs.shared
+    let devices: [Device]
+    @ObservedObject var scan: ScanController
+
+    var body: some View {
+        Menu("Scanner les ports") {
+            ForEach(scan.portPresets) { preset in
+                Button(preset.label) { scan.probePorts(of: devices, preset: preset, state: state) }
+                    .disabled(preset.ports.isEmpty)
+            }
+            Divider()
+            Button("Modifier les préréglages…") {
+                RegNavigation.shared.section = .profils
+                state.open(.reglages)
+            }
+        }
+        .disabled(devices.allSatisfy { scan.probing.contains($0.id) })
+    }
+}
+
+/// Cellule « Type » : icône, libellé, marque « choisi à la main ».
+struct ScanTypeCell: View {
+    let type: DeviceType
+    let isManual: Bool
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: type.symbolName)
+                .font(.system(size: 11))
+                .foregroundStyle(type == .inconnu ? Theme.textTertiary : Theme.neutralText)
+                .frame(width: 16)
+            Text(type.label)
+                .font(Theme.small)
+                .foregroundStyle(type == .inconnu ? Theme.textTertiary : Theme.neutralText)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            if isManual { ManualTypeMark() }
+        }
+        .help(isManual ? "\(type.label) · choisi à la main" : "\(type.label) · détecté par le scan")
     }
 }
 
@@ -418,29 +623,13 @@ struct ScanCellText: View {
     }
 }
 
-/// Étiquettes de ports (4 au plus, ports web en bleu).
+/// Étiquettes de ports : autant que la largeur de la colonne le permet, puis « +N » (ports web en bleu).
 struct ScanPortTags: View {
     let ports: [UInt16]
 
     var body: some View {
-        if ports.isEmpty {
-            ScanCellText("—", dimmed: true)
-        } else {
-            HStack(spacing: 3) {
-                ForEach(ports.prefix(4), id: \.self) { port in
-                    Text("\(port)")
-                        .font(Theme.mono(11))
-                        .foregroundStyle(ScanFormat.webPorts.contains(port) ? Theme.accentStrong : Theme.neutralText)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
-                        .background(RoundedRectangle(cornerRadius: 4)
-                            .fill(ScanFormat.webPorts.contains(port) ? Color(hex: 0xDBEAFE) : Theme.neutralSoft))
-                }
-                if ports.count > 4 {
-                    Text("+\(ports.count - 4)").font(Theme.mono(11)).foregroundStyle(Theme.textTertiary)
-                }
-            }
-            .help(ports.map(String.init).joined(separator: ", "))
-        }
+        StandardTagList(tags: ports.map(String.init),
+                        highlighted: { UInt16($0).map { ScanFormat.webPorts.contains($0) } ?? false },
+                        help: "Ports ouverts\u{00A0}: " + ports.map(String.init).joined(separator: ", "))
     }
 }

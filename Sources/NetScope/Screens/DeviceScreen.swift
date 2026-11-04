@@ -4,10 +4,12 @@ import SwiftUI
 /// Écran `Screen.appareil` : fiche de l'appareil choisi (croquis docs/croquis/Device.dc.html).
 struct DeviceScreen: View {
     @EnvironmentObject private var state: AppState
+    @ObservedObject private var inventory = InvModel.shared
 
     var body: some View {
         if let device = state.selectedDevice {
-            DeviceDetailView(device: device)
+            // Type choisi à la main (note 20) à la place du type détecté.
+            DeviceDetailView(device: inventory.withManualTypes([device])[0])
                 .id(device.id)
         } else {
             EmptyState(systemImage: Screen.appareil.symbol, title: "Aucun appareil sélectionné",
@@ -95,7 +97,21 @@ private struct DeviceDetailView: View {
                     }
                     metaRow
                     HStack(spacing: 6) {
-                        Chip(text: device.deviceType.label, tone: .accent, systemImage: device.deviceType.toolSymbol)
+                        Menu {
+                            DeviceTypeMenuItems(devices: [device])
+                        } label: {
+                            HStack(spacing: 4) {
+                                Chip(text: device.deviceType.label, tone: .accent, systemImage: device.deviceType.toolSymbol)
+                                if InvModel.shared.typeChoice(for: state.device(withID: device.id) ?? device).isManual {
+                                    ManualTypeMark()
+                                }
+                            }
+                        }
+                        .menuStyle(.button)
+                        .buttonStyle(.plain)
+                        .menuIndicator(.hidden)
+                        .fixedSize()
+                        .help("Type de l’appareil\u{00A0}: cliquez pour le changer")
                         if let vlan = device.vlan {
                             let status = state.vlanStatus(device)
                             Chip(text: "VLAN \(vlan)", tone: .neutral).opacity(status.isCurrent ? 1 : 0.5).help(status.explanation ?? "")

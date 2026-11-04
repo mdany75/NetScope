@@ -15,7 +15,7 @@ struct TopologieScreen: View {
     @State private var showPortLabels = true
 
     var body: some View {
-        let graph = TopoGraph.build(devices: state.devices, gateway: state.activeInterface?.gateway,
+        let graph = TopoGraph.build(devices: model.withManualTypes(state.devices), gateway: state.activeInterface?.gateway,
                                     conflictIPs: model.store.conflictIPs)
         let layout = graph.layout(hidden: { node in
             !showEndDevices && (node.kind == .groupe || node.kind == .appareil)

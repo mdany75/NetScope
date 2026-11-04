@@ -82,20 +82,7 @@ enum ScanFormat {
     }
 
     /// Symbole d'un type d'appareil.
-    static func symbol(_ type: DeviceType) -> String {
-        switch type {
-        case .poste: return "desktopcomputer"
-        case .serveur: return "server.rack"
-        case .imprimante: return "printer"
-        case .camera: return "video"
-        case .pointAcces: return "wifi.router"
-        case .switch: return "rectangle.connected.to.line.below"
-        case .routeur: return "network"
-        case .telephone: return "iphone"
-        case .iot: return "sensor"
-        case .inconnu: return "questionmark.square.dashed"
-        }
-    }
+    static func symbol(_ type: DeviceType) -> String { type.symbolName }
 
     /// Moyens de découverte, déduits de ce qu'on sait de l'appareil.
     static func discovery(_ device: Device) -> String {
@@ -134,6 +121,12 @@ extension Device {
     var scanSortSwitch: String { switchLocation ?? "" }
     var scanSortVLAN: Int { vlan ?? .max }
     var scanSortStatus: Int { isOnline ? 0 : 1 }
+    var scanSortType: String { deviceType.label }
+    var scanSortNameSource: String { nameSourceLabel ?? "" }
+    var scanSortRange: String { rangeLabel ?? "" }
+    var scanSortDomain: String { nameDomain ?? "" }
+    var scanSortSNMP: String { snmpKind?.label ?? "" }
+    var scanSortVendorOUI: String { mac.map { String($0.formatted(.upperColon).prefix(8)) } ?? "" }
 
     /// Au moins un port web ouvert.
     var scanHasWebPort: Bool { openPorts.contains { ScanFormat.webPorts.contains($0) } }

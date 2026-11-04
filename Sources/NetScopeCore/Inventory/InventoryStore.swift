@@ -370,6 +370,48 @@ public struct InventoryStore: Codable, Sendable {
         records[key]?.annotations.isFavorite = favorite
     }
 
+    // MARK: Type choisi à la main (note 20)
+
+    /// Type choisi à la main pour un appareil du scan : celui de sa fiche (par MAC ; par IP seulement
+    /// pour un appareil sans MAC dont la fiche a été annotée dans l'Inventaire).
+    public func manualType(for device: Device) -> DeviceType? {
+        let key = device.mac.map { Self.key(mac: $0) } ?? Self.key(ip: device.ip)
+        return records[key]?.annotations.customType
+    }
+
+    /// Type affiché d'un appareil : choix de session (par IP, appareils sans MAC), sinon choix de la
+    /// fiche, sinon type détecté par le scan.
+    public func typeChoice(for device: Device, session: [String: DeviceType] = [:]) -> DeviceTypeChoice {
+        let manual = device.mac == nil ? (session[device.id] ?? manualType(for: device)) : manualType(for: device)
+        return DeviceTypeChoice(detected: device.deviceType, manual: manual)
+    }
+
+    /// Retient le type choisi à la main (nil : revenir au type détecté) sur la fiche de la MAC,
+    /// créée au besoin. Faux, sans rien changer, pour un appareil sans MAC.
+    @discardableResult
+    public mutating func setManualType(_ type: DeviceType?, for device: Device, at date: Date = Date()) -> Bool {
+        guard let mac = device.mac else { return false }
+        let key = Self.key(mac: mac)
+        if records[key] == nil {
+            var record = makeRecord(key: key, device: device, at: date)
+            record.isOnline = device.isOnline
+            records[key] = record
+        }
+        guard var annotations = records[key]?.annotations else { return false }
+        annotations.customType = type
+        setAnnotations(annotations, for: key, at: date)
+        return true
+    }
+
+    /// Appareils dont le type est remplacé par le type choisi à la main (Carte, Rapports).
+    public func applyingManualTypes(to devices: [Device], session: [String: DeviceType] = [:]) -> [Device] {
+        devices.map { device in
+            var copy = device
+            copy.deviceType = typeChoice(for: device, session: session).type
+            return copy
+        }
+    }
+
     /// Accepter, ignorer ou remettre à traiter une alerte.
     /// Ajoute une alerte signalée par un outil (Test DHCP). Refusée (faux) si la même alerte
     /// (type et adresse) est déjà à traiter depuis moins de 24 h.

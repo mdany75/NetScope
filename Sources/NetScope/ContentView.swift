@@ -62,7 +62,7 @@ struct ContentToolbar: View {
                 .padding(.trailing, 6)
                 .fixedSize()
             SearchField(text: $state.searchText,
-                        placeholder: "Rechercher IP, MAC, hostname, fabricant, port de switch…")
+                        placeholder: "Rechercher IP, MAC, nom, fabricant, port…")
                 .frame(minWidth: 220, maxWidth: .infinity)
             if let actions {
                 HStack(spacing: 8) { actions }.fixedSize()

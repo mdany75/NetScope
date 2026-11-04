@@ -33,6 +33,8 @@ public struct ScanOptions: Sendable {
     public var nameTimeout: Duration
     /// Lit la table ARP après les pings (hôtes qui ignorent le ping, adresses MAC).
     public var useARP: Bool
+    /// Ports d'un préréglage choisi à part du profil (note 19) ; nil : ports du profil.
+    public var portOverride: [UInt16]?
 
     public init(profile: ScanProfile = .rapide, customPorts: [UInt16] = [], concurrency: Int = 128,
                 pingTimeout: Duration = .milliseconds(1000), portTimeout: Duration? = nil,
@@ -49,7 +51,7 @@ public struct ScanOptions: Sendable {
     }
 
     /// Ports TCP sondés sur chaque hôte en ligne.
-    public var ports: [UInt16] { profile.ports(custom: customPorts) }
+    public var ports: [UInt16] { portOverride ?? profile.ports(custom: customPorts) }
 }
 
 /// Avancement d'une plage : adresses sondées sur le total, hôtes en ligne.

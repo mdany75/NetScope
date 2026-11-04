@@ -7,7 +7,8 @@ import NetScopeCore
 @MainActor
 enum RapportData {
     static func input(state: AppState, demo: Bool, now: Date = Date()) -> ReportInput {
-        let devices = state.devices
+        // Type choisi à la main (note 20) à la place du type détecté.
+        let devices = InvModel.shared.withManualTypes(state.devices)
         let ranges = state.ranges.filter(\.isEnabled)
         let parsed = ranges.compactMap { try? $0.parsed() }
         // L'inventaire est commun à tous les clients : on ne garde que les fiches des plages scannées

@@ -34,6 +34,8 @@ struct ScanDetailPanel: View {
 
 struct ScanDetailIdentity: View {
     @EnvironmentObject private var state: AppState
+    @ObservedObject private var inventory = InvModel.shared
+    @ObservedObject private var scan = ScanController.shared
     let device: Device
     @State private var name: String
 
@@ -43,6 +45,7 @@ struct ScanDetailIdentity: View {
     }
 
     private var statusTone: Tone { device.isOnline ? .success : .neutral }
+    private var typeChoice: DeviceTypeChoice { inventory.typeChoice(for: device) }
 
     var body: some View {
         Panel {
@@ -50,7 +53,7 @@ struct ScanDetailIdentity: View {
                 HStack(alignment: .top, spacing: 10) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 8).fill(Theme.neutralSoft)
-                        Image(systemName: ScanFormat.symbol(device.deviceType))
+                        Image(systemName: ScanFormat.symbol(typeChoice.type))
                             .font(.system(size: 18, weight: .regular))
                             .foregroundStyle(Theme.neutralText)
                     }
@@ -64,7 +67,7 @@ struct ScanDetailIdentity: View {
                         Text(device.ip.description).font(Theme.mono(13)).foregroundStyle(Theme.text).textSelection(.enabled)
                         HStack(spacing: 6) {
                             ScanPill(text: device.isOnline ? "En ligne" : "Hors ligne", tone: statusTone)
-                            ScanPill(text: device.deviceType.label, tone: .neutral)
+                            typeMenu
                         }
                         .padding(.top, 4)
                     }
@@ -99,6 +102,32 @@ struct ScanDetailIdentity: View {
                 .padding(.top, 12)
             }
         }
+    }
+
+    /// Pastille du type : menu « Changer le type » (note 20), marque si le type est choisi à la main.
+    private var typeMenu: some View {
+        let choice = typeChoice
+        return Menu {
+            DeviceTypeMenuItems(devices: [device]) { scan.show($0, place: .actions) }
+        } label: {
+            HStack(spacing: 4) {
+                Text(choice.type.label)
+                if choice.isManual { Image(systemName: "hand.point.up.left.fill").font(.system(size: 9, weight: .semibold)) }
+                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
+            }
+            .font(Theme.captionSemibold)
+            .foregroundStyle(choice.isManual ? Theme.accentStrong : Theme.neutralText)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(choice.isManual ? Theme.accentSoft : Tone.neutral.background))
+            .contentShape(Capsule())
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help(choice.isManual ? "Type choisi à la main (détecté\u{00A0}: \(choice.detected.label)). Cliquez pour le changer."
+                              : "Type détecté par le scan. Cliquez pour le changer.")
     }
 
     private var ouiLabel: String {
@@ -239,7 +268,7 @@ struct ScanDetailLatency: View {
 
                 ScanCardTitle(text: "Ports ouverts").padding(.top, 8).padding(.bottom, 8)
                 if device.openPorts.isEmpty {
-                    Text(scan.probing.contains(device.id) ? "Scan approfondi des ports…" : "Aucun port ouvert détecté (profil \(profileLabel)).")
+                    Text(scan.probing.contains(device.id) ? "Scan des ports…" : "Aucun port ouvert détecté (\(profileLabel)).")
                         .font(Theme.small)
                         .foregroundStyle(Theme.textSecondary)
                 } else {
@@ -254,7 +283,7 @@ struct ScanDetailLatency: View {
     }
 
     @EnvironmentObject private var state: AppState
-    private var profileLabel: String { state.scanProfile.label }
+    private var profileLabel: String { scan.portPreset.label }
 
     private var summary: String {
         let values = history.compactMap { $0 }
@@ -305,9 +334,10 @@ struct ScanDetailActions: View {
                         .disabled(true)
                         .help("Bientôt : traceroute depuis la boîte à outils")
                     action(scan.probing.contains(device.id) ? "Scan des ports…" : "Scanner les ports", "square.grid.3x3") {
-                        scan.probePorts(of: device, state: state)
+                        scan.probePorts(of: [device], preset: scan.portPreset, state: state)
                     }
                     .disabled(scan.probing.contains(device.id))
+                    .help("Ports du préréglage en vigueur\u{00A0}: \(scan.portPreset.label) (autres préréglages au clic droit sur la ligne)")
                     action("Wake-on-LAN", "power") { scan.wake(device, state: state) }
                         .disabled(device.mac == nil)
                     action("SSH", "terminal") { ScanFormat.open(URL(string: "ssh://\(device.ip)")!) }
