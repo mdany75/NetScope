@@ -319,4 +319,46 @@ func registerNavigationTests(_ suite: TestSuite) {
         try expectEqual(options.filter { $0.destination == nil }.map(\.detail), ["DE:AD:BE:EF:00:14"], "l'inconnu sans destination")
         try expectEqual(all?.destination?.filter?.members, [printer.member], "filtre : les appareils connus")
     }
+
+    // MARK: Carte → filtre (note 31)
+
+    suite.add("Navigation : Carte → groupe et branche deviennent un ensemble exact d'appareils") {
+        func scanned(_ ip: String, _ mac: String, _ host: String, _ type: DeviceType, sw: String?, port: String?) -> Device {
+            Device(ip: IPv4Address(ip)!, mac: MACAddress(mac), hostname: host, isOnline: true, switchName: sw, switchPort: port,
+                   firstSeen: now, lastSeen: now, deviceType: type)
+        }
+        let devices = [
+            scanned("10.0.0.1", "04:D5:90:3A:7B:11", "FGT", .routeur, sw: nil, port: nil),
+            scanned("10.0.0.3", "88:3A:30:5D:E1:40", "SW-ETG2-01", .switch, sw: nil, port: nil),
+            scanned("10.0.0.50", "00:04:F2:AA:01:50", "tel-50", .telephone, sw: "SW-ETG2-01", port: "1/3"),
+            scanned("10.0.0.51", "00:04:F2:AA:01:51", "tel-51", .telephone, sw: "SW-ETG2-01", port: "1/4"),
+            scanned("10.0.0.60", "8C:16:45:2B:9E:60", "pc-60", .poste, sw: "SW-ETG2-01", port: "1/3"),
+            scanned("10.0.0.70", "8C:16:45:2B:9E:70", "pc-70", .poste, sw: "SW-AUTRE", port: "1/1"),
+        ]
+        let graph = TopoGraph.build(devices: devices, gateway: IPv4Address("10.0.0.1"))
+        guard let phones = graph.nodes.first(where: { $0.kind == .groupe && $0.deviceType == .telephone }) else {
+            throw TestFailure(message: "groupe des téléphones", file: #fileID, line: #line)
+        }
+        let group = graph.navGroup(phones.id, devices: devices, siteKey: siege)
+        try expectEqual(group?.filterLabel, "Carte\u{00A0}: Téléphones ×2 · SW-ETG2-01", "étiquette du groupe")
+        try expectEqual(group?.members.map(\.ip), ["10.0.0.50", "10.0.0.51"], "les deux téléphones, rien d'autre")
+        try expectEqual(group?.parentHost, "10.0.0.3", "le switch au-dessus, par son adresse")
+        let branch = graph.navGroup("dev:10.0.0.3", devices: devices, siteKey: siege)
+        try expectEqual(Set(branch?.members.map(\.ip) ?? []), ["10.0.0.3", "10.0.0.50", "10.0.0.51", "10.0.0.60"],
+                        "branche : le switch et tout ce qui est dessous, pas l'autre switch")
+        try expectEqual(branch?.filterLabel, "Carte\u{00A0}: Branche SW-ETG2-01 ×4", "étiquette de la branche")
+        try expectEqual(graph.navGroup("internet", devices: devices, siteKey: siege), nil, "Internet : aucun appareil")
+        try expectEqual(graph.nodeID(showing: "10.0.0.3"), "dev:10.0.0.3", "un switch a son propre nœud")
+        try expectEqual(graph.nodeID(showing: "10.0.0.51"), phones.id, "un téléphone est dans son groupe")
+        let all = Set(graph.branchDeviceIDs("passerelle"))
+        try expectEqual(all, Set(devices.map(\.id)), "la branche de la passerelle couvre tout le réseau")
+    }
+
+    suite.add("Navigation : Retour ⌘[ et Avancer ⌘] sans conflit avec les autres raccourcis") {
+        let actions = ShortcutCatalog.fixedActions
+        try expectEqual(actions.first { $0.id == ShortcutID.back }?.defaultCombo, KeyCombo("["), "⌘[")
+        try expectEqual(actions.first { $0.id == ShortcutID.forward }?.defaultCombo, KeyCombo("]"), "⌘]")
+        let conflicts = ShortcutSettings().conflicts(in: actions)
+        try expect(conflicts[ShortcutID.back] == nil && conflicts[ShortcutID.forward] == nil, "aucun conflit")
+    }
 }

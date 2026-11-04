@@ -10,9 +10,12 @@ import SwiftUI
 // Le moteur (NavResolver, NavPortResolver, NavHistory) est dans NetScopeCore/Navigation ; ce
 // fichier rassemble ce que l'app sait (NavContext) et applique les destinations.
 //
-// BRANCHER UN TABLEAU STANDARD : `.standardRowActions(for: Row.ID.self, object: { id in … }) { ids in
+// BRANCHER UN TABLEAU STANDARD : `.standardRowActions(selection: lignesChoisies, object: { id in … }) { ids in
 // menu propre au tableau }` remplace `.contextMenu(forSelectionType:menu:primaryAction:)` : double-clic
-// et ↩︎ → `state.perform(objet)`, et le menu reçoit « Ouvrir dans › » à la fin.
+// et ↩︎ → `state.perform(objet)`, et le menu reçoit « Ouvrir dans › » à la fin. Sans menu propre :
+// `.standardRowNavigation(selection:object:)`. `primary:` : action du tableau essayée d'abord
+// (Accès distant : « Connecter »). Ailleurs (façade, Carte, barre latérale) : `state.perform(objet)`
+// au double-clic et `OpenInMenu(object:)` dans le menu contextuel.
 //
 // Captures : NETSCOPE_NAV="carte:imprimantes>inventaire" ouvre l'Inventaire depuis le groupe
 // « Imprimantes ×N » de la Carte (étiquette du filtre et bouton Retour actif) ; voir NavDemo.
@@ -199,8 +202,24 @@ extension AppState {
         case .analysisEvent(let site, _, _)?: keys.append(site)
         default: break
         }
+        // Un seul appareil (menu Appareil › Ouvrir dans, recalculé souvent) : seulement ses fiches,
+        // pas tout l'inventaire du site.
+        var only: (ip: String, mac: String?)?
+        switch object {
+        case .device(let ref)?: only = (ref.ip, ref.mac)
+        case .wifiClient(let mac, let ip, _, _)?: only = (ip ?? "", mac)
+        case .accessPoint(_, _, let ip?)?: only = (ip, nil)
+        default: break
+        }
         var inventories: [String: [InvRecord]] = [:]
-        for key in Set(keys) { inventories[key] = InvModel.shared.inventory(for: key).sortedRecords }
+        for key in Set(keys) {
+            let records = InvModel.shared.inventory(for: key).records.values
+            if let only {
+                inventories[key] = records.filter { $0.ip.description == only.ip || ($0.mac?.formatted(.upperColon)).map { $0 == only.mac } == true }
+            } else {
+                inventories[key] = Array(records)
+            }
+        }
         let fortiAP = FortiAPStore.shared.overview
         var clients: [String: String] = [:]
         for client in fortiAP.clients {

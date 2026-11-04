@@ -50,7 +50,9 @@ public struct NavContext: Sendable {
     func record(_ ref: NavDeviceRef, site: String) -> InvRecord? {
         let records = inventories[site] ?? []
         if let mac = ref.mac, let found = records.first(where: { $0.mac?.formatted(.upperColon) == mac }) { return found }
-        return records.first { $0.ip.description == ref.ip && (ref.mac == nil || $0.mac == nil) }
+        // Plusieurs fiches à cette IP (adresse reprise par un autre appareil) : la plus récente.
+        return records.filter { $0.ip.description == ref.ip && (ref.mac == nil || $0.mac == nil) }
+            .max { $0.lastSeen < $1.lastSeen }
     }
 
     /// Switch relevé par son nom ou son adresse (sans casse).
