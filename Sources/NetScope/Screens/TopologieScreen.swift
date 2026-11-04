@@ -97,7 +97,7 @@ struct TopologieScreen: View {
         .onChange(of: drawnKey) { _, _ in selectedID = nil }
         // Note 34 : nœud demandé par un autre écran (« Ouvrir dans › Carte du réseau »), et nœud
         // choisi retenu pour Retour.
-        .onAppear { adoptPendingFocus() }
+        .onAppear { restoreShownFocus(); adoptPendingFocus() }
         .onChange(of: state.pendingFocus[.carte]) { _, _ in adoptPendingFocus() }
         .onChange(of: selectedID) { _, id in state.shownFocus[.carte] = id.map(NavFocus.node) }
         .onAppear {
@@ -239,6 +239,15 @@ struct TopologieScreen: View {
         let fitsWidth = layouts.filter { $0.width * Self.minFit <= width }
         let layout = fitsWidth.min { $0.height < $1.height } ?? layouts.min { $0.width < $1.width } ?? result.layout
         return (layout, Self.minFit)
+    }
+
+    /// Au retour sur l'écran (vue recréée), le nœud choisi avant est de nouveau sélectionné ; s'il
+    /// n'est plus sur la carte, rien n'est sélectionné.
+    private func restoreShownFocus() {
+        guard selectedID == nil, case .node(let id)? = state.shownFocus[.carte] else { return }
+        let devices = mapDevices
+        let graph = TopoGraph.build(devices: devices, gateway: drawnGateway(devices))
+        if graph.node(id) != nil { selectedID = id }
     }
 
     /// Montre le nœud demandé (celui de l'appareil, ou le groupe qui le contient).
