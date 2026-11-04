@@ -6,7 +6,7 @@ import SwiftUI
 
 /// Couleurs propres aux sources de localisation (croquis).
 enum SwitchSource: String {
-    case lldp = "LLDP", cdp = "CDP", fdb = "FDB", arp = "ARP", uplink = "Uplink"
+    case lldp = "LLDP", cdp = "CDP", fdb = "FDB", arp = "ARP", uplink = "Uplink", fortigate = "FortiGate"
 
     var colors: (background: Color, foreground: Color) {
         switch self {
@@ -15,6 +15,7 @@ enum SwitchSource: String {
         case .fdb: return (Theme.neutralSoft, Theme.neutralText)
         case .arp: return (Theme.successSoft, Color(light: 0x166534, dark: 0x9AE9B8))
         case .uplink: return (Color(light: 0xE2E8F0, dark: 0x253347), Color(light: 0x0F172A, dark: 0xA5B6DF))
+        case .fortigate: return (Color(light: 0xFFEDD5, dark: 0x3B2416), Color(light: 0x9A3412, dark: 0xF6B78C))
         }
     }
 }
@@ -71,6 +72,7 @@ struct SwitchTokenButtonStyle: PrimitiveButtonStyle {
 struct SwitchSourcesPanel: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var store: SwitchStore
+    @ObservedObject private var fortigate = FortiGateStore.shared
 
     var body: some View {
         Panel(padding: 14) {
@@ -82,6 +84,9 @@ struct SwitchSourcesPanel: View {
                         source(.cdp, "trames reçues par ce Mac · voisins CDP par SNMP\u{00A0}: bientôt")
                         source(.fdb, "table MAC par SNMP v2c · BRIDGE-MIB / Q-BRIDGE-MIB")
                         source(.arp, arpText)
+                        if fortigate.isConfigured {
+                            source(.fortigate, "FortiSwitch gérés (FortiLink) · API REST, prioritaire sur SNMP")
+                        }
                     }
                     Text("Un port d’accès qui apprend la MAC est retenu en priorité\u{00A0}; les ports trunk et uplink (voisin LLDP ou nombreuses MAC) sont ignorés.")
                         .font(Theme.small)
@@ -114,12 +119,12 @@ struct SwitchSourcesPanel: View {
                         }
                         Button { store.poll(state: state) } label: {
                             HStack(spacing: 6) {
-                                if store.isPolling {
+                                if store.isPolling || fortigate.isBusy {
                                     ProgressView().controlSize(.small).tint(.white)
                                 } else {
                                     Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 12, weight: .semibold))
                                 }
-                                Text(store.isPolling ? "Interrogation…" : "Interroger les switchs")
+                                Text(store.isPolling || fortigate.isBusy ? "Interrogation…" : "Interroger les switchs")
                             }
                         }
                         .buttonStyle(.primary)
@@ -140,8 +145,11 @@ struct SwitchSourcesPanel: View {
     }
 
     private var pollHelp: String {
-        if store.hosts.isEmpty { return "Ajoutez d’abord un switch." }
+        if store.allHosts.isEmpty, !fortigate.isConfigured { return "Ajoutez d’abord un switch." }
         if !store.canPoll, !store.isPolling { return "Saisissez la communauté SNMP en lecture seule." }
+        if fortigate.isConfigured, fortigate.isEnabled {
+            return "Interroge chaque switch en SNMP v2c (UDP 161), puis relit les FortiSwitch gérés par la FortiGate (HTTPS, lecture seule)."
+        }
         return "Interroge chaque switch en SNMP v2c (UDP 161)."
     }
 
@@ -154,10 +162,16 @@ struct SwitchSourcesPanel: View {
                 Text("Interrogation de")
                 Text(host).font(Theme.mono(12)).foregroundStyle(Theme.text)
                 Text("…")
+            } else if fortigate.isBusy {
+                Text("Lecture de la FortiGate")
+                Text(fortigate.config.cleanHost).font(Theme.mono(12)).foregroundStyle(Theme.text)
+                Text("…")
             } else {
+                let count = store.allHosts.count
+                let via = store.controllerHosts.count
                 Text("Dernier relevé\u{00A0}:")
                 Text(store.lastPoll.map(SwitchText.dateTime) ?? "jamais").font(Theme.mono(12)).foregroundStyle(Theme.text)
-                Text("· \(store.hosts.count) switch\(store.hosts.count > 1 ? "s" : "") · \(fdb) entrées FDB · \(lldp) voisins LLDP")
+                Text("· \(count) switch\(count > 1 ? "s" : "")" + (via > 0 ? " (\(via) via FortiGate)" : "") + " · \(fdb) entrées FDB · \(lldp) voisins LLDP")
             }
         }
         .font(Theme.small)
@@ -180,6 +194,7 @@ struct SwitchSourcesPanel: View {
 // MARK: - Cartes des switchs
 
 struct SwitchCard: View {
+    @EnvironmentObject private var state: AppState
     @ObservedObject var store: SwitchStore
     let host: String
 
@@ -200,7 +215,10 @@ struct SwitchCard: View {
                             HStack(spacing: 8) {
                                 cardName(snapshot)
                                 statusChip(snapshot)
-                                if store.isAutoDiscovered(host) {
+                                if store.isController(host) {
+                                    Chip(text: "via FortiGate", tone: .warning)
+                                        .help("FortiSwitch géré par FortiLink\u{00A0}: lu par l’API REST de la FortiGate \(snapshot?.controllerName ?? ""), jamais interrogé directement (son adresse FortiLink n’est pas joignable depuis ce Mac).")
+                                } else if store.isAutoDiscovered(host) {
                                     Chip(text: "Découvert automatiquement", tone: .accent)
                                         .help("Trouvé par la découverte SNMP à la fin du scan\u{00A0}; la communauté qui a répondu est gardée au Trousseau.")
                                 } else if let role = snapshot?.system.location {
@@ -214,7 +232,10 @@ struct SwitchCard: View {
                             cardName(snapshot)
                         }
                         Group {
-                            if let snapshot {
+                            if let snapshot, store.isController(host) {
+                                Text("\(SwitchText.model(snapshot)) · ") + Text(SwitchText.fortiLinkAddress(snapshot)).font(Theme.mono(12))
+                                    + Text(" · \(SwitchText.portsSummary(snapshot))")
+                            } else if let snapshot {
                                 Text("\(SwitchText.model(snapshot)) · ") + Text(host).font(Theme.mono(12)) + Text(" · \(SwitchText.portsSummary(snapshot))")
                             } else {
                                 Text(store.errors[host] ?? "Pas encore interrogé · ") + Text(host).font(Theme.mono(12))
@@ -235,14 +256,14 @@ struct SwitchCard: View {
                     ViewThatFits(in: .horizontal) {
                         HStack(alignment: .top, spacing: 10) {
                             metric("Firmware", SwitchText.firmware(snapshot.system.descr), fits: true)
-                            metric("Uptime", snapshot.system.uptimeText ?? "—", fits: true)
+                            metric(snapshot.isViaController ? "Contrôleur" : "Uptime", SwitchText.uptimeOrController(snapshot), fits: true)
                             metric("Marque", snapshot.system.brand ?? "—", mono: false, fits: true)
                             metric("Ports actifs", ports, fits: true)
                         }
                         Grid(alignment: .topLeading, horizontalSpacing: 10, verticalSpacing: 8) {
                             GridRow {
                                 metric("Firmware", SwitchText.firmware(snapshot.system.descr))
-                                metric("Uptime", snapshot.system.uptimeText ?? "—")
+                                metric(snapshot.isViaController ? "Contrôleur" : "Uptime", SwitchText.uptimeOrController(snapshot))
                             }
                             GridRow {
                                 metric("Marque", snapshot.system.brand ?? "—", mono: false)
@@ -262,7 +283,14 @@ struct SwitchCard: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            Button("Retirer ce switch", role: .destructive) { store.removeHost(host) }
+            if store.isController(host) {
+                Button("Réglages du contrôleur FortiGate…") {
+                    RegNavigation.shared.section = .switchs
+                    state.open(.reglages)
+                }
+            } else {
+                Button("Retirer ce switch", role: .destructive) { store.removeHost(host) }
+            }
         }
     }
 
@@ -317,7 +345,8 @@ struct SwitchCard: View {
             HStack {
                 Text("PoE").font(Theme.small).foregroundStyle(Theme.textSecondary)
                 Spacer()
-                Text("non annoncé (POWER-ETHERNET-MIB absente)").font(Theme.small).foregroundStyle(Theme.textTertiary)
+                Text(snapshot.isViaController ? (snapshot.poeDetails?.isEmpty == false ? "sans budget publié par la FortiGate" : "aucun port PoE")
+                     : "non annoncé (POWER-ETHERNET-MIB absente)").font(Theme.small).foregroundStyle(Theme.textTertiary)
             }
         }
     }
@@ -561,7 +590,7 @@ struct SwitchPortDetail: View {
 
             if let neighbor {
                 VStack(alignment: .leading, spacing: 6) {
-                    SwitchFieldLabel("Voisin LLDP")
+                    SwitchFieldLabel(snapshot.isViaController ? (neighbor.portID == "FortiLink" ? "Lien FortiLink (FortiGate)" : "Lien inter-switch (ISL)") : "Voisin LLDP")
                     inline("Système", neighbor.sysName, mono: true)
                     inline("Port distant", neighbor.portID + (neighbor.portDescr.map { $0 == neighbor.portID ? "" : " (\($0))" } ?? ""), mono: true)
                     inline("Capacités", neighbor.capabilities.map { $0.labels.joined(separator: ", ") } ?? "—", mono: false)
@@ -626,7 +655,7 @@ struct SwitchPortDetail: View {
             HStack(spacing: 6) {
                 Text(info.name).font(Theme.bodySemibold).lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 4)
-                SwitchSourceTag(source: isNeighbor ? .lldp : .fdb)
+                SwitchSourceTag(source: snapshot.isViaController ? .fortigate : (isNeighbor ? .lldp : .fdb))
             }
             Text("\(info.ip) · \(entry.mac.formatted(.upperColon))").font(Theme.mono(12)).foregroundStyle(Theme.text)
             Text("\(info.vendor) · VLAN \((entry.vlan ?? snapshot.pvid[iface.index]).map(String.init) ?? "—") · vu \(SwitchText.ago(snapshot.polledAt))")
@@ -957,7 +986,8 @@ struct SwitchMacTable: View {
             if isUplink && store.hideUplinks { continue }
             let info = store.describe(entry.mac, devices: state.devices)
             let neighbor = snapshot.neighbor(on: i)
-            let source: SwitchSource = isUplink ? .uplink : (store.isAnnounced(entry.mac, by: neighbor, devices: state.devices) ? .lldp : .fdb)
+            let source: SwitchSource = isUplink ? .uplink
+                : (snapshot.isViaController ? .fortigate : (store.isAnnounced(entry.mac, by: neighbor, devices: state.devices) ? .lldp : .fdb))
             let iface = snapshot.interface(i)
             let device = devices[entry.mac]
             let vlan = entry.vlan ?? snapshot.pvid[i]

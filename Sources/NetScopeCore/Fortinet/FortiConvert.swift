@@ -123,12 +123,17 @@ public enum FortiConvert {
         for device in devices where !ports.contains(where: { $0.name.lowercased() == device.portName.lowercased() }) {
             ports.append(FortiSwitchPort(name: device.portName, number: FortiParse.portNumber(device.portName) ?? 9000 + ports.count, linkUp: true))
         }
+        let copper = copperPorts(model: sw.model)
         for port in ports {
             let i = index(for: port.number)
             indexByName[port.name.lowercased()] = i
             let oper: SNMPOperStatus = port.linkUp == true ? .up : (port.linkUp == false ? .down : .unknown)
+            // Ports au-delà des ports cuivre (49 à 52 d'un 248E, 25 à 28 d'un 124F) : cages SFP+,
+            // vitesse nominale de 10 Gb/s quand le port est sans lien (façade et décompte).
+            var speed = port.speedMbps
+            if speed == nil, let copper, copper >= 24, port.number > copper { speed = 10_000 }
             interfaces.append(SNMPInterface(index: i, name: port.name, descr: port.name, alias: port.description ?? "", type: 6,
-                                            adminUp: port.adminUp ?? true, operStatus: oper, speedMbps: port.speedMbps,
+                                            adminUp: port.adminUp ?? true, operStatus: oper, speedMbps: speed,
                                             inErrors: port.rxErrors, inOctets: port.rxBytes, outOctets: port.txBytes))
             if let vlan = port.nativeVLANID { pvid[i] = vlan }
             if port.isUplink {
@@ -161,6 +166,14 @@ public enum FortiConvert {
                                   poeBudgetW: sw.poeBudgetW.map { Int($0.rounded()) },
                                   poeUsedW: watts.isEmpty ? nil : Int((Double(watts.reduce(0, +)) / 1000).rounded()),
                                   poeDetails: poe.isEmpty ? [] : poe, arp: arp, polledAt: polledAt, controllerName: controller)
+    }
+
+    /// Nombre de ports cuivre d'après le modèle : « FS-248E-POE » → 48, « FS-124F » → 24, « FS-108F » → 8.
+    public static func copperPorts(model: String) -> Int? {
+        let upper = model.uppercased()
+        guard let range = upper.range(of: #"\d{3}"#, options: .regularExpression) else { return nil }
+        let digits = upper[range]
+        return Int(digits.dropFirst())
     }
 
     // MARK: Noms et ARP

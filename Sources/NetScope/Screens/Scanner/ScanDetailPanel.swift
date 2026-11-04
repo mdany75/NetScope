@@ -199,6 +199,10 @@ struct ScanDetailLocation: View {
             if let port = switches.poeStatus(for: device)?.port, port.isDelivering {
                 poe = " · PoE" + (port.consumptionW.map { " \(PoEPowerInfo.watts($0))" } ?? " actif")
             }
+            // Note 24 : FortiSwitch géré, emplacement donné par la FortiGate (prioritaire sur SNMP).
+            if let controller = switches.controllerName(forSwitch: name) {
+                return "\(name) · appareils détectés par la FortiGate \(controller) (FortiLink)" + poe
+            }
             return "\(name) · table MAC SNMP" + poe + (auto ? " · switch découvert automatiquement" : "")
         }
         // Bilan d'un scan qui ne couvrait pas cet appareil : il ne dit rien de lui.

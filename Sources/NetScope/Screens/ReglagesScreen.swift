@@ -140,7 +140,7 @@ struct ReglagesScreen: View {
         case .majs:
             if state.updateAvailable != nil { CountBadge(count: 1) }
         case .switchs:
-            Text("\(SwitchStore.shared.hosts.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+            Text("\(SwitchStore.shared.allHosts.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
         case .raccourcis:
             let conflicts = RegShortcutStore.shared.conflicts.count
             if conflicts > 0 {

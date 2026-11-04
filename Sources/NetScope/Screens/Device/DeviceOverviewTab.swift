@@ -172,8 +172,14 @@ struct DeviceOverviewTab: View {
                             DeviceKVRow(key: "PoE", value: poe?.detailLabel ?? "Inconnu · switch non relevé ou port absent du relevé SNMP", mono: false,
                                         valueColor: poe?.isPowered == true ? Theme.success : Theme.text)
                         }
-                        DeviceKVRow(key: "Source", value: status.isCurrent ? "Inventaire (dernier relevé des switchs)"
-                                    : "Ancien relevé des switchs (non confirmé)", mono: false)
+                        if let controller = switches.controllerName(forSwitch: switchName) {
+                            // Note 24 : FortiSwitch géré par FortiLink, lu par la FortiGate.
+                            DeviceKVRow(key: "Source", value: status.isCurrent ? "FortiGate \(controller) (appareils détectés, FortiLink)"
+                                        : "Ancienne lecture de la FortiGate (non confirmée)", mono: false)
+                        } else {
+                            DeviceKVRow(key: "Source", value: status.isCurrent ? "Inventaire (dernier relevé des switchs)"
+                                        : "Ancien relevé des switchs (non confirmé)", mono: false)
+                        }
                     }
                     .opacity(status.isCurrent ? 1 : 0.55)
                     Button("Voir le port dans Switchs et ports →") { state.open(.switchs) }

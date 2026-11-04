@@ -253,6 +253,12 @@ final class ScanController: ObservableObject {
             } else {
                 sweep?.cancel()
             }
+            // Note 24 : FortiSwitch gérés relus par la FortiGate, prioritaire sur SNMP.
+            let fortigate = FortiGateStore.shared
+            if !engineCancelled, !Task.isCancelled, fortigate.isEnabled, fortigate.isConfigured {
+                self.phase = .locations
+                await fortigate.refresh(state: state)
+            }
             switches.scanEnded(interrupted: Task.isCancelled, planned: discoversSwitches)
             self.finish(state, targets: targets, found: foundIDs, engineCancelled: engineCancelled, snmpCancelled: Task.isCancelled)
         }
