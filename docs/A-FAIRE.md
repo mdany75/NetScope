@@ -22,7 +22,8 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
    SSH, restauration d’une sauvegarde sur un autre Mac).
 6. ~~**0.9.0, FortiGate et FortiSwitch**~~ : livrée le 4 novembre 2026 (note 24) ; essai
    réel à faire sur la FortiGate de Dany (jeton, empreinte, FortiSwitch, ports, appareils).
-7. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
+7. **0.10.0, plusieurs FortiGate** : note 25 (20 sites, une clé par site, choix par plage IP).
+8. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
 
@@ -484,3 +485,20 @@ switchs dans 10.255.1.0/24, réseau FortiLink non routé vers le LAN : NetScope 
 - Limites : noms des champs selon la version de FortiOS (lecture tolérante, réponse brute
   copiable pour ajuster) ; FortiManager (plusieurs sites) plus tard ; rien d’essayé sur une
   vraie FortiGate avant l’essai de Dany.
+
+## 25. Plusieurs FortiGate : une clé par site, choisie par plage IP (demande de Dany)
+
+Essais de la 0.9.0 réussis sur le réseau de Dany. Il a 20 sites, chacun avec sa FortiGate et son
+jeton API.
+
+- Réglages › Switchs › Contrôleurs FortiGate : liste (site, adresse, port, VDOM, plages couvertes,
+  jeton au Trousseau par entrée, empreinte du certificat par entrée, état).
+- Plages couvertes saisies ou remplies au « Tester » d’après les sous-réseaux des interfaces de la
+  FortiGate.
+- Choix de la clé : plage scannée, sinon IP du Mac ; plage la plus précise en cas de chevauchement
+  (conflit signalé) ; aucun site : pas de clé, SNMP ; plusieurs sites scannés : chaque FortiGate
+  concernée.
+- Import CSV `site;adresse;port;vdom;plages` (sans jeton), « Tester tout », bandeau « FortiGate
+  utilisée : … » dans Switchs et ports.
+- Migration : la FortiGate de la 0.9.0 devient la première entrée, sans ressaisie.
+- Jetons jamais exportés (sauvegardes, CSV, journaux).
