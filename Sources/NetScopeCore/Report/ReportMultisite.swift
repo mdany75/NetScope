@@ -62,9 +62,10 @@ public extension ReportBuilder {
                                           ReportColumn("Problèmes", trailing: true), ReportColumn("Dernier scan", weight: 1.4, mono: true)],
                                 rows: rows)
         sections.insert(ReportSection(kind: .resume, heading: "Sites du rapport", blocks: [.paragraph(intro), .table(table)]), at: 0)
-        // Titre : « Rapport d'audit réseau — Siège, Entrepôt Laval ».
+        // Titre : « Rapport d'audit réseau — Siège, Entrepôt Laval » ; au-delà de deux sites,
+        // « … — 5 sites » (la liste complète est dans « Sites du rapport »).
         var titled = config
-        titled.site = names.joined(separator: ", ")
+        titled.site = names.count <= 2 ? names.joined(separator: ", ") : "\(names.count) sites"
         return ReportDocument(title: titled.documentTitle, template: config.template, client: config.client.reportTrimmed,
                               site: names.joined(separator: ", "), technician: config.technician.reportTrimmed, date: config.date,
                               dateLabel: config.dateLabel, reference: config.reference, generator: generator,

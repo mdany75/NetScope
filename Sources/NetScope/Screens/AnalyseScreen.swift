@@ -208,7 +208,7 @@ struct AnalyseScreen: View {
             }
             // Petite fenêtre : version courte plutôt qu'une phrase coupée.
             ViewThatFits(in: .horizontal) {
-                Text("\(scans) scan\(scans > 1 ? "s" : "") sur \(period.span)" + (last.map { " · dernier scan \(InvFormat.timeOrStamp($0))" } ?? ""))
+                Text("\(scans) scan\(scans > 1 ? "s" : "") sur les \(period.span)" + (last.map { " · dernier scan \(InvFormat.timeOrStamp($0))" } ?? ""))
                     .fixedSize()
                 Text("\(scans) scan\(scans > 1 ? "s" : "")" + (last.map { " · dernier \(InvFormat.timeOrStamp($0))" } ?? ""))
                     .fixedSize()
@@ -216,7 +216,7 @@ struct AnalyseScreen: View {
                 // Petite fenêtre avec le menu des sites : rien plutôt qu'un texte coupé (infobulle).
                 Color.clear.frame(width: 0, height: 0)
             }
-            .help("\(scans) scan\(scans > 1 ? "s" : "") sur \(period.span)" + (last.map { " · dernier scan \(InvFormat.timeOrStamp($0))" } ?? ""))
+            .help("\(scans) scan\(scans > 1 ? "s" : "") sur les \(period.span)" + (last.map { " · dernier scan \(InvFormat.timeOrStamp($0))" } ?? ""))
             .font(Theme.small).foregroundStyle(Theme.textSecondary)
             Spacer(minLength: 0)
             if let toast = model.toast { InvToast(text: toast) }

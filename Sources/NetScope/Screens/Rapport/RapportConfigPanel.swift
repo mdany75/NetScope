@@ -176,7 +176,9 @@ struct RapportConfigPanel: View {
                         .toggleStyle(.checkbox)
                         Spacer(minLength: 4)
                         if let starts = startPages[kind], let start = starts.first {
-                            Text("p. \(start)" + (starts.count > 1 ? "…" : "")).font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+                            // Plusieurs sites : toutes les pages de départ (« p. 1, 4 ») ; au-delà de trois, « p. 1… ».
+                            Text("p.\u{00A0}" + (starts.count <= 3 ? starts.map(String.init).joined(separator: ", ") : "\(start)…"))
+                                .font(Theme.mono(11)).foregroundStyle(Theme.textSecondary).fixedSize()
                                 .help(starts.count > 1 ? "Une partie par site\u{00A0}: p. " + starts.map(String.init).joined(separator: ", ")
                                       : "Page \(start)")
                         }

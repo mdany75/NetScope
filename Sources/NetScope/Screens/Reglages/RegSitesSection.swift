@@ -79,7 +79,7 @@ struct RegSitesSection: View {
                              Text(line).font(Theme.small).foregroundStyle(Theme.critical)
                          }
                      }
-                     HStack(alignment: .center) {
+                     HStack(alignment: .center, spacing: 5) {
                          Text("\(sites.sites.count) SITE\(sites.sites.count > 1 ? "S" : "")")
                              .font(Theme.captionSemibold).kerning(0.55).foregroundStyle(Theme.textSecondary)
                          Text("· actif\u{00A0}: \(sites.activeName)").font(Theme.small).foregroundStyle(Theme.textSecondary)
@@ -171,7 +171,8 @@ struct RegSitesSection: View {
         let gateways = site.hints.gatewayMACs.map { $0.formatted(.upperColon) }
         let count = sites.inventoryCount(site)
         return RegTileRow {
-            RegTile("Total à scanner", "\(RegFormat.count(total)) adresses · \(active.count) plage\(active.count > 1 ? "s" : "") active\(active.count > 1 ? "s" : "")", mono: true)
+            // Insécables : la valeur passe à la ligne après « · », jamais au milieu de « 3 plages actives ».
+            RegTile("Total à scanner", "\(RegFormat.count(total))\u{00A0}adresses\u{00A0}· \(active.count)\u{00A0}plage\(active.count > 1 ? "s" : "")\u{00A0}active\(active.count > 1 ? "s" : "")")
             RegTile("FortiGate", site.fortiGateIDs.compactMap { fortigate.controller($0)?.displayName }.joined(separator: ", ").nonEmpty ?? "Aucune (SNMP seulement)")
             RegTile("Passerelle connue", gateways.first.map { gateways.count > 1 ? "\($0) +\(gateways.count - 1)" : $0 } ?? "Pas encore relevée", mono: true)
             RegTile("Inventaire", "\(RegFormat.count(count)) fiche\(count > 1 ? "s" : "")" + (site.lastScan.map { " · scan \(ScanFormat.relative($0).lowercased())" } ?? " · jamais scanné"))

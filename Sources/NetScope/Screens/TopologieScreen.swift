@@ -187,7 +187,9 @@ struct TopologieScreen: View {
         return HStack(alignment: .top, spacing: 12) {
             InvTile(title: "Appareils agrégés", value: "\(devices.count)", subtitle: "\(online) vus récemment", valueSize: 19)
             InvTile(title: "Équipements réseau", value: "\((gatewayFound ? 1 : 0) + switches + aps)",
-                    subtitle: equipment.joined(separator: " · "), valueSize: 19)
+                    // Insécables dans chaque élément et avant « · » : la coupure tombe entre deux éléments.
+                    subtitle: equipment.map { $0.replacingOccurrences(of: " ", with: "\u{00A0}") }.joined(separator: "\u{00A0}· "),
+                    valueSize: 19)
             InvTile(title: "Liens affichés", value: "\(links.count)",
                     subtitle: "\(links.count - wireless) filaires · \(wireless) Wi-Fi", valueSize: 19)
             InvTile(title: "Ports de switch connus", value: "\(placed)/\(devices.count)",

@@ -59,10 +59,11 @@ struct RapportPageView: View {
         HStack(alignment: .top, spacing: px(16)) {
             RapportLogoBox(logo: logo, width: px(120), height: px(44), fontSize: px(10), radius: px(4))
             VStack(alignment: .leading, spacing: px(3)) {
+                // Une seule ligne : l'en-tête a une hauteur fixe (deux lignes chevauchaient « Client »).
                 Text(document.title)
                     .font(font(18, .bold))
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.8)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
                 Text("Client\u{00A0}: \(document.clientLabel)")
                     .font(font(12))
                     .foregroundStyle(Self.gray)

@@ -73,11 +73,19 @@ struct InventaireScreen: View {
     }
 
     /// Adresse en conflit ; avec plusieurs sites, suivie du site (la même IP peut exister sur deux sites).
-    private func conflictIP(_ ip: IPv4Address, site: String?) -> some View {
-        HStack(spacing: 4) {
-            Text(ip.description).font(Theme.mono(12)).foregroundStyle(Theme.text).fixedSize()
-            if let site {
-                Text("· " + site).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
+    @ViewBuilder
+    private func conflictIP(_ ip: IPv4Address, site: String?, stacked: Bool = false) -> some View {
+        if stacked {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(ip.description).font(Theme.mono(12)).foregroundStyle(Theme.text).fixedSize()
+                if let site { Text(site).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1) }
+            }
+        } else {
+            HStack(spacing: 4) {
+                Text(ip.description).font(Theme.mono(12)).foregroundStyle(Theme.text).fixedSize()
+                if let site {
+                    Text("· " + site).font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize()
+                }
             }
         }
     }
@@ -257,9 +265,11 @@ struct InventaireScreen: View {
                             if let key = conflict.key { selection = [SiteScope.id(site: conflict.site, key: key)] }
                         } label: {
                             // Petite fenêtre : l'adresse passe sous la puce plutôt que de la couper.
+                            // Encore plus étroit (plusieurs sites) : le site passe sous l'adresse.
                             ViewThatFits(in: .horizontal) {
                                 HStack(spacing: 6) { conflictChip; conflictIP(ip, site: site) }
                                 VStack(alignment: .leading, spacing: 2) { conflictChip; conflictIP(ip, site: site) }
+                                VStack(alignment: .leading, spacing: 2) { conflictChip; conflictIP(ip, site: site, stacked: true) }
                             }
                         }
                         .buttonStyle(.plain)
