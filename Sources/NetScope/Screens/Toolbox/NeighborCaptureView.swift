@@ -66,10 +66,11 @@ final class ToolNeighborModel: ObservableObject {
     /// Lit les interfaces (état local) et l'accès BPF ; choisit une interface Ethernet de préférence.
     func prepare(active: LocalInterface?) async {
         guard !isDemo else { return }
-        let list = await LocalInterfaces.listWithKinds()
+        // Toutes les interfaces actives, même sans adresse IPv4 : LLDP et CDP n'en ont pas besoin.
+        let list = await LocalInterfaces.linkInterfacesWithKinds()
         interfaces = list
         if interfaceName.isEmpty || !list.contains(where: { $0.name == interfaceName }) {
-            interfaceName = (list.first { $0.kind == .ethernet } ?? active ?? list.first)?.name ?? ""
+            interfaceName = LocalInterfaces.preferredLinkInterface(in: list, preferred: active?.name)?.name ?? ""
         }
         bpfAvailable = await Task.detached { BPFCapture.readableDevice() != nil }.value
     }
@@ -303,11 +304,12 @@ struct NeighborCaptureView: View {
                 Picker("", selection: $model.interfaceName) {
                     if model.interfaces.isEmpty { Text("aucune interface").tag("") }
                     ForEach(model.interfaces, id: \.name) { iface in
-                        Text("\(iface.name) · \(iface.kind.label)").tag(iface.name)
+                        Text(iface.linkSummary).tag(iface.name)
                     }
                 }
                 .labelsHidden()
-                .frame(width: 170, height: 34)
+                .frame(minWidth: 170, minHeight: 34, maxHeight: 34)
+                .fixedSize(horizontal: true, vertical: false)
             }
             ToolLabeledField(label: "Durée") {
                 Picker("", selection: $model.duration) {
@@ -461,8 +463,9 @@ struct NeighborCaptureView: View {
         guard neighbor.nativeVLAN == 1 else { return nil }
         var counts: [Int: Int] = [:]
         for device in state.devices where device.deviceType == .poste { if let vlan = device.vlan { counts[vlan, default: 0] += 1 } }
-        let usual = counts.max { $0.value < $1.value }?.key
-        let hint = usual.flatMap { $0 != 1 ? " (les postes sont en VLAN \($0))" : nil } ?? ""
+        // Démonstration : VLAN des postes du croquis.
+        let usual = Launcher.isDemo ? CaptureDemo.workstationVLAN : counts.max { $0.value < $1.value }?.key
+        let hint = usual.flatMap { $0 != 1 ? " ici (les postes sont en VLAN\u{00A0}\($0))" : nil } ?? ""
         return "Astuce\u{00A0}: le VLAN\u{00A0}1 natif sur une prise de bureau est inhabituel\(hint). À vérifier dans Switchs et ports."
     }
 

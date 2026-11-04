@@ -51,6 +51,8 @@ final class ToolDHCPModel: ObservableObject {
     /// « Arrêter » cliqué : la fin de la capture n'est pas une erreur.
     private var stopRequested = false
     private var task: Task<Void, Never>?
+    /// Heure d'envoi du DISCOVER pendant une capture tcpdump (délai de réponse des offres).
+    private var privilegedSentAt: Date?
 
     init() {
         let arguments = CommandLine.arguments
@@ -78,10 +80,11 @@ final class ToolDHCPModel: ObservableObject {
 
     func prepare(active: LocalInterface?) async {
         guard !isDemo else { return }
-        let list = await LocalInterfaces.listWithKinds()
+        // Aussi les interfaces sans bail (aucune adresse, ou 169.254.x.x) : c'est le cas à tester.
+        let list = await LocalInterfaces.linkInterfacesWithKinds()
         interfaces = list
         if interfaceName.isEmpty || !list.contains(where: { $0.name == interfaceName }) {
-            interfaceName = (active.flatMap { a in list.first { $0.name == a.name } } ?? list.first)?.name ?? ""
+            interfaceName = LocalInterfaces.preferredLinkInterface(in: list, preferred: active?.name)?.name ?? ""
         }
     }
 
@@ -188,6 +191,7 @@ final class ToolDHCPModel: ObservableObject {
             return
         }
         self.session = session
+        privilegedSentAt = nil
         reception = .privileged
         phase = .authorizing
         deadline = nil
@@ -200,7 +204,7 @@ final class ToolDHCPModel: ObservableObject {
             self.phase = .listening
             self.deadline = Date().addingTimeInterval(seconds)
             do {
-                _ = try await Task.detached { try Self.sendFromFreePort(packet, interface: name) }.value
+                self.privilegedSentAt = try await Task.detached { try Self.sendFromFreePort(packet, interface: name) }.value
             } catch {
                 self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             }
@@ -212,7 +216,16 @@ final class ToolDHCPModel: ObservableObject {
     private func sessionEnded(_ outcome: PrivilegedCaptureSession.Outcome, xid: UInt32, store: ToolStore) {
         guard let session else { return }
         task?.cancel()
-        let found = session.frames(final: true).compactMap { DHCPParser.parseFrame($0.bytes) }
+        let sentAt = privilegedSentAt
+        privilegedSentAt = nil
+        // Délai de réponse : horodatage tcpdump de la trame moins l'heure d'envoi du DISCOVER.
+        let found = session.frames(final: true).compactMap { frame -> DHCPOffer? in
+            guard var offer = DHCPParser.parseFrame(frame.bytes) else { return nil }
+            if let sentAt, let date = frame.date, date >= sentAt.addingTimeInterval(-1) {
+                offer.delay = max(0, date.timeIntervalSince(sentAt))
+            }
+            return offer
+        }
         switch outcome {
         case .finished:
             if !session.isListening, let message = TcpdumpHexParser.errorMessage(session.errorText) {
@@ -269,7 +282,7 @@ final class ToolDHCPModel: ObservableObject {
     }
 
     private func record(store: ToolStore) {
-        let target = "\(interfaceName)" + (selectedInterface.map { " · \($0.subnet)" } ?? "")
+        let target = "\(interfaceName)" + (selectedInterface.flatMap { $0.hasIPv4 ? " · \($0.subnet)" : nil } ?? "")
         let rogue = offers.filter { policy.status(of: $0) == .unauthorized }
         if offers.isEmpty {
             store.record(ToolRecent(tool: .dhcp, target: target, summary: "Aucune offre en \(wait)\u{00A0}s", status: .warning))
@@ -357,11 +370,11 @@ struct DHCPTestView: View {
             Picker("", selection: $model.interfaceName) {
                 if model.interfaces.isEmpty { Text("aucune interface").tag("") }
                 ForEach(model.interfaces, id: \.name) { iface in
-                    Text("\(iface.name) · \(iface.kind.label)").tag(iface.name)
+                    Text(iface.linkSummary).tag(iface.name)
                 }
             }
             .labelsHidden()
-            .frame(width: 140, height: 34)
+            .frame(minWidth: 140, minHeight: 34, maxHeight: 34)
         }
         .fixedSize()
         ToolLabeledField(label: "Attente des offres") {
@@ -490,12 +503,14 @@ struct DHCPTestView: View {
                     .textSelection(.enabled)
                 HStack(spacing: 14) {
                     if let mac = offer.sourceMAC {
-                        Button("Localiser le port →") {
+                        Button("Voir le port de switch →") {
                             SwitchStore.shared.find(mac.formatted(.upperColon), devices: state.devices)
                             state.open(.switchs)
                         }
                     }
-                    Button("Copier le rapport →") { ToolActions.copy(report()) }
+                    Button("Créer une alerte →") { createAlert(offer, location: location) }
+                    Button("Copier le rapport") { ToolActions.copy(report()) }
+                        .font(Theme.body)
                 }
                 .buttonStyle(.plain)
                 .font(Theme.bodySemibold)
@@ -508,6 +523,29 @@ struct DHCPTestView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.warningSoft))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Color(hex: 0xFDBA74)))
+    }
+
+    /// Ajoute l'alerte « Serveur DHCP non autorisé » dans Analyse (sans doublon sur 24 h) et y mène.
+    private func createAlert(_ offer: DHCPOffer, location: String?) {
+        let inventory = InvModel.shared
+        let ip = offer.sourceAddress ?? offer.serverIdentifier ?? offer.offeredAddress
+        let mac = offer.sourceMAC
+        let key = mac.flatMap { m in inventory.store.records.values.first { $0.mac == m }?.key }
+            ?? inventory.store.record(forIP: ip)?.key
+            ?? (mac.map(InventoryStore.key(mac:)) ?? "ip:\(ip)")
+        var detail = "Offre \(offer.offeredAddress)"
+        if let gateway = offer.routers.first { detail += " · passerelle \(gateway)" }
+        if let mac {
+            detail += " · MAC \(mac.formatted(.upperColon))"
+            if let vendor = OUIDatabase.builtIn.vendor(for: mac) { detail += " (\(vendor))" }
+        }
+        if let location { detail += " · \(location)" }
+        detail += " · vu sur \(model.interfaceName) par le Test DHCP"
+        let event = InvEvent(date: Date(), kind: .dhcpNonAutorise, severity: .critique, key: key, ip: ip,
+                             title: "Serveur DHCP non autorisé\u{00A0}: \(ip)", detail: detail)
+        inventory.addAlert(event)
+        inventory.updateBadge(state)
+        state.open(.analyse)
     }
 
     /// Fabricant grand public ou plage domestique par défaut (192.168.0.x, 192.168.1.x).
@@ -535,12 +573,24 @@ struct DHCPTestView: View {
 
     // MARK: Tableau et détail
 
+    /// Sept colonnes sur une ligne, comme le croquis (MAC / fabricant prend la place qui reste) ;
+    /// si la largeur manque, le tableau défile horizontalement (croquis : min-width 680 px).
     private var table: some View {
+        ViewThatFits(in: .horizontal) {
+            tableBody
+            ScrollView(.horizontal, showsIndicators: true) { tableBody }
+        }
+    }
+
+    private var tableBody: some View {
         ToolTable(columns: [
-            .init(title: "Serveur · MAC / fabricant"),
-            .init(title: "IP offerte · bail", width: 124),
-            .init(title: "Passerelle · DNS", width: 136),
-            .init(title: "Statut", width: 108),
+            .init(title: "Serveur", width: 120),
+            .init(title: "MAC / fabricant"),
+            .init(title: "IP offerte", width: 120),
+            .init(title: "Passerelle", width: 108),
+            .init(title: "DNS", width: 108),
+            .init(title: "Bail", width: 52),
+            .init(title: "Statut", width: 112),
         ]) {
             ForEach(Array(model.offers.enumerated()), id: \.offset) { _, offer in
                 row(offer)
@@ -552,26 +602,19 @@ struct DHCPTestView: View {
         let status = model.policy.status(of: offer)
         let selected = offer.server == model.selectedServer
         let vendor = offer.sourceMAC.flatMap { OUIDatabase.builtIn.vendor(for: $0) }
-        return ToolTableRow(height: 46, highlight: status == .unauthorized ? Color(hex: 0xFEF2F2) : (selected ? Theme.accentSoft : nil)) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(offer.server?.description ?? "?").font(Theme.mono(12, weight: .semibold))
-                (Text(offer.sourceMAC?.formatted(.upperColon) ?? "MAC inconnue").font(Theme.mono(11))
-                 + Text(vendor.map { " · \($0)" } ?? "").font(Theme.caption))
-                    .foregroundStyle(Theme.textSecondary)
-            }
-            .toolCell(nil)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(offer.offeredAddress.description).font(Theme.mono(12))
-                Text("bail \(DHCPOffer.leaseText(offer.leaseTime))").font(Theme.caption).foregroundStyle(Theme.textSecondary)
-            }
-            .toolCell(124)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(offer.routers.first?.description ?? "—").font(Theme.mono(12))
-                Text(offer.dnsServers.first.map { "DNS " + $0.description } ?? "DNS —").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
-            }
-            .toolCell(136)
-            statusChip(status).toolCell(108)
+        return ToolTableRow(height: 36, highlight: status == .unauthorized ? Color(hex: 0xFEF2F2) : (selected ? Theme.accentSoft : nil)) {
+            Text(offer.server?.description ?? "?").font(Theme.mono(12, weight: .semibold)).toolCell(120)
+            (Text(offer.sourceMAC?.formatted(.upperColon) ?? "inconnue").font(Theme.mono(12))
+             + Text(vendor.map { " · \($0)" } ?? "").font(Theme.body).foregroundColor(Theme.textSecondary))
+                .truncationMode(.tail)
+                .toolCell(nil)
+            Text(offer.offeredAddress.description).font(Theme.mono(12)).toolCell(120)
+            Text(offer.routers.first?.description ?? "—").font(Theme.mono(12)).toolCell(108)
+            Text(offer.dnsServers.first?.description ?? "—").font(Theme.mono(12)).toolCell(108)
+            Text(DHCPOffer.leaseText(offer.leaseTime)).font(Theme.body).toolCell(52)
+            statusChip(status).toolCell(112)
         }
+        .help(offer.dnsServers.count > 1 ? "DNS\u{00A0}: " + offer.dnsServers.map(\.description).joined(separator: ", ") : "")
         .contentShape(Rectangle())
         .onTapGesture { model.selectedServer = offer.server }
     }

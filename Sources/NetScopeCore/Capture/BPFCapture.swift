@@ -36,14 +36,14 @@ public enum BPFFilter {
         BPFInstruction(ret, 0, 0, 0),
     ]
 
-    /// IPv4, UDP, non fragmenté, port de destination 68 (réponses DHCP au client).
+    /// IPv4, UDP, non fragmenté (ni décalage ni drapeau « autres fragments »), port de destination 68.
     public static let dhcpClient: [BPFInstruction] = [
         BPFInstruction(ldH, 0, 0, 12),
         BPFInstruction(jeq, 0, 8, 0x0800),
         BPFInstruction(ldB, 0, 0, 23),
         BPFInstruction(jeq, 0, 6, 17),
         BPFInstruction(ldH, 0, 0, 20),
-        BPFInstruction(jset, 4, 0, 0x1FFF),
+        BPFInstruction(jset, 4, 0, 0x3FFF),
         BPFInstruction(ldxMSH, 0, 0, 14),
         BPFInstruction(ldHInd, 0, 0, 16),
         BPFInstruction(jeq, 0, 1, 68),
@@ -135,6 +135,10 @@ public final class BPFCapture: @unchecked Sendable {
     private var fd: Int32
     private let bufferLength: Int
     private let lock = NSLock()
+    /// Lectures en cours (poll/read hors verrou) : le descripteur n'est fermé qu'à zéro, pour
+    /// qu'un numéro fermé puis réattribué ne soit jamais lu.
+    private var activeReads = 0
+    private var stopping = false
 
     /// Premier /dev/bpf* ouvrable en lecture par cet utilisateur, sinon nil (accès réservé à root).
     public static func readableDevice() -> String? {
@@ -207,9 +211,14 @@ public final class BPFCapture: @unchecked Sendable {
     /// Attend au plus `timeout` secondes et renvoie les trames reçues.
     public func read(timeout: TimeInterval) -> [CapturedFrame] {
         lock.lock()
+        guard fd >= 0, !stopping else {
+            lock.unlock()
+            return []
+        }
         let current = fd
+        activeReads += 1
         lock.unlock()
-        guard current >= 0 else { return [] }
+        defer { endRead() }
         var poller = pollfd(fd: current, events: Int16(POLLIN), revents: 0)
         let ready = poll(&poller, 1, Int32(max(0, timeout) * 1000))
         guard ready > 0 else { return [] }
@@ -219,13 +228,27 @@ public final class BPFCapture: @unchecked Sendable {
         return BPFBuffer.frames(in: buffer, length: count)
     }
 
+    /// Demande l'arrêt. Si une lecture est en cours, c'est elle qui ferme le descripteur en sortant
+    /// (au plus le délai de son poll) ; sinon il est fermé tout de suite.
     public func stop() {
         lock.lock()
         defer { lock.unlock() }
-        if fd >= 0 {
-            close(fd)
-            fd = -1
-        }
+        stopping = true
+        closeIfIdle()
+    }
+
+    private func endRead() {
+        lock.lock()
+        defer { lock.unlock() }
+        activeReads -= 1
+        if stopping { closeIfIdle() }
+    }
+
+    /// À appeler sous verrou.
+    private func closeIfIdle() {
+        guard activeReads == 0, fd >= 0 else { return }
+        close(fd)
+        fd = -1
     }
 }
 

@@ -371,6 +371,19 @@ public struct InventoryStore: Codable, Sendable {
     }
 
     /// Accepter, ignorer ou remettre à traiter une alerte.
+    /// Ajoute une alerte signalée par un outil (Test DHCP). Refusée (faux) si la même alerte
+    /// (type et adresse) est déjà à traiter depuis moins de 24 h.
+    @discardableResult
+    public mutating func addAlert(_ event: InvEvent) -> Bool {
+        let duplicate = events.contains {
+            $0.kind == event.kind && $0.ip == event.ip && $0.status == .aTraiter
+                && abs(event.date.timeIntervalSince($0.date)) < 86_400
+        }
+        guard !duplicate else { return false }
+        events.append(event)
+        return true
+    }
+
     public mutating func setEventStatus(_ status: InvEventStatus, for id: UUID, at date: Date = Date()) {
         guard let index = events.firstIndex(where: { $0.id == id }) else { return }
         events[index].status = status

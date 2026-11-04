@@ -4,6 +4,9 @@ import NetScopeCore
 /// Données de démonstration du Test DHCP et de la capture LLDP/CDP (renderVals de
 /// docs/croquis/Toolbox.dc.html : dhcpRows, lldpFields). Aucun accès réseau.
 enum CaptureDemo {
+    /// VLAN des postes dans l'astuce de la fiche du voisin (croquis : « les postes sont en VLAN 10 »).
+    static let workstationVLAN = 10
+
     static let interfaces: [LocalInterface] = [
         LocalInterface(name: "en0", address: IPv4Address("10.182.122.135")!, netmask: IPv4Address("255.255.255.0")!,
                        kind: .wifi, gateway: IPv4Address("10.182.122.1")),

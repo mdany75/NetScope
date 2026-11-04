@@ -342,33 +342,51 @@ func registerCaptureTests(_ suite: TestSuite) {
             try expect(!CaptureInterfaceName.isValid(bad), "« \(bad) » refusé")
         }
         let dir = "/private/var/folders/x_/ab-c1/T/netscope-capture-1234"
-        let command = try PrivilegedCapture.shellCommand(interface: "en7", purpose: .neighbors, seconds: 90, directory: dir + "/")
+        let out = "/private/tmp/netscope-capture-1234-abcd"
+        let command = try PrivilegedCapture.shellCommand(interface: "en7", purpose: .neighbors, seconds: 90, directory: dir + "/",
+                                                         outputDirectory: out, owner: 501)
         try expectEqual(command,
-                        "/usr/sbin/tcpdump -i en7 -n -e -xx -l -s 1600 'ether proto 0x88cc or ether dst 01:00:0c:cc:cc:cc' "
-                        + ">'\(dir)/capture.txt' 2>'\(dir)/tcpdump.txt' & p=$!; i=0; "
+                        "umask 022; /bin/mkdir -m 755 '\(out)' || exit 1; "
+                        + "/usr/sbin/tcpdump -i en7 -n -tt -e -xx -l -s 1600 'ether proto 0x88cc or ether dst 01:00:0c:cc:cc:cc' "
+                        + ">'\(out)'/capture.txt 2>'\(out)'/tcpdump.txt & p=$!; i=0; "
                         + "while [ $i -lt 90 ] && [ ! -e '\(dir)/arreter' ] && kill -0 $p 2>/dev/null; do sleep 1; i=$((i+1)); done; "
-                        + "kill $p 2>/dev/null; wait $p 2>/dev/null; exit 0", "commande complète")
-        let dhcp = try PrivilegedCapture.shellCommand(interface: "en0", purpose: .dhcp, seconds: 30, directory: dir)
+                        + "kill $p 2>/dev/null; wait $p 2>/dev/null; /usr/sbin/chown -R 501 '\(out)'; exit 0", "commande complète")
+        // Root n'écrit que dans le dossier qu'il vient de créer, jamais dans celui de l'utilisateur.
+        try expect(!command.contains(">'\(dir)"), "aucune redirection vers le dossier de l’utilisateur")
+        let dhcp = try PrivilegedCapture.shellCommand(interface: "en0", purpose: .dhcp, seconds: 30, directory: dir,
+                                                      outputDirectory: out, owner: 501)
         try expect(dhcp.contains("'udp dst port 68'"), "filtre DHCP fixe")
+        for badOut in ["/tmp/netscope-capture-1", "/private/tmp/netscope-capture-", "/private/tmp/netscope-capture-a/b",
+                       "/private/tmp/netscope-capture-A1", "/private/tmp/autre", "/private/tmp/netscope-capture-a b"] {
+            try expectThrows(ToolError.invalidInput("Dossier de sortie refusé."), "sortie « \(badOut) » refusée") {
+                _ = try PrivilegedCapture.shellCommand(interface: "en0", purpose: .dhcp, seconds: 30, directory: dir,
+                                                       outputDirectory: badOut, owner: 501)
+            }
+        }
+        try expectThrows(ToolError.invalidInput("Utilisateur refusé."), "root refusé comme propriétaire") {
+            _ = try PrivilegedCapture.shellCommand(interface: "en0", purpose: .dhcp, seconds: 30, directory: dir,
+                                                   outputDirectory: out, owner: 0)
+        }
 
         try expectThrows(ToolError.invalidInput("Nom d’interface refusé : « en0;reboot »."), "injection par l’interface") {
-            _ = try PrivilegedCapture.shellCommand(interface: "en0;reboot", purpose: .neighbors, seconds: 90, directory: dir)
+            _ = try PrivilegedCapture.shellCommand(interface: "en0;reboot", purpose: .neighbors, seconds: 90, directory: dir, outputDirectory: out, owner: 501)
         }
         try expectThrows(ToolError.invalidInput("Dossier de capture refusé."), "apostrophe dans le dossier") {
-            _ = try PrivilegedCapture.shellCommand(interface: "en0", purpose: .neighbors, seconds: 90, directory: "/tmp/a'b")
+            _ = try PrivilegedCapture.shellCommand(interface: "en0", purpose: .neighbors, seconds: 90, directory: "/tmp/a'b", outputDirectory: out, owner: 501)
         }
         try expectThrows(ToolError.invalidInput("Dossier de capture refusé."), "remontée de dossier") {
-            _ = try PrivilegedCapture.shellCommand(interface: "en0", purpose: .neighbors, seconds: 90, directory: "/tmp/../etc")
+            _ = try PrivilegedCapture.shellCommand(interface: "en0", purpose: .neighbors, seconds: 90, directory: "/tmp/../etc", outputDirectory: out, owner: 501)
         }
         try expectThrows(ToolError.invalidInput("Dossier de capture refusé."), "chemin relatif") {
-            _ = try PrivilegedCapture.shellCommand(interface: "en0", purpose: .neighbors, seconds: 90, directory: "tmp/x")
+            _ = try PrivilegedCapture.shellCommand(interface: "en0", purpose: .neighbors, seconds: 90, directory: "tmp/x", outputDirectory: out, owner: 501)
         }
         for seconds in [0, 4, 181, 100_000] {
-            try expect((try? PrivilegedCapture.shellCommand(interface: "en0", purpose: .neighbors, seconds: seconds, directory: dir)) == nil,
+            try expect((try? PrivilegedCapture.shellCommand(interface: "en0", purpose: .neighbors, seconds: seconds, directory: dir, outputDirectory: out, owner: 501)) == nil,
                        "durée \(seconds) refusée")
         }
         let script = try PrivilegedCapture.appleScript(for: command, prompt: PrivilegedCapture.prompt(for: .neighbors, interface: "en7"))
-        try expect(script.hasPrefix("do shell script \"/usr/sbin/tcpdump -i en7 "), "script AppleScript")
+        try expect(script.hasPrefix("do shell script \"umask 022; /bin/mkdir -m 755 "), "script AppleScript")
+        try expect(script.contains("/usr/sbin/tcpdump -i en7 -n -tt "), "tcpdump dans le script")
         try expect(script.hasSuffix("with administrator privileges"), "droits d’administrateur")
         try expect((try? PrivilegedCapture.appleScript(for: "echo \"x\"", prompt: "p")) == nil, "guillemet refusé")
         try expect((try? PrivilegedCapture.appleScript(for: "echo x\\", prompt: "p")) == nil, "barre oblique inverse refusée")
@@ -408,6 +426,128 @@ func registerCaptureTests(_ suite: TestSuite) {
         try expectEqual(BPFIoctl.setBufferLength, 0xC004_4266, "BIOCSBLEN")
         try expectEqual(BPFIoctl.setFilter, 0x8010_4267, "BIOCSETF")
         try expectEqual(BPFIoctl.promiscuous, 0x2000_4269, "BIOCPROMISC")
+    }
+
+    suite.add("Capture : horodatage des trames lues dans la sortie de tcpdump") {
+        // -tt : secondes epoch ; chaque trame garde l'heure de sa ligne d'en-tête, pas l'heure de lecture.
+        let text = tcpdumpText(sampleLLDPFrame(), header: "1762183293.250000 88:3a:30:9c:41:22 > 01:80:c2:00:00:0e, ethertype LLDP (0x88cc)")
+            + "\n" + tcpdumpText(sampleCDPFrame(), header: "1762183323.500000 00:1b:54:aa:01:25 > 01:00:0c:cc:cc:cc, 802.3, length 300")
+        let readAt = Date(timeIntervalSince1970: 1_762_183_400)
+        let frames = TcpdumpHexParser.frames(from: text, now: readAt)
+        try expectEqual(frames.map { $0.date?.timeIntervalSince1970 ?? 0 }, [1_762_183_293.25, 1_762_183_323.5], "deux dates")
+        let neighbors = NeighborFrameDecoder.neighbors(in: frames, interface: "en7", now: readAt)
+        try expectEqual(neighbors.first?.receivedAt?.timeIntervalSince1970, 1_762_183_293.25, "réception LLDP à l’heure de la trame")
+        try expectEqual(neighbors.last?.receivedAt?.timeIntervalSince1970, 1_762_183_323.5, "réception CDP à l’heure de la trame")
+
+        // Sans -tt : « HH:MM:SS.ffffff », heure locale du jour (ou de la veille juste après minuit).
+        let calendar = Calendar.current
+        let midnight = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_762_183_293))
+        let noon = midnight.addingTimeInterval(12 * 3600)
+        try expectEqual(TcpdumpHexParser.timestamp(of: "10:21:33.500000 88:3a:30:9c:41:22 > x", now: noon)?.timeIntervalSince(midnight),
+                        37_293.5, "heure du jour")
+        let nextMidnight = calendar.date(byAdding: .day, value: 1, to: midnight)!
+        let lateEvening = calendar.date(byAdding: .day, value: -1, to: nextMidnight)!.addingTimeInterval(86_399)
+        try expectEqual(TcpdumpHexParser.timestamp(of: "23:59:59.000000 x", now: nextMidnight.addingTimeInterval(1800)),
+                        lateEvening, "trame de la veille")
+        for bad in ["tcpdump: listening on en7", "25:00:00.0 x", "10:61:00.0 x", "abc x", ".5 x", "0 x"] {
+            try expect(TcpdumpHexParser.timestamp(of: bad) == nil, "« \(bad) » sans date")
+        }
+    }
+
+    suite.add("DHCP : option 52 (options dans les champs file et sname)") {
+        func offer(overload: UInt8, sname: [UInt8], file: [UInt8]) -> [UInt8] {
+            var p: [UInt8] = [0x02, 0x01, 0x06, 0x00, 0x00, 0x00, 0x00, 0x2A, 0x00, 0x00, 0x80, 0x00]
+            p += [0, 0, 0, 0, 0x0A, 0x00, 0x00, 0x32, 0, 0, 0, 0, 0, 0, 0, 0]
+            p += [0x3C, 0x22, 0xFB, 0x7E, 0x05, 0xB1] + [UInt8](repeating: 0, count: 10)
+            p += sname + [UInt8](repeating: 0, count: 64 - sname.count)
+            p += file + [UInt8](repeating: 0, count: 128 - file.count)
+            p += [0x63, 0x82, 0x53, 0x63, 53, 1, 2, 54, 4, 0x0A, 0x00, 0x00, 0x01, 52, 1, overload, 255]
+            return p
+        }
+        let fileOptions: [UInt8] = [66, 8] + Array("10.0.0.9".utf8) + [67, 8] + Array("boot.efi".utf8) + [255]
+        let snameOptions: [UInt8] = [15, 7] + Array("site.ca".utf8) + [3, 4, 0x0A, 0x00, 0x00, 0xFE, 255]
+        let both = try DHCPParser.parse(offer(overload: 3, sname: snameOptions, file: fileOptions)).unwrap("offre 52 = 3")
+        try expectEqual(both.tftpServer, "10.0.0.9", "option 66 lue dans file")
+        try expectEqual(both.bootFile, "boot.efi", "option 67 lue dans file")
+        try expectEqual(both.domainName, "site.ca", "option 15 lue dans sname")
+        try expectEqual(both.routers.map(\.description), ["10.0.0.254"], "option 3 lue dans sname")
+        try expect(both.bootFileHeader == nil, "file n’est pas un nom de fichier")
+        try expect(both.serverName == nil, "sname n’est pas un nom de serveur")
+
+        // 52 = 1 : seul file porte des options ; sname reste le nom du serveur.
+        let fileOnly = try DHCPParser.parse(offer(overload: 1, sname: Array("srv-dhcp".utf8), file: fileOptions)).unwrap("offre 52 = 1")
+        try expectEqual(fileOnly.tftpServer, "10.0.0.9", "file lu comme options")
+        try expectEqual(fileOnly.serverName, "srv-dhcp", "sname lu comme texte")
+        try expect(fileOnly.domainName == nil, "sname non interprété")
+        // 52 = 2 : l'inverse.
+        let snameOnly = try DHCPParser.parse(offer(overload: 2, sname: snameOptions, file: Array("pxelinux.0".utf8))).unwrap("offre 52 = 2")
+        try expectEqual(snameOnly.domainName, "site.ca", "sname lu comme options")
+        try expectEqual(snameOnly.bootFileHeader, "pxelinux.0", "file lu comme texte")
+        try expect(snameOnly.tftpServer == nil, "file non interprété")
+    }
+
+    suite.add("Capture : trames étiquetées 802.1Q / 802.1ad, en-tête IP avec options, fragments") {
+        let lldp = sampleLLDPFrame()
+        let tagged = Array(lldp[0..<12]) + [0x81, 0x00, 0x00, 0x0A] + Array(lldp[12...])
+        let header = try EthernetHeader.parse(tagged).unwrap("en-tête 802.1Q")
+        try expectEqual(header.vlanTag, 10, "VLAN de l’étiquette")
+        try expectEqual(header.typeOrLength, 0x88CC, "EtherType après l’étiquette")
+        try expectEqual(header.payloadOffset, 18, "charge utile décalée de 4")
+        try expectEqual(NeighborFrameDecoder.decode(tagged, interface: "en7")?.switchLabel, "SW-ETG2-01", "LLDP étiqueté décodé")
+        let qinq = Array(lldp[0..<12]) + [0x88, 0xA8, 0x00, 0x64, 0x81, 0x00, 0x00, 0x0A] + Array(lldp[12...])
+        let outer = try EthernetHeader.parse(qinq).unwrap("en-tête 802.1ad")
+        try expectEqual(outer.vlanTag, 10, "VLAN le plus intérieur")
+        try expectEqual(outer.payloadOffset, 22, "charge utile décalée de 8")
+        try expect(EthernetHeader.parse(Array(qinq.prefix(17))) == nil, "étiquette tronquée")
+
+        // IHL = 6 : quatre octets d'options IP (NOP) avant UDP.
+        let plain = sampleRogueDHCPFrame()
+        var ipOptions = Array(plain[0..<14]) + [0x46] + Array(plain[15..<34]) + [0x01, 0x01, 0x01, 0x01] + Array(plain[34...])
+        let total = (Int(ipOptions[16]) << 8 | Int(ipOptions[17])) + 4
+        ipOptions[16] = UInt8(total >> 8)
+        ipOptions[17] = UInt8(total & 0xFF)
+        let withOptions = try DHCPParser.parseFrame(ipOptions).unwrap("offre avec options IP")
+        try expectEqual(withOptions.offeredAddress.description, "192.168.0.100", "UDP trouvé après les options IP")
+        try expect(BPFFilter.run(BPFFilter.dhcpClient, on: ipOptions) > 0, "filtre noyau : port lu après les options IP")
+
+        // Premier fragment (drapeau « autres fragments ») : refusé des deux côtés.
+        var firstFragment = plain
+        firstFragment[14 + 6] = 0x20
+        try expect(DHCPParser.parseFrame(firstFragment) == nil, "premier fragment refusé par l’analyseur")
+        try expectEqual(BPFFilter.run(BPFFilter.dhcpClient, on: firstFragment), 0, "premier fragment refusé par le filtre")
+        var laterFragment = plain
+        laterFragment[14 + 7] = 0x08
+        try expect(DHCPParser.parseFrame(laterFragment) == nil, "fragment suivant refusé par l’analyseur")
+        // Trame DHCP étiquetée : décodée aussi.
+        let taggedDHCP = Array(plain[0..<12]) + [0x81, 0x00, 0x00, 0x14] + Array(plain[12...])
+        try expectEqual(DHCPParser.parseFrame(taggedDHCP)?.offeredAddress.description, "192.168.0.100", "offre étiquetée VLAN 20")
+    }
+
+    suite.add("Outils : interfaces sans adresse et alerte DHCP sans doublon") {
+        let wifi = LocalInterface(name: "en0", address: IPv4Address("10.182.122.135")!, netmask: IPv4Address("255.255.255.0")!, kind: .wifi)
+        let apipa = LocalInterface(name: "en7", address: IPv4Address("169.254.12.7")!, netmask: IPv4Address("255.255.0.0")!, kind: .ethernet)
+        let bare = LocalInterface(name: "en8", address: IPv4Address(0), netmask: IPv4Address(0), kind: .autre)
+        try expectEqual(wifi.linkSummary, "en0 · Wi-Fi", "adresse routable : nom et type")
+        try expectEqual(wifi.addressLabel, "10.182.122.135", "adresse affichée")
+        try expectEqual(apipa.linkSummary, "en7 · Ethernet · 169.254.12.7 (liaison locale)", "liaison locale")
+        try expectEqual(bare.linkSummary, "en8 · Autre · sans adresse", "sans adresse")
+        try expect(!bare.hasIPv4 && apipa.hasIPv4, "présence d’une adresse")
+        try expectEqual(LocalInterfaces.preferredLinkInterface(in: [wifi, apipa], preferred: "en0")?.name, "en7", "Ethernet d’abord")
+        try expectEqual(LocalInterfaces.preferredLinkInterface(in: [wifi, bare], preferred: "en0")?.name, "en0", "puis l’interface active")
+        try expect(LocalInterfaces.preferredLinkInterface(in: []) == nil, "aucune interface")
+
+        var store = InventoryStore()
+        let ip = IPv4Address("10.182.122.250")!
+        let now = Date()
+        func alert(_ date: Date) -> InvEvent {
+            InvEvent(date: date, kind: .dhcpNonAutorise, severity: .critique, key: "ip:10.182.122.250", ip: ip,
+                     title: "Serveur DHCP non autorisé", detail: "Offre 192.168.0.100")
+        }
+        try expect(store.addAlert(alert(now)), "première alerte ajoutée")
+        try expect(!store.addAlert(alert(now.addingTimeInterval(60))), "doublon refusé")
+        try expectEqual(store.events.filter(\.isAlert).count, 1, "une seule alerte")
+        try expect(store.addAlert(alert(now.addingTimeInterval(90_000))), "nouvelle alerte le lendemain")
+        try expectEqual(InvEventKind.dhcpNonAutorise.label, "Serveur DHCP", "libellé")
     }
 }
 
