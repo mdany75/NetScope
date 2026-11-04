@@ -790,6 +790,12 @@ donc l'info complète du client. » Prolonge la note 27 (liste des clients livr�
   (PSK, 802.1X, utilisateur), durée de connexion, octets échangés, historique d'itinérance
   entre bornes ; liens vers la fiche Appareil, l'Inventaire et le Ping continu (note 34).
 - Retour vers la borne ou le SSID d'origine (note 45).
+- Fiche Appareil (demande de Dany, 4 nov.) : si l'IP est un client Wi-Fi, la fiche Appareil montre
+  toutes les informations utiles au diagnostic : signal (RSSI, SNR, bruit, historique du signal),
+  borne et radio, SSID, bande, canal et largeur, standard, sécurité et authentification, VLAN,
+  débits montant/descendant et négocié, octets, durée de connexion, itinérances, déconnexions,
+  clients et utilisation du canal de la borne, problèmes repérés et bouton « Diagnostiquer »
+  (note 47).
 
 ## 47. Diagnostic des problèmes Wi-Fi d'un client, avec solutions — 0.16.0 (demande de Dany)
 
