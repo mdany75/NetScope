@@ -447,7 +447,7 @@ struct InvTable: View {
             if !chosen.isEmpty { onDelete(chosen) }
         }
         // Note 45 : au retour, la ligne choisie est ramenée en vue (même position dans la liste).
-        .revealSelection(rows.first { selection.contains($0.id) }?.id)
+        .revealRow(rows.firstIndex { selection.contains($0.id) })
     }
 
     /// Ligne du site actif : celle dont les appareils sont dans le Scanner (fiche complète, ping).
