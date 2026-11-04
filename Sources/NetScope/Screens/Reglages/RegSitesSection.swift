@@ -32,7 +32,7 @@ struct RegSitesSection: View {
                      .padding(.top, 12).padding(.bottom, 6)
                      rangeTable
                      addForm.padding(.top, 10)
-                     HStack(alignment: .top, spacing: 14) {
+                     RegColumns(minColumnWidth: 300) {
                          soonBox(title: "Plages exclues",
                                  text: "Jamais sondées, même si elles font partie d’une plage du site (passerelle, contrôleur de domaine…).")
                          soonBox(title: "Détection automatique au branchement",
@@ -112,28 +112,28 @@ struct RegSitesSection: View {
 
     private var addForm: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .bottom, spacing: 8) {
-                RegField(label: "Plage (CIDR, début-fin ou IP)") {
-                    RegTextField(placeholder: "172.16.0.0/22 ou 10.10.0.1-10.10.0.50", text: $newText, mono: true)
-                        .onSubmit(add)
+            // Une seule ligne en grande fenêtre ; en petite, la plage, puis nom et VLAN, puis les boutons.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .bottom, spacing: 8) {
+                    rangeField.frame(minWidth: 240, idealWidth: 260, maxWidth: .infinity)
+                    nameField.frame(width: 200)
+                    vlanField.frame(width: 90)
+                    addButtons
                 }
-                .frame(maxWidth: .infinity)
-                RegField(label: "Nom") {
-                    RegTextField(placeholder: "Ex. Production", text: $newLabel)
+                VStack(alignment: .leading, spacing: 8) {
+                    rangeField
+                    HStack(alignment: .bottom, spacing: 8) {
+                        nameField.frame(maxWidth: .infinity)
+                        vlanField.frame(width: 90)
+                    }
+                    HStack(spacing: 8) {
+                        Spacer(minLength: 0)
+                        addButtons
+                    }
                 }
-                .frame(width: 200)
-                RegField(label: "VLAN") {
-                    RegTextField(placeholder: "1–4094", text: $newVLAN, mono: true)
-                }
-                .frame(width: 90)
-                Button(action: add) { Label("Ajouter la plage", systemImage: "plus") }
-                    .buttonStyle(.secondary)
-                Button(action: addDetected) { Label("Mon réseau", systemImage: "scope") }
-                    .buttonStyle(.secondary)
-                    .regDisabled(state.activeInterface == nil)
-                    .help("Ajoute le réseau de l’interface active")
             }
             Text(preview).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
             if let error {
                 Text(error)
                     .font(Theme.small).foregroundStyle(Theme.critical)
@@ -146,6 +146,40 @@ struct RegSitesSection: View {
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panelMuted))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius)
             .strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+    }
+
+    private var rangeField: some View {
+        RegField(label: "Plage (CIDR, début-fin ou IP)") {
+            RegTextField(placeholder: "172.16.0.0/22 ou 10.10.0.1-10.10.0.50", text: $newText, mono: true)
+                .onSubmit(add)
+        }
+        .lineLimit(1)
+    }
+
+    private var nameField: some View {
+        RegField(label: "Nom") {
+            RegTextField(placeholder: "Ex. Production", text: $newLabel)
+        }
+        .lineLimit(1)
+    }
+
+    private var vlanField: some View {
+        RegField(label: "VLAN") {
+            RegTextField(placeholder: "1–4094", text: $newVLAN, mono: true)
+        }
+        .lineLimit(1)
+    }
+
+    private var addButtons: some View {
+        HStack(spacing: 8) {
+            Button(action: add) { Label("Ajouter la plage", systemImage: "plus") }
+                .buttonStyle(.secondary)
+            Button(action: addDetected) { Label("Mon réseau", systemImage: "scope") }
+                .buttonStyle(.secondary)
+                .regDisabled(state.activeInterface == nil)
+                .help("Ajoute le réseau de l’interface active")
+        }
+        .fixedSize()
     }
 
     private func add() {
@@ -194,7 +228,7 @@ struct RegSitesSection: View {
             Text(text).font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
         }
         .padding(12)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
     }
 }

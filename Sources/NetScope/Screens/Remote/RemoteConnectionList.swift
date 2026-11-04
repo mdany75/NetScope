@@ -24,16 +24,10 @@ struct RemoteConnectionList: View {
                         .buttonStyle(RemoteSmallButtonStyle())
                         .help("Ouvrir le tableau des connexions (tri, colonnes)")
                 }
-                HStack(spacing: 6) {
-                    Button {
-                        model.startNew()
-                    } label: {
-                        Label("Nouvelle connexion", systemImage: "plus").labelStyle(RemoteCompactLabelStyle())
-                    }
-                    .buttonStyle(RemoteSmallButtonStyle(primary: true, fixed: false))
-                    Button("Importer du scan") { model.showImport = true }
-                        .buttonStyle(RemoteSmallButtonStyle(fixed: false))
-                        .help("Ajouter les appareils du scan qui ont 22, 23, 3389 ou 5900 ouverts")
+                // Côte à côte s'ils tiennent, sinon l'un sous l'autre (colonne étroite).
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 6) { newButton; importButton }
+                    VStack(spacing: 6) { newButton; importButton }
                 }
             }
             .padding(12)
@@ -78,6 +72,24 @@ struct RemoteConnectionList: View {
         }
     }
 
+    private var newButton: some View {
+        Button {
+            model.startNew()
+        } label: {
+            Label("Nouvelle connexion", systemImage: "plus").frame(maxWidth: .infinity)
+        }
+        .buttonStyle(RemoteSmallButtonStyle(primary: true, fixed: false))
+        .help("Créer une connexion SSH, Telnet, console série, RDP ou VNC")
+    }
+
+    private var importButton: some View {
+        Button { model.showImport = true } label: {
+            Text("Importer du scan").frame(maxWidth: .infinity)
+        }
+        .buttonStyle(RemoteSmallButtonStyle(fixed: false))
+        .help("Ajouter les appareils du scan qui ont 22, 23, 3389 ou 5900 ouverts")
+    }
+
     private func groupView(_ group: RemoteModel.RemoteGroup) -> some View {
         let open = !model.collapsedGroups.contains(group.id) || !model.searchText.isEmpty
         return VStack(alignment: .leading, spacing: 1) {
@@ -105,6 +117,24 @@ struct RemoteConnectionList: View {
         }
     }
 
+    private func addressLine(_ connection: RemoteConnection, compact: Bool) -> some View {
+        HStack(spacing: compact ? 4 : 6) {
+            Text(connection.address).font(Theme.mono(11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            if connection.proto.isInsecure {
+                Group {
+                    if compact {
+                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 9))
+                    } else {
+                        Text("NON SÉCURISÉ").font(.system(size: 10, weight: .bold))
+                    }
+                }
+                .foregroundStyle(Theme.warning)
+                .fixedSize()
+                .help("Non sécurisé : \(connection.proto.label) circule en clair sur le réseau")
+            }
+        }
+    }
+
     private func row(_ connection: RemoteConnection) -> some View {
         let selected = model.selectedID == connection.id && model.draft == nil
         let reach = model.state(of: connection.id)
@@ -120,12 +150,10 @@ struct RemoteConnectionList: View {
                             Text(connection.name).font(.system(size: 12.5, weight: .semibold)).lineLimit(1)
                             RemoteProtoBadge(proto: connection.proto)
                         }
-                        HStack(spacing: 6) {
-                            Text(connection.address).font(Theme.mono(11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                            if connection.proto.isInsecure {
-                                Text("NON SÉCURISÉ").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.warning)
-                                    .fixedSize()
-                            }
+                        // « NON SÉCURISÉ » en toutes lettres s'il tient, sinon un triangle : l'adresse reste entière.
+                        ViewThatFits(in: .horizontal) {
+                            addressLine(connection, compact: false)
+                            addressLine(connection, compact: true)
                         }
                     }
                     Spacer(minLength: 4)
@@ -153,7 +181,7 @@ struct RemoteConnectionList: View {
             .help(connection.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris")
         }
         .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(selected ? Theme.accentSoft : Color.clear))
-        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(selected ? Color(light: 0xBFDBFE, dark: 0x2B5282) : Color.clear))
+        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(selected ? Theme.accent.opacity(0.35) : Color.clear))
     }
 }
 
@@ -167,28 +195,29 @@ struct RemoteCompactLabelStyle: LabelStyle {
     }
 }
 
-/// Bouton compact (30 pt, 12 pt) des colonnes étroites ; `primary` : fond accent.
-struct RemoteSmallButtonStyle: ButtonStyle {
+/// Bouton des colonnes étroites, natif de macOS (grande taille, hauteur des croquis) : bouton à
+/// bordure, ou proéminent à la couleur `tint` avec `primary`.
+struct RemoteSmallButtonStyle: PrimitiveButtonStyle {
     var primary = false
     var tint: Color = Theme.accent
     /// false : le bouton s'étire et le texte peut rétrécir un peu.
     var fixed = true
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12, weight: .medium))
-            .lineLimit(1)
-            .minimumScaleFactor(fixed ? 1 : 0.8)
-            .foregroundStyle(primary ? Color.white : Theme.text)
-            .padding(.horizontal, fixed ? 9 : 6)
-            .frame(maxWidth: fixed ? nil : .infinity)
-            .frame(height: 30)
-            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius)
-                .fill(primary ? (configuration.isPressed ? Theme.accentStrong : tint)
-                              : (configuration.isPressed ? Theme.panelMuted : Theme.panel)))
-            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius)
-                .strokeBorder(primary ? Color.clear : Theme.border))
-            .contentShape(RoundedRectangle(cornerRadius: Theme.buttonRadius))
-            .fixedSize(horizontal: fixed, vertical: false)
+        let button = Button(role: configuration.role, action: configuration.trigger) {
+            configuration.label
+                .lineLimit(1)
+                .minimumScaleFactor(fixed ? 1 : 0.8)
+                .frame(maxWidth: fixed ? nil : .infinity)
+        }
+        .controlSize(.large)
+        .fixedSize(horizontal: fixed, vertical: false)
+        return Group {
+            if primary {
+                button.buttonStyle(.borderedProminent).tint(tint)
+            } else {
+                button.buttonStyle(.bordered)
+            }
+        }
     }
 }
