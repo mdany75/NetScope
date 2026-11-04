@@ -161,11 +161,13 @@ struct QuickLoginSheet: View {
     }
 
     private var sourceText: String {
+        // Exemple de saisie « utilisateur@adresse » pris sur l'appareil visé, pas sur une adresse fictive.
+        let host = target.device.host
         switch source {
-        case .device: return "Dernier utilisateur de cet appareil («\u{00A0}admin@10.0.0.2\u{00A0}» est aussi accepté)."
-        case .site: return "Dernier utilisateur de ce site («\u{00A0}admin@10.0.0.2:2222\u{00A0}» est aussi accepté)."
+        case .device: return "Dernier utilisateur de cet appareil («\u{00A0}admin@\(host)\u{00A0}» est aussi accepté)."
+        case .site: return "Dernier utilisateur de ce site («\u{00A0}admin@\(host):2222\u{00A0}» est aussi accepté)."
         case .credential(let name): return "Repris de l’identifiant «\u{00A0}\(name)\u{00A0}» (Réglages › Identifiants)."
-        case .none: return "Lettres, chiffres, «\u{00A0}.\u{00A0}», «\u{00A0}_\u{00A0}», «\u{00A0}-\u{00A0}» et «\u{00A0}@\u{00A0}»\u{00A0}; «\u{00A0}admin@10.0.0.2\u{00A0}» est accepté."
+        case .none: return "Lettres, chiffres, «\u{00A0}.\u{00A0}», «\u{00A0}_\u{00A0}», «\u{00A0}-\u{00A0}» et «\u{00A0}@\u{00A0}»\u{00A0}; «\u{00A0}admin@\(host)\u{00A0}» est accepté."
         }
     }
 

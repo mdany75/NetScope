@@ -201,7 +201,7 @@ struct FortiAPTable: View {
                 TableColumn(StandardTableHeading("ADRESSE IP"), sortUsing: table.sort("ip")) { row in
                     WifiCell(row.ap.ip?.description ?? "—", mono: 12, dimmed: row.ap.ip == nil || row.ap.isOffline)
                 }
-                .width(min: 90, ideal: 104)
+                .width(min: 104, ideal: 112)
                 .customizationID("ip")
 
                 TableColumn(StandardTableHeading("RADIOS (CANAL)"), sortUsing: table.sort("radios")) { row in
@@ -215,7 +215,7 @@ struct FortiAPTable: View {
                     WifiCell(row.ap.isOffline ? "—" : "\(row.clients)", mono: 12, weight: .semibold, color: Theme.text, dimmed: row.ap.isOffline)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                .width(min: 50, ideal: 58)
+                .width(min: 64, ideal: 68)
                 .customizationID("clients")
 
                 TableColumn(StandardTableHeading("UTILISATION"), sortUsing: table.sort("utilisation")) { row in
@@ -226,7 +226,7 @@ struct FortiAPTable: View {
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .help("Utilisation la plus haute parmi les radios")
                 }
-                .width(min: 64, ideal: 80)
+                .width(min: 84, ideal: 88)
                 .customizationID("utilisation")
 
                 TableColumn(StandardTableHeading("FIRMWARE"), sortUsing: table.sort("firmware")) { row in
@@ -245,7 +245,7 @@ struct FortiAPTable: View {
                 .defaultVisibility(.hidden)
 
                 TableColumn(StandardTableHeading("SITE"), sortUsing: table.sort("site")) { row in WifiCell(row.ap.site) }
-                    .width(min: 60, ideal: 100)
+                    .width(min: 60, ideal: 92)
                     .customizationID("site")
                     .defaultVisibility(.hidden)
             }
