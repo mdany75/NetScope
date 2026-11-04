@@ -128,6 +128,12 @@ struct DeviceOverviewTab: View {
                     DeviceKVRow(key: "Fabricant", value: device.vendorLabel)
                 }
                 DeviceKVRow(key: "Famille", value: device.deviceType.label, mono: false)
+                // Note 30 : ce qui fait d'un appareil un téléphone IP.
+                // Le nom d'hôte est sur la ligne « Modèle / hôte » juste dessous.
+                let evidence = device.deviceType == .telephoneIP ? VoIPClassifier.evidence(device, includeName: false) : []
+                if !evidence.isEmpty {
+                    DeviceKVRow(key: "Indices VoIP", value: evidence.joined(separator: " · "), mono: false)
+                }
                 DeviceKVRow(key: "Modèle / hôte", value: device.hostname ?? "—")
                 DeviceKVRow(key: "Ports ouverts", value: device.openPorts.isEmpty ? "aucun connu"
                             : "\(device.openPorts.count) · " + device.openPorts.prefix(6).map(String.init).joined(separator: ", "))

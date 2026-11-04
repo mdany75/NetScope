@@ -391,6 +391,7 @@ final class ScanController: ObservableObject {
                 device.nameDomain = known.nameDomain
             }
             device.snmpKind = incoming.snmpKind ?? known.snmpKind
+            device.voipSignals = incoming.voipSignals ?? known.voipSignals
             device.switchName = known.switchName
             device.switchPort = known.switchPort
             device.vlan = known.vlan ?? incoming.vlan
@@ -436,6 +437,8 @@ final class ScanController: ObservableObject {
         isRunning = false
         phase = nil
         scanTask = nil
+        // Note 30 : téléphones IP d'après les voisins LLDP / CDP et le VLAN voix déjà connus.
+        applyVoIPHints(state)
         // Note 28 : date du scan du site, MAC de sa passerelle, résultats écrits dans le dossier du site.
         SiteModel.shared.scanFinished(state)
         let online = state.devices.filter { device in device.isOnline && targets.contains { $0.range.contains(device.ip) } }.count

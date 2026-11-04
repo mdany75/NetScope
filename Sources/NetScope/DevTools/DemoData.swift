@@ -68,6 +68,10 @@ enum DemoData {
         Row(ip: "10.182.122.111", name: "Imprimante accueil", host: "Brother DCP-L2640DW", vendor: "Brother", mac: "94:DD:F8:18:15:7D", latency: 4.1, ports: [80, 443, 9100, 631], sw: "SW-ETG2-01", port: "1/14", vlan: 30, minutesAgo: 0, type: .imprimante, online: true, range: "Bureau"),
         Row(ip: "10.182.122.113", name: "Portable Marc", host: "PF4L8M20", vendor: "Lenovo", mac: "8C:16:45:2B:9E:03", latency: 5.2, ports: [135, 445], sw: "SW-ETG2-01", port: "1/3", vlan: 1, minutesAgo: 1, type: .poste, online: true, range: "Bureau"),
         Row(ip: "10.182.122.117", name: "Poste comptabilité", host: "WKS346", vendor: "Dell", mac: "B0:7B:25:44:A1:6C", latency: 1.9, ports: [135, 445, 3389], sw: "SW-CORE-01", port: "Gi1/0/22", vlan: 1, minutesAgo: 0, type: .poste, online: true, range: "Bureau"),
+        // Note 30 : téléphones IP Yealink sur SW-ETG2-01, VLAN voix 20 (annoncés « téléphone » par LLDP-MED).
+        Row(ip: "10.182.122.121", name: "Téléphone accueil", host: "SIP-T54W", vendor: "Yealink", mac: "80:5E:C0:3A:61:21", latency: 2.1, ports: [80, 443, 5060], sw: "SW-ETG2-01", port: "1/10", vlan: 20, minutesAgo: 0, type: .telephoneIP, online: true, range: "Bureau"),
+        Row(ip: "10.182.122.122", name: nil, host: "SIP-T46U", vendor: "Yealink", mac: "80:5E:C0:3A:61:22", latency: 2.4, ports: [80, 443, 5060], sw: "SW-ETG2-01", port: "1/15", vlan: 20, minutesAgo: 0, type: .telephoneIP, online: true, range: "Bureau"),
+        Row(ip: "10.182.122.123", name: "Téléphone conférence 2.08", host: "SIP-T33G", vendor: "Yealink", mac: "80:5E:C0:3A:61:23", latency: 2.9, ports: [80, 5060], sw: "SW-ETG2-01", port: "1/16", vlan: 20, minutesAgo: 1, type: .telephoneIP, online: true, range: "Bureau"),
         Row(ip: "10.182.122.133", name: nil, host: "Android_89UM1WTN", vendor: nil, mac: "D6:4E:81:7A:33:C0", latency: 18.6, ports: [], sw: "FortiAP-231F", port: "Wi-Fi", vlan: 20, minutesAgo: 4, type: .telephone, online: true, range: "Bureau"),
         Row(ip: "10.182.122.135", name: "Ce Mac", host: "Macmini-de-Dany.local", vendor: "Apple", mac: "3C:22:FB:7E:05:B1", latency: 0.1, ports: [22, 5900], sw: "FortiAP-231F", port: "Wi-Fi", vlan: 20, minutesAgo: 0, type: .poste, online: true, range: "Bureau"),
         Row(ip: "10.182.122.140", name: nil, host: "NPI7A4410", vendor: "HP", mac: "00:1A:2B:44:10:EE", latency: 7.8, ports: [80, 9100], sw: "SW-ETG2-01", port: "1/18", vlan: 30, minutesAgo: 3, type: .imprimante, online: true, range: "Bureau"),
@@ -86,6 +90,7 @@ enum DemoData {
         "10.182.122.1": (.snmp, nil), "10.182.122.2": (.snmp, nil), "10.182.122.3": (.snmp, nil),
         "10.182.122.100": (.mdns, nil), "10.182.122.102": (.dns, nil), "10.182.122.106": (.mdns, nil),
         "10.182.122.111": (.mdns, nil), "10.182.122.113": (.netbios, "BUREAU"), "10.182.122.117": (.netbios, "BUREAU"),
+        "10.182.122.121": (.dns, nil), "10.182.122.122": (.dns, nil), "10.182.122.123": (.dns, nil),
         "10.182.122.133": (.dns, nil), "10.182.122.135": (.mdns, nil), "10.182.122.140": (.netbios, "WORKGROUP"),
         "10.182.122.146": (.netbios, "BUREAU"), "192.168.50.21": (.dns, nil), "192.168.50.22": (.mdns, nil),
         "10.10.0.10": (.dns, nil), "10.10.0.31": (.fortigate, nil), "192.168.50.31": (.fortigate, nil),
@@ -94,6 +99,12 @@ enum DemoData {
     /// Nature SNMP des appareils qui ont répondu à la découverte automatique (démonstration).
     private static let snmpKinds: [String: SNMPDeviceKind] = [
         "10.182.122.1": .routeur, "10.182.122.2": .switch, "10.182.122.3": .switch, "10.182.122.111": .imprimante,
+    ]
+
+    /// Indices de téléphonie IP (note 30) : annonce LLDP-MED « téléphone » relevée sur SW-ETG2-01, VLAN voix 20.
+    private static let voipSignals: [String: VoIPSignals] = [
+        "10.182.122.121": [.announcedPhone, .voiceVLAN], "10.182.122.122": [.announcedPhone, .voiceVLAN],
+        "10.182.122.123": [.announcedPhone, .voiceVLAN],
     ]
 
     /// Appareils datés par rapport à `now` (« à l'instant », « il y a 3 h »).
@@ -106,7 +117,8 @@ enum DemoData {
                           switchPort: row.port, vlan: row.vlan,
                           firstSeen: now.addingTimeInterval(-14 * 86_400), lastSeen: seen,
                           rangeLabel: row.range, deviceType: row.type,
-                          nameSource: names[row.ip]?.0, nameDomain: names[row.ip]?.1, snmpKind: snmpKinds[row.ip])
+                          nameSource: names[row.ip]?.0, nameDomain: names[row.ip]?.1, snmpKind: snmpKinds[row.ip],
+                          voipSignals: voipSignals[row.ip])
         }
         .sorted { $0.ip < $1.ip }
     }

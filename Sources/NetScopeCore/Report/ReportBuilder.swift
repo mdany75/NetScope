@@ -495,11 +495,13 @@ public enum ReportBuilder {
     static func vlanName(_ vlan: Int, devices: [Device]) -> String {
         let counts = Dictionary(grouping: devices, by: \.deviceType).mapValues(\.count)
         // À égalité, l'équipement le plus parlant l'emporte (une borne nomme son VLAN mieux qu'un poste).
-        let priority: [DeviceType] = [.pointAcces, .camera, .imprimante, .serveur, .telephone, .iot, .poste]
+        let priority: [DeviceType] = [.pointAcces, .telephoneIP, .camera, .imprimante, .serveur, .telephone, .iot, .poste]
         func rank(_ type: DeviceType) -> Int { priority.firstIndex(of: type) ?? priority.count }
         guard let top = counts.max(by: { ($0.value, -rank($0.key)) < ($1.value, -rank($1.key)) })?.key else { return "VLAN \(vlan)" }
         switch top {
         case .pointAcces, .telephone: return "Wi-Fi / AP"
+        // Téléphones IP (note 30) : VLAN voix, partagé avec le Wi-Fi s'il porte aussi une borne.
+        case .telephoneIP: return counts[.pointAcces] != nil ? "Voix et Wi-Fi" : "Voix (téléphonie IP)"
         case .imprimante, .iot, .domotique: return "Imprimantes et IoT"
         case .camera: return "Caméras"
         case .serveur: return "Serveurs"
@@ -625,6 +627,7 @@ public enum ReportBuilder {
         case .switch: return "Switch"
         case .routeur: return "Pare-feu"
         case .telephone: return "Téléphone"
+        case .telephoneIP: base = "Tél. IP"
         case .console: base = "Console"
         case .domotique: base = "Domotique"
         case .iot: return "Objet connecté"

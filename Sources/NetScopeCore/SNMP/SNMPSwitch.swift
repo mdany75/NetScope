@@ -271,8 +271,12 @@ public struct SNMPLLDPCapabilities: OptionSet, Hashable, Sendable, Codable {
         return result
     }
 
-    /// Équipement d'infrastructure : un port vers lui est un uplink.
-    public var isInfrastructure: Bool { contains(.bridge) || contains(.router) || contains(.repeater) }
+    /// Équipement d'infrastructure : un port vers lui est un uplink. Un téléphone IP annonce souvent
+    /// « Bridge, Telephone » (son petit switch pour le poste branché derrière) : ce n'en est pas un.
+    public var isInfrastructure: Bool {
+        if contains(.router) { return true }
+        return (contains(.bridge) || contains(.repeater)) && !contains(.telephone)
+    }
 }
 
 public struct SNMPLLDPNeighbor: Hashable, Sendable, Codable {

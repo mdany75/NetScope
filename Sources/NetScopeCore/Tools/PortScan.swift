@@ -236,7 +236,7 @@ public enum PortScanner {
         636: "ldaps", 853: "dns-tls", 873: "rsync", 902: "vmware", 993: "imaps", 995: "pop3s",
         1080: "socks", 1433: "mssql", 1521: "oracle", 1723: "pptp", 1883: "mqtt", 1900: "ssdp",
         2049: "nfs", 2222: "ssh-alt", 3000: "http-dev", 3128: "proxy", 3268: "ldap-gc", 3306: "mysql",
-        3389: "rdp", 4443: "https-alt", 5000: "upnp", 5001: "https-alt", 5060: "sip", 5222: "xmpp",
+        3389: "rdp", 4443: "https-alt", 5000: "upnp", 5001: "https-alt", 5060: "sip", 5061: "sips", 5222: "xmpp",
         5353: "mdns", 5432: "postgresql", 5900: "vnc", 5985: "winrm", 5986: "winrm-tls", 6379: "redis",
         6443: "kubernetes", 7070: "rtsp-alt", 8000: "http-alt", 8008: "http-alt", 8080: "http-alt",
         8081: "http-alt", 8088: "http-alt", 8291: "winbox", 8443: "https-alt", 8554: "rtsp-alt",

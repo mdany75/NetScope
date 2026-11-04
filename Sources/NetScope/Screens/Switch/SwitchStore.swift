@@ -441,6 +441,7 @@ final class SwitchStore: ObservableObject {
         // Les FortiSwitch lus par la FortiGate passent avant SNMP (note 24).
         let located = FortiLocate.locate(devices, controller: usableControllerSnapshots(state), snmp: all)
         state.devices = located.devices
+        ScanController.shared.applyVoIPHints(state)   // note 30 : voisins LLDP « téléphone », VLAN voix
         let ports = located.ports
         var bySwitch: [IPv4Address: [IPv4Address]] = [:]
         for device in located.devices {

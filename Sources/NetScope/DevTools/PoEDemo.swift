@@ -14,6 +14,7 @@ enum PoEDemo {
     private static let etgPowered: [Int: (class: Int, mw: Int)] = [
         4: (3, 5_800), 5: (3, 6_200), 6: (3, 6_600),  // caméras de l'étage 2
         9: (3, 9_600),                                 // affichage dynamique du hall
+        10: (2, 4_600), 15: (2, 4_100), 16: (2, 3_900), // téléphones IP Yealink (note 30)
     ]
 
     /// Ports PSE d'un relevé fictif : tous les ports cuivre du switch (les SFP+ n'en sont pas).

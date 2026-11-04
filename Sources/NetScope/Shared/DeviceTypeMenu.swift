@@ -30,6 +30,7 @@ extension DeviceType {
         case .switch: return "rectangle.connected.to.line.below"
         case .routeur: return "network"
         case .telephone: return "iphone"
+        case .telephoneIP: return "phone.connection"
         case .console: return "gamecontroller"
         case .domotique: return "house"
         case .iot: return "sensor"

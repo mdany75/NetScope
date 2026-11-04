@@ -20,6 +20,7 @@ enum TopoStyle {
             case .camera: return (Color(light: 0x92400E, dark: 0xF4B68F), Color(light: 0xFEF3C7, dark: 0x50461B))
             case .serveur: return (Color(light: 0x1E3A8A, dark: 0x9AAFE9), Color(light: 0xE0E7FF, dark: 0x1B2750))
             case .telephone: return (Color(light: 0x6D28D9, dark: 0xB897ED), Color(light: 0xF5F3FF, dark: 0x241B50))
+            case .telephoneIP: return (Color(light: 0xBE185D, dark: 0xF29BC4), Color(light: 0xFCE7F3, dark: 0x50203A))
             default: return (Color(light: 0x374151, dark: 0xB6BFCE), Color(light: 0xF3F4F6, dark: 0x2E333D))
             }
         }

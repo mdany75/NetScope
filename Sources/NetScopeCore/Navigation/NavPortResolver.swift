@@ -52,7 +52,8 @@ public enum NavPortResolver {
         guard let neighbor else { return false }
         if neighbor.portID == "FortiLink" { return true }
         guard let capabilities = neighbor.capabilities else { return false }
-        return capabilities.contains(.bridge) || capabilities.contains(.router)
+        // Téléphone IP « Bridge, Telephone » (note 30) : un appareil, pas un switch.
+        return capabilities.contains(.router) || (capabilities.contains(.bridge) && !capabilities.contains(.telephone))
     }
 
     /// Filtre « Port : SW-ETG2-01 · 1/14 » : les appareils connus derrière ce port (nil s'il n'y en a pas).

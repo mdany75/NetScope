@@ -186,7 +186,8 @@ struct PortTag: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Text("\(port)").font(Theme.mono(11, weight: .semibold))
+            // Sans séparateur de milliers : « 5060 », pas « 5 060 ».
+            Text(verbatim: String(port)).font(Theme.mono(11, weight: .semibold))
             if showService, let name = PortTag.serviceName(port) {
                 Text(name).font(Theme.caption)
             }
@@ -220,6 +221,8 @@ struct PortTag: View {
         case 631: return "ipp"
         case 3306: return "mysql"
         case 3389: return "rdp"
+        case 5060: return "sip"
+        case 5061: return "sips"
         case 5900: return "vnc"
         case 8080: return "http-alt"
         case 8443: return "https-alt"
