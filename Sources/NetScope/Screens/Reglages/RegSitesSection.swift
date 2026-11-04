@@ -208,7 +208,7 @@ struct RegSitesSection: View {
     private var preview: String {
         let text = newText.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty else {
-            return "Formats acceptés : 10.0.0.0/24, 10.0.0.1-10.0.0.50, 10.0.0.1-50, liste 10.0.0.9, 10.0.0.12 — au plus \(RegFormat.count(Int(IPRange.maxAddresses))) adresses."
+            return "Formats acceptés\u{00A0}: 10.0.0.0/24, 10.0.0.1-10.0.0.50, 10.0.0.1-50, liste 10.0.0.9, 10.0.0.12 — au plus \(RegFormat.count(Int(IPRange.maxAddresses))) adresses."
         }
         do {
             let range = try IPRange(parsing: text)
@@ -297,14 +297,14 @@ struct RegSitesSection: View {
         do {
             _ = try IPRange(parsing: text)
         } catch {
-            self.error = "Plage invalide : « \(text.isEmpty ? "vide" : text) ». \(error.localizedDescription)"
+            self.error = "Plage invalide\u{00A0}: «\u{00A0}\(text.isEmpty ? "vide" : text)\u{00A0}». \(error.localizedDescription)"
             return
         }
         let vlanText = newVLAN.trimmingCharacters(in: .whitespaces)
         var vlan: Int?
         if !vlanText.isEmpty {
             guard let value = Int(vlanText), (1...4094).contains(value) else {
-                error = "VLAN invalide : saisir un nombre de 1 à 4094."
+                error = "VLAN invalide\u{00A0}: saisir un nombre de 1 à 4094."
                 return
             }
             vlan = value

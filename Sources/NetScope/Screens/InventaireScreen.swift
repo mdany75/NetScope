@@ -132,7 +132,7 @@ struct InventaireScreen: View {
     private func header(now: Date) -> some View {
         HStack(spacing: 12) {
             // Note 28 : l'inventaire est propre au site actif.
-            InvSiteChip()
+            InvSiteChip().layoutPriority(1)
             // Segments égaux, plus larges que le plus long libellé : « Disparus > 30 j » n'est pas serré.
             Picker("Vue de l’inventaire", selection: $view) {
                 ForEach(InvView.allCases, id: \.self) { Text($0.label).tag($0) }
@@ -141,13 +141,16 @@ struct InventaireScreen: View {
             .labelsHidden()
             .frame(width: 452)
             .fixedSize()
-            // Petite fenêtre : seule la date de fusion reste, plutôt qu'une phrase coupée.
+            // Petite fenêtre : seule la date de fusion reste, sinon rien (jamais une phrase coupée ;
+            // la légende complète reste au survol).
             ViewThatFits(in: .horizontal) {
                 Text("Tous les appareils jamais vus sur ce site · " + mergeCaption(now: now)).fixedSize()
-                Text(mergeCaption(now: now).prefix(1).uppercased() + mergeCaption(now: now).dropFirst()).lineLimit(1)
+                Text(mergeCaption(now: now).prefix(1).uppercased() + mergeCaption(now: now).dropFirst()).fixedSize()
+                Color.clear.frame(width: 0, height: 0)
             }
             .font(Theme.small)
             .foregroundStyle(Theme.textSecondary)
+            .help("Tous les appareils jamais vus sur ce site · " + mergeCaption(now: now))
             Spacer(minLength: 0)
             if let toast = model.toast { InvToast(text: toast) }
         }
@@ -276,14 +279,16 @@ struct InvSiteChip: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "mappin.circle.fill").font(.system(size: 12))
-                Text(sites.activeName).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                Text(sites.activeName).font(.system(size: 12, weight: .semibold)).lineLimit(1).truncationMode(.tail)
             }
             .foregroundStyle(Theme.accentStrong)
             .padding(.horizontal, 10)
             .frame(height: 24)
             .background(Capsule().fill(Theme.accentSoft))
             .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.5)))
-            .fixedSize()
+            // Nom long tronqué plutôt que de pousser la légende hors de l'en-tête.
+            .frame(maxWidth: 200)
+            .fixedSize(horizontal: false, vertical: true)
         }
         .buttonStyle(.plain)
         .help("Inventaire du site «\u{00A0}\(sites.activeName)\u{00A0}» seulement. Changer de site\u{00A0}: menu «\u{00A0}Site\u{00A0}» du Scanner ou barre latérale.")

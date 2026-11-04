@@ -32,6 +32,12 @@ final class SiteModel: ObservableObject {
     private weak var attachedState: AppState?
     /// Message de la migration, montré une fois dans le Scanner.
     private var migrationMessage: String?
+    /// Migration ou lecture de sites.json en échec : la liste n'est jamais réécrite (une liste
+    /// vide écraserait les sites), jusqu'au prochain lancement.
+    private(set) var saveBlocked = false
+    /// Le scan en cours a été lancé par « Scanner sans enregistrer » : ses plages ne sont pas
+    /// celles du site, rien n'en est appris (MAC de la passerelle).
+    private var scanWithoutSaving = false
 
     init() {
         let arguments = CommandLine.arguments
@@ -45,9 +51,26 @@ final class SiteModel: ObservableObject {
         let files = SiteFiles.standard
         self.files = files
         shelf = SiteResultsShelf(files: files)
-        if let saved = files.loadList() {
+        switch files.readList() {
+        case .loaded(let saved):
             list = saved
-        } else {
+        case .unreadable:
+            // sites.json présent mais illisible : jamais pris pour une première ouverture (la
+            // migration l'écraserait). Il est mis de côté et la liste est refaite à partir des
+            // dossiers des sites : aucun inventaire n'est perdu.
+            let aside = files.setAsideUnreadableList()
+            if aside == nil {
+                saveBlocked = true
+                list = SiteList()
+                migrationMessage = "La liste des sites (\(SiteFiles.listName)) est illisible et n’a pas pu être mise de côté\u{00A0}: elle ne sera pas modifiée. Vérifiez le dossier de données de NetScope."
+            } else {
+                list = files.recoveredList()
+                let count = list.sites.count
+                migrationMessage = "La liste des sites était illisible (mise de côté\u{00A0}: \(aside!.lastPathComponent)). "
+                    + (count == 0 ? "Aucun inventaire de site à reprendre."
+                                  : "\(count) site\(count > 1 ? "s" : "") récupéré\(count > 1 ? "s" : "") avec leur inventaire\u{00A0}: renommez-les et refaites leurs plages dans Réglages › Sites.")
+            }
+        case .missing:
             // Première ouverture de la 0.12.0 : plages, inventaire, noms et FortiGate deviennent
             // ceux de « Site principal » ; l'ancien inventaire est gardé en copie de sécurité.
             let state = StateStore.standard.load()
@@ -56,12 +79,28 @@ final class SiteModel: ObservableObject {
                                                                customNames: state?.customNames ?? [:],
                                                                controllers: FortiGateStore.savedControllers())
                 list = result?.list ?? SiteList()
-                if let result, let count = result.migratedRecords {
+                if let result, result.recoveredSites > 0 {
+                    let count = result.recoveredSites
+                    migrationMessage = "La liste des sites manquait\u{00A0}: \(count) site\(count > 1 ? "s" : "") récupéré\(count > 1 ? "s" : "") avec leur inventaire. Renommez-les et refaites leurs plages dans Réglages › Sites."
+                } else if let result, let count = result.migratedRecords {
                     migrationMessage = "Vos plages et votre inventaire (\(count) fiche\(count > 1 ? "s" : "")) sont maintenant ceux du site «\u{00A0}\(SiteMigration.firstSiteName)\u{00A0}». Copie de sécurité\u{00A0}: \(SiteFiles.legacyBackupName)."
                 }
             } catch {
+                // Rien n'est écrit tant que la migration n'a pas réussi : elle sera refaite au
+                // prochain lancement, avec le même site (l'ancien inventaire est toujours là).
                 NSLog("NetScope : migration des sites impossible : %@", error.localizedDescription)
+                saveBlocked = true
                 list = SiteList()
+                migrationMessage = "La migration vers les sites a échoué (\(error.localizedDescription)). Votre inventaire n’est pas touché\u{00A0}; elle sera refaite au prochain lancement."
+            }
+        }
+        // Notes d'appareils d'avant les sites encore présentes : elles vont au premier site (ou au site actif).
+        if !saveBlocked {
+            let target = list.sites.first { $0.name == SiteMigration.firstSiteName }?.id ?? list.activeID
+            do {
+                try SiteMigration.migrateDeviceNotes(files: files, into: SiteFiles.key(for: target))
+            } catch {
+                NSLog("NetScope : notes des appareils non reprises : %@", error.localizedDescription)
             }
         }
     }
@@ -138,8 +177,8 @@ final class SiteModel: ObservableObject {
     func activate(_ id: UUID?, state: AppState, confirm: Bool = true, announce: Bool = true) {
         guard id != list.activeID else { return }
         let scan = ScanController.shared
-        guard !scan.isBusy else {
-            scan.show("Arrêtez le scan ou la sonde de ports avant de changer de site.", tone: .warning)
+        if let reason = busyReason() {
+            scan.show("\(reason) avant de changer de site.", tone: .warning)
             return
         }
         if confirm, hasUnsavedRanges(state) {
@@ -153,6 +192,16 @@ final class SiteModel: ObservableObject {
         guard announce else { return }
         scan.show(id == nil ? "Aucun site actif\u{00A0}: plages libres, FortiGate choisie par plage."
                             : "Site «\u{00A0}\(activeName)\u{00A0}»\u{00A0}: plages, inventaire et résultats du site.", tone: .neutral)
+    }
+
+    /// Travail en cours sur le réseau du site actif : scan, sonde de ports, interrogation des
+    /// switchs, lecture FortiGate. Ses résultats iraient sinon dans le site choisi (note 28).
+    private func busyReason() -> String? {
+        if ScanController.shared.isBusy { return "Arrêtez le scan ou la sonde de ports" }
+        let switches = SwitchStore.shared
+        if switches.isPolling || switches.isDiscovering { return "Attendez la fin de l’interrogation des switchs" }
+        if FortiGateStore.shared.isBusy { return "Attendez la fin de la lecture des FortiGate" }
+        return nil
     }
 
     /// Mise de côté du site quitté, puis chargement du site choisi.
@@ -185,6 +234,7 @@ final class SiteModel: ObservableObject {
         FortiGateStore.shared.siteChanged(state: state)
         RapportModel.shared.siteChanged(activeSite)
         inventory.updateBadge(state)
+        DeviceNotesStore.shared.switchSite(to: newKey, url: files?.notesURL(for: newKey), adopt: adoptCurrent)
     }
 
     /// Résultats actuels (appareils, noms, état du scan, bilan des switchs).
@@ -220,20 +270,27 @@ final class SiteModel: ObservableObject {
     func scanFinished(_ state: AppState) {
         if let id = list.activeID, let index = list.index(of: id) {
             list.sites[index].lastScan = Date()
-            if let gateway = state.activeInterface?.gateway, let mac = state.device(withID: gateway.description)?.mac,
-               list.sites[index].hints.gatewayMACs.isEmpty {
-                // Premier scan du site : la MAC de sa passerelle le reconnaîtra ensuite (« Détecter mon site »).
+            // Premier scan du site : la MAC de sa passerelle le reconnaîtra ensuite (« Détecter mon
+            // site »). Jamais après « Scanner sans enregistrer » (souvent chez un autre client), ni
+            // si les plages ne sont plus celles du site et que la passerelle n'y est pas.
+            if !scanWithoutSaving, let gateway = state.activeInterface?.gateway,
+               let mac = state.device(withID: gateway.description)?.mac,
+               list.sites[index].hints.gatewayMACs.isEmpty,
+               !hasUnsavedRanges(state) || list.sites[index].contains(gateway),
+               !list.sites.contains(where: { $0.id != id && $0.hints.gatewayMACs.contains(mac) }) {
                 list.sites[index].hints.learn(gatewayMAC: mac)
             }
             SiteFortiGate.refreshHints(&list.sites[index], controllers: FortiGateStore.shared.controllers)
             save()
         }
+        scanWithoutSaving = false
         shelf.shelve(collect(from: state), for: activeKey)
     }
 
     /// Avant un scan : si les plages ne sont plus celles du site actif, on demande (le scan irait
     /// dans l'inventaire de ce site). Faux : le scan n'est pas lancé.
     func confirmScan(_ state: AppState) -> Bool {
+        scanWithoutSaving = false
         guard hasUnsavedRanges(state), !isEphemeral else { return true }
         let alert = NSAlert()
         alert.messageText = "Les plages ne sont plus celles du site «\u{00A0}\(activeName)\u{00A0}»"
@@ -251,6 +308,7 @@ final class SiteModel: ObservableObject {
             state.open(.scanner)
             return false
         case .alertThirdButtonReturn:
+            scanWithoutSaving = true
             return true
         default:
             return false
@@ -320,14 +378,23 @@ final class SiteModel: ObservableObject {
     }
 
     func update(_ site: Site, state: AppState) {
+        let old = list.site(site.id)
         list.update(site)
-        // Plages du site actif modifiées dans les Réglages : le Scanner les reprend.
-        if site.id == list.activeID { state.ranges = site.ranges }
         save()
-        if site.id == list.activeID {
-            FortiGateStore.shared.siteChanged(state: state)
-            RapportModel.shared.siteChanged(activeSite)
-        }
+        guard site.id == list.activeID else { return }
+        // Plages du site actif modifiées dans les Réglages : le Scanner les reprend. Seulement si
+        // elles ont changé : des plages du Scanner pas encore enregistrées restent sinon intactes.
+        if let old, !Site.sameRanges(old.ranges, site.ranges) { state.ranges = site.ranges }
+        if old?.fortiGateIDs != site.fortiGateIDs { FortiGateStore.shared.siteChanged(state: state) }
+        RapportModel.shared.siteChanged(activeSite)
+    }
+
+    /// Notes du site (Réglages › Sites) : ne touche ni aux plages du Scanner ni aux FortiGate.
+    func setNotes(_ notes: String, for id: UUID) {
+        guard let index = list.index(of: id), list.sites[index].notes != notes else { return }
+        list.sites[index].notes = notes
+        save()
+        if id == list.activeID { RapportModel.shared.siteChanged(activeSite) }
     }
 
     func rename(_ id: UUID, to name: String) {
@@ -347,9 +414,10 @@ final class SiteModel: ObservableObject {
     /// actif supprimé laisse place aux plages libres.
     func remove(_ id: UUID, state: AppState) {
         let key = SiteFiles.key(for: id)
-        if id == list.activeID {
-            guard !ScanController.shared.isBusy else {
-                ScanController.shared.show("Arrêtez le scan avant de supprimer le site actif.", tone: .warning)
+        let wasActive = id == list.activeID
+        if wasActive {
+            if let reason = busyReason() {
+                ScanController.shared.show("\(reason) avant de supprimer le site actif.", tone: .warning)
                 return
             }
             InvModel.shared.switchSite(to: SiteFiles.noSiteKey, url: files?.inventoryURL(for: SiteFiles.noSiteKey), demoStore: nil, discardCurrent: true)
@@ -357,11 +425,16 @@ final class SiteModel: ObservableObject {
             apply(shelf.take(SiteFiles.noSiteKey), to: state)
             FortiGateStore.shared.siteChanged(state: state)
             RapportModel.shared.siteChanged(nil)
+            InvModel.shared.updateBadge(state)
+            DeviceNotesStore.shared.switchSite(to: SiteFiles.noSiteKey, url: files?.notesURL(for: SiteFiles.noSiteKey), adopt: false)
         }
         list.remove(id)
         shelf.forget(key)
         files?.removeFolder(for: key)
         save()
+        if wasActive {
+            ScanController.shared.show("Site supprimé\u{00A0}: aucun site actif. Les plages du Scanner restent celles du site supprimé, sans être enregistrées.", tone: .neutral)
+        }
     }
 
     /// Associe un switch SNMP aux sites donnés (aucun, un ou plusieurs).
@@ -408,7 +481,7 @@ final class SiteModel: ObservableObject {
 
     private func save() {
         objectWillChange.send()
-        guard let files else { return }
+        guard let files, !saveBlocked else { return }
         do {
             try files.saveList(list)
         } catch {
@@ -445,11 +518,13 @@ final class SiteModel: ObservableObject {
     /// Site choisi après une question : il retient la MAC de la passerelle (la prochaine détection
     /// sera automatique), puis devient le site actif.
     func choose(_ id: UUID, learning mac: MACAddress?, state: AppState) {
-        if let mac, let index = list.index(of: id) {
-            list.sites[index].hints.learn(gatewayMAC: mac)
-            save()
-        }
         activate(id, state: state)
+        // Changement refusé ou annulé : rien n'est appris. Une MAC déjà connue d'un autre site
+        // n'est pas ajoutée (la détection resterait ambiguë).
+        guard list.activeID == id, let mac, let index = list.index(of: id),
+              !list.sites.contains(where: { $0.id != id && $0.hints.gatewayMACs.contains(mac) }) else { return }
+        list.sites[index].hints.learn(gatewayMAC: mac)
+        save()
     }
 
     private func observe(_ state: AppState) async -> SiteObservation {

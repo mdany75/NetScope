@@ -154,6 +154,18 @@ final class FortiGateStore: ObservableObject {
     /// (FortiSwitch, Wi-Fi FortiAP) ; rien n'est relu sur le réseau, la fin du prochain scan ou
     /// « Relire » s'en charge.
     func siteChanged(state: AppState) {
+        // Une lecture lancée pour le site quitté (« Relire », fin de scan) ne s'applique plus.
+        refreshTask?.cancel()
+        refreshTask = nil
+        refreshGeneration += 1
+        // FortiGate lues pour l'ancien site (pas un « Tester tout » des Réglages) : leur lecture
+        // en cours est oubliée, elles ne sont plus occupées.
+        if !isTestingAll {
+            for id in selection.controllerIDs where runtime[id]?.busy == true {
+                readGeneration[id, default: 0] += 1
+                runtime[id]?.busy = false
+            }
+        }
         let chosen = previewSelection(state: state)
         selection = chosen
         let ids = Set(chosen.controllerIDs)
@@ -393,12 +405,15 @@ final class FortiGateStore: ObservableObject {
             }
             return
         }
+        // Site de la lecture : s'il change pendant la lecture, rien n'est appliqué (note 28).
+        let siteID = SiteModel.shared.activeID
         let chosen = siteSelection(ranges: ranges, state: state)
         selection = chosen
         if isDemo {
             for id in chosen.controllerIDs { runtime[id, default: Runtime()].busy = true }
             try? await Task.sleep(nanoseconds: 600_000_000)
             for id in chosen.controllerIDs { runtime[id]?.busy = false }
+            guard !Task.isCancelled, SiteModel.shared.activeID == siteID else { return }
             sites = FortiGateSitesDemo.sites(for: chosen)
             lastRefresh = Date()
             applySites(state: state)
@@ -406,6 +421,7 @@ final class FortiGateStore: ObservableObject {
             return
         }
         await loadTokens()
+        guard !Task.isCancelled, SiteModel.shared.activeID == siteID else { return }
         refreshGeneration += 1
         let mine = refreshGeneration
         var jobs: [Job] = []
@@ -428,7 +444,7 @@ final class FortiGateStore: ObservableObject {
                                              coveredRanges: job.controller.coveredRanges))
             }
         }
-        guard mine == refreshGeneration, !Task.isCancelled else { return }
+        guard mine == refreshGeneration, !Task.isCancelled, SiteModel.shared.activeID == siteID else { return }
         sites = fresh
         lastRefresh = Date()
         applySites(state: state)

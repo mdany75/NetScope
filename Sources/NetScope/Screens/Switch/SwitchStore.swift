@@ -353,11 +353,15 @@ final class SwitchStore: ObservableObject {
             applyLocations(to: state)
             return
         }
+        // Site du relevé : s'il change en cours de route, les tables MAC de ce site ne doivent
+        // jamais toucher les appareils de l'autre (note 28).
+        let siteKey = SiteModel.shared.activeKey
         await loadVault()
+        guard !Task.isCancelled, SiteModel.shared.activeKey == siteKey else { return }
         // Note 28 : seulement les switchs du site actif (un switch d'un autre client peut avoir la
         // même adresse qu'un appareil d'ici) ; « Afficher tous les switchs » les interroge tous.
         let fresh = await pollHosts(siteHosts.filter { !isController($0) })
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled, SiteModel.shared.activeKey == siteKey else { return }
         let (located, _) = complete(state, fresh: fresh, routerTables: [])
         // Interrogation manuelle : les appareils localisés le sont sur le réseau actuel.
         locations.record(located.values.flatMap { $0 }, network: state.currentNetwork)
@@ -497,6 +501,9 @@ final class SwitchStore: ObservableObject {
 
     /// Bilan et emplacements du site choisi (ceux d'un autre site ne valent pas ici, même IP comprise).
     func restore(_ results: SiteResults) {
+        // Un relevé manuel du site quitté ne s'applique pas au site choisi.
+        pollTask?.cancel()
+        pollTask = nil
         ledger = SwitchAutoLedger(result: results.switchResult?.result)
         var ledgerOfSite = LocationLedger()
         for group in results.locationsByNetwork { ledgerOfSite.record(group.hosts, network: group.network) }
@@ -608,10 +615,16 @@ final class SwitchStore: ObservableObject {
         // autre réseau n'est pas interrogé : ni délai d'attente, ni communauté envoyée ailleurs.
         let ranges = ledger.scanRanges
         let discoveredNow = Set(switches.map(\.host))
+        // Note 28 : un switch associé à un autre site n'est jamais interrogé automatiquement (sa
+        // communauté partirait vers l'appareil qui a la même adresse ici).
+        let sites = SiteModel.shared
+        let ofThisSite = SiteSwitchFilter.pollable(hosts.filter { !isController($0) }, activeSite: sites.activeSite,
+                                                   sites: sites.sites, scanRanges: ranges)
         let relevant = Set(SwitchAutoResult.hostsToPoll(
-            known: hosts.compactMap(IPv4Address.init), manual: Set(hosts.filter { !autoHosts.contains($0) }.compactMap(IPv4Address.init)),
+            known: ofThisSite.compactMap(IPv4Address.init), manual: Set(hosts.filter { !autoHosts.contains($0) }.compactMap(IPv4Address.init)),
             discoveredNow: discoveredNow, ranges: ranges, localSubnet: ledger.scanNetwork?.subnet).map(\.description))
-        let polled = hosts.filter { relevant.contains($0) && !community(for: $0).isEmpty }
+        let allowed = Set(ofThisSite)
+        let polled = hosts.filter { relevant.contains($0) && allowed.contains($0) && !community(for: $0).isEmpty }
         let fresh = await pollHosts(polled)
         guard !Task.isCancelled else { return interrupted(result) }
         phase(.locations)

@@ -35,7 +35,7 @@ enum SitesDemo {
                          hints: SiteHints(gatewayMACs: [observedGatewayMAC], fortiGateSerials: ["FGT60FTK22004711"],
                                           fortiGateHostnames: ["FGT-SIEGE"], ssid: "Bureau-Corp"),
                          lastScan: now.addingTimeInterval(-60), inventoryCount: nil, created: created)
-        let laval = Site(id: lavalID, name: "Entrepôt Laval", notes: "Quais de chargement ; caméras sur le VLAN 40.",
+        let laval = Site(id: lavalID, name: "Entrepôt Laval", notes: "Quais de chargement\u{00A0}; caméras sur le VLAN 40.",
                          ranges: [ScanRangeConfig(text: "10.20.0.0/24", label: "Bureaux", vlan: 1),
                                   ScanRangeConfig(text: "10.20.10.0/24", label: "Quais", vlan: 10),
                                   ScanRangeConfig(text: "10.20.40.0/24", label: "Caméras", vlan: 40)],

@@ -6,6 +6,7 @@ import Foundation
 //   sites/<id>/inventory.json       inventaire PROPRE au site (fiches, historique, événements,
 //                                   archive, exclusions, conflits, notes, types choisis à la main)
 //   sites/<id>/resultats.json       résultats du dernier scan du site (appareils, bilan des switchs)
+//   sites/<id>/notes-appareils.json notes du technicien par appareil, propres au site
 //   sites/sans-site/…               plages libres (aucun site actif)
 //
 // Tous ces fichiers sont du JSON sous le dossier de données : la sauvegarde (note 13) les inclut.
@@ -16,6 +17,11 @@ public struct SiteFiles: Sendable, Hashable {
     public static let noSiteKey = "sans-site"
     public static let inventoryName = "inventory.json"
     public static let resultsName = "resultats.json"
+    public static let notesName = "notes-appareils.json"
+    /// Copie de sécurité des notes d'appareils d'avant les sites (notes communes à tous les réseaux).
+    public static let legacyNotesBackupName = "notes-appareils.avant-sites.json"
+    /// Identifiant retenu pendant la migration : un essai interrompu reprend le même site.
+    public static let migrationMarkerName = "sites-migration.id"
     /// Copie de sécurité de l'inventaire d'avant les sites.
     public static let legacyBackupName = "inventory.avant-sites.json"
 
@@ -37,6 +43,9 @@ public struct SiteFiles: Sendable, Hashable {
     public var listURL: URL { base.appendingPathComponent(Self.listName) }
     public var legacyInventoryURL: URL { base.appendingPathComponent(Self.inventoryName) }
     public var legacyBackupURL: URL { base.appendingPathComponent(Self.legacyBackupName) }
+    public var legacyNotesURL: URL { base.appendingPathComponent(Self.notesName) }
+    public var legacyNotesBackupURL: URL { base.appendingPathComponent(Self.legacyNotesBackupName) }
+    public var migrationMarkerURL: URL { base.appendingPathComponent(Self.migrationMarkerName) }
 
     public func folder(for key: String) -> URL {
         base.appendingPathComponent(Self.folderName, isDirectory: true).appendingPathComponent(key, isDirectory: true)
@@ -44,12 +53,59 @@ public struct SiteFiles: Sendable, Hashable {
 
     public func inventoryURL(for key: String) -> URL { folder(for: key).appendingPathComponent(Self.inventoryName) }
     public func resultsURL(for key: String) -> URL { folder(for: key).appendingPathComponent(Self.resultsName) }
+    public func notesURL(for key: String) -> URL { folder(for: key).appendingPathComponent(Self.notesName) }
 
     // MARK: Liste
 
+    /// État de sites.json : absent (première ouverture), lu, ou présent mais illisible.
+    public enum ListState: Sendable {
+        case missing
+        case loaded(SiteList)
+        case unreadable
+    }
+
+    public func readList() -> ListState {
+        guard FileManager.default.fileExists(atPath: listURL.path) else { return .missing }
+        guard let data = try? Data(contentsOf: listURL), let list = SiteList.decode(data) else { return .unreadable }
+        return .loaded(list)
+    }
+
+    /// Liste lue (nil si absente ou illisible : voir `readList`).
     public func loadList() -> SiteList? {
-        guard let data = try? Data(contentsOf: listURL) else { return nil }
-        return SiteList.decode(data)
+        if case .loaded(let list) = readList() { return list }
+        return nil
+    }
+
+    /// sites.json illisible : mis de côté (sites.illisible-<date>.json) plutôt qu'écrasé.
+    @discardableResult
+    public func setAsideUnreadableList(now: Date = Date()) -> URL? {
+        let aside = base.appendingPathComponent("sites.illisible-\(Int(now.timeIntervalSince1970)).json")
+        do {
+            try FileManager.default.moveItem(at: listURL, to: aside)
+            return aside
+        } catch {
+            return nil
+        }
+    }
+
+    /// Identifiants des dossiers sites/<UUID>/ présents sur le disque (ordre stable).
+    public func siteFolderIDs() -> [UUID] {
+        let root = base.appendingPathComponent(Self.folderName, isDirectory: true)
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []
+        return names.sorted().compactMap(UUID.init(uuidString:))
+    }
+
+    /// Liste reconstruite à partir des dossiers de sites (sites.json perdu ou illisible) : un site
+    /// « Site récupéré » par dossier, pour ne perdre aucun inventaire. Les plages sont à refaire.
+    public func recoveredList(now: Date = Date()) -> SiteList {
+        var list = SiteList()
+        for id in siteFolderIDs() {
+            var site = Site(id: id, name: list.uniqueName(SiteMigration.recoveredSiteName), created: now)
+            site.inventoryCount = inventoryCount(for: SiteFiles.key(for: id))
+            list.sites.append(site)
+        }
+        list.activeID = list.sites.first?.id
+        return list
     }
 
     public func saveList(_ list: SiteList) throws {
@@ -119,43 +175,92 @@ public struct SiteFiles: Sendable, Hashable {
 /// en copie de sécurité (inventory.avant-sites.json) ; rien n'est perdu.
 public enum SiteMigration {
     public static let firstSiteName = "Site principal"
+    public static let recoveredSiteName = "Site récupéré"
 
     public struct Result: Sendable {
         public var list: SiteList
-        public var siteID: UUID
+        public var siteID: UUID?
         /// Inventaire repris (fiches), nil s'il n'y en avait pas.
         public var migratedRecords: Int?
         public var backupURL: URL?
+        /// Sites reconstruits à partir des dossiers sites/<UUID>/ (sites.json perdu), 0 sinon.
+        public var recoveredSites = 0
     }
 
-    /// Sans effet si sites.json existe déjà (renvoie nil).
+    /// Sans effet si sites.json existe déjà, même illisible (renvoie nil : l'appelant le met de
+    /// côté et reconstruit la liste, jamais une migration qui l'écraserait).
+    ///
+    /// Ordre sûr : copie de l'inventaire, écriture de sites.json, puis seulement renommage de
+    /// l'ancien fichier. Un essai interrompu reprend le même identifiant (fichier marqueur).
     public static func migrateIfNeeded(files: SiteFiles, ranges: [ScanRangeConfig], customNames: [String: String],
-                                       controllers: [FortiGateController], newID: UUID = UUID(), now: Date = Date()) throws -> Result? {
-        guard files.loadList() == nil else { return nil }
+                                       controllers: [FortiGateController], newID: UUID? = nil, now: Date = Date()) throws -> Result? {
+        let manager = FileManager.default
+        guard !manager.fileExists(atPath: files.listURL.path) else { return nil }
+        let marker = (try? String(contentsOf: files.migrationMarkerURL, encoding: .utf8))
+            .flatMap { UUID(uuidString: $0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        let hasLegacy = manager.fileExists(atPath: files.legacyInventoryURL.path)
+        // sites.json perdu après la migration (ancien inventaire déjà renommé) : on reconstruit la
+        // liste à partir des dossiers des sites plutôt que de créer un site vide.
+        if !hasLegacy, marker == nil, !files.siteFolderIDs().isEmpty {
+            let list = files.recoveredList(now: now)
+            try files.saveList(list)
+            return Result(list: list, siteID: list.activeID, migratedRecords: nil, backupURL: nil, recoveredSites: list.sites.count)
+        }
+        let id = newID ?? marker ?? UUID()
+        try manager.createDirectory(at: files.base, withIntermediateDirectories: true)
+        try id.uuidString.write(to: files.migrationMarkerURL, atomically: true, encoding: .utf8)
         let parsed = ranges.compactMap { try? $0.parsed() }
-        var site = Site(id: newID, name: firstSiteName, ranges: ranges,
+        var site = Site(id: id, name: firstSiteName, ranges: ranges,
                         fortiGateIDs: SiteFortiGate.matching(controllers, ranges: parsed), created: now)
         SiteFortiGate.refreshHints(&site, controllers: controllers)
-        let key = SiteFiles.key(for: newID)
-        let manager = FileManager.default
+        let key = SiteFiles.key(for: id)
         var records: Int?
-        var backup: URL?
-        if manager.fileExists(atPath: files.legacyInventoryURL.path) {
+        if hasLegacy {
             let target = files.inventoryURL(for: key)
             try manager.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
             if manager.fileExists(atPath: target.path) { try manager.removeItem(at: target) }
             try manager.copyItem(at: files.legacyInventoryURL, to: target)
             records = (try? InventoryStore.load(from: target))?.count
-            // Copie de sécurité : l'ancien fichier change de nom (jamais effacé).
-            if manager.fileExists(atPath: files.legacyBackupURL.path) { try? manager.removeItem(at: files.legacyBackupURL) }
-            try manager.moveItem(at: files.legacyInventoryURL, to: files.legacyBackupURL)
-            backup = files.legacyBackupURL
         }
         site.inventoryCount = records
         if !customNames.isEmpty { files.saveResults(SiteResults(customNames: customNames), for: key) }
-        let list = SiteList(sites: [site], activeID: newID)
+        try migrateDeviceNotes(files: files, into: key)
+        let list = SiteList(sites: [site], activeID: id)
+        // sites.json d'abord : si l'écriture échoue, l'ancien inventaire est encore là.
         try files.saveList(list)
-        return Result(list: list, siteID: newID, migratedRecords: records, backupURL: backup)
+        var backup: URL?
+        if hasLegacy {
+            // Copie de sécurité : l'ancien fichier change de nom (jamais effacé).
+            if manager.fileExists(atPath: files.legacyBackupURL.path) { try? manager.removeItem(at: files.legacyBackupURL) }
+            do {
+                try manager.moveItem(at: files.legacyInventoryURL, to: files.legacyBackupURL)
+                backup = files.legacyBackupURL
+            } catch {
+                // L'inventaire est déjà copié dans le site : l'ancien fichier reste à sa place, sans perte.
+                backup = nil
+            }
+        }
+        try? manager.removeItem(at: files.migrationMarkerURL)
+        return Result(list: list, siteID: id, migratedRecords: records, backupURL: backup)
+    }
+
+    /// Notes d'appareils d'avant les sites (notes-appareils.json, communes à tous les réseaux) :
+    /// elles deviennent celles du site donné, sauf s'il a déjà les siennes ; l'ancien fichier est
+    /// gardé en copie de sécurité. Renvoie vrai si des notes ont été reprises.
+    @discardableResult
+    public static func migrateDeviceNotes(files: SiteFiles, into key: String) throws -> Bool {
+        let manager = FileManager.default
+        guard manager.fileExists(atPath: files.legacyNotesURL.path) else { return false }
+        let target = files.notesURL(for: key)
+        var copied = false
+        if !manager.fileExists(atPath: target.path) {
+            try manager.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try manager.copyItem(at: files.legacyNotesURL, to: target)
+            copied = true
+        }
+        if manager.fileExists(atPath: files.legacyNotesBackupURL.path) { try? manager.removeItem(at: files.legacyNotesBackupURL) }
+        try manager.moveItem(at: files.legacyNotesURL, to: files.legacyNotesBackupURL)
+        return copied
     }
 }
 
@@ -199,6 +304,20 @@ public enum SiteSwitchFilter {
             // Aucun site actif : un switch sans site ou d'un site n'est montré que dans les plages scannées.
             return inRanges(candidate.host)
         }.map(\.host)
+    }
+
+    /// Switchs SNMP qu'on peut interroger sans action de l'utilisateur (fin de scan) : jamais un
+    /// switch associé à un autre site que le site actif. Sa communauté partirait en clair vers
+    /// l'appareil qui porte la même adresse chez ce client. Sans site actif, un switch associé à
+    /// un site ne l'est que s'il est dans les plages scannées. Un switch sans site n'est pas écarté ici.
+    public static func pollable(_ hosts: [String], activeSite: Site?, sites: [Site], scanRanges: [IPRange]) -> [String] {
+        hosts.filter { host in
+            let owners = sites.filter { $0.switchHosts.contains(host) }
+            guard !owners.isEmpty else { return true }
+            if let site = activeSite { return owners.contains { $0.id == site.id } }
+            guard let ip = IPv4Address(host), !scanRanges.isEmpty else { return false }
+            return ScanRelevance.contains(scanRanges, ip)
+        }
     }
 
     /// Propriétaire de chaque FortiSwitch affiché (adresse du relevé → FortiGate), dans l'ordre de

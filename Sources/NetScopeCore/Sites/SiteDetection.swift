@@ -38,6 +38,16 @@ public enum SiteHintKind: String, Hashable, Sendable {
         }
     }
 
+    /// Libellé avec son article : « la MAC de la passerelle », « le SSID »…
+    public var labelWithArticle: String {
+        switch self {
+        case .gatewayMAC: return "la MAC de la passerelle"
+        case .fortiGateSerial: return "le numéro de série de la FortiGate"
+        case .fortiGateHostname: return "le nom de la FortiGate"
+        case .ssid: return "le SSID"
+        }
+    }
+
     /// Un indice fort désigne le site à lui seul ; le SSID ne fait que départager.
     var isStrong: Bool { self != .ssid }
 }

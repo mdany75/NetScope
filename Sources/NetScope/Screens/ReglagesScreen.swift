@@ -6,6 +6,8 @@ import SwiftUI
 struct ReglagesScreen: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var navigation = RegNavigation.shared
+    /// Nombre de sites de la liste des sections (créés, importés, supprimés).
+    @ObservedObject private var siteModel = SiteModel.shared
     @ObservedObject private var updates = UpdController.shared
     // Pastilles des sections Notifications (autorisation refusée) et Raccourcis (conflits).
     @ObservedObject private var notifications = RegNotifStore.shared
@@ -137,7 +139,7 @@ struct ReglagesScreen: View {
     @ViewBuilder private func note(for section: RegSection) -> some View {
         switch section {
         case .sites:
-            Text("\(SiteModel.shared.sites.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+            Text("\(siteModel.sites.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
         case .profils:
             Text("\(ScanProfile.allCases.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
         case .interface:

@@ -12,25 +12,24 @@ struct SidebarSites: View {
     private static let shownWhenFolded = 4
     private static let rangesShown = 3
 
+    /// Plages du Scanner (au plus trois), puis « +N plages ».
+    @ViewBuilder private var rangeRows: some View {
+        ForEach(state.ranges.prefix(Self.rangesShown)) { range in
+            rangeRow(range)
+        }
+        if state.ranges.count > Self.rangesShown {
+            let extra = state.ranges.count - Self.rangesShown
+            Text("+\(extra) plage\(extra > 1 ? "s" : "")")
+                .font(Theme.caption).foregroundStyle(.secondary)
+                .padding(.leading, 22)
+                .selectionDisabled()
+        }
+    }
+
     var body: some View {
         Section("Sites") {
-            if let active = sites.activeSite {
-                activeRow(active.displayName)
-                ForEach(state.ranges.prefix(Self.rangesShown)) { range in
-                    rangeRow(range)
-                }
-                if state.ranges.count > Self.rangesShown {
-                    Text("+\(state.ranges.count - Self.rangesShown) plage\(state.ranges.count - Self.rangesShown > 1 ? "s" : "")")
-                        .font(Theme.caption).foregroundStyle(.secondary)
-                        .padding(.leading, 22)
-                        .selectionDisabled()
-                }
-            } else {
-                activeRow("Aucun site")
-                ForEach(state.ranges.prefix(Self.rangesShown)) { range in
-                    rangeRow(range)
-                }
-            }
+            activeRow(sites.activeSite?.displayName ?? "Aucun site")
+            rangeRows
             let others = sites.sortedSites.filter { $0.id != sites.activeID }
             let visible = expanded ? others : Array(others.prefix(Self.shownWhenFolded))
             ForEach(visible) { site in

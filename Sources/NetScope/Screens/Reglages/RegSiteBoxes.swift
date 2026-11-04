@@ -188,7 +188,6 @@ struct RegSiteSwitchesBox: View {
 
 /// Notes libres du site (client, contact, accès).
 struct RegSiteNotesBox: View {
-    @EnvironmentObject private var state: AppState
     @ObservedObject private var sites = SiteModel.shared
     let site: Site
     @State private var notes = ""
@@ -207,9 +206,8 @@ struct RegSiteNotesBox: View {
         }
         .onAppear { notes = site.notes }
         .onChange(of: notes) { _, value in
-            guard var current = sites.site(site.id), current.notes != value else { return }
-            current.notes = value
-            sites.update(current, state: state)
+            // Notes seulement : ni les plages du Scanner ni les FortiGate ne sont touchées.
+            sites.setNotes(value, for: site.id)
         }
     }
 }

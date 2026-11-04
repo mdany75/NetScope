@@ -236,6 +236,7 @@ public enum BackupEngine {
             switch parts[2] {
             case "inventory": return "inventaire (\(who))"
             case "resultats": return "résultats du scan (\(who))"
+            case "notes-appareils": return "notes des appareils (\(who))"
             default: break
             }
         }
@@ -249,6 +250,7 @@ public enum BackupEngine {
         case "outils": return "Boîte à outils"
         case "services-en-ligne": return "services en ligne"
         case "notes-appareils": return "notes des appareils"
+        case "notes-appareils.avant-sites": return "notes des appareils d’avant les sites (copie de sécurité)"
         case "disques": return "historique des disques"
         case "identifiants": return "identifiants SSH/WMI"
         default: return name

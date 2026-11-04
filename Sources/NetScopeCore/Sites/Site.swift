@@ -300,10 +300,15 @@ public struct SiteList: Codable, Hashable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         version = ((try? c.decodeIfPresent(Int.self, forKey: .version)) ?? nil) ?? SiteList.currentVersion
         var list = ((try? c.decodeIfPresent([SiteLenient<Site>].self, forKey: .sites)) ?? nil)?.compactMap(\.value) ?? []
-        // Deux sites au même identifiant partageraient le même dossier d'inventaire : le second en reçoit un neuf.
+        // Deux sites au même identifiant partageraient le même dossier d'inventaire : le second en
+        // reçoit un autre, DÉRIVÉ du sien (le même à chaque lecture : son dossier est retrouvé au
+        // lancement suivant, même si la liste n'a pas été réenregistrée entre-temps).
+        let original = Set(list.map(\.id))
         var seen = Set<UUID>()
         for index in list.indices {
-            if seen.contains(list[index].id) { list[index].id = UUID() }
+            if seen.contains(list[index].id) {
+                list[index].id = SiteList.derivedID(from: list[index].id, avoiding: original.union(seen))
+            }
             seen.insert(list[index].id)
         }
         sites = list
@@ -316,6 +321,18 @@ public struct SiteList: Codable, Hashable, Sendable {
         try c.encode(version, forKey: .version)
         try c.encode(sites, forKey: .sites)
         try c.encodeIfPresent(activeID?.uuidString, forKey: .activeID)
+    }
+
+    /// Identifiant stable dérivé d'un autre (doublon) : derniers octets modifiés jusqu'à un libre.
+    static func derivedID(from id: UUID, avoiding taken: Set<UUID>) -> UUID {
+        var bytes = id.uuid
+        var counter: UInt16 = 0
+        repeat {
+            counter &+= 1
+            bytes.14 = id.uuid.14 ^ UInt8(truncatingIfNeeded: counter >> 8)
+            bytes.15 = id.uuid.15 ^ UInt8(truncatingIfNeeded: counter)
+        } while taken.contains(UUID(uuid: bytes)) && counter < UInt16.max
+        return UUID(uuid: bytes)
     }
 
     public static func decode(_ data: Data) -> SiteList? {

@@ -51,6 +51,8 @@ func registerSiteTests(_ suite: TestSuite) {
         try expectEqual(lenient.sites[0].hints.gatewayMACs, [gatewayA], "MAC illisible ignorée")
         try expectEqual(lenient.sites[0].switchHosts, ["10.0.0.2"], "switch illisible ignoré")
         try expect(lenient.sites[2].id != siege.id, "identifiant en double renouvelé")
+        let again = try siteRequire(SiteList.decode(Data(raw.utf8)), "deuxième lecture")
+        try expectEqual(again.sites[2].id, lenient.sites[2].id, "identifiant renouvelé stable d'une lecture à l'autre (dossier retrouvé)")
         try expectEqual(lenient.activeID, nil, "site actif inconnu : aucun")
         try expectEqual(lenient.sites[1].displayName, "Site sans nom", "nom absent")
 
@@ -327,6 +329,87 @@ func registerSiteTests(_ suite: TestSuite) {
         // Deuxième lancement : rien n'est refait.
         let second = try SiteMigration.migrateIfNeeded(files: files, ranges: [], customNames: [:], controllers: [])
         try expect(second == nil, "une seule fois")
+    }
+
+    suite.add("Sites : sites.json illisible jamais pris pour une première ouverture") {
+        let base = try temporaryBase()
+        defer { try? FileManager.default.removeItem(at: base) }
+        let files = SiteFiles(base: base)
+        if case .missing = files.readList() {} else { throw TestFailure(message: "liste absente attendue", file: #fileID, line: #line) }
+        let a = UUID(), b = UUID()
+        var store = InventoryStore()
+        store.merge([device("192.168.1.10", nil), device("192.168.1.11", nil)], at: now)
+        try files.saveInventory(store, for: SiteFiles.key(for: a))
+        try files.saveInventory(InventoryStore(), for: SiteFiles.key(for: b))
+        try Data("{\"sites\": [".utf8).write(to: files.listURL)
+        if case .unreadable = files.readList() {} else { throw TestFailure(message: "liste illisible attendue", file: #fileID, line: #line) }
+        try expect(files.loadList() == nil, "loadList : rien de lu")
+        // La migration ne touche pas à un sites.json présent, même illisible.
+        let none = try SiteMigration.migrateIfNeeded(files: files, ranges: [range("10.0.0.0/24")], customNames: [:], controllers: [])
+        try expect(none == nil, "aucune migration sur un fichier illisible")
+        try expectEqual(try Data(contentsOf: files.listURL), Data("{\"sites\": [".utf8), "fichier illisible intact")
+        let aside = try siteRequire(files.setAsideUnreadableList(now: now), "mis de côté")
+        try expect(aside.lastPathComponent.hasPrefix("sites.illisible-"), "nom de la copie")
+        try expect(!FileManager.default.fileExists(atPath: files.listURL.path), "sites.json retiré")
+        let recovered = files.recoveredList(now: now)
+        try expectEqual(Set(recovered.sites.map(\.id)), [a, b], "un site par dossier, même identifiant")
+        try expectEqual(recovered.sites.map(\.name).sorted(), ["Site récupéré", "Site récupéré (2)"], "noms uniques")
+        try expectEqual(recovered.site(a)?.inventoryCount, 2, "nombre de fiches repris")
+        try expect(recovered.activeID != nil, "un site actif")
+        try expectEqual(files.siteFolderIDs().count, 2, "dossier sans-site ignoré, UUID seulement")
+    }
+
+    suite.add("Sites : migration sûre (reprise, sites.json perdu, notes d'appareils)") {
+        let base = try temporaryBase()
+        defer { try? FileManager.default.removeItem(at: base) }
+        let files = SiteFiles(base: base)
+        var legacy = InventoryStore()
+        legacy.merge([device("10.0.0.5", "94:DD:F8:18:15:7D")], at: now)
+        try legacy.save(to: files.legacyInventoryURL)
+        try Data(#"{"94:dd:f8:18:15:7d":"Toner remplacé"}"#.utf8).write(to: files.legacyNotesURL)
+        // Essai précédent interrompu : le même identifiant est repris.
+        let earlier = UUID()
+        try earlier.uuidString.write(to: files.migrationMarkerURL, atomically: true, encoding: .utf8)
+        let result = try siteRequire(try SiteMigration.migrateIfNeeded(files: files, ranges: [range("10.0.0.0/24")], customNames: [:],
+                                                                          controllers: [], now: now), "migration faite")
+        try expectEqual(result.siteID, earlier, "identifiant de l'essai interrompu repris")
+        try expect(!FileManager.default.fileExists(atPath: files.migrationMarkerURL.path), "marqueur retiré après succès")
+        try expectEqual(files.loadList()?.activeID, earlier, "sites.json écrit")
+        try expect(FileManager.default.fileExists(atPath: files.legacyBackupURL.path), "ancien inventaire renommé après sites.json")
+        let notes = try Data(contentsOf: files.notesURL(for: SiteFiles.key(for: earlier)))
+        try expectEqual(try JSONDecoder().decode([String: String].self, from: notes), ["94:dd:f8:18:15:7d": "Toner remplacé"], "notes du site")
+        try expect(!FileManager.default.fileExists(atPath: files.legacyNotesURL.path), "anciennes notes renommées")
+        try expect(FileManager.default.fileExists(atPath: files.legacyNotesBackupURL.path), "copie de sécurité des notes")
+        try expectEqual(BackupEngine.label(for: "sites/\(earlier.uuidString)/notes-appareils.json"), "notes des appareils (site)", "libellé des notes")
+
+        // sites.json supprimé après coup (ancien inventaire déjà renommé) : on récupère les
+        // dossiers des sites au lieu de créer un « Site principal » vide.
+        try FileManager.default.removeItem(at: files.listURL)
+        let recovered = try siteRequire(try SiteMigration.migrateIfNeeded(files: files, ranges: [], customNames: [:], controllers: []), "récupération")
+        try expectEqual(result.list.sites.count, 1, "un site migré")
+        try expectEqual(recovered.recoveredSites, 1, "un site récupéré")
+        try expectEqual(recovered.list.sites.first?.id, earlier, "même dossier, même site")
+        try expectEqual(recovered.list.sites.first?.inventoryCount, 1, "son inventaire")
+
+        // Notes déjà propres au site : l'ancien fichier ne les écrase pas.
+        try Data(#"{"10.0.0.9":"autre"}"#.utf8).write(to: files.legacyNotesURL)
+        let copied = try SiteMigration.migrateDeviceNotes(files: files, into: SiteFiles.key(for: earlier))
+        try expect(!copied, "notes du site gardées")
+        try expect(!FileManager.default.fileExists(atPath: files.legacyNotesURL.path), "ancien fichier mis de côté")
+    }
+
+    suite.add("Sites : un switch d'un autre site n'est jamais interrogé automatiquement") {
+        let laval = Site(name: "Laval", ranges: [range("192.168.1.0/24")], switchHosts: ["192.168.1.2"], created: now)
+        let siege = Site(name: "Siège", ranges: [range("192.168.1.0/24")], switchHosts: ["192.168.1.3"], created: now)
+        let hosts = ["192.168.1.2", "192.168.1.3", "192.168.1.4"]
+        let atSiege = SiteSwitchFilter.pollable(hosts, activeSite: siege, sites: [laval, siege], scanRanges: [ip("192.168.1.0/24")])
+        try expectEqual(atSiege, ["192.168.1.3", "192.168.1.4"], "le switch de Laval est écarté, même ajouté à la main")
+        let atLaval = SiteSwitchFilter.pollable(hosts, activeSite: laval, sites: [laval, siege], scanRanges: [])
+        try expectEqual(atLaval, ["192.168.1.2", "192.168.1.4"], "au site Laval, son switch")
+        let free = SiteSwitchFilter.pollable(hosts, activeSite: nil, sites: [laval, siege], scanRanges: [ip("10.0.0.0/24")])
+        try expectEqual(free, ["192.168.1.4"], "sans site : un switch de site hors des plages scannées est écarté")
+        try expectEqual(SiteHintKind.ssid.labelWithArticle, "le SSID", "article du libellé")
+        try expectEqual(SiteHintKind.fortiGateSerial.labelWithArticle, "le numéro de série de la FortiGate", "article du libellé")
     }
 
     suite.add("Sites : préfixe site: de la recherche relié au vrai site") {

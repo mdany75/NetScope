@@ -139,7 +139,16 @@ struct InvTable: View {
             .frame(height: 40)
             Rectangle().fill(Theme.border).frame(height: 1)
 
-            if rows.isEmpty {
+            if rows.isEmpty, model.store.isEmpty, let site = SiteModel.shared.activeSite {
+                // Inventaire propre au site : vide tant que ce site n'a pas été scanné.
+                EmptyState(systemImage: "tray",
+                           title: "Inventaire de «\u{00A0}\(site.displayName)\u{00A0}» vide",
+                           message: "Lancez un scan de ce site pour le remplir. Les autres sites gardent leur propre inventaire.") {
+                    Button("Ouvrir le Scanner") { state.open(.scanner) }
+                        .buttonStyle(.secondary)
+                }
+                .frame(minHeight: 160)
+            } else if rows.isEmpty {
                 Text("Aucun appareil ne correspond à cette vue ou à la recherche.")
                     .font(Theme.body).foregroundStyle(Theme.textSecondary)
                     .frame(maxWidth: .infinity, minHeight: 80)

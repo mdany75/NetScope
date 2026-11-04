@@ -106,34 +106,61 @@ final class DeviceSession: ObservableObject {
     }
 }
 
-/// Notes du technicien par appareil, enregistrées dans
-/// ~/Library/Application Support/NetScope/notes-appareils.json (clé : MAC, sinon IP).
+/// Notes du technicien par appareil, PROPRES AU SITE (note 28) : sites/<site>/notes-appareils.json
+/// (clé : MAC, sinon IP). La même IP chez deux clients a donc deux notes distinctes.
 @MainActor
 final class DeviceNotesStore: ObservableObject {
     static let shared = DeviceNotesStore()
 
     @Published private(set) var notes: [String: String] = [:]
     @Published private(set) var savedAt: [String: Date] = [:]
-    private let url: URL
+    private var url: URL?
     private let isEphemeral: Bool
+    /// Démonstration : notes de chaque site, en mémoire.
+    private var demoNotes: [String: [String: String]] = [:]
+    private var siteKey: String
 
     private init() {
         let arguments = CommandLine.arguments
         isEphemeral = arguments.contains("--demo") || arguments.contains("--snapshot")
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
-        url = base.appendingPathComponent("NetScope", isDirectory: true).appendingPathComponent("notes-appareils.json")
+        let sites = SiteModel.shared
+        siteKey = sites.activeKey
+        url = sites.files?.notesURL(for: siteKey)
         if arguments.contains("--demo") {
-            notes["94:dd:f8:18:15:7d"] = """
+            // La note de démonstration est celle du site de départ (le Siège).
+            let first = SitesDemo.siegeKey
+            demoNotes[first] = ["94:dd:f8:18:15:7d": """
             2026-10-14 — Toner BK remplacé (TN-2620). Prochain prévu vers janvier.
             2026-09-02 — Déplacée du 1er étage vers l’accueil (2e). Nouveau câble vers SW-ETG2-01 port 1/14, VLAN 30.
             Réservation DHCP créée sur le FortiGate-60F pour 94:DD:F8:18:15:7D.
-            À faire : passer SNMP en v3 et désactiver la communauté public.
-            """
-        } else if !isEphemeral, let data = try? Data(contentsOf: url),
-                  let saved = try? JSONDecoder().decode([String: String].self, from: data) {
-            notes = saved
+            À faire\u{00A0}: passer SNMP en v3 et désactiver la communauté public.
+            """]
+            notes = demoNotes[siteKey] ?? [:]
+        } else if !isEphemeral {
+            notes = Self.load(url)
         }
+    }
+
+    private static func load(_ url: URL?) -> [String: String] {
+        guard let url, let data = try? Data(contentsOf: url),
+              let saved = try? JSONDecoder().decode([String: String].self, from: data) else { return [:] }
+        return saved
+    }
+
+    /// Changement de site : les notes du site choisi. `adopt` : les plages libres deviennent ce
+    /// site, leurs notes le suivent (le dossier a déjà été déplacé).
+    func switchSite(to key: String, url newURL: URL?, adopt: Bool) {
+        if isEphemeral {
+            demoNotes[siteKey] = notes
+            siteKey = key
+            url = newURL
+            if !adopt { notes = demoNotes[key] ?? [:] }
+        } else {
+            siteKey = key
+            url = newURL
+            if adopt { save() } else { notes = Self.load(newURL) }
+        }
+        savedAt = [:]
     }
 
     static func key(for device: Device) -> String {
@@ -152,7 +179,7 @@ final class DeviceNotesStore: ObservableObject {
     }
 
     private func save() {
-        guard !isEphemeral else { return }
+        guard !isEphemeral, let url else { return }
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             let encoder = JSONEncoder()

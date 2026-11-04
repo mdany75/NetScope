@@ -13,26 +13,8 @@ struct ScanSiteBar: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Button { showMenu.toggle() } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "mappin.and.ellipse").font(.system(size: 11, weight: .semibold))
-                    (Text("Site\u{00A0}: ").foregroundColor(Theme.textSecondary) + Text(sites.activeName).foregroundColor(Theme.text))
-                        .lineLimit(1)
-                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.textSecondary)
-                }
-                .font(.system(size: 12, weight: .semibold))
-                .padding(.horizontal, 10)
-                .frame(height: 26)
-                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
-                .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("Choisir le site\u{00A0}: ses plages, son inventaire et ses résultats")
-            .popover(isPresented: $showMenu, arrowEdge: .bottom) {
-                SiteMenuContent(close: { showMenu = false })
-                    .environmentObject(state)
-            }
+            picker
+                .help("Choisir le site\u{00A0}: ses plages, son inventaire et ses résultats")
             status
             Spacer(minLength: 0)
         }
@@ -40,6 +22,54 @@ struct ScanSiteBar: View {
             SitePromptSheet(prompt: prompt).environmentObject(state)
         }
     }
+
+    /// Menu natif du système ; au-delà de six sites, un menu avec recherche (popover).
+    @ViewBuilder private var picker: some View {
+        if sites.sites.count > Self.nativeMenuLimit {
+            Button { showMenu.toggle() } label: {
+                Label("Site\u{00A0}: \(sites.activeName)", systemImage: "mappin.and.ellipse")
+                    .lineLimit(1)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.regular)
+            .fixedSize()
+            .popover(isPresented: $showMenu, arrowEdge: .bottom) {
+                SiteMenuContent(close: { showMenu = false })
+                    .environmentObject(state)
+            }
+        } else {
+            Menu {
+                Section("Sites") {
+                    ForEach(sites.sortedSites) { site in
+                        Toggle(isOn: Binding(get: { site.id == sites.activeID },
+                                             set: { if $0 { sites.activate(site.id, state: state) } })) {
+                            Text(site.displayName)
+                            Text(site.rangesLabel)
+                        }
+                    }
+                    if sites.sites.isEmpty {
+                        Text("Aucun site enregistré")
+                    }
+                }
+                Divider()
+                Toggle(isOn: Binding(get: { sites.activeID == nil },
+                                     set: { if $0 { sites.activate(nil, state: state) } })) {
+                    Text("Aucun site (plages libres)")
+                    Text("FortiGate choisie par plage")
+                }
+                Divider()
+                SiteMenuActions()
+            } label: {
+                Label("Site\u{00A0}: \(sites.activeName)", systemImage: "mappin.and.ellipse")
+                    .lineLimit(1)
+            }
+            .menuStyle(.button)
+            .fixedSize()
+        }
+    }
+
+    /// Au-delà, le menu natif devient trop long : menu avec recherche.
+    static let nativeMenuLimit = 6
 
     @ViewBuilder private var status: some View {
         if sites.hasUnsavedRanges(state) {
@@ -75,7 +105,25 @@ struct ScanSiteBar: View {
 
 // MARK: - Menu des sites
 
-/// Contenu du menu « Site » : recherche (au-delà de six sites), sites, plages libres, actions.
+/// Actions du menu natif « Site ».
+private struct SiteMenuActions: View {
+    @EnvironmentObject private var state: AppState
+    @ObservedObject private var sites = SiteModel.shared
+
+    var body: some View {
+        Button("Enregistrer les plages comme site…", systemImage: "plus.square.on.square") { sites.prompt = .saveAs }
+        Button("Mettre à jour ce site", systemImage: "arrow.down.doc") { sites.updateActiveSite(state) }
+            .disabled(!sites.hasUnsavedRanges(state))
+        Button("Détecter mon site", systemImage: "scope") { sites.detect(state: state) }
+        Divider()
+        Button("Gérer les sites…", systemImage: "gearshape") {
+            RegNavigation.shared.section = .sites
+            state.open(.reglages)
+        }
+    }
+}
+
+/// Menu « Site » au-delà de six sites : recherche, sites, plages libres, actions.
 struct SiteMenuContent: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var sites = SiteModel.shared
@@ -93,19 +141,10 @@ struct SiteMenuContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if sites.sites.count > 6 {
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(Theme.textSecondary)
-                    TextField("Rechercher un site, une plage", text: $query)
-                        .textFieldStyle(.plain)
-                }
-                .font(Theme.small)
-                .padding(.horizontal, 8)
-                .frame(height: 28)
-                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
+            TextField("Rechercher un site, une plage", text: $query)
+                .textFieldStyle(.roundedBorder)
                 .padding(10)
-                Divider()
-            }
+            Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("SITES").font(Theme.captionSemibold).kerning(0.5).foregroundStyle(Theme.textSecondary)
@@ -242,11 +281,13 @@ struct SitePromptSheet: View {
         let name = sites.site(id)?.displayName ?? "?"
         return VStack(alignment: .leading, spacing: 12) {
             Label("Site détecté\u{00A0}: «\u{00A0}\(name)\u{00A0}»", systemImage: "scope").font(Theme.panelTitle)
-            Text("Reconnu par la \(hint.label). Le site actif est «\u{00A0}\(sites.activeName)\u{00A0}». Passer à «\u{00A0}\(name)\u{00A0}» recharge ses plages, son inventaire et ses résultats.")
+            Text("Reconnu par \(hint.labelWithArticle). Le site actif est «\u{00A0}\(sites.activeName)\u{00A0}». Passer à «\u{00A0}\(name)\u{00A0}» recharge ses plages, son inventaire et ses résultats.")
                 .font(Theme.body).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
             HStack {
                 Spacer()
-                Button("Rester sur «\u{00A0}\(sites.activeName)\u{00A0}»") { dismiss() }.buttonStyle(.secondary)
+                Button("Rester sur «\u{00A0}\(sites.activeName)\u{00A0}»") { dismiss() }
+                    .buttonStyle(.secondary)
+                    .keyboardShortcut(.cancelAction)
                 Button("Passer à «\u{00A0}\(name)\u{00A0}»") {
                     dismiss()
                     sites.activate(id, state: state)
@@ -342,28 +383,21 @@ struct SiteChooseSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Quel site\u{00A0}?").font(Theme.panelTitle)
             Text(reason).font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
-            VStack(spacing: 4) {
-                ForEach(candidates, id: \.self) { id in
-                    if let site = sites.site(id) {
-                        Button { selection = id } label: {
-                            HStack(spacing: 10) {
-                                Image(systemName: selection == id ? "largecircle.fill.circle" : "circle")
-                                    .foregroundStyle(selection == id ? Theme.accent : Theme.textTertiary)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(site.displayName).font(Theme.bodySemibold).foregroundStyle(Theme.text)
-                                    Text(site.rangesLabel).font(Theme.mono(11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                                }
-                                Spacer()
-                                if site.id == sites.activeID { Chip(text: "Actif", tone: .accent) }
-                            }
-                            .padding(8)
-                            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(selection == id ? Theme.accentSoft : Theme.panelMuted))
-                            .contentShape(Rectangle())
+            Picker("Site", selection: $selection) {
+                ForEach(candidates.compactMap { sites.site($0) }) { site in
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(site.displayName).font(Theme.bodySemibold).foregroundStyle(Theme.text)
+                            Text(site.rangesLabel).font(Theme.mono(11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
                         }
-                        .buttonStyle(.plain)
+                        if site.id == sites.activeID { Chip(text: "Actif", tone: .accent) }
                     }
+                    .padding(.vertical, 2)
+                    .tag(Optional(site.id))
                 }
             }
+            .pickerStyle(.radioGroup)
+            .labelsHidden()
             if let gatewayMAC {
                 Text("La MAC de la passerelle (\(gatewayMAC.formatted(.upperColon))) sera retenue pour le site choisi\u{00A0}: la prochaine détection sera automatique.")
                     .font(Theme.caption).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
