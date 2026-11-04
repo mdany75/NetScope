@@ -80,8 +80,13 @@ struct FortiAPView: View {
             if !fortigate.isConfigured {
                 notConfigured
             } else {
-                FortiAPBanner()
-                if store.hasData {
+                // Note 48 : un autre site, ou plusieurs (menu « Site ▾ »), sans changer le site actif.
+                if store.scopeKeys != nil {
+                    FortiAPSitesBanner()
+                } else {
+                    FortiAPBanner()
+                }
+                if !store.shownOverview.isEmpty {
                     tiles
                     SidePanelSplit(sideWidth: 320, collapse: .below) {
                         VStack(spacing: 14) {
@@ -97,17 +102,17 @@ struct FortiAPView: View {
                             FortiAPDetailPanel(apID: selectedAP)
                         }
                     }
-                } else {
+                } else if store.scopeKeys == nil {
                     noData
                 }
             }
         }
         .onAppear {
             applyFocus()
-            if selectedAP == nil { selectedAP = store.overview.aps.first?.id }
+            if selectedAP == nil { selectedAP = store.shownOverview.aps.first?.id }
         }
         .onChange(of: store.focusAP) { _, _ in applyFocus() }
-        .onChange(of: store.overview.aps.map(\.id)) { _, ids in
+        .onChange(of: store.shownOverview.aps.map(\.id)) { _, ids in
             if let id = selectedAP, ids.contains(id) { return }
             selectedAP = ids.first
         }
@@ -116,7 +121,7 @@ struct FortiAPView: View {
     /// Borne demandée par la fiche d'un appareil : sélectionnée, et sa bande montrée sur la carte.
     private func applyFocus() {
         guard let id = store.focusAP else { return }
-        if store.overview.aps.contains(where: { $0.id == id }) {
+        if store.shownOverview.aps.contains(where: { $0.id == id }) {
             selectedAP = id
             if let b = store.focusBand { band = b }
         }
@@ -153,8 +158,8 @@ struct FortiAPView: View {
     // MARK: Tuiles
 
     private var tiles: some View {
-        let o = store.overview
-        let d = store.diagnosis
+        let o = store.shownOverview
+        let d = store.shownDiagnosis
         let critical = d.advice.filter { $0.severity == .critique }.count
         return LazyVGrid(columns: [GridItem(.adaptive(minimum: 128), spacing: 10)], spacing: 10) {
             tile("Bornes en ligne", "\(o.onlineAPs.count) / \(o.aps.count)",
@@ -253,7 +258,7 @@ struct FortiAPBanner: View {
         if selection.isEmpty {
             return "Ni les plages cochées ni l’adresse de ce Mac ne sont couvertes par une FortiGate de la liste. Ajoutez la plage au site concerné dans Réglages › Switchs."
         }
-        let o = store.overview
+        let o = store.shownOverview
         guard let last = store.lastRefresh else {
             return "Les bornes FortiAP sont lues avec les FortiSwitch à la fin du scan, par les mêmes FortiGate."
         }
@@ -271,7 +276,7 @@ struct FortiAPAdvicePanel: View {
     @State private var showThresholds = false
 
     var body: some View {
-        let advice = store.diagnosis.advice
+        let advice = store.shownDiagnosis.advice
         Panel(padding: 14) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
@@ -304,7 +309,7 @@ struct FortiAPAdvicePanel: View {
                     .background(RoundedRectangle(cornerRadius: 4).fill(background))
                 Text(item.title).font(.system(size: 12, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
                 Text(item.detail).font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
-                if let name = item.apName, let ap = store.overview.aps.first(where: { $0.name == name && (item.site == nil || $0.site == item.site) }) {
+                if let name = item.apName, let ap = store.shownOverview.aps.first(where: { $0.name == name && (item.site == nil || $0.site == item.site) }) {
                     Button("Voir la borne") {
                         selectedAP = ap.id
                         if let b = item.band { band = b }
@@ -361,7 +366,7 @@ struct FortiAPDetailPanel: View {
 
     var body: some View {
         Panel(padding: 14) {
-            if let ap = store.overview.aps.first(where: { $0.id == apID }) {
+            if let ap = store.shownOverview.aps.first(where: { $0.id == apID }) {
                 content(ap)
             } else {
                 Text("Choisissez une borne dans le tableau.").font(Theme.small).foregroundStyle(Theme.textSecondary)
@@ -370,7 +375,7 @@ struct FortiAPDetailPanel: View {
     }
 
     private func content(_ ap: FortiManagedAP) -> some View {
-        let clients = store.overview.clients(of: ap)
+        let clients = store.shownOverview.clients(of: ap)
         let device = ap.ip.flatMap { state.device(withID: $0.description) }
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
@@ -380,7 +385,7 @@ struct FortiAPDetailPanel: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(ap.name).font(.system(size: 15, weight: .bold)).lineLimit(1)
-                Text([ap.model, ap.firmwareShort, store.overview.isMultiSite ? ap.site : nil].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
+                Text([ap.model, ap.firmwareShort, store.shownOverview.isMultiSite ? ap.site : nil].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(Theme.mono(11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
             }
             VStack(spacing: 0) {

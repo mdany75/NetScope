@@ -6,6 +6,8 @@ import SwiftUI
 /// l'écran courant. Les couleurs suivent le mode clair ou sombre de macOS.
 struct ContentView: View {
     @EnvironmentObject private var state: AppState
+    /// Note 49 : le site actif est rappelé dans le titre de la fenêtre.
+    @ObservedObject private var sites = SiteModel.shared
     @State private var columns = NavigationSplitViewVisibility.all
     /// Nombre de résultats de la recherche, annoncé par l'écran courant.
     @State private var searchResults: [String] = []
@@ -32,6 +34,7 @@ struct ContentView: View {
             .background(Theme.appBackground)
             .id(state.screen)
                 .navigationTitle(state.screen.pageTitle)
+                .navigationSubtitle(SitePicker.windowSubtitle(activeName: sites.activeSite?.displayName))
                 .searchable(text: $state.searchText, placement: .toolbar,
                             prompt: Text("Rechercher"))
                 .searchSuggestions {
@@ -47,6 +50,8 @@ struct ContentView: View {
                 }
         }
         .navigationPrompts()
+        // Captures (NETSCOPE_SITE_CHOIX) : le sélecteur de site ouvert sous son bouton.
+        .overlay(alignment: .topLeading) { SitePickerSnapshotOverlay() }
         .font(Theme.body)
         .foregroundStyle(Theme.text)
         // Pastille Analyse dès le lancement (alertes « à traiter » enregistrées), sans attendre

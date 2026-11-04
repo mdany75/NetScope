@@ -27,7 +27,16 @@ struct Sidebar: View {
             GeometryReader { geometry in
                 list(height: geometry.size.height)
             }
-            .safeAreaInset(edge: .top, spacing: 0) { logo }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                // Note 49 : le site actif, toujours visible juste sous le logo.
+                VStack(spacing: 0) {
+                    logo
+                    SidebarSitePicker()
+                        .padding(.horizontal, 10)
+                        .padding(.trailing, Self.legacyScrollerWidth)
+                        .padding(.bottom, 6)
+                }
+            }
             .safeAreaInset(edge: .bottom, spacing: 0) { footer(showsCard: showsCard) }
         }
     }

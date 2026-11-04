@@ -85,10 +85,11 @@ struct AppCommands: Commands {
 
         CommandMenu("Aller") {
             // Note 34 : Retour / Avancer rendent l'écran, la sélection et le filtre d'avant.
-            Button("Retour") { state.goBack() }
+            // Note 45 : le menu nomme l'écran d'origine (« Retour à Inventaire »).
+            Button(state.history.previous.map { "Retour à \(Screen($0.module).title)" } ?? "Retour") { state.goBack() }
                 .regShortcut(ShortcutID.back, shortcuts)
                 .disabled(!state.canGoBack)
-            Button("Avancer") { state.goForward() }
+            Button(state.history.next.map { "Avancer vers \(Screen($0.module).title)" } ?? "Avancer") { state.goForward() }
                 .regShortcut(ShortcutID.forward, shortcuts)
                 .disabled(!state.canGoForward)
             Divider()
@@ -100,6 +101,11 @@ struct AppCommands: Commands {
                     }
                 }
             }
+        }
+
+        // Note 49 : changer de site depuis la barre de menus (⌘⇧S ouvre le sélecteur).
+        CommandMenu("Site") {
+            SiteCommandsMenu(state: state)
         }
     }
 }

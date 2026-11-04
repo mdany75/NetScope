@@ -166,6 +166,14 @@ public enum NavSites: Hashable, Sendable {
         if case .include(let key) = self { return key }
         return nil
     }
+
+    /// Site de l'objet : celui ajouté par `.include`, sinon le seul site de `.only` (note 48).
+    public var siteKey: String? {
+        switch self {
+        case .include(let key): return key
+        case .only(let keys): return keys.count == 1 ? keys[0] : nil
+        }
+    }
 }
 
 /// Où mène une action : un module, ce qui y est montré, un filtre transmis, une recherche et les sites.

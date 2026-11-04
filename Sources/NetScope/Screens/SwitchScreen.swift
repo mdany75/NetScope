@@ -7,6 +7,8 @@ struct SwitchScreen: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var store = SwitchStore.shared
     @ObservedObject private var sites = SiteModel.shared
+    /// Note 48 : sites montrés par le menu « Site ▾ » du bandeau (le site actif par défaut).
+    @ObservedObject private var scopes = SiteScopeStore.shared
     @State private var showAdd = false
     @State private var newHost = ""
     @State private var addError: String?
@@ -23,11 +25,23 @@ struct SwitchScreen: View {
 
     var body: some View {
         let visible = visibleHosts
+        let shownSites = scopes.keys(for: .switchs)
         ScrollView {
+            if shownSites != [sites.activeKey] {
+                // Note 48 : un autre site, ou plusieurs, sans changer le site actif.
+                VStack(alignment: .leading, spacing: 16) {
+                    SwitchSiteBanner(visible: visible.count, total: store.allHosts.count)
+                    SwitchSitesBrowser(keys: shownSites)
+                }
+                .padding(.horizontal, Theme.contentPadding)
+                .padding(.vertical, 16)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            } else {
             VStack(alignment: .leading, spacing: 16) {
+                // Note 48 : le menu « Site ▾ » en haut de l'écran.
+                SwitchSiteBanner(visible: visible.count, total: store.allHosts.count)
                 SwitchSourcesPanel(store: store)
                 SwitchFortiGatePanel()
-                SwitchSiteBanner(visible: visible.count, total: store.allHosts.count)
                 SwitchThisMacBanner(switches: store)
 
                 if visible.isEmpty {
@@ -106,6 +120,7 @@ struct SwitchScreen: View {
             .padding(.horizontal, Theme.contentPadding)
             .padding(.vertical, 16)
             .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
         }
         // Switch choisi masqué (autre site, hors des plages) : le premier switch du site le remplace.
         .onChange(of: visible) { _, list in keepSelectionVisible(list) }

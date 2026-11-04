@@ -7,13 +7,15 @@ import SwiftUI
 // Les lignes de deux sites ne fusionnent jamais (identifiant composé « site|fiche », SiteScope).
 //
 // Captures : NETSCOPE_SITES_VUE="siege,laval" (parties de noms) ou « tous » choisit les sites des
-// quatre écrans ; rien n'est lu ni écrit en démonstration.
+// six écrans ; NETSCOPE_SITES_VUE_<ÉCRAN> (SWITCHS, WIFI, INVENTAIRE…) ceux d'un seul ; rien n'est
+// lu ni écrit en démonstration.
 
 /// Sites affichés par chaque écran.
 @MainActor
 final class SiteScopeStore: ObservableObject {
     static let shared = SiteScopeStore()
-    static let screens: [Screen] = [.analyse, .inventaire, .carte, .rapports]
+    /// Note 48 (0.15.0) : Switchs et ports et Wi-Fi ont aussi leur menu « Site ▾ ».
+    static let screens: [Screen] = [.analyse, .inventaire, .carte, .rapports, .switchs, .wifi]
 
     @Published private var choices: [Screen: SiteSelection] = [:]
     private let defaults: UserDefaults?
@@ -26,10 +28,18 @@ final class SiteScopeStore: ObservableObject {
             for screen in Self.screens {
                 if let text = defaults.string(forKey: Self.defaultsKey(screen)) { choices[screen] = SiteSelection(stored: text) }
             }
-        } else if let wanted = ProcessInfo.processInfo.environment["NETSCOPE_SITES_VUE"] {
+        } else {
+            let environment = ProcessInfo.processInfo.environment
             let sites = SiteModel.shared.sortedSites.map { (key: SiteFiles.key(for: $0.id), name: $0.displayName) }
-            if let selection = SiteSelection.parse(wanted, sites: sites) {
+            if let wanted = environment["NETSCOPE_SITES_VUE"], let selection = SiteSelection.parse(wanted, sites: sites) {
                 for screen in Self.screens { choices[screen] = selection }
+            }
+            // Note 48 : un seul écran (NETSCOPE_SITES_VUE_SWITCHS=laval, NETSCOPE_SITES_VUE_WIFI=tous).
+            for screen in Self.screens {
+                if let wanted = environment["NETSCOPE_SITES_VUE_" + screen.rawValue.uppercased()],
+                   let selection = SiteSelection.parse(wanted, sites: sites) {
+                    choices[screen] = selection
+                }
             }
         }
     }

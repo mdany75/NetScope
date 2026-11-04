@@ -59,6 +59,10 @@ extension AppState {
         switch screen {
         case .switchs:
             let store = SwitchStore.shared
+            // Note 48 : switch choisi dans la vue d'un autre site (ou de plusieurs).
+            if SiteScopeStore.shared.keys(for: .switchs) != [SiteModel.shared.activeKey] {
+                return store.browseSelection.flatMap(SiteScope.split).map { .switchPort(host: $0.key, port: nil) }
+            }
             return store.selectedHost.map { .switchPort(host: $0, port: store.selectedInterface?.name) }
         case .surveillance:
             return MonStore.shared.selectedID.map { .probe($0.uuidString) }
@@ -97,7 +101,13 @@ extension AppState {
             case .only(let keys): SiteScopeStore.shared.set(.sites(keys), for: target, persist: false)
             }
         }
-        if let focus = destination.focus { apply(focus, on: target, siteKey: destination.sites?.includedKey) }
+        // Note 48 : Switchs et Wi-Fi suivent le site de l'objet ; un objet du site actif (sans site
+        // donné) y ramène le site actif s'il n'est plus affiché.
+        if destination.focus != nil, destination.sites == nil, target == .switchs || target == .wifi,
+           !SiteScopeStore.shared.keys(for: target).contains(SiteModel.shared.activeKey) {
+            SiteScopeStore.shared.set(.active, for: target, persist: false)
+        }
+        if let focus = destination.focus { apply(focus, on: target, siteKey: destination.sites?.siteKey) }
         if screen != target { screen = target }
         if recordsHistory { history.leave(here, to: location(of: target)) }
     }
@@ -156,7 +166,10 @@ extension AppState {
         if let sites = location.sites, SiteScopeStore.screens.contains(target) {
             SiteScopeStore.shared.set(sites, for: target, persist: false)
         }
-        if let focus = location.focus { apply(focus, on: target) }
+        // Note 48 : le switch d'un autre site revient dans la vue de ce site.
+        var siteKey: String?
+        if case .sites(let keys)? = location.sites, keys.count == 1 { siteKey = keys[0] }
+        if let focus = location.focus { apply(focus, on: target, siteKey: siteKey) }
         screen = target
     }
 
@@ -180,6 +193,11 @@ extension AppState {
             shownFocus[.inventaire] = focus
         case .switchPort(let host, let port):
             let store = SwitchStore.shared
+            // Note 48 : switch d'un autre site, montré dans la vue de ce site (host : adresse ou nom).
+            if let siteKey, siteKey != SiteModel.shared.activeKey {
+                store.browseFocus = SwitchBrowseFocus(siteKey: siteKey, hostOrName: host, port: port)
+                return
+            }
             let index = port.flatMap { name in store.snapshots[host]?.interfaces.first { $0.name == name }?.index }
             store.select(host: host, port: index)
         case .accessPoint(let id):
@@ -234,6 +252,8 @@ extension AppState {
             }
         }
         let fortiAP = FortiAPStore.shared.overview
+        // Note 48 : bornes d'un autre site montrées dans Wi-Fi (double-clic sur une ligne).
+        let shownAPs = FortiAPStore.shared.shownOverview.aps.filter { ap in !fortiAP.aps.contains { $0.id == ap.id } }
         var clients: [String: String] = [:]
         for client in fortiAP.clients {
             if let ap = fortiAP.ap(for: client) { clients[client.mac.formatted(.upperColon)] = ap.id }
@@ -244,7 +264,7 @@ extension AppState {
                           scanner: devices.map { NavDeviceRef($0) },
                           inventories: inventories,
                           switches: SwitchStore.shared.orderedSnapshots,
-                          accessPoints: fortiAP.aps.map { (id: $0.id, name: $0.name, ip: $0.ip?.description) },
+                          accessPoints: (fortiAP.aps + shownAPs).map { (id: $0.id, name: $0.name, ip: $0.ip?.description) },
                           wifiClients: clients,
                           probes: MonStore.shared.probes.map(NavProbeRef.init),
                           remoteHosts: remotes)
@@ -265,7 +285,15 @@ struct NavHistoryButtons: View {
 
     var body: some View {
         ControlGroup {
-            Button { state.goBack() } label: { Label("Retour", systemImage: "chevron.left") }
+            // Note 45 : le bouton nomme l'écran d'origine (« ‹ Inventaire »).
+            Button { state.goBack() } label: {
+                if let previous = state.history.previous {
+                    Label(previous.module.shortTitle, systemImage: "chevron.left")
+                        .labelStyle(.titleAndIcon)
+                } else {
+                    Label("Retour", systemImage: "chevron.left")
+                }
+            }
                 .disabled(!state.canGoBack)
                 .help((state.history.previous.map { "Retour à «\u{00A0}\(Screen($0.module).title)\u{00A0}»" } ?? "Retour") + shortcutSuffix(ShortcutID.back))
             Button { state.goForward() } label: { Label("Avancer", systemImage: "chevron.right") }

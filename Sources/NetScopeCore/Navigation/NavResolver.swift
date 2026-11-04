@@ -326,7 +326,14 @@ public enum NavResolver {
                                              sites: site == context.activeSiteKey ? nil : .include(site)))
         }
         let switchName = inScanner?.switchName ?? record?.switchName ?? ref.switchName
-        if let snapshot = context.switchSnapshot(named: switchName) {
+        if site != context.activeSiteKey {
+            // Note 48 : appareil d'un autre site, son switch est un switch de CE site (jamais celui du
+            // site actif qui porterait le même nom) ; Switchs et ports s'ouvre sur ce site.
+            if let switchName, !switchName.isEmpty {
+                add("Switchs et ports", NavDestination(.switchs, focus: .switchPort(host: switchName, port: record?.switchPort ?? ref.switchPort),
+                                                       sites: .only([site])))
+            }
+        } else if let snapshot = context.switchSnapshot(named: switchName) {
             let port = inScanner?.switchPort ?? record?.switchPort ?? ref.switchPort
             add("Switchs et ports", NavDestination(.switchs, focus: .switchPort(host: snapshot.id, port: port)))
         } else if let snapshot = context.switches[ip] {

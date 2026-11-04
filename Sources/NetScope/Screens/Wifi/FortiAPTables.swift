@@ -153,7 +153,7 @@ struct FortiAPTable: View {
     ]
 
     var body: some View {
-        let all = store.overview.aps
+        let all = store.shownOverview.aps
         let query = FortiSearch(search, global: state.searchQuery(for: .wifi), schema: .wifiBornes)
         let rows = all.filter { ap in
             query.matches(["borne": [ap.name, ap.serial, ap.location], "modele": [ap.model], "ip": [ap.ip?.description],
@@ -164,7 +164,7 @@ struct FortiAPTable: View {
         .map(FortiAPRow.init)
         .sorted(using: table.sortOrder + [KeyPathComparator(\FortiAPRow.name)])
         FortiAPTableFrame {
-            FortiAPTableHeader(title: "Bornes FortiAP", summary: "\(store.overview.onlineAPs.count) en ligne sur \(all.count)",
+            FortiAPTableHeader(title: "Bornes FortiAP", summary: "\(store.shownOverview.onlineAPs.count) en ligne sur \(all.count)",
                                search: $search, prompt: "Nom, modèle, IP…", model: table) { EmptyView() }
             Rectangle().fill(Theme.border).frame(height: 1)
             if rows.isEmpty {
@@ -269,12 +269,14 @@ struct FortiAPTable: View {
             }
         }
         .standardTableStyle()
+        // Note 48 : plusieurs sites affichés, colonne « Site » montrée d’office.
+        .standardSiteColumn(table, multiple: store.shownOverview.isMultiSite)
         // Note 34 : double-clic ou ↩︎ sur une borne → sa fiche Appareil (déjà choisie ici) ;
         // clic droit → « Ouvrir dans › » (fiche, Inventaire, Carte, Switchs et ports, Ping…).
         .standardRowNavigation(selection: selection.map { [$0] } ?? [], object: { id in
-            store.overview.aps.first { $0.id == id }.map { .accessPoint(id: $0.id, name: $0.name, ip: $0.ip?.description) }
+            store.shownOverview.aps.first { $0.id == id }.map { .accessPoint(id: $0.id, name: $0.name, ip: $0.ip?.description) }
         }, primary: { ids in
-            guard let ap = store.overview.aps.first(where: { ids.contains($0.id) }) else { return true }
+            guard let ap = store.shownOverview.aps.first(where: { ids.contains($0.id) }) else { return true }
             if let ip = ap.ip?.description, state.device(withID: ip) != nil { state.showDevice(ip) }
             return true
         })
@@ -282,7 +284,7 @@ struct FortiAPTable: View {
 
     /// Radios en orange quand la borne est dans un chevauchement.
     private func radioColor(_ ap: FortiManagedAP) -> Color {
-        store.diagnosis.overlaps.contains { $0.site == ap.site && ($0.first == ap.name || $0.second == ap.name) && $0.kind != .sameChannel }
+        store.shownDiagnosis.overlaps.contains { $0.site == ap.site && ($0.first == ap.name || $0.second == ap.name) && $0.kind != .sameChannel }
             ? Theme.warning : Theme.neutralText
     }
 }
@@ -355,7 +357,7 @@ struct FortiAPClientTable: View {
     ]
 
     var body: some View {
-        let all = store.overview.clients
+        let all = store.shownOverview.clients
         let devices = deviceNames()
         let query = FortiSearch(search, global: state.searchQuery(for: .wifi), schema: .wifiClients)
         let rows = all.filter { c in
@@ -398,7 +400,7 @@ struct FortiAPClientTable: View {
     /// Nom de l'appareil du Scanner de chaque MAC cliente (rattachement par MAC).
     private func deviceNames() -> [MACAddress: String] {
         var result: [MACAddress: String] = [:]
-        for (id, client) in FortiWifiMerge.match(state.devices, overview: store.overview) {
+        for (id, client) in FortiWifiMerge.match(state.devices, overview: store.shownOverview) {
             if let device = state.device(withID: id) { result[client.mac] = "\(device.displayName) · \(device.ip)" }
         }
         return result
@@ -523,10 +525,12 @@ struct FortiAPClientTable: View {
             }
         }
         .standardTableStyle()
+        // Note 48 : plusieurs sites affichés, colonne « Site » montrée d’office.
+        .standardSiteColumn(table, multiple: store.shownOverview.isMultiSite)
         // Note 34 : double-clic ou ↩︎ → fiche de l'appareil du Scanner rattaché par MAC (sinon sa fiche
         // d'inventaire, sinon un message) ; clic droit → « Ouvrir dans › ».
         .standardRowNavigation(selection: selection.map { [$0] } ?? [], object: { id in
-            guard let client = store.overview.clients.first(where: { $0.id == id }) else { return nil }
+            guard let client = store.shownOverview.clients.first(where: { $0.id == id }) else { return nil }
             let matched = FortiWifiMerge.match(state.devices, overview: FortiWifiOverview(clients: [client])).keys.first
             return .wifiClient(mac: client.mac.formatted(.upperColon), ip: matched ?? client.ip?.description,
                                name: client.hostname ?? client.mac.formatted(.upperColon), apID: store.ap(for: client)?.id)
@@ -575,8 +579,8 @@ struct FortiAPSSIDTable: View {
     ]
 
     var body: some View {
-        let all = store.overview.ssids
-        let clients = store.overview.clients
+        let all = store.shownOverview.ssids
+        let clients = store.shownOverview.clients
         let query = FortiSearch(search, global: state.searchQuery(for: .wifi), schema: .wifiSSID)
         let rows = all.filter { s in
             query.matches(["ssid": [s.ssid], "securite": [s.securityLabel, s.security], "vlan": [s.vlan.map(String.init)], "site": [s.site]],
@@ -588,7 +592,7 @@ struct FortiAPSSIDTable: View {
             }
             .sorted(using: table.sortOrder + [KeyPathComparator(\FortiSSIDRow.site)])
         FortiAPTableFrame {
-            FortiAPTableHeader(title: "SSID diffusés", summary: "\(store.overview.distinctSSIDs.count) SSID",
+            FortiAPTableHeader(title: "SSID diffusés", summary: "\(store.shownOverview.distinctSSIDs.count) SSID",
                                search: $search, prompt: "SSID, VLAN…", model: table) { EmptyView() }
             Rectangle().fill(Theme.border).frame(height: 1)
             if rows.isEmpty {
@@ -635,6 +639,8 @@ struct FortiAPSSIDTable: View {
                         .defaultVisibility(.hidden)
                 }
                 .standardTableStyle()
+                // Note 48 : plusieurs sites affichés, colonne « Site » montrée d’office.
+                .standardSiteColumn(table, multiple: store.shownOverview.isMultiSite)
                 .standardTableHeight(rows: rows.count, rowHeight: fortiRowHeight, maxRows: 8)
             }
         }
@@ -698,7 +704,7 @@ struct FortiAPRogueTable: View {
     ]
 
     var body: some View {
-        let all = store.overview.rogues
+        let all = store.shownOverview.rogues
         let query = FortiSearch(search, global: state.searchQuery(for: .wifi), schema: .wifiVoisins)
         let rows = all.filter { r in
             (!onlyUnauthorized || r.isUnauthorized)
@@ -792,6 +798,8 @@ struct FortiAPRogueTable: View {
                         .defaultVisibility(.hidden)
                 }
                 .standardTableStyle()
+                // Note 48 : plusieurs sites affichés, colonne « Site » montrée d’office.
+                .standardSiteColumn(table, multiple: store.shownOverview.isMultiSite)
                 .standardTableHeight(rows: rows.count, rowHeight: fortiRowHeight, maxRows: 10)
             }
         }

@@ -65,6 +65,14 @@ final class SwitchStore: ObservableObject {
         didSet { rememberedCommunities = hostCommunities.count }
     }
 
+    /// Note 48 : site actif au moment de chaque relevé SNMP (adresse → clé du site). Un relevé
+    /// n'est montré que pour ce site : la même adresse chez un autre client est un autre switch.
+    private(set) var readingSites: [String: String] = [:]
+    /// Switch à montrer dans la vue d'un autre site (double-clic, « Ouvrir dans », Retour).
+    @Published var browseFocus: SwitchBrowseFocus?
+    /// Switch choisi dans la vue d'un autre site ou de plusieurs (« site|adresse »).
+    @Published var browseSelection: String?
+
     /// Noms d'hôte des postes fictifs de la démonstration (absents d'AppState).
     private(set) var demoNames: [MACAddress: String] = [:]
 
@@ -149,6 +157,8 @@ final class SwitchStore: ObservableObject {
         let extra = SitesDemo.unassignedSwitch(now: demo.snapshots.first?.polledAt ?? Date())
         hosts.append(extra.host.description)
         snapshots[extra.host.description] = extra
+        // Relevés SNMP de la démonstration : ceux du Siège.
+        for host in hosts { readingSites[host] = SitesDemo.siegeKey }
         selectedHost = Self.demoSelection.flatMap { wanted in allHosts.first { snapshots[$0]?.displayName == wanted } } ?? hosts.first
         selectedPort = 12
         let devices = DemoData.devices()
@@ -295,6 +305,7 @@ final class SwitchStore: ObservableObject {
         ignoredHosts.insert(host)
         if hostCommunities.removeValue(forKey: host) != nil { saveHostCommunities() }
         snapshots[host] = nil
+        readingSites[host] = nil
         errors[host] = nil
         if selectedHost == host { selectedHost = hosts.first }
     }
@@ -384,6 +395,7 @@ final class SwitchStore: ObservableObject {
         }
         var fresh = Set<String>()
         var next = 0
+        let siteKey = SiteModel.shared.activeKey
         await withTaskGroup(of: (String, Result<SNMPSwitchSnapshot, Error>).self) { group in
             func launch() {
                 guard next < jobs.count else { return }
@@ -401,6 +413,7 @@ final class SwitchStore: ObservableObject {
                 switch result {
                 case .success(let snapshot):
                     snapshots[host] = snapshot
+                    readingSites[host] = siteKey
                     errors[host] = nil
                     fresh.insert(host)
                 case .failure(let error):
@@ -535,6 +548,11 @@ final class SwitchStore: ObservableObject {
         }
         return SiteSwitchFilter.visible(candidates, activeSite: sites.activeSite, sites: sites.sites,
                                         scanRanges: ScanController.shared.lastScanRanges)
+    }
+
+    /// Relevés SNMP gardés en mémoire, chacun avec le site pour lequel il a été fait (note 48).
+    var snmpReadings: [SiteSNMPReading] {
+        snmpSnapshots.map { SiteSNMPReading(snapshot: $0, siteKey: readingSites[$0.id]) }
     }
 
     /// FortiSwitch dont la FortiGate n'est pas connue (jamais celle du site actif).
@@ -786,4 +804,11 @@ enum CSVText {
         if let first = value.first, "=+-@\t".contains(first), !isNumber { value = "'" + value }
         return value
     }
+}
+
+/// Switch d'un autre site à montrer dans Switchs et ports (note 48) : adresse de gestion ou nom.
+struct SwitchBrowseFocus: Equatable {
+    var siteKey: String
+    var hostOrName: String
+    var port: String?
 }

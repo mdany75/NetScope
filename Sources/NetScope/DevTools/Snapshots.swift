@@ -104,7 +104,12 @@ enum Snapshots {
         defer { window.orderOut(nil) }
 
         var ok = true
+        // NETSCOPE_ECRANS="switchs,wifi" : seulement ces écrans (captures plus rapides).
+        let only = ProcessInfo.processInfo.environment["NETSCOPE_ECRANS"].map {
+            Set($0.lowercased().split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+        }
         for (number, screen) in Screen.allCases.enumerated() {
+            if let only, !only.contains(screen.rawValue) { continue }
             state.screen = screen
             try? await Task.sleep(nanoseconds: 450_000_000)
             let url = directory.appendingPathComponent(String(format: "%02d-%@.png", number + 1, screen.rawValue))
