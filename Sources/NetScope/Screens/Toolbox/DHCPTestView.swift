@@ -289,7 +289,7 @@ final class ToolDHCPModel: ObservableObject {
         } else if !rogue.isEmpty {
             let names = rogue.compactMap { $0.server?.description }.joined(separator: ", ")
             store.record(ToolRecent(tool: .dhcp, target: target,
-                                    summary: "\(offers.count) serveur\(offers.count > 1 ? "s" : ""), dont \(names) non autorisé",
+                                    summary: "\(offers.count) serveur\(offers.count > 1 ? "s" : "") · \(rogue.count) non autorisé\(rogue.count > 1 ? "s" : "") (\(names))",
                                     status: .warning))
         } else {
             store.record(ToolRecent(tool: .dhcp, target: target,

@@ -85,20 +85,25 @@ struct TopologieScreen: View {
 
     // MARK: Carte
 
-    /// Zoom automatique : jamais sous un seuil lisible (la carte défile alors), jamais trop gros.
-    private static let minFit: CGFloat = 0.75
+    /// Zoom automatique : la carte entière quand elle tient à 55 % ou plus ; sinon 55 %, cadrée
+    /// en haut à gauche, et la carte défile. Jamais trop gros.
+    private static let minFit: CGFloat = 0.55
     private static let maxFit: CGFloat = 1.15
 
     /// Disposition qui remplit le mieux le cadre réel : on essaie plusieurs hauteurs de piles de feuilles
     /// (plus basses = carte plus large que haute) et on garde celle qui permet le plus grand zoom.
+    /// Si aucune ne tient à `minFit`, on garde celle qui tient en largeur à ce zoom avec la plus petite
+    /// hauteur (la carte ne défile alors que verticalement), sinon la plus étroite.
     private func fittedLayout(_ graph: TopoGraph, in size: CGSize) -> (layout: TopoGraph.Layout, fit: CGFloat) {
         let hideEnd = !showEndDevices
         let hidden: (TopoNode) -> Bool = { node in hideEnd && (node.kind == .groupe || node.kind == .appareil) }
         let width = max(size.width - 24, 1), height = max(size.height - 24, 1)
+        let layouts = (1...6).reversed().map { stack in
+            graph.layout(nodeWidth: TopoStyle.nodeWidth, nodeHeight: TopoStyle.nodeHeight,
+                         levelGap: 50, stackGap: 20, maxStack: stack, margin: 22, hidden: hidden)
+        }
         var best: (layout: TopoGraph.Layout, fit: CGFloat)?
-        for stack in (1...6).reversed() {
-            let layout = graph.layout(nodeWidth: TopoStyle.nodeWidth, nodeHeight: TopoStyle.nodeHeight,
-                                      levelGap: 50, stackGap: 20, maxStack: stack, margin: 22, hidden: hidden)
+        for layout in layouts {
             let fit = min(width / layout.width, height / layout.height)
             // À zoom presque égal, on garde les piles les plus hautes (carte plus compacte).
             if let current = best, fit <= current.fit + 0.01 { continue }
@@ -107,7 +112,10 @@ struct TopologieScreen: View {
         guard let result = best else {
             return (graph.layout(nodeWidth: TopoStyle.nodeWidth, nodeHeight: TopoStyle.nodeHeight, hidden: hidden), 1)
         }
-        return (result.layout, min(max(result.fit, Self.minFit), Self.maxFit))
+        if result.fit >= Self.minFit { return (result.layout, min(result.fit, Self.maxFit)) }
+        let fitsWidth = layouts.filter { $0.width * Self.minFit <= width }
+        let layout = fitsWidth.min { $0.height < $1.height } ?? layouts.min { $0.width < $1.width } ?? result.layout
+        return (layout, Self.minFit)
     }
 
     private func mapPanel(_ graph: TopoGraph) -> some View {
@@ -147,13 +155,22 @@ struct TopologieScreen: View {
                 let layout = fitted.layout
                 let fit = fitted.fit
                 let scale = zoom ?? fit
+                // Carte entière visible : centrée dans le cadre. Plus grande : cadrée en haut à gauche, à sa
+                // taille exacte (aucun fond à la taille du cadre qui déborderait sous une barre de défilement
+                // et ferait défiler, ou couper, le bord droit de la carte).
+                let fitsWhole = layout.width * scale <= geometry.size.width && layout.height * scale <= geometry.size.height
                 ScrollView([.horizontal, .vertical]) {
-                    TopoCanvas(graph: graph, layout: layout, selectedID: $selectedID, showPortLabels: showPortLabels)
-                        .frame(width: layout.width, height: layout.height)
-                        .scaleEffect(scale, anchor: .topLeading)
-                        .frame(width: layout.width * scale, height: layout.height * scale, alignment: .topLeading)
-                        .frame(minWidth: geometry.size.width, minHeight: geometry.size.height)
+                    ZStack(alignment: fitsWhole ? .center : .topLeading) {
+                        if fitsWhole {
+                            Color.clear.frame(width: geometry.size.width, height: geometry.size.height)
+                        }
+                        TopoCanvas(graph: graph, layout: layout, selectedID: $selectedID, showPortLabels: showPortLabels)
+                            .frame(width: layout.width, height: layout.height)
+                            .scaleEffect(scale, anchor: .topLeading)
+                            .frame(width: layout.width * scale, height: layout.height * scale, alignment: .topLeading)
+                    }
                 }
+                .defaultScrollAnchor(.topLeading)
                 .onAppear { fitScale = fit }
                 .onChange(of: fit) { _, value in fitScale = value }
             }

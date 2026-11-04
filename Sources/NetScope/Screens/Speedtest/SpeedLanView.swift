@@ -37,7 +37,7 @@ struct SpeedLanView: View {
                     Button {
                         model.stopLan()
                     } label: {
-                        Label("Arrêter", systemImage: "stop")
+                        Label("Arrêter", systemImage: "stop.fill")
                     }
                     .buttonStyle(.secondary)
                     .speedDisabled(!model.lanRunning)
@@ -402,9 +402,13 @@ struct SpeedTrailingIconLabelStyle: LabelStyle {
     }
 }
 
-/// Nom court de ce Mac (« Macmini-de-Dany »), sans résolution DNS.
+/// Nom court de ce Mac, sans résolution DNS ; « Macmini-de-Dany » en démonstration (`--demo`).
 let speedLocalHostName: String = {
+    if Launcher.isDemo { return "Macmini-de-Dany" }
     var buffer = [CChar](repeating: 0, count: 256)
     let name = gethostname(&buffer, buffer.count) == 0 ? String(cString: buffer) : "Ce Mac"
     return name.split(separator: ".").first.map(String.init) ?? name
 }()
+
+/// Compte de la session (invite de terminal) ; « dany » en démonstration.
+let speedLocalUserName: String = Launcher.isDemo ? "dany" : NSUserName()

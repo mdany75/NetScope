@@ -142,18 +142,24 @@ struct DeviceOverviewTab: View {
                         Text(explanation).font(Theme.small).foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    // Switch et port gardent leur largeur ; le nom de l'appareil passe sur deux lignes
-                    // si la carte est étroite, au lieu d'être coupé.
-                    HStack(spacing: 8) {
+                    // Switch et port gardent leur largeur ; le nom de l'appareil tient sur une ligne
+                    // quand la place le permet, sinon passe sur deux lignes en coupant à un espace
+                    // (traits d'union insécables : « Brother / DCP‑L2640DW », jamais « DCP- / L2640DW »).
+                    let deviceName = device.hostname ?? device.displayName
+                    HStack(spacing: 4) {
                         node(title: switchName, detail: switchDevice?.ip.description ?? "switch", highlighted: false)
                             .fixedSize()
                         Text("─").foregroundStyle(Theme.textSecondary)
                         node(title: device.switchPort ?? "?", detail: device.vlan.map { "VLAN \($0)" } ?? "port", highlighted: true)
                             .fixedSize()
                         Text("─").foregroundStyle(Theme.textSecondary)
-                        node(title: device.hostname ?? device.displayName,
-                             detail: ".\(device.ip.octets.3)", highlighted: false, titleLines: 2)
-                            .fixedSize(horizontal: false, vertical: true)
+                        ViewThatFits(in: .horizontal) {
+                            node(title: deviceName, detail: ".\(device.ip.octets.3)", highlighted: false)
+                                .fixedSize()
+                            node(title: deviceName.replacingOccurrences(of: "-", with: "\u{2011}"),
+                                 detail: ".\(device.ip.octets.3)", highlighted: false, titleLines: 2)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                     .opacity(status.isCurrent ? 1 : 0.55)
                     VStack(spacing: 0) {
@@ -188,7 +194,7 @@ struct DeviceOverviewTab: View {
             Text(title).font(.system(size: 12, weight: .semibold)).lineLimit(titleLines)
             Text(detail).font(Theme.mono(11)).foregroundStyle(highlighted ? Theme.accentStrong : Theme.textSecondary).lineLimit(1)
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 7)
         .padding(.vertical, 6)
         .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(highlighted ? Theme.accent : Theme.border))
     }

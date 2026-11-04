@@ -283,7 +283,7 @@ final class ToolStore: ObservableObject {
             "ipcalc 192.168.50.0/24 --split 26", "whois 8.8.8.8", "wol B0:7B:25:44:9F:20 -b 10.182.122.255 -p 9",
         ]
         recents = [
-            ToolRecent(tool: .dhcp, target: "en0 · 10.182.122.0/24", summary: "2 serveurs, dont 10.182.122.250 non autorisé",
+            ToolRecent(tool: .dhcp, target: "en0 · 10.182.122.0/24", summary: "2 serveurs · 1 non autorisé (10.182.122.250)",
                        date: ago(4), status: .warning),
             ToolRecent(tool: .lldp, target: "en7", summary: "SW-ETG2-01 · port 1/22 · VLAN 1", date: ago(9), status: .ok),
             ToolRecent(tool: .ports, target: "10.182.122.111", summary: "4 ouverts\u{00A0}: 80, 443, 631, 9100", date: ago(22), status: .ok),
