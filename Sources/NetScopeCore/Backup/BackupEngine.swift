@@ -229,7 +229,20 @@ public enum BackupEngine {
     /// Libellé lisible d'un fichier de données.
     public static func label(for path: String) -> String {
         let name = (path as NSString).deletingPathExtension
+        // Note 28 : un dossier par site (inventaire et résultats propres au site).
+        let parts = name.split(separator: "/").map(String.init)
+        if parts.count == 3, parts[0] == SiteFiles.folderName {
+            let who = parts[1] == SiteFiles.noSiteKey ? "plages libres" : "site"
+            switch parts[2] {
+            case "inventory": return "inventaire (\(who))"
+            case "resultats": return "résultats du scan (\(who))"
+            default: break
+            }
+        }
         switch name {
+        case "sites": return "sites"
+        case "inventory": return "inventaire"
+        case "inventory.avant-sites": return "inventaire d’avant les sites (copie de sécurité)"
         case "etat": return "plages et noms"
         case "inventaire": return "inventaire"
         case "surveillance": return "Surveillance"

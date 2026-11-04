@@ -19,7 +19,8 @@ enum RapportData {
         }
         let records = ReportBuilder.sessionRecords(inRanges, devices: devices)
 
-        let snapshots = SwitchStore.shared.orderedSnapshots
+        // Note 28 : switchs du site actif seulement.
+        let snapshots = SwitchStore.shared.siteSnapshots
         let switches = snapshots.map { ReportSwitch(snapshot: $0) }
 
         var input = ReportInput(
@@ -48,7 +49,8 @@ enum RapportData {
         let fortiAP = FortiAPStore.shared
         input.fortiWifi = fortiAP.hasData ? fortiAP.overview : nil
         input.fortiWifiThresholds = fortiAP.thresholds
-        if demo { RapportDemo.complete(&input) }
+        // Note 28 : les compléments du croquis décrivent le Siège seulement.
+        if demo, SiteModel.shared.activeID == SitesDemo.siegeID { RapportDemo.complete(&input) }
         return input
     }
 

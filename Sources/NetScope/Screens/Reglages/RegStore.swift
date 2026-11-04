@@ -49,7 +49,7 @@ enum RegSection: String, CaseIterable, Identifiable {
     var keywords: String {
         switch self {
         case .general: return "langue thème démarrage ouverture de session barre de menus"
-        case .sites: return "cidr plage vlan site passerelle début-fin"
+        case .sites: return "cidr plage vlan site passerelle début-fin client fortigate inventaire csv détection"
         case .profils: return "threads délai tentatives ports rapide complet personnalisé méthodes découverte icmp arp tcp udp mdns bonjour netbios snmp lldp cdp"
         case .identifiants: return "snmp v2c v3 communauté utilisateur authentification trousseau mot de passe tester ssh wmi clé winrm"
         case .switchs: return "switch snmp lldp cdp port vlan découverte automatique communauté public"

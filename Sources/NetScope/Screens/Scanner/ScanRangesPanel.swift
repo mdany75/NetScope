@@ -20,6 +20,8 @@ struct ScanRangesPanel: View {
     var body: some View {
         Panel {
             VStack(alignment: .leading, spacing: 12) {
+                // Note 28 : site actif (préréglage des plages, inventaire et résultats du site).
+                ScanSiteBar()
                 HStack(spacing: 10) {
                     ScanCardTitle(text: "Plages à scanner")
                     Text(summary).font(Theme.small).foregroundStyle(Theme.textSecondary)

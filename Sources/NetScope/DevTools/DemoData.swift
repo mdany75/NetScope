@@ -28,6 +28,8 @@ enum DemoData {
         // Inventaire de démonstration et pastille Analyse calculés dès le départ, comme sur les autres écrans.
         InvModel.shared.observe(state.devices, immediately: true)
         InvModel.shared.updateBadge(state)
+        // Note 28 : sites de démonstration (NETSCOPE_SITE choisit le site actif des captures).
+        SiteModel.shared.attachDemo(to: state)
     }
 
     /// Interface active fictive (Wi-Fi du bureau).

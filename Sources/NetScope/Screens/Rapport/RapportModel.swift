@@ -79,6 +79,18 @@ final class RapportModel: ObservableObject {
         show("Nouveau rapport à partir du modèle Audit réseau complet.")
     }
 
+    /// Note 28 : le site actif dans l'en-tête du rapport (le rapport ne décrit que ce site).
+    private var siteFromModel: String?
+
+    func siteChanged(_ site: Site?) {
+        let name = site?.displayName ?? ""
+        let current = config.site.trimmingCharacters(in: .whitespaces)
+        // Un site saisi à la main reste, sauf s'il venait du site précédent.
+        guard current.isEmpty || current == siteFromModel || (isDemo && current == RapportDemo.config.site) else { return }
+        config.site = name
+        siteFromModel = name
+    }
+
     func saveTemplate() {
         let site = config.site.trimmingCharacters(in: .whitespaces)
         let name = config.template.label + (site.isEmpty ? "" : " — \(site)")

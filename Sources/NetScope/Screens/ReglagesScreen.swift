@@ -137,7 +137,7 @@ struct ReglagesScreen: View {
     @ViewBuilder private func note(for section: RegSection) -> some View {
         switch section {
         case .sites:
-            Text("\(state.ranges.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+            Text("\(SiteModel.shared.sites.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
         case .profils:
             Text("\(ScanProfile.allCases.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
         case .interface:

@@ -19,29 +19,92 @@ final class InvModel: ObservableObject {
     @Published var sessionTypes: [String: DeviceType] = [:]
 
     let isEphemeral: Bool
-    private let url: URL
+    /// Inventaire du site actif (note 28 : un fichier par site, sites/<id>/inventory.json).
+    private var url: URL?
+    /// Site dont l'inventaire est chargé (`SiteFiles.key`).
+    private(set) var siteKey: String
+    /// Démonstration : inventaires des autres sites, gardés en mémoire.
+    private var demoStores: [String: InventoryStore] = [:]
     private var lastSignature: Int?
     private var pending: Task<Void, Never>?
+    /// Appareils en attente de fusion et site auquel ils appartiennent.
+    private var pendingDevices: (devices: [Device], site: String)?
     private var toastTask: Task<Void, Never>?
 
     init() {
         let arguments = CommandLine.arguments
         isEphemeral = arguments.contains("--demo") || arguments.contains("--snapshot")
-        url = InventoryStore.defaultURL
-        if isEphemeral {
-            store = InventoryStore()
-        } else {
-            do {
-                store = try InventoryStore.load(from: url)
-            } catch {
-                // Fichier illisible : on le met de côté plutôt que de l'écraser.
-                let aside = url.deletingPathExtension()
-                    .appendingPathExtension("illisible-\(Int(Date().timeIntervalSince1970)).json")
-                try? FileManager.default.moveItem(at: url, to: aside)
-                NSLog("NetScope : inventaire illisible, mis de côté dans %@ : %@", aside.path, error.localizedDescription)
-                store = InventoryStore()
-            }
+        let sites = SiteModel.shared
+        siteKey = sites.activeKey
+        url = isEphemeral ? nil : sites.activeInventoryURL
+        store = url.map(Self.load) ?? InventoryStore()
+    }
+
+    /// Lit un inventaire ; un fichier illisible est mis de côté plutôt qu'écrasé.
+    private static func load(_ url: URL) -> InventoryStore {
+        do {
+            return try InventoryStore.load(from: url)
+        } catch {
+            let aside = url.deletingPathExtension()
+                .appendingPathExtension("illisible-\(Int(Date().timeIntervalSince1970)).json")
+            try? FileManager.default.moveItem(at: url, to: aside)
+            NSLog("NetScope : inventaire illisible, mis de côté dans %@ : %@", aside.path, error.localizedDescription)
+            return InventoryStore()
         }
+    }
+
+    // MARK: Sites (note 28)
+
+    /// Fusion en attente faite tout de suite (dans le site de ses appareils), puis enregistrement.
+    func flushAndSave() {
+        pending?.cancel()
+        pending = nil
+        if let waiting = pendingDevices {
+            pendingDevices = nil
+            ingest(waiting.devices, site: waiting.site)
+        }
+        save()
+    }
+
+    /// Charge l'inventaire d'un autre site : celui du site quitté est d'abord enregistré (sauf
+    /// `discardCurrent` : site supprimé). La fiche ouverte et les types de session sont oubliés.
+    func switchSite(to key: String, url newURL: URL?, demoStore: InventoryStore?, discardCurrent: Bool = false) {
+        if discardCurrent {
+            pending?.cancel()
+            pending = nil
+            pendingDevices = nil
+        } else {
+            flushAndSave()
+        }
+        if isEphemeral, !discardCurrent { demoStores[siteKey] = store }
+        siteKey = key
+        url = newURL
+        if isEphemeral {
+            store = demoStores[key] ?? demoStore ?? InventoryStore()
+        } else {
+            store = newURL.map(Self.load) ?? InventoryStore()
+        }
+        selectedKey = nil
+        sessionTypes = [:]
+        lastSignature = nil
+    }
+
+    /// Les plages libres deviennent un site : même inventaire, nouveau fichier.
+    func renameSite(to key: String, url newURL: URL?) {
+        pending?.cancel()
+        pending = nil
+        if let waiting = pendingDevices {
+            pendingDevices = nil
+            ingest(waiting.devices, site: waiting.site, saving: false)
+        }
+        siteKey = key
+        url = newURL
+        save()
+    }
+
+    /// Appareils rechargés avec leur site : ils sont déjà dans son inventaire.
+    func markIngested(_ devices: [Device]) {
+        lastSignature = devices.isEmpty ? nil : Self.signature(devices)
     }
 
     // MARK: Fusion des scans
@@ -50,23 +113,34 @@ final class InvModel: ObservableObject {
     /// (1,5 s sans nouveau résultat) avant de fusionner.
     func observe(_ devices: [Device], immediately: Bool) {
         pending?.cancel()
+        // Le site des appareils est retenu dès maintenant : la fusion va toujours au site du scan.
+        let site = siteKey
         if immediately {
-            ingest(devices)
+            pendingDevices = nil
+            ingest(devices, site: site)
             return
         }
+        pendingDevices = (devices, site)
         pending = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 1_500_000_000)
-            guard !Task.isCancelled else { return }
-            self?.ingest(devices)
+            guard !Task.isCancelled, let self else { return }
+            self.pendingDevices = nil
+            self.ingest(devices, site: site)
         }
     }
 
-    private func ingest(_ devices: [Device], at date: Date = Date()) {
+    private func ingest(_ devices: [Device], site: String, saving: Bool = true, at date: Date = Date()) {
         guard !devices.isEmpty else { return }
+        // Site changé entre-temps (le changement de site fusionne d'abord) : jamais dans
+        // l'inventaire d'un autre site.
+        guard site == siteKey else {
+            NSLog("NetScope : fusion ignorée, appareils d’un autre site (%@)", site)
+            return
+        }
         let signature = Self.signature(devices)
         guard signature != lastSignature else { return }
         lastSignature = signature
-        if isEphemeral && store.isEmpty && Launcher.isDemo {
+        if isEphemeral && store.isEmpty && Launcher.isDemo && siteKey == SitesDemo.siegeKey {
             InvDemo.seed(&store, devices: devices, now: date)
         } else {
             let produced = store.merge(devices, at: date)
@@ -77,7 +151,7 @@ final class InvModel: ObservableObject {
                     date: event.date, link: .device(event.ip.description), source: "conflit-\(event.ip)"))
             }
         }
-        save()
+        if saving { save() }
     }
 
     /// Empreinte des champs observés (un nom personnalisé changé ailleurs ne relance pas de fusion).
@@ -97,7 +171,7 @@ final class InvModel: ObservableObject {
     }
 
     private func save() {
-        guard !isEphemeral else { return }
+        guard !isEphemeral, let url else { return }
         do {
             try store.save(to: url)
         } catch {

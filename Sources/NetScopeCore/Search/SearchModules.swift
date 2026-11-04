@@ -124,16 +124,20 @@ public extension DeviceType {
 }
 
 /// Appareil du Scanner avec ce que l'app connaît en plus : site FortiGate, notes de la fiche.
+/// Note 28 : `site:` vise aussi le vrai site de l'appareil (le site actif, nom du client compris).
 public struct DeviceSearchItem: SearchableRecord {
     public static var searchSchema: SearchSchema { .scanner }
 
     public var device: Device
     public var site: String?
+    /// Site (note 28) auquel appartiennent les résultats affichés.
+    public var siteName: String?
     public var notes: [String]
 
-    public init(_ device: Device, site: String? = nil, notes: [String] = []) {
+    public init(_ device: Device, site: String? = nil, siteName: String? = nil, notes: [String] = []) {
         self.device = device
         self.site = site
+        self.siteName = siteName
         self.notes = notes
     }
 
@@ -148,7 +152,7 @@ public struct DeviceSearchItem: SearchableRecord {
         case "switch": return [d.switchName].compactMap { $0 }
         case "port": return [d.switchPort].compactMap { $0 }
         case "vlan": return d.vlan.map { [String($0)] } ?? []
-        case "site": return [site].compactMap { $0 }
+        case "site": return [siteName, site].compactMap { $0 }
         case "tcp": return d.openPorts.map(String.init)
         case "etat": return d.isOnline ? ["En ligne", "online"] : ["Hors ligne", "offline"]
         case "plage": return [d.rangeLabel].compactMap { $0 }

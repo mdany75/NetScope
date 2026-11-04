@@ -53,7 +53,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        MainActor.assumeIsolated { MonStore.shared.save() }
+        MainActor.assumeIsolated {
+            MonStore.shared.save()
+            // Note 28 : derniers résultats et inventaire du site actif.
+            SiteModel.shared.saveOnQuit()
+        }
     }
 }
 
@@ -81,6 +85,8 @@ struct NetScopeApp: App {
                     guard !Launcher.isDemo else { return }
                     // Vitesse des disques : fichiers d'essai restés après un arrêt brutal, supprimés.
                     Task.detached(priority: .utility) { DiskPendingCleanup.standard.cleanAll() }
+                    // Note 28 : résultats du dernier scan du site actif.
+                    SiteModel.shared.attach(to: state)
                     await state.detectInterface()
                     // Sondes de surveillance : elles tournent dès le lancement, fenêtre fermée comprise.
                     MonStore.shared.attach(to: state)

@@ -46,7 +46,7 @@ enum DeviceSearch {
         let note = DeviceNotesStore.shared.note(for: device)
         let record = InvModel.shared.record(DeviceNotesStore.key(for: device))
         let notes = [note, record?.annotations.notes ?? ""].filter { !$0.isEmpty }
-        return DeviceSearchItem(typed ?? device, site: site, notes: notes)
+        return DeviceSearchItem(typed ?? device, site: site, siteName: SiteModel.shared.activeSite?.displayName, notes: notes)
     }
 
     /// Appareils qui correspondent à la requête ; le type comparé est celui affiché (choisi à la main).
