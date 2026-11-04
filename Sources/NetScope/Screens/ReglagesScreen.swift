@@ -17,7 +17,7 @@ struct ReglagesScreen: View {
                     .padding(.bottom, 20)
             }
             .scrollBounceBehavior(.basedOnSize)
-            .frame(width: 218)
+            .frame(width: 248)
             ScrollView {
                 content
                     .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -137,12 +137,14 @@ struct ReglagesScreen: View {
         case .switchs:
             Text("\(SwitchStore.shared.hosts.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
         case .export, .raccourcis:
-            // Horloge plutôt que le mot : le libellé de la section garde toute la ligne.
-            Image(systemName: "clock")
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.textTertiary)
-                .help("Bientôt")
-                .accessibilityLabel("Bientôt")
+            // Petite pastille « bientôt » en police réduite : le libellé de la section reste sur une ligne.
+            Text("bientôt")
+                .font(.system(size: 9.5, weight: .semibold))
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1.5)
+                .background(Capsule().fill(Theme.neutralSoft))
+                .help("Section pas encore disponible dans cette version")
         default:
             EmptyView()
         }

@@ -112,10 +112,13 @@ struct SpeedTile: View {
                         .background(RoundedRectangle(cornerRadius: 4).fill(badgeTone.background))
                 }
             }
-            Text(detail).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            // Deux lignes au besoin (tuiles étroites) plutôt qu'un texte tronqué.
+            Text(detail).font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
         }
         .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panelMuted))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
     }

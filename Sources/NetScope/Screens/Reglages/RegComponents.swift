@@ -157,7 +157,7 @@ struct RegTileRow<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 8, alignment: .top)], alignment: .leading, spacing: 8) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 210), spacing: 8, alignment: .top)], alignment: .leading, spacing: 8) {
             content
         }
     }

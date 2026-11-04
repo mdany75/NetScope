@@ -42,7 +42,7 @@ struct SpeedInternetView: View {
                     Button {
                         model.stopInternet()
                     } label: {
-                        Label("Arrêter", systemImage: "stop")
+                        Label("Arrêter", systemImage: "stop.fill")
                     }
                     .buttonStyle(.secondary)
                     .speedDisabled(!model.runState.isRunning)
@@ -61,11 +61,13 @@ struct SpeedInternetView: View {
                     liveCharts
                 }
 
-                // Six tuiles en rangées pleines (6, 3 ou 2 par ligne) : pas de case vide en bout de ligne.
+                // Six tuiles sans case vide : 6 ou 3 par ligne quand la place le permet ; plus étroit,
+                // 4 + 2 (débits et latences en première ligne, la latence en charge reste visible), puis 2.
                 ViewThatFits(in: .horizontal) {
-                    tileGrid(columns: 6)
-                    tileGrid(columns: 3)
-                    tileGrid(columns: 2)
+                    tileGrid(columns: 6, minWidth: 150)
+                    tileGrid(columns: 3, minWidth: 236)
+                    tileGrid(columns: 4, minWidth: 150)
+                    tileGrid(columns: 2, minWidth: 150)
                 }
             }
         }
@@ -91,8 +93,18 @@ struct SpeedInternetView: View {
                        valueText: gaugeText, unit: gaugeUnit)
                 .frame(width: 330, height: 262)
                 .animation(.easeOut(duration: 0.25), value: model.gaugeValue)
-            FlowLayout(spacing: 6, lineSpacing: 6) {
-                ForEach(SpeedPhase.allCases, id: \.self) { phase in stepChip(phase) }
+            // Les trois étapes sur une ligne ; plus étroit, chaque pastille passe sur deux lignes
+            // (libellé puis valeur) plutôt que de renvoyer une pastille seule à la ligne.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 6) {
+                    ForEach(SpeedPhase.allCases, id: \.self) { phase in stepChip(phase, stacked: false) }
+                }
+                HStack(spacing: 6) {
+                    ForEach(SpeedPhase.allCases, id: \.self) { phase in stepChip(phase, stacked: true) }
+                }
+                FlowLayout(spacing: 6, lineSpacing: 6) {
+                    ForEach(SpeedPhase.allCases, id: \.self) { phase in stepChip(phase, stacked: true) }
+                }
             }
             VStack(spacing: 5) {
                 ProgressBar(fraction: model.fraction)
@@ -145,7 +157,7 @@ struct SpeedInternetView: View {
         model.currentPhase == .latency ? "ms · ping au repos" : "Mb/s"
     }
 
-    private func stepChip(_ phase: SpeedPhase) -> some View {
+    private func stepChip(_ phase: SpeedPhase, stacked: Bool) -> some View {
         let order = SpeedPhase.allCases
         let current = model.currentPhase
         let done: Bool = {
@@ -157,28 +169,35 @@ struct SpeedInternetView: View {
         }()
         let isCurrent = current == phase
         let tone: Tone = isCurrent ? .accent : (done ? .success : .neutral)
+        let label = Text(chipLabel(phase)).font(.system(size: 11, weight: .semibold))
+        let value = stepValue(phase).map { Text($0).font(Theme.mono(10.5)) }
         return HStack(spacing: 5) {
             SpeedPulseDot(color: isCurrent ? Theme.accent : (done ? Theme.success : Color(light: 0xD1D5DB, dark: 0x2F343C)), pulsing: isCurrent)
-            Text(chipLabel(phase)).font(.system(size: 12, weight: .semibold))
-            if let value = stepValue(phase) {
-                Text(value).font(Theme.mono(11))
+            if stacked {
+                VStack(alignment: .leading, spacing: 0) {
+                    label
+                    value
+                }
+            } else {
+                label
+                value
             }
         }
         .foregroundStyle(tone == .neutral ? Theme.textSecondary : tone.foreground)
-        .padding(.horizontal, 9)
-        .frame(height: 26)
+        .padding(.horizontal, stacked ? 10 : 8)
+        .frame(height: stacked && value != nil ? 34 : 26)
         .background(Capsule().fill(tone.background))
         .fixedSize()
         .help(phase.label)
     }
 
-    /// Libellé court des étapes (comme les courbes « Descente » et « Montée ») : les trois pastilles
-    /// tiennent sur une ligne sous la jauge.
+    /// Libellé des étapes : même vocabulaire que la jauge et les tuiles (« Téléchargement »,
+    /// « Téléversement ») ; police réduite pour que les trois pastilles tiennent sur une ligne.
     private func chipLabel(_ phase: SpeedPhase) -> String {
         switch phase {
         case .latency: return phase.label
-        case .download: return "Descente"
-        case .upload: return "Montée"
+        case .download: return "Téléchargement"
+        case .upload: return "Téléversement"
         }
     }
 
@@ -256,17 +275,23 @@ struct SpeedInternetView: View {
 
     // MARK: Tuiles de résultats
 
-    private func tileGrid(columns: Int) -> some View {
+    /// Grille de tuiles ; une rangée incomplète (4 + 2) étire ses tuiles sur toute la largeur.
+    private func tileGrid(columns: Int, minWidth: CGFloat) -> some View {
         let all = tiles
         return Grid(horizontalSpacing: 10, verticalSpacing: 10) {
             ForEach(Array(stride(from: 0, to: all.count, by: columns)), id: \.self) { start in
+                let end = min(start + columns, all.count)
+                let span = columns % (end - start) == 0 ? columns / (end - start) : 1
                 GridRow {
-                    ForEach(start..<min(start + columns, all.count), id: \.self) { index in
-                        all[index].frame(minWidth: 150)
+                    ForEach(start..<end, id: \.self) { index in
+                        all[index].frame(minWidth: minWidth, maxHeight: .infinity, alignment: .topLeading)
+                            .gridCellColumns(span)
                     }
                 }
             }
         }
+        // Hauteur idéale : les tuiles d'une même rangée prennent la hauteur de la plus haute.
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private var tiles: [SpeedTile] {

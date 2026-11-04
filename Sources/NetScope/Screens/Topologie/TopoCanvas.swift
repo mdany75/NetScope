@@ -5,7 +5,7 @@ import SwiftUI
 enum TopoStyle {
     static let wire = Color(hex: 0x94A3B8)
     static let wifi = Color(hex: 0x7C3AED)
-    static let nodeWidth: CGFloat = 172
+    static let nodeWidth: CGFloat = 178
     static let nodeHeight: CGFloat = 54
 
     static func colors(kind: TopoNodeKind, type: DeviceType?) -> (fg: Color, bg: Color) {
@@ -157,10 +157,22 @@ struct TopoNodeView: View {
     let isSelected: Bool
     let isDimmed: Bool
 
-    private func labels(titleLines: Int, subtitleLines: Int) -> some View {
+    /// Nom du nœud : sur une ligne (12 pt, sinon 10,5 pt) quand il tient ; sinon deux lignes coupées
+    /// à un espace (traits d'union insécables : jamais « Borne Wi- / Fi accueil »).
+    private var title: some View {
+        ViewThatFits(in: .horizontal) {
+            Text(node.title).font(.system(size: 12, weight: .semibold)).lineLimit(1).fixedSize()
+            Text(node.title).font(.system(size: 10.5, weight: .semibold)).lineLimit(1).fixedSize()
+            Text(node.title.replacingOccurrences(of: "-", with: "\u{2011}"))
+                .font(.system(size: 12, weight: .semibold))
+                .lineLimit(2).truncationMode(.middle).fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(Theme.text)
+    }
+
+    private func labels(subtitleLines: Int) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(node.title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text)
-                .lineLimit(titleLines).truncationMode(.middle).fixedSize(horizontal: false, vertical: true)
+            title
             Text(node.subtitle).font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary)
                 .lineLimit(subtitleLines).fixedSize(horizontal: false, vertical: true)
         }
@@ -179,8 +191,8 @@ struct TopoNodeView: View {
                 // Libellés sur deux lignes au besoin plutôt que tronqués (« Contrôleur de domaine »,
                 // « VLAN 30 · 2 en ligne · 1 conflit ») : trois lignes au plus dans le nœud.
                 ViewThatFits(in: .vertical) {
-                    labels(titleLines: 2, subtitleLines: 2)
-                    labels(titleLines: 2, subtitleLines: 1)
+                    labels(subtitleLines: 2)
+                    labels(subtitleLines: 1)
                 }
                 .frame(maxHeight: TopoStyle.nodeHeight - 6)
                 Spacer(minLength: 0)

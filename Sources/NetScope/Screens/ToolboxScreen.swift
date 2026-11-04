@@ -267,7 +267,8 @@ private struct ToolSidePanel: View {
                                 Chip(text: recent.status.label, tone: recent.status.tone)
                             }
                             Text(recent.target).font(Theme.mono(12)).lineLimit(1)
-                            Text(recent.summary).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                            Text(recent.summary).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                                .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                             Text(ToolText.relative(recent.date)).font(Theme.caption).foregroundStyle(Theme.textSecondary)
                         }
                         .padding(.bottom, 8)
