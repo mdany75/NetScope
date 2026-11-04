@@ -179,8 +179,9 @@ public enum DiskAdvisor {
                                detail: local + " Le service n’a pas signalé «\u{00A0}envoyé\u{00A0}» à temps\u{00A0}: envoi en pause, file d’attente chargée ou lien montant lent.",
                                tone: .warning)
         case .erreur:
+            let message = result.cloudError.map { " Message du service\u{00A0}: «\u{00A0}\($0)\u{00A0}»." } ?? ""
             return DiskVerdict(limit: .service, title: "Le service signale une erreur d’envoi",
-                               detail: local + " Vérifiez l’espace du compte (quota) et l’état de l’app du service.", tone: .critical)
+                               detail: local + message + " L’erreur a duré plus de 45\u{00A0}s\u{00A0}: vérifiez l’espace du compte (quota), la connexion du compte et l’état de l’app du service, puis relancez le test.", tone: .critical)
         default:
             break
         }

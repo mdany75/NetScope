@@ -68,10 +68,17 @@ public struct DiskCloudTracker: Sendable {
     public private(set) var firstUploadingAt: Double?
     public private(set) var error: String?
     private var sawState = false
+    /// Début de l'erreur d'envoi en cours (nil : pas d'erreur au dernier relevé).
+    private var errorSince: Double?
+    /// iCloud signale souvent une erreur passagère pendant l'envoi (fichier encore ouvert, file
+    /// d'attente, reprise réseau) qui disparaît d'elle-même : on ne conclut « erreur » que si elle
+    /// dure au moins ce délai, ou si elle est encore là au délai maximal.
+    public var errorPersistence: Double
 
-    public init(grace: Double = 8, timeout: Double = 600) {
+    public init(grace: Double = 8, timeout: Double = 600, errorPersistence: Double = 45) {
         self.grace = grace
         self.timeout = timeout
+        self.errorPersistence = errorPersistence
     }
 
     /// Ajoute un relevé ; renvoie l'état après ce relevé.
@@ -79,11 +86,21 @@ public struct DiskCloudTracker: Sendable {
     public mutating func add(_ sample: DiskCloudSample) -> DiskCloudStatus {
         guard !status.isFinal else { return status }
         if sample.reportsState { sawState = true }
-        if let message = sample.uploadError, !message.isEmpty {
-            error = message
-            status = .erreur
+        if sample.isUploaded == true {
+            uploadedAfter = sample.time
+            status = .envoye
             return status
         }
+        if let message = sample.uploadError, !message.isEmpty {
+            error = message
+            if errorSince == nil { errorSince = sample.time }
+            if sample.time - (errorSince ?? sample.time) >= errorPersistence || sample.time >= timeout {
+                status = .erreur
+                return status
+            }
+            return status
+        }
+        errorSince = nil
         if sample.isUploaded == true {
             uploadedAfter = sample.time
             status = .envoye
@@ -131,6 +148,12 @@ public enum DiskCloudReader {
         }
         return DiskCloudSample(time: time, isUbiquitous: values.isUbiquitousItem, isUploading: values.ubiquitousItemIsUploading,
                                isUploaded: values.ubiquitousItemIsUploaded,
-                               uploadError: values.ubiquitousItemUploadingError?.localizedDescription)
+                               uploadError: values.ubiquitousItemUploadingError.map(describe))
+    }
+
+    /// Message d'iCloud avec son domaine et son code (« … (NSCocoaErrorDomain 4355) »), pour le diagnostic.
+    static func describe(_ error: NSError) -> String {
+        let underlying = (error.userInfo[NSUnderlyingErrorKey] as? NSError).map { " ; \($0.domain) \($0.code)" } ?? ""
+        return "\(error.localizedDescription) (\(error.domain) \(error.code)\(underlying))"
     }
 }

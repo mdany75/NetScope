@@ -149,6 +149,8 @@ public struct DiskBenchmarkResult: Codable, Hashable, Sendable {
     public var cloudStatus: DiskCloudStatus?
     /// Secondes entre la fin de l'écriture et « envoyé ».
     public var uploadSeconds: Double?
+    /// Dernier message d'erreur d'envoi du service nuage (domaine et code compris).
+    public var cloudError: String?
 
     public init(sizeBytes: Int64, passes: Int, writePasses: [Double] = [], readPasses: [Double] = [],
                 randomRead: DiskRandomResult? = nil, randomWrite: DiskRandomResult? = nil,
@@ -350,9 +352,10 @@ final class DiskWorker {
                 emit(.passMeasured(.lecture, pass: pass, mbps: read))
             }
             if location.kind == .nuage {
-                let (status, seconds) = try followUpload(file)
+                let (status, seconds, error) = try followUpload(file)
                 result.cloudStatus = status
                 result.uploadSeconds = seconds
+                result.cloudError = error
             } else if config.random {
                 result.randomRead = try randomAccess(file, write: false)
                 if let value = result.randomRead { emit(.random(.aleatoireLecture, value)) }
@@ -495,7 +498,7 @@ final class DiskWorker {
     }
 
     /// Suit l'envoi du fichier d'essai vers le nuage jusqu'à « envoyé », au délai maximal ou à l'arrêt.
-    private func followUpload(_ url: URL) throws -> (DiskCloudStatus, Double?) {
+    private func followUpload(_ url: URL) throws -> (DiskCloudStatus, Double?, String?) {
         emit(.phase(.envoi, pass: 1))
         var tracker = DiskCloudTracker(timeout: config.cloudTimeout)
         let begin = Self.now()
@@ -508,7 +511,7 @@ final class DiskWorker {
             let status = tracker.add(DiskCloudReader.sample(url, time: t))
             emit(.cloud(status, elapsed: t))
             progress(.envoi, pass: 1, stepFraction: status.isFinal ? 1 : t / config.cloudTimeout, instant: nil)
-            if status.isFinal { return (status, tracker.uploadedAfter) }
+            if status.isFinal { return (status, tracker.uploadedAfter, tracker.error) }
             usleep(500_000)
         }
     }
