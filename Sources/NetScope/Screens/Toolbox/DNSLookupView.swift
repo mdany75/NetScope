@@ -55,6 +55,7 @@ struct DNSLookupView: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var model: ToolDNSModel
     @ObservedObject var store: ToolStore
+    @StateObject private var table = DNSRecordTable.makeModel()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -84,27 +85,16 @@ struct DNSLookupView: View {
                         if !model.query.isEmpty { model.run(store: store) }
                     }
                 }
+                if model.result != nil {
+                    Spacer(minLength: 8)
+                    ToolColumnsMenu(model: table)
+                }
             }
             if let error = model.error {
                 ToolNotice(tone: .critical, message: error)
             }
             if let result = model.result {
-                ToolTable(columns: [.init(title: "Nom", width: 260), .init(title: "Type", width: 70),
-                                    .init(title: "TTL", width: 70, alignment: .trailing), .init(title: "Valeur")]) {
-                    if result.records.isEmpty {
-                        Text("Aucun enregistrement.").font(Theme.small).foregroundStyle(Theme.textSecondary)
-                            .frame(maxWidth: .infinity, minHeight: 40)
-                    }
-                    ForEach(Array(result.records.enumerated()), id: \.offset) { _, record in
-                        ToolTableRow {
-                            Text(record.name).font(Theme.mono(12)).toolCell(260)
-                            Chip(text: record.typeLabel, tone: .accent, mono: true).toolCell(70)
-                            Text(verbatim: String(record.ttl)).font(Theme.mono(12)).toolCell(70, alignment: .trailing)
-                            Text(record.value).font(Theme.mono(12, weight: .medium)).textSelection(.enabled)
-                                .help(record.value).toolCell(nil)
-                        }
-                    }
-                }
+                DNSRecordTable(rows: DNSRecordRow.rows(of: result), table: table)
                 Text(result.summary).font(Theme.mono(12)).foregroundStyle(Theme.textSecondary)
                 if let device = matchingDevice(result) {
                     Button("Ouvrir la fiche de \(device.displayName) →") { state.showDevice(device.id) }
@@ -169,6 +159,122 @@ struct DNSLookupView: View {
             values.contains(device.ip.description) || values.contains { value in
                 guard let host = device.hostname, !host.isEmpty else { return false }
                 return value.lowercased().hasPrefix(host.lowercased())
+            }
+        }
+    }
+}
+
+// MARK: - Tableau des enregistrements
+
+/// Ligne du tableau DNS : l'enregistrement, son rang dans la réponse, sa section et le serveur.
+struct DNSRecordRow: Identifiable {
+    let id: Int
+    let record: DNSRecord
+    /// « réponse » ; « autorité » quand la réponse est vide (SOA de la section d'autorité).
+    let section: String
+    let server: String
+
+    var sortName: String { record.name.lowercased() }
+    var sortType: String { record.typeLabel }
+    var sortTTL: UInt32 { record.ttl }
+    var sortValue: String { record.value.lowercased() }
+
+    static func rows(of result: DNSLookupResult) -> [DNSRecordRow] {
+        let section = result.answerCount == 0 ? "autorité" : "réponse"
+        return result.records.enumerated().map { index, record in
+            DNSRecordRow(id: index, record: record, section: section, server: result.serverLabel)
+        }
+    }
+}
+
+/// Enregistrements DNS (tableau standard « outils.dns », note 8) : nom, type, TTL, valeur ;
+/// facultatives : rang dans la réponse, section, serveur interrogé.
+struct DNSRecordTable: View {
+    let rows: [DNSRecordRow]
+    @ObservedObject var table: StandardTableModel<DNSRecordRow>
+
+    static let columns: [StandardColumn] = [
+        StandardColumn(id: "nom", title: "Nom", isRequired: true),
+        StandardColumn(id: "type", title: "Type"),
+        StandardColumn(id: "ttl", title: "TTL"),
+        StandardColumn(id: "valeur", title: "Valeur"),
+        StandardColumn(id: "rang", title: "Rang dans la réponse", isDefaultVisible: false),
+        StandardColumn(id: "section", title: "Section", isDefaultVisible: false),
+        StandardColumn(id: "serveur", title: "Serveur interrogé", isDefaultVisible: false),
+    ]
+
+    static let sortKeys: [String: KeyPathComparator<DNSRecordRow>] = [
+        "nom": KeyPathComparator(\DNSRecordRow.sortName),
+        "type": KeyPathComparator(\DNSRecordRow.sortType),
+        "ttl": KeyPathComparator(\DNSRecordRow.sortTTL),
+        "valeur": KeyPathComparator(\DNSRecordRow.sortValue),
+        "rang": KeyPathComparator(\DNSRecordRow.id),
+        "section": KeyPathComparator(\DNSRecordRow.section),
+        "serveur": KeyPathComparator(\DNSRecordRow.server),
+    ]
+
+    /// Tri par défaut : l'ordre de la réponse (une chaîne CNAME reste lisible).
+    @MainActor
+    static func makeModel() -> StandardTableModel<DNSRecordRow> {
+        StandardTableModel(id: "outils.dns", columns: columns, sortKeys: sortKeys, defaultSort: "rang")
+    }
+
+    var body: some View {
+        let sorted = rows.sorted(using: table.sortOrder)
+        ToolStandardTableFrame(rowCount: sorted.count, emptyText: "Aucun enregistrement.") {
+            Table(sorted, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+                TableColumn("NOM", sortUsing: table.sort("nom")) { row in
+                    ToolTableText(row.record.name).help(row.record.name)
+                }
+                .width(min: 120, ideal: 170)
+                .customizationID("nom")
+                .disabledCustomizationBehavior(.visibility)
+
+                TableColumn("TYPE", sortUsing: table.sort("type")) { row in
+                    Chip(text: row.record.typeLabel, tone: .accent, mono: true)
+                }
+                .width(min: 50, ideal: 60)
+                .customizationID("type")
+
+                TableColumn("TTL", sortUsing: table.sort("ttl")) { row in
+                    ToolTableText(String(row.record.ttl), alignment: .trailing)
+                }
+                .width(min: 44, ideal: 50)
+                .customizationID("ttl")
+
+                TableColumn("VALEUR", sortUsing: table.sort("valeur")) { row in
+                    Text(row.record.value)
+                        .font(Theme.mono(12, weight: .medium))
+                        .foregroundStyle(Theme.text)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .textSelection(.enabled)
+                        .help(row.record.value)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .width(min: 120, ideal: 220)
+                .customizationID("valeur")
+
+                TableColumn("RANG", sortUsing: table.sort("rang")) { row in
+                    ToolTableText("\(row.id + 1)", color: Theme.textSecondary, alignment: .trailing)
+                }
+                .width(min: 36, ideal: 48)
+                .customizationID("rang")
+                .defaultVisibility(.hidden)
+
+                TableColumn("SECTION", sortUsing: table.sort("section")) { row in
+                    ToolTableText(row.section, mono: false, color: Theme.textSecondary)
+                }
+                .width(min: 60, ideal: 80)
+                .customizationID("section")
+                .defaultVisibility(.hidden)
+
+                TableColumn("SERVEUR INTERROGÉ", sortUsing: table.sort("serveur")) { row in
+                    ToolTableText(row.server, color: Theme.textSecondary).help(row.server)
+                }
+                .width(min: 90, ideal: 180)
+                .customizationID("serveur")
+                .defaultVisibility(.hidden)
             }
         }
     }

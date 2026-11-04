@@ -73,6 +73,7 @@ struct SubnetCalculatorView: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var model: ToolSubnetModel
     @ObservedObject var store: ToolStore
+    @StateObject private var table = SubnetSplitTable.makeModel()
 
     private static let maxRows = 16
 
@@ -262,9 +263,13 @@ struct SubnetCalculatorView: View {
             : "Bloc trop petit pour être découpé."
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Découpage en sous-réseaux").font(Theme.bodySemibold)
-                    Text(summary).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                HStack(alignment: .top, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Découpage en sous-réseaux").font(Theme.bodySemibold)
+                        Text(summary).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    }
+                    Spacer(minLength: 8)
+                    if canSplit { ToolColumnsMenu(model: table) }
                 }
                 if canSplit {
                     ToolFlowLayout(spacing: 4) {
@@ -278,19 +283,9 @@ struct SubnetCalculatorView: View {
             }
             .padding(12)
             if canSplit {
-                TableHeader(columns: [
-                    .init(title: "#", width: 44), .init(title: "Sous-réseau", width: 170), .init(title: "Plage d’hôtes"),
-                    .init(title: "Broadcast", width: 130), .init(title: "Hôtes", width: 80, alignment: .trailing),
-                ])
-                ForEach(Array(pieces.prefix(Self.maxRows).enumerated()), id: \.offset) { index, piece in
-                    ToolTableRow {
-                        Text("\(index + 1)").font(Theme.small).foregroundStyle(Theme.textSecondary).toolCell(44)
-                        Text(piece.description).font(Theme.mono(12, weight: .semibold)).toolCell(170)
-                        Text("\(piece.firstHost.description) – \(piece.lastHost.description)").font(Theme.mono(12)).toolCell(nil)
-                        Text(piece.broadcast.description).font(Theme.mono(12)).toolCell(130)
-                        Text(ToolFormat.integer(piece.hostCount)).font(Theme.mono(12)).toolCell(80, alignment: .trailing)
-                    }
-                }
+                Rectangle().fill(Theme.border).frame(height: 1)
+                SubnetSplitTable(rows: SubnetSplitRow.rows(Array(pieces.prefix(Self.maxRows))), table: table,
+                                 maxRows: Self.maxRows)
                 HStack {
                     if pieces.count > Self.maxRows {
                         Text("… et \(ToolFormat.integer(pieces.count - Self.maxRows)) autres sous-réseaux.")
@@ -317,5 +312,128 @@ struct SubnetCalculatorView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+    }
+}
+
+// MARK: - Tableau du découpage
+
+/// Ligne du découpage : rang et sous-réseau.
+struct SubnetSplitRow: Identifiable {
+    let id: Int
+    let subnet: Subnet
+
+    var network: IPv4Address { subnet.network }
+    var firstHost: IPv4Address { subnet.firstHost }
+    var lastHost: IPv4Address { subnet.lastHost }
+    var broadcast: IPv4Address { subnet.broadcast }
+    var hostCount: UInt64 { subnet.hostCount }
+    var mask: IPv4Address { subnet.mask }
+    var wildcard: IPv4Address { subnet.wildcard }
+
+    static func rows(_ pieces: [Subnet]) -> [SubnetSplitRow] {
+        pieces.enumerated().map { SubnetSplitRow(id: $0.offset, subnet: $0.element) }
+    }
+}
+
+/// Sous-réseaux du découpage (tableau standard « outils.sousreseaux », note 8) : #, sous-réseau,
+/// plage d'hôtes, broadcast, hôtes ; facultatives : masque, première et dernière adresse, wildcard.
+struct SubnetSplitTable: View {
+    let rows: [SubnetSplitRow]
+    @ObservedObject var table: StandardTableModel<SubnetSplitRow>
+    var maxRows = 16
+
+    static let columns: [StandardColumn] = [
+        StandardColumn(id: "rang", title: "#"),
+        StandardColumn(id: "sousreseau", title: "Sous-réseau", isRequired: true),
+        StandardColumn(id: "plage", title: "Plage d’hôtes"),
+        StandardColumn(id: "broadcast", title: "Broadcast"),
+        StandardColumn(id: "hotes", title: "Hôtes"),
+        StandardColumn(id: "masque", title: "Masque", isDefaultVisible: false),
+        StandardColumn(id: "premiere", title: "Première adresse", isDefaultVisible: false),
+        StandardColumn(id: "derniere", title: "Dernière adresse", isDefaultVisible: false),
+        StandardColumn(id: "wildcard", title: "Wildcard (masque inverse)", isDefaultVisible: false),
+    ]
+
+    static let sortKeys: [String: KeyPathComparator<SubnetSplitRow>] = [
+        "rang": KeyPathComparator(\SubnetSplitRow.id),
+        "sousreseau": KeyPathComparator(\SubnetSplitRow.network),
+        "plage": KeyPathComparator(\SubnetSplitRow.firstHost),
+        "broadcast": KeyPathComparator(\SubnetSplitRow.broadcast),
+        "hotes": KeyPathComparator(\SubnetSplitRow.hostCount),
+        "masque": KeyPathComparator(\SubnetSplitRow.mask),
+        "premiere": KeyPathComparator(\SubnetSplitRow.firstHost),
+        "derniere": KeyPathComparator(\SubnetSplitRow.lastHost),
+        "wildcard": KeyPathComparator(\SubnetSplitRow.wildcard),
+    ]
+
+    @MainActor
+    static func makeModel() -> StandardTableModel<SubnetSplitRow> {
+        StandardTableModel(id: "outils.sousreseaux", columns: columns, sortKeys: sortKeys, defaultSort: "rang")
+    }
+
+    var body: some View {
+        let sorted = rows.sorted(using: table.sortOrder)
+        ToolStandardTableFrame(rowCount: sorted.count, maxRows: maxRows, bordered: false) {
+            Table(sorted, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+                TableColumn("#", sortUsing: table.sort("rang")) { row in
+                    ToolTableText("\(row.id + 1)", size: 11, mono: false, color: Theme.textSecondary)
+                }
+                .width(min: 12, ideal: 12)
+                .customizationID("rang")
+
+                TableColumn("SOUS-RÉSEAU", sortUsing: table.sort("sousreseau")) { row in
+                    ToolTableText(row.subnet.description, size: 11, weight: .semibold)
+                }
+                .width(min: 116, ideal: 118)
+                .customizationID("sousreseau")
+                .disabledCustomizationBehavior(.visibility)
+
+                TableColumn("PLAGE D’HÔTES", sortUsing: table.sort("plage")) { row in
+                    ToolTableText("\(row.firstHost)–\(row.lastHost)", size: 11)
+                }
+                .width(min: 200, ideal: 202)
+                .customizationID("plage")
+
+                TableColumn("BROADCAST", sortUsing: table.sort("broadcast")) { row in
+                    ToolTableText(row.broadcast.description, size: 11)
+                }
+                .width(min: 96, ideal: 98)
+                .customizationID("broadcast")
+
+                TableColumn("HÔTES", sortUsing: table.sort("hotes")) { row in
+                    ToolTableText(ToolFormat.integer(row.hostCount), size: 11, alignment: .trailing)
+                }
+                .width(min: 50, ideal: 50)
+                .customizationID("hotes")
+
+                TableColumn("MASQUE", sortUsing: table.sort("masque")) { row in
+                    ToolTableText(row.mask.description, size: 11)
+                }
+                .width(min: 90, ideal: 120)
+                .customizationID("masque")
+                .defaultVisibility(.hidden)
+
+                TableColumn("PREMIÈRE ADRESSE", sortUsing: table.sort("premiere")) { row in
+                    ToolTableText(row.firstHost.description, size: 11)
+                }
+                .width(min: 90, ideal: 120)
+                .customizationID("premiere")
+                .defaultVisibility(.hidden)
+
+                TableColumn("DERNIÈRE ADRESSE", sortUsing: table.sort("derniere")) { row in
+                    ToolTableText(row.lastHost.description, size: 11)
+                }
+                .width(min: 90, ideal: 120)
+                .customizationID("derniere")
+                .defaultVisibility(.hidden)
+
+                TableColumn("WILDCARD", sortUsing: table.sort("wildcard")) { row in
+                    ToolTableText(row.wildcard.description, size: 11)
+                }
+                .width(min: 90, ideal: 120)
+                .customizationID("wildcard")
+                .defaultVisibility(.hidden)
+            }
+        }
     }
 }

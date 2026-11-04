@@ -130,6 +130,7 @@ struct PortScanView: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var model: ToolPortScanModel
     @ObservedObject var store: ToolStore
+    @StateObject private var table = PortResultsTable.makeModel(id: "outils.ports", showProto: false)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -168,7 +169,8 @@ struct PortScanView: View {
             }
             if model.isRunning || model.summary != nil {
                 progressBlock
-                PortResultsTable(host: model.target, results: tableRows, showProto: false)
+                PortResultsTable(host: model.target.trimmingCharacters(in: .whitespaces), results: tableRows,
+                                 table: table, probedAt: model.isRunning ? nil : model.finishedAt)
                 hostFooter
             } else {
                 Text("Choisissez un profil ou saisissez une liste (22, 80, 8000-8100), puis lancez le scan. Les ports sont testés en TCP\u{00A0}; une bannière est lue sur SSH, FTP, SMTP et HTTP.")
@@ -200,6 +202,7 @@ struct PortScanView: View {
                 if let summary = model.summary {
                     Text(ToolFormat.seconds(summary.duration)).font(Theme.mono(12))
                 }
+                ToolColumnsMenu(model: table)
             }
             .font(Theme.small)
             .foregroundStyle(Theme.textSecondary)
@@ -224,51 +227,153 @@ struct PortScanView: View {
     }
 }
 
-/// Tableau des ports : port, état, service, bannière, délai, action.
+/// Tableau des ports (tableau standard, note 8) : port, état, service, bannière, délai, action ;
+/// facultatives : protocole, adresse web, heure du relevé. Partagé par l'outil (« outils.ports ») et
+/// l'onglet Ports et services de la fiche appareil (« appareil.ports ») : chacun garde son modèle.
 struct PortResultsTable: View {
     let host: String
     let results: [PortScanResult]
-    var showProto = true
+    @ObservedObject var table: StandardTableModel<PortScanResult>
+    /// Heure du scan qui a produit les lignes (nil : scan en cours ou ports connus de l'inventaire).
+    var probedAt: Date? = nil
+    var emptyText = "Aucun port ouvert pour l’instant."
+
+    /// Colonnes ; `showProto` rend la colonne Proto visible par défaut (fiche appareil, comme le croquis).
+    static func columns(showProto: Bool) -> [StandardColumn] {
+        [
+            StandardColumn(id: "port", title: "Port", isRequired: true),
+            StandardColumn(id: "proto", title: "Proto", isDefaultVisible: showProto),
+            StandardColumn(id: "etat", title: "État"),
+            StandardColumn(id: "service", title: "Service"),
+            StandardColumn(id: "banniere", title: "Bannière / version"),
+            StandardColumn(id: "delai", title: "Délai"),
+            StandardColumn(id: "action", title: "Action"),
+            StandardColumn(id: "url", title: "Adresse web", isDefaultVisible: false),
+            StandardColumn(id: "releve", title: "Relevé à", isDefaultVisible: false),
+        ]
+    }
+
+    static let sortKeys: [String: KeyPathComparator<PortScanResult>] = [
+        "port": KeyPathComparator(\PortScanResult.port),
+        "proto": KeyPathComparator(\PortScanResult.toolSortProto),
+        "etat": KeyPathComparator(\PortScanResult.toolSortState),
+        "service": KeyPathComparator(\PortScanResult.toolSortService),
+        "banniere": KeyPathComparator(\PortScanResult.toolSortBanner),
+        "delai": KeyPathComparator(\PortScanResult.toolSortDelay),
+        "url": KeyPathComparator(\PortScanResult.toolSortWeb),
+    ]
+
+    @MainActor
+    static func makeModel(id: String, showProto: Bool) -> StandardTableModel<PortScanResult> {
+        StandardTableModel(id: id, columns: columns(showProto: showProto), sortKeys: sortKeys, defaultSort: "port")
+    }
+
+    private var protoVisibility: Visibility {
+        table.columns.first { $0.id == "proto" }?.isDefaultVisible == true ? .automatic : .hidden
+    }
 
     var body: some View {
-        ToolTable(columns: columns) {
-            if results.isEmpty {
-                Text("Aucun port ouvert pour l’instant.")
-                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                    .frame(maxWidth: .infinity, minHeight: 40)
-            }
-            ForEach(results) { result in
-                ToolTableRow {
-                    Text(verbatim: String(result.port)).font(Theme.mono(12, weight: .semibold)).toolCell(70)
-                    if showProto { Text("tcp").font(Theme.mono(12)).toolCell(66) }
-                    Chip(text: result.state.label, tone: result.state == .open ? .success : .warning).toolCell(80)
-                    Text(result.service ?? "—").font(Theme.mono(12)).toolCell(100)
-                    Text(result.banner ?? (result.state == .filtered ? "Aucune réponse (pare-feu ?)" : "—"))
-                        .font(Theme.mono(12)).foregroundStyle(Theme.textSecondary).help(result.banner ?? "").toolCell(nil)
-                    Text(result.rttMs.map(ToolFormat.milliseconds) ?? "—").font(Theme.mono(12)).toolCell(70, alignment: .trailing)
-                    action(result).toolCell(90, alignment: .trailing)
+        let rows = results.sorted(using: table.sortOrder)
+        ToolStandardTableFrame(rowCount: rows.count, emptyText: emptyText) {
+            Table(rows, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+                TableColumn("PORT", sortUsing: table.sort("port")) { result in
+                    ToolTableText(String(result.port), weight: .semibold)
                 }
+                .width(min: 50, ideal: 58)
+                .customizationID("port")
+                .disabledCustomizationBehavior(.visibility)
+
+                TableColumn("PROTO", sortUsing: table.sort("proto")) { result in
+                    ToolTableText(result.toolSortProto)
+                }
+                .width(min: 44, ideal: 56)
+                .customizationID("proto")
+                .defaultVisibility(protoVisibility)
+
+                TableColumn("ÉTAT", sortUsing: table.sort("etat")) { result in
+                    Chip(text: result.state.label, tone: result.state == .open ? .success : .warning)
+                }
+                .width(min: 56, ideal: 64)
+                .customizationID("etat")
+
+                TableColumn("SERVICE", sortUsing: table.sort("service")) { result in
+                    ToolTableText(result.service ?? "—", color: result.service == nil ? Theme.textTertiary : Theme.text)
+                }
+                .width(min: 56, ideal: 72)
+                .customizationID("service")
+
+                TableColumn("BANNIÈRE / VERSION", sortUsing: table.sort("banniere")) { result in
+                    ToolTableText(result.banner ?? (result.state == .filtered ? "Aucune réponse (pare-feu\u{00A0}?)" : "—"),
+                                  color: Theme.textSecondary)
+                        .help(result.banner ?? "")
+                }
+                .width(min: 100, ideal: 140)
+                .customizationID("banniere")
+
+                TableColumn("DÉLAI", sortUsing: table.sort("delai")) { result in
+                    ToolTableText(result.rttMs.map(ToolFormat.milliseconds) ?? "—", alignment: .trailing)
+                }
+                .width(min: 44, ideal: 56)
+                .customizationID("delai")
+
+                TableColumn("ACTION") { result in
+                    // Hauteur de ligne fixe : le bouton (28 pt) ne doit pas agrandir sa ligne.
+                    action(result).frame(maxWidth: .infinity, maxHeight: ToolTableMetrics.cellHeight, alignment: .trailing)
+                }
+                .width(min: 50, ideal: 60)
+                .customizationID("action")
+
+                TableColumn("ADRESSE WEB", sortUsing: table.sort("url")) { result in
+                    let url = webURL(result)
+                    ToolTableText(url ?? "—", color: url == nil ? Theme.textTertiary : Theme.text)
+                        .help(url ?? "")
+                }
+                .width(min: 90, ideal: 180)
+                .customizationID("url")
+                .defaultVisibility(.hidden)
+
+                TableColumn("RELEVÉ À") { _ in
+                    ToolTableText(probedAt.map { ToolText.time($0) } ?? "—",
+                                  color: probedAt == nil ? Theme.textTertiary : Theme.textSecondary)
+                }
+                .width(min: 60, ideal: 90)
+                .customizationID("releve")
+                .defaultVisibility(.hidden)
             }
         }
     }
 
-    private var columns: [TableHeader.Column] {
-        var list: [TableHeader.Column] = [.init(title: "Port", width: 70)]
-        if showProto { list.append(.init(title: "Proto", width: 66)) }
-        list += [.init(title: "État", width: 80), .init(title: "Service", width: 100), .init(title: "Bannière / version"),
-                 .init(title: "Délai", width: 70, alignment: .trailing), .init(title: "Action", width: 90, alignment: .trailing)]
-        return list
+    /// Adresse web du port (http ou https), ou nil.
+    private func webURL(_ result: PortScanResult) -> String? {
+        guard result.state == .open, let scheme = PortScanner.webScheme(for: result.port) else { return nil }
+        let defaultPort = (scheme == "http" && result.port == 80) || (scheme == "https" && result.port == 443)
+        return "\(scheme)://\(host)" + (defaultPort ? "" : ":\(result.port)")
     }
 
     @ViewBuilder private func action(_ result: PortScanResult) -> some View {
-        if result.state == .open, let scheme = PortScanner.webScheme(for: result.port) {
-            let defaultPort = (scheme == "http" && result.port == 80) || (scheme == "https" && result.port == 443)
-            Button("Ouvrir") { ToolActions.open("\(scheme)://\(host)" + (defaultPort ? "" : ":\(result.port)")) }
+        if let url = webURL(result) {
+            Button("Ouvrir") { ToolActions.open(url) }
                 .buttonStyle(.ghost)
         } else if result.state == .open, result.port == 22 {
             Button("SSH") { ToolActions.open("ssh://\(host)") }.buttonStyle(.ghost)
         } else {
             Text("—").font(Theme.small).foregroundStyle(Theme.textTertiary)
         }
+    }
+}
+
+/// Clés de tri du tableau des ports (toujours Comparable).
+extension PortScanResult {
+    /// Seul TCP est scanné.
+    var toolSortProto: String { "tcp" }
+    var toolSortState: String { state.label }
+    var toolSortService: String { service ?? "" }
+    var toolSortBanner: String { banner ?? "" }
+    /// Sans délai mesuré : en fin de liste.
+    var toolSortDelay: Double { rttMs ?? .infinity }
+    /// Ports web d'abord (http, https), puis par numéro.
+    var toolSortWeb: String {
+        guard let scheme = PortScanner.webScheme(for: port), state == .open else { return "~" }
+        return scheme + String(format: "%05d", Int(port))
     }
 }

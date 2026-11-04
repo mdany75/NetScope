@@ -92,6 +92,7 @@ struct WakeOnLANView: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var model: ToolWakeModel
     @ObservedObject var store: ToolStore
+    @StateObject private var table = WakeTargetTable.makeModel()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -112,27 +113,19 @@ struct WakeOnLANView: View {
                     .frame(height: 34)
                 }
             }
-            HStack(alignment: .top, spacing: 12) {
-                ToolFlowLayout(spacing: 6) {
-                    Text("Postes connus\u{00A0}:").font(Theme.small).foregroundStyle(Theme.textSecondary).frame(height: 28)
-                    ForEach(knownTargets) { device in
-                        ToolChoiceChip(label: device.hostnameLabel ?? device.displayName,
-                                       isSelected: device.mac.map { MACAddress(model.macText) == $0 } ?? false) {
-                            model.macText = device.mac?.formatted(.upperColon) ?? ""
-                        }
-                    }
-                    if knownTargets.isEmpty {
-                        Text("aucun poste avec une adresse MAC dans l’inventaire").font(Theme.small)
-                            .foregroundStyle(Theme.textTertiary).frame(height: 28)
-                    }
-                }
+            HStack(alignment: .center, spacing: 12) {
+                Text("Postes connus\u{00A0}: choisissez une ligne ou saisissez la MAC.")
+                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
                 Spacer(minLength: 0)
+                ToolColumnsMenu(model: table)
                 Button { model.wake(state: state, store: store) } label: {
                     Label("Réveiller", systemImage: "power")
                 }
                 .buttonStyle(.primary)
                 .fixedSize()
             }
+            WakeTargetTable(devices: knownTargets, macText: $model.macText, table: table)
             if let error = model.error { ToolNotice(tone: .critical, message: error) }
             (Text("Paquet magique\u{00A0}: 6 × ") + Text("FF").font(Theme.mono(12)) + Text(" + 16 × MAC = 102 octets · un test de présence (connexion TCP) est fait pendant 60\u{00A0}s après l’envoi si l’adresse IP du poste est connue."))
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
@@ -147,12 +140,12 @@ struct WakeOnLANView: View {
         }
     }
 
-    /// Postes et serveurs de l'inventaire qui ont une MAC universelle.
+    /// Postes et serveurs de l'inventaire qui ont une MAC universelle (tous : le tableau défile).
     private var knownTargets: [Device] {
-        Array(state.devices.filter { device in
+        InvModel.shared.withManualTypes(state.devices).filter { device in
             guard let mac = device.mac, !mac.isRandomized, device.ip != state.activeInterface?.address else { return false }
             return device.deviceType == .poste || device.deviceType == .serveur
-        }.prefix(5))
+        }
     }
 
     private var history: some View {
@@ -193,4 +186,120 @@ struct WakeOnLANView: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
     }
+}
+
+// MARK: - Postes réveillables
+
+/// Postes et serveurs réveillables (tableau standard « outils.wol », note 8) : nom, IP, MAC, type,
+/// état ; facultatives : fabricant, VLAN, switch / port. Choisir une ligne remplit la MAC.
+struct WakeTargetTable: View {
+    let devices: [Device]
+    @Binding var macText: String
+    @ObservedObject var table: StandardTableModel<Device>
+
+    static let columns: [StandardColumn] = [
+        StandardColumn(id: "nom", title: "Nom", isRequired: true),
+        StandardColumn(id: "ip", title: "IP"),
+        StandardColumn(id: "mac", title: "MAC"),
+        StandardColumn(id: "type", title: "Type"),
+        StandardColumn(id: "etat", title: "État"),
+        StandardColumn(id: "fabricant", title: "Fabricant", isDefaultVisible: false),
+        StandardColumn(id: "vlan", title: "VLAN", isDefaultVisible: false),
+        StandardColumn(id: "switch", title: "Switch / port", isDefaultVisible: false),
+    ]
+
+    static let sortKeys: [String: KeyPathComparator<Device>] = [
+        "nom": KeyPathComparator(\Device.wakeSortName),
+        "ip": KeyPathComparator(\Device.ip),
+        "mac": KeyPathComparator(\Device.scanSortMAC),
+        "type": KeyPathComparator(\Device.scanSortType),
+        "etat": KeyPathComparator(\Device.scanSortStatus),
+        "fabricant": KeyPathComparator(\Device.scanSortVendor),
+        "vlan": KeyPathComparator(\Device.scanSortVLAN),
+        "switch": KeyPathComparator(\Device.scanSortSwitch),
+    ]
+
+    @MainActor
+    static func makeModel() -> StandardTableModel<Device> {
+        StandardTableModel(id: "outils.wol", columns: columns, sortKeys: sortKeys, defaultSort: "nom")
+    }
+
+    var body: some View {
+        let rows = devices.sorted(using: table.sortOrder)
+        let selection = Binding<Device.ID?>(
+            get: { MACAddress(macText).flatMap { mac in rows.first { $0.mac == mac }?.id } },
+            set: { id in
+                if let id, let mac = rows.first(where: { $0.id == id })?.mac { macText = mac.formatted(.upperColon) }
+            })
+        ToolStandardTableFrame(rowCount: rows.count, maxRows: 6,
+                               emptyText: "Aucun poste avec une adresse MAC dans l’inventaire.") {
+            Table(rows, selection: selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+                TableColumn("NOM", sortUsing: table.sort("nom")) { device in
+                    ToolTableText(device.wakeSortName, size: 11, mono: false, weight: .semibold)
+                }
+                .width(min: 60, ideal: 72)
+                .customizationID("nom")
+                .disabledCustomizationBehavior(.visibility)
+
+                TableColumn("IP", sortUsing: table.sort("ip")) { device in
+                    ToolTableText(device.ip.description, size: 11)
+                }
+                .width(min: 90, ideal: 100)
+                .customizationID("ip")
+
+                TableColumn("MAC", sortUsing: table.sort("mac")) { device in
+                    ToolTableText(device.mac?.formatted(.upperColon) ?? "—", size: 11)
+                }
+                .width(min: 110, ideal: 118)
+                .customizationID("mac")
+
+                TableColumn("TYPE", sortUsing: table.sort("type")) { device in
+                    HStack(spacing: 5) {
+                        Image(systemName: device.deviceType.symbolName)
+                            .font(.system(size: 11)).foregroundStyle(Theme.neutralText).frame(width: 16)
+                        ToolTableText(device.deviceType.label, size: 11, mono: false, color: Theme.neutralText)
+                    }
+                }
+                .width(min: 60, ideal: 108)
+                .customizationID("type")
+
+                TableColumn("ÉTAT", sortUsing: table.sort("etat")) { device in
+                    HStack(spacing: 6) {
+                        ScanStatusDot(online: device.isOnline)
+                        ToolTableText(device.isOnline ? "En ligne" : "Hors ligne", size: 11, mono: false,
+                                      color: device.isOnline ? Theme.success : Theme.textSecondary)
+                    }
+                }
+                .width(min: 60, ideal: 72)
+                .customizationID("etat")
+
+                TableColumn("FABRICANT", sortUsing: table.sort("fabricant")) { device in
+                    ToolTableText(device.vendorLabel, mono: false, color: Theme.neutralText)
+                }
+                .width(min: 70, ideal: 110)
+                .customizationID("fabricant")
+                .defaultVisibility(.hidden)
+
+                TableColumn("VLAN", sortUsing: table.sort("vlan")) { device in
+                    ToolTableText(device.vlan.map(String.init) ?? "—", color: device.vlan == nil ? Theme.textTertiary : Theme.text)
+                }
+                .width(min: 40, ideal: 56)
+                .customizationID("vlan")
+                .defaultVisibility(.hidden)
+
+                TableColumn("SWITCH / PORT", sortUsing: table.sort("switch")) { device in
+                    ToolTableText(device.switchLocation ?? "—",
+                                  color: device.switchLocation == nil ? Theme.textTertiary : Theme.text)
+                }
+                .width(min: 90, ideal: 140)
+                .customizationID("switch")
+                .defaultVisibility(.hidden)
+            }
+        }
+    }
+}
+
+extension Device {
+    /// Nom affiché dans la liste des postes réveillables (hostname, sinon nom affiché).
+    var wakeSortName: String { hostnameLabel ?? displayName }
 }
