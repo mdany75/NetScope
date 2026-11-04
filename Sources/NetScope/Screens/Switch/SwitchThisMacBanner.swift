@@ -41,34 +41,63 @@ struct SwitchThisMacBanner: View {
     }
 
     private func content(_ neighbor: NetworkNeighbor, stale: Bool) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "cable.connector")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(stale ? Theme.textSecondary : Theme.success)
-                .frame(width: 30, height: 30)
-                .background(Circle().fill(stale ? Theme.panelMuted : Theme.successSoft))
-            VStack(alignment: .leading, spacing: 2) {
-                (Text(stale ? "Ce Mac était branché sur " : "Ce Mac est branché sur ").font(Theme.body)
-                 + Text(neighbor.headline).font(Theme.mono(13, weight: .semibold)))
-                    .foregroundStyle(stale ? Theme.textSecondary : Color(light: 0x14532D, dark: 0x9CE7BA))
-                    .lineLimit(1)
-                Text(detail(neighbor, stale: stale)).font(Theme.small)
-                    .foregroundStyle(stale ? Theme.textSecondary : Color(light: 0x166534, dark: 0x9AE9B8)).lineLimit(1)
-                    .help(detail(neighbor, stale: stale))
+        // Boutons à droite quand tout tient sur une ligne ; sinon ils passent sous le texte,
+        // qui garde toute la largeur et peut passer à la ligne (petite fenêtre).
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                icon(stale: stale)
+                texts(neighbor, stale: stale, wraps: false)
+                Spacer(minLength: 8)
+                buttons(neighbor, stale: stale)
             }
-            Spacer(minLength: 8)
-            if !stale, switches.match(neighbor) != nil {
-                Button("Voir le port sur la façade") { switches.showNeighbor(neighbor) }
-                    .buttonStyle(.secondary)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 12) {
+                    icon(stale: stale)
+                    texts(neighbor, stale: stale, wraps: true)
+                }
+                HStack(spacing: 8) {
+                    buttons(neighbor, stale: stale)
+                }
+                .padding(.leading, 42)
             }
-            Button("Nouvelle capture") { ToolStore.shared.open(.lldp, in: state) }
-                .buttonStyle(.secondary)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(stale ? Theme.panelMuted : Color(light: 0xF0FDF4, dark: 0x1B502B)))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(stale ? Theme.border : Color(light: 0xBBF7D0, dark: 0x2B824A)))
+    }
+
+    private func icon(stale: Bool) -> some View {
+        Image(systemName: "cable.connector")
+            .font(.system(size: 16, weight: .medium))
+            .foregroundStyle(stale ? Theme.textSecondary : Theme.success)
+            .frame(width: 30, height: 30)
+            .background(Circle().fill(stale ? Theme.panelMuted : Theme.successSoft))
+    }
+
+    private func texts(_ neighbor: NetworkNeighbor, stale: Bool, wraps: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            (Text(stale ? "Ce Mac était branché sur " : "Ce Mac est branché sur ").font(Theme.body)
+             + Text(neighbor.headline).font(Theme.mono(13, weight: .semibold)))
+                .foregroundStyle(stale ? Theme.textSecondary : Color(light: 0x14532D, dark: 0x9CE7BA))
+                .lineLimit(wraps ? 2 : 1)
+                .fixedSize(horizontal: !wraps, vertical: wraps)
+            Text(detail(neighbor, stale: stale)).font(Theme.small)
+                .foregroundStyle(stale ? Theme.textSecondary : Color(light: 0x166534, dark: 0x9AE9B8))
+                .lineLimit(wraps ? 3 : 1)
+                .fixedSize(horizontal: !wraps, vertical: wraps)
+                .help(detail(neighbor, stale: stale))
+        }
+    }
+
+    @ViewBuilder private func buttons(_ neighbor: NetworkNeighbor, stale: Bool) -> some View {
+        if !stale, switches.match(neighbor) != nil {
+            Button("Voir le port sur la façade") { switches.showNeighbor(neighbor) }
+                .buttonStyle(.secondary)
+        }
+        Button("Nouvelle capture") { ToolStore.shared.open(.lldp, in: state) }
+            .buttonStyle(.secondary)
     }
 
     private func detail(_ neighbor: NetworkNeighbor, stale: Bool) -> String {

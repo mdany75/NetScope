@@ -35,6 +35,7 @@ struct AnaOnlineChart: View {
                     }
                     .font(Theme.mono(10))
                     .foregroundStyle(Theme.textSecondary)
+                    .padding(.leading, 26)
                 }
             }
         }
@@ -59,21 +60,25 @@ struct AnaOnlineChart: View {
             let maxValue = max((values.max() ?? 1) * 1.15, 1)
             let start = dates.first!.timeIntervalSince1970
             let span = max(dates.last!.timeIntervalSince1970 - start, 1)
+            // Marge à gauche pour les étiquettes de l'axe : elles ne chevauchent jamais la courbe.
+            let gutter: CGFloat = 26
+            let plotWidth = max(size.width - gutter - 6, 1)
             let points = zip(dates, values).map { date, value in
-                CGPoint(x: CGFloat((date.timeIntervalSince1970 - start) / span) * size.width,
+                CGPoint(x: gutter + CGFloat((date.timeIntervalSince1970 - start) / span) * plotWidth,
                         y: size.height - CGFloat(value / maxValue) * size.height)
             }
             ZStack(alignment: .topLeading) {
                 ForEach(1..<4) { line in
                     let y = size.height * CGFloat(line) / 4
                     Path { path in
-                        path.move(to: CGPoint(x: 0, y: y))
+                        path.move(to: CGPoint(x: gutter, y: y))
                         path.addLine(to: CGPoint(x: size.width, y: y))
                     }
                     .stroke(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
                     Text("\(Int(maxValue * Double(4 - line) / 4))")
                         .font(Theme.mono(9)).foregroundStyle(Theme.textTertiary)
-                        .offset(x: 2, y: y - 12)
+                        .frame(width: gutter - 6, alignment: .trailing)
+                        .offset(x: 0, y: y - 6)
                 }
                 Path { path in
                     path.move(to: CGPoint(x: points[0].x, y: size.height))

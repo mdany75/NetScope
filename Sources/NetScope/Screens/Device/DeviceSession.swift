@@ -60,7 +60,16 @@ final class DeviceWebModel: ObservableObject {
 final class DeviceSession: ObservableObject {
     static let shared = DeviceSession()
 
-    @Published var tab: DeviceTab = .apercu
+    @Published var tab: DeviceTab = DeviceSession.initialTab
+
+    /// Captures de développement (--snapshot) : NETSCOPE_DEVICE_TAB=ports (ou web, historique,
+    /// notes) ouvre la fiche sur cet onglet, à l'image de NETSCOPE_OUTIL_DEMO.
+    private static var initialTab: DeviceTab {
+        guard CommandLine.arguments.contains("--snapshot"),
+              let raw = ProcessInfo.processInfo.environment["NETSCOPE_DEVICE_TAB"],
+              let tab = DeviceTab(rawValue: raw) else { return .apercu }
+        return tab
+    }
     private var portModels: [Device.ID: ToolPortScanModel] = [:]
     private var webModels: [Device.ID: DeviceWebModel] = [:]
 

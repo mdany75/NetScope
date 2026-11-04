@@ -57,33 +57,18 @@ struct SpeedtestScreen: View {
 
     private var tabBar: some View {
         HStack(spacing: 10) {
-            HStack(spacing: 2) {
+            // Onglets : contrôle segmenté natif (le nombre de tests suit « Historique »).
+            Picker("Onglet", selection: $model.tab) {
                 ForEach(SpeedTab.allCases) { tab in
-                    let selected = model.tab == tab
-                    Button {
-                        model.tab = tab
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text(tab.label).font(.system(size: 13, weight: .semibold))
-                            if tab == .historique {
-                                Text("\(model.history.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
-                            }
-                        }
-                        .foregroundStyle(selected ? Theme.text : Theme.textSecondary)
-                        .padding(.horizontal, 14)
-                        .frame(height: 30)
-                        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius)
-                            .fill(selected ? Theme.panel : Color.clear)
-                            .shadow(color: selected ? Color(hex: 0x0F172A, opacity: 0.12) : .clear, radius: 1, y: 1))
-                        .contentShape(RoundedRectangle(cornerRadius: Theme.buttonRadius))
-                    }
-                    .buttonStyle(.plain)
+                    Text(tab == .historique ? "\(tab.label) (\(model.history.count))" : tab.label).tag(tab)
                 }
             }
-            .padding(2)
-            .background(RoundedRectangle(cornerRadius: 7).fill(Theme.neutralSoft))
-            Text(model.tab.hint).font(Theme.small).foregroundStyle(Theme.textSecondary)
-            Spacer()
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            Text(model.tab.hint).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                .help(model.tab.hint)
+            Spacer(minLength: 0)
             if let toast = model.toast {
                 HStack(spacing: 6) {
                     Text(toast).font(Theme.small)

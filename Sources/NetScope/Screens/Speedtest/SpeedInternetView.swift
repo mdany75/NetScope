@@ -55,8 +55,9 @@ struct SpeedInternetView: View {
                     SpeedBanner(text: message, tone: .critical, systemImage: "xmark.octagon")
                 }
 
-                HStack(alignment: .center, spacing: 18) {
-                    gaugeColumn
+                // Jauge et courbes côte à côte ; l'une sous l'autre en petite fenêtre.
+                AdaptiveStack(breakpoint: 640, spacing: 18) {
+                    gaugeColumn.layoutPriority(1)
                     liveCharts
                 }
 
@@ -87,7 +88,7 @@ struct SpeedInternetView: View {
                        valueText: gaugeText, unit: gaugeUnit)
                 .frame(width: 330, height: 262)
                 .animation(.easeOut(duration: 0.25), value: model.gaugeValue)
-            HStack(spacing: 6) {
+            FlowLayout(spacing: 6, lineSpacing: 6) {
                 ForEach(SpeedPhase.allCases, id: \.self) { phase in stepChip(phase) }
             }
             VStack(spacing: 5) {

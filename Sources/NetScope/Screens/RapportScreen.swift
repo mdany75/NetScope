@@ -85,15 +85,25 @@ struct RapportPreview: View {
             .frame(height: 49)
             .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
 
-            ScrollView([.vertical, .horizontal]) {
-                if let page = pages.first(where: { $0.number == current }) ?? pages.first {
-                    RapportPageView(document: document, page: page, totalPages: pages.count, logo: logo)
-                        .shadow(color: Color(hex: 0x0F172A, opacity: 0.08), radius: 12, y: 8)
-                        .shadow(color: Color(hex: 0x0F172A, opacity: 0.12), radius: 1.5, y: 1)
-                        .padding(.vertical, 24)
-                        .padding(.horizontal, 16)
-                        .frame(maxWidth: .infinity)
-                        .accessibilityLabel("Aperçu du rapport, page \(page.number) de \(pages.count)")
+            // En petite fenêtre, la page est réduite pour tenir dans la largeur du panneau (jamais
+            // agrandie) : pas de défilement horizontal.
+            GeometryReader { geometry in
+                let metrics = ReportPageMetrics()
+                let pageWidth = CGFloat(metrics.pageWidth / ReportPageMetrics.scale)
+                let pageHeight = CGFloat(metrics.pageHeight / ReportPageMetrics.scale)
+                let scale = min(1, max(0.4, (geometry.size.width - 32) / pageWidth))
+                ScrollView(.vertical) {
+                    if let page = pages.first(where: { $0.number == current }) ?? pages.first {
+                        RapportPageView(document: document, page: page, totalPages: pages.count, logo: logo)
+                            .scaleEffect(scale, anchor: .topLeading)
+                            .frame(width: pageWidth * scale, height: pageHeight * scale, alignment: .topLeading)
+                            .shadow(color: Color(hex: 0x0F172A, opacity: 0.08), radius: 12, y: 8)
+                            .shadow(color: Color(hex: 0x0F172A, opacity: 0.12), radius: 1.5, y: 1)
+                            .padding(.vertical, 24)
+                            .padding(.horizontal, 16)
+                            .frame(maxWidth: .infinity)
+                            .accessibilityLabel("Aperçu du rapport, page \(page.number) de \(pages.count)")
+                    }
                 }
             }
             .background(Theme.border)

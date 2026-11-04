@@ -173,8 +173,11 @@ struct MonProbeTable: View {
                         .standardTableHeight(rows: rows.count, rowHeight: Self.rowHeight, maxRows: Self.maxRows)
                 }
             }
+            // Le panneau prend la hauteur de l'éditeur voisin : la légende reste en bas.
+            Spacer(minLength: 0)
             footer
         }
+        .frame(maxHeight: .infinity)
         .monPanel()
     }
 
@@ -315,7 +318,6 @@ private struct MonProbeGrid: View {
                             .font(Theme.bodySemibold)
                             .foregroundStyle(Theme.text)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.75)
                         Text(line.targetLabel)
                             .font(Theme.mono(11))
                             .foregroundStyle(Theme.textSecondary)
@@ -326,7 +328,7 @@ private struct MonProbeGrid: View {
                     .help("\(line.probe.name)\n\(line.targetLabel)")
                     .monInactive(line)
                 }
-                .width(min: 100, ideal: 120)
+                .width(min: 100, ideal: 150)
                 .customizationID("sonde")
                 .disabledCustomizationBehavior(.visibility)
 
@@ -341,13 +343,13 @@ private struct MonProbeGrid: View {
                         .help(line.probe.kind.label)
                         .monInactive(line)
                 }
-                .width(min: 56, ideal: 60)
+                .width(min: 80, ideal: 84)
                 .customizationID("type")
 
                 TableColumn(StandardTableHeading("INTERVALLE"), sortUsing: table.sort("intervalle")) { line in
                     MonCellText(MonProbe.intervalLabel(line.probe.interval), mono: true).monInactive(line)
                 }
-                .width(min: 54, ideal: 74)
+                .width(min: 82, ideal: 84)
                 .customizationID("intervalle")
 
                 TableColumn(StandardTableHeading("ÉTAT"), sortUsing: table.sort("etat")) { line in
@@ -366,7 +368,7 @@ private struct MonProbeGrid: View {
                         .help(line.value)
                         .monInactive(line)
                 }
-                .width(min: 84, ideal: 104)
+                .width(min: 112, ideal: 112)
                 .customizationID("valeur")
 
                 TableColumn(StandardTableHeading("DISPONIBILITÉ 24 H"), sortUsing: table.sort("disponibilite")) { line in

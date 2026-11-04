@@ -171,7 +171,8 @@ struct SwitchFaceplate: View {
 /// Légende des couleurs de la façade.
 struct SwitchLegend: View {
     var body: some View {
-        HStack(spacing: 14) {
+        // Passe à la ligne en petite fenêtre ; chaque libellé reste entier.
+        FlowLayout(spacing: 14, lineSpacing: 6) {
             item(.up1g, "Actif 1\u{00A0}Gb/s")
             item(.up100, "Actif 100\u{00A0}Mb/s")
             item(.poe, "PoE actif")
@@ -181,9 +182,10 @@ struct SwitchLegend: View {
             HStack(spacing: 6) {
                 RoundedRectangle(cornerRadius: 3).fill(Theme.panel).frame(width: 14, height: 12)
                     .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Color(hex: 0xF59E0B), lineWidth: 2))
-                Text("Appareil trouvé")
+                Text("Appareil trouvé").fixedSize()
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .font(Theme.small)
         .foregroundStyle(Theme.textSecondary)
     }
@@ -192,7 +194,7 @@ struct SwitchLegend: View {
         HStack(spacing: 6) {
             RoundedRectangle(cornerRadius: 3).fill(state.fill).frame(width: 14, height: 12)
                 .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(state.stroke))
-            Text(label)
+            Text(label).fixedSize()
         }
     }
 }

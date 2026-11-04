@@ -5,10 +5,13 @@ import SwiftUI
 enum WifiText {
     static let palette: [UInt32] = [0x2563EB, 0x15803D, 0x7C3AED, 0xC2410C, 0x0E7490, 0xB91C1C, 0xA16207, 0xBE185D,
                                     0x4338CA, 0x047857, 0x9333EA, 0x0369A1, 0x4D7C0F, 0x374151, 0x9A3412]
+    /// Même palette, éclaircie pour rester lisible sur fond sombre (mêmes teintes, dans le même ordre).
+    static let darkPalette: [UInt32] = [0x60A5FA, 0x4ADE80, 0xA78BFA, 0xFB923C, 0x22D3EE, 0xF87171, 0xFACC15, 0xF472B6,
+                                        0x818CF8, 0x34D399, 0xC084FC, 0x38BDF8, 0xA3E635, 0xD1D5DB, 0xFDBA74]
 
     static func color(of network: WifiNetwork, in networks: [WifiNetwork]) -> Color {
         let index = networks.firstIndex { $0.id == network.id } ?? 0
-        return Color(hex: palette[index % palette.count])
+        return Color(light: palette[index % palette.count], dark: darkPalette[index % darkPalette.count])
     }
 
     static func qualityColor(_ rssi: Int) -> (foreground: Color, background: Color) {

@@ -35,8 +35,10 @@ struct RemoteScreen: View {
                 if model.showDetails, let connection = model.selected {
                     // Petite fenêtre : le détail se replie (bouton de la barre d'outils) plutôt que
                     // d'écraser la zone de session.
+                    // Le bouton « Masquer les détails » de l'écran pilote aussi le panneau replié :
+                    // pas de second bouton de panneau dans la barre d'outils.
                     SidePanelSplit(sideWidth: 300, spacing: 12, collapseBelow: 300 + 12 + 360,
-                                   title: "Détails de la connexion") {
+                                   title: "Détails de la connexion", presented: .constant(true)) {
                         RemoteSessionArea(model: model)
                     } side: {
                         RemoteDetailPanel(model: model, connection: connection)

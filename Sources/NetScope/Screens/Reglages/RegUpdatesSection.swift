@@ -74,7 +74,8 @@ struct RegUpdatesSection: View {
     // MARK: Canal et fréquence
 
     private var settings: some View {
-        HStack(alignment: .top, spacing: 24) {
+        // Canal et fréquence côte à côte ; l'un sous l'autre en petite fenêtre.
+        RegColumns(minColumnWidth: 250, spacing: 24) {
             VStack(alignment: .leading, spacing: 6) {
                 RegLabel("Canal")
                 RegSegmented(selection: $updates.prefs.channel, options: [
@@ -97,7 +98,6 @@ struct RegUpdatesSection: View {
                 Text(updates.prefs.automaticCheck ? "Vérification automatique activée." : "Vérification automatique désactivée : seulement sur demande.")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
             }
-            Spacer(minLength: 0)
         }
     }
 
@@ -157,7 +157,8 @@ struct RegUpdatesSection: View {
                 RegPill(text: "\(UpdController.currentVersionText) → \(versionLabel)", tone: .accent)
             }
 
-            HStack(alignment: .top, spacing: 18) {
+            // Notes et vérifications côte à côte ; l'une sous l'autre en petite fenêtre.
+            RegColumns(minColumnWidth: 300, spacing: 18) {
                 VStack(alignment: .leading, spacing: 6) {
                     RegLabel("Notes de version")
                     let lines = release.noteLines
@@ -179,9 +180,9 @@ struct RegUpdatesSection: View {
                     RegLabel("Vérifications").padding(.bottom, 6)
                     ForEach(displayedChecks, id: \.label) { check in
                         HStack(spacing: 8) {
-                            Text(check.label).font(Theme.small)
+                            Text(check.label).font(Theme.small).fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 6)
-                            RegPill(text: check.state, tone: check.tone)
+                            RegPill(text: check.state, tone: check.tone).fixedSize()
                         }
                         .help(check.detail)
                         .padding(.vertical, 6)
@@ -287,8 +288,8 @@ struct RegUpdatesSection: View {
             RegLabel("Historique des versions installées")
             VStack(spacing: 0) {
                 TableHeader(columns: [
-                    .init(title: "Version", width: 180),
-                    .init(title: "Canal", width: 120),
+                    .init(title: "Version", width: 150),
+                    .init(title: "Canal", width: 90),
                     .init(title: "Installée le"),
                     .init(title: "État", width: 120, alignment: .trailing),
                 ])
@@ -298,10 +299,10 @@ struct RegUpdatesSection: View {
                 ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
                     HStack(spacing: 0) {
                         Text(entry.version).font(Theme.mono(12, weight: .semibold)).padding(.horizontal, 12)
-                            .frame(width: 180, alignment: .leading)
+                            .frame(width: 150, alignment: .leading)
                         Text(entry.channel.label).font(Theme.small).foregroundStyle(Theme.textSecondary).padding(.horizontal, 8)
-                            .frame(width: 120, alignment: .leading)
-                        Text(RegFormat.day(entry.date)).font(Theme.small).padding(.horizontal, 8)
+                            .frame(width: 90, alignment: .leading)
+                        Text(RegFormat.day(entry.date)).font(Theme.small).lineLimit(1).padding(.horizontal, 8)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         RegPill(text: index == 0 ? "Installée" : "Précédente", tone: index == 0 ? .success : .neutral)
                             .padding(.horizontal, 12)

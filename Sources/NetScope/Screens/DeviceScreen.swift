@@ -153,17 +153,17 @@ private struct DeviceDetailView: View {
         .fixedSize()
     }
 
+    /// Hostname, IP, MAC… : passent à la ligne en petite fenêtre au lieu d'être tronqués.
     private var metaRow: some View {
-        HStack(spacing: 16) {
+        FlowLayout(spacing: 16, lineSpacing: 4) {
             if let host = device.hostnameLabel { meta("Hostname", host + (device.nameSourceLabel.map { " · \($0)" } ?? "")) }
             meta("IP", device.ip.description)
             if let mac = device.mac { meta("MAC", mac.formatted(.upperColon)) }
-            Text(device.vendorLabel)
-            Text("Vu \(ToolText.relative(device.lastSeen))")
+            Text(device.vendorLabel).lineLimit(1)
+            Text("Vu \(ToolText.relative(device.lastSeen))").lineLimit(1)
         }
         .font(Theme.small)
         .foregroundStyle(Theme.textSecondary)
-        .lineLimit(1)
     }
 
     private func meta(_ key: String, _ value: String) -> some View {
@@ -171,6 +171,7 @@ private struct DeviceDetailView: View {
             Text(key)
             Text(value).font(Theme.mono(12)).foregroundStyle(Theme.text).textSelection(.enabled)
         }
+        .lineLimit(1)
     }
 
     /// Boutons d'action ; en petite fenêtre, ils passent à la ligne au lieu d'être tronqués.

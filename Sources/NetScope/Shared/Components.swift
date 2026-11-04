@@ -481,6 +481,12 @@ struct SidePanelSplit<Main: View, Side: View>: View {
     var scrolls = true
     /// Libellé du bouton qui affiche le panneau replié.
     var title = "Panneau de détail"
+    /// Côte à côte (mode `.below`) : le contenu principal prend la hauteur du panneau s'il est
+    /// moins haut (pas de vide entre ce bloc et le suivant). Le contenu doit pouvoir s'étirer.
+    var matchesHeight = false
+    /// Affichage du panneau replié piloté par l'écran (qui a déjà son propre bouton) : aucun
+    /// bouton « Afficher le panneau » n'est ajouté à la barre d'outils.
+    var presented: Binding<Bool>? = nil
     @ViewBuilder var main: Main
     @ViewBuilder var side: Side
 
@@ -498,9 +504,7 @@ struct SidePanelSplit<Main: View, Side: View>: View {
     }
 
     private var widthReader: some View {
-        GeometryReader { geometry in
-            Color.clear.preference(key: SidePanelWidthKey.self, value: geometry.size.width)
-        }
+        WidthReader(width: $width)
     }
 
     /// Panneau sous le contenu quand la place manque (pas de bouton, rien de caché).
@@ -511,6 +515,13 @@ struct SidePanelSplit<Main: View, Side: View>: View {
                     main.frame(maxWidth: .infinity, alignment: .top)
                     side.frame(maxWidth: .infinity, alignment: .topLeading)
                 }
+            } else if matchesHeight {
+                HStack(alignment: .top, spacing: spacing) {
+                    main.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    side.frame(minWidth: 0, idealWidth: sideWidth, maxWidth: sideWidth, maxHeight: .infinity, alignment: .top)
+                        .layoutPriority(1)
+                }
+                .fixedSize(horizontal: false, vertical: true)
             } else {
                 HStack(alignment: .top, spacing: spacing) {
                     main.frame(maxWidth: .infinity, alignment: .top)
@@ -520,7 +531,6 @@ struct SidePanelSplit<Main: View, Side: View>: View {
         }
         .frame(maxWidth: .infinity)
         .background(widthReader)
-        .onPreferenceChange(SidePanelWidthKey.self) { width = $0 }
     }
 
     private var overlayLayout: some View {
@@ -535,9 +545,8 @@ struct SidePanelSplit<Main: View, Side: View>: View {
             }
         }
         .background(widthReader)
-        .onPreferenceChange(SidePanelWidthKey.self) { width = $0 }
         .overlay(alignment: .topTrailing) {
-            if compact && showSide {
+            if compact && isSideShown {
                 sidePanel
                     .frame(width: sideWidth)
                     .padding(10)
@@ -549,9 +558,9 @@ struct SidePanelSplit<Main: View, Side: View>: View {
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
-        .animation(.easeOut(duration: 0.18), value: showSide)
+        .animation(.easeOut(duration: 0.18), value: isSideShown)
         .toolbar {
-            if compact {
+            if compact && presented == nil {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         showSide.toggle()
@@ -565,6 +574,8 @@ struct SidePanelSplit<Main: View, Side: View>: View {
         }
     }
 
+    private var isSideShown: Bool { presented?.wrappedValue ?? showSide }
+
     @ViewBuilder private var sidePanel: some View {
         if scrolls {
             ScrollView(.vertical) {
@@ -577,9 +588,19 @@ struct SidePanelSplit<Main: View, Side: View>: View {
     }
 }
 
-private struct SidePanelWidthKey: PreferenceKey {
-    static var defaultValue: CGFloat = .infinity
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = min(value, nextValue()) }
+/// Lit la largeur de la vue qu'il habille (en arrière-plan) et la range dans `width`.
+/// Pas de préférence partagée : un SidePanelSplit ou un AdaptiveStack imbriqué dans un autre ne
+/// fausse pas la largeur lue par son parent (sinon la mise en page bascule sans fin).
+private struct WidthReader: View {
+    @Binding var width: CGFloat
+
+    var body: some View {
+        GeometryReader { geometry in
+            Color.clear
+                .onAppear { width = geometry.size.width }
+                .onChange(of: geometry.size.width) { _, newWidth in width = newWidth }
+        }
+    }
 }
 
 /// Filet de sécurité de la petite fenêtre : l'écran reçoit toute la place disponible, mais jamais
@@ -641,9 +662,45 @@ struct AdaptiveStack<Content: View>: View {
             // Largeur minimale nulle : la largeur mesurée décide de l'agencement, sans que l'agencement
             // côte à côte n'impose sa propre largeur minimale (sinon il ne passerait jamais en colonne).
             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
-            .background(GeometryReader { geometry in
-                Color.clear.preference(key: SidePanelWidthKey.self, value: geometry.size.width)
-            })
-            .onPreferenceChange(SidePanelWidthKey.self) { width = $0 }
+            .background(WidthReader(width: $width))
+    }
+}
+
+/// Éléments en ligne qui passent à la ligne suivante quand la largeur manque (légendes, puces).
+/// Chaque élément garde sa taille idéale : un libellé n'est jamais coupé en deux.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+    var lineSpacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, lineHeight: CGFloat = 0, maxX: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > width {
+                x = 0
+                y += lineHeight + lineSpacing
+                lineHeight = 0
+            }
+            x += size.width + spacing
+            maxX = max(maxX, x - spacing)
+            lineHeight = max(lineHeight, size.height)
+        }
+        return CGSize(width: width.isFinite ? min(maxX, width) : maxX, height: y + lineHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, lineHeight: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += lineHeight + lineSpacing
+                lineHeight = 0
+            }
+            view.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            lineHeight = max(lineHeight, size.height)
+        }
     }
 }

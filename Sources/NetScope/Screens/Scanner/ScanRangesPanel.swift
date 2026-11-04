@@ -156,7 +156,9 @@ struct ScanPipelineBar: View {
         let help = [text, rangesHelp(result)].filter { !$0.isEmpty }.joined(separator: "\n")
         return HStack(spacing: 8) {
             Image(systemName: "rectangle.connected.to.line.below").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.success)
-            Text(text).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.tail)
+            // Deux lignes au plus en petite fenêtre plutôt qu'une phrase coupée.
+            Text(text).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(2).truncationMode(.tail)
+                .fixedSize(horizontal: false, vertical: true)
                 .help(help)
             Spacer(minLength: 8)
             Button { state.open(.switchs) } label: {

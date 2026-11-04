@@ -13,7 +13,7 @@ struct SurveillanceScreen: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                SidePanelSplit(sideWidth: Self.asideWidth, collapse: .below) {
+                SidePanelSplit(sideWidth: Self.asideWidth, collapse: .below, matchesHeight: true) {
                     MonProbeTable()
                 } side: {
                     MonEditor()
