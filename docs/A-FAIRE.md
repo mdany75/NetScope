@@ -825,3 +825,24 @@ Terminal, SSH, Telnet, RDP et VNC :
   le carnet, par site.
 - Mots de passe dans le trousseau macOS, jamais en clair ; avertissement quand le FTP n'est pas
   chiffré ; aucune dépendance externe (Network.framework et le SSH déjà présent).
+
+## 51. Serveur et client TFTP dans la Boîte à outils — À PLANIFIER (demande de Dany)
+
+« Une application TFTP dans Outils. » Nouvel outil « TFTP » dans la Boîte à outils (la note 50
+n'en prévoyait qu'un mini serveur temporaire, côté Accès distant) :
+
+- Serveur TFTP sur le Mac : choix du dossier partagé et de l'interface d'écoute (IP affichée en
+  grand, à copier), port 69 (ou un autre port), lecture seule ou lecture et écriture ; démarrer
+  et arrêter d'un bouton, arrêt automatique après un délai.
+- Client TFTP : envoyer (put) ou récupérer (get) un fichier vers un appareil, par son IP ou
+  depuis le Scanner / la fiche Appareil.
+- Journal en direct : qui demande quel fichier, progression, débit, réussite ou erreur en clair
+  (fichier introuvable, accès refusé, délai dépassé) ; historique des transferts par site.
+- Options RFC : taille de bloc, fenêtre, délai et nombre d'essais (tsize, blksize, timeout),
+  pour les gros firmwares ; mode binaire (octet) par défaut.
+- Cas de technicien : sauvegarder ou restaurer la configuration d'un switch, d'un téléphone IP
+  ou d'une borne, mettre à jour un firmware, servir les fichiers de provisionnement des
+  téléphones (option DHCP 66, note 30).
+- Sécurité : avertissement si le pare-feu macOS bloque le port, serveur jamais lancé tout seul,
+  dossier limité au partage choisi (pas de « ../ »), alerte avant d'écraser un fichier ; aucune
+  dépendance externe (Network.framework, UDP).
