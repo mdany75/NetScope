@@ -45,18 +45,24 @@ struct SwitchFieldLabel: View {
     }
 }
 
-/// Champ de saisie aux couleurs des croquis.
+/// Champ de saisie natif de macOS (bordure arrondie, grande taille pour s'aligner sur les boutons).
 struct SwitchTextFieldStyle: ViewModifier {
     var mono = true
 
     func body(content: Content) -> some View {
         content
-            .textFieldStyle(.plain)
+            .textFieldStyle(.roundedBorder)
+            .controlSize(.large)
             .font(mono ? Theme.mono(13) : Theme.body)
-            .padding(.horizontal, 10)
-            .frame(height: Theme.controlHeight)
-            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+    }
+}
+
+/// Petit bouton natif pour une valeur à essayer ou à ajouter (exemples, switchs trouvés par le scan).
+struct SwitchTokenButtonStyle: PrimitiveButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Button(role: configuration.role, action: configuration.trigger) { configuration.label }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
     }
 }
 
@@ -88,15 +94,15 @@ struct SwitchSourcesPanel: View {
                     HStack(alignment: .bottom, spacing: 10) {
                         VStack(alignment: .leading, spacing: 4) {
                             SwitchFieldLabel("Version")
-                            HStack(spacing: 6) {
-                                Text("SNMP v2c").font(Theme.body)
-                                Spacer(minLength: 4)
-                                Chip(text: "v3 bientôt", tone: .neutral)
+                            // Menu natif : seul SNMP v2c est disponible, v3 est affiché grisé (bientôt).
+                            Picker("Version SNMP", selection: Binding(get: { "v2c" }, set: { _ in })) {
+                                Text("SNMP v2c").tag("v2c")
+                                Text("SNMP v3 (bientôt)").tag("v3").disabled(true)
                             }
-                            .padding(.horizontal, 10)
-                            .frame(width: 168, height: Theme.controlHeight)
-                            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
-                            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .controlSize(.large)
+                            .frame(width: 168)
                             .help("SNMP v3 (authPriv) n’est pas encore implémenté dans cette version.")
                         }
                         VStack(alignment: .leading, spacing: 4) {
@@ -221,12 +227,26 @@ struct SwitchCard: View {
                     Spacer(minLength: 0)
                 }
                 if let snapshot {
-                    HStack(alignment: .top, spacing: 10) {
-                        metric("Firmware", SwitchText.firmware(snapshot.system.descr))
-                        metric("Uptime", snapshot.system.uptimeText ?? "—")
-                        metric("Marque", snapshot.system.brand ?? "—", mono: false)
-                        let physical = snapshot.physicalPorts
-                        metric("Ports actifs", "\(physical.filter(\.isUp).count) / \(physical.count)")
+                    // Petite carte : les quatre mesures passent sur deux lignes au lieu d'être coupées.
+                    let physical = snapshot.physicalPorts
+                    let ports = "\(physical.filter(\.isUp).count) / \(physical.count)"
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .top, spacing: 10) {
+                            metric("Firmware", SwitchText.firmware(snapshot.system.descr), fits: true)
+                            metric("Uptime", snapshot.system.uptimeText ?? "—", fits: true)
+                            metric("Marque", snapshot.system.brand ?? "—", mono: false, fits: true)
+                            metric("Ports actifs", ports, fits: true)
+                        }
+                        Grid(alignment: .topLeading, horizontalSpacing: 10, verticalSpacing: 8) {
+                            GridRow {
+                                metric("Firmware", SwitchText.firmware(snapshot.system.descr))
+                                metric("Uptime", snapshot.system.uptimeText ?? "—")
+                            }
+                            GridRow {
+                                metric("Marque", snapshot.system.brand ?? "—", mono: false)
+                                metric("Ports actifs", ports)
+                            }
+                        }
                     }
                     poe(snapshot)
                 }
@@ -264,13 +284,18 @@ struct SwitchCard: View {
         }
     }
 
-    private func metric(_ title: String, _ value: String, mono: Bool = true) -> some View {
+    /// Mesure de la carte ; `fits` : le titre et la valeur doivent tenir en entier (sinon la
+    /// disposition sur deux lignes est retenue).
+    private func metric(_ title: String, _ value: String, mono: Bool = true, fits: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title.uppercased()).font(Theme.caption).foregroundStyle(Theme.textSecondary)
-            Text(value).font(mono ? Theme.mono(12) : Theme.small).foregroundStyle(Theme.text).lineLimit(1)
+                .lineLimit(1).fixedSize(horizontal: fits, vertical: false)
+            Text(value).font(mono ? Theme.mono(12) : Theme.small).foregroundStyle(Theme.text)
+                .lineLimit(1).fixedSize(horizontal: fits, vertical: false)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
+
 
     @ViewBuilder private func poe(_ snapshot: SNMPSwitchSnapshot) -> some View {
         if let budget = snapshot.poeBudgetW, budget > 0 {
@@ -304,26 +329,23 @@ struct SwitchCandidates: View {
     var body: some View {
         let candidates = store.candidates(from: state.devices)
         if !candidates.isEmpty {
-            HStack(spacing: 8) {
+            SwitchFlowLayout(spacing: 8) {
                 Text("Trouvés par le scan\u{00A0}:").font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    .frame(height: 22)
                 ForEach(candidates.prefix(6)) { device in
                     Button { store.addHost(device.id) } label: {
                         HStack(spacing: 5) {
                             Image(systemName: "plus").font(.system(size: 10, weight: .bold))
                             Text(device.id).font(Theme.mono(12))
-                            Text(device.displayName).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                            Text(device.displayName).font(Theme.small).foregroundStyle(.secondary)
                         }
-                        .padding(.horizontal, 8)
-                        .frame(height: 24)
-                        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.accentSoft))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Color(light: 0xBFDBFE, dark: 0x2B5282)))
-                        .foregroundStyle(Theme.accentStrong)
+                        .lineLimit(1)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(SwitchTokenButtonStyle())
                     .help(device.snmpKind == .switch ? "Reconnu comme switch en SNMP" : "Fabricant d’équipement réseau")
                 }
-                Spacer()
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
@@ -341,15 +363,17 @@ struct SwitchFaceplatePanel: View {
         let states = ports.map { SwitchPortState($0, snapshot: snapshot, uplinks: uplinks) }
         Panel(padding: 14) {
             VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 6) {
-                    Text("Façade · ").font(.system(size: 14, weight: .semibold))
-                        + Text(snapshot.displayName).font(Theme.mono(14, weight: .semibold))
-                    Spacer()
-                    stat("Actifs", states.filter { $0 != .down && $0 != .disabled }.count, Theme.successSoft, Color(light: 0x14532D, dark: 0x9CE7BA))
-                    stat("PoE", states.filter { $0 == .poe }.count, Color(light: 0xDBEAFE, dark: 0x1B3250), Color(light: 0x1E40AF, dark: 0x97ABED))
-                    stat("Trunk", states.filter { $0 == .trunk }.count, Color(light: 0xE2E8F0, dark: 0x253347), Color(light: 0x0F172A, dark: 0xA5B6DF))
-                    stat("Erreurs", states.filter { $0 == .err }.count, Theme.criticalSoft, Theme.critical)
-                    stat("Inactifs", states.filter { $0 == .down || $0 == .disabled }.count, Theme.neutralSoft, Theme.neutralText)
+                // Petite fenêtre : les compteurs passent sous le titre au lieu de déborder.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 6) {
+                        title(snapshot)
+                        Spacer()
+                        stats(states)
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        title(snapshot)
+                        SwitchFlowLayout(spacing: 6) { stats(states) }
+                    }
                 }
                 ScrollView(.horizontal, showsIndicators: false) {
                     SwitchFaceplate(snapshot: snapshot, selected: store.selectedPort,
@@ -364,7 +388,23 @@ struct SwitchFaceplatePanel: View {
         }
     }
 
+    private func title(_ snapshot: SNMPSwitchSnapshot) -> some View {
+        (Text("Façade · ").font(.system(size: 14, weight: .semibold))
+            + Text(snapshot.displayName).font(Theme.mono(14, weight: .semibold)))
+            .lineLimit(1)
+            .fixedSize()
+    }
+
+    @ViewBuilder private func stats(_ states: [SwitchPortState]) -> some View {
+        stat("Actifs", states.filter { $0 != .down && $0 != .disabled }.count, Theme.successSoft, Color(light: 0x14532D, dark: 0x9CE7BA))
+        stat("PoE", states.filter { $0 == .poe }.count, Color(light: 0xDBEAFE, dark: 0x1B3250), Color(light: 0x1E40AF, dark: 0x97ABED))
+        stat("Trunk", states.filter { $0 == .trunk }.count, Color(light: 0xE2E8F0, dark: 0x253347), Color(light: 0x0F172A, dark: 0xA5B6DF))
+        stat("Erreurs", states.filter { $0 == .err }.count, Theme.criticalSoft, Theme.critical)
+        stat("Inactifs", states.filter { $0 == .down || $0 == .disabled }.count, Theme.neutralSoft, Theme.neutralText)
+    }
+
     private func stat(_ label: String, _ value: Int, _ background: Color, _ foreground: Color) -> some View {
+
         (Text("\(label) ") + Text("\(value)").font(Theme.mono(12, weight: .bold)))
             .font(Theme.small)
             .foregroundStyle(foreground)
@@ -389,19 +429,16 @@ struct SwitchFaceplatePanel: View {
                 }
                 .buttonStyle(.primary)
             }
-            HStack(spacing: 6) {
+            SwitchFlowLayout(spacing: 6) {
                 Text("Exemples\u{00A0}:").font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    .frame(height: 22)
+
                 ForEach(examples, id: \.self) { example in
                     Button { store.find(example, devices: state.devices) } label: {
-                        Text(example)
-                            .font(Theme.mono(12))
-                            .foregroundStyle(Theme.accentStrong)
-                            .padding(.horizontal, 8)
-                            .frame(height: 22)
-                            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.accentSoft))
-                            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Color(light: 0xBFDBFE, dark: 0x2B5282)))
+                        Text(example).font(Theme.mono(12)).lineLimit(1)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(SwitchTokenButtonStyle())
+                    .help("Localiser «\u{00A0}\(example)\u{00A0}»")
                 }
             }
             if let result = store.findResult {
@@ -733,16 +770,11 @@ struct SwitchMacTable: View {
                     .toggleStyle(.checkbox)
                     .font(Theme.small)
                     .fixedSize()
-                HStack(spacing: 6) {
-                    Image(systemName: "line.3.horizontal.decrease").font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
-                    TextField("", text: $store.tableFilter, prompt: Text("Filtrer port, VLAN, MAC, IP…").foregroundStyle(Theme.textTertiary))
-                        .textFieldStyle(.plain)
-                        .font(Theme.small)
-                        .frame(width: 164)
-                }
-                .padding(.horizontal, 8)
-                .frame(height: 28)
-                .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+                TextField("Filtrer la table MAC", text: $store.tableFilter, prompt: Text("Filtrer port, VLAN, MAC, IP…"))
+                    .labelsHidden()
+                    .textFieldStyle(.roundedBorder)
+                    .font(Theme.small)
+                    .frame(minWidth: 110, idealWidth: 180, maxWidth: 180)
                 StandardColumnsMenu(model: table)
             }
             .padding(.horizontal, 16)
