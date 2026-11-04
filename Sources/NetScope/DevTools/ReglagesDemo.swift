@@ -27,7 +27,7 @@ enum ReglagesDemo {
     static func backups() -> [BackupInfo] {
         let folder = RegBackupController.defaultFolder
         let plan: [(TimeInterval, BackupKind, BackupFormat, Int)] = [
-            (0, .automatique, .zip, 8), (-86_400, .automatique, .zip, 8), (-86_400 - 3 * 3600 - 1080, .securite, .zip, 8),
+            (0, .automatique, .chiffree, 8), (-86_400, .automatique, .chiffree, 8), (-86_400 - 3 * 3600 - 1080, .securite, .zip, 8),
             (-2 * 86_400, .automatique, .zip, 7), (-3 * 86_400 + 5 * 3600, .manuelle, .dossier, 7), (-4 * 86_400, .automatique, .zip, 7),
         ]
         return plan.map { offset, kind, format, count in
@@ -38,6 +38,10 @@ enum ReglagesDemo {
                                           excludedPreferenceKeys: [], skippedFiles: ["oui.tsv"], keychain: keychainItems,
                                           note: "")
             let bytes = Int64(manifestFiles.reduce(0) { $0 + $1.bytes } + 9_800)
+            if format == .chiffree {
+                // Note 38 : sauvegarde chiffrée, avec les secrets du Trousseau (en-tête en clair seulement).
+                return encryptedBackup(date: date, kind: kind, fileCount: count, bytes: bytes + 1_240)
+            }
             return BackupInfo(url: folder.appendingPathComponent(BackupEngine.name(for: date, kind: kind, format: format)),
                               format: format, manifest: manifest, bytes: bytes)
         }

@@ -203,6 +203,15 @@ public struct BackupContents: Sendable {
     public var secrets: [BackupSecret] = []
     /// En-tête d'une sauvegarde chiffrée.
     public var encryption: BackupEncryptedHeader?
+
+    public init(manifest: BackupManifest, files: [BackupZip.Entry], preferences: Data?, secrets: [BackupSecret] = [],
+                encryption: BackupEncryptedHeader? = nil) {
+        self.manifest = manifest
+        self.files = files
+        self.preferences = preferences
+        self.secrets = secrets
+        self.encryption = encryption
+    }
 }
 
 public enum BackupError: Error, LocalizedError, Equatable {

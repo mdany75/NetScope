@@ -56,7 +56,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .notifications: return "alerte notification surveillance courriel son silence ne pas déranger regroupement dhcp conflit test"
         case .alertes: return "alerte courriel smtp starttls webhook teams slack json anti-rafale silence trousseau envoyer un test"
         case .interface: return "en0 wi-fi ethernet masque passerelle getifaddrs"
-        case .export: return "export sauvegarde csv json pdf restauration zip manifeste rotation icloud dossier"
+        case .export: return "export sauvegarde csv json pdf restauration zip manifeste rotation icloud dossier chiffrement chiffrée mot de passe jetons secrets trousseau"
         case .raccourcis: return "raccourcis clavier touches commande menu conflit"
         case .majs: return "version github release bêta stable signature télécharger installer jeton"
         case .apropos: return "version licence oui journaux"
