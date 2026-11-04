@@ -183,6 +183,8 @@ public enum ShortcutID {
     /// Retour / Avancer entre les écrans (note 34).
     public static let back = "navigation.retour"
     public static let forward = "navigation.avancer"
+    /// Choisir le site actif (note 49) : sélecteur sous le logo NetScope.
+    public static let chooseSite = "navigation.site"
 }
 
 /// Catalogue des commandes et raccourcis par défaut (croquis Reglages.dc.html, section Raccourcis).
@@ -204,6 +206,8 @@ public enum ShortcutCatalog {
         ShortcutAction(id: ShortcutID.settings, title: "Réglages", group: .navigation, defaultCombo: KeyCombo(",")),
         ShortcutAction(id: ShortcutID.back, title: "Retour à l’écran précédent", group: .navigation, defaultCombo: KeyCombo("[")),
         ShortcutAction(id: ShortcutID.forward, title: "Avancer", group: .navigation, defaultCombo: KeyCombo("]")),
+        ShortcutAction(id: ShortcutID.chooseSite, title: "Choisir le site", group: .navigation,
+                       defaultCombo: KeyCombo("s", [.shift, .command])),
     ]
 
     public static func screenID(_ screen: String) -> String { "ecran." + screen }

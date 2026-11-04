@@ -446,6 +446,8 @@ struct InvTable: View {
             let chosen = rows.filter { selection.contains($0.id) }.map(\.id)
             if !chosen.isEmpty { onDelete(chosen) }
         }
+        // Note 45 : au retour, la ligne choisie est ramenée en vue (même position dans la liste).
+        .revealSelection(rows.first { selection.contains($0.id) }?.id)
     }
 
     /// Ligne du site actif : celle dont les appareils sont dans le Scanner (fiche complète, ping).

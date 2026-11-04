@@ -69,6 +69,14 @@ public struct FortiControllerSelection: Hashable, Sendable {
 
         public var id: UUID { controllerID }
 
+        public init(controllerID: UUID, site: String, reason: Reason, coveredRanges: [String] = [], scannedRanges: [String] = []) {
+            self.controllerID = controllerID
+            self.site = site
+            self.reason = reason
+            self.coveredRanges = coveredRanges
+            self.scannedRanges = scannedRanges
+        }
+
         /// « 10.182.0.0/16 » ou « 10.182.0.0/16, 192.168.50.0/24 ».
         public var rangeLabel: String { coveredRanges.joined(separator: ", ") }
     }

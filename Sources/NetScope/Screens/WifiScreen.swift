@@ -10,6 +10,9 @@ struct WifiScreen: View {
     @ObservedObject private var fortiAP = FortiAPStore.shared
     @ObservedObject private var fortigate = FortiGateStore.shared
     @EnvironmentObject private var state: AppState
+    /// Note 48 : sites montrés par le menu « Site ▾ » de la partie FortiAP.
+    @ObservedObject private var scopes = SiteScopeStore.shared
+    @ObservedObject private var sites = SiteModel.shared
     /// Partie affichée ; captures : NETSCOPE_WIFI_VUE=fortiap.
     @AppStorage("NetScope.wifi.partie") private var savedPart = WifiScreenPart.local.rawValue
     @State private var part: WifiScreenPart = FortiAPDemo.opensFortiAP ? .fortiap : .local
@@ -73,6 +76,9 @@ struct WifiScreen: View {
         // Note 34 : une borne demandée par un autre écran ouvre la partie FortiAP.
         .onChange(of: fortiAP.focusAP) { _, id in if id != nil { part = .fortiap } }
         .onDisappear { store.stop() }
+        .onAppear { fortiAP.setScope(scopes.keys(for: .wifi)) }
+        .onChange(of: scopes.keys(for: .wifi)) { _, keys in fortiAP.setScope(keys) }
+        .onChange(of: sites.activeKey) { _, _ in fortiAP.setScope(scopes.keys(for: .wifi)) }
         .onChange(of: part) { _, value in if !RegEnvironment.isSnapshot { savedPart = value.rawValue } }
         .screenToolbar {
             if part == .fortiap {
@@ -88,16 +94,36 @@ struct WifiScreen: View {
         HStack(spacing: 10) {
             Picker("Partie", selection: $part) {
                 Text("Ce Mac (analyse locale)").tag(WifiScreenPart.local)
-                Text("FortiAP (\(fortiAP.overview.aps.count) borne\(fortiAP.overview.aps.count > 1 ? "s" : ""))").tag(WifiScreenPart.fortiap)
+                Text("FortiAP (\(fortiAP.shownOverview.aps.count) borne\(fortiAP.shownOverview.aps.count > 1 ? "s" : ""))").tag(WifiScreenPart.fortiap)
             }
             .labelsHidden()
             .pickerStyle(.segmented)
             .fixedSize()
+            if part == .fortiap {
+                // Note 48 : le Wi-Fi d'un autre site, ou de plusieurs, sans changer le site actif.
+                SiteScopeMenu(screen: .wifi)
+            }
             Spacer(minLength: 0)
         }
     }
 
     @ViewBuilder private var fortiToolbar: some View {
+        if let keys = fortiAP.scopeKeys {
+            // Note 48 : sites choisis par le menu « Site ▾ » ; la lecture du site actif est dans son bandeau.
+            let ids = keys.filter { $0 != sites.activeKey }.flatMap { sites.site(forKey: $0)?.fortiGateIDs ?? [] }
+            let reading = !fortiAP.viewReading.isDisjoint(with: ids)
+            Button { fortiAP.readForView(ids) } label: {
+                Label(reading ? "Lecture…" : "Lire les bornes des sites", systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.secondary)
+            .disabled(ids.isEmpty || reading || !fortigate.isEnabled)
+            .help("Relit, par l’API REST (HTTPS, lecture seule), les bornes des FortiGate des sites affichés. Le site actif ne change pas.")
+        } else {
+            activeFortiToolbar
+        }
+    }
+
+    @ViewBuilder private var activeFortiToolbar: some View {
         HStack(spacing: 6) {
             Circle().fill(fortiAP.lastRefresh == nil ? Theme.textTertiary : Theme.accent).frame(width: 8, height: 8)
             Text(fortiAP.busy ? "Lecture des bornes…" : (fortiAP.lastRefresh.map { "Lu à \(WifiText.timeSeconds($0))" } ?? "Bornes non lues"))

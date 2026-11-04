@@ -27,6 +27,16 @@ final class FortiAPStore: ObservableObject {
     @Published private(set) var selection = FortiControllerSelection()
     /// Borne (et bande) à montrer à l'ouverture de Wi-Fi › FortiAP (fiche d'un appareil client).
     @Published var focusAP: FortiManagedAP.ID?
+    /// Note 48 : dernière lecture réussie de chaque FortiGate, gardée en mémoire même après un
+    /// changement de site (vue d'un autre site par le menu « Site ▾ » de l'écran Wi-Fi).
+    @Published private(set) var cache: [UUID: FortiWifiSiteReport] = [:]
+    /// Sites affichés par l'écran Wi-Fi (nil : le site actif seulement, lecture habituelle).
+    @Published private(set) var scopeKeys: [String]?
+    /// Ce que montre l'écran Wi-Fi : la lecture du site actif, ou celle des sites choisis.
+    @Published private(set) var shownOverview = FortiWifiOverview()
+    @Published private(set) var shownDiagnosis = FortiWifiAnalysis.diagnose(FortiWifiOverview())
+    /// FortiGate lues à la demande pour la vue d'un autre site.
+    @Published private(set) var viewReading: Set<UUID> = []
     @Published var focusBand: WifiBand?
     @Published var thresholds: FortiWifiThresholds {
         didSet {
@@ -57,6 +67,10 @@ final class FortiAPStore: ObservableObject {
                                                        macAddress: DemoData.interface.address)
             calls = Dictionary(uniqueKeysWithValues: initial.map { ($0.controllerID, $0.report.calls) })
             lastRefresh = initial.map(\.report.readAt).max()
+            // Les bornes du Siège et de Laval sont déjà lues (vue d'un autre site, note 48).
+            cache[FortiGateSitesDemo.siegeID] = FortiWifiSiteReport(controllerID: FortiGateSitesDemo.siegeID, site: "Siège", report: FortiAPDemo.siege())
+            cache[FortiGateSitesDemo.lavalID] = FortiWifiSiteReport(controllerID: FortiGateSitesDemo.lavalID, site: "Entrepôt Laval", report: FortiAPDemo.laval())
+            for site in initial { cache[site.controllerID] = site }
             recompute()
         }
     }
@@ -90,6 +104,8 @@ final class FortiAPStore: ObservableObject {
             if byMAC[client.mac] == nil { byMAC[client.mac] = client }
             if let ip = client.ip { byIP[ip, default: []].append(client) }
         }
+        for site in sites { cache[site.controllerID] = site }
+        recomputeShown()
     }
 
     /// Client Wi-Fi d'un appareil du Scanner : par MAC, sinon par adresse IP quand elle est unique
@@ -100,7 +116,8 @@ final class FortiAPStore: ObservableObject {
         return nil
     }
 
-    func ap(for client: FortiWifiClient) -> FortiManagedAP? { overview.ap(for: client) }
+    /// Borne d'un client : dans la vue de l'écran Wi-Fi (autre site compris), sinon du site actif.
+    func ap(for client: FortiWifiClient) -> FortiManagedAP? { shownOverview.ap(for: client) ?? overview.ap(for: client) }
 
     func isWeak(_ client: FortiWifiClient) -> Bool { FortiWifiAnalysis.isWeak(client, thresholds: thresholds) }
 
@@ -237,6 +254,80 @@ final class FortiAPStore: ObservableObject {
             return .failure(FortiRedact.clean(error.wifiDescription, token: job.token), [])
         } catch {
             return .failure("Lecture Wi-Fi impossible.", [])
+        }
+    }
+
+    // MARK: Sites choisis dans l'écran Wi-Fi (note 48)
+
+    /// Sites affichés par l'écran Wi-Fi (menu « Site ▾ ») ; le site actif seul garde la lecture habituelle.
+    func setScope(_ keys: [String]) {
+        let next: [String]? = keys == [SiteModel.shared.activeKey] || keys.isEmpty ? nil : keys
+        guard next != scopeKeys else { return }
+        scopeKeys = next
+        recomputeShown()
+    }
+
+    /// Lectures des FortiGate d'un site, renommées d'après le site (la plus récente de chacune).
+    func reports(for site: Site) -> [FortiWifiSiteReport] {
+        var merged = cache
+        for report in sites { merged[report.controllerID] = report }
+        return SiteWifiBrowse.reports(site: site, fortiGateNames: FortiGateStore.shared.controllerNames, cache: merged)
+    }
+
+    /// Lectures d'un site affiché (le site actif sans site enregistré : sa lecture habituelle).
+    func reports(forKey key: String) -> [FortiWifiSiteReport] {
+        if let site = SiteModel.shared.site(forKey: key) { return reports(for: site) }
+        return key == SiteModel.shared.activeKey ? sites : []
+    }
+
+    private func recomputeShown() {
+        guard let keys = scopeKeys else {
+            shownOverview = overview
+            shownDiagnosis = diagnosis
+            return
+        }
+        shownOverview = SiteWifiBrowse.overview(perSite: keys.map { reports(forKey: $0) })
+        shownDiagnosis = FortiWifiAnalysis.diagnose(shownOverview, thresholds: thresholds)
+    }
+
+    /// « Lire les bornes » d'un site affiché (à la demande, lecture seule) : la lecture va dans la
+    /// mémoire des sites vus, sans toucher au Wi-Fi du site actif ni aux appareils du Scanner.
+    func readForView(_ controllerIDs: [UUID]) {
+        let wanted = controllerIDs.filter { !viewReading.contains($0) }
+        guard !wanted.isEmpty else { return }
+        viewReading.formUnion(wanted)
+        Task { [weak self] in
+            guard let self else { return }
+            defer {
+                self.viewReading.subtract(wanted)
+                self.recomputeShown()
+            }
+            if self.isDemo {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                return
+            }
+            let fortigate = FortiGateStore.shared
+            let picks = wanted.map { id in
+                FortiControllerSelection.Pick(controllerID: id, site: fortigate.controller(id)?.displayName ?? "FortiGate",
+                                              reason: .activeSite, coveredRanges: [], scannedRanges: [])
+            }
+            let targets = await fortigate.wifiTargets(for: FortiControllerSelection(picks: picks))
+            let jobs = targets.ready.map { WifiJob(id: $0.0.id, site: $0.0.displayName, config: $0.0.config, token: $0.1) }
+            let results = await FortiMulti.parallel(jobs, limit: FortiMulti.concurrentReads) { job in
+                await FortiAPStore.performRead(job)
+            }
+            for (id, reason) in targets.blocked { self.errors[id] = reason }
+            for (job, result) in zip(jobs, results) {
+                switch result {
+                case .success(let report):
+                    self.cache[job.id] = FortiWifiSiteReport(controllerID: job.id, site: job.site, report: report)
+                    self.errors[job.id] = nil
+                case .failure(let message, _):
+                    self.errors[job.id] = message
+                case .cancelled:
+                    break
+                }
+            }
         }
     }
 }

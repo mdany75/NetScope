@@ -81,7 +81,7 @@ struct FortiAPChannelMap: View {
 
     /// Radios en service de la bande, triées par canal.
     private func lanes(_ band: WifiBand) -> [Lane] {
-        store.overview.aps.filter { !$0.isOffline }.flatMap { ap in
+        store.shownOverview.aps.filter { !$0.isOffline }.flatMap { ap in
             ap.radios.filter { $0.isServing && $0.band == band }.map { Lane(ap: ap, radio: $0) }
         }
         .sorted { ($0.radio.channel ?? 0, $0.ap.name) < ($1.radio.channel ?? 0, $1.ap.name) }
@@ -90,7 +90,7 @@ struct FortiAPChannelMap: View {
     private enum Conflict { case none, sameChannel, overlap }
 
     private func conflict(_ lane: Lane) -> Conflict {
-        let mine = store.diagnosis.overlaps.filter {
+        let mine = store.shownDiagnosis.overlaps.filter {
             $0.site == lane.ap.site && $0.band == band
                 && (($0.first == lane.ap.name && $0.firstChannel == lane.radio.channel) || ($0.second == lane.ap.name && $0.secondChannel == lane.radio.channel))
         }
@@ -119,7 +119,7 @@ struct FortiAPChannelMap: View {
                     let fill: Color = kind == .overlap ? Theme.warning : (kind == .sameChannel ? Theme.warningDot.opacity(0.45) : Theme.accent)
                     let selected = selectedAP == lane.ap.id
                     let barWidth = max(right - left, 18)
-                    let site = store.overview.isMultiSite ? " · \(lane.ap.site)" : ""
+                    let site = store.shownOverview.isMultiSite ? " · \(lane.ap.site)" : ""
                     let label = "\(lane.ap.name) · canal \(lane.radio.channel ?? 0) · \(lane.radio.clientCount ?? 0) client\((lane.radio.clientCount ?? 0) > 1 ? "s" : "")\(site)"
                     // Étiquette à côté du bloc (à droite, ou à gauche près du bord droit) : un bloc de
                     // 20 MHz est trop étroit pour son nom.
@@ -132,7 +132,7 @@ struct FortiAPChannelMap: View {
                     }
                     .buttonStyle(.plain)
                     .frame(width: barWidth, height: Self.laneHeight - 5)
-                    .help("\(lane.ap.name)\(store.overview.isMultiSite ? " (\(lane.ap.site))" : "")\u{00A0}: \(lane.radio.label), \(lane.radio.clientCount ?? 0) client(s)"
+                    .help("\(lane.ap.name)\(store.shownOverview.isMultiSite ? " (\(lane.ap.site))" : "")\u{00A0}: \(lane.radio.label), \(lane.radio.clientCount ?? 0) client(s)"
                           + (lane.radio.channelUtilization.map { ", canal occupé à \(Int($0.rounded()))\u{00A0}%" } ?? ""))
                     .offset(x: left, y: CGFloat(index) * Self.laneHeight + 2)
                     Text(label)
@@ -149,7 +149,7 @@ struct FortiAPChannelMap: View {
     }
 
     private func summary(_ lanes: [Lane]) -> String {
-        let overlaps = store.diagnosis.overlaps.filter { $0.band == band }
+        let overlaps = store.shownDiagnosis.overlaps.filter { $0.band == band }
         guard !lanes.isEmpty else { return "" }
         let used = Set(lanes.compactMap(\.radio.channel)).sorted().map(String.init).joined(separator: ", ")
         var text = "\(lanes.count) radio\(lanes.count > 1 ? "s" : "") en \(band.label) · canaux \(used)"
@@ -158,7 +158,7 @@ struct FortiAPChannelMap: View {
         } else {
             text += " · " + overlaps.prefix(2).map { "\($0.kindLabel.lowercased())\u{00A0}: \($0.pairLabel)" }.joined(separator: "\u{00A0}; ")
         }
-        if store.overview.isMultiSite { text += " (chaque site est analysé à part)" }
+        if store.shownOverview.isMultiSite { text += " (chaque site est analysé à part)" }
         return text + "."
     }
 }

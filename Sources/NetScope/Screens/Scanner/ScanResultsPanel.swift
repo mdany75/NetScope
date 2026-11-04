@@ -529,6 +529,8 @@ struct ScanDeviceTable: View {
             }
         }
         .onAppear { selection = state.selectedDeviceID.map { [$0] } ?? [] }
+        // Note 45 : au retour, l'appareil choisi est ramené en vue (même position dans la liste).
+        .revealSelection(state.selectedDeviceID)
         .onChange(of: selection) { _, ids in
             // Le panneau de détail suit la ligne choisie (la première d'une sélection multiple).
             if let current = state.selectedDeviceID, ids.contains(current) { return }

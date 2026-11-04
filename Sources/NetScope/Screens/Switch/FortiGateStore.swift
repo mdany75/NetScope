@@ -705,3 +705,56 @@ final class FortiGateStore: ObservableObject {
     /// Libellé des FortiGate lues (« Siège », « Siège, Entrepôt Laval »).
     var sitesLabel: String { sites.map(\.label).joined(separator: ", ") }
 }
+
+// MARK: - Sites vus sans être actifs (note 48)
+
+extension FortiGateStore {
+    /// Noms des FortiGate (pour les remarques des vues par site).
+    var controllerNames: [UUID: String] {
+        Dictionary(controllers.map { ($0.id, $0.displayName) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    /// Dernières lectures réussies des FortiGate d'un site (en mémoire), sans rien relire : la vue
+    /// d'un site qui n'est pas le site actif (Switchs et ports, menu « Site ▾ »).
+    func reports(for site: Site) -> [FortiSiteReport] {
+        site.fortiGateIDs.compactMap { id in
+            guard let c = controller(id), let report = runtime[id]?.report else { return nil }
+            return FortiSiteReport(controllerID: id, site: c.displayName, report: report, coveredRanges: c.coveredRanges)
+        }
+    }
+
+    /// Vrai si une des FortiGate données est en cours de lecture.
+    func isReading(_ ids: [UUID]) -> Bool { ids.contains { runtime[$0]?.busy == true } }
+
+    /// « Lire les FortiGate du site » (à la demande, lecture seule par l'API REST) : met à jour leur
+    /// dernière lecture sans toucher aux appareils du Scanner ni aux switchs du site actif. Rien
+    /// n'est envoyé en démonstration ni pendant les captures.
+    func readForView(_ ids: [UUID]) {
+        let wanted = ids.filter { id in controller(id)?.isEnabled == true && runtime[id]?.busy != true }
+        guard !wanted.isEmpty else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            if self.isDemo {
+                for id in wanted { self.runtime[id, default: Runtime()].busy = true }
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                for id in wanted { self.runtime[id]?.busy = false }
+                return
+            }
+            await self.loadTokens()
+            var jobs: [Job] = []
+            for id in wanted {
+                guard let c = self.controller(id) else { continue }
+                if let reason = self.notReadyReason(c) {
+                    self.runtime[id, default: Runtime()].error = reason
+                    continue
+                }
+                guard let token = self.tokens[id] else { continue }
+                jobs.append(Job(controller: c, token: token, generation: self.beginRead(id)))
+            }
+            let results = await FortiMulti.parallel(jobs, limit: FortiMulti.concurrentReads) { job in
+                await FortiGateStore.performRead(config: job.controller.config, token: job.token, withInterfaces: false)
+            }
+            for (job, result) in zip(jobs, results) { _ = self.finishRead(job, result) }
+        }
+    }
+}

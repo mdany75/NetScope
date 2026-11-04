@@ -269,6 +269,8 @@ final class SiteModel: ObservableObject {
         RapportModel.shared.siteChanged(activeSite)
         inventory.updateBadge(state)
         DeviceNotesStore.shared.switchSite(to: newKey, url: files?.notesURL(for: newKey), adopt: adoptCurrent)
+        // Note 45 : Retour ne mène jamais à un écran de l'autre site (sa sélection, son filtre).
+        state.history.clear()
     }
 
     /// Résultats actuels (appareils, noms, état du scan, bilan des switchs).
@@ -461,6 +463,7 @@ final class SiteModel: ObservableObject {
             RapportModel.shared.siteChanged(nil)
             InvModel.shared.updateBadge(state)
             DeviceNotesStore.shared.switchSite(to: SiteFiles.noSiteKey, url: files?.notesURL(for: SiteFiles.noSiteKey), adopt: false)
+            state.history.clear()
         }
         list.remove(id)
         shelf.forget(key)
