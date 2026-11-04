@@ -85,7 +85,7 @@ struct TopologieScreen: View {
             } else {
                 tiles(graph, devices: devices, conflicts: conflicts)
                 SidePanelSplit(sideWidth: 320, title: "Détail du nœud") {
-                    mapPanel(graph)
+                    mapPanel(graph, devices: devices)
                 } side: {
                     TopoAside(graph: graph, selectedID: $selectedID, devices: devices, siteKey: drawnKey,
                               isActiveSite: isActiveDrawing, conflictIPs: conflicts)
@@ -95,6 +95,11 @@ struct TopologieScreen: View {
         }
         .padding(Theme.contentPadding)
         .onChange(of: drawnKey) { _, _ in selectedID = nil }
+        // Note 34 : nœud demandé par un autre écran (« Ouvrir dans › Carte du réseau »), et nœud
+        // choisi retenu pour Retour.
+        .onAppear { adoptPendingFocus() }
+        .onChange(of: state.pendingFocus[.carte]) { _, _ in adoptPendingFocus() }
+        .onChange(of: selectedID) { _, id in state.shownFocus[.carte] = id.map(NavFocus.node) }
         .onAppear {
             // Captures : NETSCOPE_CARTE_DESSIN=laval (partie du nom) choisit le dessin affiché.
             guard Launcher.isDemo, drawingSite == nil,
@@ -236,7 +241,23 @@ struct TopologieScreen: View {
         return (layout, Self.minFit)
     }
 
-    private func mapPanel(_ graph: TopoGraph) -> some View {
+    /// Montre le nœud demandé (celui de l'appareil, ou le groupe qui le contient).
+    private func adoptPendingFocus() {
+        guard let focus = state.pendingFocus[.carte] else { return }
+        state.pendingFocus[.carte] = nil
+        switch focus {
+        case .node(let id):
+            selectedID = id
+        case .device(let id):
+            let devices = mapDevices
+            let graph = TopoGraph.build(devices: devices, gateway: drawnGateway(devices))
+            selectedID = graph.nodeID(showing: id)
+        default:
+            break
+        }
+    }
+
+    private func mapPanel(_ graph: TopoGraph, devices: [Device]) -> some View {
         let scale = zoom ?? fitScale
         return VStack(spacing: 0) {
             HStack(spacing: 16) {
@@ -287,7 +308,9 @@ struct TopologieScreen: View {
                         if fitsWhole {
                             Color.clear.frame(width: geometry.size.width, height: geometry.size.height)
                         }
-                        TopoCanvas(graph: graph, layout: layout, selectedID: $selectedID, showPortLabels: showPortLabels)
+                        TopoCanvas(graph: graph, layout: layout, selectedID: $selectedID, showPortLabels: showPortLabels,
+                                   object: { TopoNav.object($0, graph: graph, devices: devices, siteKey: drawnKey) },
+                                   onOpen: { state.perform($0) })
                             .frame(width: layout.width, height: layout.height)
                             .scaleEffect(scale, anchor: .topLeading)
                             .frame(width: layout.width * scale, height: layout.height * scale, alignment: .topLeading)

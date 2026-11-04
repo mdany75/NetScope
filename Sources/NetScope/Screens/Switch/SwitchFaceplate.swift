@@ -79,6 +79,8 @@ struct SwitchFaceplate: View {
     let found: Int?
     /// Largeur minimale du cadre (largeur de la carte) : le cadre va jusqu'au bord droit.
     var minWidth: CGFloat = 0
+    /// Note 33 : double-clic sur un port → l'appareil branché (ou une liste, ou un message).
+    var onOpen: (Int) -> Void = { _ in }
     let onSelect: (Int) -> Void
 
     var body: some View {
@@ -167,7 +169,12 @@ struct SwitchFaceplate: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("\(iface.name) · \(state.label)\(iface.alias.isEmpty ? "" : " · " + iface.alias)")
+        .simultaneousGesture(TapGesture(count: 2).onEnded { onOpen(iface.index) })
+        .contextMenu {
+            Button("Ouvrir l’appareil branché") { onOpen(iface.index) }
+            OpenInMenu(object: .port(NavPortRef(host: snapshot.id, ifIndex: iface.index)))
+        }
+        .help("\(iface.name) · \(state.label)\(iface.alias.isEmpty ? "" : " · " + iface.alias) · double-clic\u{00A0}: appareil branché")
     }
 }
 

@@ -68,7 +68,10 @@ struct WifiScreen: View {
         .onAppear {
             store.start()
             if !FortiAPDemo.opensFortiAP, !RegEnvironment.isSnapshot, let saved = WifiScreenPart(rawValue: savedPart) { part = saved }
+            if fortiAP.focusAP != nil { part = .fortiap }
         }
+        // Note 34 : une borne demandée par un autre écran ouvre la partie FortiAP.
+        .onChange(of: fortiAP.focusAP) { _, id in if id != nil { part = .fortiap } }
         .onDisappear { store.stop() }
         .onChange(of: part) { _, value in if !RegEnvironment.isSnapshot { savedPart = value.rawValue } }
         .screenToolbar {

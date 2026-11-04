@@ -66,6 +66,16 @@ import SwiftUI
 //
 // Plusieurs sites (0.12.0) : colonne facultative `StandardColumn.site` (« Site »), que l'écran
 // affiche d'office quand il montre plus d'un site : `.standardSiteColumn(table, multiple:)`.
+//
+// 7. Double-clic, ↩︎ et « Ouvrir dans › » (note 34, Shared/Navigation.swift) : à la place de
+//    `.contextMenu(forSelectionType:menu:primaryAction:)`, donner l'objet de chaque ligne :
+//
+//        .standardRowActions(selection: rows.map(\.id).filter(selection.contains), object: { id in
+//            rows.first { $0.id == id }.map { .device(NavDeviceRef($0.device)) }
+//        }) { ids in /* menu propre au tableau */ }
+//
+//    Le double-clic et ↩︎ mènent à la suite logique de l'objet (fiche, port, borne, sonde…) et le
+//    menu contextuel reçoit « Ouvrir dans › » avec les autres modules pertinents.
 
 /// Colonne d'un tableau standard, pour le menu « Colonnes ».
 struct StandardColumn: Identifiable, Hashable {

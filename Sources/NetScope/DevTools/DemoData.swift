@@ -30,6 +30,9 @@ enum DemoData {
         InvModel.shared.updateBadge(state)
         // Note 28 : sites de démonstration (NETSCOPE_SITE choisit le site actif des captures).
         SiteModel.shared.attachDemo(to: state)
+        // Notes 31, 33 et 34 : NETSCOPE_NAV="carte:imprimantes>inventaire" capture un écran ouvert
+        // par la navigation (étiquette du filtre transmis, bouton Retour actif).
+        NavDemo.apply(to: state)
     }
 
     /// Interface active fictive (Wi-Fi du bureau).

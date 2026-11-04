@@ -305,6 +305,9 @@ struct SwitchCard: View {
             } else {
                 Button("Retirer ce switch", role: .destructive) { store.removeHost(host) }
             }
+            // Note 34 : les autres modules pertinents pour ce switch (fiche, Scanner, Inventaire…).
+            Divider()
+            OpenInMenu(object: .switchUnit(host: host, name: store.snapshots[host]?.displayName ?? host))
         }
     }
 
@@ -425,7 +428,11 @@ struct SwitchFaceplatePanel: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     SwitchFaceplate(snapshot: snapshot, selected: store.selectedPort,
                                     found: store.findResult?.host == snapshot.id ? store.findResult?.ifIndex : nil,
-                                    minWidth: faceplateWidth) { index in
+                                    minWidth: faceplateWidth,
+                                    onOpen: { index in
+                                        store.select(host: snapshot.id, port: index)
+                                        state.perform(.port(NavPortRef(host: snapshot.id, ifIndex: index)))
+                                    }) { index in
                         store.select(host: snapshot.id, port: index)
                     }
                 }
@@ -955,7 +962,12 @@ struct SwitchMacTable: View {
             }
         }
         .standardTableStyle()
-        .contextMenu(forSelectionType: Row.ID.self) { ids in
+        // Note 34 : double-clic ou ↩︎ → fiche de l'appareil ; MAC inconnue → son port (message clair).
+        .standardRowActions(selection: selection.map { [$0] } ?? [], object: { id in
+            guard let row = rows.first(where: { $0.id == id }) else { return nil }
+            if let deviceID = row.deviceID, let device = state.device(withID: deviceID) { return .device(NavDeviceRef(device)) }
+            return .port(NavPortRef(host: snapshot.id, ifIndex: row.ifIndex))
+        }) { ids in
             if let row = rows.first(where: { ids.contains($0.id) }) {
                 Button("Copier la MAC") { copy(row.mac) }
                 Button("Copier l’IP") { copy(row.ip) }.disabled(row.ip == "—")
@@ -964,8 +976,6 @@ struct SwitchMacTable: View {
                 Button("Voir la fiche complète") { if let id = row.deviceID { state.showDevice(id) } }
                     .disabled(row.deviceID == nil)
             }
-        } primaryAction: { ids in
-            if let id = rows.first(where: { ids.contains($0.id) })?.deviceID { state.showDevice(id) }
         }
         .onAppear { followSelectedPort(rows) }
         .onChange(of: selection) { _, id in

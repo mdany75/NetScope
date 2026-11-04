@@ -485,7 +485,11 @@ private struct MonProbeGrid: View {
             }
         }
         .standardTableStyle()
-        .contextMenu(forSelectionType: UUID.self) { ids in
+        // Note 34 : double-clic ou ↩︎ sur une sonde → l'appareil ou le service surveillé ; clic droit →
+        // « Ouvrir dans › » (cible, Ping continu, fiche…).
+        .standardRowActions(selection: store.selectedID.map { [$0] } ?? [], object: { id in
+            store.probe(id).map { .probe(NavProbeRef($0)) }
+        }) { ids in
             if let id = ids.first, let probe = store.probe(id) {
                 Button("Tester maintenant") { store.testNow(id) }
                 Button(probe.isEnabled ? "Suspendre la sonde" : "Reprendre la sonde") {

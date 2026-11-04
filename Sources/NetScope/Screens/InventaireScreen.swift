@@ -98,7 +98,11 @@ struct InventaireScreen: View {
         let records = all.map(\.record)
         // Note 26 : recherche multiple, analysée une fois pour toutes les fiches (préfixe site:).
         let query = state.searchQuery(for: .inventaire)
-        let rows = InvTable.sorted(all.filter { view.includes($0.record, now: now) && query.matches($0) }, by: table.sortOrder)
+        // Notes 31 et 33 : filtre transmis (groupe de la Carte, port de switch), ensemble exact d'appareils.
+        let navFilter = state.navFilters[.inventaire]
+        let rows = InvTable.sorted(all.filter {
+            view.includes($0.record, now: now) && query.matches($0) && (navFilter?.matches($0.record, site: $0.siteKey) ?? true)
+        }, by: table.sortOrder)
         let duplicates = inventories.flatMap { inventory in
             inventory.store.probableDuplicates().map { InvSiteDuplicate(site: inventory.key, pair: $0) }
         }.filter { !ignoredDuplicates.contains($0.id) }
@@ -175,6 +179,11 @@ struct InventaireScreen: View {
         }
         .onChange(of: rows.first?.id) { _, _ in pickFirstRowIfNeeded(rows) }
         .onChange(of: model.selectedKey) { _, _ in adoptRequestedSelection() }
+        // Note 34 : la fiche montrée est retenue, pour que Retour la rende.
+        .onChange(of: selection) { _, ids in
+            guard ids.count == 1, let id = ids.first, let parts = SiteScope.split(id) else { return }
+            state.shownFocus[.inventaire] = .record(site: parts.site, key: parts.key)
+        }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.commaSeparatedText, .plainText, .text]) { result in
             switch result {
             case .success(let url):

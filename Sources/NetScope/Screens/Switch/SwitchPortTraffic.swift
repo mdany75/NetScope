@@ -123,6 +123,7 @@ struct SwitchPortTraffic: View {
 /// Panneau « Ports les plus chargés » d'un switch : cinq ports, % du lien et débit ; un clic
 /// sélectionne le port sur la façade.
 struct SwitchTopPorts: View {
+    @EnvironmentObject private var state: AppState
     @ObservedObject var store: SwitchStore
     @ObservedObject var monitor: SNMPResourceMonitor
     let snapshot: SNMPSwitchSnapshot
@@ -225,6 +226,11 @@ struct SwitchTopPorts: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // Note 33 : double-clic sur un port chargé → l'appareil branché.
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
+            state.perform(.port(NavPortRef(host: snapshot.id, ifIndex: load.index)))
+        })
+        .contextMenu { OpenInMenu(object: .port(NavPortRef(host: snapshot.id, ifIndex: load.index))) }
         .help("\(load.name) · entrée \(ResourceFormat.percent(load.rate.inPercent)), sortie \(ResourceFormat.percent(load.rate.outPercent)) du lien de \(SNMPFormat.speed(mbps: load.speedMbps)) · cliquer pour le sélectionner")
     }
 

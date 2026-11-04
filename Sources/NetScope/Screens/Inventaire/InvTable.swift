@@ -419,12 +419,17 @@ struct InvTable: View {
             }
         }
         .standardTableStyle()
-        .contextMenu(forSelectionType: String.self) { ids in
+        // Note 34 : double-clic ou ↩︎ → fiche Appareil (site actif, appareil du dernier scan) ;
+        // clic droit → « Ouvrir dans › » les autres modules.
+        .standardRowActions(selection: rows.map(\.id).filter(selection.contains), object: { id in
+            rows.first { $0.id == id }.map { .device(NavDeviceRef($0.record, siteKey: $0.siteKey)) }
+        }, primary: { ids in
+            // Ligne d'un autre site, ou appareil absent du dernier scan : sa fiche est déjà ci-dessous.
+            guard let row = rows.first(where: { ids.contains($0.id) }) else { return true }
+            return !(isActive(row) && state.device(withID: row.record.ip.description) != nil)
+        }) { ids in
             let chosen = rows.filter { ids.contains($0.id) }
             if !chosen.isEmpty { menu(chosen) }
-        } primaryAction: { ids in
-            guard let row = rows.first(where: { ids.contains($0.id) }) else { return }
-            if isActive(row), state.device(withID: row.record.ip.description) != nil { state.showDevice(row.record.ip.description) }
         }
         // Touche Suppr (⌫) et Édition › Supprimer.
         .onDeleteCommand {

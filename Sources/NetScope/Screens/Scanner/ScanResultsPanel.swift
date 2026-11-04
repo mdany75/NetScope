@@ -516,13 +516,14 @@ struct ScanDeviceTable: View {
             }
         }
         .standardTableStyle()
-        .contextMenu(forSelectionType: Device.ID.self) { ids in
+        // Note 34 : double-clic ou ↩︎ → fiche Appareil ; clic droit → « Ouvrir dans › ».
+        .standardRowActions(selection: rows.map(\.id).filter(selection.contains), object: { id in
+            state.device(withID: id).map { .device(NavDeviceRef($0)) }
+        }) { ids in
             let devices = ids.compactMap { state.device(withID: $0) }.sorted { $0.ip < $1.ip }
             if !devices.isEmpty {
                 ScanDeviceMenu(devices: devices, scan: scan)
             }
-        } primaryAction: { ids in
-            if let id = ids.first { state.showDevice(id) }
         }
         .onAppear { selection = state.selectedDeviceID.map { [$0] } ?? [] }
         .onChange(of: selection) { _, ids in

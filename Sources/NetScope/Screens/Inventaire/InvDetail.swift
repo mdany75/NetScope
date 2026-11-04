@@ -301,7 +301,7 @@ struct InvDetail: View {
                     })
                 }
                 HStack(spacing: 4) {
-                    Button("Voir le port actuel") { state.open(.switchs) }.buttonStyle(.ghost)
+                    Button("Voir le port actuel") { state.showSwitchPort(switchName: record.switchName, port: record.switchPort) }.buttonStyle(.ghost)
                     Button("Ping continu") { state.sendToPing(record.ip.description) }.buttonStyle(.ghost)
                 }
                 .padding(.leading, -8)

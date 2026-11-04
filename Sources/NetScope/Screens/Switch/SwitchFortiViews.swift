@@ -342,6 +342,15 @@ struct SwitchFortiPortTable: View {
             .defaultVisibility(.hidden)
         }
         .standardTableStyle()
+        // Note 33 : double-clic ou ↩︎ sur un port → l'appareil branché (liste s'il y en a
+        // plusieurs, message clair pour un port vide, un uplink ou un appareil pas encore vu).
+        .standardRowActions(selection: selection.map { [$0] } ?? [], object: { index in
+            .port(NavPortRef(host: snapshot.id, ifIndex: index))
+        }) { ids in
+            if let index = ids.first {
+                Button("Ouvrir l’appareil branché") { state.perform(.port(NavPortRef(host: snapshot.id, ifIndex: index))) }
+            }
+        }
     }
 
     private func makeRows() -> [SwitchFortiPortRow] {

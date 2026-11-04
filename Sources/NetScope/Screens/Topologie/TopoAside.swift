@@ -129,25 +129,48 @@ struct TopoAside: View {
                     }
                 }
 
-                HStack(spacing: 8) {
+                // Note 31 : le groupe ou la branche (le nœud et tout ce qui est branché dessous) vers
+                // l'Inventaire ou le Scanner, filtrés sur exactement ces appareils, dans le site dessiné.
+                let group = graph.navGroup(node.id, devices: self.devices, siteKey: siteKey)
+                InvFlowLayout(spacing: 8) {
                     if let device = single {
                         Button { open(device) } label: { Label("Ouvrir la fiche", systemImage: "doc.text") }
                             .buttonStyle(.primary)
                     }
                     if node.kind == .switch || node.kind == .pointAcces || node.kind == .passerelle {
-                        Button { state.open(.switchs) } label: { Label("Voir les ports", systemImage: Screen.switchs.symbol) }
-                            .buttonStyle(.secondary)
-                    }
-                    if node.kind == .groupe, let first = devices.first {
                         Button {
-                            // Pas de fiche : aucun site retenu (un « Voir » suivant ne l'hériterait pas).
-                            let key = model.inventory(for: siteKey).record(forIP: first.ip)?.key
-                            model.selectedSite = key == nil ? nil : siteKey
-                            model.selectedKey = key
-                            state.open(.inventaire)
-                        } label: { Label("Inventaire", systemImage: Screen.inventaire.symbol) }
+                            if let object = TopoNav.object(node, graph: graph, devices: self.devices, siteKey: siteKey),
+                               case .switchUnit = object {
+                                state.perform(object)
+                            } else {
+                                state.open(.switchs)
+                            }
+                        } label: { Label("Voir les ports", systemImage: Screen.switchs.symbol) }
                             .buttonStyle(.secondary)
                     }
+                    if let group {
+                        let inventory = Button { state.navigate(NavResolver.groupDestination(group, module: .inventaire)) } label: {
+                            Label("Inventaire", systemImage: Screen.inventaire.symbol)
+                        }
+                        Group {
+                            if node.kind == .groupe { inventory.buttonStyle(.primary) } else { inventory.buttonStyle(.secondary) }
+                        }
+                        .help("Ouvrir l’Inventaire filtré sur \(group.members.count == 1 ? "cet appareil" : "ces \(group.members.count) appareils") («\u{00A0}\(group.filterLabel)\u{00A0}»)")
+                        if isActiveSite {
+                            Button { state.navigate(NavResolver.groupDestination(group, module: .scanner)) } label: {
+                                Label("Scanner", systemImage: Screen.scanner.symbol)
+                            }
+                            .buttonStyle(.secondary)
+                            .help("Ouvrir le Scanner filtré sur ces appareils")
+                        }
+                    }
+                }
+                if node.kind != .internet {
+                    Text(node.kind == .groupe ? "Double-clic sur le groupe\u{00A0}: Inventaire filtré sur ses appareils."
+                         : (node.kind == .switch ? "Double-clic sur le switch\u{00A0}: ses ports dans Switchs et ports."
+                            : "Double-clic\u{00A0}: la fiche\u{00A0}; clic droit\u{00A0}: «\u{00A0}Ouvrir dans\u{00A0}» les autres modules."))
+                        .font(Theme.caption).foregroundStyle(Theme.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -287,5 +310,30 @@ struct TopoAside: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Note 34 : objet d'un nœud de la carte, pour le double-clic et « Ouvrir dans › ».
+@MainActor
+enum TopoNav {
+    static func object(_ node: TopoNode, graph: TopoGraph, devices: [Device], siteKey: String) -> NavObject? {
+        let device = node.deviceIDs.first.flatMap { id in devices.first { $0.id == id } }
+        switch node.kind {
+        case .internet:
+            return nil
+        case .groupe:
+            return graph.navGroup(node.id, devices: devices, siteKey: siteKey).map(NavObject.group)
+        case .switch:
+            // « Switchs » des ports non découverts : la branche de ces appareils.
+            if node.id == "sw:?" { return graph.navGroup(node.id, devices: devices, siteKey: siteKey).map(NavObject.group) }
+            return .switchUnit(host: device?.ip.description, name: device?.hostname ?? node.title)
+        case .pointAcces:
+            if let device, let ap = FortiAPStore.shared.overview.aps.first(where: { $0.ip == device.ip }) {
+                return .accessPoint(id: ap.id, name: ap.name, ip: device.ip.description)
+            }
+            return device.map { .device(NavDeviceRef($0, siteKey: siteKey)) }
+        case .passerelle, .appareil:
+            return device.map { .device(NavDeviceRef($0, siteKey: siteKey)) }
+        }
     }
 }

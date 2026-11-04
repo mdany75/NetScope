@@ -58,10 +58,10 @@ private struct DeviceDetailView: View {
         }
         .onAppear { nameDraft = device.customName ?? "" }
         .screenToolbar {
-            Button { step(-1) } label: { Image(systemName: "chevron.left") }
-                .buttonStyle(.secondary).help("Appareil précédent").disabled(neighbor(-1) == nil)
-            Button { step(1) } label: { Image(systemName: "chevron.right") }
-                .buttonStyle(.secondary).help("Appareil suivant").disabled(neighbor(1) == nil)
+            Button { step(-1) } label: { Label("Appareil précédent", systemImage: "chevron.up").labelStyle(.iconOnly) }
+                .buttonStyle(.secondary).help("Appareil précédent de la liste").disabled(neighbor(-1) == nil)
+            Button { step(1) } label: { Label("Appareil suivant", systemImage: "chevron.down").labelStyle(.iconOnly) }
+                .buttonStyle(.secondary).help("Appareil suivant de la liste").disabled(neighbor(1) == nil)
             Button {
                 copy(sheet, label: "Fiche copiée")
             } label: {

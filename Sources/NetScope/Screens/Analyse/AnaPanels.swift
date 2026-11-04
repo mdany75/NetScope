@@ -306,11 +306,13 @@ struct AnaAlertsPanel: View {
             }
         }
         .standardTableStyle()
-        .contextMenu(forSelectionType: String.self) { ids in
+        // Note 34 : double-clic ou ↩︎ sur une alerte → l'appareil et sa chronologie (fiche
+        // d'inventaire de son site) ; clic droit → « Ouvrir dans › » les autres modules.
+        .standardRowActions(selection: rows.map(\.id).filter(selection.contains), object: { id in
+            rows.first { $0.id == id }.map { .analysisEvent(siteKey: $0.siteKey, recordKey: $0.key, ip: $0.ip.description) }
+        }) { ids in
             let chosen = rows.filter { ids.contains($0.id) }
             if !chosen.isEmpty { menu(chosen) }
-        } primaryAction: { ids in
-            if let row = rows.first(where: { ids.contains($0.id) }) { open(row) }
         }
     }
 
@@ -597,7 +599,12 @@ struct AnaComparePanel: View {
             .defaultVisibility(.hidden)
         }
         .standardTableStyle()
-        .contextMenu(forSelectionType: String.self) { ids in
+        // Note 34 : double-clic sur un changement → l'appareil (fiche, sinon fiche d'inventaire).
+        .standardRowActions(selection: [String](), object: { id in
+            rows.first { $0.id == id }.map { line in
+                .device(NavDeviceRef(ip: line.ip.description, mac: line.mac == "—" ? nil : line.mac, name: line.name))
+            }
+        }) { ids in
             if let line = rows.first(where: { ids.contains($0.id) }) {
                 Button("Copier l’IP") { AnaTableMetrics.copy(line.ip.description, label: "IP") }
                 Button("Copier la MAC") { AnaTableMetrics.copy(line.mac, label: "MAC") }

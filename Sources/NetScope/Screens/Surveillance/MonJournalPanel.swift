@@ -175,12 +175,13 @@ private struct MonJournalTable: View {
     @ObservedObject private var store = MonStore.shared
     let rows: [MonJournalLine]
     @ObservedObject var table: StandardTableModel<MonJournalLine>
+    @State private var selection: MonJournalLine.ID?
 
     /// Hauteur du contenu d'une cellule : deux lignes de texte.
     static let cellHeight: CGFloat = 36
 
     var body: some View {
-        Table(rows, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+        Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
             TableColumn(StandardTableHeading("HORODATAGE"), sortUsing: table.sort("horodatage")) { line in
                 MonCellText(MonJournal.timestamp(line.alert.date, now: store.now), mono: true, size: 11)
                     .frame(height: Self.cellHeight)
@@ -256,6 +257,10 @@ private struct MonJournalTable: View {
         }
         .standardTableStyle()
         .textSelection(.enabled)
+        // Note 34 : double-clic ou ↩︎ sur une alerte → sa sonde (puis, depuis la sonde, l'appareil).
+        .standardRowNavigation(selection: selection.map { [$0] } ?? [], object: { id in
+            rows.first { $0.id == id }.map { .alert(probeID: $0.alert.probeID?.uuidString) }
+        })
     }
 }
 
