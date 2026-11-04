@@ -138,6 +138,46 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// Rafraîchit l'interface active (lecture locale par getifaddrs, aucun trafic) : un changement
+    /// d'interface ou de sous-réseau rend périmés le bilan des switchs et l'encart LLDP/CDP.
+    func refreshInterface() async {
+        let interfaces = await Task.detached(priority: .utility) { LocalInterfaces.list() }.value
+        if activeInterface == nil, interfaces.isEmpty { return }
+        let current = activeInterface.flatMap { active in interfaces.first { $0.name == active.name } }
+        if let current, let active = activeInterface, current.address == active.address, current.netmask == active.netmask {
+            return
+        }
+        // Interface disparue ou readressée : on relit les types (Wi-Fi, Ethernet) ; la passerelle
+        // est relue par le Scanner (`fillLocalInfo`) au changement d'interface ou de réseau.
+        let withKinds = await LocalInterfaces.listWithKinds()
+        let primary = withKinds.first { $0.kind == .wifi || $0.kind == .ethernet } ?? withKinds.first
+        if primary != activeInterface { activeInterface = primary }
+    }
+
+    // MARK: Pertinence (note 18)
+
+    /// Plages cochées, lues.
+    var checkedRanges: [IPRange] {
+        ranges.filter(\.isEnabled).compactMap { try? $0.parsed() }
+    }
+
+    /// Réseau actuel (interface active, sous-réseau, passerelle).
+    var currentNetwork: NetworkContext? {
+        activeInterface.map(NetworkContext.init)
+    }
+
+    /// Part du bilan des switchs qui concerne les plages cochées, et si le réseau a changé depuis.
+    func switchPresentation(_ result: SwitchAutoResult?) -> SwitchAutoPresentation? {
+        result?.presentation(checked: checkedRanges, network: currentNetwork)
+    }
+
+    /// Vrai si l'emplacement (switch, port, VLAN) de l'appareil peut être présenté comme actuel :
+    /// appareil dans les plages cochées, réseau inchangé depuis le dernier bilan.
+    func isLocationCurrent(_ device: Device, bilan: SwitchAutoResult?) -> Bool {
+        let stale = bilan?.network.map { $0.isStale(comparedTo: currentNetwork) } ?? false
+        return ScanRelevance.isLocationCurrent(device.ip, checked: checkedRanges, networkStale: stale)
+    }
+
     // MARK: Persistance
 
     private func save() {

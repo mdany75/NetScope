@@ -3,33 +3,6 @@ import Foundation
 import NetScopeCore
 import UniformTypeIdentifiers
 
-/// Bilan de la découverte automatique faite à la fin d'un scan.
-struct SwitchAutoResult: Equatable {
-    var date: Date
-    /// Appareils qui ont répondu en SNMP (switchs, routeurs, imprimantes…).
-    var responded: Int
-    /// Noms des switchs relevés avec succès pendant ce scan.
-    var switchNames: [String]
-    /// Appareils dont le switch et le port sont connus.
-    var located: Int
-    /// MAC complétées par l'ARP SNMP des routeurs et des switchs de niveau 3.
-    var filledMACs: Int
-    /// Aucune communauté à essayer (liste vide et rien dans les Identifiants).
-    var noCommunity = false
-    /// Hôtes interrogés par la découverte (adresses privées, hors switchs écartés).
-    var queried = 0
-    /// Nombre de communautés essayées (jamais leur valeur).
-    var communitiesTried = 0
-    /// Switchs découverts dans ce scan (un par équipement, même s'il a plusieurs adresses).
-    var discovered = 0
-    /// Switchs dont le relevé complet a échoué pendant ce scan (nom ou adresse).
-    var failed: [String] = []
-    /// Scan arrêté pendant l'étape SNMP : bilan partiel.
-    var interrupted = false
-
-    var foundSwitch: Bool { !switchNames.isEmpty }
-}
-
 /// État du module Switchs et ports : switchs à interroger, relevés SNMP, sélection.
 ///
 /// Les switchs sont découverts automatiquement à la fin de chaque scan (`autoDiscover`) ou
@@ -67,8 +40,10 @@ final class SwitchStore: ObservableObject {
     @Published private(set) var ignoredHosts: Set<String> {
         didSet { if !isDemo { UserDefaults.standard.set(Array(ignoredHosts).sorted(), forKey: Self.ignoredKey) } }
     }
-    /// Bilan de la dernière découverte automatique (nil pendant un scan et après « Effacer »).
-    @Published private(set) var autoResult: SwitchAutoResult?
+    /// Bilan de la dernière découverte automatique, rattaché aux plages et au réseau de son scan
+    /// (nil pendant un scan, après un scan sans découverte et après « Effacer »).
+    var autoResult: SwitchAutoResult? { ledger.result }
+    @Published private var ledger = SwitchAutoLedger()
     /// Nombre de communautés retenues par switch (pour Réglages › Switchs).
     @Published private(set) var rememberedCommunities = 0
     /// Communauté qui a répondu, par switch (adresse IP → communauté), lue au Trousseau.
@@ -148,10 +123,20 @@ final class SwitchStore: ObservableObject {
         lastPoll = demo.snapshots.first?.polledAt
         selectedHost = hosts.first
         selectedPort = 12
-        let located = DemoData.devices().filter { $0.switchName != nil && $0.switchPort != "Wi-Fi" }.count
-        autoResult = SwitchAutoResult(date: lastPoll ?? Date(), responded: 4, switchNames: demo.snapshots.map(\.displayName),
-                                      located: located, filledMACs: 3, queried: 214, communitiesTried: 2,
-                                      discovered: demo.snapshots.count)
+        let devices = DemoData.devices()
+        let locatedHosts = devices.filter { $0.switchName != nil && $0.switchPort != "Wi-Fi" }.map(\.ip)
+        let ranges = DemoData.ranges.compactMap { try? $0.parsed() }
+        ledger.scanStarted(ranges: ranges, network: NetworkContext(DemoData.interface))
+        ledger.record(SwitchAutoResult(
+            date: lastPoll ?? Date(),
+            queriedHosts: Array(ranges.flatMap { $0.addresses() }.prefix(214)),
+            respondedHosts: devices.filter { $0.snmpKind != nil }.map(\.ip),
+            discoveredHosts: demo.snapshots.map(\.host),
+            switches: demo.snapshots.map { snapshot in
+                SwitchAutoResult.SwitchEntry(name: snapshot.displayName, host: snapshot.host,
+                                             located: devices.filter { $0.switchName == snapshot.displayName }.map(\.ip))
+            },
+            locatedHosts: locatedHosts, filledHosts: Array(locatedHosts.prefix(3)), communitiesTried: 2))
     }
 
     /// Vrai si le switch a été trouvé par la découverte automatique.
@@ -310,11 +295,14 @@ final class SwitchStore: ObservableObject {
     /// Après les relevés : MAC manquantes complétées par l'ARP SNMP (routeurs, switchs de niveau 3),
     /// switchs relevés marqués comme tels, puis emplacement de chaque appareil. Seuls les relevés
     /// réussis de ce passage (`fresh`) servent : une table MAC périmée donnerait un faux port.
+    /// Renvoie les appareils localisés, par switch, et ceux dont la MAC a été complétée.
     private func complete(_ state: AppState, fresh: Set<String>,
-                          routerTables: [[IPv4Address: MACAddress]]) -> (located: Int, filled: Int) {
+                          routerTables: [[IPv4Address: MACAddress]]) -> (located: [IPv4Address: [IPv4Address]], filled: [IPv4Address]) {
         let all = hosts.filter(fresh.contains).compactMap { snapshots[$0] }
         let arp = SNMPAutoLocate.mergedARP(routers: routerTables, snapshots: all)
-        var (devices, filled) = SNMPAutoLocate.fillMACs(state.devices, from: arp)
+        let missingMAC = Set(state.devices.filter { $0.mac == nil }.map(\.ip))
+        var (devices, _) = SNMPAutoLocate.fillMACs(state.devices, from: arp)
+        let filled = devices.filter { missingMAC.contains($0.ip) && $0.mac != nil }.map(\.ip)
         let switchHosts = Set(all.map(\.host))
         for index in devices.indices where switchHosts.contains(devices[index].ip) && devices[index].snmpKind == nil {
             devices[index].snmpKind = .switch
@@ -322,7 +310,13 @@ final class SwitchStore: ObservableObject {
         }
         let located = SNMPAutoLocate.locate(devices, in: all)
         state.devices = located.devices
-        return (located.located, filled)
+        let ports = all.isEmpty ? [:] : SNMPAutoLocate.accessPorts(in: all)
+        var bySwitch: [IPv4Address: [IPv4Address]] = [:]
+        for device in located.devices {
+            guard let mac = device.mac, let location = ports[mac] else { continue }
+            bySwitch[location.switchHost, default: []].append(device.ip)
+        }
+        return (bySwitch, filled)
     }
 
     /// Reporte le switch, le port et le VLAN de chaque appareil localisé dans AppState (colonne du scanner).
@@ -341,24 +335,25 @@ final class SwitchStore: ObservableObject {
         online.filter { AddressScope.of($0) == .privee && !ignoredHosts.contains($0.description) }
     }
 
-    /// Un scan commence : l'ancien bilan n'est plus d'actualité.
-    func scanStarted(discovers: Bool) {
+    /// Un scan commence : l'ancien bilan n'est plus d'actualité, même si ce scan ne fait aucune
+    /// découverte SNMP. Le prochain bilan sera rattaché à ces plages et à ce réseau.
+    func scanStarted(ranges: [IPRange], network: NetworkContext?, discovers: Bool) {
         guard !isDemo else { return }
-        autoResult = nil
+        ledger.scanStarted(ranges: ranges, network: network)
         isDiscovering = discovers
     }
 
     /// Le scan s'arrête avant l'étape SNMP (ou sans elle).
     func scanEnded(interrupted: Bool, planned: Bool) {
         isDiscovering = false
-        guard !isDemo, planned, interrupted, autoResult == nil else { return }
-        autoResult = SwitchAutoResult(date: Date(), responded: 0, switchNames: [], located: 0, filledMACs: 0, interrupted: true)
+        guard !isDemo else { return }
+        ledger.scanEnded(interrupted: interrupted, planned: planned)
     }
 
     /// Efface le bilan (bouton « Effacer » du scanner).
     func clearResult() {
         guard !isDemo else { return }
-        autoResult = nil
+        ledger.clear()
     }
 
     /// Un seul équipement par switch : un switch de niveau 3 répond sur chacune de ses adresses
@@ -383,24 +378,24 @@ final class SwitchStore: ObservableObject {
     /// Après la découverte SNMP (faite pendant le scan) : ajout des switchs trouvés, ARP SNMP des
     /// routeurs, relevé complet de chaque switch, puis emplacement des appareils. `phase` annonce le
     /// passage à l'étape « Emplacements ». Rien n'est envoyé en démonstration.
-    func autoDiscover(state: AppState, discovered found: [SNMPDiscovered], queried: Int, communitiesTried: Int,
+    func autoDiscover(state: AppState, discovered found: [SNMPDiscovered], queried: [IPv4Address], communitiesTried: Int,
                       readGatewayARP: Bool, phase: (ScanPhase) -> Void) async -> SwitchAutoResult {
-        guard !isDemo else { return autoResult ?? SwitchAutoResult(date: Date(), responded: 0, switchNames: [], located: 0, filledMACs: 0) }
+        guard !isDemo else { return autoResult ?? SwitchAutoResult() }
         isDiscovering = true
         defer { isDiscovering = false }
         await loadVault()
         // Une interrogation manuelle lancée juste avant : on attend sa fin plutôt que de doubler le trafic.
         await pollTask?.value
 
-        var result = SwitchAutoResult(date: Date(), responded: found.count, switchNames: [], located: 0, filledMACs: 0,
-                                      noCommunity: communitiesTried == 0, queried: queried, communitiesTried: communitiesTried)
+        var result = SwitchAutoResult(date: Date(), queriedHosts: queried, respondedHosts: found.map(\.host),
+                                      noCommunity: communitiesTried == 0, communitiesTried: communitiesTried)
         guard !Task.isCancelled else { return interrupted(result) }
         if !found.isEmpty { state.devices = SNMPAutoLocate.applyDiscovery(found, to: state.devices) }
 
         // Switchs : un par équipement, ajoutés à la liste, communauté retenue au Trousseau.
         let switches = Self.deduplicated(found.filter { $0.kind == .switch && !ignoredHosts.contains($0.host.description) },
                                          known: Set(hosts))
-        result.discovered = switches.count
+        result.discoveredHosts = switches.map(\.host)
         var vaultChanged = false
         for item in switches {
             let key = item.host.description
@@ -438,21 +433,33 @@ final class SwitchStore: ObservableObject {
         guard !Task.isCancelled else { return interrupted(result) }
         phase(.locations)
         let (located, filled) = complete(state, fresh: fresh, routerTables: routerTables)
-        result.switchNames = hosts.filter(fresh.contains).compactMap { snapshots[$0]?.displayName }
-        result.failed = polled.filter { !fresh.contains($0) }.map { snapshots[$0]?.displayName ?? $0 }
-        result.located = located
-        result.filledMACs = filled
+        let ranges = ledger.scanRanges
+        func inScan(_ ip: IPv4Address) -> Bool { ranges.isEmpty || ScanRelevance.contains(ranges, ip) }
+        result.switches = hosts.filter(fresh.contains).compactMap { host in
+            guard let snapshot = snapshots[host] else { return nil }
+            return SwitchAutoResult.SwitchEntry(name: snapshot.displayName, host: snapshot.host,
+                                                located: (located[snapshot.host] ?? []).filter(inScan))
+        }
+        // Seuls les échecs des switchs des plages scannées (ou découverts à l'instant) sont signalés :
+        // un switch d'un autre réseau, connu d'un scan précédent, ne répond évidemment pas.
+        let entries = polled.map { host in
+            SwitchAutoResult.SwitchEntry(name: snapshots[host]?.displayName ?? host, host: IPv4Address(host))
+        }
+        result.failed = SwitchAutoResult.reportedFailures(polled: entries, succeeded: Set(fresh.compactMap(IPv4Address.init)),
+                                                          discoveredNow: Set(switches.map(\.host)), ranges: ranges)
+        result.locatedHosts = located.values.flatMap { $0 }.filter(inScan).sorted()
+        result.filledHosts = filled.filter(inScan)
         result.date = Date()
-        autoResult = result
-        return result
+        ledger.record(result)
+        return ledger.result ?? result
     }
 
     private func interrupted(_ partial: SwitchAutoResult) -> SwitchAutoResult {
         var result = partial
         result.interrupted = true
         result.date = Date()
-        autoResult = result
-        return result
+        ledger.record(result)
+        return ledger.result ?? result
     }
 
     // MARK: Recherche d'un appareil

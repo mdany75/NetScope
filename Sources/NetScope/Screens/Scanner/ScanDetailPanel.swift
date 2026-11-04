@@ -128,8 +128,12 @@ struct ScanPill: View {
 // MARK: - Emplacement physique
 
 struct ScanDetailLocation: View {
+    @EnvironmentObject private var state: AppState
     let device: Device
     @ObservedObject private var switches = SwitchStore.shared
+
+    /// Emplacement présentable comme actuel (appareil dans les plages cochées, même réseau).
+    private var isCurrent: Bool { state.isLocationCurrent(device, bilan: switches.autoResult) }
 
     var body: some View {
         Panel {
@@ -140,6 +144,7 @@ struct ScanDetailLocation: View {
                     box("Port", device.switchPort ?? "—")
                     box("VLAN", device.vlan.map(String.init) ?? "—")
                 }
+                .opacity(isCurrent || device.switchName == nil ? 1 : 0.55)
                 Text(detail)
                     .font(Theme.small)
                     .foregroundStyle(Theme.textSecondary)
@@ -149,12 +154,17 @@ struct ScanDetailLocation: View {
     }
 
     private var detail: String {
+        if !isCurrent, device.switchName != nil || device.vlan != nil {
+            return "Relevé lors d’un scan précédent (autre plage ou autre réseau)\u{00A0}: cochez la plage de cet appareil et relancez le scan pour le confirmer."
+        }
         if device.switchPort == "Wi-Fi", let name = device.switchName { return "Client sans fil associé à \(name)" }
         if let name = device.switchName {
             let auto = switches.hosts.contains { switches.isAutoDiscovered($0) && switches.snapshots[$0]?.displayName == name }
             return "\(name) · table MAC SNMP" + (auto ? " · switch découvert automatiquement" : "")
         }
-        guard let result = switches.autoResult else {
+        // Bilan d'un scan qui ne couvrait pas cet appareil : il ne dit rien de lui.
+        guard let result = switches.autoResult,
+              result.ranges.isEmpty || ScanRelevance.contains(result.ranges, device.ip) else {
             return "Emplacement non relevé\u{00A0}: les switchs sont découverts en SNMP à la fin du scan."
         }
         if result.interrupted {

@@ -121,7 +121,10 @@ final class ScanController: ObservableObject {
         phase = .ping
         plannedPhases = discoversSwitches ? ScanPhase.allCases : [.ping, .arp, .details]
         let switches = SwitchStore.shared
-        switches.scanStarted(discovers: discoversSwitches)
+        // Le bilan précédent disparaît même si ce scan ne fait aucune découverte ; le nouveau sera
+        // rattaché à ces plages et à ce réseau.
+        switches.scanStarted(ranges: targets.map(\.range), network: state.activeInterface.map(NetworkContext.init),
+                             discovers: discoversSwitches)
 
         let stream = ScanEngine(pinger: pinger).scan(targets, options: options)
         scanTask = Task { [weak self] in
@@ -175,7 +178,7 @@ final class ScanController: ObservableObject {
     /// Résultat de la découverte SNMP faite pendant le scan.
     struct SNMPSweep: Sendable {
         var found: [SNMPDiscovered] = []
-        var queried = 0
+        var queried: [IPv4Address] = []
         var communities = 0
     }
 
@@ -184,9 +187,9 @@ final class ScanController: ObservableObject {
     private static func startSweep(_ hosts: [IPv4Address]) -> Task<SNMPSweep, Never> {
         Task.detached(priority: .userInitiated) {
             let communities = RegSNMPDiscoveryVault.communities()
-            guard !communities.isEmpty, !hosts.isEmpty else { return SNMPSweep(queried: hosts.count, communities: communities.count) }
+            guard !communities.isEmpty, !hosts.isEmpty else { return SNMPSweep(queried: hosts, communities: communities.count) }
             let found = await SNMPDiscovery(communities: communities).discover(hosts)
-            return SNMPSweep(found: found, queried: hosts.count, communities: communities.count)
+            return SNMPSweep(found: found, queried: hosts, communities: communities.count)
         }
     }
 

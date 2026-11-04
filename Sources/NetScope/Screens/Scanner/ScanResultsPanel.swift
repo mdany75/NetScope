@@ -248,6 +248,7 @@ struct ScanQuickChip: View {
 
 struct ScanDeviceTable: View {
     @EnvironmentObject private var state: AppState
+    @ObservedObject private var switches = SwitchStore.shared
     let rows: [Device]
     @ObservedObject var scan: ScanController
     @Binding var sortOrder: [KeyPathComparator<Device>]
@@ -304,12 +305,19 @@ struct ScanDeviceTable: View {
             .width(min: 100, ideal: 130)
 
             TableColumn("SWITCH / PORT", value: \Device.scanSortSwitch) { device in
-                ScanCellText(device.switchLocation ?? "—", mono: true, dimmed: device.switchLocation == nil)
+                let current = state.isLocationCurrent(device, bilan: switches.autoResult)
+                ScanCellText(device.switchLocation ?? "—", mono: true, dimmed: device.switchLocation == nil || !current)
+                    .help(device.switchLocation != nil && !current ? "Relevé lors d’un scan précédent (autre plage ou autre réseau)" : "")
             }
             .width(min: 110, ideal: 150)
 
             TableColumn("VLAN", value: \Device.scanSortVLAN) { device in
-                if let vlan = device.vlan { Chip(text: "\(vlan)", mono: true) } else { ScanCellText("—", dimmed: true) }
+                if let vlan = device.vlan {
+                    Chip(text: "\(vlan)", mono: true)
+                        .opacity(state.isLocationCurrent(device, bilan: switches.autoResult) ? 1 : 0.5)
+                } else {
+                    ScanCellText("—", dimmed: true)
+                }
             }
             .width(min: 44, ideal: 52)
 

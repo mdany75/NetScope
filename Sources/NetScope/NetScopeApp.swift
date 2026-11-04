@@ -82,6 +82,16 @@ struct NetScopeApp: App {
                     // Vérification des mises à jour (Releases GitHub) selon la fréquence choisie.
                     await UpdController.shared.applicationDidLaunch(state)
                 }
+                .task {
+                    // Changement d'interface ou de réseau (lecture locale, toutes les 15 s) : le bilan
+                    // des switchs et l'encart LLDP/CDP d'un autre réseau ne sont plus présentés comme actuels.
+                    guard !Launcher.isDemo else { return }
+                    while !Task.isCancelled {
+                        try? await Task.sleep(nanoseconds: 15_000_000_000)
+                        guard !Task.isCancelled else { return }
+                        await state.refreshInterface()
+                    }
+                }
         }
         .defaultSize(width: 1440, height: 900)
         .windowResizability(.contentMinSize)

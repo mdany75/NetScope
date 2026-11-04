@@ -9,15 +9,18 @@ enum DemoData {
         state.ranges = ranges
         state.devices = devices()
         state.selectedDeviceID = "10.182.122.111"
-        state.activeInterface = LocalInterface(name: "en0", address: IPv4Address("10.182.122.135")!,
-                                               netmask: IPv4Address("255.255.255.0")!, kind: .wifi,
-                                               gateway: IPv4Address("10.182.122.1")!)
+        state.activeInterface = interface
         state.dnsServers = [IPv4Address("10.182.122.1")!]
         state.updateAvailable = "1.1.0"
         state.pingTargets = ["10.182.122.1", "10.182.122.111", "8.8.8.8"]
         state.sidebarBadges = [.surveillance: 3, .analyse: 1]
         MonStore.shared.attach(to: state) // badge Surveillance = alertes non lues de la démonstration
     }
+
+    /// Interface active fictive (Wi-Fi du bureau).
+    static let interface = LocalInterface(name: "en0", address: IPv4Address("10.182.122.135")!,
+                                          netmask: IPv4Address("255.255.255.0")!, kind: .wifi,
+                                          gateway: IPv4Address("10.182.122.1")!)
 
     static let ranges = [
         ScanRangeConfig(text: "10.182.122.0/24", label: "Bureau", vlan: 1),

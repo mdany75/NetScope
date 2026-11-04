@@ -26,7 +26,7 @@ struct ScannerScreen: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .screenToolbar { toolbar }
         // Passerelle et DNS de la barre latérale : lus sur la machine, sans trafic.
-        .task(id: state.activeInterface?.name) { scan.fillLocalInfo(state) }
+        .task(id: state.activeInterface.map { "\($0.name) \($0.subnet)" }) { scan.fillLocalInfo(state) }
     }
 
     @ViewBuilder private var toolbar: some View {

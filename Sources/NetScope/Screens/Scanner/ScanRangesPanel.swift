@@ -70,9 +70,13 @@ struct ScanPipelineBar: View {
             phases(current: current)
         } else if !prefs.autoDiscoverSwitches, state.scanProfile != .complet {
             note("Découverte automatique des switchs désactivée (Réglages › Switchs).")
-        } else if let result = switches.autoResult {
-            if result.interrupted {
-                note("Découverte des switchs interrompue\u{00A0}: relancez le scan pour la terminer.")
+        } else if let shown = state.switchPresentation(switches.autoResult) {
+            let result = shown.result
+            if shown.isStale {
+                // Autre interface, autre sous-réseau ou autre passerelle depuis ce scan : rien n'est présenté comme actuel.
+                note("\(prefix(result))bilan des switchs d’un scan précédent sur \(result.network?.label ?? "un autre réseau")\u{00A0}; le réseau a changé depuis. Relancez le scan pour le mettre à jour.")
+            } else if result.interrupted {
+                note("\(prefix(result))découverte des switchs interrompue\u{00A0}: relancez le scan pour la terminer.")
             } else if result.foundSwitch {
                 found(result)
             } else {
@@ -82,6 +86,17 @@ struct ScanPipelineBar: View {
                 }
             }
         }
+    }
+
+    /// « Plage 10.182.122.0/24 : » devant chaque message du bilan (vide pour un bilan sans plage).
+    private func prefix(_ result: SwitchAutoResult) -> String {
+        result.ranges.isEmpty ? "" : "\(result.rangesLabel)\u{00A0}: "
+    }
+
+    /// Première lettre en majuscule quand le message n'a pas de préfixe de plage.
+    private func sentence(_ result: SwitchAutoResult, _ text: String) -> String {
+        let head = prefix(result)
+        return head.isEmpty ? text.prefix(1).uppercased() + text.dropFirst() : head + text
     }
 
     private func note(_ text: String) -> some View {
@@ -126,9 +141,13 @@ struct ScanPipelineBar: View {
         var text = "Switchs\u{00A0}: \(count) relevé\(count > 1 ? "s" : "") (\(names)) · \(result.located) appareil\(result.located > 1 ? "s" : "") localisé\(result.located > 1 ? "s" : "")"
         if result.filledMACs > 0 { text += " · \(result.filledMACs) MAC complétée\(result.filledMACs > 1 ? "s" : "") par l’ARP SNMP" }
         if !result.failed.isEmpty { text += " · \(result.failed.count) sans relevé" }
+        // Plages du bilan en fin de ligne : les noms des switchs restent lisibles si la place manque.
+        if !result.ranges.isEmpty { text += " · \(result.rangesLabel)" }
+        let help = text
         return HStack(spacing: 8) {
             Image(systemName: "rectangle.connected.to.line.below").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.success)
-            Text(text).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.middle)
+            Text(text).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.tail)
+                .help(help)
             Spacer(minLength: 8)
             Button { state.open(.switchs) } label: {
                 HStack(spacing: 4) {
@@ -144,17 +163,17 @@ struct ScanPipelineBar: View {
 
     private func missingText(_ result: SwitchAutoResult) -> String {
         if result.noCommunity {
-            return "Aucune communauté SNMP à essayer\u{00A0}: la liste de Réglages › Switchs est vide et aucune communauté n’est enregistrée dans les Identifiants."
+            return sentence(result, "aucune communauté SNMP à essayer\u{00A0}: la liste de Réglages › Switchs est vide et aucune communauté n’est enregistrée dans les Identifiants.")
         }
         let queried = "\(result.queried) hôte\(result.queried > 1 ? "s" : "") interrogé\(result.queried > 1 ? "s" : "") avec \(result.communitiesTried) communauté\(result.communitiesTried > 1 ? "s" : "")"
         if !result.failed.isEmpty {
-            let names = result.failed.prefix(3).joined(separator: ", ")
-            return "Switch trouvé mais relevé impossible (\(names))\u{00A0}: il a répondu à la découverte, pas au relevé complet (délai dépassé ou accès refusé à la table MAC). Réessayez depuis «\u{00A0}Switchs et ports\u{00A0}»."
+            let names = result.failedNames.prefix(3).joined(separator: ", ")
+            return sentence(result, "switch trouvé mais relevé impossible (\(names))\u{00A0}: il a répondu à la découverte, pas au relevé complet (délai dépassé ou accès refusé à la table MAC). Réessayez depuis «\u{00A0}Switchs et ports\u{00A0}».")
         }
         if result.responded > 0 {
-            return "\(queried)\u{00A0}: \(result.responded) appareil\(result.responded > 1 ? "s ont" : " a") répondu en SNMP, mais aucun n’est un switch. Si vos switchs sont sur un VLAN de gestion, ajoutez cette plage au scan ou ajoutez le switch à la main."
+            return sentence(result, "\(queried)\u{00A0}: \(result.responded) appareil\(result.responded > 1 ? "s ont" : " a") répondu en SNMP, mais aucun n’est un switch. Si vos switchs sont sur un VLAN de gestion, ajoutez cette plage au scan ou ajoutez le switch à la main.")
         }
-        return "\(queried)\u{00A0}: aucune réponse SNMP. Ajoutez la plage de gestion de vos switchs au scan, vérifiez que SNMP v2c en lecture est actif, ou saisissez la bonne communauté."
+        return sentence(result, "\(queried)\u{00A0}: aucune réponse SNMP. Ajoutez la plage de gestion de vos switchs au scan, vérifiez que SNMP v2c en lecture est actif, ou saisissez la bonne communauté.")
     }
 
     private func openSettings(_ result: SwitchAutoResult) {

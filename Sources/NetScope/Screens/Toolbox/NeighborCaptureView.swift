@@ -26,12 +26,18 @@ final class ToolNeighborModel: ObservableObject {
     @Published private(set) var neighbors: [NetworkNeighbor] = []
     /// Dernier voisin reçu, gardé entre les lancements (encart de Switchs et ports).
     @Published private(set) var lastNeighbor: NetworkNeighbor?
+    /// Réseau de la dernière capture (interface, sous-réseau, passerelle), gardé avec le voisin :
+    /// l'encart de Switchs et ports se grise si ce réseau a changé.
+    @Published private(set) var lastContext: NetworkContext?
     @Published private(set) var method: Method?
     @Published private(set) var bpfAvailable = false
     @Published var error: String?
 
     static let durations = [60, 90]
     private static let neighborKey = "NetScope.outils.voisin"
+    private static let contextKey = "NetScope.outils.voisin.reseau"
+    /// Interface active connue à l'ouverture de l'outil (pour la passerelle de la capture).
+    private var activeHint: LocalInterface?
     private let isDemo: Bool
     private let isEphemeral: Bool
     private var task: Task<Void, Never>?
@@ -51,10 +57,27 @@ final class ToolNeighborModel: ObservableObject {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             lastNeighbor = try? decoder.decode(NetworkNeighbor.self, from: data)
+            if let context = UserDefaults.standard.data(forKey: Self.contextKey) {
+                lastContext = try? JSONDecoder().decode(NetworkContext.self, from: context)
+            }
         }
     }
 
     var isRunning: Bool { phase == .authorizing || phase == .listening }
+
+    /// Réseau d'une interface ; la passerelle vient de l'interface active quand c'est la même.
+    static func context(of interface: LocalInterface, active: LocalInterface?) -> NetworkContext {
+        var context = NetworkContext(interface)
+        if context.gateway == nil, let active, active.name == interface.name { context.gateway = active.gateway }
+        return context
+    }
+
+    /// Réseau actuel de l'interface de la dernière capture (lecture locale, aucun trafic) ;
+    /// nil si l'interface n'est plus active.
+    func currentContext(of name: String, active: LocalInterface?) async -> NetworkContext? {
+        let list = isDemo ? CaptureDemo.interfaces : await Task.detached(priority: .utility) { LocalInterfaces.linkInterfaces() }.value
+        return list.first { $0.name == name }.map { Self.context(of: $0, active: active) }
+    }
 
     var selectedInterface: LocalInterface? { interfaces.first { $0.name == interfaceName } }
 
@@ -66,6 +89,7 @@ final class ToolNeighborModel: ObservableObject {
     /// Lit les interfaces (état local) et l'accès BPF ; choisit une interface Ethernet de préférence.
     func prepare(active: LocalInterface?) async {
         guard !isDemo else { return }
+        activeHint = active
         // Toutes les interfaces actives, même sans adresse IPv4 : LLDP et CDP n'en ont pas besoin.
         let list = await LocalInterfaces.linkInterfacesWithKinds()
         interfaces = list
@@ -219,6 +243,8 @@ final class ToolNeighborModel: ObservableObject {
         let name = interfaceName
         if let primary {
             lastNeighbor = primary
+            lastContext = Self.context(of: interfaces.first { $0.name == name } ?? LocalInterface(name: name, address: IPv4Address(0), netmask: IPv4Address(0)),
+                                       active: activeHint)
             save()
             store?.record(ToolRecent(tool: .lldp, target: name, summary: primary.headline, status: .ok))
         } else if recordResult {
@@ -232,6 +258,7 @@ final class ToolNeighborModel: ObservableObject {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         if let data = try? encoder.encode(lastNeighbor) { UserDefaults.standard.set(data, forKey: Self.neighborKey) }
+        if let data = try? JSONEncoder().encode(lastContext) { UserDefaults.standard.set(data, forKey: Self.contextKey) }
     }
 
     private func loadDemo() {
@@ -242,6 +269,7 @@ final class ToolNeighborModel: ObservableObject {
         let neighbor = CaptureDemo.neighbor(receivedAt: received)
         neighbors = [neighbor]
         lastNeighbor = neighbor
+        lastContext = Self.context(of: CaptureDemo.interfaces[1], active: CaptureDemo.interfaces[0])
         method = .demo
         phase = .listening
         startedAt = Date().addingTimeInterval(-28)
