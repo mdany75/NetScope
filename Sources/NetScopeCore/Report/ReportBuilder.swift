@@ -158,6 +158,9 @@ public struct ReportInput: Sendable {
     /// Étendues DHCP lues sur la FortiGate ou estimées (section facultative « Étendues DHCP ») ; nil : aucune.
     public var dhcpScopes: DHCPScopeOverview?
     public var dhcpThresholds: DHCPScopeThresholds = .standard
+    /// WAN et VPN des FortiGate (note 39) ; nil : aucune lecture.
+    public var wan: WANOverview?
+    public var wanThresholds: WANThresholds = .standard
     /// Diagnostics Wi-Fi retenus pour le rapport du site (section facultative « Diagnostic Wi-Fi »).
     public var wifiDiagnoses: [WifiDiagnosisResult] = []
     public var now: Date
@@ -368,6 +371,7 @@ public enum ReportBuilder {
             case .fortiap: blocks = fortiAPBlocks(input.fortiWifi, thresholds: input.fortiWifiThresholds, masked: config.maskMAC)
             case .dhcp: blocks = dhcpScopeBlocks(input.dhcpScopes, thresholds: input.dhcpThresholds)
             case .wifiDiag: blocks = wifiDiagnosisBlocks(input.wifiDiagnoses, masked: config.maskMAC)
+            case .wan: blocks = wanBlocks(input.wan, thresholds: input.wanThresholds)
             case .annexe: blocks = annex(input, masked: config.maskMAC)
             }
             sections.append(ReportSection(kind: kind, heading: heading, blocks: blocks))

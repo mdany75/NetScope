@@ -42,6 +42,7 @@ final class RapportModel: ObservableObject {
             if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_DHCP"] == "1" { demo.sections.insert(.dhcp) }
             // NETSCOPE_RAPPORT_WIFIDIAG=1 coche la section « Diagnostic Wi-Fi ».
             if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_WIFIDIAG"] == "1" { demo.sections.insert(.wifiDiag) }
+            if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_WAN"] == "1" { demo.sections.insert(.wan) }
             config = demo
             library = ReportLibrary(recents: RapportDemo.recents)
         } else {

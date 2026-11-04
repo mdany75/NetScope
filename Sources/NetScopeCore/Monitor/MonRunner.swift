@@ -23,6 +23,10 @@ public struct MonRunContext: Sendable {
     public var dhcpScopes: DHCPScopeOverview?
     /// Lecture des étendues tentée sans aucune FortiGate lue : son erreur.
     public var dhcpScopesError: String?
+    /// Dernière lecture du WAN des FortiGate (sondes VPN et WAN, note 39) ; nil : aucune.
+    public var wan: WANOverview?
+    /// Lecture du WAN tentée sans aucune FortiGate lue : son erreur.
+    public var wanError: String?
 
     public init(pinger: ScanPinging?, snmpCommunity: String?, devices: [Device], inventoryReady: Bool = true,
                 now: Date = Date()) {
@@ -94,6 +98,11 @@ public enum MonRunner {
         case .dhcpScope:
             return MonDHCPScopeChecks.check(target: target, overview: context.dhcpScopes, error: context.dhcpScopesError,
                                             thresholds: probe.dhcpThresholds ?? .standard, now: context.now)
+        case .vpnTunnel:
+            return MonWANChecks.tunnelDown(target: target, overview: context.wan, error: context.wanError, now: context.now)
+        case .wanLink:
+            return MonWANChecks.wanDegraded(target: target, overview: context.wan, error: context.wanError,
+                                            thresholds: probe.wanThresholds ?? .standard, now: context.now)
         }
     }
 

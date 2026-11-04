@@ -15,6 +15,8 @@ enum MonDemo {
         var dependsOnGateway = true
         var sound = false
         var schedule: MonSchedule = .always
+        /// Raison de l'échec d'une sonde en panne (sinon celle de Caméra-Quai).
+        var error: String? = nil
         var configure: (inout MonProbe) -> Void = { _ in }
     }
 
@@ -75,6 +77,14 @@ enum MonDemo {
         Row(name: "Étendues DHCP du Siège", kind: .dhcpScope, target: "*", sub: "FortiGate · Siège · 5 étendues actives", iv: 300,
             state: .warning, value: "5 étendues · max 96\(s)% (VLAN 20)", latency: nil, orange: [12, 13, 14], red: [], dependsOnGateway: false,
             configure: { $0.dhcpThresholds = .standard; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
+        // WAN et VPN (note 39) : tunnel vers Bureau Québec tombé, lien wan2 du Siège dégradé.
+        Row(name: "Tunnels VPN du Siège", kind: .vpnTunnel, target: "Siège / *", sub: "FortiGate · Siège · 3 tunnels IPsec", iv: 300,
+            state: .down, value: "2 montés sur 3", latency: nil, orange: [], red: [21, 22, 23], dependsOnGateway: false,
+            error: "Tunnel VPN-QUEBEC tombé (Vers Bureau Québec, 203.0.113.30)",
+            configure: { $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil, failures: 1) }),
+        Row(name: "Liens WAN du Siège", kind: .wanLink, target: "Siège / *", sub: "FortiGate · Siège · wan1, wan2", iv: 300,
+            state: .warning, value: "2 actifs sur 2 · 44\(s)ms · perte 4\(s)%", latency: nil, orange: [22, 23], red: [], dependsOnGateway: false,
+            configure: { $0.wanThresholds = .standard; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
     ]
 
     static func load(into store: MonStore) {
@@ -101,7 +111,7 @@ enum MonDemo {
             let reachable = row.state != .down
             let result = MonResult(date: now.addingTimeInterval(-Double(row.iv % 50)), reachable: reachable,
                                    latencyMs: row.latency, lossPercent: row.kind == .ping && reachable ? 0 : nil,
-                                   value: row.value, error: reachable ? nil : "aucune réponse ICMP ni TCP 554")
+                                   value: row.value, error: reachable ? nil : (row.error ?? "aucune réponse ICMP ni TCP 554"))
             let since = row.state == .down ? now.addingTimeInterval(-(2 * 3600 + 4 * 60)) : now.addingTimeInterval(-86_400)
             trackers[probe.id] = MonTracker(state: row.state, consecutiveFailures: row.state == .down ? 248 : 0, since: since,
                                             alerted: row.state == .ok ? nil : row.state, lastResult: result)
@@ -122,6 +132,10 @@ enum MonDemo {
                      resolvedAt: resolvedAt, resolution: resolution, acknowledgedAt: ackAt, acknowledgedBy: ackAt == nil ? nil : "Dany")
         }
         let journal = MonJournal(alerts: [
+            alert(at(14, 3, 41), "Tunnels VPN du Siège", .critical,
+                  "Tunnel VPN-QUEBEC tombé (Vers Bureau Québec, 203.0.113.30)."),
+            alert(at(13, 46, 8), "Liens WAN du Siège", .warning,
+                  "Lien WAN Vidéotron Câble (wan2) dégradé\(s): perte 4\(s)% (seuil 2\(s)%) vers Google_DNS."),
             alert(at(13, 7, 12), "Microsoft 365", .warning,
                   "Service dégradé\(s): Teams\(s): Retards dans la livraison des messages de conversation (incident TM892341)."),
             alert(at(13, 5, 44), "Certificat TLS", .warning,

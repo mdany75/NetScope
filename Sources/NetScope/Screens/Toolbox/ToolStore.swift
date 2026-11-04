@@ -10,6 +10,8 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     case lldp
     /// État des grands services en ligne (note 15).
     case cloud
+    /// WAN et VPN des FortiGate (note 39) : liens WAN, SD-WAN, tunnels IPsec.
+    case wan
     // Outils courriel (note 14).
     case mailSuper, mailHealth, mx, blacklist, mailRecords
     // Courriel (note 14, partie 2)
@@ -35,7 +37,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .iperf, .speedtest: return .performance
         case .disques: return .performance
         case .wol, .dhcp, .lldp, .dhcpScopes: return .services
-        case .cloud: return .internet
+        case .cloud, .wan: return .internet
         case .mailSuper, .mailHealth, .mx, .blacklist, .mailRecords: return .courriel
         case .smtp, .headers: return .courriel
         }
@@ -56,6 +58,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .dhcpScopes: return "Étendues DHCP"
         case .lldp: return "Capture LLDP/CDP"
         case .cloud: return "État des services"
+        case .wan: return "WAN et VPN"
         case .mailSuper: return "Super outil courriel"
         case .mailHealth: return "Santé courriel"
         case .mx: return "Recherche MX"
@@ -83,6 +86,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .dhcpScopes: return "Occupation de chaque étendue DHCP de la FortiGate\u{00A0}: baux, réservations, adresses libres et alerte avant la saturation."
         case .lldp: return "Identifie le switch, le port et le VLAN où ce Mac est branché."
         case .cloud: return "Microsoft 365, AWS, Google, GitHub…\u{00A0}: page d’état officielle et accès depuis ce réseau."
+        case .wan: return "Liens WAN et SD-WAN de chaque FortiGate (état, débit, latence, perte, SLA) et tunnels VPN montés ou tombés, pour un site ou tous."
         case .mailSuper: return "Domaine, adresse courriel, IP ou nom d’hôte\u{00A0}: toutes les vérifications utiles d’un coup."
         case .mailHealth: return "Note sur 100 d’un domaine (MX, SPF, DKIM, DMARC, listes noires, MTA-STS, DNSSEC) et recommandations."
         case .mx: return "Serveurs MX par priorité, leurs adresses et la cohérence du DNS inverse."
@@ -110,6 +114,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .dhcpScopes: return "chart.bar.doc.horizontal"
         case .lldp: return "cable.connector"
         case .cloud: return "cloud"
+        case .wan: return "point.3.filled.connected.trianglepath.dotted"
         case .mailSuper: return "wand.and.stars"
         case .mailHealth: return "heart.text.square"
         case .mx: return "tray.2"
@@ -134,7 +139,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     static let favorites: [ToolKind] = [.subnet, .ports, .dns, .wol]
 
     /// Outils qui prennent toute la largeur (sans le panneau des favoris et de l'historique).
-    var usesFullWidth: Bool { self == .capture || self == .dhcpScopes }
+    var usesFullWidth: Bool { self == .capture || self == .dhcpScopes || self == .wan }
 
     /// Recherche multiple (note 26) : `nom:dns`, `groupe:courriel` ; un mot seul lit le nom, la
     /// clé et le résumé, comme avant.

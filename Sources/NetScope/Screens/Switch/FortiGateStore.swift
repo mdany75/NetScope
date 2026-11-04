@@ -673,7 +673,12 @@ final class FortiGateStore: ObservableObject {
         let dhcp = dhcpCalls.isEmpty ? "" : "\n\n" + FortiDiagnostic.text(calls: dhcpCalls, config: c.config, system: nil, token: tokens[id],
                                                                         date: DHCPScopeStore.shared.lastRefresh ?? Date())
             .replacingOccurrences(of: "réponses brutes de la FortiGate", with: "réponses brutes des étendues DHCP de la FortiGate")
-        return "Site\u{00A0}: \(c.displayName)\n" + text + wifi + dhcp
+        // Note 39 : appels du WAN et des VPN de la dernière lecture (même retrait du jeton).
+        let wanCalls = calls == nil ? WANStore.shared.calls[id] ?? [] : []
+        let wan = wanCalls.isEmpty ? "" : "\n\n" + FortiDiagnostic.text(calls: wanCalls, config: c.config, system: nil, token: tokens[id],
+                                                                      date: WANStore.shared.reports[id]?.report.readAt ?? Date())
+            .replacingOccurrences(of: "réponses brutes de la FortiGate", with: "réponses brutes du WAN et des VPN de la FortiGate")
+        return "Site\u{00A0}: \(c.displayName)\n" + text + wifi + dhcp + wan
     }
 
     // MARK: Wi-Fi (note 27)
