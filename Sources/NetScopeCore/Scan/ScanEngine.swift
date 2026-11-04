@@ -35,6 +35,10 @@ public struct ScanOptions: Sendable {
     public var useARP: Bool
     /// Ports d'un préréglage choisi à part du profil (note 19) ; nil : ports du profil.
     public var portOverride: [UInt16]?
+    /// Méthodes de découverte du profil (par défaut : comportement d'avant la 0.8).
+    public var methods = ScanMethods()
+    /// Délai de chaque sonde de présence TCP ou UDP (adresses muettes au ping).
+    public var presenceTimeout: Duration = .milliseconds(500)
 
     public init(profile: ScanProfile = .rapide, customPorts: [UInt16] = [], concurrency: Int = 128,
                 pingTimeout: Duration = .milliseconds(1000), portTimeout: Duration? = nil,
@@ -128,6 +132,7 @@ public actor ScanEngine {
     private let arp: any ScanARPReading
     private let portProber: any ScanPortProbing
     private let names: any ScanNameResolving
+    private let presence: any ScanPresenceProbing
     private let vendors: OUIDatabase
     private let now: @Sendable () -> Date
 
@@ -139,11 +144,13 @@ public actor ScanEngine {
 
     public init(pinger: any ScanPinging, arp: any ScanARPReading = ARPTable(),
                 ports: any ScanPortProbing = PortProber(), names: any ScanNameResolving = NameResolverChain(),
+                presence: any ScanPresenceProbing = ScanPresenceProber(),
                 vendors: OUIDatabase = .builtIn, now: @escaping @Sendable () -> Date = { Date() }) {
         self.pinger = pinger
         self.arp = arp
         self.portProber = ports
         self.names = names
+        self.presence = presence
         self.vendors = vendors
         self.now = now
     }
@@ -189,17 +196,31 @@ public actor ScanEngine {
         let jobs = ScanEngine.interleave(lists)
         continuation.yield(.started(list.compactMap { progress[$0.id] }))
 
-        // 1. Ping
-        continuation.yield(.phase(.ping))
-        let pinger = self.pinger
-        let timeout = options.pingTimeout
-        await ScanConcurrency.forEach(jobs, limit: options.concurrency) { job in
-            let rtt = await pinger.ping(job.ip, timeout: timeout)
-            await self.recordPing(job, rtt: rtt, continuation: continuation)
+        // 1. Présence : ping ICMP, puis (méthodes cochées) TCP et UDP pour les adresses muettes.
+        let plan = ScanPlan(options: options, autoDiscoverSwitches: false)
+        if plan.ping || plan.probesPresence {
+            continuation.yield(.phase(.ping))
+            let pinger = self.pinger
+            let presence = self.presence
+            let timeout = options.pingTimeout
+            let presenceTimeout = options.presenceTimeout
+            await ScanConcurrency.forEach(jobs, limit: options.concurrency) { job in
+                var rtt = plan.ping ? await pinger.ping(job.ip, timeout: timeout) : nil
+                if rtt == nil, plan.probesPresence, !Task.isCancelled {
+                    let hit = await presence.probe(job.ip, tcpPorts: plan.presenceTCPPorts, udpPorts: plan.presenceUDPPorts,
+                                                   timeout: presenceTimeout)
+                    // Hôte trouvé par TCP ou UDP : en ligne, sans latence ICMP mesurée.
+                    if hit != nil { rtt = -1 }
+                }
+                await self.recordPing(job, rtt: rtt, continuation: continuation)
+            }
+        } else {
+            // Ni ICMP, ni TCP, ni UDP : seules les adresses de la table ARP seront trouvées.
+            markAllProbed(continuation: continuation)
         }
 
         // 2. Table ARP : adresses MAC, et hôtes qui ne répondent pas au ping.
-        if options.useARP, !Task.isCancelled {
+        if plan.arp, !Task.isCancelled {
             continuation.yield(.phase(.arp))
             recordARP(arp.read(), continuation: continuation)
         }
@@ -207,7 +228,8 @@ public actor ScanEngine {
         // 3. Noms et ports des hôtes en ligne, en parallèle : les noms (DNS inverse, mDNS, NetBIOS)
         // passent par deux sockets partagés, les ports par des connexions TCP plafonnées.
         let ports = options.ports
-        if !Task.isCancelled, options.resolveNames || !ports.isEmpty {
+        let resolveNames = plan.resolvesNames
+        if !Task.isCancelled, resolveNames || !ports.isEmpty {
             continuation.yield(.phase(.details))
             let addresses = found.keys.sorted()
             let prober = portProber
@@ -216,7 +238,7 @@ public actor ScanEngine {
             let perHost = max(1, min(ports.count, 32, options.concurrency))
             let hostLimit = max(1, options.concurrency / perHost)
             async let namesDone: Void = {
-                guard options.resolveNames else { return }
+                guard resolveNames else { return }
                 await ScanConcurrency.forEach(addresses, limit: nameLimit) { ip in
                     let details: NameDetails
                     if let rich = names as? any ScanNameDetailResolving {
@@ -246,12 +268,23 @@ public actor ScanEngine {
 
     // MARK: Enregistrement des résultats
 
+    /// Toutes les adresses comptées comme sondées (aucune méthode de présence active).
+    private func markAllProbed(continuation: AsyncStream<ScanEvent>.Continuation) {
+        for id in progress.keys.sorted(by: { $0.uuidString < $1.uuidString }) {
+            guard var entry = progress[id] else { continue }
+            entry.done = entry.total
+            progress[id] = entry
+            continuation.yield(.rangeProgress(entry))
+        }
+    }
+
+    /// `rtt` : latence ICMP ; négative pour un hôte trouvé par TCP ou UDP (pas de latence ICMP).
     private func recordPing(_ job: Job, rtt: Double?, continuation: AsyncStream<ScanEvent>.Continuation) {
         guard var entry = progress[job.rangeID] else { return }
         entry.done += 1
         if let rtt {
             entry.online += 1
-            let device = makeDevice(job.ip, rangeID: job.rangeID, latency: rtt, mac: nil)
+            let device = makeDevice(job.ip, rangeID: job.rangeID, latency: rtt >= 0 ? rtt : nil, mac: nil)
             found[job.ip] = device
             continuation.yield(.deviceFound(device, rangeID: job.rangeID))
         }
