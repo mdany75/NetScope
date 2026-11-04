@@ -250,7 +250,8 @@ Sections de Réglages à réaliser, fidèles au croquis `docs/croquis/Reglages.d
 - **Raccourcis** : liste des raccourcis clavier de l'application et de la barre de menus
   (lancer le scan, ping de l'appareil choisi, ouvrir la fiche, copier l'IP/la MAC…), modifiables,
   avec détection des conflits ; menus de l'app mis à jour en conséquence.
-- Autres « bientôt » de Réglages, à traiter avec : langue anglaise, thème sombre (note 9),
+- **Langue anglaise : reportée** (décision de Dany, 3 nov. 2026), gros chantier à part.
+- Autres « bientôt » de Réglages, à traiter avec : thème sombre (note 9),
   « Test SNMP » des identifiants, identifiants SSH et WMI, choix des méthodes de découverte dans
   les profils de scan, plusieurs sites (avec la gestion par site, note 10).
 
