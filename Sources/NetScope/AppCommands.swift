@@ -70,9 +70,28 @@ struct AppCommands: Commands {
             Button("Ouvrir dans le navigateur") { AppActions.openBrowser(state) }
                 .regShortcut(ShortcutID.openBrowser, shortcuts)
                 .disabled(device == nil)
+            Divider()
+            // Note 34 : les autres modules pertinents pour l'appareil choisi (⌥⌘1 à ⌥⌘0).
+            if let device {
+                Menu("Ouvrir dans") {
+                    ForEach(state.openInItems(.device(NavDeviceRef(device)))) { item in
+                        NavMenuButton(item: item).environmentObject(state)
+                    }
+                }
+            } else {
+                Menu("Ouvrir dans") {}.disabled(true)
+            }
         }
 
         CommandMenu("Aller") {
+            // Note 34 : Retour / Avancer rendent l'écran, la sélection et le filtre d'avant.
+            Button("Retour") { state.goBack() }
+                .regShortcut(ShortcutID.back, shortcuts)
+                .disabled(!state.canGoBack)
+            Button("Avancer") { state.goForward() }
+                .regShortcut(ShortcutID.forward, shortcuts)
+                .disabled(!state.canGoForward)
+            Divider()
             ForEach(Screen.Group.allCases, id: \.self) { group in
                 Section(group.title) {
                     ForEach(group.screens) { screen in

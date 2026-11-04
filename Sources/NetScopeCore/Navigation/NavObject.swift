@@ -51,12 +51,15 @@ public struct NavGroupRef: Hashable, Sendable {
     public var title: String
     /// Équipement au-dessus (« SW-ETG2-01 ») ; nil pour une branche entière.
     public var parentTitle: String?
+    /// Adresse de l'équipement au-dessus, s'il a été vu par le scan (pour ouvrir ses ports).
+    public var parentHost: String?
     public var members: [NavDeviceRef]
     public var siteKey: String
 
-    public init(title: String, parentTitle: String? = nil, members: [NavDeviceRef], siteKey: String) {
+    public init(title: String, parentTitle: String? = nil, parentHost: String? = nil, members: [NavDeviceRef], siteKey: String) {
         self.title = title
         self.parentTitle = parentTitle
+        self.parentHost = parentHost
         self.members = members
         self.siteKey = siteKey
     }

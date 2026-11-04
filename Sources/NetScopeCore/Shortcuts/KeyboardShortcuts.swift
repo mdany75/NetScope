@@ -180,6 +180,9 @@ public enum ShortcutID {
     public static let search = "navigation.rechercher"
     public static let export = "navigation.exporter"
     public static let settings = "navigation.reglages"
+    /// Retour / Avancer entre les écrans (note 34).
+    public static let back = "navigation.retour"
+    public static let forward = "navigation.avancer"
 }
 
 /// Catalogue des commandes et raccourcis par défaut (croquis Reglages.dc.html, section Raccourcis).
@@ -199,6 +202,8 @@ public enum ShortcutCatalog {
         ShortcutAction(id: ShortcutID.search, title: "Rechercher partout", group: .navigation, defaultCombo: KeyCombo("f")),
         ShortcutAction(id: ShortcutID.export, title: "Exporter les résultats", group: .navigation, defaultCombo: KeyCombo("e")),
         ShortcutAction(id: ShortcutID.settings, title: "Réglages", group: .navigation, defaultCombo: KeyCombo(",")),
+        ShortcutAction(id: ShortcutID.back, title: "Retour à l’écran précédent", group: .navigation, defaultCombo: KeyCombo("[")),
+        ShortcutAction(id: ShortcutID.forward, title: "Avancer", group: .navigation, defaultCombo: KeyCombo("]")),
     ]
 
     public static func screenID(_ screen: String) -> String { "ecran." + screen }

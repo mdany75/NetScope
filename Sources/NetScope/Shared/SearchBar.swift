@@ -92,6 +92,10 @@ struct SearchTokensBar: View {
                 .help(SearchTokensBar.help(state.screen, schema))
             ScrollView(.horizontal) {
                 HStack(spacing: 6) {
+                    // Filtre transmis par un autre écran (Carte, port de switch) : en premier.
+                    if let filter = state.navFilters[state.screen] {
+                        NavFilterChip(filter: filter) { state.navFilters[state.screen] = nil }
+                    }
                     ForEach(query.terms.filter(\.isComplete)) { term in
                         SearchTokenChip(term: term) { state.searchText = query.removing(term) }
                     }
@@ -107,7 +111,7 @@ struct SearchTokensBar: View {
             .scrollIndicators(.never)
             .layoutPriority(1)
             Spacer(minLength: 4)
-            if !query.isEmpty, !results.isEmpty {
+            if !query.isEmpty || state.navFilters[state.screen] != nil, !results.isEmpty {
                 Text(results.joined(separator: " · "))
                     .font(Theme.small)
                     .monospacedDigit()
@@ -116,7 +120,10 @@ struct SearchTokensBar: View {
                     .fixedSize()
             }
             SearchPrefixMenu(schema: schema)
-            Button("Effacer") { state.searchText = "" }
+            Button("Effacer") {
+                state.searchText = ""
+                state.navFilters[state.screen] = nil
+            }
                 .buttonStyle(.borderless)
                 .font(Theme.small)
                 .help("Effacer toute la recherche")

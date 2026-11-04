@@ -17,7 +17,9 @@ struct ContentView: View {
         } detail: {
             VStack(spacing: 0) {
                 // Note 26 : étiquettes des critères de la recherche, sous la barre d'outils.
-                if let schema = state.screen.searchSchema, !state.searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+                // Notes 31 et 33 : un filtre transmis (groupe de la Carte, port) s'affiche aussi ici.
+                if let schema = state.screen.searchSchema,
+                   !state.searchText.trimmingCharacters(in: .whitespaces).isEmpty || state.navFilters[state.screen] != nil {
                     SearchTokensBar(schema: schema, results: searchResults)
                 }
                 // Petite fenêtre : un écran plus grand que la place disponible défile au lieu d'être coupé.
@@ -37,7 +39,12 @@ struct ContentView: View {
                         SearchPrefixSuggestions(text: state.searchText, schema: schema)
                     }
                 }
+                // Note 34 : Retour / Avancer (⌘[ et ⌘]), boutons natifs ‹ › comme le Finder.
+                .toolbar {
+                    ToolbarItem(placement: .navigation) { NavHistoryButtons() }
+                }
         }
+        .navigationPrompts()
         .font(Theme.body)
         .foregroundStyle(Theme.text)
         // Pastille Analyse dès le lancement (alertes « à traiter » enregistrées), sans attendre

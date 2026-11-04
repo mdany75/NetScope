@@ -46,6 +46,8 @@ struct SidebarSites: View {
                 .buttonStyle(.plain)
                 .help("Passer au site «\u{00A0}\(site.displayName)\u{00A0}» (\(site.rangesLabel))")
                 .selectionDisabled()
+                // Note 34 : voir ce site (Inventaire, Carte, Analyse, Rapports) sans en changer.
+                .contextMenu { OpenInMenu(object: .site(key: SiteFiles.key(for: site.id), name: site.displayName)) }
             }
             if others.count > Self.shownWhenFolded {
                 Button {
@@ -77,8 +79,13 @@ struct SidebarSites: View {
                     .help("Plages modifiées, non enregistrées dans le site")
             }
         }
-        .help(sites.activeSite == nil ? "Plages libres (aucun site actif)" : "Site actif\u{00A0}: «\u{00A0}\(name)\u{00A0}»")
+        .help(sites.activeSite == nil ? "Plages libres (aucun site actif)"
+              : "Site actif\u{00A0}: «\u{00A0}\(name)\u{00A0}» · double-clic\u{00A0}: son inventaire")
         .selectionDisabled()
+        // Note 34 : double-clic → l'Inventaire de ce site ; clic droit → « Ouvrir dans › ».
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { state.perform(.site(key: sites.activeKey, name: name)) }
+        .contextMenu { OpenInMenu(object: .site(key: sites.activeKey, name: name)) }
     }
 
     private func rangeRow(_ range: ScanRangeConfig) -> some View {
@@ -90,5 +97,16 @@ struct SidebarSites: View {
         .padding(.leading, 22)
         .opacity(range.isEnabled ? 1 : 0.55)
         .selectionDisabled()
+        // Note 34 : double-clic → le Scanner filtré sur cette plage ; clic droit → « Ouvrir dans › »
+        // et le VLAN de la plage.
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { state.perform(.range(text: range.text, label: range.label)) }
+        .contextMenu {
+            OpenInMenu(object: .range(text: range.text, label: range.label))
+            if let vlan = range.vlan {
+                Button("Appareils du VLAN \(vlan) dans le Scanner") { state.perform(.vlan(vlan)) }
+            }
+        }
+        .help("\(range.text) · \(range.label) · double-clic\u{00A0}: appareils de cette plage dans le Scanner")
     }
 }

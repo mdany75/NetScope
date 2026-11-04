@@ -54,7 +54,7 @@ public struct NavContext: Sendable {
     }
 
     /// Switch relevé par son nom ou son adresse (sans casse).
-    func switchSnapshot(named name: String?) -> SNMPSwitchSnapshot? {
+    public func switchSnapshot(named name: String?) -> SNMPSwitchSnapshot? {
         guard let name = name?.trimmingCharacters(in: .whitespaces), !name.isEmpty else { return nil }
         if let direct = switches[name] { return direct }
         let lower = name.lowercased()
@@ -239,7 +239,8 @@ public enum NavResolver {
         case .group(let group):
             add("Inventaire", groupDestination(group, module: .inventaire))
             if group.siteKey == context.activeSiteKey { add("Scanner", groupDestination(group, module: .scanner)) }
-            if let parent = group.parentTitle, let snapshot = context.switchSnapshot(named: parent) {
+            if let parent = group.parentTitle,
+               let snapshot = group.parentHost.flatMap({ context.switches[$0] }) ?? context.switchSnapshot(named: parent) {
                 add("Switchs et ports (\(parent))", NavDestination(.switchs, focus: .switchPort(host: snapshot.id, port: nil)))
             }
         case .range(let text, let label):

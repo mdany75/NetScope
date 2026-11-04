@@ -50,6 +50,9 @@ struct TopoCanvas: View {
     let layout: TopoGraph.Layout
     @Binding var selectedID: String?
     let showPortLabels: Bool
+    /// Note 34 : objet d'un nœud (double-clic, « Ouvrir dans › ») ; nil : nœud sans suite (Internet).
+    var object: (TopoNode) -> NavObject? = { _ in nil }
+    var onOpen: (NavObject) -> Void = { _ in }
 
     var body: some View {
         let links = graph.links.filter { layout.positions[$0.parent.id] != nil && layout.positions[$0.child.id] != nil }
@@ -84,8 +87,20 @@ struct TopoCanvas: View {
                 if let center = point(node.id) {
                     TopoNodeView(node: node, isSelected: node.id == selectedID,
                                  isDimmed: selectedID != nil && !isRelated(node.id, links))
-                        .position(center)
                         .onTapGesture { selectedID = node.id }
+                        // Double-clic : suite logique (groupe → Inventaire filtré, switch → ses ports…),
+                        // sans retarder le simple clic qui choisit le nœud.
+                        .simultaneousGesture(TapGesture(count: 2).onEnded {
+                            selectedID = node.id
+                            if let target = object(node) { onOpen(target) }
+                        })
+                        .contextMenu {
+                            if let target = object(node) {
+                                Button("Ouvrir") { onOpen(target) }
+                                OpenInMenu(object: target)
+                            }
+                        }
+                        .position(center)
                 }
             }
         }

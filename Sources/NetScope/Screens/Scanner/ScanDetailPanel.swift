@@ -376,7 +376,7 @@ struct ScanDetailActions: View {
                         if let mac = device.mac { scan.copy(mac.formatted(.upperColon), label: "MAC") }
                     }
                     .disabled(device.mac == nil)
-                    action("Voir le port", "rectangle.connected.to.line.below") { state.open(.switchs) }
+                    action("Voir le port", "rectangle.connected.to.line.below") { state.showSwitchPort(switchName: device.switchName, port: device.switchPort) }
                         .disabled(device.switchName == nil)
                 }
                 if let toast = scan.toast, toast.place == .actions {

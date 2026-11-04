@@ -30,10 +30,31 @@ enum AppInfo {
 final class AppState: ObservableObject {
     // MARK: Navigation
 
-    @Published var screen: Screen = .scanner
+    @Published var screen: Screen = .scanner {
+        // Notes 31, 33 et 34 : chaque changement d'écran est retenu pour Retour (⌘[).
+        didSet { screenChanged(from: oldValue) }
+    }
     /// Recherche de la barre d'outils, propre à chaque module (note 26) : les préfixes
     /// (`switch:`, `type:`…) dépendent du module, une recherche du Scanner ne filtre pas les Réglages.
     @Published var searchTexts: [Screen: String] = [:]
+
+    // MARK: Navigation entre les modules (notes 31, 33 et 34 ; Shared/Navigation.swift)
+
+    /// Filtre transmis à un écran (ensemble exact d'appareils : groupe de la Carte, port de switch),
+    /// affiché comme une étiquette retirable de la recherche.
+    @Published var navFilters: [Screen: NavFilter] = [:]
+    /// Historique Retour / Avancer.
+    @Published var history = NavHistory(limit: 50)
+    /// Liste à choisir ou message d'un double-clic (plusieurs appareils sur un port, port vide…).
+    @Published var navPrompt: NavPrompt?
+    /// Ce que l'écran d'arrivée doit montrer (nœud de la Carte…), lu puis effacé par l'écran.
+    @Published var pendingFocus: [Screen: NavFocus] = [:]
+    /// Ce que montre chaque écran (fiche d'inventaire, nœud de la Carte), pour que Retour le rende.
+    var shownFocus: [Screen: NavFocus] = [:]
+    /// Vrai pendant une restauration (Retour, Avancer) ou une navigation qui a déjà retenu l'endroit quitté.
+    var isNavigating = false
+    /// Faux pendant les captures (le défilement des écrans n'est pas un parcours de l'utilisateur).
+    var recordsHistory = !CommandLine.arguments.contains("--snapshot")
 
     /// Recherche de l'écran courant (champ de la barre d'outils).
     var searchText: String {
@@ -102,10 +123,9 @@ final class AppState: ObservableObject {
         devices.first { $0.id == id }
     }
 
-    /// Ouvre la fiche d'un appareil.
+    /// Ouvre la fiche d'un appareil (retenu pour Retour, comme toute navigation).
     func showDevice(_ id: Device.ID) {
-        selectedDeviceID = id
-        open(.appareil)
+        navigate(NavDestination(.appareil, focus: .device(id)))
     }
 
     /// Ajoute une cible au ping continu (sans doublon) et ouvre l'écran.
@@ -119,7 +139,10 @@ final class AppState: ObservableObject {
     /// Appareils filtrés par la recherche du Scanner (type choisi à la main, site FortiGate et
     /// notes de la fiche compris).
     var filteredDevices: [Device] {
-        DeviceSearch.filter(devices, searchQuery(for: .scanner))
+        let found = DeviceSearch.filter(devices, searchQuery(for: .scanner))
+        // Filtre transmis (groupe de la Carte, port) : exactement ces appareils.
+        guard let filter = navFilters[.scanner] else { return found }
+        return found.filter { filter.matches($0) }
     }
 
     /// Ajoute ou met à jour des appareils (par IP), en gardant `firstSeen` et le nom personnalisé.

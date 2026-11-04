@@ -188,7 +188,7 @@ struct DeviceOverviewTab: View {
                         }
                     }
                     .opacity(status.isCurrent ? 1 : 0.55)
-                    Button("Voir le port dans Switchs et ports →") { state.open(.switchs) }
+                    Button("Voir le port dans Switchs et ports →") { state.showSwitchPort(switchName: device.switchName, port: device.switchPort) }
                         .buttonStyle(.ghost)
                         .padding(.leading, -8)
                 }

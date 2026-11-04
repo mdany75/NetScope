@@ -265,7 +265,16 @@ struct RemoteConnectionTable: View {
             }
         }
         .standardTableStyle()
-        .contextMenu(forSelectionType: UUID.self) { ids in
+        // Note 34 : double-clic ou ↩︎ → connecter (la suite logique ici) ; clic droit → « Ouvrir dans › »
+        // la fiche de l'hôte, le Scanner, le Ping continu…
+        .standardRowActions(selection: model.selectedID.map { [$0] } ?? [], object: { id in
+            model.connections.first { $0.id == id }.map { .remoteConnection(id: $0.id.uuidString, host: $0.host) }
+        }, primary: { ids in
+            if let id = ids.first, let connection = model.connections.first(where: { $0.id == id }) {
+                model.connect(connection)
+            }
+            return true
+        }) { ids in
             if let id = ids.first, let connection = model.connections.first(where: { $0.id == id }) {
                 Button("Connecter") { model.connect(connection) }
                 Button(connection.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris") {
@@ -276,10 +285,6 @@ struct RemoteConnectionTable: View {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(connection.host, forType: .string)
                 }
-            }
-        } primaryAction: { ids in
-            if let id = ids.first, let connection = model.connections.first(where: { $0.id == id }) {
-                model.connect(connection)
             }
         }
     }

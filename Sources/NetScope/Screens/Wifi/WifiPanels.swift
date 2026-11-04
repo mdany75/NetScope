@@ -212,7 +212,7 @@ struct WifiConnectionPanel: View {
             tile("BSSID", network.bssid?.formatted(.upperColon) ?? "masqué", mono: true)
             tile("Point d’accès", ap?.displayName ?? WifiText.vendor(network), sub: ap?.id ?? (network.bssid == nil ? nil : "fabricant d’après le BSSID"))
             if let ap, let switchName = ap.switchName {
-                tile("Branché sur", switchName, sub: ap.switchPort, mono: true, accent: true) { state.open(.switchs) }
+                tile("Branché sur", switchName, sub: ap.switchPort, mono: true, accent: true) { state.showSwitchPort(switchName: switchName, port: ap.switchPort) }
             } else {
                 tile("Interface", connection.interfaceName, sub: connection.hardwareAddress?.uppercased(), mono: true)
             }

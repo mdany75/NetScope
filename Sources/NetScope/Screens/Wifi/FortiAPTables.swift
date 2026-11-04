@@ -269,6 +269,15 @@ struct FortiAPTable: View {
             }
         }
         .standardTableStyle()
+        // Note 34 : double-clic ou ↩︎ sur une borne → sa fiche Appareil (déjà choisie ici) ;
+        // clic droit → « Ouvrir dans › » (fiche, Inventaire, Carte, Switchs et ports, Ping…).
+        .standardRowNavigation(selection: selection.map { [$0] } ?? [], object: { id in
+            store.overview.aps.first { $0.id == id }.map { .accessPoint(id: $0.id, name: $0.name, ip: $0.ip?.description) }
+        }, primary: { ids in
+            guard let ap = store.overview.aps.first(where: { ids.contains($0.id) }) else { return true }
+            if let ip = ap.ip?.description, state.device(withID: ip) != nil { state.showDevice(ip) }
+            return true
+        })
     }
 
     /// Radios en orange quand la borne est dans un chevauchement.
@@ -514,13 +523,14 @@ struct FortiAPClientTable: View {
             }
         }
         .standardTableStyle()
-        .contextMenu(forSelectionType: FortiClientRow.ID.self) { _ in EmptyView() } primaryAction: { ids in
-            // Double-clic : fiche de l'appareil du Scanner rattaché par MAC.
-            guard let id = ids.first, let client = store.overview.clients.first(where: { $0.id == id }) else { return }
-            if let match = FortiWifiMerge.match(state.devices, overview: FortiWifiOverview(clients: [client])).keys.first {
-                state.showDevice(match)
-            }
-        }
+        // Note 34 : double-clic ou ↩︎ → fiche de l'appareil du Scanner rattaché par MAC (sinon sa fiche
+        // d'inventaire, sinon un message) ; clic droit → « Ouvrir dans › ».
+        .standardRowNavigation(selection: selection.map { [$0] } ?? [], object: { id in
+            guard let client = store.overview.clients.first(where: { $0.id == id }) else { return nil }
+            let matched = FortiWifiMerge.match(state.devices, overview: FortiWifiOverview(clients: [client])).keys.first
+            return .wifiClient(mac: client.mac.formatted(.upperColon), ip: matched ?? client.ip?.description,
+                               name: client.hostname ?? client.mac.formatted(.upperColon), apID: store.ap(for: client)?.id)
+        })
     }
 }
 
