@@ -83,6 +83,14 @@ public struct ResourceTimeline: Sendable {
 
     public var latest: ResourceSample? { samples.last }
 
+    /// Somme, à chaque relevé, des séries dont la clé finit par `suffix` (« .in » : trafic entrant total).
+    public func sum(suffix: String) -> [Double?] {
+        samples.map { sample in
+            let values = sample.values.filter { $0.key.hasSuffix(suffix) }.map(\.value)
+            return values.isEmpty ? nil : values.reduce(0, +)
+        }
+    }
+
     /// Valeur maximale d'une ou plusieurs séries sur la fenêtre.
     public func maximum(_ keys: [String]) -> Double? {
         samples.flatMap { sample in keys.compactMap { sample.values[$0] } }.max()

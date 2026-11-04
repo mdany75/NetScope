@@ -38,22 +38,27 @@ struct SwitchScreen: View {
                 }
 
                 if let snapshot = store.current {
-                    // Colonne principale (façade, table MAC) et colonne de détail (port, topologie).
+                    // Relevés de trafic (note 21) du switch affiché, partagés avec sa fiche Appareil.
+                    let traffic = ResourceMonitors.snmp(snapshot.host.description)
+                    // Colonne principale (façade, ports chargés, table MAC) et colonne de détail (port, trafic, topologie).
                     SidePanelSplit(sideWidth: 330, collapse: .below, spacing: 16) {
                         VStack(spacing: 16) {
                             SwitchFaceplatePanel(store: store, snapshot: snapshot)
+                            SwitchTopPorts(store: store, monitor: traffic, snapshot: snapshot)
                             SwitchMacTable(store: store, snapshot: snapshot)
                         }
                     } side: {
                         VStack(spacing: 16) {
                             if let iface = store.selectedInterface {
                                 SwitchPortDetail(store: store, snapshot: snapshot, iface: iface)
+                                SwitchPortTraffic(monitor: traffic, snapshot: snapshot, iface: iface)
                             } else {
                                 Panel { Text("Choisissez un port sur la façade.").font(Theme.small).foregroundStyle(Theme.textSecondary) }
                             }
                             SwitchTopology(store: store)
                         }
                     }
+                    .modifier(SwitchResourceLifecycle(monitor: traffic))
                 } else if !store.hosts.isEmpty {
                     Panel {
                         HStack(spacing: 10) {

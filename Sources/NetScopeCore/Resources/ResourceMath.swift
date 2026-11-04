@@ -309,6 +309,7 @@ public enum ResourceFormat {
     public static func percent(_ value: Double?) -> String {
         guard let value, value.isFinite else { return "—" }
         let clamped = max(0, value)
+        if clamped > 0, clamped < 0.1 { return "<\u{00A0}0,1" + nbsp + "%" }
         let text = clamped < 10 && clamped > 0 && clamped.rounded() != clamped
             ? ToolFormat.decimal(clamped) : String(Int(clamped.rounded()))
         return text + nbsp + "%"

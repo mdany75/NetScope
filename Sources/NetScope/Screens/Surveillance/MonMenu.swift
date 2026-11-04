@@ -26,6 +26,7 @@ struct MonMenuContent: View {
                     value(store.interfaceSummary ?? "Aucune interface active")
                 }
             }
+            MonMenuResourceTile(isPreview: isPreview)
             VStack(alignment: .leading, spacing: 5) {
                 let alerting = store.alertingProbes
                 MonHeading(alerting.isEmpty ? "Aucune alerte" : MonText.plural(alerting.count, "alerte", "alertes"))
