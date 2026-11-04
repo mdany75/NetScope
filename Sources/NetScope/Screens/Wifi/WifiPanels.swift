@@ -155,6 +155,10 @@ struct WifiConnectionPanel: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
+            if let secondary = guidance.secondaryButtonTitle {
+                Button(secondary) { store.requestLocationSecondary() }
+                    .buttonStyle(.secondary)
+            }
             Button(guidance.buttonTitle) { store.requestLocation() }
                 .buttonStyle(.primary)
         }

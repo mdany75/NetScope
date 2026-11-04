@@ -18,6 +18,9 @@ func registerWifiLocationTests(_ suite: TestSuite) {
         try expectEqual(WifiLocationGuidance.make(status: .authorized).buttonTitle, "Actualiser les noms", "libellé autorisé")
         try expect(WifiLocationGuidance.make(status: .denied).isWarning, "refus signalé")
         try expect(!WifiLocationGuidance.make(status: .notDetermined).isWarning, "demande neutre")
+        let authorized = WifiLocationGuidance.make(status: .authorized)
+        try expect(authorized.message.contains("ne fournit pas encore les noms"), "autorisé mais noms absents")
+        try expect(!authorized.isWarning, "autorisé : message neutre")
     }
 
     suite.add("Wi-Fi : localisation, demande en attente puis sans fenêtre") {
@@ -25,8 +28,14 @@ func registerWifiLocationTests(_ suite: TestSuite) {
         try expectEqual(pending.action, .request, "on peut redemander")
         try expect(pending.message.contains("Demande envoyée"), "message d'attente")
         let silent = WifiLocationGuidance.make(status: .notDetermined, requestPending: true, requestUnanswered: true)
-        try expectEqual(silent.action, .openSettings, "sans fenêtre : réglages")
-        try expect(silent.message.contains("Aucune fenêtre"), "message sans fenêtre")
+        try expectEqual(silent.action, .openSettings, "sans réponse : réglages")
+        try expectEqual(silent.secondaryAction, .request, "sans réponse : on peut encore redemander")
+        try expectEqual(silent.secondaryButtonTitle, "Redemander", "libellé du second bouton")
+        // La fenêtre peut être ouverte mais pas encore lue : message au conditionnel, délai généreux.
+        try expect(silent.message.contains("Si aucune fenêtre"), "message au conditionnel")
+        try expect(silent.message.contains("Si la fenêtre de macOS est ouverte"), "cas de la fenêtre encore ouverte")
+        try expect(WifiLocationGuidance.promptTimeout >= 30, "délai assez long pour lire la fenêtre")
+        try expect(pending.secondaryAction == nil, "pas de second bouton pendant l'attente")
         // Une fois répondu, l'attente ne compte plus.
         try expectEqual(WifiLocationGuidance.make(status: .authorized, requestPending: true, requestUnanswered: true).action,
                         .refresh, "autorisé l'emporte")
