@@ -57,6 +57,12 @@ public struct BackupManifest: Codable, Equatable, Sendable {
         public var path: String
         public var bytes: Int
         public var crc32: UInt32
+
+        public init(path: String, bytes: Int, crc32: UInt32) {
+            self.path = path
+            self.bytes = bytes
+            self.crc32 = crc32
+        }
     }
 
     public var format = BackupManifest.formatName
@@ -76,6 +82,22 @@ public struct BackupManifest: Codable, Equatable, Sendable {
     /// Comptes du Trousseau à ressaisir : noms seulement.
     public var keychain: [BackupKeychainItem]
     public var note: String
+
+    public init(createdAt: Date, kind: BackupKind, appVersion: String, appBuild: String, files: [File],
+                preferencesFile: String?, preferenceCount: Int, excludedPreferenceKeys: [String], skippedFiles: [String],
+                keychain: [BackupKeychainItem], note: String) {
+        self.createdAt = createdAt
+        self.kind = kind
+        self.appVersion = appVersion
+        self.appBuild = appBuild
+        self.files = files
+        self.preferencesFile = preferencesFile
+        self.preferenceCount = preferenceCount
+        self.excludedPreferenceKeys = excludedPreferenceKeys
+        self.skippedFiles = skippedFiles
+        self.keychain = keychain
+        self.note = note
+    }
 
     /// « 9 fichiers · 42 préférences ».
     public var summary: String {
@@ -116,6 +138,13 @@ public struct BackupInfo: Identifiable, Hashable, Sendable {
     /// Taille sur le disque (archive, ou total du dossier).
     public var bytes: Int64
 
+    public init(url: URL, format: BackupFormat, manifest: BackupManifest, bytes: Int64) {
+        self.url = url
+        self.format = format
+        self.manifest = manifest
+        self.bytes = bytes
+    }
+
     public var id: String { url.path }
     public var date: Date { manifest.createdAt }
 
@@ -138,8 +167,8 @@ public enum BackupError: Error, LocalizedError, Equatable {
     public var errorDescription: String? {
         switch self {
         case .notABackup(let name): return "« \(name) » n’est pas une sauvegarde NetScope (manifeste absent)."
-        case .newerVersion(let version): return "Sauvegarde faite par une version plus récente de NetScope (format \(version)) : mettez NetScope à jour pour la restaurer."
-        case .corrupted(let why): return "Sauvegarde endommagée : \(why)."
+        case .newerVersion(let version): return "Sauvegarde faite par une version plus récente de NetScope (format \(version)) : mettez NetScope à jour pour la restaurer."
+        case .corrupted(let why): return "Sauvegarde endommagée : \(why)."
         }
     }
 }
@@ -275,7 +304,7 @@ public enum BackupEngine {
                                       files: files, preferencesFile: preferencesFile, preferenceCount: preferenceCount,
                                       excludedPreferenceKeys: excluded, skippedFiles: skipped.sorted(),
                                       keychain: source.keychain.sorted { ($0.service, $0.account) < ($1.service, $1.account) },
-                                      note: "Les secrets du Trousseau macOS ne sont jamais copiés : ressaisissez-les après une restauration sur un autre Mac.")
+                                      note: "Les secrets du Trousseau macOS ne sont jamais copiés : ressaisissez-les après une restauration sur un autre Mac.")
         let manifestData = try encoder().encode(manifest)
         entries.insert(BackupZip.Entry(path: manifestName, data: manifestData), at: 0)
 

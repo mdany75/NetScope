@@ -85,8 +85,8 @@ public enum SNMPUSMReport: String, Sendable, Equatable {
         case .notInTimeWindow: return "horloge du moteur SNMP hors fenêtre (resynchronisation impossible)"
         case .unknownUserName: return "utilisateur SNMP v3 inconnu de l’agent"
         case .unknownEngineID: return "identifiant de moteur (engineID) inconnu"
-        case .wrongDigest: return "authentification refusée : mot de passe ou protocole d’authentification incorrect"
-        case .decryptionError: return "déchiffrement impossible : mot de passe ou protocole de confidentialité incorrect"
+        case .wrongDigest: return "authentification refusée : mot de passe ou protocole d’authentification incorrect"
+        case .decryptionError: return "déchiffrement impossible : mot de passe ou protocole de confidentialité incorrect"
         }
     }
 }
@@ -292,11 +292,11 @@ public enum SNMPv3Error: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .missingUser: return "Saisissez l’utilisateur SNMP v3."
-        case .shortPassword(let which): return "Mot de passe \(which) trop court : 8 caractères au moins (RFC 3414)."
-        case .report(let report): return "L’agent refuse : \(report.explanation)."
-        case .badResponseDigest: return "Réponse dont l’authentification ne correspond pas : mot de passe ou protocole d’authentification incorrect."
-        case .responseDecryption: return "Réponse impossible à déchiffrer : mot de passe ou protocole de confidentialité incorrect."
-        case .noEngineID: return "L’agent n’a pas donné son identifiant de moteur (engineID) : SNMP v3 désactivé ?"
+        case .shortPassword(let which): return "Mot de passe \(which) trop court : 8 caractères au moins (RFC 3414)."
+        case .report(let report): return "L’agent refuse : \(report.explanation)."
+        case .badResponseDigest: return "Réponse dont l’authentification ne correspond pas : mot de passe ou protocole d’authentification incorrect."
+        case .responseDecryption: return "Réponse impossible à déchiffrer : mot de passe ou protocole de confidentialité incorrect."
+        case .noEngineID: return "L’agent n’a pas donné son identifiant de moteur (engineID) : SNMP v3 désactivé ?"
         }
     }
 }

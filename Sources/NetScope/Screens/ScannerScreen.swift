@@ -69,10 +69,10 @@ struct ScannerScreen: View {
             .help("Effacer les résultats du scan")
         profileMenu
         portsMenu
-        Button { scan.exportCSV(exportRows) } label: { Label("Exporter", systemImage: "square.and.arrow.down") }
+        Button { scan.export(exportRows, state: state) } label: { Label("Exporter", systemImage: "square.and.arrow.down") }
             .buttonStyle(.secondary)
             .disabled(state.devices.isEmpty)
-            .help("Exporter les appareils affichés en CSV")
+            .help(prefs.exportFormat == .csv ? "Exporter les appareils affichés en CSV" : ScanController.exportHelp)
     }
 
     /// Appareils affichés (filtres et tri du tableau), pour l'export.

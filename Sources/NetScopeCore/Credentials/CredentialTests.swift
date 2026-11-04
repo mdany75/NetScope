@@ -3,7 +3,7 @@ import Foundation
 
 /// Résultat d'un test d'identifiant SSH ou WMI.
 public struct CredentialTestOutcome: Equatable, Sendable {
-    public enum Status: String, Sendable { case success, partial, failure }
+    public enum Status: String, Codable, Sendable { case success, partial, failure }
     public var status: Status
     public var message: String
     /// Détail (sortie de la commande, état de chaque port).
@@ -78,7 +78,7 @@ public enum SSHCredentialTest {
             .filter { !$0.isEmpty && !$0.hasPrefix("Warning: Permanently added") }
         let lower = stderr.lowercased()
         if timedOut {
-            return CredentialTestOutcome(status: .failure, message: "Échec · délai dépassé : \(host) ne répond pas sur SSH (pare-feu, adresse ou port incorrects).", details: errors)
+            return CredentialTestOutcome(status: .failure, message: "Échec · délai dépassé : \(host) ne répond pas sur SSH (pare-feu, adresse ou port incorrects).", details: errors)
         }
         if exitCode == 0 {
             let first = output.first ?? "(aucune sortie)"
@@ -93,25 +93,25 @@ public enum SSHCredentialTest {
         }
         let reason: String
         if lower.contains("permission denied") || lower.contains("too many authentication failures") {
-            reason = "authentification refusée : utilisateur, mot de passe ou clé incorrects (ou méthode non permise par le serveur)"
+            reason = "authentification refusée : utilisateur, mot de passe ou clé incorrects (ou méthode non permise par le serveur)"
         } else if lower.contains("remote host identification has changed") || lower.contains("host key verification failed") {
-            reason = "l’empreinte de l’hôte a changé depuis le premier test : vérifiez qu’il s’agit bien du même équipement"
+            reason = "l’empreinte de l’hôte a changé depuis le premier test : vérifiez qu’il s’agit bien du même équipement"
         } else if lower.contains("connection refused") {
-            reason = "connexion refusée : aucun serveur SSH n’écoute sur ce port"
+            reason = "connexion refusée : aucun serveur SSH n’écoute sur ce port"
         } else if lower.contains("timed out") {
-            reason = "délai dépassé : aucune réponse (pare-feu, adresse ou port incorrects)"
+            reason = "délai dépassé : aucune réponse (pare-feu, adresse ou port incorrects)"
         } else if lower.contains("no route to host") || lower.contains("host is down") || lower.contains("network is unreachable") {
             reason = "hôte injoignable depuis ce Mac"
         } else if lower.contains("could not resolve hostname") || lower.contains("nodename nor servname") {
             reason = "nom d’hôte introuvable dans le DNS"
         } else if lower.contains("bad permissions") || lower.contains("unprotected private key") {
-            reason = "clé privée trop ouverte : faites « chmod 600 » sur le fichier de la clé"
+            reason = "clé privée trop ouverte : faites « chmod 600 » sur le fichier de la clé"
         } else if lower.contains("no such identity") || lower.contains("no such file") {
             reason = "fichier de clé introuvable"
         } else if lower.contains("invalid format") || lower.contains("load key") || lower.contains("incorrect passphrase") {
-            reason = "clé illisible : format non reconnu ou phrase secrète incorrecte"
+            reason = "clé illisible : format non reconnu ou phrase secrète incorrecte"
         } else if lower.contains("no matching") || lower.contains("unable to negotiate") {
-            reason = "algorithmes incompatibles (équipement ancien : chiffrement ou échange de clés non accepté par OpenSSH)"
+            reason = "algorithmes incompatibles (équipement ancien : chiffrement ou échange de clés non accepté par OpenSSH)"
         } else if lower.contains("connection closed") || lower.contains("connection reset") || lower.contains("kex_exchange_identification") {
             reason = "connexion fermée par \(host) avant l’authentification (limite de sessions, liste d’accès ?)"
         } else {
@@ -147,7 +147,7 @@ public enum SSHCredentialTest {
                 askpassURL = script
                 temporary = folder
             } catch {
-                return CredentialTestOutcome(status: .failure, message: "Échec · préparation du test impossible : \(error.localizedDescription)")
+                return CredentialTestOutcome(status: .failure, message: "Échec · préparation du test impossible : \(error.localizedDescription)")
             }
         }
         defer { if let temporary { try? FileManager.default.removeItem(at: temporary) } }
@@ -219,11 +219,11 @@ public enum WMIReachabilityTest {
     public static let ports = [Port(number: 135, label: "DCOM/RPC (WMI)"), Port(number: 5985, label: "WinRM HTTP"),
                                Port(number: 5986, label: "WinRM HTTPS")]
 
-    public static let limitation = "macOS n’a pas de client WMI natif : NetScope ne peut pas ouvrir de session WMI ni vérifier le mot de passe. Le test dit seulement si les ports de WMI (135) et de WinRM (5985, 5986) répondent."
+    public static let limitation = "macOS n’a pas de client WMI natif : NetScope ne peut pas ouvrir de session WMI ni vérifier le mot de passe. Le test dit seulement si les ports de WMI (135) et de WinRM (5985, 5986) répondent."
 
     /// Bilan d'après l'état de chaque port (fonction pure, testée sans réseau).
     public static func analyze(host: String, states: [(Port, TCPProbeState)]) -> CredentialTestOutcome {
-        let details = states.map { "\($0.0.number) · \($0.0.label) : \($0.1.label)" }
+        let details = states.map { "\($0.0.number) · \($0.0.label) : \($0.1.label)" }
         let open = states.filter { if case .open = $0.1 { return true }; return false }.map { $0.0 }
         if !open.isEmpty {
             let list = open.map { "\($0.number) (\($0.label))" }.joined(separator: ", ")
@@ -233,7 +233,7 @@ public enum WMIReachabilityTest {
         }
         if states.contains(where: { $0.1.hostAnswered }) {
             return CredentialTestOutcome(status: .failure,
-                                         message: "Échec · \(host) répond, mais ports 135, 5985 et 5986 fermés : WMI et WinRM inactifs ou bloqués par le pare-feu Windows.",
+                                         message: "Échec · \(host) répond, mais ports 135, 5985 et 5986 fermés : WMI et WinRM inactifs ou bloqués par le pare-feu Windows.",
                                          details: details)
         }
         return CredentialTestOutcome(status: .failure,

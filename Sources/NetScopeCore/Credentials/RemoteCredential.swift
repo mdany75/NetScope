@@ -32,12 +32,12 @@ public struct RemoteCredential: Codable, Identifiable, Hashable, Sendable {
     /// Dernière adresse testée.
     public var lastHost: String
     public var lastTestAt: Date?
-    public var lastTestOK: Bool?
+    public var lastTestStatus: CredentialTestOutcome.Status?
     public var lastTestMessage: String
 
     public init(id: UUID = UUID(), kind: Kind, name: String, user: String = "", port: UInt16? = nil,
                 sshMethod: SSHMethod = .key, keyPath: String = "", domain: String = "", scope: String = "",
-                lastHost: String = "", lastTestAt: Date? = nil, lastTestOK: Bool? = nil, lastTestMessage: String = "") {
+                lastHost: String = "", lastTestAt: Date? = nil, lastTestStatus: CredentialTestOutcome.Status? = nil, lastTestMessage: String = "") {
         self.id = id
         self.kind = kind
         self.name = name
@@ -49,7 +49,7 @@ public struct RemoteCredential: Codable, Identifiable, Hashable, Sendable {
         self.scope = scope
         self.lastHost = lastHost
         self.lastTestAt = lastTestAt
-        self.lastTestOK = lastTestOK
+        self.lastTestStatus = lastTestStatus
         self.lastTestMessage = lastTestMessage
     }
 
@@ -66,7 +66,7 @@ public struct RemoteCredential: Codable, Identifiable, Hashable, Sendable {
         scope = try c.decodeIfPresent(String.self, forKey: .scope) ?? ""
         lastHost = try c.decodeIfPresent(String.self, forKey: .lastHost) ?? ""
         lastTestAt = try c.decodeIfPresent(Date.self, forKey: .lastTestAt)
-        lastTestOK = try c.decodeIfPresent(Bool.self, forKey: .lastTestOK)
+        lastTestStatus = try c.decodeIfPresent(CredentialTestOutcome.Status.self, forKey: .lastTestStatus)
         lastTestMessage = try c.decodeIfPresent(String.self, forKey: .lastTestMessage) ?? ""
     }
 
@@ -99,7 +99,7 @@ public struct RemoteCredential: Codable, Identifiable, Hashable, Sendable {
     public var methodSummary: String {
         switch kind {
         case .ssh: return sshMethod == .key ? "Clé \(keyPath.isEmpty ? "(à choisir)" : keyPath)" : "Mot de passe"
-        case .wmi: return "DCOM (TCP 135), WinRM 5985/5986"
+        case .wmi: return "DCOM 135 · WinRM 5985/5986"
         }
     }
 }

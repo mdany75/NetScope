@@ -57,6 +57,18 @@ public enum SNMPCredentialTest {
         public var failure: Failure?
         /// Phrase complète affichée sous l'identifiant.
         public var message: String
+
+        public init(success: Success?, failure: Failure?, message: String) {
+            self.success = success
+            self.failure = failure
+            self.message = message
+        }
+
+        /// Texte à afficher (message d'un succès recalculé au besoin).
+        public var displayText: String {
+            if let success { return message.isEmpty ? SNMPCredentialTest.message(for: success) : message }
+            return message
+        }
     }
 
     /// Lecture des valeurs dans les liaisons reçues (dans n'importe quel ordre).
@@ -84,13 +96,13 @@ public enum SNMPCredentialTest {
         if let error = error as? SNMPv3Error {
             switch error {
             case .report(.unknownUserName):
-                return (.unknownUser, "Échec · utilisateur inconnu de l’agent \(host) : vérifiez le nom (sensible à la casse) et qu’il existe sur cet équipement.")
+                return (.unknownUser, "Échec · utilisateur inconnu de l’agent \(host) : vérifiez le nom (sensible à la casse) et qu’il existe sur cet équipement.")
             case .report(.wrongDigest), .badResponseDigest:
-                return (.authentication, "Échec · authentification refusée par \(host) : mot de passe ou protocole d’authentification (MD5, SHA…) incorrect.")
+                return (.authentication, "Échec · authentification refusée par \(host) : mot de passe ou protocole d’authentification (MD5, SHA…) incorrect.")
             case .report(.decryptionError), .responseDecryption:
-                return (.decryption, "Échec · déchiffrement impossible : mot de passe ou protocole de confidentialité (DES, AES…) incorrect.")
+                return (.decryption, "Échec · déchiffrement impossible : mot de passe ou protocole de confidentialité (DES, AES…) incorrect.")
             case .report(.unsupportedSecLevel):
-                return (.securityLevel, "Échec · niveau de sécurité refusé : l’utilisateur existe, mais pas avec ce niveau (essayez authPriv ou authNoPriv).")
+                return (.securityLevel, "Échec · niveau de sécurité refusé : l’utilisateur existe, mais pas avec ce niveau (essayez authPriv ou authNoPriv).")
             case .report(let other):
                 return (.other(other.rawValue), "Échec · \(other.explanation).")
             case .missingUser, .shortPassword:
@@ -105,14 +117,14 @@ public enum SNMPCredentialTest {
                 let hint = version3
                     ? "SNMP v3 désactivé, filtré par un pare-feu ou adresse incorrecte."
                     : "Communauté refusée (un agent v2c ignore en silence une mauvaise communauté), SNMP désactivé ou filtré."
-                return (.timeout, "Échec · délai dépassé, aucune réponse de \(host) : \(hint)")
+                return (.timeout, "Échec · délai dépassé, aucune réponse de \(host) : \(hint)")
             case .unreachable:
-                return (.portClosed, "Échec · \(host) refuse le port UDP 161 : aucun agent SNMP n’y écoute.")
+                return (.portClosed, "Échec · \(host) refuse le port UDP 161 : aucun agent SNMP n’y écoute.")
             case .emptyCommunity:
                 return (.configuration(error.localizedDescription), "Échec · \(error.localizedDescription)")
             case .agent(let status, _):
                 if status == SNMPErrorStatus.noAccess.rawValue || status == SNMPErrorStatus.authorizationError.rawValue {
-                    return (.communityRejected, "Échec · accès refusé : la communauté (ou l’utilisateur) n’a pas le droit de lire le groupe system.")
+                    return (.communityRejected, "Échec · accès refusé : la communauté (ou l’utilisateur) n’a pas le droit de lire le groupe system.")
                 }
                 return (.other(error.localizedDescription), "Échec · \(error.localizedDescription)")
             case .socket, .unexpectedResponse, .v3NotSupported:

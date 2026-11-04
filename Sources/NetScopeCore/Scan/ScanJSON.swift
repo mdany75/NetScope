@@ -9,7 +9,7 @@ public enum ExportFormat: String, Codable, CaseIterable, Sendable {
     public var detail: String {
         switch self {
         case .csv: return "CSV séparé par des points-virgules, UTF-8 avec BOM (Excel)."
-        case .json: return "JSON structuré : appareils, ports, emplacement (switch, port, VLAN)."
+        case .json: return "JSON structuré : appareils, ports, emplacement (switch, port, VLAN)."
         case .pdf: return "Rapport PDF mis en page (écran Rapports)."
         }
     }

@@ -18,7 +18,7 @@ public enum BackupZip {
 
         public var errorDescription: String? {
             switch self {
-            case .invalid(let why): return "Archive de sauvegarde illisible : \(why)."
+            case .invalid(let why): return "Archive de sauvegarde illisible : \(why)."
             }
         }
     }

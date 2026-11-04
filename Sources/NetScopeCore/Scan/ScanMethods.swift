@@ -67,7 +67,7 @@ public struct ScanMethods: Codable, Hashable, Sendable {
         var tags: [String] = []
         if icmp { tags.append("ICMP") }
         if arp { tags.append("ARP") }
-        if tcp { tags.append("TCP \(tcpPorts.count) port\(tcpPorts.count > 1 ? "s" : "")") }
+        if tcp { tags.append("Présence TCP") }
         if udp { tags.append("UDP") }
         let names = [reverseDNS ? "DNS" : nil, mdns ? "mDNS" : nil, netbios ? "NetBIOS" : nil].compactMap { $0 }
         if !names.isEmpty { tags.append(names.joined(separator: " · ")) }

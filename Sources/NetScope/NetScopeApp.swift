@@ -13,6 +13,9 @@ enum Launcher {
         if arguments.contains("--snapshot") {
             Snapshots.run(arguments: arguments)
         }
+        // Restauration d'une sauvegarde demandée avant le redémarrage : appliquée avant que les
+        // écrans ne lisent leurs fichiers (jamais en démonstration).
+        if !isDemo { RegBackupController.applyPendingRestore() }
         NetScopeApp.main()
     }
 
@@ -85,6 +88,8 @@ struct NetScopeApp: App {
                     SvcStore.shared.attach()
                     // Vérification des mises à jour (Releases GitHub) selon la fréquence choisie.
                     await UpdController.shared.applicationDidLaunch(state)
+                    // Sauvegarde automatique quotidienne (Réglages › Export et sauvegarde).
+                    RegBackupController.shared.startSchedule()
                 }
                 .task {
                     // Changement d'interface ou de réseau (lecture locale, toutes les 15 s) : le bilan

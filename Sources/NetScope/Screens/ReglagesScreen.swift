@@ -136,7 +136,11 @@ struct ReglagesScreen: View {
             if state.updateAvailable != nil { CountBadge(count: 1) }
         case .switchs:
             Text("\(SwitchStore.shared.hosts.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
-        case .export, .raccourcis:
+        case .export:
+            if !RegBackupController.shared.backups.isEmpty {
+                Text("\(RegBackupController.shared.backups.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+            }
+        case .raccourcis:
             // Petite pastille « bientôt » en police réduite : le libellé de la section reste sur une ligne.
             Text("bientôt")
                 .font(.system(size: 9.5, weight: .semibold))
@@ -169,7 +173,8 @@ struct ReglagesScreen: View {
                         .buttonStyle(.secondary)
                 }
             }
-        case .export, .raccourcis:
+        case .export: RegBackupSection()
+        case .raccourcis:
             RegPanel(title: navigation.section.label) {
                 RegNotice("Section prévue au croquis, pas encore disponible dans cette version de NetScope.", tone: .neutral)
             }

@@ -266,6 +266,15 @@ final class ToolNeighborModel: ObservableObject {
         }
     }
 
+    /// Voisin entendu pendant un scan (méthode « LLDP / CDP passif » du profil) : gardé comme le
+    /// résultat d'une capture, pour l'encart de Switchs et ports.
+    func recordPassive(_ neighbor: NetworkNeighbor, interface: LocalInterface, active: LocalInterface?) {
+        guard !isEphemeral, !isRunning else { return }
+        lastNeighbor = neighbor
+        lastContext = Self.context(of: interface, active: active, linkStamp: LocalInterfaces.linkStamps()[interface.name])
+        save()
+    }
+
     private func save() {
         guard !isEphemeral, let lastNeighbor else { return }
         let encoder = JSONEncoder()

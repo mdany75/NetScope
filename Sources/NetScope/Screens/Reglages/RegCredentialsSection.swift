@@ -4,6 +4,9 @@ import SwiftUI
 /// Réglages › Identifiants : SNMP v2c (communauté) et SNMP v3 (utilisateur, authentification,
 /// confidentialité), enregistrés dans le Trousseau macOS. Les secrets ne sont jamais réaffichés.
 struct RegCredentialsSection: View {
+    @EnvironmentObject private var state: AppState
+    @ObservedObject private var tester = RegSNMPTester.shared
+    @ObservedObject private var remote = RegRemoteCredentialStore.shared
     @State private var draft = RegSNMPCredentials()
     @State private var saved: RegSNMPCredentials?
     @State private var loaded = false
@@ -12,17 +15,29 @@ struct RegCredentialsSection: View {
     private var isDirty: Bool { draft != mergedDraft(from: saved) }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            snmpPanel
+            RegRemoteCredentialsPanel()
+        }
+        .onAppear {
+            load()
+            tester.suggest(state)
+        }
+    }
+
+    private var snmpPanel: some View {
         RegPanel(title: "Identifiants (SNMP)",
                  subtitle: "Utilisés pour interroger les switchs et lire sysName, sysDescr, table MAC et voisins LLDP. Les secrets ne quittent jamais le Trousseau.",
                  accessory: {
                      HStack(spacing: 8) {
-                         Button {} label: { Label("Tout tester", systemImage: "checkmark.shield") }
+                         Button(action: testAll) { Label("Tout tester", systemImage: "play.fill") }
                              .buttonStyle(.secondary)
-                             .regDisabled(true)
-                             .help("Test SNMP : bientôt, avec le module Switchs")
+                             .regDisabled(tester.hostAddress == nil)
+                             .help(tester.hostAddress == nil ? "Saisissez d’abord l’adresse à tester" : "Tester SNMP v2c, v3 et les identifiants SSH/WMI sur leur dernière adresse")
                      }
                  }, content: {
                      vaultBanner
+                     testHostRow.padding(.top, 12)
                      // Côte à côte en grande fenêtre, l'un sous l'autre en petite.
                      RegColumns(minColumnWidth: 340) {
                          v2cBox
@@ -42,10 +57,64 @@ struct RegCredentialsSection: View {
                          }
                      }
                      .padding(.top, 14)
-                     RegNotice("SSH et WMI (identifiants par switch ou par plage, ordre d’essai) : bientôt.", tone: .neutral)
-                         .padding(.top, 12)
                  })
-        .onAppear(perform: load)
+    }
+
+    // MARK: Test SNMP
+
+    private var testHostRow: some View {
+        HStack(spacing: 10) {
+            Text("Adresse à tester").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text)
+            RegTextField(placeholder: "ex. 10.182.122.2", text: $tester.host, mono: true,
+                         invalid: !tester.host.isEmpty && tester.hostAddress == nil)
+                .frame(width: 170)
+            Text("Lecture de sysName, sysDescr et sysUpTime (UDP 161, délai 2 s, un renvoi).")
+                .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                .lineLimit(2)
+            Spacer(minLength: 0)
+        }
+    }
+
+    /// Communauté du test : celle saisie (pas encore enregistrée), sinon celle du Trousseau.
+    private var testCommunity: String { draft.community.isEmpty ? (saved?.community ?? "") : draft.community }
+
+    /// Identifiant v3 du test : champs saisis, secrets saisis ou enregistrés.
+    private var testV3: SNMPv3Credentials {
+        var merged = draft
+        if merged.v3AuthPassword.isEmpty { merged.v3AuthPassword = saved?.v3AuthPassword ?? "" }
+        if merged.v3PrivPassword.isEmpty { merged.v3PrivPassword = saved?.v3PrivPassword ?? "" }
+        return merged.v3Credentials
+    }
+
+    private func testAll() {
+        if !testCommunity.isEmpty { tester.testV2(community: testCommunity) }
+        if !draft.v3User.isEmpty { tester.testV3(testV3) }
+        for credential in remote.credentials where !credential.lastHost.isEmpty {
+            remote.test(credential.id, host: credential.lastHost)
+        }
+    }
+
+    private func testFooter(_ result: RegTestResult?, enabled: Bool, action: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Rectangle().fill(Theme.neutralSoft).frame(height: 1)
+            HStack(alignment: .top, spacing: 8) {
+                Button(action: action) {
+                    if result?.status == .running {
+                        HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Test…") }
+                    } else {
+                        Label("Tester", systemImage: "play.fill")
+                    }
+                }
+                .buttonStyle(RegSmallButtonStyle())
+                .regDisabled(!enabled || result?.status == .running)
+                Text(result?.text ?? "Pas encore testé dans cette session.")
+                    .font(.system(size: 12, weight: result == nil ? .regular : .semibold))
+                    .foregroundStyle(result.map { $0.tone.foreground } ?? Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 4)
+            }
+        }
     }
 
     @ViewBuilder private var status: some View {
@@ -116,6 +185,10 @@ struct RegCredentialsSection: View {
             KeyValueRow(key: "Port", value: "UDP 161", mono: true, keyWidth: 110)
             Text("v2c transmet la communauté en clair sur le réseau : préférez SNMP v3 quand le switch le permet.")
                 .font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            testFooter(tester.v2, enabled: tester.hostAddress != nil && !testCommunity.isEmpty) {
+                tester.testV2(community: testCommunity)
+            }
         }
     }
 
@@ -161,6 +234,10 @@ struct RegCredentialsSection: View {
                     RegTextField(placeholder: "vide par défaut", text: $draft.v3Context, mono: true)
                         .gridCellColumns(2)
                 }
+            }
+            Spacer(minLength: 0)
+            testFooter(tester.v3, enabled: tester.hostAddress != nil && !draft.v3User.isEmpty) {
+                tester.testV3(testV3)
             }
         }
     }
