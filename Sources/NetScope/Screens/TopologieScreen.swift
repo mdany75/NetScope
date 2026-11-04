@@ -6,6 +6,7 @@ import SwiftUI
 struct TopologieScreen: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var model = InvModel.shared
+    @ObservedObject private var scan = ScanController.shared
 
     @State private var selectedID: String?
     /// nil : la carte s'ajuste à la place disponible.
@@ -13,13 +14,24 @@ struct TopologieScreen: View {
     @State private var fitScale: CGFloat = 1
     @State private var showEndDevices = true
     @State private var showPortLabels = true
+    /// Faux : seulement les appareils du dernier scan (les scans précédents, d'un autre site par
+    /// exemple, ne restent pas sur la carte).
+    @State private var includePrevious = false
+
+    /// Appareils dessinés : ceux du dernier scan, ou tous ceux que garde le Scanner.
+    private var mapDevices: [Device] {
+        includePrevious ? state.devices : TopoScope.lastScan(state.devices, since: scan.startedAt, ranges: scan.lastScanRanges)
+    }
+
+    /// Appareils gardés par le Scanner mais absents du dernier scan.
+    private var hiddenCount: Int { state.devices.count - TopoScope.lastScan(state.devices, since: scan.startedAt, ranges: scan.lastScanRanges).count }
 
     var body: some View {
-        let graph = TopoGraph.build(devices: model.withManualTypes(state.devices), gateway: state.activeInterface?.gateway,
+        let graph = TopoGraph.build(devices: model.withManualTypes(mapDevices), gateway: state.activeInterface?.gateway,
                                     conflictIPs: model.store.conflictIPs)
 
         Group {
-            if state.devices.isEmpty {
+            if mapDevices.isEmpty {
                 EmptyState(systemImage: Screen.carte.symbol, title: "Aucun appareil à placer sur la carte",
                            message: "La carte se construit à partir du dernier scan : passerelle, switchs, points d’accès et groupes d’appareils par type.") {
                     Button { state.open(.scanner) } label: { Label("Ouvrir le scanner", systemImage: "magnifyingglass") }
@@ -51,7 +63,7 @@ struct TopologieScreen: View {
     // MARK: Indicateurs
 
     private func tiles(_ graph: TopoGraph) -> some View {
-        let devices = state.devices
+        let devices = mapDevices
         let online = devices.filter(\.isOnline).count
         let switches = graph.nodes.filter { $0.kind == .switch && !$0.isInferred }.count
         let inferred = graph.nodes.filter { $0.kind == .switch && $0.isInferred && $0.id != "sw:?" }.count
@@ -134,6 +146,11 @@ struct TopologieScreen: View {
                     Text("CALQUES").font(Theme.captionSemibold).foregroundStyle(Theme.textSecondary)
                     Toggle("Appareils finaux", isOn: $showEndDevices).toggleStyle(.checkbox).font(Theme.small)
                     Toggle("Ports", isOn: $showPortLabels).toggleStyle(.checkbox).font(Theme.small)
+                    if includePrevious || hiddenCount > 0 {
+                        Toggle("Scans précédents", isOn: $includePrevious).toggleStyle(.checkbox).font(Theme.small)
+                            .help(includePrevious ? "Tous les appareils gardés par le Scanner, scans précédents compris"
+                                  : "\(hiddenCount) appareil\(hiddenCount > 1 ? "s" : "") des scans précédents (autre plage ou autre site) masqué\(hiddenCount > 1 ? "s" : "")")
+                    }
                 }
                 .fixedSize()
                 Spacer()

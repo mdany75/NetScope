@@ -35,6 +35,8 @@ final class ScanController: ObservableObject {
     @Published private(set) var plannedPhases: [ScanPhase] = []
     @Published private(set) var startedAt: Date?
     @Published private(set) var finishedAt: Date?
+    /// Plages du dernier scan lancé (la Carte du réseau ne montre que ses appareils).
+    @Published private(set) var lastScanRanges: [IPRange] = []
     @Published private(set) var status: [UUID: RangeStatus] = [:]
     /// Appareils apparus depuis le scan précédent (vide au tout premier scan).
     @Published private(set) var newIDs: Set<Device.ID> = []
@@ -199,6 +201,7 @@ final class ScanController: ObservableObject {
         })
         startedAt = begin
         finishedAt = nil
+        lastScanRanges = targets.map(\.range)
         isRunning = true
         phase = .ping
         // Lecture de la FortiGate en fin de scan : phase « Emplacements » même sans SNMP.
@@ -341,6 +344,7 @@ final class ScanController: ObservableObject {
         latencyHistory = [:]
         startedAt = nil
         finishedAt = nil
+        lastScanRanges = []
         SwitchStore.shared.clearResult()
     }
 

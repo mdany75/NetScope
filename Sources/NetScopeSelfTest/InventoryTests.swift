@@ -290,6 +290,23 @@ func registerInventoryTests(_ suite: TestSuite) {
         try expectEqual(old.cells[2].state, .libre,"hors ligne ancien : libre")
     }
 
+    suite.add("Carte du réseau : seulement le dernier scan (anciens appareils d’un autre site masqués)") {
+        let scanStart = t0.addingTimeInterval(3600)
+        let siteA = try IPRange(parsing: "10.20.0.0/24")
+        let devices = [
+            dev("10.10.0.5", "00:11:22:33:44:01", sw: "FSW-SIEGE", seen: t0),
+            dev("10.20.0.5", "00:11:22:33:44:02", sw: "FSW-LAVAL", seen: scanStart.addingTimeInterval(5)),
+            dev("10.20.0.6", "00:11:22:33:44:03", online: false, seen: t0),
+        ]
+        let kept = TopoScope.lastScan(devices, since: scanStart, ranges: [siteA])
+        try expectEqual(kept.map(\.ip.description), ["10.20.0.5"], "seul l’appareil du dernier scan reste")
+        let graph = TopoGraph.build(devices: kept, gateway: nil)
+        try expect(graph.node("sw:fsw-siege") == nil, "le switch de l’ancien site n’est plus sur la carte")
+        try expect(graph.node("sw:fsw-laval") != nil, "le switch du dernier scan est sur la carte")
+        try expectEqual(TopoScope.lastScan(devices, since: nil, ranges: []).count, 3, "sans scan connu : tout est gardé")
+        try expectEqual(TopoScope.lastScan(devices, since: scanStart, ranges: []).count, 1, "sans plage connue : filtre par date")
+    }
+
     suite.add("Carte du réseau : hiérarchie passerelle → switchs → groupes") {
         let devices = [
             dev("10.0.0.1", "04:D5:90:3A:7B:11", host: "FortiGate-60F", sw: "SW-CORE-01", port: "Gi1/0/1", type: .routeur),
