@@ -14,6 +14,8 @@ struct RegSwitchesSection: View {
     @State private var reveal = false
     @State private var loaded = false
     @State private var message: (text: String, tone: Tone)?
+    @StateObject private var switchTable = RegKnownSwitchTable.makeModel()
+    @StateObject private var ignoredTable = RegIgnoredSwitchTable.makeModel()
 
     var body: some View {
         RegPanel(title: "Switchs interrogés",
@@ -95,13 +97,14 @@ struct RegSwitchesSection: View {
 
     @ViewBuilder private var knownSwitches: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
+            HStack(spacing: 10) {
                 RegLabel("Switchs connus")
                 Spacer()
                 if let result = store.autoResult {
                     Text("Dernière découverte\u{00A0}: \(SwitchText.dateTime(result.date))")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 }
+                if !store.hosts.isEmpty { StandardColumnsMenu(model: switchTable) }
             }
             if store.rememberedCommunities > 0 {
                 HStack(spacing: 8) {
@@ -116,49 +119,20 @@ struct RegSwitchesSection: View {
                 Text("Aucun switch pour l’instant\u{00A0}: lancez un scan, les switchs qui répondent en SNMP s’ajouteront ici.")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
             } else {
-                ForEach(store.hosts, id: \.self) { host in
-                    row(host)
-                }
+                RegKnownSwitchTable(table: switchTable)
+                    .regTableFrame()
             }
             if !store.ignoredHosts.isEmpty {
-                RegLabel("Switchs écartés (jamais interrogés par la découverte)")
-                    .padding(.top, 8)
-                ForEach(store.ignoredHosts.sorted(), id: \.self) { host in
-                    HStack(spacing: 10) {
-                        Image(systemName: "nosign").font(.system(size: 13)).foregroundStyle(Theme.textSecondary)
-                        Text(host).font(Theme.mono(12)).foregroundStyle(Theme.textSecondary)
-                        Spacer(minLength: 8)
-                        Button("Ne plus ignorer") { store.unignore(host) }
-                            .buttonStyle(.secondary)
-                    }
-                    .padding(.vertical, 6)
-                    .overlay(alignment: .top) { Rectangle().fill(Theme.neutralSoft).frame(height: 1) }
+                HStack {
+                    RegLabel("Switchs écartés (jamais interrogés par la découverte)")
+                    Spacer(minLength: 8)
+                    StandardColumnsMenu(model: ignoredTable)
                 }
+                .padding(.top, 8)
+                RegIgnoredSwitchTable(table: ignoredTable)
+                    .regTableFrame()
             }
         }
-    }
-
-    private func row(_ host: String) -> some View {
-        let snapshot = store.snapshots[host]
-        return HStack(spacing: 10) {
-            Image(systemName: "rectangle.connected.to.line.below").font(.system(size: 13)).foregroundStyle(Theme.textSecondary)
-            Text(snapshot?.displayName ?? host).font(Theme.mono(13, weight: .semibold)).foregroundStyle(Theme.text)
-            Text(host).font(Theme.mono(12)).foregroundStyle(Theme.textSecondary)
-            if let snapshot { Text(SwitchText.model(snapshot)).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1) }
-            Spacer(minLength: 8)
-            if store.isAutoDiscovered(host) {
-                Chip(text: "Découvert automatiquement", tone: .accent)
-            } else {
-                Chip(text: "Ajouté à la main", tone: .neutral)
-            }
-            if store.errors[host] != nil {
-                Chip(text: "Sans réponse", tone: .critical)
-            } else if snapshot != nil {
-                Chip(text: "Relevé", tone: .success)
-            }
-        }
-        .padding(.vertical, 8)
-        .overlay(alignment: .top) { Rectangle().fill(Theme.neutralSoft).frame(height: 1) }
     }
 
     // MARK: Trousseau
