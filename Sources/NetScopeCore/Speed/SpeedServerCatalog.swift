@@ -19,8 +19,8 @@ public enum SpeedServerCatalog {
 
     /// Charge les listes et mesure la latence (connexions TCP, 8 serveurs à la fois).
     /// `ooklaPath` : CLI d'Ookla vérifié, ou nil pour ne pas le lancer.
-    public static func load(ooklaPath: String? = nil, extra: [SpeedServer] = [],
-                            progress: (@Sendable (String) -> Void)? = nil) async -> Result {
+    public static func load(ooklaPath: String? = nil, extra: [SpeedServer] = [], probes: Int = 3,
+                            timeout: TimeInterval = 1.5, progress: (@Sendable (String) -> Void)? = nil) async -> Result {
         let session = URLSession(configuration: SpeedTester.sessionConfiguration())
         defer { session.invalidateAndCancel() }
         var servers: [SpeedServer] = [.cloudflare]
@@ -58,12 +58,13 @@ public enum SpeedServerCatalog {
         if Task.isCancelled { return Result(servers: servers, failures: failures) }
 
         progress?("Mesure de la latence de \(servers.count) serveurs…")
-        let measured = await measureLatency(servers)
+        let measured = await measureLatency(servers, probes: probes, timeout: timeout)
         return Result(servers: measured, failures: failures)
     }
 
     /// Mesure la latence (TCP) de chaque serveur qui a un hôte, 8 à la fois.
-    public static func measureLatency(_ servers: [SpeedServer], width: Int = 8) async -> [SpeedServer] {
+    public static func measureLatency(_ servers: [SpeedServer], width: Int = 8, probes: Int = 3,
+                                      timeout: TimeInterval = 1.5) async -> [SpeedServer] {
         var result = servers
         await withTaskGroup(of: (Int, Double?).self) { group in
             var next = 0
@@ -72,7 +73,7 @@ public enum SpeedServerCatalog {
                     let index = next
                     next += 1
                     guard let host = servers[index].host, let port = UInt16(exactly: servers[index].port ?? 443) else { continue }
-                    group.addTask { (index, await SpeedLatencyProbe.median(host: host, port: port, count: 3, timeout: 1.5)) }
+                    group.addTask { (index, await SpeedLatencyProbe.median(host: host, port: port, count: probes, timeout: timeout)) }
                     return
                 }
             }

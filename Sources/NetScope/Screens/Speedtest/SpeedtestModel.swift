@@ -179,7 +179,7 @@ final class SpeedtestModel: ObservableObject {
             if server == nil {
                 if self.catalogIsStale {
                     self.preparingServer = true
-                    await self.loadCatalog(includeOokla: false)
+                    await self.loadCatalog(includeOokla: false, quick: true)
                     self.preparingServer = false
                     if Task.isCancelled { return }
                 }
@@ -278,7 +278,6 @@ final class SpeedtestModel: ObservableObject {
         guard !runState.isRunning else { return }
         serverPrefs.selectedID = server?.id ?? SpeedServerPrefs.automaticID
         serverPrefs.selected = server?.stored
-        if let server, !server.source.supportsStreams { streams = 1 } else if streams == 1, server == nil { streams = 4 }
         saveServers()
     }
 
@@ -316,7 +315,8 @@ final class SpeedtestModel: ObservableObject {
         }
     }
 
-    private func loadCatalog(includeOokla: Bool) async {
+    /// `quick` : une seule connexion par serveur (choix automatique juste avant un test).
+    private func loadCatalog(includeOokla: Bool, quick: Bool = false) async {
         guard !Launcher.isDemo else { return }
         catalogLoading = true
         catalogStatus = "Chargement de la liste des serveurs…"
@@ -324,7 +324,8 @@ final class SpeedtestModel: ObservableObject {
         let status: @Sendable (String) -> Void = { text in
             Task { @MainActor in SpeedtestModel.shared.catalogStatus = text }
         }
-        let result = await SpeedServerCatalog.load(ooklaPath: includeOokla ? ooklaPath : nil, extra: extra, progress: status)
+        let result = await SpeedServerCatalog.load(ooklaPath: includeOokla ? ooklaPath : nil, extra: extra,
+                                                   probes: quick ? 1 : 3, timeout: quick ? 1 : 1.5, progress: status)
         // Les serveurs Ookla déjà listés restent si on recharge sans eux (test automatique).
         let keptOokla = includeOokla ? [] : catalog.filter { $0.source == .ookla }
         catalog = result.servers + keptOokla.filter { item in !result.servers.contains { $0.id == item.id } }

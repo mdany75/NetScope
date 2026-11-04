@@ -20,6 +20,8 @@ struct SpeedServersView: View {
                 sourcesPanel
             }
         }
+        // CLI d'Ookla installé depuis l'encadré : le vérifier (« Speedtest by Ookla ») et l'ajouter à la liste.
+        .onChange(of: ookla.presence) { _, _ in model.refreshOokla() }
     }
 
     // MARK: Liste
@@ -206,12 +208,20 @@ struct SpeedServersView: View {
                 sourceLine("Cloudflare", "HTTP multi-flux, nœud anycast le plus proche.")
                 sourceLine("M-Lab", "NDT7 (WebSocket, 1 flux), mesures ouvertes de Measurement Lab ; résultats publiés en données ouvertes par M-Lab.")
                 sourceLine("LibreSpeed", "Serveurs libres, souvent hébergés par des fournisseurs.")
-                sourceLine("Ookla", ookla.presence.isInstalled
+                sourceLine("Ookla", model.ooklaPath != nil
                            ? "CLI officiel installé. " + OoklaLocator.licenseNote
                            : "Pas d’API publique libre : NetScope lance le CLI officiel d’Ookla s’il est installé.")
-                if ookla.presence.isInstalled {
+                if model.ooklaPath != nil {
                     Link(destination: OoklaLocator.licenseURL) {
                         Label("Licence d’Ookla", systemImage: "arrow.up.right.square")
+                    }
+                    .font(Theme.small)
+                } else if ookla.presence.isInstalled {
+                    // Un « speedtest » est là, mais ce n'est pas celui d'Ookla (speedtest-cli en Python).
+                    SpeedBanner(text: "L’outil « speedtest » installé n’est pas le CLI d’Ookla (speedtest-cli ?). Installez « \(InstallableTool.ooklaSpeedtest.displayCommand) ».",
+                                tone: .neutral, systemImage: "info.circle")
+                    Link(destination: OoklaLocator.downloadURL) {
+                        Label(InstallableTool.ooklaSpeedtest.officialLabel, systemImage: "arrow.up.right.square")
                     }
                     .font(Theme.small)
                 } else {
