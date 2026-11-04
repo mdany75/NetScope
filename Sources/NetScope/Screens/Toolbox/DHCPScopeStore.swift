@@ -97,7 +97,11 @@ final class DHCPScopeStore: ObservableObject {
     /// Relecture des FortiGate choisies pour les switchs (appelée par FortiGateStore).
     func refresh(selection chosen: FortiControllerSelection) {
         task?.cancel()
-        task = Task { [weak self] in await self?.read(chosen) }
+        // Génération prise ici, avant la tâche : une ancienne lecture annulée qui reprend ensuite ne
+        // peut plus remettre « busy » ni « task » à zéro pendant la nouvelle.
+        generation += 1
+        let mine = generation
+        task = Task { [weak self] in await self?.read(chosen, generation: mine) }
     }
 
     /// Changement de site : seules les étendues des FortiGate du nouveau site restent (rien n'est
@@ -139,14 +143,15 @@ final class DHCPScopeStore: ObservableObject {
         }
         let chosen = state.map { FortiGateStore.shared.previewSelection(state: $0) } ?? FortiGateStore.shared.selection
         guard !chosen.isEmpty else { return }
-        let next: Task<Void, Never> = Task { [weak self] in await self?.read(chosen) }
+        generation += 1
+        let mine = generation
+        let next: Task<Void, Never> = Task { [weak self] in await self?.read(chosen, generation: mine) }
         task = next
         await next.value
     }
 
-    private func read(_ chosen: FortiControllerSelection) async {
-        generation += 1
-        let mine = generation
+    private func read(_ chosen: FortiControllerSelection, generation mine: Int) async {
+        guard mine == generation else { return }
         busy = true
         defer {
             if mine == generation {

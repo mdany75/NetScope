@@ -184,6 +184,12 @@ func registerVoIPTests(_ suite: TestSuite) {
         moved.vlan = 1
         let after = VoIPDetector.apply(VoIPHints(voiceVLANs: [20]), to: [moved]).devices[0]
         try expectEqual(after.voipSignals, [.announcedPhone], "hors du VLAN voix : l'annonce LLDP reste")
+        // Plus aucun VLAN voix connu : l'indice est retiré et le classement refait.
+        let stale = Device(ip: IPv4Address("10.0.0.90")!, vlan: 20, deviceType: .telephoneIP, voipSignals: [.voiceVLAN])
+        let cleared = VoIPDetector.apply(VoIPHints(), to: [stale])
+        try expectEqual(cleared.changed, 1, "appareil changé")
+        try expectEqual(cleared.devices[0].voipSignals, nil, "indice « VLAN voix » retiré")
+        try expect(cleared.devices[0].deviceType != .telephoneIP, "plus classé téléphone IP")
     }
 
     suite.add("Téléphone IP : import CSV et anciens fichiers") {

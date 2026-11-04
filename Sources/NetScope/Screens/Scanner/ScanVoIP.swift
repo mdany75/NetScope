@@ -11,7 +11,7 @@ extension ScanController {
         let hints = VoIPDetector.hints(snapshots: Array(SwitchStore.shared.snapshots.values),
                                        neighbors: ToolStore.shared.neighbors.neighbors,
                                        ranges: state.ranges, devices: state.devices)
-        guard !hints.isEmpty else { return 0 }
+        // Appliqué même sans indice : l'indice « VLAN voix » d'un VLAN qui n'est plus connu est retiré.
         let result = VoIPDetector.apply(hints, to: state.devices)
         if result.changed > 0 { state.devices = result.devices }
         return result.changed

@@ -21,7 +21,7 @@ public enum DHCPScopeAnalysis {
         var byServer: [Int: [DHCPLeaseEntry]] = [:]
         let ids = Set(servers.map(\.id))
         let interfaceOwners = Dictionary(grouping: servers, by: { $0.interface.lowercased() })
-        let pools = Dictionary(uniqueKeysWithValues: servers.map { ($0.id, pool(of: $0)) })
+        let pools = Dictionary(servers.map { ($0.id, pool(of: $0)) }, uniquingKeysWith: { first, _ in first })
         for lease in report.leases where lease.isActive(at: now) {
             if let id = lease.serverID, ids.contains(id) {
                 byServer[id, default: []].append(lease)
@@ -63,6 +63,7 @@ public enum DHCPScopeAnalysis {
         var usedIPs = Set<UInt32>()
         var reservedIPs = Set<UInt32>()
         var reservationsOutside = 0
+        var outsideReserved = Set<UInt32>()
         let reservations = server.reservations.filter(\.holdsAddress)
         let active = leases.filter { $0.isActive(at: now) }
         // Bail actif de chaque adresse (le premier lu).
@@ -72,6 +73,8 @@ public enum DHCPScopeAnalysis {
         var reservationsInUse = 0
         for reservation in reservations {
             guard pool.contains(reservation.ip) else {
+                // Réservation hors plage recopiée : montrée et comptée une seule fois.
+                guard outsideReserved.insert(reservation.ip.value).inserted else { continue }
                 reservationsOutside += 1
                 entries.append(DHCPScopeEntry(ip: reservation.ip, mac: reservation.mac, hostname: reservation.description, kind: .reservationOutside))
                 continue

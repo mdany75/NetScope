@@ -151,7 +151,15 @@ final class RegBackupController: ObservableObject {
 
     private func runIfDue() {
         guard automatic, !isWorking, pendingRestore == nil, BackupEngine.isAutomaticBackupDue(last: lastBackup) else { return }
-        Task { await backup(kind: .automatique, encryption: scheduledEncryption()) }
+        Task {
+            let encryption = await scheduledEncryption()
+            if encrypt, encryption == nil {
+                // Chiffrement choisi sans mot de passe mémorisé : jamais de sauvegarde en clair à sa place.
+                message = ("Sauvegarde automatique suspendue\u{00A0}: mémorisez le mot de passe des sauvegardes chiffrées (faites «\u{00A0}Sauvegarder maintenant\u{00A0}» et cochez «\u{00A0}Mémoriser dans le Trousseau\u{00A0}»).", .warning)
+                return
+            }
+            await backup(kind: .automatique, encryption: encryption)
+        }
     }
 
     func backupNow() {
@@ -160,13 +168,15 @@ final class RegBackupController: ObservableObject {
             return
         }
         guard !isWorking else { return }
-        let encryption = scheduledEncryption()
-        if encrypt, encryption == nil {
-            // Aucun mot de passe mémorisé (ou illisible) : il est demandé, jamais de repli en clair.
-            passwordRequest = .backupNow
-            return
+        Task {
+            let encryption = await scheduledEncryption()
+            if encrypt, encryption == nil {
+                // Aucun mot de passe mémorisé (ou illisible) : il est demandé, jamais de repli en clair.
+                passwordRequest = .backupNow
+                return
+            }
+            await backup(kind: .manuelle, encryption: encryption)
         }
-        Task { await backup(kind: .manuelle, encryption: encryption) }
     }
 
     // MARK: Chiffrement (note 38)
@@ -180,8 +190,12 @@ final class RegBackupController: ObservableObject {
     /// Chiffrement des sauvegardes faites sans feuille (automatique, sécurité, « Sauvegarder
     /// maintenant » avec un mot de passe mémorisé) : seulement si un mot de passe est mémorisé ;
     /// sinon la sauvegarde habituelle, sans secret.
-    private func scheduledEncryption() -> BackupEncryption? {
-        guard encrypt, let password = Self.storedPassword() else { return nil }
+    /// La lecture du Trousseau se fait hors du fil principal : une demande d'accord de macOS ne
+    /// bloque pas l'interface.
+    private func scheduledEncryption() async -> BackupEncryption? {
+        guard encrypt else { return nil }
+        let password = await Task.detached(priority: .userInitiated) { Self.storedPassword() }.value
+        guard let password else { return nil }
         return BackupEncryption(password: password, includeSecrets: includeSecrets)
     }
 
@@ -264,7 +278,9 @@ final class RegBackupController: ObservableObject {
         InvModel.shared.flushPendingWrites()
         let folder = target ?? self.folder
         let format = chosen ?? self.format
-        let copyToICloud = self.copyToICloud && target == nil
+        // Chiffrement choisi mais sauvegarde en clair (sauvegarde de sécurité sans mot de passe
+        // mémorisé) : elle reste sur ce Mac, jamais copiée dans iCloud.
+        let copyToICloud = self.copyToICloud && target == nil && !(encrypt && encryption == nil)
         do {
             let info = try await Task.detached(priority: .utility) { () throws -> BackupInfo in
                 let source = Self.makeSource(includingSecrets: encryption?.includeSecrets == true)
@@ -373,12 +389,14 @@ final class RegBackupController: ObservableObject {
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
         guard !isWorking, panel.runModal() == .OK, let url = panel.url else { return }
-        let encryption = scheduledEncryption()
-        if encrypt, encryption == nil {
-            passwordRequest = .export(url)
-            return
+        Task {
+            let encryption = await scheduledEncryption()
+            if encrypt, encryption == nil {
+                passwordRequest = .export(url)
+                return
+            }
+            await backup(kind: .manuelle, to: url, format: .zip, encryption: encryption)
         }
-        Task { await backup(kind: .manuelle, to: url, format: .zip, encryption: encryption) }
     }
 
     /// Choix d'une sauvegarde hors du dossier (autre Mac, clé USB), à restaurer.
@@ -426,10 +444,11 @@ final class RegBackupController: ObservableObject {
                 message = (error.localizedDescription, .critical)
                 return
             }
-            guard await backup(kind: .securite, encryption: scheduledEncryption()) != nil else {
+            guard await backup(kind: .securite, encryption: await scheduledEncryption()) != nil else {
                 message = ("Restauration annulée\u{00A0}: la sauvegarde de sécurité de l’état actuel a échoué.", .critical)
                 return
             }
+            discardTemporaryPending()
             defaults?.set(info.url.path, forKey: Key.pending)
             defaults?.removeObject(forKey: Key.pendingIsTemporary)
             defaults?.removeObject(forKey: Key.restoredSecrets)
@@ -459,7 +478,7 @@ final class RegBackupController: ObservableObject {
             return
         }
         Task {
-            guard await backup(kind: .securite, encryption: scheduledEncryption()) != nil else {
+            guard await backup(kind: .securite, encryption: await scheduledEncryption()) != nil else {
                 message = ("Restauration annulée\u{00A0}: la sauvegarde de sécurité de l’état actuel a échoué.", .critical)
                 return
             }
@@ -489,6 +508,14 @@ final class RegBackupController: ObservableObject {
             pendingRestore = staged.path
             if message?.tone != .warning { relaunch() }
         }
+    }
+
+    /// Archive en clair tirée d'une sauvegarde chiffrée et restée en attente (secrets non remis,
+    /// pas de redémarrage) : effacée avant qu'une autre restauration ne la remplace.
+    private func discardTemporaryPending() {
+        guard let defaults, defaults.bool(forKey: Key.pendingIsTemporary) else { return }
+        if let path = defaults.string(forKey: Key.pending) { try? FileManager.default.removeItem(atPath: path) }
+        defaults.removeObject(forKey: Key.pendingIsTemporary)
     }
 
     /// Relance NetScope (application installée) ; avec `swift run`, demande de rouvrir à la main.

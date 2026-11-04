@@ -255,15 +255,20 @@ public enum VoIPDetector {
             var signals = device.voipSignals ?? []
             if let mac = device.mac, hints.phoneMACs.contains(mac) { signals.insert(.announcedPhone) }
             if hints.phoneIPs.contains(device.ip) { signals.insert(.announcedPhone) }
-            if !hints.voiceVLANs.isEmpty {
-                if let vlan = device.vlan, hints.voiceVLANs.contains(vlan) { signals.insert(.voiceVLAN) } else { signals.remove(.voiceVLAN) }
-            }
+            // Plus aucun VLAN voix connu (plage « Voix » renommée, voisins disparus) : l'indice est
+            // retiré aussi ; « téléphone annoncé » reste, volontairement.
+            if let vlan = device.vlan, hints.voiceVLANs.contains(vlan) { signals.insert(.voiceVLAN) } else { signals.remove(.voiceVLAN) }
             let stored: VoIPSignals? = signals.isEmpty ? nil : signals
             guard stored != device.voipSignals else { return device }
             var copy = device
             copy.voipSignals = stored
             let guessed = ScanDeviceClassifier.guess(copy)
-            if guessed != .inconnu { copy.deviceType = guessed }
+            if guessed != .inconnu {
+                copy.deviceType = guessed
+            } else if copy.deviceType == .telephoneIP {
+                // Classé téléphone pour une raison qui n'existe plus.
+                copy.deviceType = .inconnu
+            }
             changed += 1
             return copy
         }

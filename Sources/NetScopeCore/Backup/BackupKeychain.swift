@@ -7,6 +7,12 @@ import Security
 public enum BackupKeychainScan {
     public static let servicePrefix = "com.danymenard.netscope"
 
+    /// Service de NetScope : « com.danymenard.netscope. » suivi d'un nom. Même règle à la lecture
+    /// qu'à la restauration (« com.danymenard.netscope-beta » ou un service sans suffixe n'en sont pas).
+    public static func isOwnService(_ service: String) -> Bool {
+        service.hasPrefix(servicePrefix + ".") && service.count > servicePrefix.count + 1
+    }
+
     public static func items() -> [BackupKeychainItem] {
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                     kSecMatchLimit as String: kSecMatchLimitAll,
@@ -16,7 +22,7 @@ public enum BackupKeychainScan {
               let list = result as? [[String: Any]] else { return [] }
         var items: [BackupKeychainItem] = []
         for attributes in list {
-            guard let service = attributes[kSecAttrService as String] as? String, service.hasPrefix(servicePrefix) else { continue }
+            guard let service = attributes[kSecAttrService as String] as? String, isOwnService(service) else { continue }
             let account = attributes[kSecAttrAccount as String] as? String ?? ""
             items.append(BackupKeychainItem(service: service, account: account, usage: usage(for: service)))
         }
@@ -75,7 +81,7 @@ public struct BackupKeychainSecrets: BackupSecretStore {
     }
 
     public func write(_ secret: BackupSecret) throws {
-        guard secret.service.hasPrefix(BackupKeychainScan.servicePrefix + "."), secret.service != BackupPasswordKeychain.service else {
+        guard BackupKeychainScan.isOwnService(secret.service), secret.service != BackupPasswordKeychain.service else {
             throw BackupError.corrupted("service « \(secret.service) » refusé")
         }
         let base: [String: Any] = [kSecClass as String: kSecClassGenericPassword,

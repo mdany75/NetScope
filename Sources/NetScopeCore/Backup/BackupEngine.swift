@@ -350,7 +350,9 @@ public enum BackupEngine {
                               date: Date = Date(), encryption: BackupEncryption? = nil) throws -> BackupInfo {
         if let encryption, encryption.password.isEmpty { throw BackupCryptoError.emptyPassword }
         let format: BackupFormat = encryption != nil ? .chiffree : (requested == .chiffree ? .zip : requested)
-        let secrets = encryption?.includeSecrets == true ? source.secrets.sorted { ($0.service, $0.account) < ($1.service, $1.account) } : []
+        // Seuls les services de NetScope sont rangés (la règle de la restauration) : un service
+        // étranger rendrait toute la sauvegarde impossible à restaurer.
+        let secrets = encryption?.includeSecrets == true ? source.secrets.filter { BackupKeychainScan.isOwnService($0.service) }.sorted { ($0.service, $0.account) < ($1.service, $1.account) } : []
         let manager = FileManager.default
         try manager.createDirectory(at: folder, withIntermediateDirectories: true)
         let (paths, skippedPaths) = dataFiles(in: source.dataDirectory)
@@ -567,7 +569,7 @@ public enum BackupEngine {
                 secrets = decoded
             }
             guard secrets.map(\.item) == (manifest.secrets ?? []), secrets.count == header.secretCount else { throw BackupCryptoError.tampered }
-            guard secrets.allSatisfy({ $0.service.hasPrefix(BackupKeychainScan.servicePrefix + ".") }) else {
+            guard secrets.allSatisfy({ BackupKeychainScan.isOwnService($0.service) }) else {
                 throw BackupError.corrupted("secret d’un autre service refusé")
             }
         }

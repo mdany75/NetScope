@@ -146,16 +146,12 @@ struct TopoSearchBand: View {
     }
 
     private func stepButton(_ symbol: String, _ help: String, delta: Int) -> some View {
-        Button { actions.step(delta) } label: {
-            Image(systemName: symbol).font(.system(size: 10.5, weight: .bold))
-                .frame(width: 24, height: 22)
-                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
-                .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(help)
-        .accessibilityLabel(help)
+        // Même style que les flèches du panneau de détail (état enfoncé et désactivé natifs).
+        Button { actions.step(delta) } label: { Image(systemName: symbol) }
+            .buttonStyle(.secondary)
+            .controlSize(.small)
+            .help(help)
+            .accessibilityLabel(help)
     }
 }
 

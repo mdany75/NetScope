@@ -38,10 +38,24 @@ public enum MonDHCPScopeChecks {
         let chosen = DHCPScopeAnalysis.relevel(targets(target, in: overview), thresholds: thresholds)
         guard !chosen.isEmpty else {
             return MonRunOutcome(result: MonResult(date: now, reachable: true, value: "Étendue introuvable",
-                                                   problem: "Aucune étendue DHCP «\u{00A0}\(target)\u{00A0}» dans la lecture de la FortiGate"))
+                                                   problem: "Aucune étendue DHCP «\u{00A0}\(target)\u{00A0}» dans "
+                                                       + (overview.isEstimate ? "l’estimation du Test DHCP" : "la lecture de la FortiGate")))
         }
         let active = chosen.filter { $0.level != .inactive }
-        guard !active.isEmpty else { return .noData(now, chosen.count == 1 ? "Étendue désactivée" : "Étendues désactivées") }
+        guard !active.isEmpty else {
+            // Serveur désactivé ou serveur actif à la plage vide : distingués, comme dans l'outil.
+            let disabled = chosen.allSatisfy { !$0.enabled }
+            let empty = chosen.allSatisfy { $0.enabled }
+            let text: String
+            if disabled {
+                text = chosen.count == 1 ? "Étendue désactivée" : "Étendues désactivées"
+            } else if empty {
+                text = chosen.count == 1 ? "Plage vide" : "Plages vides"
+            } else {
+                text = "Étendues désactivées ou vides"
+            }
+            return .noData(now, text)
+        }
         let prefix = overview.isEstimate ? "Estimation · " : ""
         let worst = active.max { ($0.level, $0.percent) < ($1.level, $1.percent) }!
         let value: String

@@ -11,11 +11,16 @@ struct DHCPScopesView: View {
     @ObservedObject private var scopes = DHCPScopeStore.shared
     @ObservedObject private var dhcp = ToolStore.shared.dhcp
     @ObservedObject private var fortigate = FortiGateStore.shared
+    /// Observé pour que « Ajouter au rapport » passe tout de suite à « Dans le rapport ».
+    @ObservedObject private var rapport = RapportModel.shared
     @StateObject private var table = DHCPScopeRow.makeModel()
     @StateObject private var entryTable = DHCPScopeEntryRow.makeModel()
     @State private var warningText: String?
     @State private var criticalText: String?
     @State private var soonText: String?
+    @FocusState private var thresholdFocus: ThresholdField?
+
+    private enum ThresholdField { case warning, critical }
     @State private var entrySelection: String?
     /// Petite fenêtre : tableaux à colonnes réduites.
     @State private var isCompact = false
@@ -104,14 +109,18 @@ struct DHCPScopesView: View {
 
     private var thresholdFields: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            percentField("Avertissement", text: $warningText, value: scopes.thresholds.warningPercent) { value in
+            // Pendant la saisie, seule une valeur cohérente avec l'autre seuil est appliquée ; l'autre
+            // seuil n'est ajusté qu'à la validation (Retour ou focus perdu).
+            percentField("Avertissement", text: $warningText, value: scopes.thresholds.warningPercent, field: .warning) { value in
                 let t = scopes.thresholds
-                scopes.thresholds = DHCPScopeThresholds(warningPercent: value, criticalPercent: max(value, t.criticalPercent),
+                guard value <= t.criticalPercent else { return }
+                scopes.thresholds = DHCPScopeThresholds(warningPercent: value, criticalPercent: t.criticalPercent,
                                                         expiringMinutes: t.expiringMinutes)
             }
-            percentField("Critique", text: $criticalText, value: scopes.thresholds.criticalPercent) { value in
+            percentField("Critique", text: $criticalText, value: scopes.thresholds.criticalPercent, field: .critical) { value in
                 let t = scopes.thresholds
-                scopes.thresholds = DHCPScopeThresholds(warningPercent: min(t.warningPercent, value), criticalPercent: value,
+                guard value >= t.warningPercent else { return }
+                scopes.thresholds = DHCPScopeThresholds(warningPercent: t.warningPercent, criticalPercent: value,
                                                         expiringMinutes: t.expiringMinutes)
             }
             ToolLabeledField(label: "Expire bientôt") {
@@ -131,21 +140,50 @@ struct DHCPScopesView: View {
         }
     }
 
-    private func percentField(_ label: String, text: Binding<String?>, value: Double,
+    private func percentField(_ label: String, text: Binding<String?>, value: Double, field: ThresholdField,
                               apply: @escaping (Double) -> Void) -> some View {
         ToolLabeledField(label: label) {
             HStack(spacing: 4) {
                 ToolTextField(placeholder: MonFormat.number(value), text: Binding(get: { text.wrappedValue ?? MonFormat.number(value) }, set: { typed in
                     text.wrappedValue = typed
-                    guard let v = Double(typed.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")),
-                          v > 0, v <= 100 else { return }
+                    guard let v = Self.percent(typed) else { return }
                     apply(v)
-                }), height: 28)
+                }), height: 28, onSubmit: { commitThreshold(field) })
+                .focused($thresholdFocus, equals: field)
                 .frame(width: 48)
                 Text("%").font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize()
             }
         }
         .fixedSize()
+        .onChange(of: thresholdFocus) { previous, _ in
+            if previous == field { commitThreshold(field) }
+        }
+    }
+
+    private static func percent(_ text: String) -> Double? {
+        guard let v = Double(text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")),
+              v > 0, v <= 100 else { return nil }
+        return v
+    }
+
+    /// Validation d'un seuil : la valeur saisie l'emporte, l'autre seuil est ajusté au besoin, et les
+    /// deux champs réaffichent les valeurs enregistrées.
+    private func commitThreshold(_ field: ThresholdField) {
+        let t = scopes.thresholds
+        switch field {
+        case .warning:
+            if let text = warningText, let v = Self.percent(text) {
+                scopes.thresholds = DHCPScopeThresholds(warningPercent: v, criticalPercent: max(v, t.criticalPercent),
+                                                        expiringMinutes: t.expiringMinutes)
+            }
+        case .critical:
+            if let text = criticalText, let v = Self.percent(text) {
+                scopes.thresholds = DHCPScopeThresholds(warningPercent: min(t.warningPercent, v), criticalPercent: v,
+                                                        expiringMinutes: t.expiringMinutes)
+            }
+        }
+        warningText = nil
+        criticalText = nil
     }
 
     private var buttons: some View {
@@ -419,7 +457,7 @@ struct DHCPScopesView: View {
             ToolCell(key: "Adresses distribuables", value: "\(scope.poolSize)",
                      detail: scope.exclusions.isEmpty ? "aucune exclusion" : "exclusions\u{00A0}: " + scope.exclusions.map(\.description).joined(separator: ", ")),
             ToolCell(key: "Utilisées", value: scope.level == .inactive ? "—" : "\(scope.used) (\(scope.percentLabel))",
-                     detail: scope.isEstimate ? "appareils vus en ligne" : "\(scope.activeLeases) baux + \(scope.reservationsInPool) réservations"),
+                     detail: scope.isEstimate ? "appareils vus en ligne" : MonText.plural(scope.activeLeases, "bail", "baux") + " + " + MonText.plural(scope.reservationsInPool, "réservation", "réservations")),
             ToolCell(key: "Libres", value: scope.level == .inactive ? "—" : "\(scope.free)"),
         ]
         if !scope.isEstimate {
@@ -580,7 +618,7 @@ struct DHCPScopeGauge: View {
                     .lineLimit(1)
                     .fixedSize()
             }
-            .help("\(scope.used) adresses utilisées sur \(scope.poolSize) · \(scope.free) libres")
+            .help(MonText.plural(scope.used, "adresse utilisée", "adresses utilisées") + " sur \(scope.poolSize) · " + MonText.plural(scope.free, "libre", "libres"))
         }
     }
 }

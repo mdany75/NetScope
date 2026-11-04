@@ -9,7 +9,7 @@ enum ToolPortProfile: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .rapide: return "Rapide (30 courants)"
+        case .rapide: return "Rapide (\(ScanProfile.commonPorts.count) courants)"
         case .courant: return "Courant"
         case .complet: return "Complet"
         case .imprimantes: return "Imprimantes"

@@ -259,6 +259,27 @@ func registerBackupCryptoTests(_ suite: TestSuite) {
         }
     }
 
+    suite.add("Sauvegarde chiffrée : service de même préfixe sans point écarté, sauvegarde restaurable") {
+        let sandbox = try BackupSandbox()
+        defer { sandbox.remove() }
+        try expect(BackupKeychainScan.isOwnService("com.danymenard.netscope.snmp"), "service de NetScope")
+        try expect(!BackupKeychainScan.isOwnService("com.danymenard.netscope-dev"), "autre version de l'app")
+        try expect(!BackupKeychainScan.isOwnService("com.danymenard.netscope"), "préfixe seul")
+        let mac = MemorySecretStore()
+        for secret in F.secrets { try mac.write(secret) }
+        mac.values["com.danymenard.netscope-dev|jeton"] = Data("FICTIF-dev".utf8)
+        var source = try sandbox.source()
+        source.secrets = try mac.readSecrets()
+        let info = try BackupEngine.create(source, in: sandbox.backups, format: .zip, kind: .manuelle,
+                                           encryption: BackupEncryption(password: F.password, includeSecrets: true, iterations: F.iterations))
+        let contents = try BackupEngine.read(info.url, password: F.password)
+        try expect(!contents.secrets.contains { $0.service == "com.danymenard.netscope-dev" }, "service étranger non rangé")
+        try expectEqual(contents.secrets.count, F.secrets.count, "secrets de NetScope gardés")
+        try expectThrows(BackupCryptoError.emptyPassword, "mot de passe vide : erreur, pas de plantage") {
+            _ = try BackupCrypto.pbkdf2(password: "", salt: Data(repeating: 1, count: 16), iterations: F.iterations)
+        }
+    }
+
     suite.add("Sauvegarde chiffrée : ancienne sauvegarde non chiffrée toujours restaurable") {
         let sandbox = try BackupSandbox()
         defer { sandbox.remove() }

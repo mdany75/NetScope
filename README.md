@@ -13,7 +13,7 @@ Version 0.13.0 : les quatorze écrans fonctionnent, au style Mac (mode sombre, p
 
 - **Scanner multi-plages qui se remplit tout seul** : plusieurs plages à la fois, ping ICMP
   sans droits administrateur, table ARP, noms d’hôte (DNS inverse, mDNS/Bonjour, NetBIOS,
-  sysName SNMP, avec leur source), 20 ports essentiels sondés à chaque scan, fabricant, type
+  sysName SNMP, avec leur source), 22 ports essentiels sondés à chaque scan, fabricant, type
   d’appareil ; étapes visibles (Ping → Table ARP → Noms et ports → Switchs (SNMP) →
   Emplacements), filtres, tri, panneau de détail, export CSV.
 - **Fabricants d’après le registre IEEE complet** : environ 53 700 préfixes MAC (MA-L, MA-M

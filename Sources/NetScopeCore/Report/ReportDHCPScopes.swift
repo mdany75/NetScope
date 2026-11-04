@@ -63,7 +63,7 @@ extension ReportBuilder {
             cells += [ReportCell(s.interfaceLabel, tone: .muted),
                       ReportCell(s.compactRangesLabel),
                       ReportCell(s.level == .inactive ? "—" : s.usedLabel),
-                      ReportCell(s.level == .inactive ? "désactivée" : s.percentLabel, tone: s.level >= .warning ? s.level.reportTone : (s.level == .inactive ? .muted : .normal),
+                      ReportCell(s.level == .inactive ? (s.enabled ? "plage vide" : "désactivée") : s.percentLabel, tone: s.level >= .warning ? s.level.reportTone : (s.level == .inactive ? .muted : .normal),
                                  bar: s.level == .inactive ? nil : s.percent / 100),
                       ReportCell(s.isEstimate ? "—" : "\(s.reservationsInPool)"),
                       ReportCell(state, badge: s.isEstimate ? .neutral : s.level.reportTone)]

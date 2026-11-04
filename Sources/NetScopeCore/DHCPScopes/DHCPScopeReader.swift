@@ -24,9 +24,20 @@ public enum DHCPScopeParsers {
     public static func servers(_ data: Data) -> [DHCPServerConfig]? {
         guard let json = FortiJSON.parse(data) else { return nil }
         var result: [DHCPServerConfig] = []
-        for (index, item) in FortiJSON.objects(FortiJSON.results(json)).enumerated() {
+        var usedIDs = Set<Int>()
+        var nextSynthetic = -1
+        for item in FortiJSON.objects(FortiJSON.results(json)) {
             guard let interface = item.string("interface", "intf", "interface-name") else { continue }
-            let id = item.int("id", "q_origin_key", "mkey", "server-id", "_key") ?? index + 1
+            // Identifiant unique : celui de la réponse s'il est libre, sinon un identifiant négatif libre
+            // (id absent, ou réponse qui mélange deux VDOM).
+            let id: Int
+            if let read = item.int("id", "q_origin_key", "mkey", "server-id", "_key"), !usedIDs.contains(read) {
+                id = read
+            } else {
+                while usedIDs.contains(nextSynthetic) { nextSynthetic -= 1 }
+                id = nextSynthetic
+            }
+            usedIDs.insert(id)
             var ranges = item.list("ip-range", "ip_range", "iprange", "ranges").compactMap(range)
             // FortiOS 5.x et certaines exportations : « start-ip » / « end-ip » sur le serveur lui-même.
             if ranges.isEmpty, let single = range(item) { ranges = [single] }

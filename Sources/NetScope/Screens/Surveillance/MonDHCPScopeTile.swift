@@ -17,7 +17,7 @@ struct MonDHCPScopeTile: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 MonHeading("Étendues DHCP")
-                RegPill(text: pill(overview, alerting: alerting), tone: tone(alerting))
+                RegPill(text: pill(overview, alerting: alerting), tone: tone(overview, alerting: alerting))
                 Spacer(minLength: 4)
                 Button("Ouvrir l’outil") { open(nil) }
                     .buttonStyle(.plain)
@@ -66,9 +66,12 @@ struct MonDHCPScopeTile: View {
         return overview.isEstimate ? "Estimation" : "OK"
     }
 
-    private func tone(_ alerting: [DHCPScopeUsage]) -> Tone {
+    private func tone(_ overview: DHCPScopeOverview, alerting: [DHCPScopeUsage]) -> Tone {
+        // Aucune étendue lue : pas un état sain, pastille neutre.
+        if overview.scopes.isEmpty { return .neutral }
         if alerting.contains(where: { $0.level == .critical }) { return .critical }
-        return alerting.isEmpty ? .success : .warning
+        if !alerting.isEmpty { return .warning }
+        return overview.isEstimate ? .accent : .success
     }
 
     private func open(_ id: String?) {
@@ -113,6 +116,9 @@ struct MonDHCPScopeConditionFields: View {
     @Binding var probe: MonProbe
     @State private var warningText: String?
     @State private var criticalText: String?
+    @FocusState private var focus: Field?
+
+    private enum Field { case warning, critical }
 
     var body: some View {
         let t = probe.dhcpThresholds ?? .standard
@@ -121,26 +127,37 @@ struct MonDHCPScopeConditionFields: View {
                 Text("Alerte à").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
                 MonInput(placeholder: "80", text: Binding(get: { warningText ?? MonFormat.number(t.warningPercent) }, set: { text in
                     warningText = text
+                    // Pendant la saisie, seule une valeur cohérente avec l'autre seuil est appliquée ;
+                    // l'autre seuil n'est jamais touché avant la validation.
                     guard let v = Self.number(text) else { return }
                     let current = probe.dhcpThresholds ?? .standard
-                    probe.dhcpThresholds = DHCPScopeThresholds(warningPercent: v, criticalPercent: max(v, current.criticalPercent),
+                    guard v <= current.criticalPercent else { return }
+                    probe.dhcpThresholds = DHCPScopeThresholds(warningPercent: v, criticalPercent: current.criticalPercent,
                                                                expiringMinutes: current.expiringMinutes)
                 }), mono: true)
+                .focused($focus, equals: .warning)
+                .onSubmit { commit(.warning) }
                 .frame(width: 52)
                 Text("%, critique à").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
                 MonInput(placeholder: "95", text: Binding(get: { criticalText ?? MonFormat.number(t.criticalPercent) }, set: { text in
                     criticalText = text
                     guard let v = Self.number(text) else { return }
                     let current = probe.dhcpThresholds ?? .standard
-                    probe.dhcpThresholds = DHCPScopeThresholds(warningPercent: min(v, current.warningPercent), criticalPercent: v,
+                    guard v >= current.warningPercent else { return }
+                    probe.dhcpThresholds = DHCPScopeThresholds(warningPercent: current.warningPercent, criticalPercent: v,
                                                                expiringMinutes: current.expiringMinutes)
                 }), mono: true)
+                .focused($focus, equals: .critical)
+                .onSubmit { commit(.critical) }
                 .frame(width: 52)
                 Text("%").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
             }
             .onChange(of: probe.id) { _, _ in
                 warningText = nil
                 criticalText = nil
+            }
+            .onChange(of: focus) { previous, _ in
+                if let previous { commit(previous) }
             }
             Text("D’après la dernière lecture des étendues de la FortiGate (relue au plus à chaque intervalle, en lecture seule)\u{00A0}; sans FortiGate, d’après l’estimation du Test DHCP.")
                 .font(Theme.caption).foregroundStyle(Theme.textSecondary)
@@ -151,6 +168,26 @@ struct MonDHCPScopeConditionFields: View {
     static func number(_ text: String) -> Double? {
         guard let v = Double(text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")), v > 0, v <= 100 else { return nil }
         return v
+    }
+
+    /// Validation d'un champ (Retour ou focus perdu) : la valeur saisie l'emporte et l'autre seuil
+    /// est ajusté au besoin ; les deux champs réaffichent alors les valeurs enregistrées.
+    private func commit(_ field: Field) {
+        let current = probe.dhcpThresholds ?? .standard
+        switch field {
+        case .warning:
+            if let text = warningText, let v = Self.number(text) {
+                probe.dhcpThresholds = DHCPScopeThresholds(warningPercent: v, criticalPercent: max(v, current.criticalPercent),
+                                                           expiringMinutes: current.expiringMinutes)
+            }
+        case .critical:
+            if let text = criticalText, let v = Self.number(text) {
+                probe.dhcpThresholds = DHCPScopeThresholds(warningPercent: min(v, current.warningPercent), criticalPercent: v,
+                                                           expiringMinutes: current.expiringMinutes)
+            }
+        }
+        warningText = nil
+        criticalText = nil
     }
 
     /// Nouveau type choisi : toutes les étendues, seuils par défaut, sans seuil de latence.

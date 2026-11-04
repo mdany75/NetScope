@@ -226,8 +226,13 @@ struct RegBackupSection: View {
                 .frame(width: 180)
             }
             RegField(label: "Forme") {
-                Picker("", selection: $backups.format) {
-                    ForEach(BackupFormat.selectable, id: \.self) { Text($0.label).tag($0) }
+                // Chiffrement coché : la forme affichée est celle produite (archive chiffrée), grisée.
+                Picker("", selection: backups.encrypt ? .constant(BackupFormat.chiffree) : $backups.format) {
+                    if backups.encrypt {
+                        Text(BackupFormat.chiffree.label).tag(BackupFormat.chiffree)
+                    } else {
+                        ForEach(BackupFormat.selectable, id: \.self) { Text($0.label).tag($0) }
+                    }
                 }
                 .labelsHidden()
                 .frame(width: 150)

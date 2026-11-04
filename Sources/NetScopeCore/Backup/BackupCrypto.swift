@@ -175,6 +175,8 @@ public enum BackupCrypto {
     /// PBKDF2-HMAC-SHA256 (CommonCrypto), 32 octets.
     public static func pbkdf2(password: String, salt: Data, iterations: Int, length: Int = 32) throws -> Data {
         let bytes = passwordBytes(password)
+        // Tampon d'un tableau vide sans adresse : erreur plutôt que plantage.
+        guard !bytes.isEmpty else { throw BackupCryptoError.emptyPassword }
         var output = [UInt8](repeating: 0, count: length)
         let status = bytes.withUnsafeBufferPointer { passwordBuffer -> Int32 in
             salt.withUnsafeBytes { saltBuffer -> Int32 in
@@ -259,8 +261,8 @@ public enum BackupCrypto {
         guard header.version <= BackupEncryptedHeader.currentVersion else {
             throw BackupCryptoError.unsupported("format chiffré \(header.version), plus récent : mettez NetScope à jour")
         }
-        guard header.keyDerivation.algorithm == kdfName else { throw BackupCryptoError.unsupported("dérivation « \(header.keyDerivation.algorithm) »") }
-        guard header.cipher == cipherName else { throw BackupCryptoError.unsupported("chiffrement « \(header.cipher) »") }
+        guard header.keyDerivation.algorithm == kdfName else { throw BackupCryptoError.unsupported("dérivation «\u{00A0}\(header.keyDerivation.algorithm)\u{00A0}»") }
+        guard header.cipher == cipherName else { throw BackupCryptoError.unsupported("chiffrement «\u{00A0}\(header.cipher)\u{00A0}»") }
         guard iterationRange.contains(header.keyDerivation.iterations) else { throw BackupCryptoError.unsupported("nombre d’itérations hors bornes") }
         guard header.keyDerivation.salt.count == saltBytes, header.nonce.count == nonceBytes, header.passwordCheck.count == 32 else {
             throw BackupCryptoError.malformed("paramètres de l’en-tête invalides")
@@ -372,7 +374,7 @@ public struct BackupPasswordStrength: Equatable, Sendable {
         }
         let hint: String
         if common {
-            hint = "Évitez les mots courants (« motdepasse », « netscope », « 123456 »…)."
+            hint = "Évitez les mots courants («\u{00A0}motdepasse\u{00A0}», «\u{00A0}netscope\u{00A0}», «\u{00A0}123456\u{00A0}»…)."
         } else if level < .bon {
             hint = "Allongez-le ou mélangez majuscules, chiffres et symboles ; une phrase de quatre ou cinq mots convient bien."
         } else {

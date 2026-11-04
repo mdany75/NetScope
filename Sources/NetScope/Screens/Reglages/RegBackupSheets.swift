@@ -105,7 +105,7 @@ struct RegBackupPasswordSheet: View {
             Image(systemName: backups.includeSecrets ? "key.fill" : "key.slash")
                 .foregroundStyle(backups.includeSecrets ? Theme.accent : Theme.textTertiary)
             Text(backups.includeSecrets
-                 ? "Jetons et secrets inclus\u{00A0}: \(backups.keychainItems.filter { $0.service != BackupPasswordKeychain.service }.count) comptes du Trousseau, dans la partie chiffrée seulement."
+                 ? "Jetons et secrets inclus\u{00A0}: " + MonText.plural(backups.keychainItems.filter { $0.service != BackupPasswordKeychain.service }.count, "compte", "comptes") + " du Trousseau, dans la partie chiffrée seulement."
                  : "Jetons et secrets non inclus (option «\u{00A0}Inclure les jetons et secrets\u{00A0}»).")
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -251,8 +251,7 @@ struct RegBackupUnlockSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             RegField(label: "Mot de passe de la sauvegarde") {
                 HStack(spacing: 8) {
-                    SecureField("", text: $password, prompt: Text("Mot de passe choisi à la création").foregroundStyle(Theme.textTertiary))
-                        .textFieldStyle(.roundedBorder)
+                    RegTextField(placeholder: "Mot de passe choisi à la création", text: $password, secure: true, invalid: error != nil)
                         .onSubmit(unlock)
                     Button(action: unlock) {
                         if working {
@@ -273,12 +272,12 @@ struct RegBackupUnlockSheet: View {
 
     private func unlocked(_ contents: BackupContents) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            RegNotice("Mot de passe correct, intégrité vérifiée\u{00A0}: \(contents.files.count) fichier\(contents.files.count > 1 ? "s" : "") prêts à restaurer.",
+            RegNotice("Mot de passe correct, intégrité vérifiée\u{00A0}: " + MonText.plural(contents.files.count, "fichier prêt", "fichiers prêts") + " à restaurer.",
                       tone: .success)
             if !contents.secrets.isEmpty {
                 Toggle(isOn: $restoreSecrets) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Remettre les \(contents.secrets.count) secrets au Trousseau de ce Mac").font(Theme.bodySemibold).foregroundStyle(Theme.text)
+                        Text(contents.secrets.count > 1 ? "Remettre les \(contents.secrets.count) secrets au Trousseau de ce Mac" : "Remettre le secret au Trousseau de ce Mac").font(Theme.bodySemibold).foregroundStyle(Theme.text)
                         Text("Les valeurs actuelles des mêmes comptes sont remplacées. Décochez pour garder les secrets de ce Mac.")
                             .font(Theme.small).foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)

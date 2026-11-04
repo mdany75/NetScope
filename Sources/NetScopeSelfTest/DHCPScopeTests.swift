@@ -96,6 +96,29 @@ func registerDHCPScopeTests(_ suite: TestSuite) {
         try expectEqual(bare.count, 1, "serveur sans interface écarté")
         try expectEqual(bare[0].ranges, [range("192.168.1.100", "192.168.1.200")], "plage seule, bornes remises dans l'ordre")
         try expect(DHCPScopeParsers.servers(data("pas du json")) == nil, "corps illisible")
+
+        // Identifiants en double (id explicite et id absent, ou deux VDOM) : rendus uniques, pas de plantage.
+        let dup = try DHCPScopeParsers.servers(data("""
+        [{"id":2,"interface":"lan","ip-range":[{"start-ip":"10.0.0.10","end-ip":"10.0.0.20"}]},
+         {"interface":"dmz","ip-range":[{"start-ip":"10.0.1.10","end-ip":"10.0.1.20"}]},
+         {"id":2,"interface":"wan2","ip-range":[{"start-ip":"10.0.2.10","end-ip":"10.0.2.20"}]}]
+        """)).unwrapDHCP("doublons")
+        try expectEqual(dup.count, 3, "trois serveurs")
+        try expectEqual(Set(dup.map(\.id)).count, 3, "identifiants uniques")
+        try expectEqual(dup[0].id, 2, "le premier garde son identifiant")
+        let same = [DHCPServerConfig(id: 5, interface: "a", ranges: [range("10.0.0.10", "10.0.0.20")]),
+                    DHCPServerConfig(id: 5, interface: "b", ranges: [range("10.0.1.10", "10.0.1.20")])]
+        let dupScopes = DHCPScopeAnalysis.usages(site: "Site", report: DHCPScopeReadReport(servers: same, leases: [], interfaces: [:], readAt: now), now: now)
+        try expectEqual(dupScopes.count, 2, "deux serveurs de même id analysés sans plantage")
+
+        // Réservation hors plage recopiée : une seule ligne, comptée une fois.
+        let mac = MACAddress("00:11:22:33:44:55")
+        let copied = DHCPServerConfig(id: 1, interface: "lan", ranges: [range("10.0.0.100", "10.0.0.150")],
+                                      reservations: [DHCPReservation(ip: ip("10.0.0.20"), mac: mac, description: nil, action: "reserved"),
+                                                     DHCPReservation(ip: ip("10.0.0.20"), mac: mac, description: nil, action: "reserved")])
+        let copiedUsage = DHCPScopeAnalysis.usage(copied, site: "Site", leases: [], vlan: nil, alias: nil, now: now)
+        try expectEqual(copiedUsage.reservationsOutside, 1, "réservation hors plage dédoublonnée")
+        try expectEqual(Set(copiedUsage.entries.map(\.id)).count, copiedUsage.entries.count, "identifiants de lignes uniques")
     }
 
     suite.add("Étendues DHCP : baux (server_mkey, expirés, IPv6, temps restant) et VLAN des interfaces") {
