@@ -287,7 +287,10 @@ final class MonStore: ObservableObject {
         if probe.kind == .ping, pinger == nil, !pingerFailed {
             do { pinger = try ICMPPinger() } catch { pingerFailed = true }
         }
-        let community = probe.kind == .snmp ? RegSNMPCredentials.load()?.community : nil
+        // Communauté lue au Trousseau seulement quand la sonde interroge un agent SNMP.
+        let resourceKinds: [MonProbeKind] = [.cpu, .memory, .portLoad]
+        let needsSNMP = probe.kind == .snmp || (resourceKinds.contains(probe.kind) && !MonResourceChecks.isLocal(probe.target))
+        let community = needsSNMP ? RegSNMPCredentials.load()?.community : nil
         launched[probe.id] = probe
         let context = MonRunContext(pinger: pinger, snmpCommunity: community, devices: appState?.devices ?? [],
                                     inventoryReady: !ScanController.shared.isRunning, now: Date())

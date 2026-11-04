@@ -97,7 +97,10 @@ struct MonEditor: View {
             field("Type") {
                 MonMenuField(title: draft.wrappedValue.kind.label) {
                     ForEach(MonProbeKind.allCases) { kind in
-                        Button(kind.label) { draft.wrappedValue.kind = kind }
+                        Button(kind.label) {
+                            draft.wrappedValue.kind = kind
+                            MonResourceConditionFields.prepare(&draft.wrappedValue)
+                        }
                     }
                 }
             }
@@ -351,6 +354,8 @@ private struct MonConditionFields: View {
         case .newDevices:
             note("Alerte à chaque nouvelle adresse MAC vue par le Scanner sur la plage"
                  + (probe.knownMACs.map { " (\($0.count) connues)" } ?? " (base apprise au premier passage)") + ".")
+        case .cpu, .memory, .portLoad:
+            MonResourceConditionFields(probe: $probe)
         }
     }
 

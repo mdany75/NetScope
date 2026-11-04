@@ -70,6 +70,8 @@ public enum MonRunner {
         case .newDevices:
             return MonInventoryChecks.newDevices(range: target, known: probe.knownMACs,
                                                  devices: context.devices, now: context.now)
+        case .cpu, .memory, .portLoad:
+            return MonRunOutcome(result: await MonResourceChecks.run(probe, target: target, context: context))
         }
     }
 
