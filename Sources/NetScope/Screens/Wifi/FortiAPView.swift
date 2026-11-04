@@ -435,22 +435,33 @@ struct FortiAPDetailPanel: View {
                 Spacer(minLength: 0)
             }
             if radio.isServing {
+                // Deux lignes : clients, puissance et bruit ; puis l'occupation du canal (le tout tenait
+                // mal sur une ligne dans le panneau de 300 points : « 14 dBm » passait à la ligne).
                 HStack(spacing: 8) {
                     Text("\(radio.clientCount ?? 0) client\((radio.clientCount ?? 0) > 1 ? "s" : "")").font(Theme.caption)
-                    if let p = radio.powerLabel { Text(p).font(Theme.mono(11)) }
+                        .lineLimit(1).fixedSize()
+                    if let p = radio.powerLabel {
+                        Text("émission\u{00A0}\(p)").font(Theme.mono(11)).lineLimit(1).fixedSize()
+                            .help("Puissance d'émission de la radio")
+                    }
                     if let n = radio.noiseDBm { Text("bruit\u{00A0}\(n)\u{00A0}dBm").font(Theme.mono(11)).lineLimit(1).fixedSize() }
                     Spacer(minLength: 0)
-                    if let util {
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(Theme.border)
-                            Capsule().fill(busy ? Theme.warning : Theme.accent).frame(width: 52 * CGFloat(min(util, 100)) / 100)
-                        }
-                        .frame(width: 52, height: 5)
-                        Text(FortiAPText.percent(util)).font(Theme.mono(11, weight: .semibold))
-                            .foregroundStyle(busy ? Theme.warning : Theme.neutralText)
-                    }
                 }
                 .foregroundStyle(Theme.textSecondary)
+                if let util {
+                    HStack(spacing: 8) {
+                        Text("Canal occupé").font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Theme.border)
+                                Capsule().fill(busy ? Theme.warning : Theme.accent).frame(width: geo.size.width * CGFloat(min(util, 100)) / 100)
+                            }
+                        }
+                        .frame(height: 5)
+                        Text(FortiAPText.percent(util)).font(Theme.mono(11, weight: .semibold))
+                            .foregroundStyle(busy ? Theme.warning : Theme.neutralText).lineLimit(1).fixedSize()
+                    }
+                }
             }
         }
         .padding(8)

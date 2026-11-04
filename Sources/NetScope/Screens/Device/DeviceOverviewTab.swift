@@ -149,7 +149,8 @@ struct DeviceOverviewTab: View {
                     }
                     // Switch et port gardent leur largeur ; le nom de l'appareil tient sur une ligne
                     // quand la place le permet, sinon passe sur deux lignes en coupant à un espace
-                    // (traits d'union insécables : « Brother / DCP‑L2640DW », jamais « DCP- / L2640DW »).
+                    // (traits d'union insécables : « Brother / DCP‑L2640DW », jamais « DCP- / L2640DW » ; coupure
+                    // permise après un point : « Macmini‑de‑Dany. / local », jamais « .loc / al »).
                     let deviceName = device.hostname ?? device.displayName
                     HStack(spacing: 4) {
                         node(title: switchName, detail: switchDevice?.ip.description ?? "switch", highlighted: false)
@@ -161,7 +162,7 @@ struct DeviceOverviewTab: View {
                         ViewThatFits(in: .horizontal) {
                             node(title: deviceName, detail: ".\(device.ip.octets.3)", highlighted: false)
                                 .fixedSize()
-                            node(title: deviceName.replacingOccurrences(of: "-", with: "\u{2011}"),
+                            node(title: deviceName.replacingOccurrences(of: "-", with: "\u{2011}").replacingOccurrences(of: ".", with: ".\u{200B}"),
                                  detail: ".\(device.ip.octets.3)", highlighted: false, titleLines: 2)
                                 .fixedSize(horizontal: false, vertical: true)
                         }

@@ -128,8 +128,8 @@ struct FortiAPTable: View {
         StandardColumn(id: "radios", title: "Radios (canal)"),
         StandardColumn(id: "clients", title: "Clients"),
         StandardColumn(id: "utilisation", title: "Utilisation du canal"),
-        StandardColumn(id: "firmware", title: "Firmware"),
-        StandardColumn(id: "service", title: "En service"),
+        StandardColumn(id: "firmware", title: "Firmware", isDefaultVisible: false),
+        StandardColumn(id: "service", title: "En service", isDefaultVisible: false),
         StandardColumn(id: "site", title: "Site", isDefaultVisible: false),
         StandardColumn(id: "serie", title: "Numéro de série", isDefaultVisible: false),
         StandardColumn(id: "profil", title: "Profil", isDefaultVisible: false),
@@ -208,7 +208,7 @@ struct FortiAPTable: View {
                     WifiCell(row.radios, mono: 11, color: radioColor(row.ap), dimmed: row.ap.isOffline)
                         .help(row.ap.radios.map { "Radio \($0.radioID)\u{00A0}: \($0.label)" }.joined(separator: "\n"))
                 }
-                .width(min: 110, ideal: 150)
+                .width(min: 110, ideal: 170)
                 .customizationID("radios")
 
                 TableColumn(StandardTableHeading("CLIENTS"), sortUsing: table.sort("clients")) { row in
@@ -235,12 +235,14 @@ struct FortiAPTable: View {
                 }
                 .width(min: 56, ideal: 64)
                 .customizationID("firmware")
+                .defaultVisibility(.hidden)
 
                 TableColumn(StandardTableHeading("EN SERVICE"), sortUsing: table.sort("service")) { row in
                     WifiCell(row.ap.isOffline ? "hors ligne" : FortiAPText.duration(row.ap.uptime), dimmed: row.ap.isOffline || row.ap.uptime == nil)
                 }
                 .width(min: 64, ideal: 76)
                 .customizationID("service")
+                .defaultVisibility(.hidden)
 
                 TableColumn(StandardTableHeading("SITE"), sortUsing: table.sort("site")) { row in WifiCell(row.ap.site) }
                     .width(min: 60, ideal: 100)
@@ -323,7 +325,7 @@ struct FortiAPClientTable: View {
         StandardColumn(id: "bande", title: "Bande"),
         StandardColumn(id: "canal", title: "Canal"),
         StandardColumn(id: "ip", title: "Adresse IP"),
-        StandardColumn(id: "debit", title: "Débit"),
+        StandardColumn(id: "debit", title: "Débit", isDefaultVisible: false),
         StandardColumn(id: "mac", title: "MAC", isDefaultVisible: false),
         StandardColumn(id: "duree", title: "Associé depuis", isDefaultVisible: false),
         StandardColumn(id: "systeme", title: "Système", isDefaultVisible: false),
@@ -436,13 +438,13 @@ struct FortiAPClientTable: View {
                 TableColumn(StandardTableHeading("BORNE"), sortUsing: table.sort("borne")) { row in
                     WifiCell(row.client.apName ?? "—", mono: 11, dimmed: row.client.apName == nil)
                 }
-                .width(min: 80, ideal: 104)
+                .width(min: 80, ideal: 100)
                 .customizationID("borne")
 
                 TableColumn(StandardTableHeading("SSID"), sortUsing: table.sort("ssid")) { row in
                     WifiCell(row.client.ssid ?? "—", dimmed: row.client.ssid == nil)
                 }
-                .width(min: 70, ideal: 104)
+                .width(min: 70, ideal: 100)
                 .customizationID("ssid")
 
                 TableColumn(StandardTableHeading("BANDE"), sortUsing: table.sort("bande")) { row in
@@ -470,6 +472,7 @@ struct FortiAPClientTable: View {
                 }
                 .width(min: 70, ideal: 84)
                 .customizationID("debit")
+                .defaultVisibility(.hidden)
 
                 TableColumn(StandardTableHeading("MAC"), sortUsing: table.sort("mac")) { row in
                     WifiCell(row.client.mac.formatted(.upperColon), mono: 11)
@@ -718,13 +721,13 @@ struct FortiAPRogueTable: View {
                             .font(row.rogue.ssid == nil ? Theme.small.italic() : .system(size: 12, weight: .semibold))
                             .foregroundStyle(row.rogue.ssid == nil ? Theme.textSecondary : Theme.text).lineLimit(1)
                     }
-                    .width(min: 100, ideal: 150)
+                    .width(min: 100, ideal: 140)
                     .customizationID("ssid")
                     .disabledCustomizationBehavior(.visibility)
                     TableColumn(StandardTableHeading("ÉTAT"), sortUsing: table.sort("etat")) { row in
                         statusPill(row.rogue).help(row.rogue.onWire ? "Vu aussi sur le réseau câblé de la FortiGate" : row.rogue.status.label)
                     }
-                        .width(min: 80, ideal: 140)
+                        .width(min: 80, ideal: 128)
                         .customizationID("etat")
                     TableColumn(StandardTableHeading("BSSID"), sortUsing: table.sort("bssid")) { row in
                         WifiCell(row.rogue.bssid?.formatted(.upperColon) ?? "—", mono: 11, dimmed: row.rogue.bssid == nil)
@@ -759,7 +762,7 @@ struct FortiAPRogueTable: View {
                     TableColumn(StandardTableHeading("VU PAR"), sortUsing: table.sort("vu")) { row in
                         WifiCell(row.seenBy.isEmpty ? "—" : row.seenBy, mono: 11, dimmed: row.seenBy.isEmpty)
                     }
-                    .width(min: 80, ideal: 160)
+                    .width(min: 80, ideal: 130)
                     .customizationID("vu")
                     TableColumn(StandardTableHeading("SÉCURITÉ"), sortUsing: table.sort("securite")) { row in
                         WifiCell(row.rogue.security ?? "—", dimmed: row.rogue.security == nil)
