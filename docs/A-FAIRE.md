@@ -818,7 +818,10 @@ Terminal, SSH, Telnet, RDP et VNC :
 - Cas de technicien : envoyer un firmware ou une configuration à un switch, une borne ou une
   imprimante, récupérer des journaux ou une sauvegarde (note 40) ; mini serveur FTP/TFTP
   temporaire sur le Mac pour les appareils qui viennent chercher leur fichier eux-mêmes.
-- Depuis un appareil (fiche Appareil, Scanner, Inventaire) : « Ouvrir en FTP / SFTP » quand
-  le port 21 ou 22 est ouvert (note 34) ; connexions enregistrées dans le carnet, par site.
+- Depuis un appareil (fiche Appareil, Scanner, Inventaire, clic droit) : « Ouvrir en FTP »,
+  « FTPS » ou « SFTP » seulement si le port correspondant est ouvert au dernier scan (21, 990
+  ou 22, ou le port réglé dans la connexion) ; port fermé ou inconnu : choix grisé, avec
+  « Vérifier le port » pour le tester tout de suite (note 34) ; connexions enregistrées dans
+  le carnet, par site.
 - Mots de passe dans le trousseau macOS, jamais en clair ; avertissement quand le FTP n'est pas
   chiffré ; aucune dépendance externe (Network.framework et le SSH déjà présent).
