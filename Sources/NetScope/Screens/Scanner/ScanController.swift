@@ -386,6 +386,8 @@ final class ScanController: ObservableObject {
         } else {
             show("Scan terminé en \(seconds) : \(online) appareils en ligne, \(newIDs.count) nouveaux.")
         }
+        if !engineCancelled { AlertDispatcher.shared.emit(.scanFinished(online: online, new: newIDs.count, duration: seconds, ranges: targets.map(\.range.description).joined(separator: ", "))) }
+        if !engineCancelled { AlertDispatcher.shared.emit(.newDevices(state.devices.filter { newIDs.contains($0.id) })) }
     }
 
     // MARK: Actions sur un appareil

@@ -284,6 +284,7 @@ final class ToolDHCPModel: ObservableObject {
     private func record(store: ToolStore) {
         let target = "\(interfaceName)" + (selectedInterface.flatMap { $0.hasIPv4 ? " · \($0.subnet)" : nil } ?? "")
         let rogue = offers.filter { policy.status(of: $0) == .unauthorized }
+        for offer in rogue { AlertDispatcher.shared.emit(.rogueDHCP(offer, interface: interfaceName)) }
         if offers.isEmpty {
             store.record(ToolRecent(tool: .dhcp, target: target, summary: "Aucune offre en \(wait)\u{00A0}s", status: .warning))
         } else if !rogue.isEmpty {

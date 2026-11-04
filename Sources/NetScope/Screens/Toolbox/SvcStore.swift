@@ -237,6 +237,9 @@ final class SvcStore: ObservableObject {
                                                serviceID: current.id, identifier: "service-\(current.id)-injoignable-\(Int(snapshot.date.timeIntervalSince1970))")
             }
         }
+        // Alertes hors du Mac (Réglages › Alertes), indépendantes des notifications de l'outil.
+        if known { for incident in fresh { AlertDispatcher.shared.emit(.serviceIncident(serviceID: current.id, serviceName: current.name, incident: incident)) } }
+        if known, snapshot.verdict.health == .unreachable, previousHealth != .unreachable { AlertDispatcher.shared.emit(.serviceUnreachable(serviceID: current.id, serviceName: current.name, headline: snapshot.verdict.headline)) }
         changed()
     }
 

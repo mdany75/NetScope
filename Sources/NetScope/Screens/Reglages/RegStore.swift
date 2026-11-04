@@ -7,7 +7,7 @@ import ServiceManagement
 
 /// Sections de la colonne de gauche, dans l'ordre du croquis (docs/croquis/Reglages.dc.html).
 enum RegSection: String, CaseIterable, Identifiable {
-    case general, sites, profils, identifiants, switchs, notifications, interface, export, majs, raccourcis, apropos
+    case general, sites, profils, identifiants, switchs, notifications, alertes, interface, export, majs, raccourcis, apropos
 
     var id: String { rawValue }
 
@@ -19,6 +19,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .identifiants: return "Identifiants"
         case .switchs: return "Switchs"
         case .notifications: return "Notifications"
+        case .alertes: return "Alertes"
         case .interface: return "Interface réseau"
         case .export: return "Export et sauvegarde"
         case .majs: return "Mises à jour"
@@ -35,6 +36,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .identifiants: return "key"
         case .switchs: return "rectangle.connected.to.line.below"
         case .notifications: return "bell"
+        case .alertes: return "paperplane"
         case .interface: return "network"
         case .export: return "square.and.arrow.up"
         case .majs: return "arrow.triangle.2.circlepath"
@@ -52,6 +54,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .identifiants: return "snmp v2c v3 communauté utilisateur authentification trousseau mot de passe"
         case .switchs: return "switch snmp lldp cdp port vlan découverte automatique communauté public"
         case .notifications: return "alerte notification surveillance courriel"
+        case .alertes: return "alerte courriel smtp starttls webhook teams slack json anti-rafale silence trousseau envoyer un test"
         case .interface: return "en0 wi-fi ethernet masque passerelle getifaddrs"
         case .export: return "export sauvegarde csv json restauration"
         case .raccourcis: return "raccourcis clavier touches"
@@ -69,8 +72,12 @@ enum RegEnvironment {
     /// Mode sans effet de bord (démonstration ou capture).
     static var isSandboxed: Bool { isSnapshot || isDemo }
 
-    /// Outil de développement : « --reglages-section majs » ouvre cette section (captures).
+    /// Outil de développement : « --reglages-section majs » ouvre cette section (captures) ;
+    /// en démonstration, NETSCOPE_REGLAGES_SECTION=alertes fait de même.
     static var initialSection: RegSection? {
+        if isSandboxed, let raw = ProcessInfo.processInfo.environment["NETSCOPE_REGLAGES_SECTION"], let section = RegSection(rawValue: raw) {
+            return section
+        }
         let arguments = CommandLine.arguments
         guard let index = arguments.firstIndex(of: "--reglages-section"), index + 1 < arguments.count else { return nil }
         return RegSection(rawValue: arguments[index + 1])

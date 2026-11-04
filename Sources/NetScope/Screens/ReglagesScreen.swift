@@ -162,6 +162,7 @@ struct ReglagesScreen: View {
         case .majs: RegUpdatesSection()
         case .apropos: RegAboutSection()
         case .switchs: RegSwitchesSection()
+        case .alertes: RegAlertsSection()
         case .notifications:
             RegPanel(title: navigation.section.label) {
                 RegNotice(text: "Les notifications macOS, le son, le courriel et le webhook se règlent sonde par sonde dans Surveillance (Actions d’alerte de chaque sonde).", tone: .accent) {
