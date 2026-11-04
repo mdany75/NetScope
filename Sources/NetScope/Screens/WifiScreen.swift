@@ -8,6 +8,7 @@ import SwiftUI
 struct WifiScreen: View {
     @ObservedObject private var store = WifiStore.shared
     @ObservedObject private var fortiAP = FortiAPStore.shared
+    @ObservedObject private var fortigate = FortiGateStore.shared
     @EnvironmentObject private var state: AppState
     /// Partie affichée ; captures : NETSCOPE_WIFI_VUE=fortiap.
     @AppStorage("NetScope.wifi.partie") private var savedPart = WifiScreenPart.local.rawValue
@@ -105,7 +106,7 @@ struct WifiScreen: View {
             Label(fortiAP.busy ? "Lecture…" : "Relire les bornes", systemImage: "arrow.clockwise")
         }
         .buttonStyle(.secondary)
-        .disabled(fortiAP.busy || !FortiGateStore.shared.isConfigured)
+        .disabled(fortiAP.busy || !fortiAP.canRefresh(state: state))
     }
 
     @ViewBuilder private var localToolbar: some View {

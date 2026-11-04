@@ -19,20 +19,35 @@ public enum MonFortiAPChecks {
         }
     }
 
-    public static func offline(target: String, overview: FortiWifiOverview?, now: Date) -> MonRunOutcome {
-        guard let overview, overview.readAt != nil else {
-            return .noData(now, "En attente d’une lecture de la FortiGate")
+    /// Lecture tentée sans aucune FortiGate lue (`error`) : échec avec son message ; aucune
+    /// lecture encore : rien à évaluer.
+    static func unread(_ overview: FortiWifiOverview?, error: String?, now: Date) -> MonRunOutcome? {
+        if let overview, overview.readAt != nil { return nil }
+        if let error {
+            return MonRunOutcome(result: MonResult(date: now, reachable: false, value: "Lecture impossible", error: error))
         }
+        return .noData(now, "En attente d’une lecture de la FortiGate")
+    }
+
+    public static func offline(target: String, overview: FortiWifiOverview?, error: String? = nil, now: Date) -> MonRunOutcome {
+        if let pending = unread(overview, error: error, now: now) { return pending }
+        guard let overview else { return .noData(now, "En attente d’une lecture de la FortiGate") }
         let aps = targets(target, in: overview)
         guard !aps.isEmpty else {
             return MonRunOutcome(result: MonResult(date: now, reachable: true, value: "Borne introuvable",
                                                    problem: "Aucune borne «\u{00A0}\(target)\u{00A0}» dans la lecture de la FortiGate"))
         }
         let down = aps.filter(\.isOffline)
+        // État illisible (champs status/state absents ou inconnus) : ni en ligne ni hors ligne.
+        let unknown = aps.filter { $0.connected == nil }
         if aps.count == 1, let ap = aps.first {
             if ap.isOffline {
                 return MonRunOutcome(result: MonResult(date: now, reachable: false, value: "Hors ligne",
                                                        error: "\(ap.name) déconnectée de la FortiGate"))
+            }
+            if ap.connected == nil {
+                return MonRunOutcome(result: MonResult(date: now, reachable: true, value: "État inconnu",
+                                                       problem: "État de la borne \(ap.name) illisible dans la réponse de la FortiGate"))
             }
             return MonRunOutcome(result: MonResult(date: now, reachable: true, value: "En ligne · \(ap.totalClients) client\(ap.totalClients > 1 ? "s" : "")"))
         }
@@ -41,13 +56,19 @@ public enum MonFortiAPChecks {
             return MonRunOutcome(result: MonResult(date: now, reachable: false, value: "\(down.count) hors ligne sur \(aps.count)",
                                                    error: "Bornes hors ligne\u{00A0}: \(names)"))
         }
+        guard unknown.isEmpty else {
+            let names = unknown.prefix(3).map(\.name).joined(separator: ", ") + (unknown.count > 3 ? "…" : "")
+            return MonRunOutcome(result: MonResult(date: now, reachable: true,
+                                                   value: "\(aps.count - unknown.count) en ligne, \(unknown.count) à l’état inconnu",
+                                                   problem: "État illisible\u{00A0}: \(names)"))
+        }
         return MonRunOutcome(result: MonResult(date: now, reachable: true, value: "\(aps.count) bornes en ligne"))
     }
 
-    public static func overload(target: String, overview: FortiWifiOverview?, thresholds: FortiWifiThresholds, now: Date) -> MonRunOutcome {
-        guard let overview, overview.readAt != nil else {
-            return .noData(now, "En attente d’une lecture de la FortiGate")
-        }
+    public static func overload(target: String, overview: FortiWifiOverview?, error: String? = nil,
+                                thresholds: FortiWifiThresholds, now: Date) -> MonRunOutcome {
+        if let pending = unread(overview, error: error, now: now) { return pending }
+        guard let overview else { return .noData(now, "En attente d’une lecture de la FortiGate") }
         let aps = targets(target, in: overview)
         guard !aps.isEmpty else {
             return MonRunOutcome(result: MonResult(date: now, reachable: true, value: "Borne introuvable",

@@ -523,6 +523,7 @@ struct WifiNetworkRow: Identifiable {
 
 /// Réseaux visibles : tableau standard (note 8, clé « wifi.reseaux »), filtres du croquis au-dessus.
 struct WifiNetworksTable: View {
+    @EnvironmentObject private var state: AppState
     @ObservedObject var store: WifiStore
     @StateObject private var table = WifiNetworksTable.makeModel()
 
@@ -599,7 +600,8 @@ struct WifiNetworksTable: View {
             Rectangle().fill(Theme.border).frame(height: 1)
             if rows.isEmpty {
                 Text(all.isEmpty ? "Aucune analyse pour l’instant. L’analyse (balayage des canaux) ne se lance que sur demande."
-                     : "Aucun réseau ne correspond à «\u{00A0}\(store.filter)\u{00A0}» avec ce filtre.")
+                     : (store.filter.isEmpty ? "Aucun réseau ne correspond à la recherche avec ce filtre."
+                        : "Aucun réseau ne correspond à «\u{00A0}\(store.filter)\u{00A0}» avec ce filtre."))
                     .font(Theme.body).foregroundStyle(Theme.textSecondary)
                     .frame(maxWidth: .infinity)
                     .padding(24)
@@ -613,6 +615,7 @@ struct WifiNetworksTable: View {
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
         .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
+        .searchResults(rows.count, "réseau", "réseaux")
     }
 
     private func tableView(_ rows: [WifiNetworkRow]) -> some View {
@@ -761,19 +764,22 @@ struct WifiNetworksTable: View {
     private var rows: [WifiNetworkRow] {
         // Note 26 : moteur de recherche commun (`ssid:Bureau canal:36 -securite:WPA3`).
         let query = SearchQuery(store.filter, schema: .wifi)
+        // Recherche de la barre d'outils, réduite aux champs des réseaux voisins.
+        let global = state.searchQuery(for: .wifi).restricted(to: .wifi)
         return store.networks.filter { network in
             switch store.tableFilter {
             case .all: break
             case .band: if network.band != store.band { return false }
             case .flagged: if !isFlagged(network) { return false }
             }
-            guard !query.isEmpty else { return true }
+            guard !query.isEmpty || !global.isEmpty else { return true }
             let bssid = network.bssid?.formatted(.upperColon) ?? ""
-            return query.matches(SearchDocument([
+            let document = SearchDocument([
                 "ssid": [store.label(for: network)], "mac": [bssid], "fab": [WifiText.vendor(network)],
                 "canal": [String(network.channel)], "bande": [network.band.label], "securite": [network.security.label],
             ], freeText: [[store.label(for: network), bssid, WifiText.vendor(network), "canal \(network.channel)",
-                           network.security.label, network.standard ?? ""].joined(separator: " ")]))
+                           network.security.label, network.standard ?? ""].joined(separator: " ")])
+            return query.matches(document) && global.matches(document)
         }
         .map { network in
             WifiNetworkRow(network: network, label: store.label(for: network), vendor: WifiText.vendor(network),

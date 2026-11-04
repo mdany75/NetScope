@@ -2,7 +2,9 @@ import NetScopeCore
 import SwiftUI
 
 // Note 27 : tableaux standard (note 8) de la partie FortiAP : bornes, clients, SSID, AP voisins.
-// Chaque tableau a sa clé (« wifi.fortiap.… ») et son propre filtre local.
+// Chaque tableau a sa clé (« wifi.fortiap.… ») et son propre filtre local. Filtre local et recherche
+// de la barre d'outils passent par le même moteur (note 26 : préfixes, exclusion) ; chaque tableau
+// applique les critères des champs qu'il connaît.
 
 private let fortiRowHeight: CGFloat = 28
 private let last = "\u{10FFFF}"
@@ -63,11 +65,27 @@ private struct FortiAPTableFrame<Content: View>: View {
     }
 }
 
-private func matches(_ query: String, _ fields: [String?]) -> Bool {
-    let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-    guard !q.isEmpty else { return true }
-    return fields.compactMap { $0 }.joined(separator: " ").lowercased().contains(q)
+/// Filtre local du tableau et recherche de l'écran, réduite aux champs du tableau.
+private struct FortiSearch {
+    let local: SearchQuery
+    let global: SearchQuery
+
+    init(_ text: String, global: SearchQuery, schema: SearchSchema) {
+        local = SearchQuery(text, schema: schema)
+        self.global = global.restricted(to: schema)
+    }
+
+    var isFiltering: Bool { !local.isEmpty || !global.isEmpty }
+
+    func matches(_ values: [String: [String?]], freeText: [String?]) -> Bool {
+        guard isFiltering else { return true }
+        let document = SearchDocument(values.mapValues { $0.compactMap { $0 } },
+                                      freeText: [freeText.compactMap { $0 }.joined(separator: " ")])
+        return local.matches(document) && global.matches(document)
+    }
 }
+
+private func bandTerms(_ band: WifiBand?) -> [String?] { band.map { [$0.label, $0.label.replacingOccurrences(of: "\u{00A0}GHz", with: "")] } ?? [] }
 
 private func emptyLine(_ text: String) -> some View {
     Text(text).font(Theme.small).foregroundStyle(Theme.textSecondary)
@@ -95,6 +113,7 @@ struct FortiAPRow: Identifiable {
 }
 
 struct FortiAPTable: View {
+    @EnvironmentObject private var state: AppState
     @ObservedObject private var store = FortiAPStore.shared
     @Binding var selection: FortiManagedAP.ID?
     @StateObject private var table = StandardTableModel<FortiAPRow>(id: "wifi.fortiap.bornes", columns: Self.columns,
@@ -135,8 +154,12 @@ struct FortiAPTable: View {
 
     var body: some View {
         let all = store.overview.aps
+        let query = FortiSearch(search, global: state.searchQuery(for: .wifi), schema: .wifiBornes)
         let rows = all.filter { ap in
-            matches(search, [ap.name, ap.model, ap.ip?.description, ap.serial, ap.site, ap.location, ap.firmware, FortiAPText.radios(ap)])
+            query.matches(["borne": [ap.name, ap.serial, ap.location], "modele": [ap.model], "ip": [ap.ip?.description],
+                           "etat": [FortiAPText.statePill(ap).text, ap.state], "canal": ap.radios.map { $0.channel.map(String.init) },
+                           "bande": ap.radios.flatMap { bandTerms($0.band) }, "site": [ap.site]],
+                          freeText: [ap.name, ap.model, ap.ip?.description, ap.serial, ap.site, ap.location, ap.firmware, FortiAPText.radios(ap)])
         }
         .map(FortiAPRow.init)
         .sorted(using: table.sortOrder + [KeyPathComparator(\FortiAPRow.name)])
@@ -145,11 +168,13 @@ struct FortiAPTable: View {
                                search: $search, prompt: "Nom, modèle, IP…", model: table) { EmptyView() }
             Rectangle().fill(Theme.border).frame(height: 1)
             if rows.isEmpty {
-                emptyLine("Aucune borne ne correspond à «\u{00A0}\(search)\u{00A0}».")
+                emptyLine(all.isEmpty ? "Aucune borne lue (accès aux bornes absent ou refusé par la FortiGate)."
+                          : (search.isEmpty ? "Aucune borne ne correspond à la recherche." : "Aucune borne ne correspond à «\u{00A0}\(search)\u{00A0}»."))
             } else {
                 tableView(rows).standardTableHeight(rows: rows.count, rowHeight: fortiRowHeight, maxRows: 12)
             }
         }
+        .searchResults(rows.count, "borne", "bornes")
     }
 
     private func tableView(_ rows: [FortiAPRow]) -> some View {
@@ -321,6 +346,7 @@ struct FortiAPClientTable: View {
     var body: some View {
         let all = store.overview.clients
         let devices = deviceNames()
+        let query = FortiSearch(search, global: state.searchQuery(for: .wifi), schema: .wifiClients)
         let rows = all.filter { c in
             switch filter {
             case .all: break
@@ -328,7 +354,10 @@ struct FortiAPClientTable: View {
             case .ghz24: if c.band != .ghz24 { return false }
             case .ghz5: if c.band != .ghz5 && c.band != .ghz6 { return false }
             }
-            return matches(search, [c.hostname, c.mac.formatted(.upperColon), c.ip?.description, c.ssid, c.apName, c.os, c.site, devices[c.mac]])
+            return query.matches(["nom": [c.hostname, devices[c.mac]], "mac": [c.mac.formatted(.colon)], "ip": [c.ip?.description],
+                                  "ssid": [c.ssid], "borne": [c.apName], "bande": bandTerms(c.band), "canal": [c.channel.map(String.init)],
+                                  "vlan": [c.vlan.map(String.init)], "site": [c.site]],
+                                 freeText: [c.hostname, c.mac.formatted(.upperColon), c.ip?.description, c.ssid, c.apName, c.os, c.site, devices[c.mac]])
         }
         .map { FortiClientRow(client: $0, isWeak: store.isWeak($0), deviceName: devices[$0.mac]) }
         .sorted(using: table.sortOrder + [KeyPathComparator(\FortiClientRow.mac)])
@@ -347,11 +376,12 @@ struct FortiAPClientTable: View {
             }
             Rectangle().fill(Theme.border).frame(height: 1)
             if rows.isEmpty {
-                emptyLine(all.isEmpty ? "Aucun client Wi-Fi associé (ou adresse «\u{00A0}wifi/client\u{00A0}» non lue)." : "Aucun client ne correspond à ce filtre.")
+                emptyLine(all.isEmpty ? "Aucun client Wi-Fi associé (ou liste des clients non lue)." : "Aucun client ne correspond à ce filtre.")
             } else {
                 tableView(rows).standardTableHeight(rows: rows.count, rowHeight: fortiRowHeight, maxRows: 12)
             }
         }
+        .searchResults(rows.count, "client", "clients")
     }
 
     /// Nom de l'appareil du Scanner de chaque MAC cliente (rattachement par MAC).
@@ -499,12 +529,15 @@ struct FortiSSIDRow: Identifiable {
     var id: FortiSSID.ID { ssid.id }
     var name: String { ssid.ssid.lowercased() }
     var interface: String { ssid.name }
+    /// Texte de la colonne « Options » (tri) ; vide en dernier.
+    var options: String
     var security: String { ssid.securityLabel }
     var vlan: Int { ssid.vlan ?? Int.max }
     var site: String { ssid.site }
 }
 
 struct FortiAPSSIDTable: View {
+    @EnvironmentObject private var state: AppState
     @ObservedObject private var store = FortiAPStore.shared
     @StateObject private var table = StandardTableModel<FortiSSIDRow>(id: "wifi.fortiap.ssid", columns: Self.columns,
                                                                       sortKeys: Self.sortKeys, defaultSort: "ssid")
@@ -524,22 +557,29 @@ struct FortiAPSSIDTable: View {
     static let sortKeys: [String: KeyPathComparator<FortiSSIDRow>] = [
         "ssid": KeyPathComparator(\FortiSSIDRow.name), "securite": KeyPathComparator(\FortiSSIDRow.security),
         "vlan": KeyPathComparator(\FortiSSIDRow.vlan), "clients": KeyPathComparator(\FortiSSIDRow.clients),
-        "interface": KeyPathComparator(\FortiSSIDRow.interface), "options": KeyPathComparator(\FortiSSIDRow.interface),
+        "interface": KeyPathComparator(\FortiSSIDRow.interface), "options": KeyPathComparator(\FortiSSIDRow.options),
         "site": KeyPathComparator(\FortiSSIDRow.site),
     ]
 
     var body: some View {
         let all = store.overview.ssids
         let clients = store.overview.clients
-        let rows = all.filter { matches(search, [$0.ssid, $0.name, $0.securityLabel, $0.vlan.map { "vlan \($0)" }, $0.site]) }
-            .map { s in FortiSSIDRow(ssid: s, clients: clients.filter { $0.site == s.site && $0.ssid == s.ssid }.count) }
+        let query = FortiSearch(search, global: state.searchQuery(for: .wifi), schema: .wifiSSID)
+        let rows = all.filter { s in
+            query.matches(["ssid": [s.ssid], "securite": [s.securityLabel, s.security], "vlan": [s.vlan.map(String.init)], "site": [s.site]],
+                          freeText: [s.ssid, s.name, s.securityLabel, s.vlan.map { "vlan \($0)" }, s.site])
+        }
+            .map { s in
+                FortiSSIDRow(ssid: s, clients: clients.filter { $0.site == s.site && $0.ssid == s.ssid }.count,
+                             options: Self.options(s) == "—" ? last : Self.options(s))
+            }
             .sorted(using: table.sortOrder + [KeyPathComparator(\FortiSSIDRow.site)])
         FortiAPTableFrame {
             FortiAPTableHeader(title: "SSID diffusés", summary: "\(store.overview.distinctSSIDs.count) SSID",
                                search: $search, prompt: "SSID, VLAN…", model: table) { EmptyView() }
             Rectangle().fill(Theme.border).frame(height: 1)
             if rows.isEmpty {
-                emptyLine(all.isEmpty ? "Aucun SSID lu (adresse «\u{00A0}wireless-controller/vap\u{00A0}» absente ou refusée)." : "Aucun SSID ne correspond.")
+                emptyLine(all.isEmpty ? "Aucun SSID lu (configuration des SSID absente ou refusée par la FortiGate)." : "Aucun SSID ne correspond.")
             } else {
                 Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
                     TableColumn(StandardTableHeading("SSID"), sortUsing: table.sort("ssid")) { row in
@@ -573,7 +613,7 @@ struct FortiAPSSIDTable: View {
                     TableColumn(StandardTableHeading("INTERFACE"), sortUsing: table.sort("interface")) { row in WifiCell(row.ssid.name, mono: 11) }
                         .width(min: 80, ideal: 110)
                         .customizationID("interface")
-                    TableColumn(StandardTableHeading("OPTIONS"), sortUsing: table.sort("options")) { row in WifiCell(options(row.ssid)) }
+                    TableColumn(StandardTableHeading("OPTIONS"), sortUsing: table.sort("options")) { row in WifiCell(Self.options(row.ssid)) }
                         .width(min: 80, ideal: 170)
                         .customizationID("options")
                     TableColumn(StandardTableHeading("SITE"), sortUsing: table.sort("site")) { row in WifiCell(row.ssid.site) }
@@ -587,7 +627,7 @@ struct FortiAPSSIDTable: View {
         }
     }
 
-    private func options(_ s: FortiSSID) -> String {
+    static func options(_ s: FortiSSID) -> String {
         var parts: [String] = []
         if s.hidden == true { parts.append("caché") }
         if s.captivePortal == true { parts.append("portail captif") }
@@ -615,6 +655,7 @@ struct FortiRogueRow: Identifiable {
 }
 
 struct FortiAPRogueTable: View {
+    @EnvironmentObject private var state: AppState
     @ObservedObject private var store = FortiAPStore.shared
     @StateObject private var table = StandardTableModel<FortiRogueRow>(id: "wifi.fortiap.voisins", columns: Self.columns,
                                                                        sortKeys: Self.sortKeys, defaultSort: "etat")
@@ -645,9 +686,13 @@ struct FortiAPRogueTable: View {
 
     var body: some View {
         let all = store.overview.rogues
+        let query = FortiSearch(search, global: state.searchQuery(for: .wifi), schema: .wifiVoisins)
         let rows = all.filter { r in
             (!onlyUnauthorized || r.isUnauthorized)
-                && matches(search, [r.ssid, r.bssid?.formatted(.upperColon), r.vendor, r.seenBy.joined(separator: " "), r.site, r.channel.map { "canal \($0)" }])
+                && query.matches(["ssid": [r.ssid], "mac": [r.bssid?.formatted(.colon)], "fab": [r.vendor], "canal": [r.channel.map(String.init)],
+                                  "bande": bandTerms(r.band), "securite": [r.security], "etat": [r.status.label, r.isUnauthorized ? "non autorisé" : nil],
+                                  "borne": r.seenBy, "site": [r.site]],
+                                 freeText: [r.ssid, r.bssid?.formatted(.upperColon), r.vendor, r.seenBy.joined(separator: " "), r.site, r.channel.map { "canal \($0)" }])
         }
         .map(FortiRogueRow.init)
         .sorted(using: table.sortOrder + [KeyPathComparator(\FortiRogueRow.rssi, order: .reverse)])
@@ -665,7 +710,7 @@ struct FortiAPRogueTable: View {
             }
             Rectangle().fill(Theme.border).frame(height: 1)
             if rows.isEmpty {
-                emptyLine(all.isEmpty ? "Aucun AP voisin lu (analyse WIDS désactivée sur les profils, ou adresse «\u{00A0}rogue_ap\u{00A0}» absente)." : "Aucun AP ne correspond à ce filtre.")
+                emptyLine(all.isEmpty ? "Aucun AP voisin lu (analyse WIDS désactivée sur les profils, ou liste des AP voisins absente)." : "Aucun AP ne correspond à ce filtre.")
             } else {
                 Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
                     TableColumn(StandardTableHeading("SSID"), sortUsing: table.sort("ssid")) { row in

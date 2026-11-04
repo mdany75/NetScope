@@ -107,6 +107,10 @@ func registerFortiWifiTests(_ suite: TestSuite) {
         try expectEqual(FortiWifiParsers.band("802.11ax,n,g-only", channel: nil), .ghz24, "2,4 par la norme")
         try expectEqual(FortiWifiParsers.band(nil, channel: 11), .ghz24, "2,4 par le canal")
         try expectEqual(FortiWifiParsers.band(nil, channel: 149), .ghz5, "5 par le canal")
+        try expectEqual(FortiWifiParsers.band("802.11ac-2G", channel: 6), .ghz24, "802.11ac-2G : radio 2,4 GHz en VHT")
+        try expectEqual(FortiWifiParsers.band("802.11ac-2G", channel: nil), .ghz24, "802.11ac-2G sans canal")
+        try expectEqual(FortiWifiParsers.band("802.11ac", channel: 36), .ghz5, "802.11ac : 5 GHz")
+        try expectEqual(FortiWifiParsers.band("802.11ac,n-only", channel: 44), .ghz5, "802.11ac,n : 5 GHz")
         try expectEqual(FortiWifiParsers.width("80MHz"), 80, "80MHz")
         try expectEqual(FortiWifiParsers.width("VHT160"), 160, "VHT160")
         try expectEqual(FortiWifiParsers.width(40), 40, "nombre")
@@ -173,6 +177,9 @@ func registerFortiWifiTests(_ suite: TestSuite) {
         try expectEqual(old.first?.rateMbps, 86.7, "débit en kb/s")
         try expectEqual(old.first?.ssid, "wifi-interne", "VAP à défaut de SSID")
         try expectEqual(old.first?.hostname, "Zebra-LAV-01", "host")
+        let stamped = try FortiWifiParsers.clients(data(#"{"results":[{"mac":"3c:22:fb:7e:05:b1","association_time":1793699000}]}"#),
+                                                   now: now).unwrap("horodatage")
+        try expectEqual(stamped.first?.associatedFor, 1000, "horodatage converti avec la date de la lecture")
 
         let ssids = try FortiWifiParsers.ssids(data(FortiWifiFixtures.vap74)).unwrap("SSID")
         try expectEqual(ssids.map(\.ssid), ["Groupe-Interne", "Invités"], "SSID")
@@ -210,6 +217,30 @@ func registerFortiWifiTests(_ suite: TestSuite) {
                                         token: FortiFixtures.token, date: now)
         try expect(text.contains("/api/v2/monitor/wifi/managed_ap"), "appels Wi-Fi dans les réponses brutes")
         try expect(!text.contains(FortiFixtures.token), "jamais le jeton")
+    }
+
+    suite.add("FortiAP : secrets des SSID jamais demandés ni copiés dans le diagnostic") {
+        let secretVAP = """
+        {"results":[{"name":"wifi-interne","ssid":"Groupe-Interne","security":"wpa2-only-personal","passphrase":"ENC XyZ123secretPass==",
+          "sae-password":"MotDePasseSAE","radius-server-secret":"rad\\"ius","mpsk-key":[{"key-name":"k1","passphrase":"ClefMPSK"}],
+          "key":"ClefWEP","psk":"Psk999","auth-cert":"ENC autreSecret"}],"status":"success"}
+        """
+        let transport = FortiWifiFixtures.transport74()
+        let reader = FortiGateReader(transport: transport, tokenForRedaction: FortiFixtures.token)
+        _ = try await reader.readWifi(now: now)
+        let format = transport.queries[FortiWifiPaths.vap]?.first { $0.name == "format" }?.value ?? ""
+        try expect(format.contains("ssid") && format.contains("security"), "champs utiles demandés : \(format)")
+        try expect(!format.contains("passphrase") && !format.contains("key") && !format.contains("secret"), "aucun champ secret demandé")
+
+        let leaking = FortiFakeTransport([FortiWifiPaths.managedAP: (200, FortiWifiFixtures.managedAP74), FortiWifiPaths.vap: (200, secretVAP)])
+        let report = try await FortiGateReader(transport: leaking, tokenForRedaction: FortiFixtures.token).readWifi(now: now)
+        try expectEqual(report.ssids.first?.ssid, "Groupe-Interne", "SSID lu malgré tout")
+        let text = FortiDiagnostic.text(calls: report.calls, config: FortiGateConfig(host: "10.182.122.1"), system: nil,
+                                        token: FortiFixtures.token, date: now)
+        for secret in ["XyZ123secretPass", "MotDePasseSAE", "rad\\\"ius", "ius\"", "ClefMPSK", "ClefWEP", "Psk999", "autreSecret"] {
+            try expect(!text.contains(secret), "secret « \(secret) » retiré du diagnostic")
+        }
+        try expect(text.contains("Groupe-Interne") && text.contains("k1"), "le reste de la réponse est gardé")
     }
 
     suite.add("FortiAP : 403 sur les bornes expliqué, 404 = absent, parties facultatives notées") {
@@ -315,6 +346,14 @@ func registerFortiWifiTests(_ suite: TestSuite) {
         let weak = try d.advice.first { $0.kind == .weakSignal }.unwrap("conseil signal faible")
         try expect(weak.detail.contains("loin sur A (-76\u{00A0}dBm)"), "client nommé avec sa borne : \(weak.detail)")
         try expect(d.advice.allSatisfy { !$0.title.contains(" :") && !$0.detail.contains(" :") }, "espace insécable avant « : »")
+        let anonymous = [FortiWifiClient(site: "Siège", mac: MACAddress("3C:22:FB:7E:05:B1")!, apName: "A", rssi: -80)]
+        let masked = FortiWifiAnalysis.diagnose(FortiWifiOverview(aps: aps, clients: anonymous, rogues: overview.rogues, sites: ["Siège"], readAt: now),
+                                                maskMACs: true)
+        let maskedText = masked.advice.map(\.detail).joined(separator: " ")
+        try expect(maskedText.contains("3C:22:FB:xx:xx:xx") && maskedText.contains("02:00:00:xx:xx:xx"), "MAC masquées : \(maskedText)")
+        try expect(!maskedText.contains("7E:05:B1") && !maskedText.contains("00:00:09"), "MAC entières absentes")
+        let shown = FortiWifiAnalysis.diagnose(FortiWifiOverview(aps: aps, clients: anonymous, sites: ["Siège"], readAt: now))
+        try expect(shown.advice.contains { $0.detail.contains("3C:22:FB:7E:05:B1") }, "sans masque : MAC entière")
 
         let healthy = FortiWifiAnalysis.diagnose(FortiWifiOverview(aps: [ap("A", [radio(1, .ghz24, 1)])], sites: ["Siège"]))
         try expectEqual(healthy.advice.map(\.kind), [.healthy], "rien à signaler")
@@ -394,6 +433,20 @@ func registerFortiWifiTests(_ suite: TestSuite) {
         let fine = MonFortiAPChecks.overload(target: "AP-A", overview: o, thresholds: FortiWifiThresholds(maxClientsPerRadio: 50), now: now)
         try expect(fine.result.problem == nil, "seuil de la sonde")
         try expect(MonFortiAPChecks.overload(target: "AP-Q", overview: o, thresholds: .standard, now: now).noData, "hors ligne : rien à évaluer")
+        // Lecture tentée sans aucune FortiGate lue : échec avec l'erreur, pas « en attente ».
+        let failed = MonFortiAPChecks.offline(target: "*", overview: FortiWifiOverview(), error: "Accès refusé (HTTP 403)", now: now)
+        try expect(!failed.noData && !failed.result.reachable && failed.result.error == "Accès refusé (HTTP 403)", "erreur de lecture signalée")
+        let failedLoad = MonFortiAPChecks.overload(target: "AP-A", overview: FortiWifiOverview(), error: "FortiGate injoignable",
+                                                   thresholds: .standard, now: now)
+        try expect(!failedLoad.noData && !failedLoad.result.reachable, "surcharge : erreur de lecture signalée")
+        try expect(MonFortiAPChecks.offline(target: "*", overview: FortiWifiOverview(), now: now).noData, "aucune lecture tentée : en attente")
+        // État de la borne illisible : jamais « En ligne ».
+        let unknownAPs = FortiWifiOverview(aps: [ap("AP-U", connected: nil, [radio(1, .ghz24, 1)]), ap("AP-A", [radio(1, .ghz24, 6)])],
+                                           sites: ["Siège"], readAt: now)
+        let unknownOne = MonFortiAPChecks.offline(target: "AP-U", overview: unknownAPs, now: now)
+        try expect(unknownOne.result.problem != nil && unknownOne.result.value == "État inconnu", "une borne à l'état illisible")
+        let unknownAll = MonFortiAPChecks.offline(target: "*", overview: unknownAPs, now: now)
+        try expect(unknownAll.result.problem != nil && unknownAll.result.value.contains("1 à l’état inconnu"), "toutes : \(unknownAll.result.value)")
         var probe = MonProbe(name: "Charge", kind: .fortiAPOverload, target: "AP-A")
         probe.wifiThresholds = FortiWifiThresholds(maxClientsPerRadio: 25, maxChannelUtilization: 60)
         let decoded = try JSONDecoder().decode(MonProbe.self, from: try JSONEncoder().encode(probe))

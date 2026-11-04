@@ -40,11 +40,19 @@ public extension SearchSchema {
         .status.with(label: "État du port", example: "up"), .poe, .speed, .source, .switchName, .site,
     ], example: "vlan:30 type:imprimante")
 
-    /// Boîte à outils : outils et historique des résultats.
-    static let outils = SearchSchema([
+    /// Boîte à outils : liste des outils.
+    static let outilsListe = SearchSchema([
+        .name.with(label: "Outil", example: "dns"), SearchAttribute("groupe", label: "Groupe", aliases: ["group", "categorie"], example: "diagnostic"),
+    ], example: "groupe:courriel")
+
+    /// Boîte à outils : historique des résultats.
+    static let outilsHistorique = SearchSchema([
         .name.with(label: "Outil", example: "dns"), SearchAttribute("groupe", label: "Groupe", aliases: ["group", "categorie"], example: "diagnostic"),
         .target.with(example: "exemple.ca"), .status.with(example: "échec"),
-    ], example: "groupe:courriel")
+    ], example: "cible:exemple.ca etat:échec")
+
+    /// Boîte à outils : outils et historique (chaque liste applique les critères qu'elle connaît).
+    static let outils = SearchSchema(merging: [outilsListe, outilsHistorique], example: "groupe:courriel")
 
     /// Réglages : sections.
     static let reglages = SearchSchema([.section.with(example: "FortiGate")], example: "section:alertes")
@@ -63,6 +71,32 @@ public extension SearchSchema {
     static let wifi = SearchSchema([
         .ssid, .mac.with(label: "BSSID", example: "a4:2b"), .vendor.with(example: "Ubiquiti"), .channel, .band, .security,
     ], example: "bande:5 -securite:WPA3")
+
+    /// Wi-Fi › FortiAP : bornes gérées par la FortiGate.
+    static let wifiBornes = SearchSchema([
+        .accessPoint.with(example: "AP-ACCUEIL"), .model.with(example: "FAP-231F"), .ip, .status.with(example: "hors ligne"),
+        .channel, .band, .site,
+    ], example: "borne:AP-ACCUEIL etat:\"hors ligne\"")
+
+    /// Wi-Fi › FortiAP : clients associés.
+    static let wifiClients = SearchSchema([
+        .name.with(label: "Client", example: "portable"), .mac, .ip, .ssid, .accessPoint.with(example: "AP-ACCUEIL"),
+        .band, .channel, .vlan, .site,
+    ], example: "borne:AP-ACCUEIL bande:2,4")
+
+    /// Wi-Fi › FortiAP : SSID diffusés.
+    static let wifiSSID = SearchSchema([.ssid, .security, .vlan, .site], example: "-securite:WPA3")
+
+    /// Wi-Fi › FortiAP : AP voisins vus par les bornes.
+    static let wifiVoisins = SearchSchema([
+        .ssid, .mac.with(label: "BSSID", example: "a4:2b"), .vendor.with(example: "Ubiquiti"), .channel, .band, .security,
+        .status.with(example: "non autorisé"), .accessPoint.with(label: "Vu par", example: "AP-ACCUEIL"), .site,
+    ], example: "etat:\"non autorisé\"")
+
+    /// Écran Wi-Fi : réseaux du voisinage et tableaux FortiAP (chaque tableau applique les
+    /// critères qu'il connaît).
+    static let wifiEcran = SearchSchema(merging: [wifi, wifiClients, wifiBornes, wifiSSID, wifiVoisins],
+                                        example: "ssid:Bureau bande:5")
 }
 
 // MARK: - Scanner

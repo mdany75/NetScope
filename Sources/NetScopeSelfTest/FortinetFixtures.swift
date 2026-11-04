@@ -11,20 +11,23 @@ final class FortiFakeTransport: FortiTransport, @unchecked Sendable {
     private let lock = NSLock()
     private var responses: [String: (Int, String)]
     private(set) var requested: [String] = []
+    /// Paramètres de chaque adresse demandée (dernière demande).
+    private(set) var queries: [String: [URLQueryItem]] = [:]
 
     init(_ responses: [String: (Int, String)]) {
         self.responses = responses
     }
 
-    private func take(_ path: String) -> (Int, String)? {
+    private func take(_ path: String, query: [URLQueryItem] = []) -> (Int, String)? {
         lock.lock()
         defer { lock.unlock() }
         requested.append(path)
+        queries[path] = query
         return responses[path]
     }
 
     func get(_ path: String, query: [URLQueryItem]) async throws -> FortiHTTPResponse {
-        let response = take(path)
+        let response = take(path, query: query)
         guard let (status, body) = response else {
             return FortiHTTPResponse(status: 404, body: Data(#"{"http_method":"GET","status":"error","http_status":404}"#.utf8))
         }

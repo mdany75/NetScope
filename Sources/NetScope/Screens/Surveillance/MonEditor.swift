@@ -381,7 +381,7 @@ private struct MonConditionFields: View {
         case .onlineService:
             MonServiceConditionFields(probe: $probe)
         case .fortiAPOffline:
-            note("Alerte quand la FortiGate du site voit la borne déconnectée («\u{00A0}*\u{00A0}» : toutes les bornes lues). La FortiGate est relue au plus à chaque intervalle, en lecture seule.")
+            note("Alerte quand la FortiGate du site voit la borne déconnectée («\u{00A0}*\u{00A0}»\u{00A0}: toutes les bornes lues). La FortiGate est relue au plus à chaque intervalle, en lecture seule.")
         case .fortiAPOverload:
             MonFortiAPConditionFields(probe: $probe)
         }
@@ -531,24 +531,32 @@ struct MonDangerButtonStyle: ButtonStyle {
     }
 }
 
-/// Sonde « Borne surchargée » (note 27) : clients par radio et utilisation du canal.
+/// Sonde « Borne surchargée » (note 27) : clients par radio et utilisation du canal. Le texte saisi
+/// est gardé tel quel (champ vide pendant la frappe) et appliqué au seuil dès qu'il est valide.
 private struct MonFortiAPConditionFields: View {
     @Binding var probe: MonProbe
+    @State private var clientsText: String?
+    @State private var utilizationText: String?
 
     var body: some View {
         let t = probe.wifiThresholds ?? .standard
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Text("Plus de").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
-                MonInput(placeholder: "30", text: Binding(get: { String(t.maxClientsPerRadio) }, set: { text in
+                MonInput(placeholder: "30", text: Binding(get: { clientsText ?? String(t.maxClientsPerRadio) }, set: { text in
+                    clientsText = text
                     guard let v = Int(text.trimmingCharacters(in: .whitespaces)), v > 0 else { return }
                     var next = probe.wifiThresholds ?? .standard
                     next.maxClientsPerRadio = min(500, v)
                     probe.wifiThresholds = next
                 }), mono: true)
                 .frame(width: 52)
-                Text("clients par radio, ou canal occupé à plus de").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
-                MonInput(placeholder: "70", text: Binding(get: { MonFormat.number(t.maxChannelUtilization) }, set: { text in
+                Text("clients par radio").font(Theme.small).foregroundStyle(Theme.text)
+            }
+            HStack(spacing: 6) {
+                Text("ou canal occupé à plus de").font(Theme.small).foregroundStyle(Theme.text)
+                MonInput(placeholder: "70", text: Binding(get: { utilizationText ?? MonFormat.number(t.maxChannelUtilization) }, set: { text in
+                    utilizationText = text
                     guard let v = Double(text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")), v > 0 else { return }
                     var next = probe.wifiThresholds ?? .standard
                     next.maxChannelUtilization = min(100, v)
@@ -556,6 +564,10 @@ private struct MonFortiAPConditionFields: View {
                 }), mono: true)
                 .frame(width: 52)
                 Text("%").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
+            }
+            .onChange(of: probe.id) { _, _ in
+                clientsText = nil
+                utilizationText = nil
             }
             Text("D’après la dernière lecture Wi-Fi de la FortiGate (relue au plus à chaque intervalle).")
                 .font(Theme.caption).foregroundStyle(Theme.textSecondary)

@@ -200,7 +200,14 @@ public enum FortiWifiAnalysis {
 
     static func capitalized(_ text: String) -> String { text.prefix(1).uppercased() + text.dropFirst() }
 
-    public static func diagnose(_ overview: FortiWifiOverview, thresholds: FortiWifiThresholds = .standard) -> FortiWifiDiagnosis {
+    /// `maskMACs` : adresses MAC des conseils réduites au préfixe du fabricant (« AA:BB:CC:xx:xx:xx »),
+    /// comme l'option « masquer les MAC » des rapports.
+    public static func diagnose(_ overview: FortiWifiOverview, thresholds: FortiWifiThresholds = .standard,
+                                maskMACs: Bool = false) -> FortiWifiDiagnosis {
+        func macText(_ mac: MACAddress) -> String {
+            let text = mac.formatted(.upperColon)
+            return maskMACs ? String(text.prefix(8)) + ":xx:xx:xx" : text
+        }
         let overlaps = channelOverlaps(overview.aps)
         let weak = weakClients(overview.clients, thresholds: thresholds)
         let overload = overloaded(overview.aps, clients: overview.clients, thresholds: thresholds)
@@ -221,7 +228,7 @@ public enum FortiWifiAnalysis {
 
         for rogue in unauthorized {
             let name = rogue.ssid.map { "«\(nbsp)\($0)\(nbsp)»" } ?? "SSID caché"
-            var detail = "\(name)" + (rogue.bssid.map { " (\($0.formatted(.upperColon)))" } ?? "")
+            var detail = "\(name)" + (rogue.bssid.map { " (\(macText($0)))" } ?? "")
             if let ch = rogue.channel { detail += ", canal \(ch)" }
             if let r = rogue.rssi { detail += ", \(r)\(nbsp)dBm" }
             if !rogue.seenBy.isEmpty { detail += ", vu par " + rogue.seenBy.prefix(3).joined(separator: ", ") }
@@ -255,7 +262,7 @@ public enum FortiWifiAnalysis {
         if !weak.isEmpty {
             let names = weak.prefix(3).map { c -> String in
                 let signal = c.rssi.map { "\($0)\(nbsp)dBm" } ?? c.snr.map { "SNR \($0)\(nbsp)dB" } ?? ""
-                return "\(c.displayName)" + (c.apName.map { " sur \($0)" } ?? "") + (signal.isEmpty ? "" : " (\(signal))")
+                return (c.hostname ?? macText(c.mac)) + (c.apName.map { " sur \($0)" } ?? "") + (signal.isEmpty ? "" : " (\(signal))")
             }
             let more = weak.count > 3 ? " et \(weak.count - 3) autre\(weak.count - 3 > 1 ? "s" : "")" : ""
             advice.append(FortiWifiAdvice(id: "weak", kind: .weakSignal, severity: .alerte,

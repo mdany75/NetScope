@@ -133,7 +133,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     /// Recherche multiple (note 26) : `nom:dns`, `groupe:courriel` ; un mot seul lit le nom, la
     /// clé et le résumé, comme avant.
     func matches(_ query: String) -> Bool {
-        SearchQuery(query, schema: .outils).matches(searchItem)
+        SearchQuery(query, schema: .outilsListe).matches(searchItem)
     }
 
     var searchItem: SearchDocument {

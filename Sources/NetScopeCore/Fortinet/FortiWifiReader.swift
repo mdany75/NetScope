@@ -9,6 +9,9 @@ public enum FortiWifiPaths {
     public static let managedAP = "/api/v2/monitor/wifi/managed_ap"
     public static let client = "/api/v2/monitor/wifi/client"
     public static let vap = "/api/v2/cmdb/wireless-controller/vap"
+    /// Champs demandés à vap : jamais les secrets (« passphrase », « sae-password », « mpsk-key »,
+    /// secrets RADIUS ou de portail), que FortiOS renvoie chiffrés par une clé connue.
+    public static let vapFields = "name|ssid|security|vlanid|broadcast-ssid|local-bridging|max-clients|portal-type|security-exempt-list"
     public static let rogueAP = "/api/v2/monitor/wifi/rogue_ap"
     public static let interferingAP = "/api/v2/monitor/wifi/interfering_ap"
     public static let apStatus = "/api/v2/monitor/wifi/ap_status"
@@ -64,13 +67,13 @@ extension FortiGateReader {
 
         let clients = try await fetch(FortiWifiPaths.client)
         calls.append(clients.record)
-        if let body = clients.response?.body, clients.error == nil, let list = FortiWifiParsers.clients(body) {
+        if let body = clients.response?.body, clients.error == nil, let list = FortiWifiParsers.clients(body, now: now) {
             report.clients = FortiWifiMerge.resolveAPNames(list, aps: parsed)
         } else if let note = Self.note("Clients Wi-Fi", clients.error) {
             report.notes.append(note)
         }
 
-        let vap = try await fetch(FortiWifiPaths.vap)
+        let vap = try await fetch(FortiWifiPaths.vap, query: [URLQueryItem(name: "format", value: FortiWifiPaths.vapFields)])
         calls.append(vap.record)
         if let body = vap.response?.body, vap.error == nil, let list = FortiWifiParsers.ssids(body) {
             report.ssids = list

@@ -64,8 +64,8 @@ private struct ToolListPanel: View {
             }
             .padding(.horizontal, 4)
             // Filtre du panneau et recherche de la barre d'outils (note 26), même moteur.
-            let local = SearchQuery(store.toolFilter, schema: .outils)
-            let global = state.searchQuery(for: .outils)
+            let local = SearchQuery(store.toolFilter, schema: .outilsListe)
+            let global = state.searchQuery(for: .outils).restricted(to: .outilsListe)
             let groups = ToolKind.Group.allCases.map { group in
                 (group, group.tools.filter { local.matches($0.searchItem) && global.matches($0.searchItem) })
             }
@@ -90,8 +90,8 @@ private struct ToolListPanel: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
-        .searchResults(ToolKind.allCases.filter { SearchQuery(store.toolFilter, schema: .outils).matches($0.searchItem)
-            && state.searchQuery(for: .outils).matches($0.searchItem) }.count, "outil", "outils")
+        .searchResults(ToolKind.allCases.filter { SearchQuery(store.toolFilter, schema: .outilsListe).matches($0.searchItem)
+            && state.searchQuery(for: .outils).restricted(to: .outilsListe).matches($0.searchItem) }.count, "outil", "outils")
     }
 
     private func row(_ tool: ToolKind) -> some View {
@@ -299,7 +299,7 @@ private struct ToolSidePanel: View {
             box {
                 ToolFieldLabel("Résultats récents")
                 // Note 26 : la recherche de la barre d'outils filtre aussi l'historique.
-                let query = state.searchQuery(for: .outils)
+                let query = state.searchQuery(for: .outils).restricted(to: .outilsHistorique)
                 let recents = store.recents.filter { query.matches($0.searchItem) }
                 if store.recents.isEmpty {
                     Text("Les résultats des outils apparaîtront ici.").font(Theme.small).foregroundStyle(Theme.textSecondary)

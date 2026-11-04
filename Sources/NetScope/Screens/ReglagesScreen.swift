@@ -86,7 +86,7 @@ struct ReglagesScreen: View {
                 sectionButton(section)
             }
             if visibleSections.isEmpty {
-                Text(query.isEmpty ? "Aucun réglage ne correspond à la recherche." : "Aucun réglage ne correspond à « \(query) ».")
+                Text(query.isEmpty ? "Aucun réglage ne correspond à la recherche." : "Aucun réglage ne correspond à «\u{00A0}\(query)\u{00A0}».")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .padding(10)
             }

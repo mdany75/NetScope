@@ -19,7 +19,7 @@ extension ReportBuilder {
         guard let overview, !overview.aps.isEmpty else {
             return [.note("Aucune borne FortiAP lue\u{00A0}: configurer la FortiGate du site dans Réglages › Switchs, puis relire les bornes dans Wi-Fi › FortiAP.")]
         }
-        let d = FortiWifiAnalysis.diagnose(overview, thresholds: thresholds)
+        let d = FortiWifiAnalysis.diagnose(overview, thresholds: thresholds, maskMACs: masked)
         let sites = overview.sites.filter { !$0.isEmpty }
         var text = "\(plural(overview.aps.count, "borne FortiAP gérée", "bornes FortiAP gérées"))"
         if !sites.isEmpty { text += " par " + (sites.count > 1 ? "les FortiGate des sites " + sites.joined(separator: ", ") : "la FortiGate du site " + sites[0]) }

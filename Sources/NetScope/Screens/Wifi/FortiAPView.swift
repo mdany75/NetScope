@@ -103,12 +103,25 @@ struct FortiAPView: View {
             }
         }
         .onAppear {
+            applyFocus()
             if selectedAP == nil { selectedAP = store.overview.aps.first?.id }
         }
+        .onChange(of: store.focusAP) { _, _ in applyFocus() }
         .onChange(of: store.overview.aps.map(\.id)) { _, ids in
             if let id = selectedAP, ids.contains(id) { return }
             selectedAP = ids.first
         }
+    }
+
+    /// Borne demandée par la fiche d'un appareil : sélectionnée, et sa bande montrée sur la carte.
+    private func applyFocus() {
+        guard let id = store.focusAP else { return }
+        if store.overview.aps.contains(where: { $0.id == id }) {
+            selectedAP = id
+            if let b = store.focusBand { band = b }
+        }
+        store.focusAP = nil
+        store.focusBand = nil
     }
 
     private var notConfigured: some View {
@@ -188,6 +201,7 @@ struct FortiAPBanner: View {
                             .fixedSize(horizontal: false, vertical: true)
                         Text(detail(selection)).font(Theme.small).foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
+                            .help("Adresses lues en GET\u{00A0}: " + FortiWifiPaths.all.joined(separator: ", "))
                         ForEach(selection.picks.filter { store.errors[$0.controllerID] != nil }) { pick in
                             Label("\(pick.site)\u{00A0}: \(store.errors[pick.controllerID] ?? "")", systemImage: "exclamationmark.triangle.fill")
                                 .font(Theme.small).foregroundStyle(Theme.warning)
@@ -213,8 +227,7 @@ struct FortiAPBanner: View {
                         }
                     }
                     .buttonStyle(.secondary)
-                    .disabled(store.busy || !fortigate.isEnabled || fortigate.previewSelection(state: state).isEmpty
-                              || !(fortigate.isReady || fortigate.isDemo))
+                    .disabled(store.busy || !store.canRefresh(state: state))
                     .help("Relit, par l’API REST (HTTPS, lecture seule), les bornes FortiAP, les clients Wi-Fi, les SSID et les AP voisins des FortiGate qui couvrent les plages cochées du Scanner (sinon l’adresse de ce Mac).")
                 }
                 .fixedSize()
@@ -245,7 +258,7 @@ struct FortiAPBanner: View {
             return "Les bornes FortiAP sont lues avec les FortiSwitch à la fin du scan, par les mêmes FortiGate."
         }
         let read = "\(o.aps.count) borne\(o.aps.count > 1 ? "s" : ""), \(o.clients.count) client\(o.clients.count > 1 ? "s" : "") Wi-Fi"
-        return "\(read) · lu à \(WifiText.timeSeconds(last)) (managed_ap, client, vap, rogue_ap)."
+        return "\(read) · lu à \(WifiText.timeSeconds(last)) (bornes, clients, SSID et AP voisins)."
     }
 }
 

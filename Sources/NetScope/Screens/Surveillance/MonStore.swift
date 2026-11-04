@@ -307,9 +307,11 @@ final class MonStore: ObservableObject {
         let appState = self.appState
         Task {
             var fortiWifi: FortiWifiOverview?
+            var fortiWifiError: String?
             if isFortiAP {
                 await FortiAPStore.shared.refreshForMonitoring(maxAge: TimeInterval(probe.interval), state: appState)
                 fortiWifi = FortiAPStore.shared.overview
+                fortiWifiError = FortiAPStore.shared.readError
             }
             if perHost {
                 await SwitchStore.shared.loadVault()
@@ -321,6 +323,7 @@ final class MonStore: ObservableObject {
             context.onlineServices = onlineServices
             context.onlineServiceGraph = onlineGraph
             context.fortiWifi = fortiWifi
+            context.fortiWifiError = fortiWifiError
             let outcome = await MonRunner.run(probe, context: context)
             MonStore.shared.finish(probe.id, outcome: outcome, manual: manual)
         }

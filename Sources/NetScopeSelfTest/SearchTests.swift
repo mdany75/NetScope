@@ -177,7 +177,8 @@ func registerSearchTests(_ suite: TestSuite) {
         try expectEqual(schema.field(forPrefix: "Statut")?.key, "etat", "alias")
         try expectEqual(schema.field(forPrefix: "ssid")?.key, nil, "champ absent du module")
         for module in [SearchSchema.scanner, .inventaire, .analyse, .sondes, .journal, .surveillance, .acces, .serveurs, .wifi,
-                       .switchs, .outils, .reglages] {
+                       .switchs, .outils, .outilsListe, .outilsHistorique, .reglages, .wifiBornes, .wifiClients, .wifiSSID,
+                       .wifiVoisins, .wifiEcran] {
             var seen: [String: String] = [:]
             for field in module.fields {
                 for alias in field.aliases {
@@ -187,6 +188,21 @@ func registerSearchTests(_ suite: TestSuite) {
             }
             try expect(!SearchQuery(module.example, schema: module).fieldTerms.isEmpty, "exemple lu : \(module.example)")
         }
+    }
+
+    suite.add("Recherche : Boîte à outils, critère de l'historique sans effet sur la liste des outils") {
+        let query = SearchQuery("etat:échec cible:exemple.ca", schema: .outils)
+        try expectEqual(query.fieldTerms.compactMap(\.field?.key), ["etat", "cible"], "champs de l'historique reconnus")
+        let tools = query.restricted(to: .outilsListe)
+        try expect(tools.isEmpty, "liste des outils : critères laissés de côté")
+        try expect(tools.matches(SearchDocument(["nom": ["DNS"], "groupe": ["Diagnostic"]])), "outil gardé")
+        let history = query.restricted(to: .outilsHistorique)
+        try expect(!history.matches(SearchDocument(["nom": ["DNS"], "cible": ["exemple.ca"], "etat": ["Réussi"]])), "historique filtré")
+        try expect(history.matches(SearchDocument(["nom": ["DNS"], "cible": ["exemple.ca"], "etat": ["Échec"]])), "historique : échec gardé")
+        // Wi-Fi : « borne: » ne concerne pas les réseaux voisins du Mac.
+        let wifi = SearchQuery("borne:AP-ACCUEIL", schema: .wifiEcran)
+        try expect(wifi.restricted(to: .wifi).isEmpty, "réseaux voisins : critère des bornes laissé de côté")
+        try expect(!wifi.restricted(to: .wifiBornes).isEmpty, "bornes : critère appliqué")
     }
 
     suite.add("Recherche : écran à deux listes (Surveillance : sondes et journal)") {

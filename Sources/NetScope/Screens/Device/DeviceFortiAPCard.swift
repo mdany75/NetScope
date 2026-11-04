@@ -36,7 +36,9 @@ struct DeviceFortiAPCard: View {
                     }
                     DeviceKVRow(key: "Source", value: "FortiGate · \(client.site) (clients Wi-Fi, lecture seule)", mono: false)
                 }
-                Button("Voir la borne dans Wi-Fi › FortiAP →") {
+                Button(ap == nil ? "Ouvrir Wi-Fi › FortiAP →" : "Voir la borne dans Wi-Fi › FortiAP →") {
+                    FortiAPStore.shared.focusAP = ap?.id
+                    FortiAPStore.shared.focusBand = client.band
                     UserDefaults.standard.set(WifiScreenPart.fortiap.rawValue, forKey: "NetScope.wifi.partie")
                     state.open(.wifi)
                 }

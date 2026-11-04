@@ -19,6 +19,8 @@ public enum FortiWifiParsers {
     public static func band(_ text: String?, channel: Int?) -> WifiBand? {
         if let raw = text?.lowercased().replacingOccurrences(of: " ", with: ""), !raw.isEmpty {
             if raw.contains("6g") || raw.contains("6e") || raw.contains("6ghz") || raw == "6" { return .ghz6 }
+            // « 802.11ac-2G », « 11ac-2g » (radio 2,4 GHz en VHT, FortiOS 6.2 et plus) : avant le test « 11ac ».
+            if raw.contains("-2g") || raw.contains("2g") || raw.contains("2.4") || raw.contains("2,4") { return .ghz24 }
             if raw.contains("5g") || raw.contains("5ghz") || raw.contains("11ac") || raw.contains("11a,") || raw.hasSuffix("11a")
                 || raw == "5" || raw.contains("11an") || raw.contains("-5") { return .ghz5 }
             if raw.contains("2.4") || raw.contains("2,4") || raw.contains("2g") || raw.contains("11g") || raw.contains("11b")
@@ -207,14 +209,14 @@ public enum FortiWifiParsers {
     // MARK: Clients
 
     /// /api/v2/monitor/wifi/client.
-    public static func clients(_ data: Data) -> [FortiWifiClient]? {
+    public static func clients(_ data: Data, now: Date = Date()) -> [FortiWifiClient]? {
         guard let json = FortiJSON.parse(data) else { return nil }
         let items = FortiJSON.objects(FortiJSON.results(json))
         if items.isEmpty { return (json is [String: Any] || json is [Any]) ? [] : nil }
-        return items.compactMap(client)
+        return items.compactMap { client($0, now: now) }
     }
 
-    static func client(_ item: FortiObject) -> FortiWifiClient? {
+    static func client(_ item: FortiObject, now: Date = Date()) -> FortiWifiClient? {
         guard let mac = FortiParse.mac(item.any("mac", "mac_address", "sta_mac", "client_mac", "_key")) else { return nil }
         let channel = item.int("channel", "chan", "oper_chan").flatMap { $0 > 0 ? $0 : nil }
         let rssi = dbm(item.any("signal", "rssi", "signal_strength", "signal-strength"))
@@ -229,7 +231,7 @@ public enum FortiWifiParsers {
         let snr = item.int("snr", "signal_to_noise", "snr_db")
         var associated = duration(item.any("association_time", "assoc_time", "associated_time", "duration", "online_time", "uptime"))
         // Certaines versions donnent l'heure d'association (horodatage) au lieu d'une durée.
-        if let a = associated, a > 1_000_000_000 { associated = max(0, Date().timeIntervalSince1970 - a) }
+        if let a = associated, a > 1_000_000_000 { associated = max(0, now.timeIntervalSince1970 - a) }
         let apName = item.string("wtp_name", "wtp-name", "ap_name", "ap", "wtp")
         let apKey = item.string("wtp_id", "wtp-id", "wtp_serial", "serial", "ap_serial") ?? apName
         let bandText = item.string("radio_type", "band", "radio-type", "frequency_band")

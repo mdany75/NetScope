@@ -17,6 +17,8 @@ public struct MonRunContext: Sendable {
     public var onlineServiceGraph: SvcGraphCredentials?
     /// Dernière lecture Wi-Fi des FortiGate (sondes FortiAP) ; nil : aucune lecture.
     public var fortiWifi: FortiWifiOverview?
+    /// Lecture Wi-Fi tentée sans aucune FortiGate lue : son erreur (403, jeton absent, injoignable).
+    public var fortiWifiError: String?
 
     public init(pinger: ScanPinging?, snmpCommunity: String?, devices: [Device], inventoryReady: Bool = true,
                 now: Date = Date()) {
@@ -81,9 +83,9 @@ public enum MonRunner {
         case .onlineService:
             return MonRunOutcome(result: await SvcMonitorCheck.run(probe, target: target, context: context))
         case .fortiAPOffline:
-            return MonFortiAPChecks.offline(target: target, overview: context.fortiWifi, now: context.now)
+            return MonFortiAPChecks.offline(target: target, overview: context.fortiWifi, error: context.fortiWifiError, now: context.now)
         case .fortiAPOverload:
-            return MonFortiAPChecks.overload(target: target, overview: context.fortiWifi,
+            return MonFortiAPChecks.overload(target: target, overview: context.fortiWifi, error: context.fortiWifiError,
                                              thresholds: probe.wifiThresholds ?? .standard, now: context.now)
         }
     }

@@ -43,7 +43,13 @@ public enum FortiRedact {
         var result = text
         if let token, token.count >= 4 { result = result.replacingOccurrences(of: token, with: "«\u{00A0}jeton masqué\u{00A0}»") }
         // access_token=… dans une adresse, « Bearer … » dans un en-tête recopié.
-        let patterns = [#"(?i)(access_token=)[^&\s"']+"#, #"(?i)(bearer\s+)[A-Za-z0-9._\-]+"#, #"(?i)("(?:api[_-]?key|token|password|passwd)"\s*:\s*")[^"]*"#]
+        // Valeur JSON d'une clé qui nomme un secret (« passphrase », « sae-password », « mpsk-key »,
+        // « radius-secret », « psk »…), valeur « ENC … » (secret chiffré de FortiOS, récupérable).
+        let value = #"(?:[^"\\]|\\.)*"#
+        let patterns = [#"(?i)(access_token=)[^&\s"']+"#, #"(?i)(bearer\s+)[A-Za-z0-9._\-]+"#,
+                        #"(?i)("[^"]*(?:passphrase|password|passwd|secret|psk|token|api[_-]?key)[^"]*"\s*:\s*")"# + value,
+                        #"(?i)("key"\s*:\s*")"# + value,
+                        #"(")ENC\s"# + value]
         for pattern in patterns {
             result = result.replacingOccurrences(of: pattern, with: "$1•••", options: .regularExpression)
         }

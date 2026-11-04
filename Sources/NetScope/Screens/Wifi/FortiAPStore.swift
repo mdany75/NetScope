@@ -25,6 +25,9 @@ final class FortiAPStore: ObservableObject {
     @Published private(set) var lastRefresh: Date?
     /// FortiGate choisies pour la dernière lecture.
     @Published private(set) var selection = FortiControllerSelection()
+    /// Borne (et bande) à montrer à l'ouverture de Wi-Fi › FortiAP (fiche d'un appareil client).
+    @Published var focusAP: FortiManagedAP.ID?
+    @Published var focusBand: WifiBand?
     @Published var thresholds: FortiWifiThresholds {
         didSet {
             guard thresholds != oldValue else { return }
@@ -61,6 +64,20 @@ final class FortiAPStore: ObservableObject {
     // MARK: État
 
     var hasData: Bool { !overview.aps.isEmpty || !overview.clients.isEmpty }
+
+    /// Lecture tentée sans aucune FortiGate lue : message des erreurs (sondes de la Surveillance).
+    var readError: String? {
+        guard lastRefresh != nil, overview.readAt == nil else { return nil }
+        let messages = Array(Set(errors.values)).sorted()
+        return messages.isEmpty ? "Aucune FortiGate lue pour le Wi-Fi" : messages.joined(separator: " ")
+    }
+
+    /// « Relire les bornes » possible : lecture activée, une FortiGate choisie, jeton et empreinte
+    /// présents (même condition pour le bandeau et la barre d'outils).
+    func canRefresh(state: AppState) -> Bool {
+        let fortigate = FortiGateStore.shared
+        return fortigate.isEnabled && !fortigate.previewSelection(state: state).isEmpty && (fortigate.isReady || fortigate.isDemo)
+    }
     /// Libellé des sites lus (« Siège », « Siège, Entrepôt Laval »).
     var sitesLabel: String { sites.map(\.site).joined(separator: ", ") }
 
@@ -104,9 +121,12 @@ final class FortiAPStore: ObservableObject {
     /// et attend la fin de la lecture.
     func refreshForMonitoring(maxAge: TimeInterval, state: AppState?) async {
         if let last = lastRefresh, Date().timeIntervalSince(last) < maxAge { return }
+        // Une lecture en cours (`task` est remis à nil à la fin de chaque lecture) : l'attendre,
+        // puis relire seulement si elle n'a rien donné de récent (annulée par une plus récente).
         if let running = task {
             await running.value
-            return
+            if let last = lastRefresh, Date().timeIntervalSince(last) < maxAge { return }
+            if task != nil { return }
         }
         let chosen = state.map { FortiGateStore.shared.previewSelection(state: $0) } ?? FortiGateStore.shared.selection
         let next: Task<Void, Never> = Task { [weak self] in await self?.read(chosen) }
@@ -119,7 +139,12 @@ final class FortiAPStore: ObservableObject {
         let mine = generation
         selection = chosen
         busy = true
-        defer { if mine == generation { busy = false } }
+        defer {
+            if mine == generation {
+                busy = false
+                task = nil
+            }
+        }
         if isDemo {
             try? await Task.sleep(nanoseconds: 500_000_000)
             guard mine == generation, !Task.isCancelled else { return }
@@ -133,6 +158,9 @@ final class FortiAPStore: ObservableObject {
         let fortigate = FortiGateStore.shared
         guard fortigate.isEnabled else {
             sites = []
+            errors = [:]
+            calls = [:]
+            lastRefresh = nil
             recompute()
             return
         }
