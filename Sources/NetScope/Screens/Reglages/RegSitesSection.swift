@@ -10,16 +10,7 @@ struct RegSitesSection: View {
     @State private var newVLAN = ""
     @State private var error: String?
     @State private var detectOn = true
-
-    private let columns: [TableHeader.Column] = [
-        .init(title: "Plage", width: 190),
-        .init(title: "Nom"),
-        .init(title: "Format", width: 100),
-        .init(title: "VLAN", width: 100),
-        .init(title: "Adresses", width: 90, alignment: .trailing),
-        .init(title: "Inclure au scan", width: 130),
-        .init(title: "", width: 44),
-    ]
+    @StateObject private var table = RegRangeTable.makeModel()
 
     var body: some View {
         RegPanel(title: "Sites et plages",
@@ -32,10 +23,14 @@ struct RegSitesSection: View {
                  }, content: {
                      siteTabs
                      tiles.padding(.top, 14)
-                     Text("PLAGES DU SITE")
-                         .font(Theme.captionSemibold).kerning(0.55).foregroundStyle(Theme.textSecondary)
-                         .padding(.top, 16).padding(.bottom, 8)
-                     table
+                     HStack(alignment: .center) {
+                         Text("PLAGES DU SITE")
+                             .font(Theme.captionSemibold).kerning(0.55).foregroundStyle(Theme.textSecondary)
+                         Spacer(minLength: 8)
+                         StandardColumnsMenu(model: table)
+                     }
+                     .padding(.top, 12).padding(.bottom, 6)
+                     rangeTable
                      addForm.padding(.top, 10)
                      HStack(alignment: .top, spacing: 14) {
                          soonBox(title: "Plages exclues",
@@ -83,13 +78,11 @@ struct RegSitesSection: View {
 
     // MARK: Tableau
 
-    private var table: some View {
+    private var rangeTable: some View {
         VStack(spacing: 0) {
-            TableHeader(columns: columns)
-            ForEach(state.ranges) { range in
-                RegRangeRow(range: range, columns: columns)
-            }
-            if state.ranges.isEmpty {
+            if !state.ranges.isEmpty {
+                RegRangeTable(table: table)
+            } else {
                 Text("Aucune plage. Ajoutez-en une ci-dessous ou utilisez « Mon réseau » pour reprendre celui de l’interface active.")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
@@ -206,91 +199,3 @@ struct RegSitesSection: View {
     }
 }
 
-/// Une ligne du tableau des plages : nom et VLAN modifiables sur place.
-private struct RegRangeRow: View {
-    @EnvironmentObject private var state: AppState
-    let range: ScanRangeConfig
-    let columns: [TableHeader.Column]
-
-    private var index: Int? { state.ranges.firstIndex { $0.id == range.id } }
-
-    private var labelBinding: Binding<String> {
-        Binding(get: { range.label }, set: { value in
-            if let index { state.ranges[index].label = value }
-        })
-    }
-
-    private var vlanBinding: Binding<String> {
-        Binding(get: { range.vlan.map(String.init) ?? "" }, set: { value in
-            guard let index else { return }
-            let digits = value.filter(\.isNumber)
-            if digits.isEmpty {
-                state.ranges[index].vlan = nil
-            } else if let number = Int(digits), (1...4094).contains(number) {
-                state.ranges[index].vlan = number
-            }
-        })
-    }
-
-    private var enabledBinding: Binding<Bool> {
-        Binding(get: { range.isEnabled }, set: { value in
-            if let index { state.ranges[index].isEnabled = value }
-        })
-    }
-
-    var body: some View {
-        let parsed = try? range.parsed()
-        HStack(spacing: 0) {
-            cell(0) {
-                Text(range.text).font(Theme.mono(12, weight: .semibold))
-                    .foregroundStyle(parsed == nil ? Theme.critical : Theme.text)
-                    .lineLimit(1).truncationMode(.middle)
-                    .help(parsed == nil ? "Plage invalide" : range.text)
-            }
-            cell(1) { inlineField(labelBinding, placeholder: "Nom", mono: false) }
-            cell(2) { Text(range.kindLabel).font(Theme.small).foregroundStyle(Theme.textSecondary) }
-            cell(3) {
-                HStack(spacing: 3) {
-                    Text("VLAN").font(Theme.mono(11)).foregroundStyle(Theme.neutralText).fixedSize()
-                    inlineField(vlanBinding, placeholder: "?", mono: true).frame(width: 40)
-                }
-            }
-            cell(4) {
-                Text(parsed.map { RegFormat.count($0.count) } ?? "—").font(Theme.mono(12))
-            }
-            cell(5) { RegSwitch(isOn: enabledBinding) }
-            cell(6) {
-                Button {
-                    state.ranges.removeAll { $0.id == range.id }
-                } label: {
-                    Image(systemName: "trash").font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
-                        .frame(width: 24, height: 24).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("Supprimer la plage \(range.text)")
-            }
-        }
-        .frame(height: 38)
-        .background(range.isEnabled ? Theme.panel : Theme.panelMuted)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
-    }
-
-    @ViewBuilder private func cell<Content: View>(_ column: Int, @ViewBuilder _ content: () -> Content) -> some View {
-        let spec = columns[column]
-        let view = content().padding(.horizontal, column == 0 ? 12 : 8)
-        if let width = spec.width {
-            view.frame(width: width, alignment: spec.alignment)
-        } else {
-            view.frame(maxWidth: .infinity, alignment: spec.alignment)
-        }
-    }
-
-    private func inlineField(_ binding: Binding<String>, placeholder: String, mono: Bool) -> some View {
-        TextField("", text: binding, prompt: Text(placeholder).foregroundStyle(Theme.textTertiary))
-            .textFieldStyle(.plain)
-            .font(mono ? Theme.mono(11) : Theme.small)
-            .padding(.horizontal, 4)
-            .frame(height: 24)
-            .background(RoundedRectangle(cornerRadius: 4).fill(mono ? Theme.neutralSoft : Color.clear))
-    }
-}

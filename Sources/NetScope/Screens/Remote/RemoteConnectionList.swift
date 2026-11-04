@@ -1,9 +1,12 @@
 import NetScopeCore
 import SwiftUI
 
-/// Colonne « Connexions » : recherche, ajout, import, groupes par dossier, favoris.
+/// Colonne « Connexions » : recherche, ajout, import, groupes par dossier, favoris. Le tri des
+/// groupes est celui du tableau standard « acces.connexions », ouvert par le bouton « Tableau ».
 struct RemoteConnectionList: View {
     @ObservedObject var model: RemoteModel
+    @StateObject private var table = RemoteConnectionColumns.makeModel()
+    @State private var showTable = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -14,7 +17,13 @@ struct RemoteConnectionList: View {
                     Text("\(model.connections.count) enregistrées · \(model.reachableCount) joignables")
                         .font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 }
-                SearchField(text: $model.searchText, placeholder: "Nom, IP, protocole…")
+                HStack(spacing: 6) {
+                    SearchField(text: $model.searchText, placeholder: "Nom, IP, protocole…")
+                    RemoteSortMenu(table: table)
+                    Button { showTable = true } label: { Image(systemName: "tablecells") }
+                        .buttonStyle(RemoteSmallButtonStyle())
+                        .help("Ouvrir le tableau des connexions (tri, colonnes)")
+                }
                 HStack(spacing: 6) {
                     Button {
                         model.startNew()
@@ -64,6 +73,9 @@ struct RemoteConnectionList: View {
         }
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+        .sheet(isPresented: $showTable) {
+            RemoteConnectionTableSheet(model: model, table: table)
+        }
     }
 
     private func groupView(_ group: RemoteModel.RemoteGroup) -> some View {
@@ -88,7 +100,7 @@ struct RemoteConnectionList: View {
             }
             .buttonStyle(.plain)
             if open {
-                ForEach(group.items) { connection in row(connection) }
+                ForEach(group.items.sorted(using: table.sortOrder)) { connection in row(connection) }
             }
         }
     }
