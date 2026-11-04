@@ -51,14 +51,18 @@ struct RapportConfigPanel: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Date").font(Theme.small).foregroundStyle(Theme.textSecondary)
                         HStack(spacing: 4) {
-                            TextField("", text: $model.config.date, prompt: Text("AAAA-MM-JJ").foregroundStyle(Theme.textTertiary))
-                                .textFieldStyle(.plain)
+                            TextField("Date", text: $model.config.date, prompt: Text("AAAA-MM-JJ"))
+                                .textFieldStyle(.roundedBorder)
+                                .labelsHidden()
                                 .font(Theme.body)
-                                .foregroundStyle(Theme.text)
+                                .controlSize(.large)
+                                // Date illisible : contour rouge autour du champ natif.
+                                .overlay(RoundedRectangle(cornerRadius: 6)
+                                    .strokeBorder(ReportText.longDate(model.config.date) == nil ? Theme.critical : .clear))
                             Button { calendarOpen = true } label: {
-                                Image(systemName: "calendar").font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
+                                Image(systemName: "calendar")
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.borderless)
                             .help("Choisir la date")
                             .popover(isPresented: $calendarOpen, arrowEdge: .bottom) {
                                 DatePicker("", selection: Binding(get: { model.dateValue }, set: { model.dateValue = $0 }),
@@ -69,11 +73,6 @@ struct RapportConfigPanel: View {
                                     .padding(10)
                             }
                         }
-                        .padding(.horizontal, 8)
-                        .frame(height: 30)
-                        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius)
-                            .strokeBorder(ReportText.longDate(model.config.date) == nil ? Theme.critical : Theme.border))
                     }
                 }
                 .padding(.top, 12)
@@ -131,14 +130,11 @@ struct RapportConfigPanel: View {
     private func field(_ label: String, text: Binding<String>, placeholder: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label).font(Theme.small).foregroundStyle(Theme.textSecondary)
-            TextField("", text: text, prompt: Text(placeholder).foregroundStyle(Theme.textTertiary))
-                .textFieldStyle(.plain)
+            TextField(label, text: text, prompt: Text(placeholder))
+                .textFieldStyle(.roundedBorder)
+                .labelsHidden()
                 .font(Theme.body)
-                .foregroundStyle(Theme.text)
-                .padding(.horizontal, 8)
-                .frame(height: 30)
-                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
-                .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+                .controlSize(.large)
         }
     }
 
@@ -189,22 +185,15 @@ struct RapportConfigPanel: View {
         Panel(padding: 14) {
             VStack(alignment: .leading, spacing: 0) {
                 SectionHeader("Format de sortie").padding(.bottom, 8)
-                HStack(spacing: 4) {
+                // Contrôle segmenté natif, sur toute la largeur de la colonne.
+                Picker("Format de sortie", selection: $model.config.format) {
                     ForEach(ReportFormat.allCases) { format in
-                        let on = model.config.format == format
-                        Button { model.config.format = format } label: {
-                            Text(format.label)
-                                .font(Theme.mono(11, weight: .semibold))
-                                .foregroundStyle(on ? Theme.accentStrong : Theme.neutralText)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 28)
-                                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(on ? Theme.accentSoft : Theme.panel))
-                                .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(on ? Theme.accent : Theme.border))
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
+                        Text(format.label).tag(format)
                     }
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(maxWidth: .infinity)
                 Text(model.config.format.hint)
                     .font(Theme.caption)
                     .foregroundStyle(Theme.textSecondary)
@@ -214,29 +203,12 @@ struct RapportConfigPanel: View {
                     Button { model.generate(state: state) } label: {
                         Label(model.config.format.actionLabel, systemImage: "arrow.down.doc")
                             .frame(maxWidth: .infinity)
-                            .frame(height: 36)
-                            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.accent))
-                            .foregroundStyle(.white)
-                            .font(Theme.bodyMedium)
-                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
-                    HStack(spacing: 6) {
-                        Button { model.emailOpen.toggle() } label: {
-                            HStack(spacing: 5) {
-                                Image(systemName: "envelope").font(.system(size: 11))
-                                Text("Envoyer par courriel").minimumScaleFactor(0.8)
-                            }
-                            .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(RapportSmallButtonStyle(height: 32, fill: true, compact: true))
-                        Button { model.saveTemplate() } label: {
-                            // Sans icône : le libellé du croquis tient en entier dans la demi-colonne.
-                            Text("Enregistrer comme modèle")
-                                .minimumScaleFactor(0.9)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(RapportSmallButtonStyle(height: 32, fill: true, compact: true))
+                    .buttonStyle(.primary)
+                    // Côte à côte quand les deux libellés tiennent en entier, sinon l'un sous l'autre.
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 6) { emailButton; saveTemplateButton }
+                        VStack(spacing: 6) { emailButton; saveTemplateButton }
                     }
                     if model.emailOpen { emailPanel }
                     if let toast = model.toast {
@@ -259,6 +231,24 @@ struct RapportConfigPanel: View {
                 .padding(.top, 12)
             }
         }
+    }
+
+    private var emailButton: some View {
+        Button { model.emailOpen.toggle() } label: {
+            Label("Envoyer par courriel", systemImage: "envelope")
+                .fixedSize()
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(RapportSmallButtonStyle(fill: true))
+    }
+
+    private var saveTemplateButton: some View {
+        Button { model.saveTemplate() } label: {
+            Text("Enregistrer comme modèle")
+                .fixedSize()
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(RapportSmallButtonStyle(fill: true))
     }
 
     private var emailPanel: some View {
@@ -324,32 +314,32 @@ struct RapportConfigPanel: View {
     private func formatColor(_ format: ReportFormat) -> (Color, Color) {
         switch format {
         case .pdf: return (Theme.critical, Theme.criticalSoft)
-        case .html: return (Theme.accentStrong, Color(light: 0xDBEAFE, dark: 0x1B3250))
+        case .html: return (Theme.accentStrong, Theme.accentSoft)
         case .csv, .json: return (Theme.success, Theme.successSoft)
         }
     }
 }
 
-/// Petit bouton secondaire (28 pt, 12 pt de texte), comme « Choisir le logo… » du croquis.
-struct RapportSmallButtonStyle: ButtonStyle {
+/// Petit bouton secondaire, comme « Choisir le logo… » du croquis : bouton à bordure natif de
+/// macOS (couleurs du système, clair comme sombre).
+/// - `height` : 32 pt ou plus, grande taille de macOS ; sinon taille normale.
+/// - `width` : bouton carré à icône seule (largeur minimale).
+/// - `fill` : occupe toute la largeur proposée ; `compact` : texte un peu plus petit.
+struct RapportSmallButtonStyle: PrimitiveButtonStyle {
     var height: CGFloat = 28
     var width: CGFloat?
     var fill = false
-    /// Marges réduites (8 pt) : deux boutons côte à côte dans la colonne.
     var compact = false
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: compact ? 11.5 : 12, weight: .medium))
-            .foregroundStyle(Theme.text)
-            .lineLimit(1)
-            .padding(.horizontal, width == nil ? (compact ? 4 : 10) : 0)
-            .frame(width: width, height: height)
-            .frame(maxWidth: fill ? .infinity : nil)
-            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius)
-                .fill(configuration.isPressed ? Theme.panelMuted : Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius)
-                .strokeBorder(configuration.isPressed ? Theme.borderStrong : Theme.border))
-            .contentShape(RoundedRectangle(cornerRadius: Theme.buttonRadius))
+        Button(role: configuration.role, action: configuration.trigger) {
+            configuration.label
+                .font(.system(size: compact ? 11.5 : 12, weight: .medium))
+                .lineLimit(1)
+                .frame(minWidth: width.map { max(0, $0 - 16) })
+                .frame(maxWidth: fill ? .infinity : nil)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(height >= 32 ? .large : .regular)
     }
 }

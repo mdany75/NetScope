@@ -96,11 +96,10 @@ struct PingMTRPanel: View {
                     .buttonStyle(PingSmallButtonStyle(prominent: true))
                     .disabled(target.address == nil)
                 }
-                Button("Résolution DNS : \(controller.resolveHopNames ? "oui" : "non")") {
-                    controller.resolveHopNames.toggle()
-                }
-                .buttonStyle(PingSmallButtonStyle())
-                .help("Afficher le nom inverse (PTR) de chaque saut")
+                Toggle("Résolution DNS", isOn: $controller.resolveHopNames)
+                    .toggleStyle(.checkbox)
+                    .fixedSize()
+                    .help("Afficher le nom inverse (PTR) de chaque saut")
                 Button("Copier le rapport") { controller.copyMTRReport() }
                     .buttonStyle(PingSmallButtonStyle())
                     .disabled(report == nil)
@@ -321,23 +320,15 @@ struct PingCell: View {
     }
 }
 
-/// Petit bouton du croquis (hauteur 28, 12 pt).
-struct PingSmallButtonStyle: ButtonStyle {
+/// Petit bouton du croquis : bouton natif de macOS, à bordure ou proéminent (couleur d'accent).
+struct PingSmallButtonStyle: PrimitiveButtonStyle {
     var prominent = false
-    @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(prominent ? Color.white : Theme.text)
-            .padding(.horizontal, 10)
-            .frame(height: 28)
-            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius)
-                .fill(prominent ? (configuration.isPressed ? Theme.accentStrong : Theme.accent)
-                                : (configuration.isPressed ? Theme.panelMuted : Theme.panel)))
-            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius)
-                .strokeBorder(prominent ? Color.clear : Theme.borderStrong))
-            .opacity(isEnabled ? 1 : 0.5)
-            .contentShape(RoundedRectangle(cornerRadius: Theme.buttonRadius))
+        if prominent {
+            Button(configuration).buttonStyle(.borderedProminent).fixedSize()
+        } else {
+            Button(configuration).buttonStyle(.bordered).fixedSize()
+        }
     }
 }

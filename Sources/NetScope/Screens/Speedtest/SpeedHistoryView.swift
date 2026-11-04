@@ -128,25 +128,53 @@ struct SpeedHistoryView: View {
 
     // MARK: Tableau
 
+    /// Filtres natifs (contrôle segmenté) : « Tous 32 », « Internet 20 », « Réseau local 12 ».
+    private func historyFilterPicker(_ all: [SpeedTestRecord]) -> some View {
+        Picker("Filtre de l’historique", selection: $model.historyFilter) {
+            Text("Tous \(all.count)").tag(SpeedTestKind?.none)
+            Text("Internet \(all.filter { $0.kind == .internet }.count)").tag(SpeedTestKind?.some(.internet))
+            Text("Réseau local \(all.filter { $0.kind == .lan }.count)").tag(SpeedTestKind?.some(.lan))
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .fixedSize()
+    }
+
+    private var historyTools: some View {
+        HStack(spacing: 8) {
+            Button {
+                model.exportCSV()
+            } label: {
+                Label("Exporter CSV", systemImage: "square.and.arrow.down")
+            }
+            .buttonStyle(.secondary)
+            .speedDisabled(model.filteredHistory.isEmpty)
+            StandardColumnsMenu(model: table)
+        }
+    }
+
     private var tablePanel: some View {
         let all = model.history
         return VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                SectionHeader("Tests enregistrés").fixedSize().padding(.trailing, 6)
-                FilterChip(title: "Tous", count: all.count, isSelected: model.historyFilter == nil) { model.historyFilter = nil }
-                FilterChip(title: "Internet", count: all.filter { $0.kind == .internet }.count,
-                           isSelected: model.historyFilter == .internet) { model.historyFilter = .internet }
-                FilterChip(title: "Réseau local", count: all.filter { $0.kind == .lan }.count,
-                           isSelected: model.historyFilter == .lan) { model.historyFilter = .lan }
-                Spacer()
-                Button {
-                    model.exportCSV()
-                } label: {
-                    Label("Exporter CSV", systemImage: "square.and.arrow.down")
+            // Une ligne, ou deux en petite fenêtre (au lieu d'élargir l'écran).
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    SectionHeader("Tests enregistrés").fixedSize().padding(.trailing, 6)
+                    historyFilterPicker(all)
+                    Spacer()
+                    historyTools
                 }
-                .buttonStyle(.secondary)
-                .speedDisabled(model.filteredHistory.isEmpty)
-                StandardColumnsMenu(model: table)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        SectionHeader("Tests enregistrés").fixedSize().padding(.trailing, 6)
+                        historyFilterPicker(all)
+                        Spacer(minLength: 0)
+                    }
+                    HStack(spacing: 8) {
+                        Spacer(minLength: 0)
+                        historyTools
+                    }
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
