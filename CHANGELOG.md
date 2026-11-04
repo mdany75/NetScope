@@ -1,5 +1,94 @@
 # Changements
 
+## 0.14.0 — 2026-11-04
+
+Recherche dans la Carte du réseau, type « Téléphone IP » détecté automatiquement, occupation
+des étendues DHCP de la FortiGate et sauvegardes chiffrées par mot de passe, secrets compris
+pour passer d’un Mac à l’autre.
+
+### Ajouté
+- **Recherche dans la Carte du réseau** : la recherche de la barre d’outils trouve les appareils
+  sur la carte (IP, nom, MAC, `switch:`, `port:`, `vlan:`, `type:`, `borne:`…). La carte se
+  centre sur le premier résultat, surligne son nœud ou le groupe qui le contient (par exemple
+  « Imprimantes ×2 ») et atténue le reste.
+- Le détail de la Carte affiche alors la fiche de l’appareil trouvé (IP, MAC, switch et port,
+  VLAN, borne Wi-Fi, place sur la carte) avec « Ouvrir la fiche » ; l’appareil est marqué dans
+  la liste des membres de son groupe.
+- Avec plusieurs résultats : compteur « 2 sur 5 » et boutons précédent / suivant (↩︎ et ⇧↩︎
+  dans le champ, ⌘G et ⇧⌘G). Sans résultat, un message clair propose les scans précédents
+  s’ils correspondent.
+- Avec plusieurs sites, la recherche porte sur le site dessiné et propose « Aussi sur : … » ;
+  un clic dessine cet autre site et montre son résultat.
+- **Type d’appareil « Téléphone IP »** (Yealink, Poly, Cisco, Mitel, Grandstream, Snom, Fanvil,
+  Avaya…), séparé de « Téléphone », qui reste pour les cellulaires. Il est proposé dans
+  « Changer le type », l’Inventaire, la Carte (groupe « Téléphones IP ×N »), l’Analyse et les
+  Rapports (« Tél. IP »).
+- **Détection automatique des téléphones IP** : fabricant, ports SIP 5060 et 5061, nom d’hôte
+  (SEP… de Cisco, SIP-T54W, VVX…), annonce « téléphone » par LLDP, LLDP-MED ou CDP sur les
+  switchs relevés, et VLAN voix. Un cellulaire n’est jamais classé téléphone IP.
+- La fiche Appareil d’un téléphone IP montre ses indices VoIP (LLDP / CDP, VLAN voix, SIP,
+  fabricant).
+- Recherche : `type:voip` ou `type:sip` trouve les téléphones IP ; l’import CSV accepte
+  « Téléphone IP », « Tél. IP », « Téléphonie IP » et « VoIP ».
+- **Outil « Étendues DHCP »** dans la Boîte à outils (groupe Services) : occupation de chaque
+  étendue DHCP de la FortiGate du site (plages, exclusions, réservations, baux actifs, adresses
+  libres, baux qui expirent bientôt), avec jauge, état et conseils.
+- Détail d’une étendue : liste des baux et des réservations (y compris celles hors plage) ; un
+  double-clic ouvre la fiche de l’appareil.
+- Seuils d’occupation réglables (80 % pour l’avertissement et 95 % pour le critique par défaut)
+  et alerte en clair, par exemple « Étendue VLAN 20 pleine à 96 % : 4 adresses libres ; des
+  postes risquent de tomber en 169.254 ».
+- Sans FortiGate, une estimation de l’occupation est faite à partir du Test DHCP et des
+  appareils vus par le scan, clairement marquée « estimation ».
+- **Surveillance** : nouveau type de sonde « Étendue DHCP presque pleine » et tuile « Étendues
+  DHCP » qui montre les étendues proches de la saturation.
+- **Rapports** : nouvelle section facultative « Étendues DHCP » (occupation de chaque étendue,
+  constats et conseils).
+- **Sauvegardes chiffrées** (Réglages › Export et sauvegarde) : option « Chiffrer par mot de
+  passe ». Les sauvegardes deviennent des archives `.netscope-backup` chiffrées en AES-GCM
+  256 bits, avec une clé tirée du mot de passe (PBKDF2, 600 000 itérations). Le mot de passe se
+  saisit deux fois, un indicateur montre sa force, et un avertissement rappelle que sans lui la
+  sauvegarde est perdue.
+- Option « Inclure les jetons et secrets (pour un autre Mac) » : jetons FortiGate, communautés
+  SNMP, identifiants SSH et WMI, mot de passe SMTP, webhooks, secret Graph. Ils ne sont rangés
+  que dans la partie chiffrée et sont remis au Trousseau à la restauration, après confirmation :
+  plus besoin de ressaisir chaque jeton sur un deuxième Mac.
+- « Mémoriser dans le Trousseau » (décochée par défaut) rend la sauvegarde automatique
+  quotidienne chiffrée ; sinon le mot de passe est demandé à chaque sauvegarde et n’est gardé
+  nulle part.
+- Nouvelle colonne « Chiffrée » dans la liste des sauvegardes (avec le nombre de secrets
+  inclus).
+
+### Modifié
+- Les ports SIP 5060 et 5061 font maintenant partie des 22 ports essentiels sondés à chaque
+  scan.
+- **Rapports** : un VLAN rempli de téléphones IP s’appelle « Voix (téléphonie IP) », ou « Voix
+  et Wi-Fi » s’il porte aussi une borne.
+- La lecture des étendues DHCP se fait en lecture seule (GET) ; les refus (HTTP 403) et les
+  adresses absentes (HTTP 404) sont expliqués, et les réponses brutes sont ajoutées au
+  diagnostic de la FortiGate.
+- La restauration d’une sauvegarde chiffrée demande son mot de passe et vérifie l’intégrité de
+  toute l’archive avant de restaurer quoi que ce soit. Un mauvais mot de passe ou un fichier
+  modifié donne un message clair, et rien n’est restauré.
+- Sans mot de passe, la sauvegarde ne change pas et ne contient toujours aucun secret ; les
+  anciennes sauvegardes non chiffrées se restaurent comme avant.
+
+### Corrigé
+- Un téléphone IP qui s’annonce « Bridge, Telephone » par LLDP n’est plus pris pour un uplink,
+  et le poste branché derrière lui garde son port.
+- Les numéros de port à quatre chiffres ne s’affichent plus avec une espace (« 5060 » et non
+  « 5 060 »).
+
+### Limites connues
+- Tout a été vérifié avec des données de démonstration seulement : la lecture des étendues
+  DHCP n’a pas encore été essayée sur une vraie FortiGate (droits du jeton, versions de FortiOS),
+  ni la détection des téléphones IP sur un vrai réseau voix.
+- L’estimation sans FortiGate ne voit que les appareils qui répondent au scan et l’offre du
+  Test DHCP : elle peut sous-estimer l’occupation réelle.
+- Un mot de passe de sauvegarde oublié ne se récupère pas : la sauvegarde chiffrée est alors
+  perdue. Une sauvegarde qui inclut les secrets est aussi sûre que son mot de passe.
+- La restauration d’une sauvegarde chiffrée sur un deuxième Mac reste à essayer en vrai.
+
 ## 0.13.0 — 2026-11-04
 
 Navigation : chaque élément mène à sa suite logique d’un double-clic, un menu « Ouvrir dans › »

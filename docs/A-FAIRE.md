@@ -5,9 +5,9 @@
 
 ## Priorités (revues le 4 novembre 2026, réorganisées avec les notes 45 à 53)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0.
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0.
 
-1. **0.13.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer) : essais réels de la 0.3.x (localisation, DHCP, capture,
+1. **0.13.x et 0.14.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
    des 0.5.0 à 0.8.0 (voir ci-dessous) ; 0.13.1 au besoin.
 2. ~~**0.5.0, diagnostic du poste et du réseau local**~~ : livrée le 4 novembre 2026
@@ -34,12 +34,16 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 10. ~~**0.13.0, navigation et charge**~~ : livrée le 4 novembre 2026 (notes 34, 33 et 31 :
     double-clic partout, « Ouvrir dans › », Retour / Avancer ⌘[ ⌘] ; note 36 : essais de charge
     et lenteurs corrigées) ; essai réel à faire sur un vrai scan et un très gros site.
-11. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany ;
+11. ~~**0.14.0, Carte, VoIP, DHCP, sauvegarde**~~ : livrée le 4 novembre 2026 (notes 32 :
+    recherche dans la Carte ; 30 : type Téléphone IP et détection ; 37 : étendues DHCP, sonde et
+    rapport ; 38 : sauvegarde chiffrée, secrets inclus en option) ; essai réel à faire sur une
+    vraie FortiGate (étendues DHCP), un réseau voix et la restauration sur un deuxième Mac.
+12. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany ;
     réorganisé le même jour pour placer les notes 45 à 53, ordre accepté par Dany) :
     - **0.13.1** : essais réels (sites, FortiGate, FortiAP, navigation) et correctifs ; note 35
       (journal et diagnostic).
-    - **0.14.0, Carte, VoIP, DHCP, sauvegarde** (en cours) : notes 32 (recherche dans la Carte),
-      30 (Téléphonie IP), 37 (étendues DHCP), 38 (sauvegarde chiffrée).
+    - ~~**0.14.0, Carte, VoIP, DHCP, sauvegarde**~~ (livrée) : notes 32 (recherche dans la
+      Carte), 30 (Téléphonie IP), 37 (étendues DHCP), 38 (sauvegarde chiffrée).
     - **0.15.0, sites et navigation** : notes 49 (site sous le logo), 48 (site dans Switchs et
       Wi-Fi), 45 (fin du Retour : bouton qui nomme l'écran, position dans la liste, historique
       vidé au changement de site), 52 (nom d'utilisateur SSH).
@@ -66,14 +70,14 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 | Navigation entre les modules | 31, 33, 34, 36 | 45, fin (0.15.0) |
 | Switchs et ports, Fortinet | 12, 24, 25 | 29, 39 et 54 (0.17.0), 40 et 41 (0.19.0) |
 | Wi-Fi | 1, 27 | 46 et 47 (0.16.0) |
-| Carte du réseau | — | 32 (0.14.0) |
-| Inventaire | 8 | 30 (0.14.0), 10 (0.20.0) |
+| Carte du réseau | 32 | — |
+| Inventaire | 8, 30 | 10 (0.20.0) |
 | Ping continu | — | 11 (plus tard) |
-| Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22 | 37 (0.14.0), 51 et 53 (0.18.0) |
+| Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22, 37 | 51 et 53 (0.18.0) |
 | Accès distant | 5 | 52 (0.15.0), 50 (0.18.0), 6 (plus tard) |
 | Surveillance et alertes | 3, 23 | 43 (0.21.0) |
 | Rapports | 4 | 42 (0.20.0) |
-| Réglages, sauvegarde, aide | 9, 13 | 35 (0.13.1), 38 (0.14.0), 44 (0.21.0) |
+| Réglages, sauvegarde, aide | 9, 13, 38 | 35 (0.13.1), 44 (0.21.0) |
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
 
@@ -629,6 +633,8 @@ site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
 
 ## 30. Type « Téléphonie IP » — 0.14.0 (demande de Dany)
 
+**Livrée dans la 0.14.0** (4 novembre 2026) ; essai réel à faire sur un vrai scan et les sites de Dany.
+
 - Nouveau type pour les téléphones IP (Yealink, Poly, Cisco, Mitel, Grandstream, Fanvil, Snom…),
   distinct de « Téléphone » (cellulaires).
 - Détection : fabricant (OUI), ports SIP 5060/5061, annonce LLDP-MED, VLAN voix.
@@ -646,6 +652,8 @@ site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
 - Même chose vers le Scanner et Switchs et ports depuis le détail du nœud.
 
 ## 32. Recherche dans la Carte du réseau — 0.14.0 (demande de Dany)
+
+**Livrée dans la 0.14.0** (4 novembre 2026) ; essai réel à faire sur un vrai scan et les sites de Dany.
 
 - Une recherche dans la Carte (ex. une IP, un nom, une MAC, `switch:…`, recherche multiple de la
   note 26) trouve l'appareil et montre où il est : la carte se centre sur sa branche, le nœud (ou
@@ -700,10 +708,14 @@ entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 3
 
 ## 37. Occupation des étendues DHCP — 0.14.0 (analyse, retenue par Dany)
 
+**Livrée dans la 0.14.0** (4 novembre 2026) ; essai réel à faire sur un vrai scan et les sites de Dany.
+
 - Par la FortiGate (baux et étendues) et le Test DHCP : taux d’occupation de chaque étendue,
   alerte « étendue presque pleine », sonde de Surveillance, ligne dans les rapports.
 
 ## 38. Sauvegarde chiffrée par mot de passe — 0.14.0 (analyse, retenue par Dany)
+
+**Livrée dans la 0.14.0** (4 novembre 2026) ; essai réel à faire sur un vrai scan et les sites de Dany.
 
 - Archive de sauvegarde chiffrée (mot de passe choisi), jetons et secrets inclus en option
   (chiffrés) pour restaurer un 2e Mac sans ressaisir 20 jetons ; sans mot de passe : comme
