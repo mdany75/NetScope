@@ -24,29 +24,150 @@ enum MonProbeFilter: String, CaseIterable {
     }
 }
 
-/// Largeurs des colonnes du tableau des sondes (la colonne « Sonde · cible » prend le reste).
-private enum MonColumns {
-    static let active: CGFloat = 46
-    static let type: CGFloat = 86
-    static let interval: CGFloat = 80
-    static let state: CGFloat = 80
-    static let value: CGFloat = 150
-    static let uptime: CGFloat = 176
-    static let rowHeight: CGFloat = 40
+/// Une ligne du tableau des sondes : la sonde et ce que le moteur en sait, figés au moment de
+/// l'affichage (le tri porte sur ces valeurs).
+struct MonProbeLine: Identifiable {
+    let probe: MonProbe
+    let state: MonState?
+    let value: String
+    let slots: [MonSlot]
+    let availability: Double?
+    let latency: Double?
+    let lastCheck: Date?
+    let lastOutage: Date?
+    /// Rang de la sonde dans la liste enregistrée (ordre du croquis, tri par défaut).
+    let order: Int
+
+    var id: UUID { probe.id }
+
+    @MainActor
+    init(probe: MonProbe, order: Int, store: MonStore, now: Date) {
+        self.probe = probe
+        self.order = order
+        state = store.state(of: probe)
+        value = store.lastValue(of: probe)
+        slots = store.history.slots(probe: probe.id, now: now)
+        availability = store.history.availability(probe: probe.id, now: now)
+        let result = store.trackers[probe.id]?.lastResult
+        latency = result?.latencyMs
+        lastCheck = result?.date
+        lastOutage = store.journal.alerts
+            .filter { $0.probeID == probe.id && $0.severity == .critical }
+            .map(\.date).max()
+    }
+
+    /// « 10.182.122.1 · FortiGate-60F », « intranet.local @ 10.182.122.1 ».
+    var targetLabel: String {
+        var label = probe.target.isEmpty ? "[À COMPLÉTER]" : probe.target
+        if probe.kind == .dns, let server = probe.dnsServer, !server.isEmpty { label += " @ \(server)" }
+        if !probe.subtitle.isEmpty { label += " · \(probe.subtitle)" }
+        return label
+    }
+
+    /// « 50 ms · 5 % · 3 échecs ».
+    var thresholdsLabel: String {
+        let thresholds = probe.thresholds
+        var parts: [String] = []
+        if let latency = thresholds.latencyMs { parts.append("\(MonFormat.number(latency))\u{00A0}ms") }
+        if let loss = thresholds.lossPercent { parts.append(MonFormat.percent(loss)) }
+        parts.append("\(thresholds.failures)\u{00A0}\(thresholds.failures > 1 ? "échecs" : "échec")")
+        return parts.joined(separator: " · ")
+    }
+
+    /// « macOS + son », « macOS », « Aucune ».
+    var notifyLabel: String {
+        guard probe.notify else { return "Aucune" }
+        return probe.sound ? "macOS + son" : "macOS"
+    }
+
+    // MARK: Clés de tri (toujours Comparable)
+
+    var sortActive: Int { probe.isEnabled ? 0 : 1 }
+    var sortName: String { probe.name }
+    var sortTarget: String { probe.target }
+    var sortKind: String { probe.kind.shortLabel }
+    var sortInterval: Int { probe.interval }
+    /// Les pannes d'abord, puis les alertes, l'attente, les sondes OK, enfin les inactives.
+    var sortState: Int {
+        switch state {
+        case .down: return 0
+        case .warning: return 1
+        case .pending: return 2
+        case .ignored: return 3
+        case .ok: return 4
+        case nil: return 5
+        }
+    }
+    /// Dernière valeur : par latence quand il y en a une, sinon après, par état.
+    var sortValue: Double { latency ?? 1e9 + Double(sortState) }
+    var sortLatency: Double { latency ?? .greatestFiniteMagnitude }
+    var sortAvailability: Double { availability ?? -1 }
+    var sortLastCheck: Date { lastCheck ?? .distantPast }
+    var sortLastOutage: Date { lastOutage ?? .distantPast }
+    var sortThresholds: Double { probe.thresholds.latencyMs ?? .greatestFiniteMagnitude }
+    var sortNotify: Int { probe.notify ? (probe.sound ? 0 : 1) : 2 }
+    var sortSchedule: String { probe.schedule.label }
+    var sortCondition: String { probe.conditionSummary }
 }
 
-/// Panneau « Sondes » : filtres, recherche, tableau et légende.
+/// Panneau « Sondes » : filtres, recherche, tableau standard (note 8) et légende.
 struct MonProbeTable: View {
     @ObservedObject private var store = MonStore.shared
     @State private var filter: MonProbeFilter = .all
     @State private var query = ""
+    @StateObject private var table = StandardTableModel<MonProbeLine>(
+        id: "surveillance.sondes", columns: MonProbeTable.columns, sortKeys: MonProbeTable.sortKeys,
+        defaultSort: "ordre")
+
+    /// Hauteur d'une ligne (croquis : 40) et de l'en-tête du tableau ; au-delà de `maxRows`
+    /// lignes, le tableau défile.
+    static let rowHeight: CGFloat = 40
+    static let headerHeight: CGFloat = 36
+    static let maxRows = 14
+
+    static let columns: [StandardColumn] = [
+        StandardColumn(id: "actif", title: "Actif"),
+        StandardColumn(id: "sonde", title: "Sonde · cible", isRequired: true),
+        StandardColumn(id: "type", title: "Type"),
+        StandardColumn(id: "intervalle", title: "Intervalle"),
+        StandardColumn(id: "etat", title: "État"),
+        StandardColumn(id: "valeur", title: "Dernière valeur"),
+        StandardColumn(id: "disponibilite", title: "Disponibilité 24 h"),
+        StandardColumn(id: "cible", title: "Cible", isDefaultVisible: false),
+        StandardColumn(id: "latence", title: "Latence", isDefaultVisible: false),
+        StandardColumn(id: "dernierControle", title: "Dernier contrôle", isDefaultVisible: false),
+        StandardColumn(id: "seuils", title: "Seuils", isDefaultVisible: false),
+        StandardColumn(id: "notifications", title: "Notifications", isDefaultVisible: false),
+        StandardColumn(id: "dernierePanne", title: "Dernière panne", isDefaultVisible: false),
+        StandardColumn(id: "plage", title: "Plage horaire", isDefaultVisible: false),
+        StandardColumn(id: "condition", title: "Condition", isDefaultVisible: false),
+    ]
+
+    /// « ordre » : ordre de la liste enregistrée, sans colonne (aucune flèche dans l’en-tête).
+    static let sortKeys: [String: KeyPathComparator<MonProbeLine>] = [
+        "ordre": KeyPathComparator(\MonProbeLine.order),
+        "actif": KeyPathComparator(\MonProbeLine.sortActive),
+        "sonde": KeyPathComparator(\MonProbeLine.sortName),
+        "type": KeyPathComparator(\MonProbeLine.sortKind),
+        "intervalle": KeyPathComparator(\MonProbeLine.sortInterval),
+        "etat": KeyPathComparator(\MonProbeLine.sortState),
+        "valeur": KeyPathComparator(\MonProbeLine.sortValue),
+        "disponibilite": KeyPathComparator(\MonProbeLine.sortAvailability),
+        "cible": KeyPathComparator(\MonProbeLine.sortTarget),
+        "latence": KeyPathComparator(\MonProbeLine.sortLatency),
+        "dernierControle": KeyPathComparator(\MonProbeLine.sortLastCheck),
+        "seuils": KeyPathComparator(\MonProbeLine.sortThresholds),
+        "notifications": KeyPathComparator(\MonProbeLine.sortNotify),
+        "dernierePanne": KeyPathComparator(\MonProbeLine.sortLastOutage),
+        "plage": KeyPathComparator(\MonProbeLine.sortSchedule),
+        "condition": KeyPathComparator(\MonProbeLine.sortCondition),
+    ]
 
     var body: some View {
         VStack(spacing: 0) {
             header
-            columns
-            let rows = filtered
-            if rows.isEmpty {
+            let probes = filtered
+            if probes.isEmpty {
                 Text(store.probes.isEmpty ? "Aucune sonde. Créez-en une avec «\u{00A0}Nouvelle sonde\u{00A0}»."
                                           : "Aucune sonde ne correspond aux filtres actifs.")
                     .font(Theme.body)
@@ -55,11 +176,12 @@ struct MonProbeTable: View {
                     .padding(24)
             } else {
                 TimelineView(.periodic(from: .now, by: 30)) { _ in
-                    VStack(spacing: 0) {
-                        ForEach(rows) { probe in
-                            MonProbeRow(probe: probe, isSelected: probe.id == store.selectedProbe?.id)
-                        }
-                    }
+                    let now = store.now
+                    let rows = probes.enumerated().map { MonProbeLine(probe: $1, order: $0, store: store, now: now) }
+                        .sorted(using: table.sortOrder)
+                    MonProbeGrid(rows: rows, table: table)
+                        .frame(height: Self.headerHeight + Self.rowHeight * CGFloat(min(rows.count, Self.maxRows)))
+                        .scrollDisabled(rows.count <= Self.maxRows)
                 }
             }
             footer
@@ -98,6 +220,7 @@ struct MonProbeTable: View {
                 MonFilterChip(title: item.title, count: count(item), dot: item.dot, isOn: filter == item) { filter = item }
             }
             Spacer(minLength: 8)
+            StandardColumnsMenu(model: table)
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary)
                 TextField("", text: $query, prompt: Text("Nom, IP, type…").foregroundStyle(Theme.textTertiary))
@@ -105,38 +228,13 @@ struct MonProbeTable: View {
                     .font(Theme.small)
             }
             .padding(.horizontal, 8)
-            .frame(width: 200, height: 30)
+            .frame(width: 160, height: 30)
             .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
             .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
-    }
-
-    private var columns: some View {
-        HStack(spacing: 0) {
-            heading("Actif").frame(width: MonColumns.active, alignment: .leading).padding(.leading, 12)
-            heading("Sonde · cible").padding(.horizontal, 6).frame(maxWidth: .infinity, alignment: .leading)
-            heading("Type").padding(.horizontal, 6).frame(width: MonColumns.type, alignment: .leading)
-            heading("Intervalle").padding(.horizontal, 6).frame(width: MonColumns.interval, alignment: .leading)
-            heading("État").padding(.horizontal, 6).frame(width: MonColumns.state, alignment: .leading)
-            heading("Dernière valeur").padding(.horizontal, 6).frame(width: MonColumns.value, alignment: .leading)
-            heading("Disponibilité 24 h").padding(.leading, 6).frame(width: MonColumns.uptime, alignment: .leading)
-                .padding(.trailing, 12)
-        }
-        .frame(height: 32)
-        .background(Theme.panelMuted)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
-    }
-
-    private func heading(_ text: String) -> some View {
-        Text(text.uppercased())
-            .font(Theme.captionSemibold)
-            .kerning(0.3)
-            .foregroundStyle(Theme.textSecondary)
-            .lineLimit(1)
-            .fixedSize()
     }
 
     private var footer: some View {
@@ -168,88 +266,216 @@ struct MonProbeTable: View {
     }
 }
 
-/// Une ligne du tableau des sondes.
-private struct MonProbeRow: View {
+/// Tableau des sondes : la ligne choisie s'ouvre dans l'éditeur ; clic droit : tester, suspendre.
+private struct MonProbeGrid: View {
     @ObservedObject private var store = MonStore.shared
-    let probe: MonProbe
-    let isSelected: Bool
-    @State private var hovering = false
+    let rows: [MonProbeLine]
+    @ObservedObject var table: StandardTableModel<MonProbeLine>
 
-    var body: some View {
-        let state = store.state(of: probe)
-        let now = store.now
-        HStack(spacing: 0) {
-            MonSwitch(isOn: Binding(get: { probe.isEnabled }, set: { store.setEnabled($0, for: probe.id) }),
-                      label: "Sonde \(probe.name) active")
-                .frame(width: MonColumns.active, alignment: .leading)
-                .padding(.leading, 12)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(probe.name)
-                    .font(Theme.bodySemibold)
-                    .foregroundStyle(Theme.text)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                Text(targetLabel)
-                    .font(Theme.mono(11))
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
-            .padding(.horizontal, 6)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .help("\(probe.name)\n\(targetLabel)")
-            Text(probe.kind.shortLabel)
-                .font(Theme.captionSemibold)
-                .foregroundStyle(Theme.neutralText)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(RoundedRectangle(cornerRadius: 4).fill(Theme.neutralSoft))
-                .fixedSize()
-                .padding(.horizontal, 6)
-                .frame(width: MonColumns.type, alignment: .leading)
-            Text(MonProbe.intervalLabel(probe.interval))
-                .font(Theme.mono(12))
-                .foregroundStyle(Theme.neutralText)
-                .lineLimit(1)
-                .padding(.horizontal, 6)
-                .frame(width: MonColumns.interval, alignment: .leading)
-            RegPill(text: MonText.label(state), tone: MonText.tone(state))
-                .padding(.horizontal, 6)
-                .frame(width: MonColumns.state, alignment: .leading)
-            Text(store.lastValue(of: probe))
-                .font(Theme.mono(11, weight: state == .down || state == .warning ? .semibold : .regular))
-                .foregroundStyle(state == .down ? Theme.critical : state == .warning ? Theme.warning : Theme.text)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 6)
-                .frame(width: MonColumns.value, alignment: .leading)
-            MonUptimeBar(slots: store.history.slots(probe: probe.id, now: now),
-                         availability: store.history.availability(probe: probe.id, now: now),
-                         enabled: probe.isEnabled, name: probe.name)
-                .padding(.leading, 6)
-                .frame(width: MonColumns.uptime, alignment: .leading)
-                .padding(.trailing, 12)
-        }
-        .frame(height: MonColumns.rowHeight)
-        .background(isSelected ? Theme.accentSoft : hovering ? Theme.panelMuted : Theme.panel)
-        .opacity(probe.isEnabled ? 1 : 0.62)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            store.selectedID = probe.id
-            store.toast = nil
-        }
-        .onHover { hovering = $0 }
-        .accessibilityElement(children: .contain)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    /// Hauteur du contenu d'une cellule (la ligne fait 40 avec les marges du tableau).
+    static let cellHeight: CGFloat = 32
+
+    private var selection: Binding<UUID?> {
+        Binding(get: { store.selectedProbe?.id },
+                set: { id in
+                    guard let id else { return }
+                    store.selectedID = id
+                    store.toast = nil
+                })
     }
 
-    /// « 10.182.122.1 · FortiGate-60F », « intranet.local @ 10.182.122.1 ».
-    private var targetLabel: String {
-        var label = probe.target.isEmpty ? "[À COMPLÉTER]" : probe.target
-        if probe.kind == .dns, let server = probe.dnsServer, !server.isEmpty { label += " @ \(server)" }
-        if !probe.subtitle.isEmpty { label += " · \(probe.subtitle)" }
-        return label
+    var body: some View {
+        Table(rows, selection: selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+            Group {
+                TableColumn(SuiviTableHeading("ACTIF"), sortUsing: table.sort("actif")) { line in
+                    MonSwitch(isOn: Binding(get: { line.probe.isEnabled }, set: { store.setEnabled($0, for: line.id) }),
+                              label: "Sonde \(line.probe.name) active")
+                        .frame(height: Self.cellHeight)
+                }
+                .width(min: 44, ideal: 44, max: 64)
+                .customizationID("actif")
+
+                TableColumn(SuiviTableHeading("SONDE · CIBLE"), sortUsing: table.sort("sonde")) { line in
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(line.probe.name)
+                            .font(Theme.bodySemibold)
+                            .foregroundStyle(Theme.text)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                        Text(line.targetLabel)
+                            .font(Theme.mono(11))
+                            .foregroundStyle(Theme.textSecondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                    .frame(height: Self.cellHeight)
+                    .help("\(line.probe.name)\n\(line.targetLabel)")
+                    .monInactive(line)
+                }
+                .width(min: 110, ideal: 138)
+                .customizationID("sonde")
+                .disabledCustomizationBehavior(.visibility)
+
+                TableColumn(SuiviTableHeading("TYPE"), sortUsing: table.sort("type")) { line in
+                    Text(line.probe.kind.shortLabel)
+                        .font(Theme.captionSemibold)
+                        .foregroundStyle(Theme.neutralText)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(RoundedRectangle(cornerRadius: 4).fill(Theme.neutralSoft))
+                        .fixedSize()
+                        .help(line.probe.kind.label)
+                        .monInactive(line)
+                }
+                .width(min: 56, ideal: 64)
+                .customizationID("type")
+
+                TableColumn(SuiviTableHeading("INTERVALLE"), sortUsing: table.sort("intervalle")) { line in
+                    MonCellText(MonProbe.intervalLabel(line.probe.interval), mono: true).monInactive(line)
+                }
+                .width(min: 60, ideal: 76)
+                .customizationID("intervalle")
+
+                TableColumn(SuiviTableHeading("ÉTAT"), sortUsing: table.sort("etat")) { line in
+                    RegPill(text: MonText.label(line.state), tone: MonText.tone(line.state)).monInactive(line)
+                }
+                .width(min: 60, ideal: 62)
+                .customizationID("etat")
+
+                TableColumn(SuiviTableHeading("DERNIÈRE VALEUR"), sortUsing: table.sort("valeur")) { line in
+                    let alert = line.state == .down || line.state == .warning
+                    Text(line.value)
+                        .font(Theme.mono(11, weight: alert ? .semibold : .regular))
+                        .foregroundStyle(line.state == .down ? Theme.critical : line.state == .warning ? Theme.warning : Theme.text)
+                        .lineLimit(2)
+                        .frame(height: Self.cellHeight, alignment: .leading)
+                        .help(line.value)
+                        .monInactive(line)
+                }
+                .width(min: 90, ideal: 120)
+                .customizationID("valeur")
+
+                TableColumn(SuiviTableHeading("DISPONIBILITÉ 24 H"), sortUsing: table.sort("disponibilite")) { line in
+                    MonUptimeBar(slots: line.slots, availability: line.availability,
+                                 enabled: line.probe.isEnabled, name: line.probe.name)
+                        .monInactive(line)
+                }
+                .width(min: 168, ideal: 170)
+                .customizationID("disponibilite")
+            }
+
+            Group {
+                TableColumn(SuiviTableHeading("CIBLE"), sortUsing: table.sort("cible")) { line in
+                    MonCellText(line.probe.target.isEmpty ? "—" : line.probe.target, mono: true,
+                                dimmed: line.probe.target.isEmpty)
+                        .help(line.targetLabel)
+                        .monInactive(line)
+                }
+                .width(min: 90, ideal: 130)
+                .customizationID("cible")
+                .defaultVisibility(.hidden)
+
+                TableColumn(SuiviTableHeading("LATENCE"), sortUsing: table.sort("latence")) { line in
+                    MonCellText(line.latency.map { ToolFormat.decimal($0) + "\u{00A0}ms" } ?? "—", mono: true,
+                                dimmed: line.latency == nil)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .monInactive(line)
+                }
+                .width(min: 60, ideal: 72)
+                .customizationID("latence")
+                .defaultVisibility(.hidden)
+
+                TableColumn(SuiviTableHeading("DERNIER CONTRÔLE"), sortUsing: table.sort("dernierControle")) { line in
+                    MonCellText(line.lastCheck.map { MonJournal.timestamp($0, now: store.now) } ?? "—", mono: true,
+                                dimmed: line.lastCheck == nil)
+                        .monInactive(line)
+                }
+                .width(min: 100, ideal: 150)
+                .customizationID("dernierControle")
+                .defaultVisibility(.hidden)
+
+                TableColumn(SuiviTableHeading("SEUILS"), sortUsing: table.sort("seuils")) { line in
+                    MonCellText(line.thresholdsLabel, mono: true)
+                        .help("Latence, perte et échecs consécutifs avant la panne")
+                        .monInactive(line)
+                }
+                .width(min: 90, ideal: 120)
+                .customizationID("seuils")
+                .defaultVisibility(.hidden)
+
+                TableColumn(SuiviTableHeading("NOTIFICATIONS"), sortUsing: table.sort("notifications")) { line in
+                    MonCellText(line.notifyLabel, dimmed: !line.probe.notify).monInactive(line)
+                }
+                .width(min: 70, ideal: 100)
+                .customizationID("notifications")
+                .defaultVisibility(.hidden)
+
+                TableColumn(SuiviTableHeading("DERNIÈRE PANNE"), sortUsing: table.sort("dernierePanne")) { line in
+                    MonCellText(line.lastOutage.map { MonJournal.timestamp($0, now: store.now) } ?? "—", mono: true,
+                                dimmed: line.lastOutage == nil)
+                        .monInactive(line)
+                }
+                .width(min: 100, ideal: 150)
+                .customizationID("dernierePanne")
+                .defaultVisibility(.hidden)
+
+                TableColumn(SuiviTableHeading("PLAGE HORAIRE"), sortUsing: table.sort("plage")) { line in
+                    MonCellText(line.probe.schedule.label).help(line.probe.schedule.label).monInactive(line)
+                }
+                .width(min: 90, ideal: 160)
+                .customizationID("plage")
+                .defaultVisibility(.hidden)
+
+                TableColumn(SuiviTableHeading("CONDITION"), sortUsing: table.sort("condition")) { line in
+                    let condition = line.probe.conditionSummary
+                    MonCellText(condition.isEmpty ? "—" : condition, dimmed: condition.isEmpty)
+                        .help(condition)
+                        .monInactive(line)
+                }
+                .width(min: 90, ideal: 180)
+                .customizationID("condition")
+                .defaultVisibility(.hidden)
+            }
+        }
+        .standardTableStyle()
+        .contextMenu(forSelectionType: UUID.self) { ids in
+            if let id = ids.first, let probe = store.probe(id) {
+                Button("Tester maintenant") { store.testNow(id) }
+                Button(probe.isEnabled ? "Suspendre la sonde" : "Reprendre la sonde") {
+                    store.setEnabled(!probe.isEnabled, for: id)
+                }
+            }
+        }
+    }
+}
+
+/// Texte d'une cellule des tableaux de la surveillance (une ligne, tronqué).
+struct MonCellText: View {
+    let text: String
+    var mono = false
+    var dimmed = false
+    var size: CGFloat = 12
+
+    init(_ text: String, mono: Bool = false, dimmed: Bool = false, size: CGFloat = 12) {
+        self.text = text
+        self.mono = mono
+        self.dimmed = dimmed
+        self.size = size
+    }
+
+    var body: some View {
+        Text(text)
+            .font(mono ? Theme.mono(size) : .system(size: size))
+            .foregroundStyle(dimmed ? Theme.textTertiary : Theme.neutralText)
+            .lineLimit(1)
+            .truncationMode(.tail)
+    }
+}
+
+private extension View {
+    /// Sonde inactive : contenu estompé (croquis : opacité 0,62).
+    func monInactive(_ line: MonProbeLine) -> some View {
+        opacity(line.probe.isEnabled ? 1 : 0.62)
     }
 }
 
