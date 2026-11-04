@@ -1,5 +1,51 @@
 # Changements
 
+## 0.10.0 — 2026-11-04
+
+Plusieurs FortiGate, une par site : NetScope garde une liste de FortiGate, chacune avec son
+jeton et les plages IP qu’elle couvre, et lit à la fin d’un scan seulement celles qui couvrent
+les plages scannées.
+
+### Ajouté
+- **Réglages › Switchs › Contrôleurs FortiGate** : liste des sites (adresse, port, VDOM,
+  plages couvertes, jeton, état, dernier test), chacun avec son propre jeton au Trousseau et
+  l’empreinte de son certificat.
+- **« Tester »** propose les sous-réseaux des interfaces de la FortiGate comme plages
+  couvertes, à cocher (le réseau FortiLink n’est pas coché).
+- **« Tester tout »** vérifie chaque FortiGate, quatre à la fois, et affiche le résultat sur
+  sa ligne.
+- **Import et export CSV** de la liste des sites (`site;adresse;port;vdom;plages`) ; les lignes
+  refusées sont expliquées. Le fichier ne contient jamais de jeton : il faut le saisir pour
+  chaque site importé.
+- **Switchs et ports** : bandeau « FortiGate utilisée : Siège (10.182.0.0/16) », une liste
+  quand plusieurs sites sont scannés, ou « Aucune FortiGate pour cette plage : SNMP
+  seulement » ; puce « via FortiGate · site » sur chaque FortiSwitch.
+
+### Modifié
+- **Choix automatique de la FortiGate** : à la fin d’un scan, seules les FortiGate qui couvrent
+  les plages scannées sont lues (sinon celle de l’adresse du Mac). La plage la plus précise
+  l’emporte ; s’il n’y en a aucune, SNMP seulement. Les plages qui se chevauchent entre deux
+  FortiGate sont signalées.
+- La source de l’emplacement d’un appareil (fiche Appareil, Scanner) indique le site de la
+  FortiGate.
+- La FortiGate de la 0.9.0 devient automatiquement le premier site, avec son jeton et son
+  empreinte, sans rien ressaisir.
+- **Sauvegardes** : la liste des jetons à ressaisir donne le site de chaque FortiGate. Les
+  jetons ne sont jamais copiés.
+- Les FortiSwitch de deux sites qui ont la même adresse FortiLink (10.255.1.2…) apparaissent
+  tous, chacun avec son site.
+
+### Corrigé
+- Aucun défaut de la 0.9.0 n’a été signalé ; les corrections de cette version portent sur les
+  nouveautés ci-dessus, avant leur publication.
+
+### Limites
+- Essayé sur une seule vraie FortiGate (celle de la 0.9.0) ; la liste de 20 sites, le choix
+  par plage et l’import CSV ne sont vérifiés que par les tests et la démonstration.
+- Les plages couvertes sont en IPv4 ; un seul VDOM par entrée (ajouter une entrée par VDOM).
+- FortiManager n’est pas interrogé : chaque FortiGate est lue directement, avec son jeton.
+- Lecture seule : NetScope ne change aucun réglage des FortiGate ni des FortiSwitch.
+
 ## 0.9.0 — 2026-11-04
 
 FortiGate et FortiSwitch : les switchs FortiSwitch gérés par une FortiGate (FortiLink) sont lus
