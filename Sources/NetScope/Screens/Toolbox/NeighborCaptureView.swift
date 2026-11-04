@@ -347,7 +347,22 @@ struct NeighborCaptureView: View {
 
     // MARK: Contrôles
 
+    /// Choix et bouton sur une ligne ; en petite fenêtre, le bouton passe dessous.
     private var controls: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .bottom, spacing: 10) {
+                pickers
+                Spacer(minLength: 0)
+                startButton
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                pickers
+                startButton
+            }
+        }
+    }
+
+    private var pickers: some View {
         HStack(alignment: .bottom, spacing: 10) {
             ToolLabeledField(label: "Interface") {
                 Picker("", selection: $model.interfaceName) {
@@ -357,7 +372,8 @@ struct NeighborCaptureView: View {
                     }
                 }
                 .labelsHidden()
-                .frame(minWidth: 170, minHeight: 34, maxHeight: 34)
+                .controlSize(.large)
+                .frame(minWidth: 170)
                 .fixedSize(horizontal: true, vertical: false)
             }
             ToolLabeledField(label: "Durée") {
@@ -365,26 +381,31 @@ struct NeighborCaptureView: View {
                     ForEach(ToolNeighborModel.durations, id: \.self) { Text("\($0)\u{00A0}s").tag($0) }
                 }
                 .labelsHidden()
-                .frame(width: 90, height: 34)
+                .controlSize(.large)
+                .frame(width: 90)
             }
-            Spacer(minLength: 0)
-            Button { model.start(store: store) } label: {
-                Label(model.bpfAvailable ? "Démarrer l’écoute" : "Capturer avec les droits administrateur",
-                      systemImage: model.bpfAvailable ? "dot.radiowaves.left.and.right" : "lock.open")
-            }
-            .buttonStyle(.primary)
-            .fixedSize()
-            .disabled(model.interfaceName.isEmpty)
         }
+        .fixedSize()
+    }
+
+    private var startButton: some View {
+        Button { model.start(store: store) } label: {
+            Label(model.bpfAvailable ? "Démarrer l’écoute" : "Capturer avec les droits administrateur",
+                  systemImage: model.bpfAvailable ? "dot.radiowaves.left.and.right" : "lock.open")
+        }
+        .buttonStyle(.primary)
+        .fixedSize()
+        .disabled(model.interfaceName.isEmpty)
     }
 
     private var statusRow: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 10) {
-                    Circle().fill(model.phase == .listening ? Theme.success : Color(hex: 0xF97316)).frame(width: 10, height: 10)
+                    Circle().fill(model.phase == .listening ? Theme.successDot : Theme.warningDot).frame(width: 10, height: 10)
                     Text(model.phase == .listening ? "Écoute en cours sur \(interfaceLabel)" : "En attente de l’autorisation pour \(interfaceLabel)")
-                        .font(Theme.bodySemibold).lineLimit(1)
+                        .font(Theme.bodySemibold)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 8)
                     if let deadline = model.deadline {
                         Text("\(max(0, Int(deadline.timeIntervalSince(context.date).rounded())))\u{00A0}s restantes")
@@ -445,10 +466,12 @@ struct NeighborCaptureView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(isCurrent ? "CE MAC EST BRANCHÉ SUR" : "DERNIÈRE CAPTURE · CE MAC ÉTAIT BRANCHÉ SUR")
                         .font(Theme.captionSemibold).kerning(0.5).foregroundStyle(Color(light: 0x166534, dark: 0x9AE9B8))
-                    Text(neighbor.headline)
-                        .font(Theme.mono(20, weight: .semibold)).foregroundStyle(Color(light: 0x14532D, dark: 0x9CE7BA))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .textSelection(.enabled)
+                    // Une ligne à 20 pt, sinon à 16 pt (petite fenêtre), sinon sur plusieurs lignes.
+                    ViewThatFits(in: .horizontal) {
+                        headline(neighbor, size: 20).fixedSize()
+                        headline(neighbor, size: 16).fixedSize()
+                        headline(neighbor, size: 16).fixedSize(horizontal: false, vertical: true)
+                    }
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
                         Text(receivedText(neighbor, now: context.date, isCurrent: isCurrent))
                             .font(Theme.small).foregroundStyle(Color(light: 0x166534, dark: 0x9AE9B8))
@@ -464,9 +487,16 @@ struct NeighborCaptureView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Color(light: 0xF0FDF4, dark: 0x1B502B)))
-            .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Color(light: 0xBBF7D0, dark: 0x2B824A)))
+            // Sombre : fond vert profond et filet discret (le vert vif d'origine éblouissait).
+            .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Color(light: 0xF0FDF4, dark: 0x16301F)))
+            .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Color(light: 0xBBF7D0, dark: 0x25583A)))
         }
+    }
+
+    private func headline(_ neighbor: NetworkNeighbor, size: CGFloat) -> some View {
+        Text(neighbor.headline)
+            .font(Theme.mono(size, weight: .semibold)).foregroundStyle(Color(light: 0x14532D, dark: 0x9CE7BA))
+            .textSelection(.enabled)
     }
 
     private func receivedText(_ neighbor: NetworkNeighbor, now: Date, isCurrent: Bool) -> String {
@@ -524,16 +554,26 @@ struct NeighborCaptureView: View {
     }
 }
 
-/// Grille clé / valeur sur deux colonnes, filets de 1 pt (croquis : lldpFields).
+/// Grille clé / valeur sur deux colonnes, filets de 1 pt (croquis : lldpFields) ; une seule
+/// colonne en petite fenêtre, pour que les valeurs ne passent pas à la ligne.
 struct NeighborFieldGrid: View {
     let rows: [(String, String)]
+    /// Largeur sous laquelle une colonne de la grille serait trop étroite.
+    var minColumnWidth: CGFloat = 250
 
     var body: some View {
-        let pairs = stride(from: 0, to: rows.count, by: 2).map { Array(rows[$0..<min($0 + 2, rows.count)]) }
-        VStack(spacing: 1) {
+        ViewThatFits(in: .horizontal) {
+            grid(columns: 2).frame(minWidth: 2 * minColumnWidth)
+            grid(columns: 1)
+        }
+    }
+
+    private func grid(columns: Int) -> some View {
+        let pairs = stride(from: 0, to: rows.count, by: columns).map { Array(rows[$0..<min($0 + columns, rows.count)]) }
+        return VStack(spacing: 1) {
             ForEach(Array(pairs.enumerated()), id: \.offset) { _, pair in
                 HStack(spacing: 1) {
-                    ForEach(0..<2, id: \.self) { index in
+                    ForEach(0..<columns, id: \.self) { index in
                         if index < pair.count {
                             cell(pair[index].0, pair[index].1)
                         } else {

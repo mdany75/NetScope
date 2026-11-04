@@ -95,14 +95,16 @@ struct SubnetCalculatorView: View {
 
     private func inputs(current: SubnetCalculation?) -> some View {
         let prefix = current?.subnet.prefix ?? 24
-        return HStack(alignment: .bottom, spacing: 12) {
+        return ToolAdaptiveRow(spacing: 12) {
             ToolLabeledField(label: "Adresse CIDR") {
                 ToolTextField(placeholder: "10.182.122.0/24", text: $model.cidr, invalid: current == nil, height: 36)
+                    .frame(minWidth: 170)
             }
             ToolLabeledField(label: "Préfixe") {
                 HStack(spacing: 4) {
                     Button("−") { setPrefix(max(1, prefix - 1)) }
-                        .buttonStyle(.secondary).frame(width: 34)
+                        .buttonStyle(.secondary)
+                        .help("Préfixe plus court (bloc plus grand)")
                     Menu {
                         ForEach(8...32, id: \.self) { value in
                             Button("/\(value) · \(IPv4Address.mask(prefix: value).description)") { setPrefix(value) }
@@ -110,13 +112,12 @@ struct SubnetCalculatorView: View {
                     } label: {
                         Text("/\(prefix) · \(IPv4Address.mask(prefix: prefix).description)").font(Theme.mono(13))
                     }
-                    .menuStyle(.borderlessButton)
-                    .padding(.horizontal, 10)
-                    .frame(width: 190, height: 36)
-                    .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+                    .menuStyle(.button)
+                    .controlSize(.large)
+                    .frame(width: 200)
                     Button("+") { setPrefix(min(32, prefix + 1)) }
-                        .buttonStyle(.secondary).frame(width: 34)
+                        .buttonStyle(.secondary)
+                        .help("Préfixe plus long (bloc plus petit)")
                 }
             }
             .fixedSize()
@@ -218,20 +219,29 @@ struct SubnetCalculatorView: View {
         let p = calc.subnet.prefix
         let rows: [(String, IPv4Address)] = [("Adresse", calc.entered), ("Masque", calc.subnet.mask), ("Masque inverse", calc.subnet.wildcard)]
         return VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                ToolFieldLabel("Représentation binaire")
-                Spacer()
-                legend(color: Theme.accent, text: "Bits réseau (\(p))")
-                legend(color: Color(hex: 0x9CA3AF), text: "Bits hôte (\(32 - p))")
+            // Légende à droite du titre, ou dessous en petite fenêtre.
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    ToolFieldLabel("Représentation binaire")
+                    Spacer()
+                    legends(p)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    ToolFieldLabel("Représentation binaire")
+                    legends(p)
+                }
             }
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(rows, id: \.0) { row in
                     let parts = SubnetCalculation.binaryParts(row.1, prefix: p)
                     HStack(spacing: 12) {
-                        Text(row.0).font(Theme.small).foregroundStyle(Theme.textSecondary).frame(width: 120, alignment: .leading)
+                        Text(row.0).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                            .lineLimit(1)
+                            .frame(width: 96, alignment: .leading)
                         (Text(parts.0).foregroundColor(Theme.accentStrong).fontWeight(.semibold)
                             + Text(parts.1).foregroundColor(Theme.textSecondary))
                             .font(Theme.mono(13))
+                            .lineLimit(1)
                             .textSelection(.enabled)
                     }
                 }
@@ -239,6 +249,13 @@ struct SubnetCalculatorView: View {
         }
         .padding(12)
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+    }
+
+    private func legends(_ prefix: Int) -> some View {
+        HStack(spacing: 12) {
+            legend(color: Theme.accent, text: "Bits réseau (\(prefix))")
+            legend(color: Theme.neutralDot, text: "Bits hôte (\(32 - prefix))")
+        }
     }
 
     private func legend(color: Color, text: String) -> some View {

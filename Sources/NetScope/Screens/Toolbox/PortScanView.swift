@@ -134,35 +134,35 @@ struct PortScanView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .bottom, spacing: 12) {
+            ToolAdaptiveRow(spacing: 12) {
                 ToolLabeledField(label: "Cible (IP ou hostname)") {
                     ToolTextField(placeholder: "10.182.122.111", text: $model.target) { model.start(store: store) }
+                        .frame(minWidth: 170)
                 }
                 ToolLabeledField(label: "Plage de ports") {
                     ToolTextField(placeholder: "1-1024, 3389", text: $model.portsText,
                                   invalid: model.parsedPorts == nil) { model.start(store: store) }
+                        .frame(minWidth: 170)
+                        .help(model.portsText)
                         .onChange(of: model.portsText) { _, text in
                             if model.profile?.ports != text { model.profile = nil }
                         }
                 }
             }
-            HStack(alignment: .center, spacing: 12) {
-                ToolFlowLayout(spacing: 6) {
-                    Text("Profil\u{00A0}:").font(Theme.small).foregroundStyle(Theme.textSecondary).frame(height: 28)
-                    ForEach(ToolPortProfile.allCases) { profile in
-                        ToolChoiceChip(label: profile.label, isSelected: model.profile == profile, mono: false) { model.choose(profile) }
+            // Profils, case et bouton sur une ligne ; en petite fenêtre, la case et le bouton passent dessous.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: 12) {
+                    profiles.fixedSize()
+                    Spacer(minLength: 0)
+                    launchControls
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    profiles
+                    HStack(spacing: 12) {
+                        Spacer(minLength: 0)
+                        launchControls
                     }
                 }
-                Spacer(minLength: 0)
-                ToolCheckbox(label: "Détection de services", isOn: $model.grabBanners).fixedSize()
-                Group {
-                    if model.isRunning {
-                        Button("Arrêter") { model.cancel() }.buttonStyle(.secondary)
-                    } else {
-                        Button("Lancer le scan") { model.start(store: store) }.buttonStyle(.primary)
-                    }
-                }
-                .fixedSize()
             }
             if let error = model.error {
                 ToolNotice(tone: .critical, message: error)
@@ -180,6 +180,29 @@ struct PortScanView: View {
         }
         .onAppear {
             if model.target.isEmpty { model.target = state.selectedDevice?.ip.description ?? "" }
+        }
+    }
+
+    private var profiles: some View {
+        ToolFlowLayout(spacing: 6) {
+            Text("Profil\u{00A0}:").font(Theme.small).foregroundStyle(Theme.textSecondary).frame(height: 24)
+            ForEach(ToolPortProfile.allCases) { profile in
+                ToolChoiceChip(label: profile.label, isSelected: model.profile == profile, mono: false) { model.choose(profile) }
+            }
+        }
+    }
+
+    private var launchControls: some View {
+        HStack(spacing: 12) {
+            ToolCheckbox(label: "Détection de services", isOn: $model.grabBanners).fixedSize()
+            Group {
+                if model.isRunning {
+                    Button("Arrêter") { model.cancel() }.buttonStyle(.secondary)
+                } else {
+                    Button("Lancer le scan") { model.start(store: store) }.buttonStyle(.primary)
+                }
+            }
+            .fixedSize()
         }
     }
 

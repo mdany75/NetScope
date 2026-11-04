@@ -96,27 +96,32 @@ struct WakeOnLANView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .bottom, spacing: 10) {
+            ToolAdaptiveRow {
                 ToolLabeledField(label: "Adresse MAC") {
                     ToolTextField(placeholder: "B0:7B:25:44:A1:6C", text: $model.macText,
                                   invalid: !model.macText.isEmpty && MACAddress(model.macText) == nil)
+                        .frame(minWidth: 180)
                 }
-                ToolLabeledField(label: "Broadcast") {
-                    ToolTextField(placeholder: "10.182.122.255", text: $model.broadcastText,
-                                  invalid: !model.broadcastText.isEmpty && IPv4Address(model.broadcastText) == nil)
-                }
-                ToolLabeledField(label: "Port UDP") {
-                    Picker("", selection: $model.port) {
-                        ForEach(ToolWakeModel.PortChoice.allCases) { Text($0.label).tag($0) }
+                HStack(alignment: .bottom, spacing: 10) {
+                    ToolLabeledField(label: "Broadcast") {
+                        ToolTextField(placeholder: "10.182.122.255", text: $model.broadcastText,
+                                      invalid: !model.broadcastText.isEmpty && IPv4Address(model.broadcastText) == nil)
+                            .frame(minWidth: 150)
                     }
-                    .labelsHidden()
-                    .frame(height: 34)
+                    ToolLabeledField(label: "Port UDP") {
+                        Picker("", selection: $model.port) {
+                            ForEach(ToolWakeModel.PortChoice.allCases) { Text($0.label).tag($0) }
+                        }
+                        .labelsHidden()
+                        .controlSize(.large)
+                        .fixedSize()
+                    }
                 }
             }
             HStack(alignment: .center, spacing: 12) {
                 Text("Postes connus\u{00A0}: choisissez une ligne ou saisissez la MAC.")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 ToolColumnsMenu(model: table)
                 Button { model.wake(state: state, store: store) } label: {
