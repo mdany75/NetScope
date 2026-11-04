@@ -24,7 +24,9 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
    réel à faire sur la FortiGate de Dany (jeton, empreinte, FortiSwitch, ports, appareils).
 7. ~~**0.10.0, plusieurs FortiGate**~~ : livrée le 4 novembre 2026 (note 25) ; essai réel à
    faire sur les 20 sites de Dany (import CSV, jetons, choix par plage, « Tester tout »).
-8. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
+8. **0.11.0, recherche et Wi-Fi Fortinet** : notes 26 (recherche multiple partout) et 27 (FortiAP dans le
+   module Wi-Fi, analyse et diagnostic).
+9. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
 
@@ -506,3 +508,27 @@ jeton API.
   utilisée : … » dans Switchs et ports.
 - Migration : la FortiGate de la 0.9.0 devient la première entrée, sans ressaisie.
 - Jetons jamais exportés (sauvegardes, CSV, journaux).
+
+## 26. Recherche multiple dans tous les modules (demande de Dany)
+
+« Dans recherche, peu importe le module, pouvoir faire une recherche multiple : numéro de switch
++ type par exemple. »
+
+- Plusieurs mots = tous à la fois (ET) ; préfixes de champ (`switch:`, `port:`, `vlan:`, `type:`,
+  `fab:`, `ip:`, `mac:`, `nom:`, `site:`…) ; `-mot` pour exclure ; "phrase exacte" ; mot sans
+  préfixe = toutes les colonnes (rien ne change pour une recherche simple).
+- Chaque critère devient une étiquette retirable ; menu des préfixes du module.
+- Un seul moteur dans NetScopeCore, branché sur toutes les recherches (Scanner, Inventaire,
+  Switchs et ports, Analyse, Surveillance, Accès distant, Outils, Réglages…).
+
+## 27. Module Wi-Fi : FortiAP, analyse et diagnostic (demande de Dany)
+
+- Par la FortiGate de chaque site (liste de la 0.10.0), en lecture seule : FortiAP gérés (état,
+  modèle, firmware, IP, radios : canal, largeur, puissance, clients, utilisation du canal),
+  clients Wi-Fi (MAC, IP, nom, SSID, borne, bande, RSSI/SNR, débit), SSID diffusés, AP voisins et
+  non autorisés.
+- Diagnostic : carte des canaux et chevauchements, clients à signal faible, bornes hors ligne ou
+  surchargées, conseils en clair.
+- Scanner et fiche Appareil : borne FortiAP et SSID d'un appareil en Wi-Fi (comme Switch / port).
+- Surveillance (sonde FortiAP hors ligne, borne surchargée) et section Wi-Fi des Rapports.
+- Droit « WiFi » en lecture à ajouter au profil API si nécessaire.
