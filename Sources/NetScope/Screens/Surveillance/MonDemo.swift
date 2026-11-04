@@ -71,6 +71,10 @@ enum MonDemo {
         Row(name: "Charge AP-SALLE-CONF", kind: .fortiAPOverload, target: "AP-SALLE-CONF", sub: "FAP-431F · grande salle", iv: 300,
             state: .warning, value: "18 clients · canal 78\(s)%", latency: nil, orange: [10, 11, 14], red: [], dependsOnGateway: false,
             configure: { $0.wifiThresholds = .standard; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
+        // Étendues DHCP (note 37) : le VLAN 20 voix du Siège presque plein.
+        Row(name: "Étendues DHCP du Siège", kind: .dhcpScope, target: "*", sub: "FortiGate · Siège · 5 étendues actives", iv: 300,
+            state: .warning, value: "5 étendues · max 96\(s)% (VLAN 20)", latency: nil, orange: [12, 13, 14], red: [], dependsOnGateway: false,
+            configure: { $0.dhcpThresholds = .standard; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
     ]
 
     static func load(into store: MonStore) {
@@ -122,6 +126,8 @@ enum MonDemo {
                   "Service dégradé\(s): Teams\(s): Retards dans la livraison des messages de conversation (incident TM892341)."),
             alert(at(13, 5, 44), "Certificat TLS", .warning,
                   "Le certificat de https://10.182.122.1 expire le 24 nov. 2026 (dans 21\(s)jours)."),
+            alert(at(12, 41, 30), "Étendues DHCP du Siège", .warning,
+                  "Étendue VLAN 20 pleine à 96\(s)%\(s): 4 adresses libres\(s); des postes risquent de tomber en 169.254."),
             alert(at(12, 28, 3), "Caméra-Quai", .critical,
                   "192.168.50.21 ne répond plus depuis 3 tentatives (ICMP et TCP 554)."),
             alert(at(11, 47, 20), "Port de WKS346", .warning, "WKS346 vu sur SW-CORE-01 Gi1/0/24 au lieu de Gi1/0/22.",

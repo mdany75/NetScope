@@ -313,6 +313,16 @@ final class MonStore: ObservableObject {
                 fortiWifi = FortiAPStore.shared.overview
                 fortiWifiError = FortiAPStore.shared.readError
             }
+            // Étendue DHCP (note 37) : étendues de la FortiGate relues si plus vieilles que
+            // l'intervalle, sinon l'estimation du Test DHCP et du scan.
+            var dhcpScopes: DHCPScopeOverview?
+            var dhcpScopesError: String?
+            if probe.kind == .dhcpScope {
+                let store = DHCPScopeStore.shared
+                await store.refreshForMonitoring(maxAge: TimeInterval(probe.interval), state: appState)
+                dhcpScopes = store.overview(devices: appState?.devices ?? devices)
+                dhcpScopesError = store.readError
+            }
             if perHost {
                 await SwitchStore.shared.loadVault()
                 let host = SwitchStore.shared.community(for: probe.target)
@@ -324,6 +334,8 @@ final class MonStore: ObservableObject {
             context.onlineServiceGraph = onlineGraph
             context.fortiWifi = fortiWifi
             context.fortiWifiError = fortiWifiError
+            context.dhcpScopes = dhcpScopes
+            context.dhcpScopesError = dhcpScopesError
             let outcome = await MonRunner.run(probe, context: context)
             MonStore.shared.finish(probe.id, outcome: outcome, manual: manual)
         }

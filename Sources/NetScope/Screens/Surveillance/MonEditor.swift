@@ -116,6 +116,7 @@ struct MonEditor: View {
                             draft.wrappedValue.kind = kind
                             MonResourceConditionFields.prepare(&draft.wrappedValue)
                             MonServiceConditionFields.prepare(&draft.wrappedValue)
+                            MonDHCPScopeConditionFields.prepare(&draft.wrappedValue)
                         }
                     }
                 }
@@ -384,6 +385,8 @@ private struct MonConditionFields: View {
             note("Alerte quand la FortiGate du site voit la borne déconnectée («\u{00A0}*\u{00A0}»\u{00A0}: toutes les bornes lues). La FortiGate est relue au plus à chaque intervalle, en lecture seule.")
         case .fortiAPOverload:
             MonFortiAPConditionFields(probe: $probe)
+        case .dhcpScope:
+            MonDHCPScopeConditionFields(probe: $probe)
         }
     }
 

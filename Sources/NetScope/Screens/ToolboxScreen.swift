@@ -226,6 +226,7 @@ private struct ToolMainPanel: View {
         case .iperf, .speedtest: SpeedRedirectView(tool: tool)
         case .wol: WakeOnLANView(model: wol, store: store)
         case .dhcp: DHCPTestView(model: dhcp, store: store)
+        case .dhcpScopes: DHCPScopesView(store: store)
         case .lldp: NeighborCaptureView(model: neighbors, store: store)
         case .cloud: ServiceStatusView(store: store)
         case .mailSuper: MailSuperToolView(model: mailSuper, store: store)
@@ -253,6 +254,7 @@ private struct ToolMainPanel: View {
         case .speedtest: return "speedtest"
         case .wol: return wol.command
         case .dhcp: return dhcp.command
+        case .dhcpScopes: return "GET /api/v2/cmdb/system.dhcp/server · monitor/system/dhcp"
         case .lldp: return neighbors.command
         case .cloud: return SvcStore.shared.command
         case .mailSuper: return mailSuper.command

@@ -19,6 +19,10 @@ public struct MonRunContext: Sendable {
     public var fortiWifi: FortiWifiOverview?
     /// Lecture Wi-Fi tentée sans aucune FortiGate lue : son erreur (403, jeton absent, injoignable).
     public var fortiWifiError: String?
+    /// Dernière lecture des étendues DHCP (ou estimation sans FortiGate) ; nil : aucune.
+    public var dhcpScopes: DHCPScopeOverview?
+    /// Lecture des étendues tentée sans aucune FortiGate lue : son erreur.
+    public var dhcpScopesError: String?
 
     public init(pinger: ScanPinging?, snmpCommunity: String?, devices: [Device], inventoryReady: Bool = true,
                 now: Date = Date()) {
@@ -87,6 +91,9 @@ public enum MonRunner {
         case .fortiAPOverload:
             return MonFortiAPChecks.overload(target: target, overview: context.fortiWifi, error: context.fortiWifiError,
                                              thresholds: probe.wifiThresholds ?? .standard, now: context.now)
+        case .dhcpScope:
+            return MonDHCPScopeChecks.check(target: target, overview: context.dhcpScopes, error: context.dhcpScopesError,
+                                            thresholds: probe.dhcpThresholds ?? .standard, now: context.now)
         }
     }
 

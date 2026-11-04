@@ -38,6 +38,8 @@ final class RapportModel: ObservableObject {
             if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_DISQUES"] == "1" { demo.sections.insert(.disques) }
             // NETSCOPE_RAPPORT_FORTIAP=1 coche la section « Wi-Fi FortiAP ».
             if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_FORTIAP"] == "1" { demo.sections.insert(.fortiap) }
+            // NETSCOPE_RAPPORT_DHCP=1 coche la section « Étendues DHCP ».
+            if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_DHCP"] == "1" { demo.sections.insert(.dhcp) }
             config = demo
             library = ReportLibrary(recents: RapportDemo.recents)
         } else {

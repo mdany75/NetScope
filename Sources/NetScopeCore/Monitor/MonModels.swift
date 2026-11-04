@@ -12,6 +12,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
     case onlineService
     /// Wi-Fi géré par la FortiGate (note 27) : borne FortiAP hors ligne, borne surchargée.
     case fortiAPOffline, fortiAPOverload
+    /// Étendue DHCP presque pleine (note 37), lue par la FortiGate ou estimée par le Test DHCP.
+    case dhcpScope
 
     public var id: String { rawValue }
 
@@ -31,6 +33,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .onlineService: return "Service en ligne"
         case .fortiAPOffline: return "FortiAP hors ligne"
         case .fortiAPOverload: return "Borne surchargée"
+        case .dhcpScope: return "Étendue DHCP presque pleine"
         }
     }
 
@@ -50,6 +53,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .onlineService: return "Service"
         case .fortiAPOffline: return "FortiAP"
         case .fortiAPOverload: return "Charge Wi-Fi"
+        case .dhcpScope: return "DHCP"
         }
     }
 
@@ -67,6 +71,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .portLoad: return "ce Mac, ou adresse IP du switch"
         case .onlineService: return "Service du catalogue (Microsoft 365, GitHub…)"
         case .fortiAPOffline, .fortiAPOverload: return "Nom ou numéro de série de la borne, ou «\u{00A0}*\u{00A0}» pour toutes"
+        case .dhcpScope: return "Interface, VLAN ou nom de l’étendue, ou «\u{00A0}*\u{00A0}» pour toutes"
         }
     }
 
@@ -201,6 +206,8 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
     public var resourcePort: String?
     /// Borne surchargée (note 27) : seuils de clients par radio et d'utilisation du canal.
     public var wifiThresholds: FortiWifiThresholds?
+    /// Étendue DHCP presque pleine (note 37) : seuils d'occupation propres à la sonde.
+    public var dhcpThresholds: DHCPScopeThresholds?
 
     public init(id: UUID = UUID(), name: String, kind: MonProbeKind, target: String, subtitle: String = "",
                 isEnabled: Bool = true, interval: Int = 60, thresholds: MonThresholds = MonThresholds(),
@@ -272,6 +279,9 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
         case .fortiAPOverload:
             let t = wifiThresholds ?? .standard
             return "Alerte au-delà de \(t.maxClientsPerRadio) clients par radio ou \(MonFormat.percent(t.maxChannelUtilization)) d’utilisation du canal"
+        case .dhcpScope:
+            let t = dhcpThresholds ?? .standard
+            return "Alerte à \(MonFormat.percent(t.warningPercent)) d’occupation, critique à \(MonFormat.percent(t.criticalPercent))"
         }
     }
 
@@ -337,6 +347,7 @@ extension MonProbe {
         resourceLimit = try? c.decodeIfPresent(Double.self, forKey: .resourceLimit)
         resourcePort = try? c.decodeIfPresent(String.self, forKey: .resourcePort)
         wifiThresholds = try? c.decodeIfPresent(FortiWifiThresholds.self, forKey: .wifiThresholds)
+        dhcpThresholds = try? c.decodeIfPresent(DHCPScopeThresholds.self, forKey: .dhcpThresholds)
     }
 }
 
