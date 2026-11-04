@@ -23,6 +23,8 @@ final class SwitchStore: ObservableObject {
     @Published private(set) var controllerHosts: [String] = []
     /// Noms connus de la FortiGate (inventaire, baux DHCP), pour les appareils absents du scan.
     private(set) var controllerNames: [MACAddress: String] = [:]
+    /// FortiGate de chaque FortiSwitch affiché (adresse du relevé → contrôleur), note 28.
+    private var controllerOwners: [String: UUID] = [:]
     /// Réseau sur lequel les FortiSwitch ont été lus : sur un autre réseau, ils ne servent plus à
     /// situer les appareils (une table MAC périmée donnerait un faux port).
     private var controllerNetwork: NetworkContext?
@@ -142,6 +144,11 @@ final class SwitchStore: ObservableObject {
         let fortiDemo = FortiGateSitesDemo.selectedSites()
         setControllerSnapshots(FortiMulti.snapshots(fortiDemo))
         controllerNames = FortiMulti.names(fortiDemo)
+        controllerOwners = SiteSwitchFilter.controllerOwners(fortiDemo)
+        // Note 28 : un switch SNMP hors des plages et sans site, masqué dans « Switchs et ports ».
+        let extra = SitesDemo.unassignedSwitch(now: demo.snapshots.first?.polledAt ?? Date())
+        hosts.append(extra.host.description)
+        snapshots[extra.host.description] = extra
         selectedHost = Self.demoSelection.flatMap { wanted in allHosts.first { snapshots[$0]?.displayName == wanted } } ?? hosts.first
         selectedPort = 12
         let devices = DemoData.devices()
@@ -222,6 +229,7 @@ final class SwitchStore: ObservableObject {
         guard !isDemo, !controllerHosts.isEmpty || !controllerNames.isEmpty else { return }
         setControllerSnapshots([])
         controllerNames = [:]
+        controllerOwners = [:]
         controllerNetwork = nil
         controllerReadAt = nil
     }
@@ -240,6 +248,7 @@ final class SwitchStore: ObservableObject {
     func applyControllers(_ sites: [FortiSiteReport], state: AppState) {
         setControllerSnapshots(FortiMulti.snapshots(sites))
         controllerNames = FortiMulti.names(sites)
+        controllerOwners = SiteSwitchFilter.controllerOwners(sites)
         controllerNetwork = state.currentNetwork
         controllerReadAt = Date()
         if !isDemo {
@@ -473,6 +482,51 @@ final class SwitchStore: ObservableObject {
         ledger.clear()
         locations.clear()
     }
+
+    // MARK: Sites (note 28)
+
+    /// Bilan des switchs et emplacements relevés du site quitté.
+    func shelve(into results: inout SiteResults) {
+        results.switchResult = ledger.result.map(SiteSwitchRecord.init)
+        results.locations = SiteResults.locations(of: locations)
+    }
+
+    /// Bilan et emplacements du site choisi (ceux d'un autre site ne valent pas ici, même IP comprise).
+    func restore(_ results: SiteResults) {
+        ledger = SwitchAutoLedger(result: results.switchResult?.result)
+        var ledgerOfSite = LocationLedger()
+        for group in results.locationsByNetwork { ledgerOfSite.record(group.hosts, network: group.network) }
+        locations = ledgerOfSite
+        findResult = nil
+    }
+
+    /// FortiSwitch des FortiGate du site choisi, sans toucher aux appareils (ils sont ceux du site).
+    func showControllerSites(_ sites: [FortiSiteReport]) {
+        setControllerSnapshots(FortiMulti.snapshots(sites))
+        controllerNames = FortiMulti.names(sites)
+        controllerOwners = SiteSwitchFilter.controllerOwners(sites)
+    }
+
+    /// Switchs affichés dans « Switchs et ports » : ceux du site actif (FortiSwitch de ses
+    /// FortiGate, switchs SNMP associés), plus un switch sans site s'il est dans les plages du
+    /// dernier scan. « Afficher tous les switchs » lève le filtre.
+    var siteHosts: [String] { siteHosts(ignoringShowAll: false) }
+
+    /// Relevés des switchs du site actif seulement (rapports : jamais deux sites mélangés).
+    var siteSnapshots: [SNMPSwitchSnapshot] { siteHosts(ignoringShowAll: true).compactMap { snapshots[$0] } }
+
+    func siteHosts(ignoringShowAll: Bool) -> [String] {
+        let sites = SiteModel.shared
+        guard ignoringShowAll || !sites.showAllSwitches else { return allHosts }
+        let candidates = allHosts.map { host in
+            SiteSwitchFilter.Candidate(host: host, controllerID: isController(host) ? (controllerOwners[host] ?? Self.unknownOwner) : nil)
+        }
+        return SiteSwitchFilter.visible(candidates, activeSite: sites.activeSite, sites: sites.sites,
+                                        scanRanges: ScanController.shared.lastScanRanges)
+    }
+
+    /// FortiSwitch dont la FortiGate n'est pas connue (jamais celle du site actif).
+    private static let unknownOwner = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
 
     /// Un seul équipement par switch : un switch de niveau 3 répond sur chacune de ses adresses
     /// (une par VLAN). On garde l'adresse déjà connue, sinon la première qui a répondu.

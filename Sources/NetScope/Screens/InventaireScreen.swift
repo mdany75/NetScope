@@ -131,6 +131,8 @@ struct InventaireScreen: View {
 
     private func header(now: Date) -> some View {
         HStack(spacing: 12) {
+            // Note 28 : l'inventaire est propre au site actif.
+            InvSiteChip()
             // Segments égaux, plus larges que le plus long libellé : « Disparus > 30 j » n'est pas serré.
             Picker("Vue de l’inventaire", selection: $view) {
                 ForEach(InvView.allCases, id: \.self) { Text($0.label).tag($0) }
@@ -141,7 +143,7 @@ struct InventaireScreen: View {
             .fixedSize()
             // Petite fenêtre : seule la date de fusion reste, plutôt qu'une phrase coupée.
             ViewThatFits(in: .horizontal) {
-                Text("Base permanente de tous les appareils jamais vus · " + mergeCaption(now: now)).fixedSize()
+                Text("Tous les appareils jamais vus sur ce site · " + mergeCaption(now: now)).fixedSize()
                 Text(mergeCaption(now: now).prefix(1).uppercased() + mergeCaption(now: now).dropFirst()).lineLimit(1)
             }
             .font(Theme.small)
@@ -254,10 +256,36 @@ struct InventaireScreen: View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "info.circle").foregroundStyle(Theme.textSecondary)
             (Text("Identification par empreinte : ").foregroundStyle(Theme.text).fontWeight(.semibold)
-             + Text("préfixe OUI de la MAC, nom d’hôte et ports ouverts relevés par le scan. Un appareil à MAC aléatoire reste « non identifié » jusqu’à ce qu’un technicien confirme sa fiche (en lui donnant un nom). Les fiches sont enregistrées dans ~/Library/Application Support/NetScope/inventory.json."))
+             + Text("préfixe OUI de la MAC, nom d’hôte et ports ouverts relevés par le scan. Un appareil à MAC aléatoire reste « non identifié » jusqu’à ce qu’un technicien confirme sa fiche (en lui donnant un nom). Chaque site a son propre inventaire (~/Library/Application Support/NetScope/sites/<site>/inventory.json)\u{00A0}: la même IP ou la même MAC sur deux sites donne deux fiches distinctes."))
                 .font(Theme.small)
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+}
+
+/// Site actif, bien en vue dans l'en-tête de l'Inventaire (note 28) : un clic ouvre la gestion des sites.
+struct InvSiteChip: View {
+    @EnvironmentObject private var state: AppState
+    @ObservedObject private var sites = SiteModel.shared
+
+    var body: some View {
+        Button {
+            RegNavigation.shared.section = .sites
+            state.open(.reglages)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "mappin.circle.fill").font(.system(size: 12))
+                Text(sites.activeName).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+            }
+            .foregroundStyle(Theme.accentStrong)
+            .padding(.horizontal, 10)
+            .frame(height: 24)
+            .background(Capsule().fill(Theme.accentSoft))
+            .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.5)))
+            .fixedSize()
+        }
+        .buttonStyle(.plain)
+        .help("Inventaire du site «\u{00A0}\(sites.activeName)\u{00A0}» seulement. Changer de site\u{00A0}: menu «\u{00A0}Site\u{00A0}» du Scanner ou barre latérale.")
     }
 }

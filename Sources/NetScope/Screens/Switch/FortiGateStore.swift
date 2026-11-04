@@ -140,7 +140,30 @@ final class FortiGateStore: ObservableObject {
 
     /// Choix pour les plages et l'adresse actuelles (sans rien lire) : pour les bandeaux.
     func previewSelection(state: AppState) -> FortiControllerSelection {
-        FortiControllerSelector.select(controllers, scanned: state.checkedRanges, macAddress: state.activeInterface?.address)
+        siteSelection(ranges: state.checkedRanges, state: state)
+    }
+
+    /// Note 28 : les FortiGate du site actif ; le choix par plage (note 25) seulement quand aucun
+    /// site n'est actif.
+    func siteSelection(ranges: [IPRange], state: AppState) -> FortiControllerSelection {
+        SiteFortiGate.select(site: SiteModel.shared.activeSite, controllers: controllers, scanned: ranges,
+                             macAddress: state.activeInterface?.address)
+    }
+
+    /// Changement de site : seules les lectures des FortiGate du nouveau site restent affichées
+    /// (FortiSwitch, Wi-Fi FortiAP) ; rien n'est relu sur le réseau, la fin du prochain scan ou
+    /// « Relire » s'en charge.
+    func siteChanged(state: AppState) {
+        let chosen = previewSelection(state: state)
+        selection = chosen
+        let ids = Set(chosen.controllerIDs)
+        if isDemo {
+            sites = FortiGateSitesDemo.sites(for: chosen)
+        } else {
+            sites = sites.filter { ids.contains($0.controllerID) }
+        }
+        SwitchStore.shared.showControllerSites(sites)
+        FortiAPStore.shared.keepOnly(ids, selection: chosen)
     }
 
     // MARK: Liste et Trousseau
@@ -370,7 +393,7 @@ final class FortiGateStore: ObservableObject {
             }
             return
         }
-        let chosen = FortiControllerSelector.select(controllers, scanned: ranges, macAddress: state.activeInterface?.address)
+        let chosen = siteSelection(ranges: ranges, state: state)
         selection = chosen
         if isDemo {
             for id in chosen.controllerIDs { runtime[id, default: Runtime()].busy = true }

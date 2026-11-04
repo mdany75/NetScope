@@ -6,18 +6,31 @@ import SwiftUI
 struct SwitchScreen: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var store = SwitchStore.shared
+    @ObservedObject private var sites = SiteModel.shared
     @State private var showAdd = false
     @State private var newHost = ""
     @State private var addError: String?
 
+    /// Note 28 : switchs du site actif (et, sans site, ceux des plages du dernier scan).
+    private var visibleHosts: [String] { store.siteHosts }
+
+    /// Switch affiché : le choisi s'il est visible, sinon le premier switch visible.
+    private var shown: SNMPSwitchSnapshot? {
+        let visible = visibleHosts
+        if let current = store.current, visible.contains(current.host.description) { return current }
+        return visible.lazy.compactMap { store.snapshots[$0] }.first
+    }
+
     var body: some View {
+        let visible = visibleHosts
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 SwitchSourcesPanel(store: store)
                 SwitchFortiGatePanel()
+                SwitchSiteBanner(visible: visible.count, total: store.allHosts.count)
                 SwitchThisMacBanner(switches: store)
 
-                if store.allHosts.isEmpty {
+                if visible.isEmpty {
                     Panel(padding: 0) {
                         EmptyState(systemImage: "rectangle.connected.to.line.below",
                                    title: "Aucun switch à interroger",
@@ -29,16 +42,16 @@ struct SwitchScreen: View {
                     }
                     SwitchCandidates(store: store)
                 } else {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12, alignment: .top), count: min(max(store.allHosts.count, 1), 3)),
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12, alignment: .top), count: min(max(visible.count, 1), 3)),
                               spacing: 12) {
-                        ForEach(store.allHosts, id: \.self) { host in
+                        ForEach(visible, id: \.self) { host in
                             SwitchCard(store: store, host: host)
                         }
                     }
                     SwitchCandidates(store: store)
                 }
 
-                if let snapshot = store.current, snapshot.isViaController {
+                if let snapshot = shown, snapshot.isViaController {
                     // FortiSwitch géré (note 24) : tout vient de la FortiGate, aucun relevé SNMP du
                     // trafic (son adresse FortiLink n'est pas joignable depuis ce Mac).
                     SidePanelSplit(sideWidth: 330, collapse: .below, spacing: 16) {
@@ -58,7 +71,7 @@ struct SwitchScreen: View {
                             SwitchTopology(store: store)
                         }
                     }
-                } else if let snapshot = store.current {
+                } else if let snapshot = shown {
                     // Relevés de trafic (note 21) du switch affiché, partagés avec sa fiche Appareil.
                     let traffic = ResourceMonitors.snmp(snapshot.host.description)
                     // Colonne principale (façade, ports chargés, table MAC) et colonne de détail (port, trafic, topologie).
@@ -80,7 +93,7 @@ struct SwitchScreen: View {
                         }
                     }
                     .modifier(SwitchResourceLifecycle(monitor: traffic))
-                } else if !store.allHosts.isEmpty {
+                } else if !visible.isEmpty {
                     Panel {
                         HStack(spacing: 10) {
                             Image(systemName: "info.circle").foregroundStyle(Theme.accent)
@@ -93,6 +106,10 @@ struct SwitchScreen: View {
             .padding(.horizontal, Theme.contentPadding)
             .padding(.vertical, 16)
             .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        // Switch choisi masqué (autre site, hors des plages) : le premier switch du site le remplace.
+        .onChange(of: visible) { _, list in
+            if let selected = store.selectedHost, !list.contains(selected), let first = list.first { store.select(host: first) }
         }
         // Communautés lues au Trousseau à l'ouverture de l'écran, hors du fil principal.
         .task {

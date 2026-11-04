@@ -112,6 +112,24 @@ final class FortiAPStore: ObservableObject {
         task = Task { [weak self] in await self?.read(chosen) }
     }
 
+    /// Note 28 : changement de site, seules les bornes des FortiGate du nouveau site restent (rien
+    /// n'est relu sur le réseau).
+    func keepOnly(_ controllerIDs: Set<UUID>, selection chosen: FortiControllerSelection) {
+        task?.cancel()
+        task = nil
+        generation += 1
+        selection = chosen
+        if isDemo {
+            sites = FortiAPDemo.initialSites().filter { controllerIDs.contains($0.controllerID) }
+        } else {
+            sites = sites.filter { controllerIDs.contains($0.controllerID) }
+        }
+        errors = errors.filter { controllerIDs.contains($0.key) }
+        busy = false
+        focusAP = nil
+        recompute()
+    }
+
     /// « Relire » de l'écran Wi-Fi : plages cochées du Scanner, sinon l'adresse du Mac.
     func refreshNow(state: AppState) {
         refresh(selection: FortiGateStore.shared.previewSelection(state: state), state: state)

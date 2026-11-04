@@ -54,6 +54,8 @@ public struct FortiControllerSelection: Hashable, Sendable {
         case macAddress
         /// Aucune FortiGate n'a de plage couverte : toutes celles activées sont lues.
         case noRanges
+        /// Note 28 : FortiGate associée au site actif (la plage IP ne sert pas).
+        case activeSite
     }
 
     public struct Pick: Hashable, Sendable, Identifiable {

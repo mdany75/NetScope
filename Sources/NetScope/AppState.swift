@@ -139,6 +139,11 @@ final class AppState: ObservableObject {
         devices.sort { $0.ip < $1.ip }
     }
 
+    /// Noms personnalisés du site choisi (note 28 : les noms vont avec les résultats de chaque site).
+    func replaceCustomNames(_ names: [String: String]) {
+        customNames = names
+    }
+
     /// Nom personnalisé d'un appareil ; un nom vide l'efface.
     func setCustomName(_ name: String?, for id: Device.ID) {
         let trimmed = name?.trimmingCharacters(in: .whitespaces) ?? ""
@@ -162,6 +167,8 @@ final class AppState: ObservableObject {
             // Un réseau plus grand qu'un /16 dépasserait la limite de scan : on se limite au /24 de l'adresse.
             let usable = subnet.prefix < 16 ? Subnet(address: primary.address, prefix: 24) : subnet
             ranges = [ScanRangeConfig(text: usable.description, label: primary.kind == .wifi ? "Wi-Fi" : "Réseau local")]
+            // Note 28 : le premier site reçoit ces plages détectées.
+            SiteModel.shared.firstLaunchRangesDetected(self)
         }
     }
 

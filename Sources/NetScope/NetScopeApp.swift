@@ -81,6 +81,8 @@ struct NetScopeApp: App {
                     guard !Launcher.isDemo else { return }
                     // Vitesse des disques : fichiers d'essai restés après un arrêt brutal, supprimés.
                     Task.detached(priority: .utility) { DiskPendingCleanup.standard.cleanAll() }
+                    // Note 28 : résultats du dernier scan du site actif.
+                    SiteModel.shared.attach(to: state)
                     await state.detectInterface()
                     // Sondes de surveillance : elles tournent dès le lancement, fenêtre fermée comprise.
                     MonStore.shared.attach(to: state)

@@ -48,6 +48,7 @@ registerFortinetTests(suite)
 registerFortiControllerTests(suite)
 registerSearchTests(suite)
 registerFortiWifiTests(suite)
+registerSiteTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

@@ -19,7 +19,8 @@ enum RapportData {
         }
         let records = ReportBuilder.sessionRecords(inRanges, devices: devices)
 
-        let snapshots = SwitchStore.shared.orderedSnapshots
+        // Note 28 : switchs du site actif seulement.
+        let snapshots = SwitchStore.shared.siteSnapshots
         let switches = snapshots.map { ReportSwitch(snapshot: $0) }
 
         var input = ReportInput(

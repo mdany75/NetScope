@@ -25,9 +25,13 @@ struct RegRangeRowData: Identifiable {
 }
 
 /// Plages du site : nom et VLAN modifiables sur place, inclusion au scan, suppression.
+/// Note 28 : les plages sont celles du site choisi dans Réglages › Sites et plages (`ranges`) ;
+/// `devices` : appareils du dernier scan de ce site (vide pour un autre site que l'actif).
 struct RegRangeTable: View {
-    @EnvironmentObject private var state: AppState
     @ObservedObject var table: StandardTableModel<RegRangeRowData>
+    @Binding var ranges: [ScanRangeConfig]
+    var siteName: String
+    var devices: [Device]
 
     static let columns: [StandardColumn] = [
         StandardColumn(id: "plage", title: "Plage", isRequired: true),
@@ -66,10 +70,10 @@ struct RegRangeTable: View {
     static let headerHeight: CGFloat = 42
 
     private var rows: [RegRangeRowData] {
-        let site = state.activeInterface.map { "Réseau \($0.kind.label)" } ?? "Ce Mac"
-        return state.ranges.enumerated().map { index, range in
+        let site = siteName
+        return ranges.enumerated().map { index, range in
             let parsed = try? range.parsed()
-            let seen = parsed.map { parsed in state.devices.filter { parsed.contains($0.ip) } } ?? []
+            let seen = parsed.map { parsed in devices.filter { parsed.contains($0.ip) } } ?? []
             return RegRangeRowData(range: range, order: index, site: site, addresses: parsed?.count ?? -1,
                                    devicesSeen: seen.count, lastSeen: seen.map(\.lastSeen).max())
         }
@@ -176,7 +180,7 @@ struct RegRangeTable: View {
         }
         .standardTableStyle()
         .contextMenu(forSelectionType: RegRangeRowData.ID.self) { ids in
-            if let id = ids.first, let range = state.ranges.first(where: { $0.id == id }) {
+            if let id = ids.first, let range = ranges.first(where: { $0.id == id }) {
                 Button(range.isEnabled ? "Exclure du scan" : "Inclure au scan") {
                     enabledBinding(range).wrappedValue.toggle()
                 }
@@ -189,15 +193,15 @@ struct RegRangeTable: View {
 
     // MARK: Modifications
 
-    private func index(of range: ScanRangeConfig) -> Int? { state.ranges.firstIndex { $0.id == range.id } }
+    private func index(of range: ScanRangeConfig) -> Int? { ranges.firstIndex { $0.id == range.id } }
 
     private func delete(_ range: ScanRangeConfig) {
-        state.ranges.removeAll { $0.id == range.id }
+        ranges.removeAll { $0.id == range.id }
     }
 
     private func labelBinding(_ range: ScanRangeConfig) -> Binding<String> {
         Binding(get: { range.label }, set: { value in
-            if let index = index(of: range) { state.ranges[index].label = value }
+            if let index = index(of: range) { ranges[index].label = value }
         })
     }
 
@@ -206,16 +210,16 @@ struct RegRangeTable: View {
             guard let index = index(of: range) else { return }
             let digits = value.filter(\.isNumber)
             if digits.isEmpty {
-                state.ranges[index].vlan = nil
+                ranges[index].vlan = nil
             } else if let number = Int(digits), (1...4094).contains(number) {
-                state.ranges[index].vlan = number
+                ranges[index].vlan = number
             }
         })
     }
 
     private func enabledBinding(_ range: ScanRangeConfig) -> Binding<Bool> {
-        Binding(get: { state.ranges.first { $0.id == range.id }?.isEnabled ?? range.isEnabled }, set: { value in
-            if let index = index(of: range) { state.ranges[index].isEnabled = value }
+        Binding(get: { ranges.first { $0.id == range.id }?.isEnabled ?? range.isEnabled }, set: { value in
+            if let index = index(of: range) { ranges[index].isEnabled = value }
         })
     }
 }

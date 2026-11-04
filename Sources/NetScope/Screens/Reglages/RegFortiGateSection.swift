@@ -423,6 +423,7 @@ struct RegFortiControllerTable: View {
         switch reason {
         case .macAddress?: return ("Adresse de ce Mac", "Aucune plage scannée n’est couverte\u{00A0}: choisie parce qu’elle couvre l’adresse de ce Mac.")
         case .noRanges?: return ("Toutes (sans plage)", "Aucune FortiGate n’a de plage couverte\u{00A0}: toutes celles activées sont lues.")
+        case .activeSite?: return ("Site actif", "FortiGate associée au site actif (Réglages › Sites et plages)\u{00A0}: la plage IP ne sert pas au choix.")
         default: return ("Plages scannées", "Une de ses plages couvertes contient ou chevauche une plage scannée.")
         }
     }

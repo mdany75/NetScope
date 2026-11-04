@@ -161,6 +161,7 @@ struct SwitchFortiGatePanel: View {
         case .scannedRange: why = ""
         case .macAddress: why = "choisie par l’adresse de ce Mac · "
         case .noRanges: why = "plages couvertes à renseigner · "
+        case .activeSite: why = "FortiGate du site actif · "
         }
         if fortigate.runtime[id]?.busy == true { return Text(why + "lecture en cours…") }
         if let site = fortigate.sites.first(where: { $0.controllerID == id }) {

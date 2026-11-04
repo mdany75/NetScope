@@ -41,17 +41,10 @@ struct Sidebar: View {
                     }
                 }
             }
-            if !state.ranges.isEmpty && listHeight >= Self.rangesMinListHeight {
-                Section("Plages enregistrées") {
-                    ForEach(state.ranges.prefix(4)) { range in
-                        HStack {
-                            Text(range.text).font(Theme.mono(11)).lineLimit(1)
-                            Spacer(minLength: 6)
-                            Text(range.label).font(Theme.caption).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                        .selectionDisabled()
-                    }
-                }
+            if listHeight >= Self.rangesMinListHeight {
+                // Note 28 : les sites remplacent « Plages enregistrées » ; le site actif est marqué,
+                // ses plages en dessous ; un clic change de site.
+                SidebarSites()
             }
         }
         .listStyle(.sidebar)

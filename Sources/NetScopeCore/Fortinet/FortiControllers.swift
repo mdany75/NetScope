@@ -153,9 +153,11 @@ public struct FortiControllerStatus: Codable, Hashable, Sendable {
     public var version: String?
     public var switchCount: Int?
     public var deviceCount: Int?
+    /// Numéro de série relu (note 28 : indice de détection du site, jamais un secret).
+    public var serial: String?
 
     public init(kind: Kind, message: String = "", date: Date? = nil, hostname: String? = nil, model: String? = nil,
-                version: String? = nil, switchCount: Int? = nil, deviceCount: Int? = nil) {
+                version: String? = nil, switchCount: Int? = nil, deviceCount: Int? = nil, serial: String? = nil) {
         self.kind = kind
         self.message = message
         self.date = date
@@ -164,17 +166,19 @@ public struct FortiControllerStatus: Codable, Hashable, Sendable {
         self.version = version
         self.switchCount = switchCount
         self.deviceCount = deviceCount
+        self.serial = serial
     }
 
     /// État tiré d'une lecture réussie.
     public static func success(_ report: FortiGateReport, date: Date) -> FortiControllerStatus {
         FortiControllerStatus(kind: .ok, date: date, hostname: report.controllerName, model: report.system.model,
                               version: report.system.version, switchCount: report.switches.count,
-                              deviceCount: report.locatedDevices.count)
+                              deviceCount: report.locatedDevices.count,
+                              serial: report.system.serial.isEmpty ? nil : report.system.serial)
     }
 
     enum CodingKeys: String, CodingKey {
-        case kind, message, date, hostname, model, version, switchCount, deviceCount
+        case kind, message, date, hostname, model, version, switchCount, deviceCount, serial
     }
 
     public init(from decoder: Decoder) throws {
@@ -188,6 +192,7 @@ public struct FortiControllerStatus: Codable, Hashable, Sendable {
         version = (try? c.decodeIfPresent(String.self, forKey: .version)) ?? nil
         switchCount = (try? c.decodeIfPresent(Int.self, forKey: .switchCount)) ?? nil
         deviceCount = (try? c.decodeIfPresent(Int.self, forKey: .deviceCount)) ?? nil
+        serial = (try? c.decodeIfPresent(String.self, forKey: .serial)) ?? nil
     }
 }
 

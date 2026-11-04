@@ -149,6 +149,8 @@ final class ScanController: ObservableObject {
             show("Démonstration\u{00A0}: aucun scan réel n’est lancé, les résultats affichés sont fictifs.", tone: .neutral)
             return
         }
+        // Note 28 : plages qui ne sont plus celles du site actif → le scan irait dans son inventaire.
+        guard SiteModel.shared.confirmScan(state) else { return }
         let enabled = state.ranges.filter(\.isEnabled)
         var targets: [ScanTarget] = []
         var invalid: [String] = []
@@ -348,6 +350,33 @@ final class ScanController: ObservableObject {
         SwitchStore.shared.clearResult()
     }
 
+    // MARK: Résultats par site (note 28)
+
+    /// État du scan du site quitté (dernier scan, nouveautés, latences, préréglage des ports).
+    func shelve(into results: inout SiteResults) {
+        results.newIDs = newIDs.sorted()
+        results.lastScanRanges = lastScanRanges.map(\.description)
+        results.startedAt = startedAt
+        results.finishedAt = finishedAt
+        results.portLabel = lastScanPortLabel
+        results.portLabels = portLabels
+        results.latency = latencyHistory
+    }
+
+    /// État du scan du site choisi (l'avancement par plage, lié aux plages de l'autre site, repart à zéro).
+    func restore(_ results: SiteResults) {
+        status = [:]
+        newIDs = Set(results.newIDs)
+        lastScanRanges = results.parsedScanRanges
+        startedAt = results.startedAt
+        finishedAt = results.finishedAt
+        lastScanPortLabel = results.portLabel
+        portLabels = results.portLabels
+        latencyHistory = results.latency
+        measuring = []
+        probing = []
+    }
+
     /// Fusionne un appareil du scan avec ce qu'on savait déjà (emplacement de switch, ports, nom
     /// d'hôte) ; `firstSeen` et le nom personnalisé sont gardés par AppState. Les ports connus sont
     /// toujours gardés ici : seul `.portsProbed` les remplace.
@@ -407,6 +436,8 @@ final class ScanController: ObservableObject {
         isRunning = false
         phase = nil
         scanTask = nil
+        // Note 28 : date du scan du site, MAC de sa passerelle, résultats écrits dans le dossier du site.
+        SiteModel.shared.scanFinished(state)
         let online = state.devices.filter { device in device.isOnline && targets.contains { $0.range.contains(device.ip) } }.count
         let seconds = ScanFormat.seconds(end.timeIntervalSince(startedAt ?? end))
         if engineCancelled {

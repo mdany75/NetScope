@@ -37,8 +37,11 @@ struct RegSwitchRowData: Identifiable {
     let location: String
     let firmware: String
     let ports: String
+    /// Sites associés (note 28), par nom.
+    let sites: [String]
 
     var id: String { host }
+    var sitesSort: String { sites.isEmpty ? "~" : sites.joined(separator: ", ").lowercased() }
     var sortPolled: Date { failed ? .distantPast : (polledAt ?? .distantPast) }
     var origin: String { isAuto ? "Découverte" : "À la main" }
 }
@@ -48,10 +51,13 @@ struct RegKnownSwitchTable: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var store = SwitchStore.shared
     @ObservedObject var table: StandardTableModel<RegSwitchRowData>
+    @ObservedObject private var siteModel = SiteModel.shared
+    @State private var sitesFor: RegSwitchSitesTarget?
 
     static let columns: [StandardColumn] = [
         StandardColumn(id: "hote", title: "Hôte", isRequired: true),
         StandardColumn(id: "nom", title: "Nom"),
+        StandardColumn(id: "site", title: "Site"),
         StandardColumn(id: "modele", title: "Modèle"),
         StandardColumn(id: "releve", title: "Dernier relevé"),
         StandardColumn(id: "snmp", title: "SNMP (version, communauté)"),
@@ -65,6 +71,7 @@ struct RegKnownSwitchTable: View {
     static let sortKeys: [String: KeyPathComparator<RegSwitchRowData>] = [
         "hote": KeyPathComparator(\RegSwitchRowData.ip),
         "nom": KeyPathComparator(\RegSwitchRowData.name),
+        "site": KeyPathComparator(\RegSwitchRowData.sitesSort),
         "modele": KeyPathComparator(\RegSwitchRowData.model),
         "releve": KeyPathComparator(\RegSwitchRowData.sortPolled),
         "snmp": KeyPathComparator(\RegSwitchRowData.snmp),
@@ -104,7 +111,8 @@ struct RegKnownSwitchTable: View {
                 isAuto: store.isAutoDiscovered(host),
                 location: snapshot?.system.location ?? "",
                 firmware: snapshot.map { SwitchText.firmware($0.system.descr) } ?? "",
-                ports: snapshot.map(SwitchText.portsSummary) ?? "")
+                ports: snapshot.map(SwitchText.portsSummary) ?? "",
+                sites: SiteModel.shared.sites(forSwitch: host).map(\.displayName))
         }
         .sorted(using: sortOrder)
     }
@@ -129,6 +137,12 @@ struct RegKnownSwitchTable: View {
             }
             .width(min: 80, ideal: 100)
             .customizationID("nom")
+
+            TableColumn("SITE", sortUsing: table.sort("site")) { row in
+                RegSwitchSiteMenu(host: row.host, names: row.sites)
+            }
+            .width(min: 90, ideal: 140)
+            .customizationID("site")
 
             TableColumn("MODÈLE", sortUsing: table.sort("modele")) { row in
                 RegSwitchCell(row.model, secondary: true)
@@ -199,6 +213,7 @@ struct RegKnownSwitchTable: View {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(host, forType: .string)
                 }
+                Button("Choisir les sites du switch…") { sitesFor = RegSwitchSitesTarget(host: host) }
                 Divider()
                 Button("Écarter ce switch (ne plus l’interroger)", role: .destructive) { store.removeHost(host) }
             }
@@ -209,6 +224,7 @@ struct RegKnownSwitchTable: View {
             }
         }
         .frame(height: RegSwitchTableMetrics.height(rows: rows.count))
+        .sheet(item: $sitesFor) { target in RegSwitchSitesSheet(host: target.host) }
     }
 }
 
