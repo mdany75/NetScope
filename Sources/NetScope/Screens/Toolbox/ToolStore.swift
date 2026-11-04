@@ -4,7 +4,10 @@ import SwiftUI
 
 /// Les outils de la boîte à outils, dans l'ordre du croquis (docs/croquis/Toolbox.dc.html).
 enum ToolKind: String, CaseIterable, Identifiable, Codable {
-    case subnet, mac, ports, dns, whois, mtu, iperf, speedtest, wol, dhcp, lldp
+    case subnet, mac, ports, dns, whois, mtu, iperf, speedtest, wol, dhcp
+    /// Occupation des étendues DHCP (note 37), juste après le Test DHCP dans la liste.
+    case dhcpScopes = "dhcpscopes"
+    case lldp
     /// État des grands services en ligne (note 15).
     case cloud
     // Outils courriel (note 14).
@@ -31,7 +34,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .ports, .dns, .whois, .mtu, .capture: return .diagnostic
         case .iperf, .speedtest: return .performance
         case .disques: return .performance
-        case .wol, .dhcp, .lldp: return .services
+        case .wol, .dhcp, .lldp, .dhcpScopes: return .services
         case .cloud: return .internet
         case .mailSuper, .mailHealth, .mx, .blacklist, .mailRecords: return .courriel
         case .smtp, .headers: return .courriel
@@ -50,6 +53,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .speedtest: return "Speedtest"
         case .wol: return "Wake-on-LAN"
         case .dhcp: return "Test DHCP"
+        case .dhcpScopes: return "Étendues DHCP"
         case .lldp: return "Capture LLDP/CDP"
         case .cloud: return "État des services"
         case .mailSuper: return "Super outil courriel"
@@ -76,6 +80,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .speedtest: return "Débit Internet et latence sous charge."
         case .wol: return "Envoie un paquet magique pour réveiller un poste."
         case .dhcp: return "Détecte tous les serveurs DHCP qui répondent sur le segment."
+        case .dhcpScopes: return "Occupation de chaque étendue DHCP de la FortiGate\u{00A0}: baux, réservations, adresses libres et alerte avant la saturation."
         case .lldp: return "Identifie le switch, le port et le VLAN où ce Mac est branché."
         case .cloud: return "Microsoft 365, AWS, Google, GitHub…\u{00A0}: page d’état officielle et accès depuis ce réseau."
         case .mailSuper: return "Domaine, adresse courriel, IP ou nom d’hôte\u{00A0}: toutes les vérifications utiles d’un coup."
@@ -102,6 +107,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .speedtest: return "bolt"
         case .wol: return "power"
         case .dhcp: return "shield.lefthalf.filled"
+        case .dhcpScopes: return "chart.bar.doc.horizontal"
         case .lldp: return "cable.connector"
         case .cloud: return "cloud"
         case .mailSuper: return "wand.and.stars"
@@ -128,7 +134,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     static let favorites: [ToolKind] = [.subnet, .ports, .dns, .wol]
 
     /// Outils qui prennent toute la largeur (sans le panneau des favoris et de l'historique).
-    var usesFullWidth: Bool { self == .capture }
+    var usesFullWidth: Bool { self == .capture || self == .dhcpScopes }
 
     /// Recherche multiple (note 26) : `nom:dns`, `groupe:courriel` ; un mot seul lit le nom, la
     /// clé et le résumé, comme avant.

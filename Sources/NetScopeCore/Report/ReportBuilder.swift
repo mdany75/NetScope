@@ -155,6 +155,9 @@ public struct ReportInput: Sendable {
     /// Wi-Fi des FortiGate (section facultative « Wi-Fi FortiAP ») ; nil : aucune lecture.
     public var fortiWifi: FortiWifiOverview?
     public var fortiWifiThresholds: FortiWifiThresholds = .standard
+    /// Étendues DHCP lues sur la FortiGate ou estimées (section facultative « Étendues DHCP ») ; nil : aucune.
+    public var dhcpScopes: DHCPScopeOverview?
+    public var dhcpThresholds: DHCPScopeThresholds = .standard
     public var now: Date
 
     public init(devices: [Device], records: [InvRecord] = [], ranges: [ReportRange] = [], switches: [ReportSwitch] = [],
@@ -361,6 +364,7 @@ public enum ReportBuilder {
             case .courriel: blocks = mailHealthBlocks(input.mailHealth)
             case .disques: blocks = diskBlocks(input.diskTests)
             case .fortiap: blocks = fortiAPBlocks(input.fortiWifi, thresholds: input.fortiWifiThresholds, masked: config.maskMAC)
+            case .dhcp: blocks = dhcpScopeBlocks(input.dhcpScopes, thresholds: input.dhcpThresholds)
             case .annexe: blocks = annex(input, masked: config.maskMAC)
             }
             sections.append(ReportSection(kind: kind, heading: heading, blocks: blocks))

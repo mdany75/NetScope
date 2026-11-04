@@ -23,6 +23,7 @@ struct SurveillanceScreen: View {
                 } side: {
                     VStack(spacing: 14) {
                         MonServiceTile()
+                        MonDHCPScopeTile()
                         MonMenuPreview()
                         MonNotificationPreview()
                     }

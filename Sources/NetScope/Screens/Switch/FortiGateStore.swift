@@ -176,6 +176,7 @@ final class FortiGateStore: ObservableObject {
         }
         SwitchStore.shared.showControllerSites(sites)
         FortiAPStore.shared.keepOnly(ids, selection: chosen)
+        DHCPScopeStore.shared.keepOnly(ids, selection: chosen)
     }
 
     // MARK: Liste et Trousseau
@@ -418,6 +419,7 @@ final class FortiGateStore: ObservableObject {
             lastRefresh = Date()
             applySites(state: state)
             FortiAPStore.shared.refresh(selection: chosen, state: state)
+            DHCPScopeStore.shared.refresh(selection: chosen)
             return
         }
         await loadTokens()
@@ -450,6 +452,8 @@ final class FortiGateStore: ObservableObject {
         applySites(state: state)
         // Note 27 : Wi-Fi des mêmes FortiGate, lu à part une fois les switchs appliqués.
         FortiAPStore.shared.refresh(selection: chosen, state: state)
+        // Note 37 : étendues DHCP des mêmes FortiGate (configuration des serveurs et baux).
+        DHCPScopeStore.shared.refresh(selection: chosen)
     }
 
     /// « Tester tout » : chaque FortiGate activée, quatre à la fois ; résultat sur chaque ligne.
@@ -662,7 +666,12 @@ final class FortiGateStore: ObservableObject {
         let wifi = wifiCalls.isEmpty ? "" : "\n\n" + FortiDiagnostic.text(calls: wifiCalls, config: c.config, system: nil, token: tokens[id],
                                                                         date: FortiAPStore.shared.lastRefresh ?? Date())
             .replacingOccurrences(of: "réponses brutes de la FortiGate", with: "réponses brutes Wi-Fi (FortiAP) de la FortiGate")
-        return "Site\u{00A0}: \(c.displayName)\n" + text + wifi
+        // Note 37 : appels des étendues DHCP de la dernière lecture (même retrait du jeton).
+        let dhcpCalls = calls == nil ? DHCPScopeStore.shared.calls[id] ?? [] : []
+        let dhcp = dhcpCalls.isEmpty ? "" : "\n\n" + FortiDiagnostic.text(calls: dhcpCalls, config: c.config, system: nil, token: tokens[id],
+                                                                        date: DHCPScopeStore.shared.lastRefresh ?? Date())
+            .replacingOccurrences(of: "réponses brutes de la FortiGate", with: "réponses brutes des étendues DHCP de la FortiGate")
+        return "Site\u{00A0}: \(c.displayName)\n" + text + wifi + dhcp
     }
 
     // MARK: Wi-Fi (note 27)

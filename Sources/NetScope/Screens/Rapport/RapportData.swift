@@ -50,6 +50,11 @@ enum RapportData {
         let fortiAP = FortiAPStore.shared
         input.fortiWifi = fortiAP.hasData ? fortiAP.overview : nil
         input.fortiWifiThresholds = fortiAP.thresholds
+        // Étendues DHCP (note 37) : dernière lecture de la FortiGate, sinon l'estimation du Test DHCP.
+        let dhcpScopes = DHCPScopeStore.shared
+        let scopes = dhcpScopes.overview(devices: devices)
+        input.dhcpScopes = scopes.scopes.isEmpty ? nil : scopes
+        input.dhcpThresholds = dhcpScopes.thresholds
         // Note 28 : les compléments du croquis décrivent le Siège seulement.
         if demo, SiteModel.shared.activeID == SitesDemo.siegeID { RapportDemo.complete(&input) }
         return input

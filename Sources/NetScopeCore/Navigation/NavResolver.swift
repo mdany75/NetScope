@@ -187,6 +187,8 @@ public enum NavResolver {
                 return .go(NavDestination(.wifi, focus: .accessPoint(ap.id)))
             }
             return .go(NavDestination(.wifi))
+        case .dhcpScope:
+            return .go(NavDestination(.outils, focus: .tool("dhcpscopes")))
         case .switchPort:
             let ref = NavDeviceRef(ip: "", mac: probe.target)
             if let mac = ref.mac, let found = context.scannerDevice(mac: mac) {
