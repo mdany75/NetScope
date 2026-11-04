@@ -57,7 +57,8 @@ struct AnalyseScreen: View {
             VStack(alignment: .leading, spacing: 14) {
                 filters(networks: networks, chosen: chosen, now: now, since: since)
                 tiles(records: records, chosen: chosen, alerts: alerts, now: now, since: since)
-                HStack(alignment: .top, spacing: 14) {
+                // Petite fenêtre : courbe et répartitions passent sous la carte d'occupation.
+                AdaptiveStack(breakpoint: 680 + 14 + 300, spacing: 14, horizontalAlignment: .top) {
                     if let chosen {
                         AnaOccupancyPanel(network: chosen, records: allRecords, now: now, recentWindow: max(period.seconds, 7 * 86_400))
                             .frame(width: 680)
@@ -124,7 +125,7 @@ struct AnalyseScreen: View {
         return HStack(spacing: 12) {
             InvSegmented(options: AnaPeriod.allCases.map { ($0, $0.label) }, selection: $period, filled: true)
             HStack(spacing: 8) {
-                Text("Plage / VLAN").font(Theme.small).foregroundStyle(Theme.textSecondary)
+                Text("Plage / VLAN").font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize()
                 Picker("", selection: Binding(get: { chosen }, set: { network = $0; networkChosen = true })) {
                     ForEach(networks, id: \.self) { base in
                         Text(networkLabel(base)).tag(Optional(base))
@@ -167,7 +168,8 @@ struct AnalyseScreen: View {
             InvOccupancy(network: $0, records: records, now: now, recentWindow: max(period.seconds, 7 * 86_400))
         }
 
-        return HStack(alignment: .top, spacing: 12) {
+        // Une rangée en grande fenêtre ; plusieurs lignes en petite fenêtre plutôt que des tuiles coupées.
+        return LazyVGrid(columns: [GridItem(.adaptive(minimum: 175), spacing: 12, alignment: .top)], alignment: .leading, spacing: 12) {
             InvTile(title: "Appareils", value: "\(records.count)", subtitle: "+\(added) / −\(lost) sur \(period.label)", valueSize: 26)
             InvTile(title: "En ligne", value: "\(online)", subtitle: "\(recentOffline) hors ligne vus récemment",
                     valueColor: Theme.success, valueSize: 26)

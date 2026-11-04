@@ -88,7 +88,7 @@ struct AnaOnlineChart: View {
                 }
                 .stroke(Theme.accent, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
                 ForEach(Array(points.enumerated()), id: \.offset) { index, point in
-                    Circle().fill(index == points.count - 1 ? Theme.accent : Color.white)
+                    Circle().fill(index == points.count - 1 ? Theme.accent : Theme.panel)
                         .overlay(Circle().strokeBorder(Theme.accent, lineWidth: 1.5))
                         .frame(width: 7, height: 7)
                         .position(point)

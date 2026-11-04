@@ -3,9 +3,9 @@ import SwiftUI
 // Petits composants de l'écran Speedtest, d'après le croquis.
 
 /// Couleur de la montée (cyan foncé du croquis).
-let speedUpColor = Color(hex: 0x0E7490)
-let speedUpSoft = Color(hex: 0xCFFAFE)
-let speedDownSoft = Color(hex: 0xDBEAFE)
+let speedUpColor = Color(light: 0x0E7490, dark: 0x8FDEF4)
+let speedUpSoft = Color(light: 0xCFFAFE, dark: 0x1B4C50)
+let speedDownSoft = Color(light: 0xDBEAFE, dark: 0x1B3250)
 
 /// Bouton segmenté : fond bleu pâle et bordure accent quand il est choisi.
 struct SpeedSegment: View {
@@ -176,7 +176,7 @@ struct SpeedBanner: View {
             Text(text).font(Theme.small).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-        .foregroundStyle(tone == .warning ? Color(hex: 0x9A3412) : tone.foreground)
+        .foregroundStyle(tone == .warning ? Color(light: 0x9A3412, dark: 0xF2AA91) : tone.foreground)
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(tone.background))

@@ -20,7 +20,7 @@ struct InvTile<Footer: View>: View {
         let content = VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(Theme.captionSemibold)
-                .foregroundStyle(tint == .critical ? Color(hex: 0x991B1B) : Theme.textSecondary)
+                .foregroundStyle(tint == .critical ? Color(light: 0x991B1B, dark: 0xED9797) : Theme.textSecondary)
             if !value.isEmpty {
                 Text(value)
                     .font(.system(size: valueSize, weight: .semibold))
@@ -30,7 +30,7 @@ struct InvTile<Footer: View>: View {
             if let subtitle {
                 Text(subtitle)
                     .font(Theme.small)
-                    .foregroundStyle(tint == .critical ? Color(hex: 0x7F1D1D) : Theme.textSecondary)
+                    .foregroundStyle(tint == .critical ? Color(light: 0x7F1D1D, dark: 0xE89B9B) : Theme.textSecondary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -41,7 +41,7 @@ struct InvTile<Footer: View>: View {
         .frame(maxWidth: .infinity, minHeight: 86, alignment: .topLeading)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(tint == .critical ? Theme.criticalSoft : Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius)
-            .strokeBorder(tint == .critical ? Color(hex: 0xFCA5A5) : Theme.border))
+            .strokeBorder(tint == .critical ? Color(light: 0xFCA5A5, dark: 0x822B2B) : Theme.border))
         if let action {
             Button(action: action) { content.contentShape(Rectangle()) }.buttonStyle(.plain)
         } else {
@@ -111,7 +111,7 @@ struct InvPill: View {
 }
 
 enum InvStyle {
-    static let infoSoft = Color(hex: 0xDBEAFE)
+    static let infoSoft = Color(light: 0xDBEAFE, dark: 0x1B3250)
 
     static func status(_ status: InvStatus) -> (Color, Color) {
         switch status {

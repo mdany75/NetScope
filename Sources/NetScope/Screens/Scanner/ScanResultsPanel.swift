@@ -596,7 +596,7 @@ struct ScanNewBadge: View {
             .foregroundStyle(Theme.accentStrong)
             .padding(.horizontal, 5)
             .padding(.vertical, 1)
-            .background(RoundedRectangle(cornerRadius: 4).fill(Color(hex: 0xDBEAFE)))
+            .background(RoundedRectangle(cornerRadius: 4).fill(Color(light: 0xDBEAFE, dark: 0x1B3250)))
             .fixedSize()
     }
 }

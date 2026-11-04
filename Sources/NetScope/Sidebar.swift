@@ -1,148 +1,162 @@
 import NetScopeCore
 import SwiftUI
 
-/// Barre latérale bleu nuit de 220 pt, fidèle aux croquis : logo, groupes d'écrans, plages
-/// enregistrées, Réglages, puis l'interface active, la version et la mise à jour disponible.
+/// Barre latérale translucide de macOS (liste « sidebar » du système), fidèle aux croquis pour
+/// l'ordre et les libellés : logo, groupes d'écrans avec leurs compteurs, plages enregistrées,
+/// l'interface active, la version et la mise à jour disponible ; Réglages reste épinglé en bas.
+/// La liste défile quand la fenêtre est basse.
 struct Sidebar: View {
     @EnvironmentObject private var state: AppState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            logo
-                .padding(.horizontal, 12)
-                .padding(.bottom, 14)
-            // Le milieu défile quand la fenêtre est basse ; logo, Réglages et interface restent visibles.
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        ForEach(Array(Screen.Group.allCases.enumerated()), id: \.element) { index, group in
-                            groupHeading(group.title, first: index == 0)
-                            ForEach(group.screens) { screen in
-                                SidebarItem(screen: screen, badge: badge(for: screen))
-                            }
-                        }
+        List(selection: selection) {
+            ForEach(Screen.Group.allCases, id: \.self) { group in
+                Section(group.title) {
+                    ForEach(group.screens) { screen in
+                        row(screen)
                     }
-                    savedRanges
                 }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 12)
             }
-            VStack(alignment: .leading, spacing: 10) {
-                divider
-                SidebarItem(screen: .reglages, badge: nil)
+            if !state.ranges.isEmpty {
+                Section("Plages enregistrées") {
+                    ForEach(state.ranges.prefix(4)) { range in
+                        HStack {
+                            Text(range.text).font(Theme.mono(11)).lineLimit(1)
+                            Spacer(minLength: 6)
+                            Text(range.label).font(Theme.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                        .selectionDisabled()
+                    }
+                }
+            }
+            // Interface active, version et mise à jour : en fin de liste, pour que la barre latérale
+            // défile au lieu d'imposer sa hauteur quand la fenêtre est basse.
+            Section {
                 interfaceCard
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                    .selectionDisabled()
             }
-            .padding(.horizontal, 12)
         }
-        .padding(.vertical, 14)
-        .frame(width: Theme.sidebarWidth)
-        .frame(maxHeight: .infinity, alignment: .top)
-        .background(Theme.sidebar)
+        .listStyle(.sidebar)
+        .safeAreaInset(edge: .top, spacing: 0) { logo }
+        .safeAreaInset(edge: .bottom, spacing: 0) { footer }
+    }
+
+    /// Sélection de la liste : l'écran courant (Réglages est en bas, hors de la liste).
+    private var selection: Binding<Screen?> {
+        Binding(get: { state.screen == .reglages ? nil : state.screen },
+                set: { if let screen = $0 { state.open(screen) } })
+    }
+
+    /// Ligne d'un écran. Les alertes de Surveillance gardent leur pastille rouge ; les autres
+    /// compteurs prennent l'allure native de macOS.
+    @ViewBuilder private func row(_ screen: Screen) -> some View {
+        let count = badgeCount(for: screen)
+        if screen == .surveillance && count > 0 {
+            HStack {
+                Label(screen.title, systemImage: screen.symbol)
+                Spacer(minLength: 4)
+                CountBadge(count: count, color: Theme.criticalBadge)
+            }
+            .tag(screen)
+        } else {
+            Label(screen.title, systemImage: screen.symbol)
+                .badge(count)
+                .tag(screen)
+        }
+    }
+
+    private func badgeCount(for screen: Screen) -> Int {
+        state.sidebarBadges[screen] ?? 0
     }
 
     // MARK: Parties
 
     private var logo: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 9) {
             ZStack {
-                Circle().stroke(Theme.sidebarText, lineWidth: 1.6).frame(width: 22, height: 22)
-                Circle().stroke(Theme.sidebarText, lineWidth: 1.6).frame(width: 12, height: 12)
-                Circle().fill(Theme.sidebarText).frame(width: 3, height: 3)
+                Circle().stroke(Theme.accent, lineWidth: 1.6).frame(width: 20, height: 20)
+                Circle().stroke(Theme.accent, lineWidth: 1.6).frame(width: 11, height: 11)
+                Circle().fill(Theme.accent).frame(width: 3, height: 3)
                 Path { path in
-                    path.move(to: CGPoint(x: 13, y: 13))
-                    path.addLine(to: CGPoint(x: 19.5, y: 6.5))
+                    path.move(to: CGPoint(x: 12, y: 12))
+                    path.addLine(to: CGPoint(x: 18, y: 6))
                 }
-                .stroke(Theme.sidebarText, style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+                .stroke(Theme.accent, style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
             }
-            .frame(width: 26, height: 26)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("NetScope").font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
-                Text("Boîte à outils réseau").font(Theme.caption).foregroundStyle(Theme.sidebarHeading)
+            .frame(width: 24, height: 24)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("NetScope").font(.system(size: 13, weight: .bold))
+                Text("Boîte à outils réseau").font(Theme.caption).foregroundStyle(.secondary)
             }
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 18)
+        .padding(.top, 2)
+        .padding(.bottom, 6)
     }
 
-    private func groupHeading(_ title: String, first: Bool) -> some View {
-        Text(title.uppercased())
-            .font(Theme.caption)
-            .kerning(0.44)
-            .foregroundStyle(Theme.sidebarHeading)
-            .padding(.horizontal, 10)
-            .padding(.top, first ? 0 : 8)
-            .padding(.bottom, 3)
-    }
-
-    private var divider: some View {
-        Rectangle().fill(Theme.sidebarActive).frame(height: 1)
-    }
-
-    private var savedRanges: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            divider.padding(.bottom, 6)
-            Text("PLAGES ENREGISTRÉES")
-                .font(Theme.caption).kerning(0.44)
-                .foregroundStyle(Theme.sidebarHeading)
-                .padding(.horizontal, 6)
-            ForEach(state.ranges.prefix(4)) { range in
-                HStack {
-                    Text(range.text).font(Theme.mono(12)).foregroundStyle(Theme.sidebarText).lineLimit(1)
-                    Spacer(minLength: 6)
-                    Text(range.label).font(Theme.mono(12)).foregroundStyle(Theme.sidebarHeading).lineLimit(1)
-                }
-                .padding(.horizontal, 6)
-            }
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Divider().padding(.horizontal, 6)
+            SidebarSettingsRow()
         }
+        .padding(.horizontal, 10)
+        .padding(.bottom, 10)
     }
 
     private var interfaceCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             Text("INTERFACE ACTIVE")
-                .font(Theme.caption).kerning(0.44)
-                .foregroundStyle(Theme.sidebarHeading)
-            HStack(spacing: 8) {
+                .font(Theme.captionSemibold).kerning(0.44)
+                .foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
                 Circle()
-                    .fill(state.activeInterface == nil ? Color(hex: 0x64748B) : Theme.successDot)
+                    .fill(state.activeInterface == nil ? Theme.neutralDot : Theme.successDot)
                     .frame(width: 8, height: 8)
                 Text(state.activeInterface?.summary ?? "Aucune interface active")
                     .font(Theme.mono(11))
-                    .foregroundStyle(Theme.sidebarText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if let line = gatewayLine {
                 Text(line)
                     .font(Theme.caption)
-                    .foregroundStyle(Theme.sidebarHeading)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Text("Version \(AppInfo.version)").font(Theme.caption).foregroundStyle(Theme.sidebarHeading)
+            Text("Version \(AppInfo.version)").font(Theme.caption).foregroundStyle(.secondary)
             if let update = state.updateAvailable {
                 Button {
                     state.open(.reglages)
                 } label: {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 7) {
                         Circle().fill(Theme.accent).frame(width: 8, height: 8)
-                        (Text("Mise à jour disponible · ") + Text(update).font(Theme.mono(11)))
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(Theme.sidebarText)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
+                        // Barre latérale étroite : le numéro passe à la ligne plutôt que d'être coupé.
+                        ViewThatFits(in: .horizontal) {
+                            (Text("Mise à jour disponible · ") + Text(update).font(Theme.mono(11)))
+                                .lineLimit(1).fixedSize()
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("Mise à jour disponible").lineLimit(1).fixedSize()
+                                Text(update).font(Theme.mono(11)).lineLimit(1)
+                            }
+                        }
+                        .font(.system(size: 11, weight: .medium))
                         Spacer(minLength: 0)
                     }
                     .padding(.horizontal, 7)
-                    .frame(height: 26)
-                    .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.sidebarActive))
+                    .padding(.vertical, 5)
+                    .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.accentSoft))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Mise à jour disponible : NetScope \(update). Ouvrir les réglages Mises à jour")
+                .help("Mise à jour disponible : NetScope \(update). Ouvrir les réglages Mises à jour")
             }
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.sidebarActive))
+        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.hover))
     }
 
     private var gatewayLine: String? {
@@ -151,40 +165,30 @@ struct Sidebar: View {
         if let dns = state.dnsServers.first { parts.append("DNS \(dns)") }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
-
-    private func badge(for screen: Screen) -> (Int, Color)? {
-        guard let count = state.sidebarBadges[screen], count > 0 else { return nil }
-        return (count, screen == .surveillance ? Theme.criticalBadge : Theme.accent)
-    }
 }
 
-/// Un élément de la barre latérale : icône, libellé, compteur éventuel.
-private struct SidebarItem: View {
+/// Réglages, épinglé en bas de la barre latérale comme dans les croquis ; même allure qu'une ligne
+/// de la liste (sélection grise du système).
+private struct SidebarSettingsRow: View {
     @EnvironmentObject private var state: AppState
-    let screen: Screen
-    let badge: (Int, Color)?
     @State private var hovering = false
 
     var body: some View {
-        let active = state.screen == screen
+        let active = state.screen == .reglages
         Button {
-            state.open(screen)
+            state.open(.reglages)
         } label: {
-            HStack(spacing: 10) {
-                Image(systemName: screen.symbol)
-                    .font(.system(size: 13, weight: .medium))
-                    .frame(width: 16, height: 16)
-                Text(screen.title).font(Theme.bodyMedium)
+            HStack(spacing: 8) {
+                Image(systemName: Screen.reglages.symbol)
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 18)
+                Text(Screen.reglages.title)
                 Spacer(minLength: 4)
-                if let badge {
-                    CountBadge(count: badge.0, color: badge.1)
-                }
             }
-            .foregroundStyle(active || hovering ? Color.white : Theme.sidebarText)
-            .padding(.horizontal, 10)
-            .frame(height: 30)
+            .padding(.horizontal, 8)
+            .frame(height: 28)
             .background(RoundedRectangle(cornerRadius: Theme.buttonRadius)
-                .fill(active || hovering ? Theme.sidebarActive : Color.clear))
+                .fill(active ? Color.primary.opacity(0.1) : hovering ? Theme.hover : .clear))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

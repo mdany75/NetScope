@@ -13,20 +13,18 @@ struct SurveillanceScreen: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top, spacing: 14) {
+                SidePanelSplit(sideWidth: Self.asideWidth, collapse: .below) {
                     MonProbeTable()
-                        .frame(maxWidth: .infinity)
+                } side: {
                     MonEditor()
-                        .frame(width: Self.asideWidth)
                 }
-                HStack(alignment: .top, spacing: 14) {
+                SidePanelSplit(sideWidth: Self.asideWidth, collapse: .below) {
                     MonJournalPanel()
-                        .frame(maxWidth: .infinity)
+                } side: {
                     VStack(spacing: 14) {
                         MonMenuPreview()
                         MonNotificationPreview()
                     }
-                    .frame(width: Self.asideWidth)
                 }
             }
             .padding(.horizontal, Theme.contentPadding)

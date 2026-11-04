@@ -8,14 +8,14 @@ struct SpeedInternetView: View {
     @ObservedObject var model: SpeedtestModel
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
+        SidePanelSplit(sideWidth: 360, title: "Serveur, connexion et forfait") {
             mainPanel
+        } side: {
             VStack(spacing: 12) {
                 serverPanel
                 connectionPanel
                 planPanel
             }
-            .frame(width: 360)
         }
     }
 
@@ -154,7 +154,7 @@ struct SpeedInternetView: View {
         let isCurrent = current == phase
         let tone: Tone = isCurrent ? .accent : (done ? .success : .neutral)
         return HStack(spacing: 6) {
-            SpeedPulseDot(color: isCurrent ? Theme.accent : (done ? Theme.success : Color(hex: 0xD1D5DB)), pulsing: isCurrent)
+            SpeedPulseDot(color: isCurrent ? Theme.accent : (done ? Theme.success : Color(light: 0xD1D5DB, dark: 0x2F343C)), pulsing: isCurrent)
             Text(phase.label).font(.system(size: 12, weight: .semibold))
             if let value = stepValue(phase) {
                 Text(value).font(Theme.mono(11))

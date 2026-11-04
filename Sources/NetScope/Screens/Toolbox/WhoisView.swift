@@ -63,13 +63,13 @@ struct WhoisView: View {
                 ScrollView {
                     Text(result.raw.trimmingCharacters(in: .whitespacesAndNewlines))
                         .font(Theme.mono(12))
-                        .foregroundStyle(Theme.sidebarText)
+                        .foregroundStyle(Theme.consoleText)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(12)
                 }
                 .frame(minHeight: 160, maxHeight: 340)
-                .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.sidebar))
+                .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.console))
                 HStack {
                     Text("Réponse en \(ToolFormat.milliseconds(result.durationMs)) · \(result.raw.split(separator: "\n").count) lignes")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)

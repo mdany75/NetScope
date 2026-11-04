@@ -73,12 +73,12 @@ struct WifiChannelGraph: View {
             let axis = WifiChannelLayout.axis(band)
             func x(_ unit: Double) -> CGFloat { left + CGFloat((unit - axis.lowerBound) / (axis.upperBound - axis.lowerBound)) * (right - left) }
             func y(_ rssi: Int) -> CGFloat { top + CGFloat(Double(-30 - max(-95, min(-30, rssi))) / 65) * (bottom - top) }
-            let labelColor = Color(hex: 0x4B5563)
+            let labelColor = Color(light: 0x4B5563, dark: 0xB9C0CA)
 
             if band == .ghz5 {
                 let range = WifiChannelLayout.dfsRange5
                 let rect = CGRect(x: x(range.lowerBound), y: top, width: x(range.upperBound) - x(range.lowerBound), height: bottom - top)
-                context.fill(Path(rect), with: .color(Color(hex: 0xF3F4F6)))
+                context.fill(Path(rect), with: .color(Color(light: 0xF3F4F6, dark: 0x2E333D)))
                 context.draw(Text("Canaux DFS (52–144)").font(.system(size: 10)).foregroundStyle(labelColor),
                              at: CGPoint(x: rect.midX, y: top + 10))
             }
@@ -167,7 +167,7 @@ struct WifiHistoryChart: View {
         Canvas { context, size in
             let left: CGFloat = 30, right = size.width - 4, top: CGFloat = 8, bottom = size.height - 18
             func y(_ rssi: Int) -> CGFloat { top + CGFloat(Double(-40 - max(-90, min(-40, rssi))) / 50) * (bottom - top) }
-            let labelColor = Color(hex: 0x4B5563)
+            let labelColor = Color(light: 0x4B5563, dark: 0xB9C0CA)
             for level in [-50, -60, -70, -80] {
                 var line = Path()
                 line.move(to: CGPoint(x: left, y: y(level)))

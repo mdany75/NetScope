@@ -13,10 +13,11 @@ struct ToolboxScreen: View {
             HStack(alignment: .top, spacing: 16) {
                 ToolListPanel(store: store)
                     .frame(width: 260)
-                ToolMainPanel(store: store)
-                    .frame(maxWidth: .infinity)
-                ToolSidePanel(store: store)
-                    .frame(width: 260)
+                SidePanelSplit(sideWidth: 260, collapse: .below, spacing: 16, collapseBelow: 720) {
+                    ToolMainPanel(store: store)
+                } side: {
+                    ToolSidePanel(store: store)
+                }
             }
             .padding(.horizontal, Theme.contentPadding)
             .padding(.vertical, 16)
@@ -266,10 +267,10 @@ private struct ToolSidePanel: View {
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     if store.commands.isEmpty {
-                        Text("# aucune commande pour l’instant").font(Theme.mono(11)).foregroundStyle(Color(hex: 0x94A3B8))
+                        Text("# aucune commande pour l’instant").font(Theme.mono(11)).foregroundStyle(Theme.consoleMuted)
                     }
                     ForEach(Array(store.commands.prefix(12).enumerated()), id: \.offset) { _, command in
-                        (Text("$ ").foregroundColor(Color(hex: 0x93C5FD)) + Text(command).foregroundColor(Theme.sidebarText))
+                        (Text("$ ").foregroundColor(Theme.consolePrompt) + Text(command).foregroundColor(Theme.consoleText))
                             .font(Theme.mono(11))
                             .lineLimit(2)
                             .textSelection(.enabled)
@@ -278,7 +279,7 @@ private struct ToolSidePanel: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.sidebar))
+                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.console))
             }
         }
     }

@@ -123,7 +123,7 @@ struct RegOUISection: View {
     var body: some View {
         RegPanel(title: "Base des fabricants",
                  subtitle: "Préfixes des adresses MAC (registre IEEE) : le scanner, l’inventaire et la fiche appareil y trouvent le fabricant.") {
-            HStack(spacing: 10) {
+            RegTileRow {
                 RegTile("Source", controller.source?.description ?? "Chargement…")
                 RegTile("Préfixes", controller.source.map { "\($0.count.formatted(.number.locale(Locale(identifier: "fr_CA"))))" } ?? "—")
                 RegTile("Emplacement", controller.source?.place ?? "—")

@@ -38,6 +38,18 @@ struct InventaireScreen: View {
     @State private var exportDocument: InvCSVDocument?
     @State private var exporting = false
 
+    private var conflictChip: some View {
+        Text("CONFLIT IP").font(.system(size: 10, weight: .bold))
+            .foregroundStyle(Theme.critical)
+            .padding(.horizontal, 5).padding(.vertical, 1)
+            .background(RoundedRectangle(cornerRadius: 4).fill(Theme.criticalSoft))
+            .fixedSize()
+    }
+
+    private func conflictIP(_ ip: IPv4Address) -> some View {
+        Text(ip.description).font(Theme.mono(12)).foregroundStyle(Theme.text).fixedSize()
+    }
+
     var body: some View {
         let now = Date()
         let records = model.store.sortedRecords
@@ -79,7 +91,7 @@ struct InventaireScreen: View {
                             .foregroundStyle(Theme.accentStrong)
                             .padding(.horizontal, 5)
                             .frame(minWidth: 18, minHeight: 18)
-                            .background(Capsule().fill(Color.white))
+                            .background(Capsule().fill(Theme.panel))
                     }
                 }
             }
@@ -162,12 +174,10 @@ struct InventaireScreen: View {
                         Button {
                             model.selectedKey = model.store.record(forIP: ip)?.key
                         } label: {
-                            HStack(spacing: 6) {
-                                Text("CONFLIT IP").font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(Theme.critical)
-                                    .padding(.horizontal, 5).padding(.vertical, 1)
-                                    .background(RoundedRectangle(cornerRadius: 4).fill(Theme.criticalSoft))
-                                Text(ip.description).font(Theme.mono(12)).foregroundStyle(Theme.text)
+                            // Petite fenêtre : l'adresse passe sous la puce plutôt que de la couper.
+                            ViewThatFits(in: .horizontal) {
+                                HStack(spacing: 6) { conflictChip; conflictIP(ip) }
+                                VStack(alignment: .leading, spacing: 2) { conflictChip; conflictIP(ip) }
                             }
                         }
                         .buttonStyle(.plain)

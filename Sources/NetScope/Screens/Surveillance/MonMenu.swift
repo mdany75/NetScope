@@ -132,7 +132,7 @@ struct MonMenuPreview: View {
                 HStack(spacing: 12) {
                     Spacer(minLength: 0)
                     ZStack(alignment: .topTrailing) {
-                        RoundedRectangle(cornerRadius: 4).fill(Color(hex: 0xCBD5E1)).frame(width: 26, height: 20)
+                        RoundedRectangle(cornerRadius: 4).fill(Color(light: 0xCBD5E1, dark: 0x273444)).frame(width: 26, height: 20)
                             .overlay(Image(systemName: "scope").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text))
                         let count = store.alertingProbes.count
                         if count > 0 {
@@ -247,9 +247,9 @@ struct MonNotificationPreview: View {
 
     private func banner(_ alert: MonAlert) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            RoundedRectangle(cornerRadius: 8).fill(Theme.sidebar)
+            RoundedRectangle(cornerRadius: 8).fill(Theme.accent)
                 .frame(width: 34, height: 34)
-                .overlay(Image(systemName: "scope").font(.system(size: 17, weight: .medium)).foregroundStyle(Theme.sidebarText))
+                .overlay(Image(systemName: "scope").font(.system(size: 17, weight: .medium)).foregroundStyle(Theme.onAccent))
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text("NETSCOPE").font(Theme.captionSemibold).kerning(0.44)

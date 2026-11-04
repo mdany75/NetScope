@@ -179,7 +179,7 @@ struct InvDetail: View {
                         let isLast = index == min(events.count, 12) - 1
                         HStack(alignment: .top, spacing: 12) {
                             Circle().fill(colors.dot).frame(width: 12, height: 12)
-                                .overlay(Circle().strokeBorder(Color.white, lineWidth: 2))
+                                .overlay(Circle().strokeBorder(Theme.panel, lineWidth: 2))
                                 .overlay(Circle().strokeBorder(colors.dot, lineWidth: 1).padding(-1))
                                 .padding(.top, 2)
                                 .frame(width: 14)

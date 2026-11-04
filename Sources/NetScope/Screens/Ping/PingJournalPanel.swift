@@ -203,7 +203,7 @@ struct PingLevelTag: View {
         case .coupure: colors = (Theme.criticalSoft, Theme.critical)
         case .alerte: colors = (Theme.warningSoft, Theme.warning)
         case .retabli: colors = (Theme.successSoft, Theme.success)
-        case .info: colors = (Color(hex: 0xDBEAFE), Color(hex: 0x1E40AF))
+        case .info: colors = (Color(light: 0xDBEAFE, dark: 0x1B3250), Color(light: 0x1E40AF, dark: 0x93C5FD))
         }
         return Text(level.label.uppercased())
             .font(.system(size: 10, weight: .bold))

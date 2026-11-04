@@ -36,18 +36,17 @@ struct WifiScreen: View {
 
                 WifiConnectionPanel(store: store)
 
-                HStack(alignment: .top, spacing: 14) {
+                SidePanelSplit(sideWidth: 300, collapse: .below) {
                     VStack(spacing: 14) {
                         WifiChannelPanel(store: store)
                         WifiNetworksTable(store: store)
                     }
-                    .frame(maxWidth: .infinity)
+                } side: {
                     VStack(spacing: 14) {
                         WifiRecommendationsPanel(store: store)
                         WifiHistoryPanel(store: store)
                         WifiSurveyPanel(store: store)
                     }
-                    .frame(width: 300)
                 }
             }
             .padding(.horizontal, Theme.contentPadding)

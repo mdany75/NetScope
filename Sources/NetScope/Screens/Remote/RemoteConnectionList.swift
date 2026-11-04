@@ -153,7 +153,7 @@ struct RemoteConnectionList: View {
             .help(connection.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris")
         }
         .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(selected ? Theme.accentSoft : Color.clear))
-        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(selected ? Color(hex: 0xBFDBFE) : Color.clear))
+        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(selected ? Color(light: 0xBFDBFE, dark: 0x2B5282) : Color.clear))
     }
 }
 

@@ -173,8 +173,9 @@ private struct DeviceDetailView: View {
         }
     }
 
+    /// Boutons d'action ; en petite fenêtre, ils passent à la ligne au lieu d'être tronqués.
     private var actions: some View {
-        HStack(spacing: 8) {
+        SwitchFlowLayout(spacing: 8, lineSpacing: 8) {
             Button {
                 state.sendToPing(device.ip.description)
             } label: {
@@ -218,8 +219,8 @@ private struct DeviceDetailView: View {
             .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
             .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
             .fixedSize()
-            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: Onglets

@@ -15,13 +15,14 @@ struct ScannerScreen: View {
     var body: some View {
         VStack(spacing: 14) {
             ScanRangesPanel(scan: scan)
-            HStack(alignment: .top, spacing: 14) {
+            SidePanelSplit(sideWidth: 360, scrolls: false, title: "Détail de l’appareil") {
                 ScanResultsPanel(scan: scan, filter: $filter, table: table)
+            } side: {
                 ScanDetailPanel(scan: scan)
-                    .frame(width: 360)
                     .frame(maxHeight: .infinity, alignment: .top)
             }
-            .frame(maxHeight: .infinity)
+            // Fenêtre basse : le tableau garde quelques lignes visibles ; l'écran défile au besoin.
+            .frame(minHeight: 340, maxHeight: .infinity)
         }
         .padding(.horizontal, Theme.contentPadding)
         .padding(.vertical, 16)

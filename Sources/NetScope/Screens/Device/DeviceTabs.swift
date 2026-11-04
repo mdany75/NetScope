@@ -218,7 +218,7 @@ struct DeviceWebTab: View {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(result.title ?? "Page sans titre")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(Color(hex: 0x1E3A8A))
+                    .foregroundStyle(Color(light: 0x1E3A8A, dark: 0x9AAFE9))
                     .textSelection(.enabled)
                 Chip(text: result.statusText, tone: tone, mono: true)
                 Spacer()

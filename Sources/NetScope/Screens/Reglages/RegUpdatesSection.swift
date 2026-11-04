@@ -58,7 +58,7 @@ struct RegUpdatesSection: View {
     // MARK: Tuiles
 
     private var tiles: some View {
-        HStack(spacing: 8) {
+        RegTileRow {
             RegTile(title: "Version installée") {
                 (Text("NetScope \(UpdController.currentVersionText) ")
                  + Text("(build \(RegEnvironment.build))").font(Theme.mono(12)).foregroundColor(Theme.textSecondary))

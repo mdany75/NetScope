@@ -58,8 +58,8 @@ struct AnaOccupancyPanel: View {
     static func colors(_ state: InvCellState) -> (fill: Color, border: Color) {
         switch state {
         case .enLigne: return (Color(hex: 0x16A34A), Color(hex: 0x15803D))
-        case .horsLigne: return (Color(hex: 0xCBD5E1), Color(hex: 0x94A3B8))
-        case .libre: return (Color.white, Color(hex: 0xD1D5DB))
+        case .horsLigne: return (Color(light: 0xCBD5E1, dark: 0x273444), Color(hex: 0x94A3B8))
+        case .libre: return (Theme.panel, Theme.borderStrong)
         case .conflit: return (Color(hex: 0xB91C1C), Color(hex: 0x7F1D1D))
         case .reseau: return (Color(hex: 0x374151), Color(hex: 0x1F2937))
         }
@@ -164,7 +164,7 @@ struct AnaOccupancyPanel: View {
         switch state {
         case .enLigne: (fg, bg) = (Theme.success, Theme.successSoft)
         case .conflit: (fg, bg) = (Theme.critical, Theme.criticalSoft)
-        default: (fg, bg) = (Theme.neutralText, Color(hex: 0xE5E7EB))
+        default: (fg, bg) = (Theme.neutralText, Theme.neutralSoft)
         }
         return InvPill(text: state.label, foreground: fg, background: bg, size: 12)
     }

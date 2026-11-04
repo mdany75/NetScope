@@ -62,11 +62,11 @@ enum SwitchPortState {
     var badge: (background: Color, foreground: Color) {
         switch self {
         case .up1g: return (Theme.successSoft, Theme.success)
-        case .up100: return (Theme.successSoft, Color(hex: 0x14532D))
-        case .poe: return (Color(hex: 0xDBEAFE), Theme.accentStrong)
+        case .up100: return (Theme.successSoft, Color(light: 0x14532D, dark: 0x9CE7BA))
+        case .poe: return (Color(light: 0xDBEAFE, dark: 0x1B3250), Theme.accentStrong)
         case .down, .disabled: return (Theme.neutralSoft, Theme.textSecondary)
         case .err: return (Theme.criticalSoft, Theme.critical)
-        case .trunk: return (Color(hex: 0xE2E8F0), Color(hex: 0x0F172A))
+        case .trunk: return (Color(light: 0xE2E8F0, dark: 0x253347), Color(light: 0x0F172A, dark: 0xA5B6DF))
         }
     }
 }
@@ -179,7 +179,7 @@ struct SwitchLegend: View {
             item(.err, "Erreurs")
             item(.down, "Inactif / désactivé")
             HStack(spacing: 6) {
-                RoundedRectangle(cornerRadius: 3).fill(Color.white).frame(width: 14, height: 12)
+                RoundedRectangle(cornerRadius: 3).fill(Theme.panel).frame(width: 14, height: 12)
                     .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Color(hex: 0xF59E0B), lineWidth: 2))
                 Text("Appareil trouvé")
             }

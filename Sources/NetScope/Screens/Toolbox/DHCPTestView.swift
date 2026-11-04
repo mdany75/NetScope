@@ -437,7 +437,7 @@ struct DHCPTestView: View {
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.accentSoft))
-            .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Color(hex: 0xBFDBFE)))
+            .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Color(light: 0xBFDBFE, dark: 0x2B5282)))
         }
     }
 
@@ -497,9 +497,9 @@ struct DHCPTestView: View {
                 .font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.warning)
                 .padding(.top, 1)
             VStack(alignment: .leading, spacing: 4) {
-                Text(summaryTitle(model.policy)).font(Theme.bodySemibold).foregroundStyle(Color(hex: 0x9A3412))
+                Text(summaryTitle(model.policy)).font(Theme.bodySemibold).foregroundStyle(Color(light: 0x9A3412, dark: 0xF2AA91))
                     .fixedSize(horizontal: false, vertical: true)
-                Text(message).font(Theme.small).foregroundStyle(Color(hex: 0x7C2D12))
+                Text(message).font(Theme.small).foregroundStyle(Color(light: 0x7C2D12, dark: 0xEFAB94))
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
                 HStack(spacing: 14) {
@@ -515,7 +515,7 @@ struct DHCPTestView: View {
                 }
                 .buttonStyle(.plain)
                 .font(Theme.bodySemibold)
-                .foregroundStyle(Color(hex: 0x9A3412))
+                .foregroundStyle(Color(light: 0x9A3412, dark: 0xF2AA91))
                 .padding(.top, 4)
             }
             Spacer(minLength: 0)

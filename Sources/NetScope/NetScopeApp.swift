@@ -71,7 +71,7 @@ struct NetScopeApp: App {
             ContentView()
                 .background(MonWindowHook())
                 .environmentObject(state)
-                .frame(minWidth: 1100, minHeight: 700)
+                .frame(minWidth: 900, minHeight: 600)
                 .task {
                     // Base des fabricants (registre IEEE) : chargée en arrière-plan dès le lancement.
                     Task.detached(priority: .utility) { _ = OUIDatabase.builtIn.count }

@@ -17,7 +17,7 @@ Ce projet suit le standard commun des projets de Dany (`/standard-projet` le vé
 | Construire et installer | `./build.sh --install` (remplace aussi `/Applications/NetScope.app`) |
 | Tester le moteur | `swift build && ./.build/debug/NetScopeSelfTest` |
 | Régénérer la base des fabricants | télécharger `oui.csv`, `mam.csv`, `oui36.csv` (standards-oui.ieee.org) dans un dossier vide, puis `python3 -I scripts/make-oui.py <dossier> Resources/oui.tsv` et `python3 -I scripts/make-oui.py --self-test` |
-| Captures hors écran | `./.build/debug/NetScope --snapshot <dossier> --demo` (un PNG 1440 × 900 par écran, aucune fenêtre visible) |
+| Captures hors écran | `./.build/debug/NetScope --snapshot <dossier> --demo` (un PNG 1440 × 900 en clair par écran, aucune fenêtre visible) ; options `--appearance dark\|light` (mode sombre ou clair) et `--size <L>x<H>` (ex. `--size 1000x650` pour la petite fenêtre) |
 
 `build/` et `.build/` sont ignorés par git : rien de compilé n’est commité. Le `.dmg` est une
 pièce jointe de la Release ; le README pointe vers `releases/latest/download/NetScope.dmg`.
@@ -47,10 +47,13 @@ Dans cet ordre :
   éventuellement vers 127.0.0.1. Lire l’état local (getifaddrs, NWPathMonitor) est permis.
 - Ne pas piloter l’application avec des clics simulés ; vérifier l’interface avec
   `--snapshot <dossier> --demo` et regarder les PNG.
-- Les croquis de `docs/croquis/` font foi (disposition, couleurs, densité, libellés) :
-  `Main.dc.html` pour le Scanner, `Topologie.dc.html` pour la carte, etc. (correspondance dans
-  `Screen.sketchFile`). Les données de démonstration viennent de `renderVals()` / `state` des
-  croquis.
+- Les croquis de `docs/croquis/` font foi pour la disposition, la densité, les libellés et les
+  données de démonstration : `Main.dc.html` pour le Scanner, `Topologie.dc.html` pour la carte, etc.
+  (correspondance dans `Screen.sketchFile`) ; les données viennent de `renderVals()` / `state` des
+  croquis. L’habillage, lui, suit macOS : barre latérale et barre d’outils du système, contrôles
+  natifs, couleur d’accent du système, mode clair ou sombre automatique (couleurs dynamiques de
+  `Theme`, jamais de couleur littérale qui casse en sombre). Vérifier en clair, en sombre et en
+  petite fenêtre (`--appearance dark`, `--size 1000x650`).
 - Pas de dépendance externe (aucun paquet SwiftPM tiers). Mode de langage Swift 5
   (`swiftLanguageVersions: [.v5]`) ; garder les avertissements de concurrence au minimum.
 - `NetScopeCore` n’importe ni SwiftUI ni AppKit (Foundation, Network, Darwin seulement).

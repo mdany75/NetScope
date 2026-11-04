@@ -491,9 +491,9 @@ struct MonDangerButtonStyle: ButtonStyle {
             .padding(.horizontal, 12)
             .frame(height: Theme.controlHeight)
             .background(RoundedRectangle(cornerRadius: Theme.buttonRadius)
-                .fill(configuration.isPressed ? Color(hex: 0xFEF2F2) : Theme.panel))
+                .fill(configuration.isPressed ? Color(light: 0xFEF2F2, dark: 0x501B1B) : Theme.panel))
             .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius)
-                .strokeBorder(configuration.isPressed ? Color(hex: 0xFCA5A5) : Theme.border))
+                .strokeBorder(configuration.isPressed ? Color(light: 0xFCA5A5, dark: 0x822B2B) : Theme.border))
             .contentShape(RoundedRectangle(cornerRadius: Theme.buttonRadius))
     }
 }

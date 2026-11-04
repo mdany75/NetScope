@@ -518,28 +518,15 @@ struct MonUptimeBar: View {
     }
 }
 
-/// Petit interrupteur du croquis (30 × 18), accent quand actif.
+/// Petit interrupteur natif de macOS, à la couleur d'accent du système.
 struct MonSwitch: View {
     @Binding var isOn: Bool
     var label: String
 
     var body: some View {
-        Button {
-            withAnimation(.easeOut(duration: 0.12)) { isOn.toggle() }
-        } label: {
-            ZStack(alignment: isOn ? .trailing : .leading) {
-                Capsule().fill(isOn ? Theme.accent : Color(hex: 0x9CA3AF))
-                Circle().fill(Color.white)
-                    .frame(width: 14, height: 14)
-                    .shadow(color: .black.opacity(0.3), radius: 1, y: 1)
-                    .padding(2)
-            }
-            .frame(width: 30, height: 18)
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .accessibilityAddTraits(.isToggle)
-        .accessibilityValue(isOn ? "activée" : "désactivée")
+        Toggle(label, isOn: $isOn)
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+            .labelsHidden()
     }
 }

@@ -444,14 +444,14 @@ struct NeighborCaptureView: View {
                     .frame(width: 40)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(isCurrent ? "CE MAC EST BRANCHÉ SUR" : "DERNIÈRE CAPTURE · CE MAC ÉTAIT BRANCHÉ SUR")
-                        .font(Theme.captionSemibold).kerning(0.5).foregroundStyle(Color(hex: 0x166534))
+                        .font(Theme.captionSemibold).kerning(0.5).foregroundStyle(Color(light: 0x166534, dark: 0x9AE9B8))
                     Text(neighbor.headline)
-                        .font(Theme.mono(20, weight: .semibold)).foregroundStyle(Color(hex: 0x14532D))
+                        .font(Theme.mono(20, weight: .semibold)).foregroundStyle(Color(light: 0x14532D, dark: 0x9CE7BA))
                         .fixedSize(horizontal: false, vertical: true)
                         .textSelection(.enabled)
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
                         Text(receivedText(neighbor, now: context.date, isCurrent: isCurrent))
-                            .font(Theme.small).foregroundStyle(Color(hex: 0x166534))
+                            .font(Theme.small).foregroundStyle(Color(light: 0x166534, dark: 0x9AE9B8))
                         Spacer(minLength: 8)
                         Button { openSwitch(neighbor) } label: {
                             Text("Ouvrir le switch →").font(Theme.bodySemibold)
@@ -464,8 +464,8 @@ struct NeighborCaptureView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Color(hex: 0xF0FDF4)))
-            .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Color(hex: 0xBBF7D0)))
+            .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Color(light: 0xF0FDF4, dark: 0x1B502B)))
+            .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Color(light: 0xBBF7D0, dark: 0x2B824A)))
         }
     }
 

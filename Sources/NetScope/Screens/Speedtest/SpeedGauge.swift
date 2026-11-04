@@ -60,7 +60,7 @@ struct SpeedGauge: View, Animatable {
             context.fill(Path(ellipseIn: CGRect(x: 145, y: 145, width: 10, height: 10)), with: .color(Theme.text))
             let dot = SpeedGauge.point(needleAngle, SpeedGauge.radius)
             let dotRect = CGRect(x: dot.x - 6, y: dot.y - 6, width: 12, height: 12)
-            context.fill(Path(ellipseIn: dotRect), with: .color(.white))
+            context.fill(Path(ellipseIn: dotRect), with: .color(Theme.panel))
             context.stroke(Path(ellipseIn: dotRect), with: .color(color), lineWidth: 3)
 
             context.draw(Text(phase).font(.system(size: 12, weight: .semibold)).foregroundColor(Theme.textSecondary),

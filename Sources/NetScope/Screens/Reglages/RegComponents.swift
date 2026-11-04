@@ -51,30 +51,17 @@ struct RegLabel: View {
     }
 }
 
-/// Interrupteur du croquis : piste 36 × 20, accent quand actif, gris #6B7280 sinon.
+/// Interrupteur natif de macOS (petite taille), à la couleur d'accent du système.
 struct RegSwitch: View {
     @Binding var isOn: Bool
     var isEnabled = true
 
     var body: some View {
-        Button {
-            withAnimation(.easeOut(duration: 0.12)) { isOn.toggle() }
-        } label: {
-            ZStack(alignment: isOn ? .trailing : .leading) {
-                Capsule().fill(isOn ? Theme.accent : Theme.textTertiary)
-                Circle().fill(Color.white)
-                    .frame(width: 16, height: 16)
-                    .shadow(color: .black.opacity(0.25), radius: 1, y: 1)
-                    .padding(2)
-            }
-            .frame(width: 36, height: 20)
-            .opacity(isEnabled ? 1 : 0.45)
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .disabled(!isEnabled)
-        .accessibilityAddTraits(.isToggle)
-        .accessibilityValue(isOn ? "activé" : "désactivé")
+        Toggle("", isOn: $isOn)
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .labelsHidden()
+            .disabled(!isEnabled)
     }
 }
 
@@ -161,6 +148,18 @@ struct RegTile<Value: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
         .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+    }
+}
+
+/// Rangée de tuiles : côte à côte, puis sur plusieurs lignes quand la fenêtre est étroite
+/// (au lieu de tronquer les valeurs).
+struct RegTileRow<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 8, alignment: .top)], alignment: .leading, spacing: 8) {
+            content
+        }
     }
 }
 
@@ -275,44 +274,15 @@ extension View {
     }
 }
 
-/// Curseur du croquis : piste grise de 6 pt, partie remplie en accent, bouton blanc.
+/// Curseur natif de macOS, à la couleur d'accent du système.
 struct RegSlider: View {
     @Binding var value: Double
     let range: ClosedRange<Double>
 
     var body: some View {
-        GeometryReader { geometry in
-            let span = range.upperBound - range.lowerBound
-            let fraction = span > 0 ? (value - range.lowerBound) / span : 0
-            let knob: CGFloat = 16
-            let x = (geometry.size.width - knob) * CGFloat(min(max(fraction, 0), 1))
-            ZStack(alignment: .leading) {
-                Capsule().fill(Theme.border).frame(height: 6)
-                Capsule().fill(Theme.accent).frame(width: x + knob / 2, height: 6)
-                Circle().fill(Color.white)
-                    .overlay(Circle().strokeBorder(Theme.accent, lineWidth: 2))
-                    .shadow(color: .black.opacity(0.2), radius: 1, y: 1)
-                    .frame(width: knob, height: knob)
-                    .offset(x: x)
-            }
-            .frame(maxHeight: .infinity)
-            .contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 0).onChanged { drag in
-                let width = max(geometry.size.width - knob, 1)
-                let ratio = min(max((drag.location.x - knob / 2) / width, 0), 1)
-                value = range.lowerBound + Double(ratio) * span
-            })
-        }
-        .frame(height: 20)
-        .accessibilityElement()
-        .accessibilityValue(String(Int(value)))
-        .accessibilityAdjustableAction { direction in
-            switch direction {
-            case .increment: value = min(range.upperBound, value + 1)
-            case .decrement: value = max(range.lowerBound, value - 1)
-            @unknown default: break
-            }
-        }
+        Slider(value: $value, in: range)
+            .controlSize(.small)
+            .labelsHidden()
     }
 }
 

@@ -10,17 +10,17 @@ enum TopoStyle {
 
     static func colors(kind: TopoNodeKind, type: DeviceType?) -> (fg: Color, bg: Color) {
         switch kind {
-        case .internet: return (Color(hex: 0x475569), Color(hex: 0xF1F5F9))
-        case .passerelle: return (Color(hex: 0x4338CA), Color(hex: 0xE0E7FF))
-        case .switch: return (Color(hex: 0x1D4ED8), Color(hex: 0xDBEAFE))
-        case .pointAcces: return (Color(hex: 0x6D28D9), Color(hex: 0xEDE9FE))
+        case .internet: return (Color(light: 0x475569, dark: 0xB6C0CE), Color(light: 0xF1F5F9, dark: 0x20364B))
+        case .passerelle: return (Color(light: 0x4338CA, dark: 0xA49EE5), Color(light: 0xE0E7FF, dark: 0x1B2750))
+        case .switch: return (Color(light: 0x1D4ED8, dark: 0x93ACF1), Color(light: 0xDBEAFE, dark: 0x1B3250))
+        case .pointAcces: return (Color(light: 0x6D28D9, dark: 0xB897ED), Color(light: 0xEDE9FE, dark: 0x251B50))
         case .groupe, .appareil:
             switch type {
-            case .imprimante: return (Color(hex: 0x0E7490), Color(hex: 0xCFFAFE))
-            case .camera: return (Color(hex: 0x92400E), Color(hex: 0xFEF3C7))
-            case .serveur: return (Color(hex: 0x1E3A8A), Color(hex: 0xE0E7FF))
-            case .telephone: return (Color(hex: 0x6D28D9), Color(hex: 0xF5F3FF))
-            default: return (Color(hex: 0x374151), Color(hex: 0xF3F4F6))
+            case .imprimante: return (Color(light: 0x0E7490, dark: 0x8FDEF4), Color(light: 0xCFFAFE, dark: 0x1B4C50))
+            case .camera: return (Color(light: 0x92400E, dark: 0xF4B68F), Color(light: 0xFEF3C7, dark: 0x50461B))
+            case .serveur: return (Color(light: 0x1E3A8A, dark: 0x9AAFE9), Color(light: 0xE0E7FF, dark: 0x1B2750))
+            case .telephone: return (Color(light: 0x6D28D9, dark: 0xB897ED), Color(light: 0xF5F3FF, dark: 0x241B50))
+            default: return (Color(light: 0x374151, dark: 0xB6BFCE), Color(light: 0xF3F4F6, dark: 0x2E333D))
             }
         }
     }
@@ -176,7 +176,7 @@ struct TopoNodeView: View {
             .padding(.leading, 7)
             .padding(.trailing, 12)
             .frame(width: TopoStyle.nodeWidth, height: TopoStyle.nodeHeight)
-            .background(shape.fill(node.kind == .internet ? Color(hex: 0xF8FAFC) : Theme.panel))
+            .background(shape.fill(node.kind == .internet ? Color(light: 0xF8FAFC, dark: 0x20364B) : Theme.panel))
             .overlay {
                 if isSelected {
                     shape.strokeBorder(Theme.accent, lineWidth: 2)
@@ -188,7 +188,7 @@ struct TopoNodeView: View {
             }
             .background {
                 if node.kind == .groupe {
-                    shape.fill(Theme.panel).overlay(shape.strokeBorder(Color(hex: 0xCBD5E1))).offset(x: 4, y: 4)
+                    shape.fill(Theme.panel).overlay(shape.strokeBorder(Color(light: 0xCBD5E1, dark: 0x3F556E))).offset(x: 4, y: 4)
                 }
             }
             .shadow(color: isSelected ? Theme.accent.opacity(0.28) : Color(hex: 0x0F172A, opacity: 0.06),

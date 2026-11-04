@@ -32,8 +32,20 @@ struct RemoteScreen: View {
             HStack(alignment: .top, spacing: 12) {
                 RemoteConnectionList(model: model)
                     .frame(width: 272)
-                RemoteSessionArea(model: model)
-                detailColumn
+                if model.showDetails, let connection = model.selected {
+                    // Petite fenêtre : le détail se replie (bouton de la barre d'outils) plutôt que
+                    // d'écraser la zone de session.
+                    SidePanelSplit(sideWidth: 300, spacing: 12, collapseBelow: 300 + 12 + 360,
+                                   title: "Détails de la connexion") {
+                        RemoteSessionArea(model: model)
+                    } side: {
+                        RemoteDetailPanel(model: model, connection: connection)
+                    }
+                } else {
+                    RemoteSessionArea(model: model)
+                        .frame(minWidth: 300)
+                    detailColumn
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)

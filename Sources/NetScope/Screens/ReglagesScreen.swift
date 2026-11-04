@@ -12,7 +12,7 @@ struct ReglagesScreen: View {
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
             sectionColumn
-                .frame(width: 230)
+                .frame(width: 210)
             ScrollView {
                 content
                     .frame(maxWidth: .infinity, alignment: .topLeading)

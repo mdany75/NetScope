@@ -8,13 +8,13 @@ struct SpeedLanView: View {
     @ObservedObject var model: SpeedtestModel
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
+        SidePanelSplit(sideWidth: 360, title: "Comparaison et chemin") {
             mainPanel
+        } side: {
             VStack(spacing: 12) {
                 comparisonPanel
                 pathPanel
             }
-            .frame(width: 360)
         }
     }
 
@@ -138,22 +138,22 @@ struct SpeedLanView: View {
         return VStack(alignment: .leading, spacing: 2) {
             (Text("\(NSUserName())@\(speedLocalHostName) ~ % ").foregroundColor(Color(hex: 0x4ADE80))
              + Text(model.lanOptions.commandLine))
-            Text("Connexion à \(host), port \(model.lanPort) · \(local)").foregroundStyle(Theme.sidebarHeading)
+            Text("Connexion à \(host), port \(model.lanPort) · \(local)").foregroundStyle(Theme.consoleMuted)
             if model.lanRunning {
                 TimelineView(.periodic(from: .now, by: 0.5)) { context in
                     let elapsed = model.lanStartedAt.map { context.date.timeIntervalSince($0) } ?? 0
                     Text("Mesure en cours… \(SpeedFormat.number(min(elapsed, Double(model.lanDuration)), digits: 1)) s sur \(model.lanDuration) s (résultat JSON à la fin du test)")
-                        .foregroundStyle(Theme.sidebarText)
+                        .foregroundStyle(Theme.consoleText)
                 }
             }
         }
         .font(Theme.mono(13))
-        .foregroundStyle(Theme.sidebarText)
+        .foregroundStyle(Theme.consoleText)
         .lineLimit(1)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Color(hex: 0x0B1220)))
+        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.console))
         .textSelection(.enabled)
     }
 

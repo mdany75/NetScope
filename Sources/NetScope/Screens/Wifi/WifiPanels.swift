@@ -686,7 +686,7 @@ struct WifiNetworksTable: View {
 
     private func ssidBadges(_ row: WifiNetworkRow) -> [(text: String, foreground: Color, background: Color)] {
         var badges: [(text: String, foreground: Color, background: Color)] = []
-        if row.network.isConnected { badges.append(("CONNECTÉ", Theme.accentStrong, Color(hex: 0xDBEAFE))) }
+        if row.network.isConnected { badges.append(("CONNECTÉ", Theme.accentStrong, Color(light: 0xDBEAFE, dark: 0x1B3250))) }
         if row.showsHidden { badges.append(("CACHÉ", Theme.warning, Theme.warningSoft)) }
         if row.isSuspicious { badges.append(("NON AUTORISÉ\u{00A0}?", Theme.critical, Theme.criticalSoft)) }
         return badges
@@ -834,7 +834,7 @@ struct WifiRecommendationsPanel: View {
         switch severity {
         case .critique: return (Theme.critical, Theme.criticalSoft, "exclamationmark.octagon")
         case .alerte: return (Theme.warning, Theme.warningSoft, "exclamationmark.triangle")
-        case .conseil: return (Theme.accentStrong, Color(hex: 0xDBEAFE), "lightbulb")
+        case .conseil: return (Theme.accentStrong, Color(light: 0xDBEAFE, dark: 0x1B3250), "lightbulb")
         case .info: return (Theme.neutralText, Theme.neutralSoft, "info.circle")
         }
     }
@@ -929,7 +929,7 @@ struct WifiSurveyPanel: View {
                     Spacer()
                     WifiPill(text: store.surveyActive ? "Mode marche actif" : "Inactif",
                              foreground: store.surveyActive ? Theme.accentStrong : Theme.textSecondary,
-                             background: store.surveyActive ? Color(hex: 0xDBEAFE) : Theme.neutralSoft)
+                             background: store.surveyActive ? Color(light: 0xDBEAFE, dark: 0x1B3250) : Theme.neutralSoft)
                 }
                 if store.surveyActive, let network = store.connection?.network {
                     VStack(alignment: .leading, spacing: 6) {

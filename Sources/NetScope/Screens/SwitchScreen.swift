@@ -39,12 +39,12 @@ struct SwitchScreen: View {
 
                 if let snapshot = store.current {
                     // Colonne principale (façade, table MAC) et colonne de détail (port, topologie).
-                    HStack(alignment: .top, spacing: 16) {
+                    SidePanelSplit(sideWidth: 330, collapse: .below, spacing: 16) {
                         VStack(spacing: 16) {
                             SwitchFaceplatePanel(store: store, snapshot: snapshot)
                             SwitchMacTable(store: store, snapshot: snapshot)
                         }
-                        .frame(maxWidth: .infinity)
+                    } side: {
                         VStack(spacing: 16) {
                             if let iface = store.selectedInterface {
                                 SwitchPortDetail(store: store, snapshot: snapshot, iface: iface)
@@ -53,7 +53,6 @@ struct SwitchScreen: View {
                             }
                             SwitchTopology(store: store)
                         }
-                        .frame(width: 330)
                     }
                 } else if !store.hosts.isEmpty {
                     Panel {

@@ -1,7 +1,8 @@
 import SwiftUI
 
-// Composants réutilisables par tous les écrans. Ils suivent les croquis : panneaux blancs à
-// bordure grise, intertitres en petites majuscules, valeurs techniques en SF Mono.
+// Composants réutilisables par tous les écrans. Disposition des croquis, couleurs du système :
+// panneaux sur fond système à bordure fine, intertitres en petites majuscules, valeurs techniques
+// en SF Mono. Tout suit le mode clair ou sombre.
 
 /// Ton d'une puce, d'une pastille ou d'un message.
 enum Tone {
@@ -30,10 +31,10 @@ enum Tone {
     /// Couleur vive d'une pastille d'état.
     var dot: Color {
         switch self {
-        case .neutral: return Color(hex: 0x9CA3AF)
+        case .neutral: return Theme.neutralDot
         case .accent: return Theme.accent
         case .success: return Theme.successDot
-        case .warning: return Color(hex: 0xF97316)
+        case .warning: return Theme.warningDot
         case .critical: return Theme.criticalBadge
         }
     }
@@ -41,7 +42,7 @@ enum Tone {
 
 // MARK: - Panneau
 
-/// Panneau blanc à bordure grise, rayon 8.
+/// Panneau sur fond système (blanc en clair, gris foncé en sombre), bordure fine.
 struct Panel<Content: View>: View {
     var padding: CGFloat = 14
     @ViewBuilder var content: Content
@@ -146,13 +147,13 @@ struct FilterChip: View {
                 Text(title).font(Theme.bodyMedium)
                 if let count {
                     Text("\(count)").font(Theme.mono(11, weight: .semibold))
-                        .foregroundStyle(isSelected ? Color.white.opacity(0.85) : Theme.textSecondary)
+                        .foregroundStyle(isSelected ? Theme.onAccent.opacity(0.85) : Theme.textSecondary)
                 }
             }
-            .foregroundStyle(isSelected ? Color.white : Theme.text)
+            .foregroundStyle(isSelected ? Theme.onAccent : Theme.text)
             .padding(.horizontal, 10)
             .frame(height: 26)
-            .background(Capsule().fill(isSelected ? Theme.sidebar : Theme.panel))
+            .background(Capsule().fill(isSelected ? Theme.accent : Theme.panel))
             .overlay(Capsule().strokeBorder(isSelected ? Color.clear : Theme.border))
             .contentShape(Capsule())
         }
@@ -236,7 +237,7 @@ struct CountBadge: View {
     var body: some View {
         Text("\(count)")
             .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onAccent)
             .padding(.horizontal, 5)
             .frame(minWidth: 18, minHeight: 18)
             .background(Capsule().fill(color))
@@ -342,7 +343,7 @@ struct Sparkline: View {
     }
 }
 
-/// Barre de progression fine (6 pt) aux couleurs des croquis.
+/// Barre de progression fine (6 pt), à la couleur d’accent.
 struct ProgressBar: View {
     let fraction: Double
     var color: Color = Theme.accent
@@ -458,5 +459,191 @@ struct UnderConstructionView: View {
             .padding(Theme.contentPadding)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+    }
+}
+
+// MARK: - Petite fenêtre
+
+/// Contenu principal et panneau de droite à largeur fixe (détail, éditeur, réglages de l'écran).
+/// Le panneau défile de haut en bas quand il est plus haut que la place disponible (`scrolls`).
+/// Quand la largeur disponible passe sous `collapseBelow`, le panneau se replie : en mode
+/// `.overlay`, le bouton « Afficher le panneau » de la barre d'outils le fait apparaître par-dessus
+/// le contenu ; en mode `.below` (écrans qui défilent déjà), il passe sous le contenu principal.
+struct SidePanelSplit<Main: View, Side: View>: View {
+    enum Collapse { case overlay, below }
+
+    var sideWidth: CGFloat
+    var collapse: Collapse = .overlay
+    var spacing: CGFloat = 14
+    /// Largeur disponible sous laquelle le panneau se replie (par défaut : panneau + 520 pt).
+    var collapseBelow: CGFloat? = nil
+    /// Met le panneau dans une vue qui défile verticalement (à éviter s'il défile déjà lui-même).
+    var scrolls = true
+    /// Libellé du bouton qui affiche le panneau replié.
+    var title = "Panneau de détail"
+    @ViewBuilder var main: Main
+    @ViewBuilder var side: Side
+
+    @State private var width: CGFloat = .infinity
+    @State private var showSide = false
+
+    private var compact: Bool { width < (collapseBelow ?? sideWidth + 520) }
+
+    var body: some View {
+        if collapse == .below {
+            belowLayout
+        } else {
+            overlayLayout
+        }
+    }
+
+    private var widthReader: some View {
+        GeometryReader { geometry in
+            Color.clear.preference(key: SidePanelWidthKey.self, value: geometry.size.width)
+        }
+    }
+
+    /// Panneau sous le contenu quand la place manque (pas de bouton, rien de caché).
+    private var belowLayout: some View {
+        Group {
+            if compact {
+                VStack(alignment: .leading, spacing: spacing) {
+                    main.frame(maxWidth: .infinity, alignment: .top)
+                    side.frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+            } else {
+                HStack(alignment: .top, spacing: spacing) {
+                    main.frame(maxWidth: .infinity, alignment: .top)
+                    side.frame(minWidth: 0, idealWidth: sideWidth, maxWidth: sideWidth).layoutPriority(1)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .background(widthReader)
+        .onPreferenceChange(SidePanelWidthKey.self) { width = $0 }
+    }
+
+    private var overlayLayout: some View {
+        HStack(alignment: .top, spacing: spacing) {
+            main.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            if !compact {
+                // Largeur minimale nulle : le panneau n'impose pas sa largeur au filet de sécurité de
+                // la petite fenêtre (sinon il ne se replierait jamais) ; il garde sa largeur en priorité.
+                sidePanel
+                    .frame(minWidth: 0, idealWidth: sideWidth, maxWidth: sideWidth)
+                    .layoutPriority(1)
+            }
+        }
+        .background(widthReader)
+        .onPreferenceChange(SidePanelWidthKey.self) { width = $0 }
+        .overlay(alignment: .topTrailing) {
+            if compact && showSide {
+                sidePanel
+                    .frame(width: sideWidth)
+                    .padding(10)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .background(RoundedRectangle(cornerRadius: Theme.panelRadius + 4)
+                        .fill(Theme.appBackground)
+                        .shadow(color: .black.opacity(0.22), radius: 18, y: 6))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius + 4).strokeBorder(Theme.border))
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .animation(.easeOut(duration: 0.18), value: showSide)
+        .toolbar {
+            if compact {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showSide.toggle()
+                    } label: {
+                        Label(showSide ? "Masquer le panneau" : "Afficher le panneau", systemImage: "sidebar.right")
+                            .labelStyle(.iconOnly)
+                    }
+                    .help(showSide ? "Masquer « \(title) »" : "Afficher « \(title) »")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var sidePanel: some View {
+        if scrolls {
+            ScrollView(.vertical) {
+                side.frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        } else {
+            side
+        }
+    }
+}
+
+private struct SidePanelWidthKey: PreferenceKey {
+    static var defaultValue: CGFloat = .infinity
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = min(value, nextValue()) }
+}
+
+/// Filet de sécurité de la petite fenêtre : l'écran reçoit toute la place disponible, mais jamais
+/// moins que sa taille minimale ; s'il ne tient pas, il défile (horizontalement ou verticalement)
+/// au lieu d'être coupé ou d'agrandir la fenêtre.
+struct MinimumSizeScroller<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        GeometryReader { geometry in
+            ScrollView([.horizontal, .vertical]) {
+                AtLeastLayout(size: geometry.size) { content }
+            }
+            .scrollBounceBehavior(.basedOnSize, axes: [.horizontal, .vertical])
+        }
+    }
+}
+
+/// Donne à son contenu la taille proposée, ou sa taille minimale si elle est plus grande.
+private struct AtLeastLayout: Layout {
+    var size: CGSize
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let subview = subviews.first else { return size }
+        // Un écran qui tient dans la place proposée la prend telle quelle ; sinon (il répond plus
+        // grand que proposé), il garde sa taille minimale et la vue défile. La hauteur est vérifiée
+        // à la largeur retenue (un texte qui passe à la ligne n'a pas la même hauteur partout).
+        var width = size.width
+        if subview.sizeThatFits(ProposedViewSize(size)).width > size.width + 0.5 {
+            width = max(size.width, subview.sizeThatFits(ProposedViewSize(width: 0, height: size.height)).width)
+        }
+        var height = size.height
+        if subview.sizeThatFits(ProposedViewSize(width: width, height: size.height)).height > size.height + 0.5 {
+            height = max(size.height, subview.sizeThatFits(ProposedViewSize(width: width, height: 0)).height)
+        }
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
+    }
+}
+
+/// Côte à côte quand la largeur disponible atteint `breakpoint`, l'un sous l'autre sinon
+/// (petite fenêtre). Le contenu est donné une fois ; seul l'agencement change.
+struct AdaptiveStack<Content: View>: View {
+    var breakpoint: CGFloat
+    var spacing: CGFloat = 16
+    var horizontalAlignment: VerticalAlignment = .center
+    @ViewBuilder var content: Content
+
+    @State private var width: CGFloat = .infinity
+
+    var body: some View {
+        let layout = width >= breakpoint
+            ? AnyLayout(HStackLayout(alignment: horizontalAlignment, spacing: spacing))
+            : AnyLayout(VStackLayout(alignment: .leading, spacing: spacing))
+        layout { content }
+            // Largeur minimale nulle : la largeur mesurée décide de l'agencement, sans que l'agencement
+            // côte à côte n'impose sa propre largeur minimale (sinon il ne passerait jamais en colonne).
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            .background(GeometryReader { geometry in
+                Color.clear.preference(key: SidePanelWidthKey.self, value: geometry.size.width)
+            })
+            .onPreferenceChange(SidePanelWidthKey.self) { width = $0 }
     }
 }

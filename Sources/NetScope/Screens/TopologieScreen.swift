@@ -31,10 +31,10 @@ struct TopologieScreen: View {
             } else {
                 VStack(alignment: .leading, spacing: 14) {
                     tiles(graph)
-                    HStack(alignment: .top, spacing: 14) {
+                    SidePanelSplit(sideWidth: 320, title: "Détail du nœud") {
                         mapPanel(graph, layout)
+                    } side: {
                         TopoAside(graph: graph, selectedID: $selectedID)
-                            .frame(width: 320)
                     }
                     .frame(maxHeight: .infinity)
                 }
@@ -99,11 +99,13 @@ struct TopologieScreen: View {
                         .background(RoundedRectangle(cornerRadius: 4).fill(Theme.panel))
                         .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Theme.border))
                 }
+                .fixedSize()
                 HStack(spacing: 10) {
                     Text("CALQUES").font(Theme.captionSemibold).foregroundStyle(Theme.textSecondary)
                     Toggle("Appareils finaux", isOn: $showEndDevices).toggleStyle(.checkbox).font(Theme.small)
                     Toggle("Ports", isOn: $showPortLabels).toggleStyle(.checkbox).font(Theme.small)
                 }
+                .fixedSize()
                 Spacer()
                 HStack(spacing: 6) {
                     zoomButton("minus", "Zoom arrière") { zoom = max(0.3, scale / 1.2) }

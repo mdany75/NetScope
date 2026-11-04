@@ -38,7 +38,7 @@ struct ToolTextField: View {
             .onSubmit(onSubmit)
             .padding(.horizontal, 10)
             .frame(height: height)
-            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(invalid ? Color(hex: 0xFEF2F2) : Theme.panel))
+            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(invalid ? Color(light: 0xFEF2F2, dark: 0x501B1B) : Theme.panel))
             .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(invalid ? Theme.critical : Theme.border))
     }
 }
@@ -188,7 +188,7 @@ struct ToolNotice<Trailing: View>: View {
                 if let title { Text(title).font(Theme.bodySemibold).foregroundStyle(tone.foreground) }
                 Text(message)
                     .font(title == nil ? Theme.body : Theme.small)
-                    .foregroundStyle(tone == .accent ? Color(hex: 0x1E3A8A) : tone.foreground)
+                    .foregroundStyle(tone == .accent ? Color(light: 0x1E3A8A, dark: 0x9AAFE9) : tone.foreground)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
             }
@@ -213,10 +213,10 @@ struct ToolNotice<Trailing: View>: View {
 
     private var border: Color {
         switch tone {
-        case .critical: return Color(hex: 0xFCA5A5)
-        case .warning: return Color(hex: 0xFED7AA)
-        case .success: return Color(hex: 0xBBF7D0)
-        case .accent: return Color(hex: 0xBFDBFE)
+        case .critical: return Color(light: 0xFCA5A5, dark: 0x501B1B)
+        case .warning: return Color(light: 0xFED7AA, dark: 0x50371B)
+        case .success: return Color(light: 0xBBF7D0, dark: 0x1B502E)
+        case .accent: return Color(light: 0xBFDBFE, dark: 0x1B3350)
         case .neutral: return Theme.border
         }
     }

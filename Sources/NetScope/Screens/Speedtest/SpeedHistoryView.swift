@@ -69,11 +69,11 @@ struct SpeedHistoryView: View {
                         if let dip, records.count > 2 {
                             PointMark(x: .value("Date", dip.date), y: .value("Mb/s", dip.downMbps))
                                 .symbol {
-                                    Circle().strokeBorder(Theme.warning, lineWidth: 2).background(Circle().fill(.white))
+                                    Circle().strokeBorder(Theme.warning, lineWidth: 2).background(Circle().fill(Theme.panel))
                                         .frame(width: 9, height: 9)
                                 }
                                 .annotation(position: .bottom, spacing: 4) {
-                                    Text("\(dip.interfaceLabel)").font(.system(size: 10)).foregroundStyle(Color(hex: 0x9A3412))
+                                    Text("\(dip.interfaceLabel)").font(.system(size: 10)).foregroundStyle(Color(light: 0x9A3412, dark: 0xF2AA91))
                                 }
                         }
                     }

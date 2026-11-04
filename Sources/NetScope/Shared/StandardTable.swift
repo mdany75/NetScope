@@ -336,7 +336,7 @@ struct StandardTagList: View {
     private func tagView(_ tag: String) -> some View {
         let strong = highlighted(tag)
         let (foreground, background) = colors?(tag)
-            ?? (strong ? (Theme.accentStrong, Color(hex: 0xDBEAFE)) : (Theme.neutralText, Theme.neutralSoft))
+            ?? (strong ? (Theme.accentStrong, Theme.accentSoft) : (Theme.neutralText, Theme.neutralSoft))
         return Text(tag)
             .font(Font(Self.font))
             .foregroundStyle(foreground)

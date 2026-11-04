@@ -13,7 +13,7 @@ struct RegAboutSection: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 14) {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 12).fill(Theme.sidebar)
+                        RoundedRectangle(cornerRadius: 12).fill(Theme.accentSoft)
                         Image(systemName: "dot.radiowaves.left.and.right")
                             .font(.system(size: 24, weight: .semibold))
                             .foregroundStyle(Theme.accent)

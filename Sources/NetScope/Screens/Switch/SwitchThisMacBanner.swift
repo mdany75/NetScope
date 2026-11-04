@@ -50,10 +50,10 @@ struct SwitchThisMacBanner: View {
             VStack(alignment: .leading, spacing: 2) {
                 (Text(stale ? "Ce Mac était branché sur " : "Ce Mac est branché sur ").font(Theme.body)
                  + Text(neighbor.headline).font(Theme.mono(13, weight: .semibold)))
-                    .foregroundStyle(stale ? Theme.textSecondary : Color(hex: 0x14532D))
+                    .foregroundStyle(stale ? Theme.textSecondary : Color(light: 0x14532D, dark: 0x9CE7BA))
                     .lineLimit(1)
                 Text(detail(neighbor, stale: stale)).font(Theme.small)
-                    .foregroundStyle(stale ? Theme.textSecondary : Color(hex: 0x166534)).lineLimit(1)
+                    .foregroundStyle(stale ? Theme.textSecondary : Color(light: 0x166534, dark: 0x9AE9B8)).lineLimit(1)
                     .help(detail(neighbor, stale: stale))
             }
             Spacer(minLength: 8)
@@ -67,8 +67,8 @@ struct SwitchThisMacBanner: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(stale ? Theme.panelMuted : Color(hex: 0xF0FDF4)))
-        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(stale ? Theme.border : Color(hex: 0xBBF7D0)))
+        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(stale ? Theme.panelMuted : Color(light: 0xF0FDF4, dark: 0x1B502B)))
+        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(stale ? Theme.border : Color(light: 0xBBF7D0, dark: 0x2B824A)))
     }
 
     private func detail(_ neighbor: NetworkNeighbor, stale: Bool) -> String {

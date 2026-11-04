@@ -10,11 +10,11 @@ enum SwitchSource: String {
 
     var colors: (background: Color, foreground: Color) {
         switch self {
-        case .lldp: return (Color(hex: 0xDBEAFE), Color(hex: 0x1E40AF))
-        case .cdp: return (Color(hex: 0xE0E7FF), Color(hex: 0x3730A3))
+        case .lldp: return (Color(light: 0xDBEAFE, dark: 0x1B3250), Color(light: 0x1E40AF, dark: 0x97ABED))
+        case .cdp: return (Color(light: 0xE0E7FF, dark: 0x1B2750), Color(light: 0x3730A3, dark: 0xA5A0E3))
         case .fdb: return (Theme.neutralSoft, Theme.neutralText)
-        case .arp: return (Theme.successSoft, Color(hex: 0x166534))
-        case .uplink: return (Color(hex: 0xE2E8F0), Color(hex: 0x0F172A))
+        case .arp: return (Theme.successSoft, Color(light: 0x166534, dark: 0x9AE9B8))
+        case .uplink: return (Color(light: 0xE2E8F0, dark: 0x253347), Color(light: 0x0F172A, dark: 0xA5B6DF))
         }
     }
 }
@@ -68,7 +68,7 @@ struct SwitchSourcesPanel: View {
 
     var body: some View {
         Panel(padding: 14) {
-            HStack(alignment: .center, spacing: 18) {
+            AdaptiveStack(breakpoint: 1000, spacing: 18) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Comment l’appareil est localisé").font(Theme.bodySemibold)
                     SwitchFlowLayout(spacing: 8) {
@@ -189,15 +189,23 @@ struct SwitchCard: View {
                     }
                     .frame(width: 34, height: 34)
                     VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 8) {
-                            Text(snapshot?.displayName ?? host).font(Theme.mono(14, weight: .semibold)).foregroundStyle(Theme.text)
-                            statusChip(snapshot)
-                            if store.isAutoDiscovered(host) {
-                                Chip(text: "Découvert automatiquement", tone: .accent)
-                                    .help("Trouvé par la découverte SNMP à la fin du scan ; la communauté qui a répondu est gardée au Trousseau.")
-                            } else if let role = snapshot?.system.location {
-                                Chip(text: role, tone: .neutral)
+                        // Petite fenêtre : la puce d'origine disparaît avant que le nom ne se coupe.
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 8) {
+                                cardName(snapshot)
+                                statusChip(snapshot)
+                                if store.isAutoDiscovered(host) {
+                                    Chip(text: "Découvert automatiquement", tone: .accent)
+                                        .help("Trouvé par la découverte SNMP à la fin du scan ; la communauté qui a répondu est gardée au Trousseau.")
+                                } else if let role = snapshot?.system.location {
+                                    Chip(text: role, tone: .neutral)
+                                }
                             }
+                            HStack(spacing: 8) {
+                                cardName(snapshot)
+                                statusChip(snapshot)
+                            }
+                            cardName(snapshot)
                         }
                         Group {
                             if let snapshot {
@@ -234,6 +242,14 @@ struct SwitchCard: View {
         .contextMenu {
             Button("Retirer ce switch", role: .destructive) { store.removeHost(host) }
         }
+    }
+
+    private func cardName(_ snapshot: SNMPSwitchSnapshot?) -> some View {
+        Text(snapshot?.displayName ?? host)
+            .font(Theme.mono(14, weight: .semibold))
+            .foregroundStyle(Theme.text)
+            .lineLimit(1)
+            .fixedSize()
     }
 
     @ViewBuilder private func statusChip(_ snapshot: SNMPSwitchSnapshot?) -> some View {
@@ -300,7 +316,7 @@ struct SwitchCandidates: View {
                         .padding(.horizontal, 8)
                         .frame(height: 24)
                         .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.accentSoft))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Color(hex: 0xBFDBFE)))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Color(light: 0xBFDBFE, dark: 0x2B5282)))
                         .foregroundStyle(Theme.accentStrong)
                     }
                     .buttonStyle(.plain)
@@ -329,9 +345,9 @@ struct SwitchFaceplatePanel: View {
                     Text("Façade · ").font(.system(size: 14, weight: .semibold))
                         + Text(snapshot.displayName).font(Theme.mono(14, weight: .semibold))
                     Spacer()
-                    stat("Actifs", states.filter { $0 != .down && $0 != .disabled }.count, Theme.successSoft, Color(hex: 0x14532D))
-                    stat("PoE", states.filter { $0 == .poe }.count, Color(hex: 0xDBEAFE), Color(hex: 0x1E40AF))
-                    stat("Trunk", states.filter { $0 == .trunk }.count, Color(hex: 0xE2E8F0), Color(hex: 0x0F172A))
+                    stat("Actifs", states.filter { $0 != .down && $0 != .disabled }.count, Theme.successSoft, Color(light: 0x14532D, dark: 0x9CE7BA))
+                    stat("PoE", states.filter { $0 == .poe }.count, Color(light: 0xDBEAFE, dark: 0x1B3250), Color(light: 0x1E40AF, dark: 0x97ABED))
+                    stat("Trunk", states.filter { $0 == .trunk }.count, Color(light: 0xE2E8F0, dark: 0x253347), Color(light: 0x0F172A, dark: 0xA5B6DF))
                     stat("Erreurs", states.filter { $0 == .err }.count, Theme.criticalSoft, Theme.critical)
                     stat("Inactifs", states.filter { $0 == .down || $0 == .disabled }.count, Theme.neutralSoft, Theme.neutralText)
                 }
@@ -383,7 +399,7 @@ struct SwitchFaceplatePanel: View {
                             .padding(.horizontal, 8)
                             .frame(height: 22)
                             .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.accentSoft))
-                            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Color(hex: 0xBFDBFE)))
+                            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Color(light: 0xBFDBFE, dark: 0x2B5282)))
                     }
                     .buttonStyle(.plain)
                 }
@@ -397,7 +413,7 @@ struct SwitchFaceplatePanel: View {
                         .buttonStyle(.plain)
                         .help("Effacer le résultat")
                 }
-                .foregroundStyle(result.ok ? Color(hex: 0x14532D) : Color(hex: 0x9A3412))
+                .foregroundStyle(result.ok ? Color(light: 0x14532D, dark: 0x9CE7BA) : Color(light: 0x9A3412, dark: 0xF2AA91))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
                 .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(result.ok ? Theme.successSoft : Theme.warningSoft))

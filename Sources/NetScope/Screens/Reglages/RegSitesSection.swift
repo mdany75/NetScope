@@ -68,7 +68,7 @@ struct RegSitesSection: View {
     }
 
     private var tiles: some View {
-        HStack(spacing: 8) {
+        RegTileRow {
             RegTile("Réseau détecté", state.activeInterface.map { $0.subnet.description } ?? "Aucune interface active", mono: true)
             RegTile("Interface", state.activeInterface.map { "\($0.name) · \($0.kind.label)" } ?? "—", mono: true)
             RegTile("Passerelle de référence", state.activeInterface?.gateway?.description ?? "Non lue", mono: true)

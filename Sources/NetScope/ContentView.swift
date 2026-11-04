@@ -1,29 +1,31 @@
 import NetScopeCore
 import SwiftUI
 
-/// Fenêtre principale : barre latérale, puis barre d'outils (titre, recherche globale, actions
-/// de l'écran) et contenu de l'écran courant.
+/// Fenêtre principale, à la manière d'une app macOS : barre latérale translucide du système,
+/// barre d'outils unifiée (titre de l'écran, actions de l'écran, recherche globale) et contenu de
+/// l'écran courant. Les couleurs suivent le mode clair ou sombre de macOS.
 struct ContentView: View {
     @EnvironmentObject private var state: AppState
+    @State private var columns = NavigationSplitViewVisibility.all
 
     var body: some View {
-        HStack(spacing: 0) {
+        NavigationSplitView(columnVisibility: $columns) {
             Sidebar()
-            VStack(spacing: 0) {
-                Color.clear.frame(height: ContentToolbar.height)
+                .navigationSplitViewColumnWidth(min: 190, ideal: Theme.sidebarWidth, max: 300)
+        } detail: {
+            // Petite fenêtre : un écran plus grand que la place disponible défile au lieu d'être coupé.
+            MinimumSizeScroller {
                 screenView
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .id(state.screen)
             }
-            .overlayPreferenceValue(ToolbarActionsKey.self, alignment: .top) { actions in
-                ContentToolbar(title: state.screen.pageTitle, actions: actions?.view)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.appBackground)
+            .id(state.screen)
+                .navigationTitle(state.screen.pageTitle)
+                .searchable(text: $state.searchText, placement: .toolbar,
+                            prompt: Text("Rechercher IP, MAC, nom…"))
         }
         .font(Theme.body)
         .foregroundStyle(Theme.text)
-        .preferredColorScheme(.light)
     }
 
     @ViewBuilder private var screenView: some View {
@@ -46,37 +48,7 @@ struct ContentView: View {
     }
 }
 
-/// Barre d'outils du contenu : titre de l'écran, recherche globale, actions propres à l'écran.
-struct ContentToolbar: View {
-    static let height: CGFloat = 57
-
-    @EnvironmentObject private var state: AppState
-    let title: String
-    let actions: AnyView?
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Text(title)
-                .font(Theme.screenTitle)
-                .foregroundStyle(Theme.text)
-                .padding(.trailing, 6)
-                .fixedSize()
-            SearchField(text: $state.searchText,
-                        placeholder: "Rechercher IP, MAC, nom, fabricant, port…")
-                .frame(minWidth: 220, maxWidth: .infinity)
-            if let actions {
-                HStack(spacing: 8) { actions }.fixedSize()
-            }
-        }
-        .padding(.horizontal, Theme.contentPadding)
-        .frame(height: ContentToolbar.height - 1)
-        .frame(maxWidth: .infinity)
-        .background(Theme.panel)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1).offset(y: 1) }
-    }
-}
-
-/// Champ de recherche aux couleurs des croquis (fond #F9FAFB, loupe à gauche).
+/// Champ de recherche d’un panneau (loupe à gauche, fond système).
 struct SearchField: View {
     @Binding var text: String
     var placeholder: String
@@ -107,21 +79,31 @@ struct SearchField: View {
 
 // MARK: - Actions de la barre d'outils
 
-/// Boutons qu'un écran place dans la barre d'outils, à droite de la recherche.
-struct ToolbarActions {
-    let view: AnyView
-}
-
-struct ToolbarActionsKey: PreferenceKey {
-    static var defaultValue: ToolbarActions? = nil
-    static func reduce(value: inout ToolbarActions?, nextValue: () -> ToolbarActions?) {
-        value = nextValue() ?? value
+extension View {
+    /// Place des boutons dans la barre d'outils unifiée de la fenêtre (ex. « Lancer le scan »,
+    /// « Exporter »). Quand la fenêtre est étroite, macOS range les boutons qui ne tiennent pas
+    /// dans le menu de débordement de la barre (»).
+    func screenToolbar<Actions: View>(@ViewBuilder _ actions: () -> Actions) -> some View {
+        toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                actions()
+                    .labelStyle(.titleAndIcon)
+                    .modifier(SnapshotActiveState())
+            }
+        }
     }
 }
 
-extension View {
-    /// Place des boutons dans la barre d'outils du contenu (ex. « Lancer le scan », « Exporter »).
-    func screenToolbar<Actions: View>(@ViewBuilder _ actions: () -> Actions) -> some View {
-        preference(key: ToolbarActionsKey.self, value: ToolbarActions(view: AnyView(actions())))
+/// Pour les captures (--snapshot), qui dessinent une fenêtre d'une app en arrière-plan : les
+/// contrôles de la barre d'outils prennent l'aspect d'une fenêtre active au lieu d'être grisés.
+struct SnapshotActiveState: ViewModifier {
+    @MainActor static var forceActive = false
+
+    func body(content: Content) -> some View {
+        if SnapshotActiveState.forceActive {
+            content.environment(\.controlActiveState, .key)
+        } else {
+            content
+        }
     }
 }

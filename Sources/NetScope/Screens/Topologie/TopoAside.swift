@@ -58,7 +58,7 @@ struct TopoAside: View {
 
                 if node.status == .critique {
                     Text(conflictText(devices))
-                        .font(Theme.small).foregroundStyle(Color(hex: 0x991B1B))
+                        .font(Theme.small).foregroundStyle(Color(light: 0x991B1B, dark: 0xED9797))
                         .padding(10)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.criticalSoft))
