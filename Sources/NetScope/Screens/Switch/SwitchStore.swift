@@ -138,10 +138,10 @@ final class SwitchStore: ObservableObject {
         community = "lecture-demo"
         autoHosts = Set(hosts)
         lastPoll = demo.snapshots.first?.polledAt
-        // FortiSwitch gérés par la FortiGate de démonstration (note 24).
-        let fortiDemo = FortiGateDemo.report()
-        setControllerSnapshots(FortiConvert.snapshots(from: fortiDemo))
-        controllerNames = FortiConvert.names(from: fortiDemo)
+        // FortiSwitch gérés par les FortiGate de démonstration choisies pour ces plages (notes 24 et 25).
+        let fortiDemo = FortiGateSitesDemo.selectedSites()
+        setControllerSnapshots(FortiMulti.snapshots(fortiDemo))
+        controllerNames = FortiMulti.names(fortiDemo)
         selectedHost = Self.demoSelection.flatMap { wanted in allHosts.first { snapshots[$0]?.displayName == wanted } } ?? hosts.first
         selectedPort = 12
         let devices = DemoData.devices()
@@ -235,24 +235,24 @@ final class SwitchStore: ObservableObject {
         return controllerSnapshots
     }
 
-    /// Lecture de la FortiGate reçue : FortiSwitch affichés, puis MAC, noms et emplacement des
-    /// appareils du scan (FortiGate > SNMP).
-    func applyController(_ report: FortiGateReport, state: AppState) {
-        setControllerSnapshots(FortiConvert.snapshots(from: report))
-        controllerNames = FortiConvert.names(from: report)
+    /// Lectures des FortiGate reçues (un site ou plusieurs, note 25) : FortiSwitch affichés, chacun
+    /// marqué de son site, puis MAC, noms et emplacement des appareils du scan (FortiGate > SNMP).
+    func applyControllers(_ sites: [FortiSiteReport], state: AppState) {
+        setControllerSnapshots(FortiMulti.snapshots(sites))
+        controllerNames = FortiMulti.names(sites)
         controllerNetwork = state.currentNetwork
         controllerReadAt = Date()
         if !isDemo {
-            // Emplacement donné par la FortiGate : la source est retenue avec le nom du switch.
-            for snapshot in controllerSnapshots { knownControllerSwitches[snapshot.displayName] = snapshot.controllerName ?? report.controllerName }
+            // Emplacement donné par la FortiGate : la source (le site) est retenue avec le nom du switch.
+            for snapshot in controllerSnapshots { knownControllerSwitches[snapshot.displayName] = snapshot.controllerName ?? "FortiGate" }
             UserDefaults.standard.set(knownControllerSwitches, forKey: Self.controllerSwitchesKey)
         }
-        let result = FortiLocate.apply(report, to: state.devices, snmp: snmpSnapshots)
+        let result = FortiMulti.apply(sites, to: state.devices, snmp: snmpSnapshots)
         state.devices = result.devices
         let ports = FortiLocate.accessPorts(controller: controllerSnapshots, snmp: snmpSnapshots)
         let placed = result.devices.filter { device in device.mac.map { ports[$0] != nil } ?? false }.map(\.ip)
         locations.record(placed, network: isDemo ? NetworkContext(DemoData.interface) : state.currentNetwork)
-        if !isDemo { lastPoll = report.readAt }
+        if !isDemo, let readAt = sites.map(\.report.readAt).max() { lastPoll = readAt }
     }
 
     var current: SNMPSwitchSnapshot? {
@@ -337,7 +337,7 @@ final class SwitchStore: ObservableObject {
             let demo = SwitchDemo.make()
             snapshots = Dictionary(uniqueKeysWithValues: demo.snapshots.map { ($0.host.description, $0) })
             controllerHosts = []
-            setControllerSnapshots(FortiConvert.snapshots(from: FortiGateDemo.report()))
+            setControllerSnapshots(FortiMulti.snapshots(FortiGateSitesDemo.selectedSites()))
             lastPoll = Date()
             applyLocations(to: state)
             return
@@ -349,7 +349,7 @@ final class SwitchStore: ObservableObject {
         // Interrogation manuelle : les appareils localisés le sont sur le réseau actuel.
         locations.record(located.values.flatMap { $0 }, network: state.currentNetwork)
         // FortiSwitch gérés : relus par la FortiGate (prioritaire sur SNMP).
-        await FortiGateStore.shared.refreshAfterScan(state: state)
+        await FortiGateStore.shared.refreshAfterScan(state: state, ranges: state.checkedRanges)
     }
 
     /// Relève les switchs donnés (quatre à la fois), chacun avec sa communauté. Renvoie les

@@ -81,8 +81,10 @@ public extension FortiParsers {
             for extra in item.list("ipv4_addresses", "ipv4-addresses") {
                 add(item, name: name, ip: extra.any("ip", "address"), mask: extra.any("cidr_netmask", "netmask", "mask"), secondary: false)
             }
-            // cmdb : adresses secondaires (« secondaryip »: [{ "ip": "a.b.c.d m.m.m.m" }]).
-            for extra in item.list("secondaryip", "secondary-ip", "secondary_ip") {
+            // cmdb : adresses secondaires (« secondaryip »: [{ "ip": "a.b.c.d m.m.m.m" }]). « secondary-IP »
+            // (« enable ») porte le même nom une fois normalisé : seule la liste compte.
+            let secondaries = item.raw.filter { FortiJSON.normalize($0.key) == "secondaryip" }.flatMap { FortiJSON.objects($0.value as? [Any]) }
+            for extra in secondaries {
                 add(item, name: name, ip: extra.any("ip", "address"), mask: extra.any("mask", "netmask"), secondary: true)
             }
         }

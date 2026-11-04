@@ -89,7 +89,8 @@ final class RegBackupController: ObservableObject {
         let folder = self.folder
         Task {
             let list = await Task.detached { BackupEngine.list(in: folder) }.value
-            let items = await Task.detached { BackupKeychainScan.items() }.value
+            // Note 25 : un jeton par FortiGate, nommé par son site dans la liste à ressaisir.
+            let items = await Task.detached { BackupKeychainScan.describe(BackupKeychainScan.items(), fortiGates: FortiGateStore.savedControllers()) }.value
             self.backups = list
             self.keychainItems = items
             if let newest = list.first?.date, newest > (self.lastBackup ?? .distantPast) { self.lastBackup = newest }
@@ -130,7 +131,7 @@ final class RegBackupController: ObservableObject {
         let domain = UserDefaults.standard.persistentDomain(forName: preferencesDomain) ?? [:]
         let preferences = try? PropertyListSerialization.data(fromPropertyList: domain, format: .binary, options: 0)
         let info = Bundle.main.infoDictionary
-        return BackupSource(dataDirectory: dataDirectory, preferences: preferences, keychain: BackupKeychainScan.items(),
+        return BackupSource(dataDirectory: dataDirectory, preferences: preferences, keychain: BackupKeychainScan.describe(BackupKeychainScan.items(), fortiGates: FortiGateStore.savedControllers()),
                             appVersion: info?["CFBundleShortVersionString"] as? String ?? "dev",
                             appBuild: info?["CFBundleVersion"] as? String ?? "dev")
     }
