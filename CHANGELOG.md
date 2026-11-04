@@ -1,5 +1,71 @@
 # Changements
 
+## 0.13.0 — 2026-11-04
+
+Navigation : chaque élément mène à sa suite logique d’un double-clic, un menu « Ouvrir dans › »
+propose les autres modules, et Retour / Avancer ramènent à l’écran d’avant comme dans le
+Finder ; les gros sites (milliers d’appareils, 20 sites) restent fluides.
+
+### Ajouté
+- **Double-clic partout** (et ↩︎ dans les tableaux) : un appareil ouvre sa fiche, un switch ses
+  ports, une borne FortiAP le Wi-Fi sur cette borne, un client Wi-Fi sa fiche, une alerte de
+  surveillance sa sonde, une sonde l’appareil ou le service qu’elle surveille, et une alerte de
+  l’Analyse la fiche et la chronologie.
+- **Menu contextuel « Ouvrir dans › »** : il propose les autres modules pertinents pour
+  l’élément (fiche, Inventaire, Scanner, Carte, Switchs et ports, Wi-Fi, Ping continu,
+  Surveillance, Analyse, Accès distant), avec les raccourcis ⌥⌘1 à ⌥⌘9 et ⌥⌘0 ; aussi dans le
+  menu Appareil pour l’appareil choisi.
+- **Retour et Avancer** comme dans le Finder : boutons ‹ › de la barre d’outils, ⌘[ et ⌘],
+  menu Aller. On retrouve l’écran, la recherche, le filtre, la sélection et les sites d’avant.
+- **Switchs et ports** : un double-clic sur un port de la façade ou du tableau des ports ouvre
+  l’appareil branché. S’il y en a plusieurs, une petite liste permet de choisir, ou de les voir
+  dans l’Inventaire. Un port vide, un uplink ou trunk, ou un appareil pas encore vu donne un
+  message clair.
+- **Carte du réseau → Inventaire** : « Inventaire » (et « Scanner ») dans le détail d’un groupe
+  ou d’un switch, ou un double-clic sur un groupe, ouvre l’Inventaire filtré sur exactement ces
+  appareils, dans le site dessiné. Le filtre s’affiche comme une étiquette retirable, par
+  exemple « Carte : Téléphones ×11 · SW-ETG2-01 ».
+- **Barre latérale** : un double-clic sur une plage ouvre le Scanner filtré sur cette plage, et
+  un double-clic sur le site actif son Inventaire ; clic droit sur un site pour le voir sans en
+  changer.
+- **Essais de charge sans réseau** : 20 sites fictifs, plages de 65 536 adresses, 5 000
+  appareils par site, FortiGate avec 10 FortiSwitch et 30 FortiAP ; les temps sont mesurés à
+  chaque test (les gros essais avec `NETSCOPE_CHARGE=1`).
+
+### Modifié
+- Les boutons « Voir le port » des fiches ouvrent directement le bon switch et le bon port.
+- **Fiche Appareil** : « appareil précédent / suivant » passe en ↑ ↓, pour ne pas se confondre
+  avec Retour / Avancer.
+- **Inventaire, Analyse et Carte** : les grands inventaires ne sont plus recalculés à chaque
+  affichage ; l’écran reste fluide avec des milliers d’appareils.
+- **Recherche** : dans l’Inventaire, la recherche d’un mot est jusqu’à 20 fois plus rapide sur
+  20 000 fiches.
+- **Rapports** : le rapport multisite est environ 10 fois plus rapide (20 sites et 68 000
+  appareils en moins d’une seconde).
+- **Sites** : « Tous les sites » lit les inventaires des autres sites en parallèle ; le
+  changement de site est presque deux fois plus rapide.
+- **Historique** : un très gros site (plus de 1 500 appareils) garde moins d’instantanés de
+  scan (environ 30 pour 5 000 appareils), pour que son fichier d’inventaire reste léger ; les
+  autres sites gardent toujours 100 scans.
+
+### Corrigé
+- **Inventaire** : l’enregistrement se fait en arrière-plan et regroupe les changements
+  rapprochés ; modifier une fiche, accepter une alerte ou finir un scan ne fige plus l’écran
+  sur les gros sites.
+
+### Limites
+- Les temps des essais de charge sont mesurés sur des données fictives, sur ce Mac ; le
+  comportement sur un vrai réseau de plusieurs milliers d’appareils reste à essayer.
+- L’enregistrement en arrière-plan regroupe les changements rapprochés : en cas d’arrêt brutal
+  de l’app (plantage, coupure), les toutes dernières modifications de l’inventaire peuvent être
+  perdues.
+- Sur un très gros site, l’historique remonte moins loin (environ 30 scans au lieu de 100) :
+  les instantanés les plus anciens sont retirés.
+- Retour et Avancer retrouvent l’écran et ses filtres, pas la position de défilement des
+  tableaux.
+- Tous les éléments n’ont pas encore de suite logique : services en ligne, résultats d’outils,
+  sauvegardes et connexions d’Accès distant restent à relier (note 34).
+
 ## 0.12.0 — 2026-11-04
 
 Sites : un site par client ou par lieu, avec ses plages, ses FortiGate, ses switchs SNMP et son

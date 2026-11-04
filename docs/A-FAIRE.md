@@ -5,11 +5,11 @@
 
 ## Priorités (revues le 4 novembre 2026)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0.
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0.
 
-1. **0.12.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer) : essais réels de la 0.3.x (localisation, DHCP, capture,
+1. **0.13.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
-   des 0.5.0 à 0.8.0 (voir ci-dessous) ; 0.12.1 au besoin.
+   des 0.5.0 à 0.8.0 (voir ci-dessous) ; 0.13.1 au besoin.
 2. ~~**0.5.0, diagnostic du poste et du réseau local**~~ : livrée le 4 novembre 2026
    (notes 12, 21, 17 et 16) ; essais réels à faire (PoE sur une vraie switch, SNMP, M-Lab,
    LibreSpeed, Ookla, bouton Installer).
@@ -31,11 +31,13 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
    l'Inventaire et le choix d'un ou plusieurs sites, et correction de la Carte, dernier scan
    seulement) ; essai réel à faire sur les sites de Dany (« Détecter mon site »,
    migration de l'inventaire, import CSV, switchs SNMP associés).
-10. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany) :
+10. ~~**0.13.0, navigation et charge**~~ : livrée le 4 novembre 2026 (notes 34, 33 et 31 :
+    double-clic partout, « Ouvrir dans › », Retour / Avancer ⌘[ ⌘] ; note 36 : essais de charge
+    et lenteurs corrigées) ; essai réel à faire sur un vrai scan et un très gros site.
+11. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany) :
     - **0.12.1** : essais réels (sites, FortiGate, FortiAP) et correctifs ; note 35 (journal et
       diagnostic).
-    - **0.13.0** : note 34 (double-clic partout, « Ouvrir dans… », Retour ⌘[) avec les notes 33
-      et 31 ; note 36 (essais de charge).
+    - ~~**0.13.0**~~ : notes 34, 33, 31 et 36, livrées le 4 novembre 2026.
     - **0.14.0** : notes 32 (recherche dans la Carte), 30 (Téléphonie IP), 37 (étendues DHCP),
       38 (sauvegarde chiffrée).
     - **0.15.0** : notes 29 (relire en automatique), 39 (WAN des FortiGate).
@@ -606,7 +608,9 @@ site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
 - Détection : fabricant (OUI), ports SIP 5060/5061, annonce LLDP-MED, VLAN voix.
 - Clic droit « Changer le type », import CSV, Carte, Rapports, comme les autres types.
 
-## 31. Carte → Inventaire filtré sur la branche choisie — À PLANIFIER (demande de Dany)
+## 31. Carte → Inventaire filtré sur la branche choisie (demande de Dany)
+
+**Livrée dans la 0.13.0** (4 novembre 2026) ; essai réel à faire sur un vrai scan et les sites de Dany.
 
 - Dans la Carte du réseau, quand on choisit une branche ou un groupe (ex. « Téléphones ×11 », un
   switch et ce qui est branché dessous) puis « Inventaire », l'Inventaire s'ouvre filtré sur ces
@@ -625,7 +629,9 @@ site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
 - Avec plusieurs sites (0.12.0) : cherche dans le site dessiné, et propose les autres sites où
   l'IP existe.
 
-## 33. Switchs et ports : double-clic sur un port → l'appareil — À PLANIFIER (demande de Dany)
+## 33. Switchs et ports : double-clic sur un port → l'appareil (demande de Dany)
+
+**Livrée dans la 0.13.0** (4 novembre 2026) ; essai réel à faire sur un vrai scan et les sites de Dany.
 
 - Un double-clic sur un port (façade du switch ou tableau des ports, SNMP ou FortiSwitch) ouvre
   la fiche de l'appareil branché sur ce port (fiche Appareil, ou Inventaire du site si l'appareil
@@ -634,7 +640,9 @@ site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
   ou Inventaire filtré sur ce port (étiquette `switch:… port:…`).
 - Port sans appareil connu : message clair (port vide, uplink/trunk, ou appareil pas encore vu).
 
-## 34. Double-clic partout : une suite logique entre les modules — À PLANIFIER (demande de Dany)
+## 34. Double-clic partout : une suite logique entre les modules (demande de Dany)
+
+**Livrée dans la 0.13.0** (4 novembre 2026) ; essai réel à faire sur un vrai scan et les sites de Dany.
 
 « Si je double-clique sur n'importe quel élément, il y a une suite logique dans l'application
 entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 33) :
@@ -656,7 +664,9 @@ entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 3
   et module), visible dans l’app ; export .zip « diagnostic » sans aucun secret (jetons,
   communautés, mots de passe masqués) ; rapport des plantages précédents au lancement.
 
-## 36. Essais de charge sans réseau — À PLANIFIER (analyse, retenue par Dany)
+## 36. Essais de charge sans réseau (analyse, retenue par Dany)
+
+**Livrée dans la 0.13.0** (4 novembre 2026), avec l’inventaire enregistré en arrière-plan et les lenteurs corrigées ; essai réel à faire sur un très gros site.
 
 - Tests de performance avec des données fictives : 20 sites, plages de 65 536 adresses, gros
   inventaires et historiques ; temps d’ouverture des écrans, de changement de site, d’écriture
