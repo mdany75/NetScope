@@ -76,6 +76,8 @@ struct NetScopeApp: App {
                     // Base des fabricants (registre IEEE) : chargée en arrière-plan dès le lancement.
                     Task.detached(priority: .utility) { _ = OUIDatabase.builtIn.count }
                     guard !Launcher.isDemo else { return }
+                    // Vitesse des disques : fichiers d'essai restés après un arrêt brutal, supprimés.
+                    Task.detached(priority: .utility) { DiskPendingCleanup.standard.cleanAll() }
                     await state.detectInterface()
                     // Sondes de surveillance : elles tournent dès le lancement, fenêtre fermée comprise.
                     MonStore.shared.attach(to: state)

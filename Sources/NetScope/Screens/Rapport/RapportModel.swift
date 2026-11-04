@@ -34,6 +34,8 @@ final class RapportModel: ObservableObject {
             // Captures de développement : NETSCOPE_RAPPORT_COURRIEL=1 coche la section « Santé courriel ».
             var demo = RapportDemo.config
             if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_COURRIEL"] == "1" { demo.sections.insert(.courriel) }
+            // NETSCOPE_RAPPORT_DISQUES=1 coche la section « Vitesse des disques ».
+            if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_DISQUES"] == "1" { demo.sections.insert(.disques) }
             config = demo
             library = ReportLibrary(recents: RapportDemo.recents)
         } else {
