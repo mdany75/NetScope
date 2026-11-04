@@ -275,12 +275,12 @@ struct ScanDeviceTable: View {
         // Hostname, latence et dernière vue : facultatifs (on les rajoute par « Colonnes ») ; à côté du
         // panneau de détail, le tableau défile horizontalement plutôt que de rogner Type et Nom.
         StandardColumn(id: "hostname", title: "Hostname", isDefaultVisible: false),
-        StandardColumn(id: "fabricant", title: "Fabricant"),
         StandardColumn(id: "mac", title: "MAC"),
-        StandardColumn(id: "latence", title: "Latence", isDefaultVisible: false),
-        StandardColumn(id: "ports", title: "Ports ouverts"),
         StandardColumn(id: "switch", title: "Switch / port"),
         StandardColumn(id: "vlan", title: "VLAN"),
+        StandardColumn(id: "fabricant", title: "Fabricant"),
+        StandardColumn(id: "ports", title: "Ports ouverts"),
+        StandardColumn(id: "latence", title: "Latence", isDefaultVisible: false),
         StandardColumn(id: "derniereVue", title: "Vu la dernière fois", isDefaultVisible: false),
         StandardColumn(id: "premiereVue", title: "Première vue", isDefaultVisible: false),
         StandardColumn(id: "sourceNom", title: "Source du nom", isDefaultVisible: false),
@@ -333,9 +333,9 @@ struct ScanDeviceTable: View {
                 TableColumn(StandardTableHeading("TYPE"), sortUsing: table.sort("type")) { device in
                     ScanTypeCell(type: device.deviceType, isManual: inventory.typeChoice(for: device).isManual)
                 }
-                // « Routeur / pare-feu », « Poste de travail » en entier : le tableau défile plutôt
-                // horizontalement pour les dernières colonnes (Switch / port, VLAN).
-                .width(min: 132, ideal: 138)
+                // Emplacement (Switch / port, VLAN) juste après la MAC : si le tableau défile
+                // horizontalement, ce sont Fabricant et Ports qui sortent de la vue en premier.
+                .width(min: 112, ideal: 128)
                 .customizationID("type")
 
                 TableColumn(StandardTableHeading("NOM"), sortUsing: table.sort("nom")) { device in
@@ -347,7 +347,7 @@ struct ScanDeviceTable: View {
                         if scan.newIDs.contains(device.id) { ScanNewBadge() }
                     }
                 }
-                .width(min: 150, ideal: 160)
+                .width(min: 120, ideal: 150)
                 .customizationID("nom")
 
                 TableColumn(StandardTableHeading("HOSTNAME"), sortUsing: table.sort("hostname")) { device in
@@ -358,18 +358,43 @@ struct ScanDeviceTable: View {
                 .customizationID("hostname")
                 .defaultVisibility(.hidden)
 
-                TableColumn(StandardTableHeading("FABRICANT"), sortUsing: table.sort("fabricant")) { device in
-                    ScanCellText(device.vendorLabel, dimmed: device.vendor == nil && device.mac == nil)
-                }
-                .width(min: 70, ideal: 90)
-                .customizationID("fabricant")
-
                 TableColumn(StandardTableHeading("MAC"), sortUsing: table.sort("mac")) { device in
                     ScanCellText(device.mac?.formatted(.upperColon) ?? "—", mono: true, dimmed: device.mac == nil)
                 }
                 // Toujours l'adresse complète (17 caractères en chasse fixe).
                 .width(min: 132, ideal: 132)
                 .customizationID("mac")
+
+                TableColumn(StandardTableHeading("SWITCH / PORT"), sortUsing: table.sort("switch")) { device in
+                    let status = state.locationStatus(device)
+                    SwitchPortCell(name: device.switchName, port: device.switchPort, dimmed: !status.isCurrent,
+                                   note: status.explanation)
+                }
+                .width(min: 94, ideal: 110)
+                .customizationID("switch")
+
+                TableColumn(StandardTableHeading("VLAN"), sortUsing: table.sort("vlan")) { device in
+                    if let vlan = device.vlan {
+                        Chip(text: "\(vlan)", mono: true)
+                            .opacity(state.vlanStatus(device).isCurrent ? 1 : 0.5)
+                    } else {
+                        ScanCellText("—", dimmed: true)
+                    }
+                }
+                .width(min: 40, ideal: 44)
+                .customizationID("vlan")
+
+                TableColumn(StandardTableHeading("FABRICANT"), sortUsing: table.sort("fabricant")) { device in
+                    ScanCellText(device.vendorLabel, dimmed: device.vendor == nil && device.mac == nil)
+                }
+                .width(min: 70, ideal: 90)
+                .customizationID("fabricant")
+
+                TableColumn(StandardTableHeading("PORTS"), sortUsing: table.sort("ports")) { device in
+                    ScanPortTags(ports: device.openPorts)
+                }
+                .width(min: 58, ideal: 66)
+                .customizationID("ports")
 
                 TableColumn(StandardTableHeading("LATENCE"), sortUsing: table.sort("latence")) { device in
                     Text(ScanFormat.latency(device.latencyMs))
@@ -381,32 +406,14 @@ struct ScanDeviceTable: View {
                 .customizationID("latence")
                 .defaultVisibility(.hidden)
 
-                TableColumn(StandardTableHeading("PORTS"), sortUsing: table.sort("ports")) { device in
-                    ScanPortTags(ports: device.openPorts)
-                }
-                .width(min: 58, ideal: 66)
-                .customizationID("ports")
 
-                TableColumn(StandardTableHeading("SWITCH / PORT"), sortUsing: table.sort("switch")) { device in
-                    let status = state.locationStatus(device)
-                    SwitchPortCell(name: device.switchName, port: device.switchPort, dimmed: !status.isCurrent,
-                                   note: status.explanation)
-                }
-                .width(min: 94, ideal: 110)
-                .customizationID("switch")
+
+
+
+
             }
 
             Group {
-                TableColumn(StandardTableHeading("VLAN"), sortUsing: table.sort("vlan")) { device in
-                    if let vlan = device.vlan {
-                        Chip(text: "\(vlan)", mono: true)
-                            .opacity(state.vlanStatus(device).isCurrent ? 1 : 0.5)
-                    } else {
-                        ScanCellText("—", dimmed: true)
-                    }
-                }
-                .width(min: 40, ideal: 44)
-                .customizationID("vlan")
 
                 TableColumn(StandardTableHeading("VU LA DERNIÈRE FOIS"), sortUsing: table.sort("derniereVue")) { device in
                     TimelineView(.periodic(from: .now, by: 30)) { context in
