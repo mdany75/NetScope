@@ -174,7 +174,7 @@ struct DeviceOverviewTab: View {
                         }
                         if let controller = switches.controllerName(forSwitch: switchName) {
                             // Note 24 : FortiSwitch géré par FortiLink, lu par la FortiGate.
-                            DeviceKVRow(key: "Source", value: status.isCurrent ? "FortiGate \(controller) (appareils détectés, FortiLink)"
+                            DeviceKVRow(key: "Source", value: status.isCurrent ? "FortiGate · \(controller) (appareils détectés, FortiLink)"
                                         : "Ancienne lecture de la FortiGate (non confirmée)", mono: false)
                         } else {
                             DeviceKVRow(key: "Source", value: status.isCurrent ? "Inventaire (dernier relevé des switchs)"

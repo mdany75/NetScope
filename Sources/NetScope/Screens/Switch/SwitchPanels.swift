@@ -85,7 +85,7 @@ struct SwitchSourcesPanel: View {
                         source(.fdb, "table MAC par SNMP v2c · BRIDGE-MIB / Q-BRIDGE-MIB")
                         source(.arp, arpText)
                         if fortigate.isConfigured {
-                            source(.fortigate, "FortiSwitch gérés (FortiLink) · API REST, prioritaire sur SNMP")
+                            source(.fortigate, "FortiSwitch gérés (FortiLink) · API REST de la FortiGate du site, prioritaire sur SNMP")
                         }
                     }
                     Text("Un port d’accès qui apprend la MAC est retenu en priorité\u{00A0}; les ports trunk et uplink (voisin LLDP ou nombreuses MAC) sont ignorés.")
@@ -148,7 +148,7 @@ struct SwitchSourcesPanel: View {
         if store.allHosts.isEmpty, !fortigate.isConfigured { return "Ajoutez d’abord un switch." }
         if !store.canPoll, !store.isPolling { return "Saisissez la communauté SNMP en lecture seule." }
         if fortigate.isConfigured, fortigate.isEnabled {
-            return "Interroge chaque switch en SNMP v2c (UDP 161), puis relit les FortiSwitch gérés par la FortiGate (HTTPS, lecture seule)."
+            return "Interroge chaque switch en SNMP v2c (UDP 161), puis relit les FortiSwitch gérés par les FortiGate qui couvrent les plages cochées (HTTPS, lecture seule)."
         }
         return "Interroge chaque switch en SNMP v2c (UDP 161)."
     }
@@ -163,8 +163,8 @@ struct SwitchSourcesPanel: View {
                 Text(host).font(Theme.mono(12)).foregroundStyle(Theme.text)
                 Text("…")
             } else if fortigate.isBusy {
-                Text("Lecture de la FortiGate")
-                Text(fortigate.config.cleanHost).font(Theme.mono(12)).foregroundStyle(Theme.text)
+                Text(fortigate.busySites.count > 1 ? "Lecture des FortiGate" : "Lecture de la FortiGate")
+                Text(fortigate.busySites.joined(separator: ", ")).foregroundStyle(Theme.text)
                 Text("…")
             } else {
                 let count = store.allHosts.count
@@ -216,13 +216,22 @@ struct SwitchCard: View {
                                 cardName(snapshot)
                                 statusChip(snapshot)
                                 if store.isController(host) {
-                                    Chip(text: "via FortiGate", tone: .accent)
-                                        .help("FortiSwitch géré par FortiLink\u{00A0}: lu par l’API REST de la FortiGate \(snapshot?.controllerName ?? ""), jamais interrogé directement (son adresse FortiLink n’est pas joignable depuis ce Mac).")
+                                    // Note 25 : le site de la FortiGate qui a lu ce FortiSwitch.
+                                    Chip(text: snapshot?.controllerName.map { "via FortiGate · \($0)" } ?? "via FortiGate", tone: .accent)
+                                        .help("FortiSwitch géré par FortiLink\u{00A0}: lu par l’API REST de la FortiGate \(snapshot?.controllerName.map { "du site «\u{00A0}\($0)\u{00A0}»" } ?? ""), jamais interrogé directement (son adresse FortiLink n’est pas joignable depuis ce Mac).")
                                 } else if store.isAutoDiscovered(host) {
                                     Chip(text: "Découvert automatiquement", tone: .accent)
                                         .help("Trouvé par la découverte SNMP à la fin du scan\u{00A0}; la communauté qui a répondu est gardée au Trousseau.")
                                 } else if let role = snapshot?.system.location {
                                     Chip(text: role, tone: .neutral)
+                                }
+                            }
+                            if store.isController(host) {
+                                HStack(spacing: 8) {
+                                    cardName(snapshot)
+                                    statusChip(snapshot)
+                                    Chip(text: "via FortiGate", tone: .accent)
+                                        .help(snapshot?.controllerName.map { "FortiSwitch lu par la FortiGate du site «\u{00A0}\($0)\u{00A0}»." } ?? "FortiSwitch lu par la FortiGate.")
                                 }
                             }
                             HStack(spacing: 8) {

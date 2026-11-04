@@ -260,7 +260,7 @@ final class ScanController: ObservableObject {
             let fortigate = FortiGateStore.shared
             if !engineCancelled, !Task.isCancelled, fortigate.isEnabled, fortigate.isConfigured {
                 if self.plannedPhases.contains(.locations) { self.phase = .locations }
-                await fortigate.refreshAfterScan(state: state)
+                await fortigate.refreshAfterScan(state: state, ranges: targets.map(\.range))
             }
             switches.scanEnded(interrupted: Task.isCancelled, planned: discoversSwitches)
             self.finish(state, targets: targets, found: foundIDs, engineCancelled: engineCancelled, snmpCancelled: Task.isCancelled)

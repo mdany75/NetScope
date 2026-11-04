@@ -97,7 +97,7 @@ struct SwitchScreen: View {
         // Communautés lues au Trousseau à l'ouverture de l'écran, hors du fil principal.
         .task {
             await store.loadVault()
-            await FortiGateStore.shared.loadToken()
+            await FortiGateStore.shared.loadTokens()
         }
         .screenToolbar {
             Button { showAdd = true } label: { Label("Ajouter un switch", systemImage: "plus") }

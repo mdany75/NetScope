@@ -155,9 +155,11 @@ struct ScanPipelineBar: View {
         if result.filledMACs > 0 { text += " · \(result.filledMACs) MAC complétée\(result.filledMACs > 1 ? "s" : "") par l’ARP SNMP" }
         // FortiSwitch gérés relus par la FortiGate à la fin de ce scan (note 24) : ils localisent
         // aussi des appareils, sans passer par SNMP.
-        if fortigate.isEnabled, let report = fortigate.report, !report.switches.isEmpty,
-           report.readAt >= result.date.addingTimeInterval(-600) {
-            text += " · FortiGate \(report.controllerName)\u{00A0}: \(report.switches.count) FortiSwitch"
+        // Note 25 : une FortiGate par site, celles qui couvrent les plages scannées.
+        let read = fortigate.sites.filter { !$0.report.switches.isEmpty && $0.report.readAt >= result.date.addingTimeInterval(-600) }
+        if fortigate.isEnabled, !read.isEmpty {
+            let count = read.reduce(0) { $0 + $1.report.switches.count }
+            text += " · FortiGate \(read.map(\.label).joined(separator: ", "))\u{00A0}: \(count) FortiSwitch"
         }
         if !result.failed.isEmpty { text += " · \(result.failed.count) sans relevé" }
         let help = [text, rangesHelp(result)].filter { !$0.isEmpty }.joined(separator: "\n")

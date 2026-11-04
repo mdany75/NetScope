@@ -321,11 +321,15 @@ public struct SNMPSwitchSnapshot: Hashable, Sendable, Codable, Identifiable {
     /// Contrôleur qui a fourni ce relevé (FortiGate pour un FortiSwitch géré par FortiLink) ;
     /// nil pour un relevé SNMP direct.
     public var controllerName: String?
+    /// Adresse FortiLink réelle quand `host` est une adresse de remplacement (note 25 : deux sites
+    /// dont les FortiSwitch ont la même adresse FortiLink, 10.255.1.2 par exemple).
+    public var fortiLinkIP: IPv4Address?
 
     public init(host: IPv4Address, system: SNMPSystemInfo, interfaces: [SNMPInterface], fdb: [SNMPFDBEntry] = [],
                 neighbors: [SNMPLLDPNeighbor] = [], pvid: [Int: Int] = [:], poePorts: Set<Int> = [],
                 poeBudgetW: Int? = nil, poeUsedW: Int? = nil, poeDetails: [SNMPPoEPort]? = nil,
-                arp: [MACAddress: IPv4Address] = [:], polledAt: Date = Date(), controllerName: String? = nil) {
+                arp: [MACAddress: IPv4Address] = [:], polledAt: Date = Date(), controllerName: String? = nil,
+                fortiLinkIP: IPv4Address? = nil) {
         self.host = host
         self.system = system
         self.interfaces = interfaces
@@ -339,6 +343,7 @@ public struct SNMPSwitchSnapshot: Hashable, Sendable, Codable, Identifiable {
         self.arp = arp
         self.polledAt = polledAt
         self.controllerName = controllerName
+        self.fortiLinkIP = fortiLinkIP
     }
 
     /// Relevé fourni par un contrôleur (FortiGate) et non par SNMP.
