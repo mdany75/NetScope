@@ -149,8 +149,7 @@ struct MonEditor: View {
                     ToolCheckbox(label: "Notification macOS", isOn: draft.notify)
                     ToolCheckbox(label: "Son", isOn: draft.sound)
                 }
-                soonRow("Courriel", placeholder: "[ADRESSE]")
-                soonRow("Webhook", placeholder: "[URL] Teams / Slack")
+                MonAlertChannelsRow(probeID: saved.id)
                 soonRow("Exécuter un script", placeholder: "~/Scripts/…")
             }
         }
@@ -266,7 +265,7 @@ struct MonEditor: View {
                 .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
                 .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
         }
-        .help("Bientôt\u{00A0}: courriel, webhook et script d’alerte ne sont pas encore offerts.")
+        .help("Bientôt\u{00A0}: le script d’alerte n’est pas encore offert.")
     }
 
     private func field<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {

@@ -173,6 +173,7 @@ struct ReglagesScreen: View {
         case .majs: RegUpdatesSection()
         case .apropos: RegAboutSection()
         case .switchs: RegSwitchesSection()
+        case .alertes: RegAlertsSection()
         case .notifications: RegNotificationsSection()
         case .raccourcis: RegShortcutsSection()
         case .export: RegBackupSection()

@@ -343,9 +343,11 @@ final class MonStore: ObservableObject {
         let openBefore = journal.openCount(probe: id)
         let created = journal.record(step.events, probe: probe, date: outcome.result.date)
         for alert in created { MonNotifier.shared.post(alert, probe: probe) }
+        for alert in created { AlertDispatcher.shared.emit(.probe(alert, probe: probe)) }
         // Retour à la normale notifié seulement s'il a fermé une alerte (pas pour une simple information).
         if step.events.contains(where: { $0.kind == .recovered }), journal.openCount(probe: id) < openBefore {
             MonNotifier.shared.postRecovery(probe: probe, value: outcome.result.value)
+            AlertDispatcher.shared.emit(.probeRecovery(probe: probe, value: outcome.result.value, at: outcome.result.date))
         }
         if manual {
             let result = outcome.result

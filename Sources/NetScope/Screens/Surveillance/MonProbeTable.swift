@@ -131,6 +131,7 @@ struct MonProbeTable: View {
         StandardColumn(id: "dernierControle", title: "Dernier contrôle", isDefaultVisible: false),
         StandardColumn(id: "seuils", title: "Seuils", isDefaultVisible: false),
         StandardColumn(id: "notifications", title: "Notifications", isDefaultVisible: false),
+        StandardColumn(id: "alertesExternes", title: "Alertes externes", isDefaultVisible: false),
         StandardColumn(id: "dernierePanne", title: "Dernière panne", isDefaultVisible: false),
         StandardColumn(id: "plage", title: "Plage horaire", isDefaultVisible: false),
         StandardColumn(id: "condition", title: "Condition", isDefaultVisible: false),
@@ -436,6 +437,13 @@ private struct MonProbeGrid: View {
                 }
                 .width(min: 70, ideal: 100)
                 .customizationID("notifications")
+                .defaultVisibility(.hidden)
+
+                TableColumn(StandardTableHeading("ALERTES EXTERNES")) { line in
+                    MonAlertChannelCell(probeID: line.probe.id).monInactive(line)
+                }
+                .width(min: 90, ideal: 140)
+                .customizationID("alertesExternes")
                 .defaultVisibility(.hidden)
 
                 TableColumn(StandardTableHeading("DERNIÈRE PANNE"), sortUsing: table.sort("dernierePanne")) { line in

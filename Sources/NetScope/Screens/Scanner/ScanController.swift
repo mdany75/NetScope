@@ -405,6 +405,8 @@ final class ScanController: ObservableObject {
             title: engineCancelled ? "Scan arrêté" : "Scan terminé",
             detail: "\(online) appareil\(online > 1 ? "s" : "") en ligne en \(seconds)" + (fresh > 0 ? ", \(fresh) nouveau\(fresh > 1 ? "x" : "")." : "."),
             date: end, link: .screen(Screen.scanner.rawValue), source: "scan"))
+        if !engineCancelled { AlertDispatcher.shared.emit(.scanFinished(online: online, new: newIDs.count, duration: seconds, ranges: targets.map(\.range.description).joined(separator: ", "))) }
+        if !engineCancelled { AlertDispatcher.shared.emit(.newDevices(state.devices.filter { newIDs.contains($0.id) })) }
     }
 
     // MARK: Actions sur un appareil

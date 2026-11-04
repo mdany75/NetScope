@@ -1,0 +1,274 @@
+import Foundation
+import NetScopeCore
+
+/// Répartiteur des alertes envoyées hors du Mac (courriel, webhooks). Les émetteurs (Surveillance,
+/// État des services, Test DHCP, Scanner) l'appellent d'une ligne : `AlertDispatcher.shared.emit(…)`.
+///
+/// - RIEN ne part tant que l'interrupteur général des alertes est coupé (désactivé par défaut) ;
+/// - en démonstration et pendant les captures, rien n'est lu au Trousseau ni envoyé : les canaux
+///   et le journal sont fictifs (DevTools/AlertsDemo.swift) ;
+/// - les secrets (mot de passe SMTP, adresses des webhooks, en-tête d'authentification) sont lus
+///   au Trousseau juste avant l'envoi, jamais gardés dans les réglages ni écrits au journal.
+@MainActor
+final class AlertDispatcher: ObservableObject {
+    static let shared = AlertDispatcher()
+
+    private enum Key {
+        static let settings = "alertes.reglages"
+        static let journal = "alertes.journal"
+    }
+
+    @Published var settings: AlertSettings {
+        didSet {
+            guard settings != oldValue else { return }
+            save()
+            if settings.rules != oldValue.rules || settings.isEnabled != oldValue.isEnabled { planner.reset() }
+        }
+    }
+    @Published private(set) var journal: [AlertLogEntry] = []
+    /// Canaux en cours d'envoi d'un test (bouton « Envoyer un test »).
+    @Published private(set) var testing: Set<AlertChannel> = []
+    /// Dernier résultat de test par canal (affiché sous le bouton).
+    @Published private(set) var lastTest: [AlertChannel: AlertLogEntry] = [:]
+    /// Secrets présents au Trousseau (sans leur valeur) : mot de passe, adresses masquées.
+    @Published private(set) var hasPassword = false
+    @Published private(set) var maskedURLs: [UUID: String] = [:]
+    @Published private(set) var hasAuthValue: Set<UUID> = []
+    /// Événements retenus par les règles depuis le lancement (anti-rafale, silence…).
+    @Published private(set) var skippedCount = 0
+    @Published private(set) var lastSkipReason: AlertSkipReason?
+
+    private var planner = AlertPlanner()
+    private var flushTask: Task<Void, Never>?
+    private let keychain = UpdKeychain(service: AlertSecretKey.service)
+    private let defaults: UserDefaults?
+
+    /// Démonstration ou capture : aucun envoi, aucun Trousseau.
+    var isSandboxed: Bool { RegEnvironment.isSandboxed }
+
+    private init() {
+        defaults = RegEnvironment.isSandboxed ? nil : UserDefaults.standard
+        if RegEnvironment.isSandboxed {
+            let demo = AlertsDemo.make()
+            settings = demo.settings
+            journal = demo.journal
+            hasPassword = true
+            maskedURLs = demo.maskedURLs
+            hasAuthValue = demo.authHeaders
+            return
+        }
+        if let data = defaults?.data(forKey: Key.settings), let saved = try? JSONDecoder().decode(AlertSettings.self, from: data) {
+            settings = saved
+        } else {
+            settings = AlertSettings()
+        }
+        if let data = defaults?.data(forKey: Key.journal), let saved = try? JSONDecoder().decode([AlertLogEntry].self, from: data) {
+            journal = saved
+        }
+        // Le Trousseau n'est lu qu'à l'ouverture de Réglages › Alertes et juste avant un envoi.
+    }
+
+    private func save() {
+        guard let defaults, let data = try? JSONEncoder().encode(settings) else { return }
+        defaults.set(data, forKey: Key.settings)
+    }
+
+    private func saveJournal() {
+        guard let defaults, let data = try? JSONEncoder().encode(journal) else { return }
+        defaults.set(data, forKey: Key.journal)
+    }
+
+    // MARK: Émission
+
+    /// Événement d'un émetteur (nil : rien à signaler). Ne fait rien si les alertes sont coupées.
+    func emit(_ event: AlertEvent?) {
+        guard let event, !isSandboxed else { return }
+        let decision = planner.submit(event, settings: settings, hasChannel: !settings.enabledChannels.isEmpty, now: Date())
+        if case .skipped(let reason) = decision {
+            if reason != .alertsDisabled && reason != .kindDisabled {
+                skippedCount += 1
+                lastSkipReason = reason
+            }
+            return
+        }
+        scheduleFlush()
+    }
+
+    private func scheduleFlush() {
+        flushTask?.cancel()
+        guard let due = planner.nextFlush(rules: settings.rules) else { return }
+        let delay = max(0, due.timeIntervalSinceNow)
+        flushTask = Task { [weak self] in
+            if delay > 0 { try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000)) }
+            guard !Task.isCancelled else { return }
+            self?.flush()
+        }
+    }
+
+    private func flush() {
+        guard let batch = planner.flush(now: Date(), rules: settings.rules, force: true) else { return }
+        // L'interrupteur a pu être coupé pendant le regroupement : rien ne part.
+        guard settings.isEnabled else { return }
+        for channel in settings.enabledChannels { send(batch, on: channel, isTest: false) }
+    }
+
+    // MARK: Envoi
+
+    private func delivery() -> AlertDelivery {
+        let origin = Host.current().localizedName ?? "Mac"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+        let ehlo = LocalInterfaces.primary().map { "[\($0.address)]" } ?? "[127.0.0.1]"
+        return AlertDelivery(context: AlertContext(origin: origin, version: version), ehloName: ehlo)
+    }
+
+    private func readSecrets() -> AlertSecrets {
+        var secrets = AlertSecrets(smtpPassword: keychain.string(for: AlertSecretKey.smtpPassword))
+        for hook in settings.webhooks {
+            secrets.webhookURLs[hook.id] = keychain.string(for: AlertSecretKey.webhookURL(hook.id))
+            secrets.webhookAuth[hook.id] = keychain.string(for: AlertSecretKey.webhookAuth(hook.id))
+        }
+        return secrets
+    }
+
+    private func send(_ batch: AlertBatch, on channel: AlertChannel, isTest: Bool) {
+        let delivery = delivery()
+        let settings = self.settings
+        let secrets = readSecrets()
+        if isTest { testing.insert(channel) }
+        Task {
+            let entry = await delivery.deliver(batch, on: channel, settings: settings, secrets: secrets)
+            AlertDispatcher.shared.record(entry, channel: channel, isTest: isTest)
+        }
+    }
+
+    private func record(_ entry: AlertLogEntry, channel: AlertChannel, isTest: Bool) {
+        journal.insert(entry, at: 0)
+        if journal.count > AlertLogEntry.limit { journal.removeLast(journal.count - AlertLogEntry.limit) }
+        saveJournal()
+        if isTest {
+            testing.remove(channel)
+            lastTest[channel] = entry
+        }
+    }
+
+    /// Message d'essai sur un canal (après confirmation de l'utilisateur). Permis même alertes
+    /// coupées : c'est une action explicite, et le seul envoi possible dans ce cas.
+    func sendTest(_ channel: AlertChannel) {
+        guard !testing.contains(channel) else { return }
+        let origin = isSandboxed ? "MacBook de démonstration" : (Host.current().localizedName ?? "Mac")
+        let batch = AlertBatch.test(now: Date(), origin: origin)
+        if isSandboxed {
+            // Démonstration : rien ne part, une ligne « Simulée » montre ce qui se passerait.
+            let entry = AlertLogEntry(date: Date(), channelKind: kind(of: channel), channelName: settings.channelName(channel),
+                                      outcome: .simulated, title: batch.title, eventCount: 1, severity: .info, isTest: true,
+                                      detail: "Démonstration\u{00A0}: aucun envoi réel.", durationMs: nil)
+            record(entry, channel: channel, isTest: true)
+            return
+        }
+        send(batch, on: channel, isTest: true)
+    }
+
+    func kind(of channel: AlertChannel) -> String {
+        switch channel {
+        case .email: return "courriel"
+        case .webhook(let id): return settings.webhook(id)?.kind.rawValue ?? "webhook"
+        }
+    }
+
+    func clearJournal() {
+        journal = []
+        saveJournal()
+    }
+
+    // MARK: Secrets (Trousseau)
+
+    func refreshSecrets() {
+        guard !isSandboxed else { return }
+        hasPassword = !(keychain.string(for: AlertSecretKey.smtpPassword) ?? "").isEmpty
+        var masked: [UUID: String] = [:]
+        var auth: Set<UUID> = []
+        for hook in settings.webhooks {
+            if let url = keychain.string(for: AlertSecretKey.webhookURL(hook.id)), !url.isEmpty {
+                masked[hook.id] = AlertRedactor.maskedWebhook(url)
+            }
+            if !(keychain.string(for: AlertSecretKey.webhookAuth(hook.id)) ?? "").isEmpty { auth.insert(hook.id) }
+        }
+        maskedURLs = masked
+        hasAuthValue = auth
+    }
+
+    /// Enregistre le mot de passe SMTP (vide : l'efface). Renvoie un message d'erreur éventuel.
+    @discardableResult
+    func setPassword(_ value: String) -> String? {
+        guard !isSandboxed else { return nil }
+        do {
+            try keychain.set(value, for: AlertSecretKey.smtpPassword)
+            refreshSecrets()
+            return nil
+        } catch {
+            return (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    /// Ajoute ou modifie un webhook ; `url` et `auth` nil : inchangés, vides : effacés.
+    @discardableResult
+    func saveWebhook(_ hook: AlertWebhook, url: String?, auth: String?) -> String? {
+        if let index = settings.webhooks.firstIndex(where: { $0.id == hook.id }) {
+            settings.webhooks[index] = hook
+        } else {
+            settings.webhooks.append(hook)
+        }
+        guard !isSandboxed else {
+            if let url, !url.isEmpty { maskedURLs[hook.id] = AlertRedactor.maskedWebhook(url) }
+            return nil
+        }
+        do {
+            if let url { try keychain.set(url.trimmingCharacters(in: .whitespacesAndNewlines), for: AlertSecretKey.webhookURL(hook.id)) }
+            if let auth { try keychain.set(auth, for: AlertSecretKey.webhookAuth(hook.id)) }
+            refreshSecrets()
+            return nil
+        } catch {
+            return (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func removeWebhook(_ id: UUID) {
+        settings.webhooks.removeAll { $0.id == id }
+        maskedURLs[id] = nil
+        hasAuthValue.remove(id)
+        lastTest[.webhook(id)] = nil
+        guard !isSandboxed else { return }
+        try? keychain.delete(AlertSecretKey.webhookURL(id))
+        try? keychain.delete(AlertSecretKey.webhookAuth(id))
+    }
+
+    // MARK: État
+
+    /// Canal prêt à envoyer (réglages complets, secret présent).
+    func isReady(_ channel: AlertChannel) -> Bool {
+        switch channel {
+        case .email: return settings.smtp.problems(hasPassword: hasPassword).isEmpty
+        case .webhook(let id): return maskedURLs[id] != nil
+        }
+    }
+
+    /// Indication de la Surveillance : où partent les alertes de cette sonde.
+    func channelSummary(forProbe id: UUID) -> (text: String, active: Bool) {
+        guard settings.isEnabled else { return ("Alertes hors du Mac désactivées", false) }
+        if settings.rules.excludedProbes.contains(id) { return ("Sonde exclue des alertes", false) }
+        let channels = settings.channels(forProbe: id)
+        guard !channels.isEmpty else { return ("Aucun canal activé", false) }
+        let names = channels.map { channel -> String in
+            switch channel {
+            case .email: return "Courriel"
+            case .webhook(let hookID): return settings.webhook(hookID)?.kind.shortLabel ?? "Webhook"
+            }
+        }
+        var seen = Set<String>()
+        return (names.filter { seen.insert($0).inserted }.joined(separator: " · "), true)
+    }
+
+    func setExcluded(_ excluded: Bool, probe id: UUID) {
+        if excluded { settings.rules.excludedProbes.insert(id) } else { settings.rules.excludedProbes.remove(id) }
+    }
+}

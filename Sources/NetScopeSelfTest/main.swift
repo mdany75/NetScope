@@ -42,6 +42,7 @@ registerDiskTests(suite)
 registerNotificationShortcutTests(suite)
 registerCredentialTests(suite)
 registerBackupMethodsTests(suite)
+registerAlertTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)
