@@ -35,7 +35,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
     double-clic partout, « Ouvrir dans › », Retour / Avancer ⌘[ ⌘] ; note 36 : essais de charge
     et lenteurs corrigées) ; essai réel à faire sur un vrai scan et un très gros site.
 11. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany ;
-    réorganisé le même jour pour placer les notes 45 à 53) :
+    réorganisé le même jour pour placer les notes 45 à 53, ordre accepté par Dany) :
     - **0.13.1** : essais réels (sites, FortiGate, FortiAP, navigation) et correctifs ; note 35
       (journal et diagnostic).
     - **0.14.0, Carte, VoIP, DHCP, sauvegarde** (en cours) : notes 32 (recherche dans la Carte),
