@@ -1,5 +1,61 @@
 # Changements
 
+## 0.11.0 — 2026-11-04
+
+Recherche multiple dans tous les modules et Wi-Fi Fortinet : on combine plusieurs critères
+(« switch:SW-ETG2 type:imprimante ») partout où il y a une recherche, et le module Wi-Fi lit
+les bornes FortiAP de chaque site par sa FortiGate, avec un diagnostic en clair.
+
+### Ajouté
+- **Recherche multiple** : plusieurs mots à la fois (« SW-ETG2 imprimante »), préfixes de
+  champ (« switch:SW-ETG2 type:imprimante », « vlan:30 », « fab:Brother », « site:Laval »),
+  exclusion par « - » (« -type:imprimante ») et « "phrase exacte" » entre guillemets ; casse
+  et accents ignorés.
+- **Adresses et numéros précis** : adresses IP par début d’adresse ou par bloc
+  (« ip:10.20. », « ip:10.20.0.0/16 »), MAC sans souci des séparateurs (« mac:94ddf8 »),
+  VLAN et port exacts.
+- **Étiquettes de critères** sous la barre d’outils, chacune retirable d’un clic, avec le
+  nombre de résultats, le menu « Critères » des préfixes du module et une aide au survol ; le
+  champ de recherche propose les préfixes pendant la saisie.
+- **Wi-Fi › FortiAP** : par la FortiGate de chaque site et en lecture seule, les bornes
+  FortiAP (état, modèle, firmware, radios, clients, utilisation du canal), les clients Wi-Fi,
+  les SSID diffusés et les AP voisins ou non autorisés. Plusieurs sites sont fusionnés, chaque
+  borne marquée de son site ; les FortiGate utilisées sont les mêmes que pour les switchs
+  (choix par plage IP).
+- **Diagnostic Wi-Fi automatique** : carte des canaux des bornes, chevauchements de canal,
+  clients à signal faible, bornes hors ligne ou surchargées, conseils en clair ; les seuils
+  sont réglables.
+- **Scanner et fiche Appareil** : pour un appareil en Wi-Fi, borne FortiAP, SSID, bande et
+  signal (colonnes facultatives « Borne Wi-Fi » et « SSID »).
+- **Surveillance** : sondes « FortiAP hors ligne » et « Borne surchargée ».
+- **Rapports** : section facultative « Wi-Fi FortiAP ».
+
+### Modifié
+- La recherche de la barre d’outils filtre désormais aussi la Surveillance (sondes et
+  journal), l’Accès distant, la Boîte à outils (outils et historique), les Réglages et la
+  table MAC des Switchs ; chaque module garde sa propre recherche.
+- Les filtres des panneaux (sondes, connexions, outils, réglages, table MAC, réseaux Wi-Fi,
+  serveurs de débit) acceptent la même syntaxe. Une recherche d’un seul mot donne le même
+  résultat qu’avant.
+- **Diagnostic FortiGate** : les réponses brutes copiées comprennent les appels Wi-Fi (le
+  jeton est toujours retiré) ; un refus 403 explique le droit « WiFi & Switch Controller » à
+  ajouter au profil de l’administrateur API.
+
+### Corrigé
+- « vlan:4 » ne trouve plus le VLAN 40, ni « port:1 » le port 12 : VLAN et ports se comparent
+  désormais exactement.
+
+### Limites
+- La partie FortiAP n’a pas encore été essayée sur une vraie FortiGate avec des bornes : elle
+  est faite d’après la documentation de l’API REST de FortiOS et vérifiée sur des données de
+  démonstration. Les champs disponibles peuvent varier selon la version de FortiOS.
+- Seules les bornes FortiAP gérées par une FortiGate sont lues ; les bornes d’autres marques
+  ou autonomes n’apparaissent pas dans cette partie (l’analyse des réseaux voisins par le Mac
+  reste disponible).
+- Le profil de l’administrateur API doit avoir le droit « WiFi & Switch Controller » en
+  lecture ; sans lui, la partie FortiAP reste vide et l’explique.
+- Rien n’est modifié sur les FortiGate ni sur les bornes : NetScope ne fait que lire.
+
 ## 0.10.0 — 2026-11-04
 
 Plusieurs FortiGate, une par site : NetScope garde une liste de FortiGate, chacune avec son

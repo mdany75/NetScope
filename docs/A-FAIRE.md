@@ -5,11 +5,11 @@
 
 ## Priorités (revues le 4 novembre 2026)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0.
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0.
 
-1. **0.10.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer) : essais réels de la 0.3.x (localisation, DHCP, capture,
+1. **0.11.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
-   des 0.5.0 à 0.8.0 (voir ci-dessous) ; 0.10.1 au besoin.
+   des 0.5.0 à 0.8.0 (voir ci-dessous) ; 0.11.1 au besoin.
 2. ~~**0.5.0, diagnostic du poste et du réseau local**~~ : livrée le 4 novembre 2026
    (notes 12, 21, 17 et 16) ; essais réels à faire (PoE sur une vraie switch, SNMP, M-Lab,
    LibreSpeed, Ookla, bouton Installer).
@@ -24,8 +24,9 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
    réel à faire sur la FortiGate de Dany (jeton, empreinte, FortiSwitch, ports, appareils).
 7. ~~**0.10.0, plusieurs FortiGate**~~ : livrée le 4 novembre 2026 (note 25) ; essai réel à
    faire sur les 20 sites de Dany (import CSV, jetons, choix par plage, « Tester tout »).
-8. **0.11.0, recherche et Wi-Fi Fortinet** : notes 26 (recherche multiple partout) et 27 (FortiAP dans le
-   module Wi-Fi, analyse et diagnostic).
+8. ~~**0.11.0, recherche et Wi-Fi Fortinet**~~ : livrée le 4 novembre 2026 (notes 26 et 27) ;
+   essai réel à faire sur les FortiGate et bornes FortiAP de Dany (droit « WiFi & Switch
+   Controller », clients, AP voisins, sondes) et de la recherche sur un vrai scan.
 9. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
@@ -511,6 +512,8 @@ jeton API.
 
 ## 26. Recherche multiple dans tous les modules (demande de Dany)
 
+**Livrée dans la 0.11.0** (4 novembre 2026) ; essai réel à faire sur un vrai scan.
+
 « Dans recherche, peu importe le module, pouvoir faire une recherche multiple : numéro de switch
 + type par exemple. »
 
@@ -522,6 +525,9 @@ jeton API.
   Switchs et ports, Analyse, Surveillance, Accès distant, Outils, Réglages…).
 
 ## 27. Module Wi-Fi : FortiAP, analyse et diagnostic (demande de Dany)
+
+**Livrée dans la 0.11.0** (4 novembre 2026) ; essai réel à faire sur une vraie FortiGate avec
+des bornes FortiAP (droit « WiFi & Switch Controller » en lecture).
 
 - Par la FortiGate de chaque site (liste de la 0.10.0), en lecture seule : FortiAP gérés (état,
   modèle, firmware, IP, radios : canal, largeur, puissance, clients, utilisation du canal),

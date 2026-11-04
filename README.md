@@ -8,7 +8,7 @@ surveillance, rapports et accès distant, le tout en français.
 
 ## Fonctions
 
-Version 0.10.0 : les quatorze écrans fonctionnent, au style Mac (mode sombre, petite fenêtre), avec des tableaux à colonnes réglables. Nouveau dans la 0.10.0 : plusieurs FortiGate, une par site, chacune avec son jeton au Trousseau et ses plages couvertes ; à la fin d’un scan, seules celles qui couvrent les plages scannées sont lues (import et export CSV de la liste, « Tester tout »). Depuis la 0.9.0 : les FortiSwitch gérés par une FortiGate (FortiLink) sont lus par l’API REST de la FortiGate, en lecture seule (jeton au Trousseau), et remplissent Switchs et ports ainsi que les colonnes Switch / Port et VLAN du Scanner, même si le réseau FortiLink n’est pas joignable depuis le Mac. Depuis la 0.8.0 : des Réglages complets (notifications choisies avec heures « Ne pas déranger », raccourcis modifiables et menus Scan, Appareil et Aller, sauvegarde automatique avec restauration, test SNMP v2c/v3, identifiants SSH et WMI, méthodes de découverte par profil) et des alertes hors du Mac par courriel et webhook Teams, Slack ou JSON. Depuis la 0.7.0 : « Capture de paquets » façon Wireshark (filtres, détail par couche, vue hexadécimale, suivi de flux, statistiques, .pcap) et « Vitesse des disques » (disques internes et externes, partages réseau, dossiers nuage) dans la Boîte à outils. Depuis la 0.6.0 : « État des services » (Microsoft 365, Azure, Apple, AWS, Google, Cloudflare… vus par leur page officielle et testés depuis votre réseau) et un groupe « Courriel » dans la Boîte à outils (santé d’un domaine sur 100, MX, listes noires, SPF/DKIM/DMARC, diagnostic SMTP, analyse d’en-têtes), avec une Recherche DNS plus complète (SOA, SRV, CAA, DNSSEC, comparaison et propagation). La suite prévue est dans
+Version 0.11.0 : les quatorze écrans fonctionnent, au style Mac (mode sombre, petite fenêtre), avec des tableaux à colonnes réglables. Nouveau dans la 0.11.0 : une recherche multiple dans tous les modules (plusieurs mots, préfixes comme « switch:SW-ETG2 type:imprimante », « ip:10.20.0.0/16 » ou « vlan:30 », exclusion par « - », étiquettes retirables) et, dans le module Wi-Fi, les bornes FortiAP de chaque site lues par sa FortiGate en lecture seule (clients, SSID, AP voisins ou non autorisés), avec un diagnostic des canaux, des signaux faibles et des bornes surchargées. Depuis la 0.10.0 : plusieurs FortiGate, une par site, chacune avec son jeton au Trousseau et ses plages couvertes ; à la fin d’un scan, seules celles qui couvrent les plages scannées sont lues (import et export CSV de la liste, « Tester tout »). Depuis la 0.9.0 : les FortiSwitch gérés par une FortiGate (FortiLink) sont lus par l’API REST de la FortiGate, en lecture seule (jeton au Trousseau), et remplissent Switchs et ports ainsi que les colonnes Switch / Port et VLAN du Scanner, même si le réseau FortiLink n’est pas joignable depuis le Mac. Depuis la 0.8.0 : des Réglages complets (notifications choisies avec heures « Ne pas déranger », raccourcis modifiables et menus Scan, Appareil et Aller, sauvegarde automatique avec restauration, test SNMP v2c/v3, identifiants SSH et WMI, méthodes de découverte par profil) et des alertes hors du Mac par courriel et webhook Teams, Slack ou JSON. Depuis la 0.7.0 : « Capture de paquets » façon Wireshark (filtres, détail par couche, vue hexadécimale, suivi de flux, statistiques, .pcap) et « Vitesse des disques » (disques internes et externes, partages réseau, dossiers nuage) dans la Boîte à outils. Depuis la 0.6.0 : « État des services » (Microsoft 365, Azure, Apple, AWS, Google, Cloudflare… vus par leur page officielle et testés depuis votre réseau) et un groupe « Courriel » dans la Boîte à outils (santé d’un domaine sur 100, MX, listes noires, SPF/DKIM/DMARC, diagnostic SMTP, analyse d’en-têtes), avec une Recherche DNS plus complète (SOA, SRV, CAA, DNSSEC, comparaison et propagation). La suite prévue est dans
 [docs/A-FAIRE.md](docs/A-FAIRE.md).
 
 - **Scanner multi-plages qui se remplit tout seul** : plusieurs plages à la fois, ping ICMP
@@ -50,7 +50,10 @@ Version 0.10.0 : les quatorze écrans fonctionnent, au style Mac (mode sombre, p
   plages scannées, lecture seule, empreinte du certificat acceptée une fois, aide pour créer
   l’administrateur API).
 - **Wi-Fi** : connexion actuelle (RSSI, bruit, SNR, canal, débit), analyse des réseaux
-  voisins, graphe des canaux 2,4 / 5 / 6 GHz, recommandations.
+  voisins, graphe des canaux 2,4 / 5 / 6 GHz, recommandations ; **bornes FortiAP** de chaque
+  site lues par sa FortiGate (état, radios, clients, SSID, AP voisins ou non autorisés),
+  diagnostic automatique (chevauchements de canal, signal faible, bornes hors ligne ou
+  surchargées) et borne / SSID de chaque appareil en Wi-Fi dans le Scanner.
 - **Fiche appareil** : réseau, matériel, emplacement physique, ports et services avec
   bannières, sonde web, notes.
 - **Boîte à outils** : calculateur de sous-réseaux avec découpage, convertisseur MAC/OUI,
@@ -79,7 +82,9 @@ Version 0.10.0 : les quatorze écrans fonctionnent, au style Mac (mode sombre, p
 - Barre latérale à quatorze écrans, fidèle aux croquis.
 - Interface active affichée en bas de la barre latérale (« en0 · 10.182.122.135 · Wi-Fi »),
   avec la version et une pastille quand une mise à jour est disponible.
-- Recherche globale par IP, MAC, nom, fabricant ou port de switch.
+- Recherche multiple dans tous les modules : plusieurs mots à la fois, préfixes de champ
+  (`switch:`, `type:`, `ip:`, `mac:`, `vlan:`, `fab:`, `site:`…), `-mot` pour exclure et
+  "phrase exacte" ; chaque critère en étiquette retirable.
 - Plages à scanner sous toutes les formes courantes : `10.182.122.0/24`, `192.168.1.1-254`,
   `10.10.0.1-10.10.0.50`, `10.0.0.5`, ou une liste ; limite de sécurité de 65 536 adresses.
 - Calculateur de sous-réseaux : réseau, masque, masque inverse, broadcast, premier et dernier
