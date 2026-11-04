@@ -274,6 +274,8 @@ struct FortiAPAdvicePanel: View {
     @Binding var selectedAP: FortiManagedAP.ID?
     @Binding var band: WifiBand
     @State private var showThresholds = false
+    /// Note 47 : diagnostic choisi dans le menu « Diagnostiquer ».
+    @State private var diagnosis: WifiDiagnosisTarget?
 
     var body: some View {
         let advice = store.shownDiagnosis.advice
@@ -289,9 +291,47 @@ struct FortiAPAdvicePanel: View {
                         .popover(isPresented: $showThresholds, arrowEdge: .bottom) { FortiAPThresholdsForm() }
                         .help("Seuils du signal faible et de la surcharge")
                 }
+                diagnoseMenu
                 ForEach(advice) { item in card(item) }
             }
         }
+    }
+
+    /// Note 47 : diagnostic d'une borne, d'un SSID ou d'un client à signal faible.
+    private var diagnoseMenu: some View {
+        let o = store.shownOverview
+        var seen = Set<String>()
+        let ssids = o.ssids.filter { seen.insert($0.site + "|" + $0.ssid).inserted }
+        let weak = store.shownDiagnosis.weakClients.prefix(8)
+        return Menu {
+            Section("Bornes") {
+                ForEach(o.aps) { ap in
+                    Button(ap.name + (o.isMultiSite ? " (\(ap.site))" : "") + (ap.isOffline ? " — hors ligne" : "")) { diagnosis = .ap(ap) }
+                }
+            }
+            if !ssids.isEmpty {
+                Section("SSID") {
+                    ForEach(ssids) { ssid in
+                        Button("«\u{00A0}\(ssid.ssid)\u{00A0}»" + (o.isMultiSite ? " (\(ssid.site))" : "")) { diagnosis = .ssid(ssid) }
+                    }
+                }
+            }
+            if !weak.isEmpty {
+                Section("Clients à signal faible") {
+                    ForEach(Array(weak)) { client in
+                        Button(client.displayName + (client.rssi.map { " (\(WifiQuality.dbm($0)))" } ?? "")) { diagnosis = .client(client) }
+                    }
+                }
+            }
+        } label: {
+            Label("Diagnostiquer une borne, un SSID ou un client", systemImage: "stethoscope")
+        }
+        .menuStyle(.borderedButton)
+        .controlSize(.small)
+        .fixedSize()
+        .disabled(o.aps.isEmpty && o.clients.isEmpty)
+        .help("Diagnostic complet d’une borne, d’un SSID ou d’un client\u{00A0}: chaque cause vérifiée, avec les actions suggérées.")
+        .wifiDiagnosisSheet(item: $diagnosis)
     }
 
     private func card(_ item: FortiWifiAdvice) -> some View {
@@ -415,12 +455,20 @@ struct FortiAPDetailPanel: View {
                                 Text(WifiQuality.dbm(rssi)).font(Theme.mono(11, weight: .semibold))
                                     .foregroundStyle(WifiText.qualityColor(rssi).foreground).frame(width: 62, alignment: .trailing)
                             }
+                            // Note 47 : diagnostic de ce client.
+                            WifiDiagnoseButton(client: client, compact: true)
+                                .buttonStyle(.borderless)
+                                .foregroundStyle(Theme.accentStrong)
                         }
                         .padding(.vertical, 4)
                         .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
                     }
                 }
             }
+            // Note 47 : diagnostic de la borne entière (radios, clients, port du switch).
+            WifiDiagnoseButton(ap: ap)
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             if let device {
                 Button("Ouvrir la fiche de la borne →") { state.showDevice(device.id) }
                     .buttonStyle(.ghost)

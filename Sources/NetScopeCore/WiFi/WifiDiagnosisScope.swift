@@ -44,7 +44,7 @@ extension WifiDiagnosis {
         causes.append(network(measures, t))
         if !measures.wan.isEmpty { causes.append(wan(measures, t)) }
         causes = order(causes.filter { !($0.verdict == .notMeasured && $0.evidence.isEmpty && $0.cause == .dfs) })
-        let parts: [String?] = [ap.name, ap.model.isEmpty ? nil : ap.model, ap.ip?.description,
+        let parts: [String?] = [ap.model.isEmpty ? nil : ap.model, ap.ip?.description,
                                 radios.isEmpty ? nil : radios.map(radioLabel).joined(separator: " · "), plural(clients.count, "client", "clients")]
         let context = parts.compactMap { $0 }
         var notes: [String] = []
@@ -204,7 +204,7 @@ extension WifiDiagnosis {
         causes.append(network(measures, t))
         if !measures.wan.isEmpty { causes.append(wan(measures, t)) }
         causes = order(causes)
-        let parts: [String?] = [quoted(ssid.ssid), ssid.securityLabel, ssid.vlan.map { "VLAN \($0)" }, plural(clients.count, "client", "clients"),
+        let parts: [String?] = [ssid.securityLabel, ssid.vlan.map { "VLAN \($0)" }, plural(clients.count, "client", "clients"),
                                 serving.isEmpty ? nil : plural(serving.count, "borne", "bornes")]
         let context = parts.compactMap { $0 }
         var notes: [String] = []

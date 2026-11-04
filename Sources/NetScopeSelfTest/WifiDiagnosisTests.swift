@@ -445,7 +445,7 @@ func registerWifiDiagnosisTests(_ suite: TestSuite) {
         try expectEqual(r.cause(.interference)?.verdict, .problem, "jumeau malveillant")
         try expectEqual(r.cause(.ssid)?.verdict, .problem, "10 clients sur 10")
         try expectEqual(r.cause(.dhcp)?.verdict, .problem, "étendue des invités pleine")
-        try expect(r.context.contains("Invités") && r.context.contains("10 clients"), "contexte : \(r.context)")
+        try expect(r.context.contains("VLAN 60") && r.context.contains("10 clients"), "contexte : \(r.context)")
         // SSID ouvert sans autre souci : à surveiller (sécurité).
         let calm = FortiWifiOverview(aps: [a], clients: Array(clients.prefix(2)), ssids: [ssid], sites: ["Siège"])
         try expectEqual(WifiDiagnosis.diagnose(ssid: ssid, overview: calm).cause(.ssid)?.verdict, .watch, "réseau ouvert")
