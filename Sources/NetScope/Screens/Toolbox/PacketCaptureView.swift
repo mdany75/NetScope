@@ -31,12 +31,14 @@ struct PacketCaptureView: View {
             if model.isRunning { statusRow } else { controls }
             if let error = model.error { ToolNotice(tone: .critical, message: error) }
             if let notice = model.notice { ToolNotice(tone: .success, message: notice) }
+            if let warning = model.warning { ToolNotice(tone: .warning, message: warning) }
             if model.phase == .authorizing {
                 ToolNotice(tone: .accent, title: "Autorisation demandée par macOS",
                            message: "Saisissez le mot de passe d’un administrateur dans la fenêtre de macOS. tcpdump sera lancé une seule fois, en lecture seule, et s’arrêtera seul après \(Self.durationLabel(model.duration)), \(PacketText.number(model.packetLimit)) paquets ou au clic sur «\u{00A0}Arrêter\u{00A0}».")
             }
             if model.log.isEmpty && model.method != .file {
-                if model.isRunning { waiting } else { accessNotice }
+                // Capture terminée sans paquet : l'avertissement suffit, sans réafficher l'accès.
+                if model.isRunning { waiting } else if !(model.phase == .finished && model.warning != nil) { accessNotice }
             } else {
                 if !model.isRunning { summaryBar }
                 paneBar
@@ -68,7 +70,7 @@ struct PacketCaptureView: View {
                 }
                 ToolLabeledField(label: "Filtre de capture (syntaxe tcpdump)") {
                     HStack(spacing: 6) {
-                        ToolTextField(placeholder: "ex. host 10.182.122.1 and not port 22", text: $model.captureFilter, height: 30) {
+                        ToolTextField(placeholder: "ex. host 10.0.0.1 and not port 22", text: $model.captureFilter, height: 30) {
                             model.start(store: store)
                         }
                         .frame(minWidth: 210)
@@ -338,7 +340,9 @@ struct PacketCaptureView: View {
 
     private var panePicker: some View {
         Picker("", selection: Binding(get: { model.pane }, set: { pane in
-            if pane == .flow, model.stream == nil { model.followSelected() } else { model.pane = pane }
+            // Sans paquet TCP/UDP choisi, l'onglet s'ouvre quand même sur son message d'aide.
+            if pane == .flow, model.stream == nil { model.followSelected() }
+            model.pane = pane
         })) {
             ForEach(ToolPacketCaptureModel.Pane.allCases) { pane in Text(pane.label).tag(pane) }
         }
@@ -352,9 +356,9 @@ struct PacketCaptureView: View {
             Image(systemName: "line.3.horizontal.decrease")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Theme.textTertiary)
-            ToolTextField(placeholder: "Filtre d’affichage\u{00A0}: ex. dns || tcp.port == 443", text: $model.displayFilter,
+            ToolTextField(placeholder: "ex. dns || tcp.port == 443", text: $model.displayFilter,
                           invalid: model.displayFilterError != nil, height: 26)
-                .help(model.displayFilterError ?? "Protocoles, ip.addr, port, tcp.flags.syn, tls.sni contains…, avec && (et), || (ou), ! (non)")
+                .help(model.displayFilterError ?? "Filtre d’affichage\u{00A0}: protocoles, ip.addr, port, tcp.flags.syn, tls.sni contains…, avec && (et), || (ou), ! (non)")
             Menu {
                 ForEach(Self.quickFilters, id: \.1) { item in
                     Button(item.0) { model.displayFilter = item.1 }
@@ -440,7 +444,7 @@ struct PacketCaptureView: View {
                 }
                 if let field = model.selectedField.flatMap({ model.selectedPacket?.decoded.field($0) }) {
                     Divider()
-                    Button("Copier « \(field.name) »") { ToolActions.copy(field.value) }
+                    Button("Copier «\u{00A0}\(field.name)\u{00A0}»") { ToolActions.copy(field.value) }
                     Button("Filtrer sur cette valeur") { applyFieldFilter(field) }
                 }
             } label: {

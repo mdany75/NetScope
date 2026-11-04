@@ -304,7 +304,7 @@ struct PacketFlowView: View {
 
     private var title: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Flux \(stream.key.kind.label) · \(stream.packetNumbers.count) paquets")
+            Text("Flux \(stream.key.kind.label) · \(stream.packetNumbers.count) paquet\(stream.packetNumbers.count > 1 ? "s" : "")")
                 .font(Theme.bodySemibold)
             HStack(spacing: 8) {
                 legend(color: PacketPalette.clientText, background: PacketPalette.clientBackground,
@@ -336,7 +336,7 @@ struct PacketFlowView: View {
             .labelsHidden()
             .fixedSize()
             Button {
-                ToolActions.copy(stream.chunks.map { FlowStream.printable($0.data) }.joined(separator: "\n"))
+                ToolActions.copy(stream.chunks.map { model.streamShowsHex ? Self.hexDump($0.data) : FlowStream.printable($0.data) }.joined(separator: "\n"))
             } label: {
                 Label("Copier", systemImage: "doc.on.doc")
             }

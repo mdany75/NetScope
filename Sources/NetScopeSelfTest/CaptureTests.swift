@@ -368,7 +368,7 @@ func registerCaptureTests(_ suite: TestSuite) {
                                                    outputDirectory: out, owner: 0)
         }
 
-        try expectThrows(ToolError.invalidInput("Nom d’interface refusé\u{00A0}: « en0;reboot »."), "injection par l’interface") {
+        try expectThrows(ToolError.invalidInput("Nom d’interface refusé\u{00A0}: «\u{00A0}en0;reboot\u{00A0}»."), "injection par l’interface") {
             _ = try PrivilegedCapture.shellCommand(interface: "en0;reboot", purpose: .neighbors, seconds: 90, directory: dir, outputDirectory: out, owner: 501)
         }
         try expectThrows(ToolError.invalidInput("Dossier de capture refusé."), "apostrophe dans le dossier") {

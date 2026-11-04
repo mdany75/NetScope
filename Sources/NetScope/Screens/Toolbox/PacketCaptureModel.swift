@@ -50,6 +50,8 @@ final class ToolPacketCaptureModel: ObservableObject {
     @Published private(set) var sourceName: String?
     @Published var error: String?
     @Published var notice: String?
+    /// Avertissement (capture sans paquet, fichier vide ou tronqué) : ni erreur, ni réussite.
+    @Published var warning: String?
 
     // Paquets et affichage.
     // Les paquets ne sont pas @Published : un ajout se fait sur place (sans copier toute la liste
@@ -120,6 +122,10 @@ final class ToolPacketCaptureModel: ObservableObject {
         self.store = store
         error = nil
         notice = nil
+        warning = nil
+        // La méthode de la capture précédente ne doit pas guider « Arrêter » pendant la préparation.
+        method = nil
+        session = nil
         let name = interfaceName
         guard CaptureInterfaceName.isValid(name) else {
             error = "Choisissez une interface réseau."
@@ -139,7 +145,7 @@ final class ToolPacketCaptureModel: ObservableObject {
         let text = captureFilter
         task = Task { [weak self] in
             let compiled = await Task.detached { CaptureFilterCompiler.compile(text) }.value
-            guard let self, !Task.isCancelled else { return }
+            guard let self, !Task.isCancelled, !self.stopRequested else { return }
             switch compiled {
             case .failure(let failure):
                 self.error = failure.errorDescription
@@ -153,6 +159,12 @@ final class ToolPacketCaptureModel: ObservableObject {
 
     func stop() {
         stopRequested = true
+        if phase == .preparing {
+            // Filtre en cours de compilation : rien n'est encore lancé, on annule simplement.
+            task?.cancel()
+            finish(reason: "arrêtée")
+            return
+        }
         switch method {
         case .privileged:
             if phase == .authorizing { session?.cancel() } else { session?.stop() }
@@ -273,6 +285,13 @@ final class ToolPacketCaptureModel: ObservableObject {
         phase = .finished
         endedAt = Date()
         stopReason = reason
+        if log.isEmpty, error == nil, method == .bpf || method == .privileged {
+            let filter = CaptureFilterCompiler.normalized(captureFilter)
+            let elapsed = Int((endedAt ?? Date()).timeIntervalSince(startedAt ?? endedAt ?? Date()).rounded())
+            warning = "Aucun paquet capturé sur \(interfaceName) en \(Self.elapsedLabel(elapsed))"
+                + (filter.isEmpty ? "" : " (filtre «\u{00A0}\(filter)\u{00A0}»)")
+                + ". Élargissez le filtre ou choisissez une autre interface."
+        }
         guard method != .demo || !CommandLine.arguments.contains("--snapshot") else { return }
         let stats = log.statistics()
         let problems = stats.count(.retransmission) + stats.count(.reset)
@@ -281,6 +300,10 @@ final class ToolPacketCaptureModel: ObservableObject {
         if error == nil || log.count > 0 {
             store?.record(ToolRecent(tool: .capture, target: interfaceName, summary: summary, status: log.isEmpty ? .warning : problems > 0 ? .warning : .ok))
         }
+    }
+
+    static func elapsedLabel(_ seconds: Int) -> String {
+        seconds < 60 ? "\(seconds)\u{00A0}s" : seconds % 60 == 0 ? "\(seconds / 60)\u{00A0}min" : "\(seconds / 60)\u{00A0}min\u{00A0}\(seconds % 60)\u{00A0}s"
     }
 
     // MARK: Paquets
@@ -397,27 +420,44 @@ final class ToolPacketCaptureModel: ObservableObject {
         open(url)
     }
 
+    /// Plafond de paquets lus dans un fichier : au-delà, l'analyse et l'affichage deviennent trop lourds.
+    static let fileMaxPackets = 200_000
+
     func open(_ url: URL) {
         guard !isRunning else { return }
         error = nil
         notice = nil
+        warning = nil
+        let filter = compiledDisplayFilter
+        let maxPackets = Self.fileMaxPackets
         Task { [weak self] in
-            let result: Result<[PacketRecord], Error> = await Task.detached {
-                do { return .success(try PcapFile.read([UInt8](try Data(contentsOf: url)))) } catch { return .failure(error) }
+            // Lecture, décodage, analyse TCP et filtre d'affichage hors du fil principal.
+            let result: Result<(log: PacketCaptureLog, rows: [PacketRow], total: Int), Error> = await Task.detached {
+                do {
+                    let all = try PcapFile.read([UInt8](try Data(contentsOf: url)))
+                    let log = PacketCaptureLog(records: all.count > maxPackets ? Array(all.prefix(maxPackets)) : all)
+                    let rows = log.packets.filter { filter?.matches($0) ?? true }.map(PacketRow.init)
+                    return .success((log, rows, all.count))
+                } catch { return .failure(error) }
             }.value
             guard let self else { return }
             switch result {
-            case .success(let records):
+            case .success(let loaded):
                 self.resetPackets()
-                self.log = PacketCaptureLog(records: records)
+                self.log = loaded.log
+                self.rows = loaded.rows
+                let records = loaded.log.records
                 self.method = .file
                 self.phase = .finished
                 self.sourceName = url.lastPathComponent
                 self.stopReason = nil
                 self.startedAt = records.first.map { Date(timeIntervalSince1970: $0.timestamp) }
                 self.endedAt = records.last.map { Date(timeIntervalSince1970: $0.timestamp) }
-                self.applyDisplayFilter()
-                if records.isEmpty { self.notice = "Ce fichier ne contient aucun paquet." }
+                if records.isEmpty {
+                    self.warning = "Ce fichier ne contient aucun paquet."
+                } else if loaded.total > records.count {
+                    self.warning = "Fichier tronqué aux \(PacketText.number(records.count)) premiers paquets (sur \(PacketText.number(loaded.total)))."
+                }
                 self.store?.record(command: "tcpdump -r \(url.lastPathComponent)")
             case .failure(let failure):
                 self.error = "Ouverture impossible\u{00A0}: \((failure as? LocalizedError)?.errorDescription ?? failure.localizedDescription)"
@@ -439,7 +479,7 @@ final class ToolPacketCaptureModel: ObservableObject {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try Data(try PcapFile.write(records)).write(to: url, options: .atomic)
-            notice = "\(PacketText.number(records.count)) paquets enregistrés dans « \(url.lastPathComponent) » (pcap, ouvrable dans Wireshark)."
+            notice = "\(PacketText.number(records.count)) paquets enregistrés dans «\u{00A0}\(url.lastPathComponent)\u{00A0}» (pcap, ouvrable dans Wireshark)."
             error = nil
         } catch {
             self.error = "Enregistrement impossible\u{00A0}: \((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)"

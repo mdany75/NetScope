@@ -131,6 +131,11 @@ public enum DiskAdvisor {
         let local = result.writeMBps.map { "Copie locale écrite à \(DiskFormat.rateWithUnit($0))." } ?? ""
         switch result.cloudStatus {
         case .envoye:
+            if let seconds = result.uploadSeconds, seconds < DiskCloudTracker.minimumUploadSeconds {
+                return DiskVerdict(limit: .inconnu, title: "Envoyé pendant l’écriture",
+                                   detail: local + " Le fichier était déjà envoyé à la fin de l’écriture\u{00A0}: débit d’envoi non mesurable. Choisissez un fichier plus gros pour le mesurer.",
+                                   tone: .success)
+            }
             guard let up = result.uploadMbps, let seconds = result.uploadSeconds else { break }
             var detail = local + " Envoyé \(DiskFormat.duration(seconds)) après la fin de l’écriture, soit au moins \(DiskFormat.bits(up))."
             if let internet = context.internetUpMbps, internet > 0 {
@@ -149,7 +154,7 @@ public enum DiskAdvisor {
                                tone: .neutral)
         case .delaiDepasse:
             return DiskVerdict(limit: .service, title: "Envoi non terminé dans le délai",
-                               detail: local + " Le service n’a pas signalé « envoyé » à temps\u{00A0}: envoi en pause, file d’attente chargée ou lien montant lent.",
+                               detail: local + " Le service n’a pas signalé «\u{00A0}envoyé\u{00A0}» à temps\u{00A0}: envoi en pause, file d’attente chargée ou lien montant lent.",
                                tone: .warning)
         case .erreur:
             return DiskVerdict(limit: .service, title: "Le service signale une erreur d’envoi",

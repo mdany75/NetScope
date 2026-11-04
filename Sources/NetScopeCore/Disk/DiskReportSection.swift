@@ -50,7 +50,7 @@ extension ReportBuilder {
         }
         if let first = cloud.first {
             let value = first.uploadSeconds.map(DiskFormat.duration) ?? (first.cloudStatus?.label ?? "—")
-            kpis.append(ReportKPI(value, "jusqu’à « envoyé » (\(first.locationName))", tone: first.limit.reportTone))
+            kpis.append(ReportKPI(value, "jusqu’à «\u{00A0}envoyé\u{00A0}» (\(first.locationName))", tone: first.limit.reportTone))
         }
         blocks.append(.kpis(kpis))
 
@@ -71,8 +71,8 @@ extension ReportBuilder {
         blocks.append(.table(ReportTable(columns: [ReportColumn("Emplacement", weight: 1.5), ReportColumn("Type", weight: 1.8),
                                                    ReportColumn("Écriture", weight: 1, trailing: true),
                                                    ReportColumn("Lecture", weight: 1, trailing: true),
-                                                   ReportColumn("IOPS 4K", weight: 0.8, trailing: true),
-                                                   ReportColumn("p95 4K", weight: 0.8, trailing: true),
+                                                   ReportColumn("IOPS 4\u{00A0}Kio", weight: 0.9, trailing: true),
+                                                   ReportColumn("p95 4\u{00A0}Kio", weight: 0.9, trailing: true),
                                                    ReportColumn("Limite", weight: 1)],
                                          rows: rows, wraps: true)))
         let verdicts = records.map { record in
@@ -82,7 +82,7 @@ extension ReportBuilder {
         blocks.append(.table(ReportTable(columns: [ReportColumn("Emplacement", weight: 1.4), ReportColumn("Date", weight: 1.2),
                                                    ReportColumn("Bilan", weight: 4)],
                                          rows: verdicts, wraps: true)))
-        blocks.append(.note("Fichier d’essai écrit dans un dossier « NetScope-test » puis supprimé. Dossiers nuage\u{00A0}: écriture dans la copie locale, puis temps jusqu’à « envoyé » quand le service le signale."))
+        blocks.append(.note("Fichier d’essai écrit dans un dossier «\u{00A0}NetScope-test\u{00A0}» puis supprimé. Dossiers nuage\u{00A0}: écriture dans la copie locale, puis temps jusqu’à «\u{00A0}envoyé\u{00A0}» quand le service le signale."))
         return blocks
     }
 }

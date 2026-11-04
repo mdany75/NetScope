@@ -212,7 +212,7 @@ public enum DiskBenchmarkError: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .missingLocation(let path): return "Emplacement introuvable\u{00A0}: \(path) (volume éjecté ou dossier absent)."
-        case .unsafeFolder(let path): return "« \(path) » existe déjà et n’est pas un dossier\u{00A0}: NetScope n’y touche pas."
+        case .unsafeFolder(let path): return "«\u{00A0}\(path)\u{00A0}» existe déjà et n’est pas un dossier\u{00A0}: NetScope n’y touche pas."
         case .readOnly: return "Cet emplacement est en lecture seule\u{00A0}: impossible d’y écrire le fichier d’essai."
         case .insufficientSpace(let needed, let free):
             return "Espace insuffisant\u{00A0}: il faut \(DiskFormat.size(needed)) libres (fichier d’essai et marge de 10\u{00A0}%), "
@@ -320,14 +320,17 @@ final class DiskWorker {
             emit(.failed(error.localizedDescription))
             return
         }
-        pending?.add(parent.path)
+        pending?.begin(parent.path)
+        // Fichier propre à ce test : un fil arrêté qui finit tard ne supprime que le sien, pas celui
+        // d'un test relancé aussitôt au même endroit.
+        let fileName = DiskTestFolder.fileName()
         defer {
-            DiskTestFolder.cleanup(in: parent)
-            pending?.remove(parent.path)
+            DiskTestFolder.cleanup(in: parent, onlyFile: fileName)
+            pending?.end(parent.path)
         }
         do {
             let folder = try DiskTestFolder.prepare(in: parent)
-            let file = folder.appendingPathComponent(DiskTestFolder.fileName())
+            let file = folder.appendingPathComponent(fileName)
             var raw: UnsafeMutableRawPointer?
             guard posix_memalign(&raw, 4096, DiskMath.sequentialBlock) == 0, let raw else {
                 throw DiskBenchmarkError.io("Allocation de la mémoire tampon", ENOMEM)

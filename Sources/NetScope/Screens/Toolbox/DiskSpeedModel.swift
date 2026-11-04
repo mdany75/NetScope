@@ -69,6 +69,8 @@ final class DiskSpeedModel: ObservableObject {
     private let pending: DiskPendingCleanup?
     private var task: Task<Void, Never>?
     private var networkTask: Task<Void, Never>?
+    /// Enregistrement du dernier test, mis à jour si la latence du serveur arrive après la fin.
+    private var lastRecordID: UUID?
     private var generation = 0
     private var loading = true
     private var lastLocation: String?
@@ -177,6 +179,7 @@ final class DiskSpeedModel: ObservableObject {
         generation += 1
         let run = generation
         reset()
+        lastRecordID = nil
         isRunning = true
         testedLocation = location
         testedConfig = config
@@ -193,7 +196,15 @@ final class DiskSpeedModel: ObservableObject {
                 guard let self, self.generation == run else { return }
                 self.network?.serverLatencyMs = latency
                 if let result = self.result, let tested = self.testedLocation {
-                    self.verdict = DiskAdvisor.verdict(kind: tested.kind, result: result, context: self.network ?? DiskNetworkContext())
+                    let verdict = DiskAdvisor.verdict(kind: tested.kind, result: result, context: self.network ?? DiskNetworkContext())
+                    self.verdict = verdict
+                    // Test déjà fini : l'historique (et donc le CSV et le rapport) suit le nouveau bilan.
+                    if let id = self.lastRecordID, let index = self.history.firstIndex(where: { $0.id == id }) {
+                        self.history[index].network = self.network
+                        self.history[index].limit = verdict.limit
+                        self.history[index].verdict = verdict.title
+                        self.persist()
+                    }
                 }
             }
         }
@@ -221,7 +232,7 @@ final class DiskSpeedModel: ObservableObject {
         phase = nil
         instant = nil
         if cloudStatus != nil, cloudStatus?.isFinal == false { cloudStatus = .arrete }
-        notice = "Test arrêté\u{00A0}: le fichier d’essai et le dossier « NetScope-test » sont supprimés."
+        notice = "Test arrêté\u{00A0}: le fichier d’essai et le dossier «\u{00A0}NetScope-test\u{00A0}» sont supprimés."
     }
 
     private func reset() {
@@ -314,6 +325,7 @@ final class DiskSpeedModel: ObservableObject {
         let verdict = DiskAdvisor.verdict(kind: location.kind, result: value, context: network ?? DiskNetworkContext())
         self.verdict = verdict
         let record = DiskTestRecord(location: location, result: value, network: network, verdict: verdict)
+        lastRecordID = record.id
         addToHistory(record)
         let summary = Self.summary(record)
         let status: ToolRecent.Status = verdict.tone == .critical ? .failure : (verdict.tone == .warning ? .warning : .ok)
@@ -406,7 +418,7 @@ final class DiskSpeedModel: ObservableObject {
             try data.write(to: url, options: .atomic)
             notice = "Historique exporté\u{00A0}: \(url.lastPathComponent)"
         } catch {
-            notice = "Export impossible\u{00A0}: \(error.localizedDescription)"
+            self.error = "Export impossible\u{00A0}: \(error.localizedDescription)"
         }
     }
 

@@ -103,14 +103,18 @@ public struct DiskCloudTracker: Sendable {
         return status
     }
 
+    /// En dessous (une seconde, plus que l'intervalle des relevés), l'envoi n'est pas mesurable.
+    public static let minimumUploadSeconds = 1.0
+
     public mutating func stop() {
         if !status.isFinal { status = .arrete }
     }
 
     /// Débit effectif d'envoi (Mbit/s) : `bytes` envoyés en `seconds`, comptées depuis la fin de
-    /// l'écriture (l'envoi a pu commencer avant : le débit réel est au moins celui-là).
+    /// l'écriture (l'envoi a pu commencer avant : le débit réel est au moins celui-là). Sous
+    /// `minimumUploadSeconds`, le fichier est parti pendant l'écriture : aucun débit mesurable.
     public static func uploadMbps(bytes: Int64, seconds: Double?) -> Double? {
-        guard let seconds, seconds > 0 else { return nil }
+        guard let seconds, seconds >= minimumUploadSeconds else { return nil }
         return Double(bytes) * 8 / 1_000_000 / seconds
     }
 }

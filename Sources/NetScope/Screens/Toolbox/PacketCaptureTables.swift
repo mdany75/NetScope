@@ -56,7 +56,8 @@ struct PacketListTable: View {
     var body: some View {
         // Ordre de capture par défaut : pas de tri à refaire tant que la colonne N° croissante est choisie.
         let sorted = table.currentSort.map { $0.column == "numero" && $0.ascending } ?? true ? rows : rows.sorted(using: table.sortOrder)
-        ToolStandardTableFrame(rowCount: sorted.count, maxRows: maxRows, emptyText: "Aucun paquet ne correspond au filtre d’affichage.") {
+        ToolStandardTableFrame(rowCount: sorted.count, maxRows: maxRows,
+                               emptyText: model.displayFilter.isEmpty ? "Aucun paquet." : "Aucun paquet ne correspond au filtre d’affichage.") {
             Table(sorted, selection: $model.selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
                 Group {
                     TableColumn("N°", sortUsing: table.sort("numero")) { row in
@@ -217,7 +218,7 @@ struct ProtocolStatsTable: View {
 
     var body: some View {
         let sorted = rows.sorted(using: table.sortOrder)
-        ToolStandardTableFrame(rowCount: sorted.count, maxRows: 8) {
+        ToolStandardTableFrame(rowCount: sorted.count, maxRows: 8, emptyText: "Aucun protocole dans les paquets affichés.") {
             Table(sorted, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
                 TableColumn("PROTOCOLE", sortUsing: table.sort("protocole")) { row in PacketProtocolChip(kind: row.stat.kind) }
                     .width(min: 70, ideal: 90)
@@ -297,7 +298,7 @@ struct ConversationStatsTable: View {
 
     var body: some View {
         let sorted = rows.sorted(using: table.sortOrder)
-        ToolStandardTableFrame(rowCount: sorted.count, maxRows: 8) {
+        ToolStandardTableFrame(rowCount: sorted.count, maxRows: 8, emptyText: "Aucune conversation IP dans les paquets affichés.") {
             Table(sorted, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
                 TableColumn("ADRESSE A", sortUsing: table.sort("a")) { row in ToolTableText(row.a).help(row.a) }
                     .width(min: 100, ideal: 170)
@@ -370,7 +371,7 @@ struct TalkerStatsTable: View {
 
     var body: some View {
         let sorted = rows.sorted(using: table.sortOrder)
-        ToolStandardTableFrame(rowCount: sorted.count, maxRows: 8) {
+        ToolStandardTableFrame(rowCount: sorted.count, maxRows: 8, emptyText: "Aucun émetteur IP dans les paquets affichés.") {
             Table(sorted, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
                 TableColumn("ADRESSE", sortUsing: table.sort("adresse")) { row in ToolTableText(row.address, weight: .semibold).help(row.address) }
                     .width(min: 110, ideal: 200)

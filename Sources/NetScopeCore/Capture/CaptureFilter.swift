@@ -61,8 +61,13 @@ public enum CaptureFilterCompiler {
     /// Caractères permis : lettres, chiffres, espace et « . : / ( ) ! & | = < > [ ] _ + * - ».
     /// Ni guillemet, ni apostrophe, ni barre oblique inverse, ni $, ni ; : le texte peut être passé
     /// entre apostrophes à tcpdump lancé en administrateur sans rien pouvoir y injecter.
+    /// Un texte qui commence par « - », ou un mot « -lettre… », est refusé : tcpdump le lirait comme
+    /// une option (`-w/etc/x`) ; une expression n'en contient jamais (« len - 4 » reste permis).
     public static func isSafe(_ text: String) -> Bool {
         guard text.count <= maximumLength else { return false }
+        let words = text.split(whereSeparator: { $0.isWhitespace })
+        if words.first?.hasPrefix("-") == true { return false }
+        if words.contains(where: { $0.count > 1 && $0.hasPrefix("-") && $0.dropFirst().first?.isLetter == true }) { return false }
         return text.unicodeScalars.allSatisfy { scalar in
             ("a"..."z").contains(scalar) || ("A"..."Z").contains(scalar) || ("0"..."9").contains(scalar)
                 || " .:/()!&|=<>[]_+*-".unicodeScalars.contains(scalar)
@@ -79,7 +84,7 @@ public enum CaptureFilterCompiler {
         let clean = normalized(text)
         if clean.isEmpty { return .success(CompiledCaptureFilter(text: "", program: acceptAll, source: .unfiltered)) }
         guard isSafe(clean) else {
-            return .failure(.invalidInput("Caractère refusé dans le filtre de capture (ni guillemets, ni apostrophe, ni « ; », « $ », « \\ »)."))
+            return .failure(.invalidInput("Caractère refusé dans le filtre de capture (ni guillemets, ni apostrophe, ni «\u{00A0};\u{00A0}», «\u{00A0}$\u{00A0}», «\u{00A0}\\\u{00A0}», ni mot commençant par «\u{00A0}-\u{00A0}»)."))
         }
         if let tcpdump, FileManager.default.isExecutableFile(atPath: tcpdump) {
             switch compileWithTcpdump(clean, linkType: linkType, tcpdump: tcpdump) {
@@ -109,7 +114,7 @@ public enum CaptureFilterCompiler {
         }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: tcpdump)
-        process.arguments = ["-dd", "-r", empty.path, text]
+        process.arguments = ["-dd", "-r", empty.path, "--", text]
         let output = Pipe(), errors = Pipe()
         process.standardOutput = output
         process.standardError = errors

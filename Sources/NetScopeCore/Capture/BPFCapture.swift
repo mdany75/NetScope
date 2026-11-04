@@ -218,7 +218,7 @@ public final class BPFCapture: @unchecked Sendable {
     public init(interface: String, filter: [BPFInstruction], promiscuous: Bool, seeSent: Bool = false,
                 bufferSize: UInt32 = 1 << 16) throws {
         guard CaptureInterfaceName.isValid(interface) else {
-            throw ToolError.invalidInput("Nom d’interface refusé\u{00A0}: « \(interface) ».")
+            throw ToolError.invalidInput("Nom d’interface refusé\u{00A0}: «\u{00A0}\(interface)\u{00A0}».")
         }
         var opened: Int32 = -1
         for index in 0..<256 {

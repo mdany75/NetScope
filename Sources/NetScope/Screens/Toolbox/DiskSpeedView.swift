@@ -67,7 +67,7 @@ struct DiskSpeedView: View {
             if model.locations.isEmpty && !model.loadingLocations {
                 Text("Aucun emplacement trouvé.").font(Theme.small).foregroundStyle(Theme.textSecondary)
             }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 8, alignment: .top)], alignment: .leading, spacing: 8) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 230), spacing: 8, alignment: .top)], alignment: .leading, spacing: 8) {
                 ForEach(model.locations) { item in locationCard(item) }
             }
         }
@@ -85,7 +85,8 @@ struct DiskSpeedView: View {
                     .frame(width: 22, height: 22)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text(item.name).font(Theme.bodySemibold).foregroundStyle(Theme.text).lineLimit(1)
+                        Text(item.name).font(Theme.bodySemibold).foregroundStyle(Theme.text)
+                            .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 0)
                         Chip(text: Self.kindChip(item), tone: isOn ? .accent : .neutral)
                     }
@@ -102,7 +103,7 @@ struct DiskSpeedView: View {
         }
         .buttonStyle(.plain)
         .disabled(model.isRunning)
-        .help(item.path)
+        .help("\(item.name)\n\(item.detail)\n\(item.path)")
         .accessibilityLabel("\(item.name), \(item.kind.label)")
     }
 
@@ -180,8 +181,8 @@ struct DiskSpeedView: View {
     }
 
     private var timeoutPicker: some View {
-        ToolLabeledField(label: "Attente de « envoyé »") {
-            Picker("Attente de « envoyé »", selection: $model.cloudTimeout) {
+        ToolLabeledField(label: "Attente de «\u{00A0}envoyé\u{00A0}»") {
+            Picker("Attente de «\u{00A0}envoyé\u{00A0}»", selection: $model.cloudTimeout) {
                 ForEach(DiskBenchmarkConfig.cloudTimeoutChoices, id: \.self) { seconds in
                     Text("\(Int(seconds / 60))\u{00A0}min au plus").tag(seconds)
                 }
@@ -379,21 +380,21 @@ struct DiskSpeedView: View {
             if isCloud {
                 ToolStatTile(label: "Écriture locale", value: model.displayedWrite.map(DiskFormat.rateWithUnit) ?? "—",
                              detail: "copie dans le dossier")
-                ToolStatTile(label: "Jusqu’à « envoyé »", value: model.result?.uploadSeconds.map(DiskFormat.duration) ?? "—",
+                ToolStatTile(label: "Jusqu’à «\u{00A0}envoyé\u{00A0}»", value: model.result?.uploadSeconds.map(DiskFormat.duration) ?? "—",
                              detail: model.cloudStatus?.label ?? "après l’écriture")
                 ToolStatTile(label: "Débit d’envoi", value: model.result?.uploadMbps.map(DiskFormat.bits) ?? "—",
                              detail: "au moins, depuis la fin de l’écriture")
                 ToolStatTile(label: "Montée Internet", value: model.network?.internetUpMbps.map(DiskFormat.bits) ?? "—",
                              detail: model.network?.internetUpMbps == nil ? "lancez un Speedtest" : "dernier Speedtest")
             } else {
-                ToolStatTile(label: "IOPS 4 Kio lecture", value: model.randomRead.map { DiskFormat.iops($0.iops) } ?? "—",
+                ToolStatTile(label: "IOPS 4\u{00A0}Kio lecture", value: model.randomRead.map { DiskFormat.iops($0.iops) } ?? "—",
                              detail: model.randomRead.map { "\(DiskFormat.grouped($0.operations)) accès" } ?? randomPending)
-                ToolStatTile(label: "IOPS 4 Kio écriture", value: model.randomWrite.map { DiskFormat.iops($0.iops) } ?? "—",
+                ToolStatTile(label: "IOPS 4\u{00A0}Kio écriture", value: model.randomWrite.map { DiskFormat.iops($0.iops) } ?? "—",
                              detail: model.randomWrite.map { "\(DiskFormat.grouped($0.operations)) accès" } ?? randomPending)
-                ToolStatTile(label: "Latence moy. 4 Kio", value: model.randomRead.map { DiskFormat.latency($0.meanMs) } ?? "—",
+                ToolStatTile(label: "Latence moy. 4\u{00A0}Kio", value: model.randomRead.map { DiskFormat.latency($0.meanMs) } ?? "—",
                              detail: model.randomWrite.map { "écriture \(DiskFormat.latency($0.meanMs))" } ?? "lecture")
-                ToolStatTile(label: "Latence p95 4 Kio", value: model.randomRead.map { DiskFormat.latency($0.p95Ms) } ?? "—",
-                             detail: model.randomWrite.map { "écriture \(DiskFormat.latency($0.p95Ms))" } ?? "95 % des accès en dessous")
+                ToolStatTile(label: "Latence p95 4\u{00A0}Kio", value: model.randomRead.map { DiskFormat.latency($0.p95Ms) } ?? "—",
+                             detail: model.randomWrite.map { "écriture \(DiskFormat.latency($0.p95Ms))" } ?? "95\u{00A0}% des accès en dessous")
                 if shown?.kind == .reseau {
                     ToolStatTile(label: "Lien actif", value: model.network?.linkMbps.map(DiskFormat.bits) ?? "—",
                                  detail: [model.network?.linkKind, model.network?.interfaceName].compactMap { $0 }.joined(separator: " · "))
@@ -429,7 +430,7 @@ struct DiskSpeedView: View {
                     }
                 }
             }
-            DiskHistoryTable(rows: rows, table: table, showLocation: model.showAllHistory || model.selectedID == nil)
+            DiskHistoryTable(rows: rows, table: table, allLocations: model.showAllHistory || model.selectedID == nil)
         }
     }
 
@@ -602,7 +603,8 @@ struct DiskUploadCard: View {
 struct DiskHistoryTable: View {
     let rows: [DiskTestRecord]
     @ObservedObject var table: StandardTableModel<DiskTestRecord>
-    var showLocation: Bool
+    /// Historique de tous les emplacements (texte du tableau vide).
+    var allLocations: Bool
 
     static let columns: [StandardColumn] = [
         StandardColumn(id: "date", title: "Date", isRequired: true),
@@ -612,7 +614,7 @@ struct DiskHistoryTable: View {
         StandardColumn(id: "passes", title: "Passes", isDefaultVisible: false),
         StandardColumn(id: "ecriture", title: "Écriture (Mo/s)"),
         StandardColumn(id: "lecture", title: "Lecture (Mo/s) ou envoi"),
-        StandardColumn(id: "iops", title: "IOPS 4 Kio", isDefaultVisible: false),
+        StandardColumn(id: "iops", title: "IOPS 4\u{00A0}Kio", isDefaultVisible: false),
         StandardColumn(id: "p95", title: "Latence p95", isDefaultVisible: false),
         StandardColumn(id: "lien", title: "Lien", isDefaultVisible: false),
         StandardColumn(id: "serveur", title: "Latence serveur", isDefaultVisible: false),
@@ -642,7 +644,7 @@ struct DiskHistoryTable: View {
     }
 
     var body: some View {
-        ToolStandardTableFrame(rowCount: rows.count, maxRows: 10, emptyText: "Aucun test pour cet emplacement.") {
+        ToolStandardTableFrame(rowCount: rows.count, maxRows: 10, emptyText: allLocations ? "Aucun test enregistré." : "Aucun test pour cet emplacement.") {
             Table(rows, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
                 Group {
                     TableColumn("DATE", sortUsing: table.sort("date")) { row in
@@ -691,7 +693,7 @@ struct DiskHistoryTable: View {
                 Group {
                     TableColumn("LECTURE", sortUsing: table.sort("lecture")) { row in
                         ToolTableText(Self.readText(row), alignment: .trailing)
-                            .help(row.kind == .nuage ? "Temps jusqu’à « envoyé » après l’écriture" : "Lecture séquentielle")
+                            .help(row.kind == .nuage ? "Temps jusqu’à «\u{00A0}envoyé\u{00A0}» après l’écriture" : "Lecture séquentielle")
                     }
                     .width(min: 64, ideal: 76)
                     .customizationID("lecture")

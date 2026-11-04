@@ -217,6 +217,9 @@ public struct PacketCaptureLog: Sendable {
             let end = tcp.sequence &+ length
             if let next = direction.nextSequence { if SequenceMath.less(next, end) { direction.nextSequence = end } } else { direction.nextSequence = end }
             direction.lastSegmentTime = time
+        } else if !isSYN, !isFIN, !isRST, tcp.payloadLength == 0, let next = direction.nextSequence, tcp.sequence == next &- 1 {
+            // Maintien de connexion sans données (Linux et beaucoup d'équipements) : seq = prochain − 1.
+            flags.insert(.keepAlive)
         } else if tcp.has(TCPSegmentInfo.ack), !isSYN, !isFIN, !isRST {
             // ACK sans données, même numéro et même fenêtre que le précédent : ACK en double.
             if direction.lastAck == tcp.acknowledgment, direction.lastWindow == tcp.window,

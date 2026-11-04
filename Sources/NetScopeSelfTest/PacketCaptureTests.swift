@@ -383,6 +383,11 @@ func registerPacketCaptureTests(_ suite: TestSuite) {
             if case .success = DisplayFilter.compile(bad) { throw TestFailure(message: "filtre « \(bad) » accepté", file: #fileID, line: #line) }
         }
         if case .success(let none) = DisplayFilter.compile("   ") { try expect(none == nil, "vide : tout passe") }
+        // Nombres immenses ou infinis : refusés ou comparés sans planter (Int64 hors limites).
+        for odd in ["frame.len contains 1e300", "tcp.port contains inf", "tcp.seq contains 0xFFFFFFFFFFFFFFFF", "frame.len == 1e300", "frame.len > -1e300"] {
+            if case .success(let filter?) = DisplayFilter.compile(odd) { _ = log.packets.filter(filter.matches) }
+        }
+        if case .success = DisplayFilter.compile("tcp.port == inf") { throw TestFailure(message: "infini accepté", file: #fileID, line: #line) }
         if case .failure(let error) = DisplayFilter.compile("tcp.portt == 4") { try expect(error.message.contains("tcp.portt"), "message clair") }
     }
 
@@ -426,6 +431,24 @@ func registerPacketCaptureTests(_ suite: TestSuite) {
         try expectEqual(log.packets.filter(filter.matches).map(\.id), [6, 7], "filtre d’analyse")
         let flags = try DisplayFilter("tcp.analysis.flags && !tcp.flags.reset")
         try expectEqual(log.packets.filter(flags.matches).map(\.id), [6, 7, 8, 9], "problèmes TCP")
+    }
+
+    suite.add("Analyse TCP : maintien de connexion sans données (seq = prochain − 1)") {
+        let client = (MACAddress("a4:83:e7:12:34:56")!, IPv4Address("10.182.122.135")!, UInt16(52_201))
+        let server = (MACAddress("94:dd:f8:18:15:7d")!, IPv4Address("10.182.122.111")!, UInt16(22))
+        let c: UInt32 = 7_000, s: UInt32 = 90_000
+        let data = Array("ssh".utf8)
+        var frames: [(Double, [UInt8])] = []
+        frames.append((0.000, PacketForge.tcpFrame(client, server, sequence: c, acknowledgment: 0, flags: 0x002, options: PacketForge.synOptions)))
+        frames.append((0.001, PacketForge.tcpFrame(server, client, sequence: s, acknowledgment: c + 1, flags: 0x012)))
+        frames.append((0.002, PacketForge.tcpFrame(client, server, sequence: c + 1, acknowledgment: s + 1, flags: 0x018, payload: data)))
+        frames.append((0.003, PacketForge.tcpFrame(server, client, sequence: s + 1, acknowledgment: c + 1 + UInt32(data.count), flags: 0x010)))
+        // 45 s plus tard, le client envoie un segment vide une position avant son prochain numéro.
+        frames.append((45.0, PacketForge.tcpFrame(client, server, sequence: c + UInt32(data.count), acknowledgment: s + 1, flags: 0x010)))
+        let log = PacketCaptureLog(records: frames.map { PacketRecord(timestamp: 100 + $0.0, data: $0.1) })
+        try expectEqual(log.packets.map(\.analysis), [[], [], [], [], [.keepAlive]], "maintien sans données")
+        let filter = try DisplayFilter("tcp.analysis.keep_alive")
+        try expectEqual(log.packets.filter(filter.matches).map(\.id), [5], "filtre keep_alive")
     }
 
     suite.add("Suivi de flux UDP et trou dans un flux TCP") {
@@ -573,7 +596,9 @@ func registerPacketCaptureTests(_ suite: TestSuite) {
     suite.add("Filtre de capture : texte sûr et commande tcpdump administrateur") {
         try expect(CaptureFilterCompiler.isSafe("host 10.0.0.5 and (port 53 or port 443)"), "filtre ordinaire")
         try expect(CaptureFilterCompiler.isSafe("tcp[13] & 2 != 0"), "crochets et opérateurs")
-        for bad in ["host 1.2.3.4'; reboot", "port 53; rm", "$(id)", "a\\b", "port \"53\"", "`id`", String(repeating: "a", count: 301)] {
+        try expect(CaptureFilterCompiler.isSafe("len - 4 > 100"), "soustraction permise")
+        for bad in ["host 1.2.3.4'; reboot", "port 53; rm", "$(id)", "a\\b", "port \"53\"", "`id`", String(repeating: "a", count: 301),
+                    "-w/etc/x", "-F/tmp/filtre", "port 53 -V/tmp/liste", "-"] {
             try expect(!CaptureFilterCompiler.isSafe(bad), "refusé\u{00A0}: \(bad.prefix(30))")
             if case .success = CaptureFilterCompiler.compile(bad, tcpdump: nil) { throw TestFailure(message: "compilé\u{00A0}: \(bad)", file: #fileID, line: #line) }
         }
@@ -581,7 +606,11 @@ func registerPacketCaptureTests(_ suite: TestSuite) {
         let command = try PrivilegedCapture.packetShellCommand(interface: "en0", filter: "port 53", seconds: 60, maxPackets: 10_000,
                                                                promiscuous: false, directory: "/private/var/folders/x/T/netscope-capture-a",
                                                                outputDirectory: out, owner: 501)
-        try expect(command.contains("/usr/sbin/tcpdump -i en0 -n -U -p -s 65535 -c 10000 -w '\(out)'/capture.pcap 'port 53' "), "commande\u{00A0}: \(command)")
+        try expect(command.contains("/usr/sbin/tcpdump -i en0 -n -U -p -s 65535 -c 10000 -w '\(out)'/capture.pcap -- 'port 53' "), "commande\u{00A0}: \(command)")
+        // Un filtre qui ressemble à une option de tcpdump (lancé en root) est refusé.
+        try expect((try? PrivilegedCapture.packetShellCommand(interface: "en0", filter: "-w/etc/x", seconds: 30, maxPackets: 5, promiscuous: false,
+                                                              directory: "/tmp/x", outputDirectory: out, owner: 501)) == nil, "option déguisée refusée")
+        if case .success = CaptureFilterCompiler.compile("-w/etc/x") { throw TestFailure(message: "option compilée", file: #fileID, line: #line) }
         try expect(command.contains("[ $i -lt 60 ]"), "durée bornée")
         let promiscuous = try PrivilegedCapture.packetShellCommand(interface: "en0", filter: "", seconds: 30, maxPackets: 5, promiscuous: true,
                                                                    directory: "/tmp/x", outputDirectory: out, owner: 501)

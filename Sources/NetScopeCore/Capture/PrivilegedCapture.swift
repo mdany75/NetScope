@@ -66,7 +66,7 @@ public enum PrivilegedCapture {
                                     outputDirectory: String, owner: UInt32) throws -> String {
         guard purpose != .packets else { throw ToolError.invalidInput("Capture de paquets\u{00A0}: commande dédiée.") }
         guard CaptureInterfaceName.isValid(interface) else {
-            throw ToolError.invalidInput("Nom d’interface refusé\u{00A0}: « \(interface) ».")
+            throw ToolError.invalidInput("Nom d’interface refusé\u{00A0}: «\u{00A0}\(interface)\u{00A0}».")
         }
         guard durationRange.contains(seconds) else {
             throw ToolError.invalidInput("Durée de capture hors limites (\(durationRange.lowerBound) à \(durationRange.upperBound) s).")
@@ -95,11 +95,12 @@ public enum PrivilegedCapture {
     /// Commande de la capture de paquets : tcpdump écrit un fichier pcap (`-w`, paquet par paquet
     /// avec `-U`), s'arrête après `maxPackets` (`-c`), après `seconds` ou au fichier « arreter ».
     /// Le filtre saisi est validé (`CaptureFilterCompiler.isSafe` : aucune apostrophe, guillemet,
-    /// barre oblique inverse, $ ni ;) puis passé entre apostrophes : il ne peut rien injecter.
+    /// barre oblique inverse, $, ; ni mot commençant par « - ») puis passé entre apostrophes après « -- » :
+    /// il ne peut ni sortir des apostrophes ni être lu comme une option de tcpdump.
     public static func packetShellCommand(interface: String, filter: String, seconds: Int, maxPackets: Int, promiscuous: Bool,
                                           directory: String, outputDirectory: String, owner: UInt32) throws -> String {
         guard CaptureInterfaceName.isValid(interface) else {
-            throw ToolError.invalidInput("Nom d’interface refusé\u{00A0}: « \(interface) ».")
+            throw ToolError.invalidInput("Nom d’interface refusé\u{00A0}: «\u{00A0}\(interface)\u{00A0}».")
         }
         guard packetDurationRange.contains(seconds) else {
             throw ToolError.invalidInput("Durée de capture hors limites (\(packetDurationRange.lowerBound) à \(packetDurationRange.upperBound) s).")
@@ -113,7 +114,7 @@ public enum PrivilegedCapture {
         guard owner != 0 else { throw ToolError.invalidInput("Utilisateur refusé.") }
         let out = "'\(outputDirectory)'"
         let stop = "'\(dir)/\(stopName)'"
-        let filterArgument = clean.isEmpty ? "" : " '\(clean)'"
+        let filterArgument = clean.isEmpty ? "" : " -- '\(clean)'"
         return "umask 022; /bin/mkdir -m 755 \(out) || exit 1; "
             + "\(tcpdumpPath) -i \(interface) -n -U\(promiscuous ? "" : " -p") -s \(packetSnapLength) -c \(maxPackets) "
             + "-w \(out)/\(packetOutputName)\(filterArgument) "

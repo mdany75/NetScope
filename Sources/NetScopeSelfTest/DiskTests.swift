@@ -219,6 +219,11 @@ func registerDiskTests(_ suite: TestSuite) {
         let service = DiskAdvisor.verdict(kind: .nuage, result: sent, context: DiskNetworkContext(internetUpMbps: 500))
         try expectEqual(service.limit, .service, "le service ralentit l'envoi")
         try expect(service.detail.contains("Copie locale écrite à 1\u{202F}450\(nbsp)Mo/s"), "écriture locale rappelée : \(service.detail)")
+        // Déjà envoyé au premier relevé : aucun débit absurde, aucun « limité par Internet ».
+        let instant = DiskBenchmarkResult(sizeBytes: 1 << 30, passes: 1, writePasses: [1450], cloudStatus: .envoye, uploadSeconds: 0.0001)
+        try expect(instant.uploadMbps == nil, "débit d'envoi non mesurable")
+        let during = DiskAdvisor.verdict(kind: .nuage, result: instant, context: DiskNetworkContext(internetUpMbps: 50))
+        try expect(during.limit != .internet && during.title.contains("pendant l’écriture"), "envoyé pendant l'écriture : \(during.title)")
         let unknown = DiskAdvisor.verdict(kind: .nuage, result: sent)
         try expect(unknown.detail.contains("Speedtest"), "sans Speedtest : on propose d'en lancer un")
         let silent = DiskAdvisor.verdict(kind: .nuage, result: DiskBenchmarkResult(sizeBytes: size, passes: 1, writePasses: [900],
@@ -353,6 +358,25 @@ func registerDiskTests(_ suite: TestSuite) {
         try expectEqual(cleaned[volume.path]?.removedFiles, 1, "reste d'un essai interrompu supprimé")
         try expect(!fm.fileExists(atPath: DiskTestFolder.url(in: volume).path), "dossier d'essai supprimé")
         try expectEqual(pending.entries().count, 1, "un volume absent reste noté pour plus tard")
+
+        // Test en cours dans ce processus : le nettoyage au lancement n'y touche pas.
+        _ = try DiskTestFolder.prepare(in: volume)
+        let running = DiskTestFolder.url(in: volume).appendingPathComponent(DiskTestFolder.fileName())
+        try Data([8]).write(to: running)
+        pending.begin(volume.path)
+        try expect(pending.cleanAll()[volume.path] == nil, "test en cours épargné")
+        try expect(fm.fileExists(atPath: running.path), "fichier du test en cours intact")
+        // Test arrêté qui finit tard, alors qu'un autre a été relancé au même endroit.
+        pending.begin(volume.path)
+        let late = DiskTestFolder.fileName()
+        try Data([1]).write(to: DiskTestFolder.url(in: volume).appendingPathComponent(late))
+        let own = DiskTestFolder.cleanup(in: volume, onlyFile: late)
+        try expect(own.removedFiles == 1 && !own.removedFolder, "seul son propre fichier est supprimé")
+        try expect(fm.fileExists(atPath: running.path), "fichier de l'autre test intact")
+        pending.end(volume.path)
+        try expect(pending.entries().contains(volume.path), "l'entrée reste tant qu'un test tourne")
+        pending.end(volume.path)
+        try expect(!pending.entries().contains(volume.path), "entrée retirée à la fin du dernier test")
     }
 
     suite.add("Disques : mini-test réel de 1 Mio dans un dossier temporaire, puis arrêt") {

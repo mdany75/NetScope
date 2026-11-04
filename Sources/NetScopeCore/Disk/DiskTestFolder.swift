@@ -61,9 +61,10 @@ public enum DiskTestFolder {
     }
 
     /// Supprime les fichiers d'essai de « NetScope-test » dans `parent`, puis le dossier s'il est
-    /// vide. Ne descend jamais dans un sous-dossier et ne suit aucun lien.
+    /// vide. Ne descend jamais dans un sous-dossier et ne suit aucun lien. Avec `onlyFile`, seul ce
+    /// fichier d'essai est supprimé (fin d'un test : celui d'un test relancé aussitôt reste en place).
     @discardableResult
-    public static func cleanup(in parent: URL) -> Cleanup {
+    public static func cleanup(in parent: URL, onlyFile: String? = nil) -> Cleanup {
         let folder = url(in: parent)
         var result = Cleanup()
         var isDirectory: ObjCBool = false
@@ -78,6 +79,7 @@ public enum DiskTestFolder {
         }
         let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
         for name in names.sorted() {
+            if let onlyFile, name != onlyFile { continue }
             let item = folder.appendingPathComponent(name)
             let type = (try? FileManager.default.attributesOfItem(atPath: item.path))?[.type] as? FileAttributeType
             if isTestFile(name), type == .typeRegular {
@@ -86,7 +88,8 @@ public enum DiskTestFolder {
                 result.keptItems.append(name)
             }
         }
-        // rmdir échoue sur un dossier non vide : rien d'autre ne peut être supprimé.
+        // rmdir échoue sur un dossier non vide : rien d'autre ne peut être supprimé (ni, avec
+        // `onlyFile`, le fichier d'un autre test).
         if result.keptItems.isEmpty, rmdir(folder.path) == 0 { result.removedFolder = true }
         return result
     }
@@ -96,13 +99,15 @@ public enum DiskTestFolder {
 public final class DiskPendingCleanup: @unchecked Sendable {
     public let url: URL
     private let lock = NSLock()
+    /// Tests en cours dans ce processus, par dossier : `cleanAll` n'y touche pas, et la fin d'un
+    /// test arrêté n'efface pas l'entrée d'un test relancé aussitôt au même endroit.
+    private var active: [String: Int] = [:]
 
     public init(url: URL) { self.url = url }
 
-    /// ~/Library/Application Support/NetScope/disques-en-cours.json
-    public static var standard: DiskPendingCleanup {
-        DiskPendingCleanup(url: DiskHistoryStore.supportDirectory.appendingPathComponent("disques-en-cours.json"))
-    }
+    /// ~/Library/Application Support/NetScope/disques-en-cours.json (une seule instance, partagée
+    /// par l'outil et le nettoyage au lancement, pour que les tests en cours soient connus).
+    public static let standard = DiskPendingCleanup(url: DiskHistoryStore.supportDirectory.appendingPathComponent("disques-en-cours.json"))
 
     public func entries() -> [String] {
         lock.lock()
@@ -125,15 +130,42 @@ public final class DiskPendingCleanup: @unchecked Sendable {
         write(read().filter { $0 != parent })
     }
 
-    /// Nettoie les dossiers notés qui sont joignables ; ceux d'un volume absent restent notés.
+    /// Début d'un test dans ce processus : dossier noté (arrêt brutal) et compté comme actif.
+    public func begin(_ parent: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        active[parent, default: 0] += 1
+        var list = read()
+        guard !list.contains(parent) else { return }
+        list.append(parent)
+        write(list)
+    }
+
+    /// Fin d'un test : l'entrée n'est retirée que si aucun autre test n'est en cours au même endroit.
+    public func end(_ parent: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        let count = (active[parent] ?? 1) - 1
+        active[parent] = count > 0 ? count : nil
+        guard count <= 0 else { return }
+        write(read().filter { $0 != parent })
+    }
+
+    /// Nettoie les dossiers notés qui sont joignables ; ceux d'un volume absent restent notés, et
+    /// ceux d'un test en cours dans ce processus ne sont pas touchés. Le verrou est tenu tout du
+    /// long : un test qui démarre pendant ce temps attend la fin du nettoyage.
     @discardableResult
     public func cleanAll() -> [String: DiskTestFolder.Cleanup] {
+        lock.lock()
+        defer { lock.unlock() }
         var done: [String: DiskTestFolder.Cleanup] = [:]
-        for parent in entries() {
+        var list = read()
+        for parent in list where active[parent] == nil {
             guard FileManager.default.fileExists(atPath: parent) else { continue }
             done[parent] = DiskTestFolder.cleanup(in: URL(fileURLWithPath: parent, isDirectory: true))
-            remove(parent)
+            list.removeAll { $0 == parent }
         }
+        if !done.isEmpty { write(list) }
         return done
     }
 

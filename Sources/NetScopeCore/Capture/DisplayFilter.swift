@@ -25,7 +25,7 @@ public struct DisplayFilter: Sendable {
         var parser = Parser(tokens: try Self.tokenize(text))
         guard !parser.atEnd else { throw DisplayFilterError("Filtre vide.") }
         root = try parser.expression()
-        if let extra = parser.peek { throw DisplayFilterError("Élément inattendu\u{00A0}: « \(extra.text) ».") }
+        if let extra = parser.peek { throw DisplayFilterError("Élément inattendu\u{00A0}: «\u{00A0}\(extra.text)\u{00A0}».") }
     }
 
     /// Filtre vide : tout passe ; sinon le filtre compilé, ou l'erreur.
@@ -83,7 +83,8 @@ public struct DisplayFilter: Sendable {
 
         var textValue: String {
             switch self {
-            case .number(let n): return n == n.rounded() ? "\(Int64(n))" : "\(n)"
+            // Int64(n) planterait pour un nombre infini ou hors de l'intervalle d'Int64 (1e300, inf).
+            case .number(let n): return n.isFinite && n == n.rounded() && abs(n) < 9.2e18 ? "\(Int64(n))" : "\(n)"
             case .text(let t): return t
             case .ipv4(let a): return a.description
             case .ipv4Network(let a, let p): return "\(a)/\(p)"
@@ -245,23 +246,23 @@ public struct DisplayFilter: Sendable {
             if raw.contains("/"), !raw.contains(":") {
                 let parts = raw.split(separator: "/")
                 guard parts.count == 2, let base = IPv4Address(String(parts[0])), let prefix = Int(parts[1]), (0...32).contains(prefix) else {
-                    throw DisplayFilterError("Réseau invalide\u{00A0}: « \(raw) » (ex. 10.0.0.0/24).")
+                    throw DisplayFilterError("Réseau invalide\u{00A0}: «\u{00A0}\(raw)\u{00A0}» (ex. 10.0.0.0/24).")
                 }
                 return .ipv4Network(base, prefix)
             }
             if let v4 = IPv4Address(raw) { return .ipv4(v4) }
             if let v6 = normalizedIPv6(raw) { return .ipv6(v6) }
-            throw DisplayFilterError("Adresse invalide\u{00A0}: « \(raw) ».")
+            throw DisplayFilterError("Adresse invalide\u{00A0}: «\u{00A0}\(raw)\u{00A0}».")
         case .mac:
-            guard let mac = MACAddress(raw) else { throw DisplayFilterError("Adresse MAC invalide\u{00A0}: « \(raw) ».") }
+            guard let mac = MACAddress(raw) else { throw DisplayFilterError("Adresse MAC invalide\u{00A0}: «\u{00A0}\(raw)\u{00A0}».") }
             return .mac(mac)
         case .number, .boolean, .protocolPresence:
             let lowered = raw.lowercased()
             if lowered == "true" || lowered == "vrai" || lowered == "oui" { return .number(1) }
             if lowered == "false" || lowered == "faux" || lowered == "non" { return .number(0) }
             if lowered.hasPrefix("0x"), let n = UInt64(lowered.dropFirst(2), radix: 16) { return .number(Double(n)) }
-            guard let n = Double(raw.replacingOccurrences(of: ",", with: ".")) else {
-                throw DisplayFilterError("Nombre attendu pour \(field.name)\u{00A0}: « \(raw) ».")
+            guard let n = Double(raw.replacingOccurrences(of: ",", with: ".")), n.isFinite else {
+                throw DisplayFilterError("Nombre attendu pour \(field.name)\u{00A0}: «\u{00A0}\(raw)\u{00A0}».")
             }
             return .number(n)
         case .text:
@@ -332,7 +333,7 @@ public struct DisplayFilter: Sendable {
                 tokens.append(Token(kind: .string, text: value.trimmingCharacters(in: .whitespaces)))
                 i = j + 1
             case "&", "|":
-                throw DisplayFilterError("Opérateur incomplet\u{00A0}: « \(c) » (écrire « \(c)\(c) »).")
+                throw DisplayFilterError("Opérateur incomplet\u{00A0}: «\u{00A0}\(c)\u{00A0}» (écrire «\u{00A0}\(c)\(c)\u{00A0}»).")
             default:
                 var j = i
                 var value = ""
@@ -391,7 +392,7 @@ public struct DisplayFilter: Sendable {
                 return inner
             case .word:
                 guard let field = DisplayFilter.field(named: token.text) else {
-                    throw DisplayFilterError("Champ ou protocole inconnu\u{00A0}: « \(token.text) ».")
+                    throw DisplayFilterError("Champ ou protocole inconnu\u{00A0}: «\u{00A0}\(token.text)\u{00A0}».")
                 }
                 var op: Operator?
                 if case .op(let found)? = peek?.kind {
@@ -404,13 +405,13 @@ public struct DisplayFilter: Sendable {
                 }
                 guard let op else { return .test(Test(field: field, op: nil, value: nil)) }
                 guard let valueToken = next(), valueToken.kind == .word || valueToken.kind == .string else {
-                    throw DisplayFilterError("Valeur attendue après « \(token.text) ».")
+                    throw DisplayFilterError("Valeur attendue après «\u{00A0}\(token.text)\u{00A0}».")
                 }
-                if field.kind == .protocolPresence { throw DisplayFilterError("« \(token.text) » est un protocole\u{00A0}: il s’emploie seul.") }
+                if field.kind == .protocolPresence { throw DisplayFilterError("«\u{00A0}\(token.text)\u{00A0}» est un protocole\u{00A0}: il s’emploie seul.") }
                 let value = try DisplayFilter.parseValue(valueToken.text, for: field)
                 return .test(Test(field: field, op: op, value: value))
             default:
-                throw DisplayFilterError("Élément inattendu\u{00A0}: « \(token.text) ».")
+                throw DisplayFilterError("Élément inattendu\u{00A0}: «\u{00A0}\(token.text)\u{00A0}».")
             }
         }
     }
