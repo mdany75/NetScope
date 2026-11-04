@@ -148,7 +148,7 @@ public enum QuickLoginError: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .invalidKeyPath(let path):
-            return path.isEmpty ? "Choisissez la clé privée à utiliser." : "Chemin de clé invalide\u{00A0}: « \(path) »."
+            return path.isEmpty ? "Choisissez la clé privée à utiliser." : "Chemin de clé invalide\u{00A0}: «\u{00A0}\(path)\u{00A0}»."
         case .unsupportedProtocol(let proto): return "Connexion rapide impossible en \(proto.label)."
         }
     }
@@ -205,7 +205,7 @@ public enum QuickLogin {
 
     /// Connexion équivalente (nom affiché, protocole, hôte, port, utilisateur), pour le carnet.
     public static func connection(for choice: QuickLoginChoice, name: String, folder: String = "") -> RemoteConnection {
-        let cleaned = name.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
+        let cleaned = RemoteShell.sanitizedTitle(name)
         return RemoteConnection(name: cleaned.isEmpty ? choice.host : cleaned, proto: choice.proto, host: choice.host,
                                 port: choice.port, username: choice.user, folder: folder)
     }
@@ -266,14 +266,14 @@ public struct QuickLoginEntry: Codable, Equatable, Identifiable, Sendable {
         proto = try c.decodeIfPresent(RemoteProtocol.self, forKey: .proto) ?? .ssh
         mac = try c.decodeIfPresent(String.self, forKey: .mac)
         host = try c.decodeIfPresent(String.self, forKey: .host) ?? ""
-        siteID = try c.decodeIfPresent(UUID.self, forKey: .siteID)
+        siteID = (try? c.decodeIfPresent(UUID.self, forKey: .siteID)) ?? nil
         user = try c.decodeIfPresent(String.self, forKey: .user) ?? ""
         port = try c.decodeIfPresent(Int.self, forKey: .port) ?? proto.defaultPort
         auth = (try? c.decodeIfPresent(QuickLoginAuth.self, forKey: .auth)) ?? .automatic
         keyPath = try c.decodeIfPresent(String.self, forKey: .keyPath) ?? ""
         credentialID = try c.decodeIfPresent(UUID.self, forKey: .credentialID)
         skipPrompt = try c.decodeIfPresent(Bool.self, forKey: .skipPrompt) ?? false
-        lastUsed = try c.decodeIfPresent(Date.self, forKey: .lastUsed) ?? Date(timeIntervalSince1970: 0)
+        lastUsed = (try? c.decodeIfPresent(Date.self, forKey: .lastUsed)) ?? Date(timeIntervalSince1970: 0)
     }
 
     public var choice: QuickLoginChoice {
@@ -331,7 +331,9 @@ public struct QuickLoginMemory: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         version = try c.decodeIfPresent(Int.self, forKey: .version) ?? Self.currentVersion
-        entries = (try? c.decodeIfPresent([QuickLoginEntry].self, forKey: .entries)) ?? []
+        // Entrées lues une à une : une entrée illisible (protocole d'une future version, fichier
+        // édité à la main) est écartée seule, les autres restent.
+        entries = ((try? c.decodeIfPresent([FailableEntry].self, forKey: .entries)) ?? []).compactMap(\.entry)
         recentUsers = (try? c.decodeIfPresent([String].self, forKey: .recentUsers)) ?? []
     }
 
@@ -412,11 +414,30 @@ public struct QuickLoginMemory: Codable, Equatable, Sendable {
         return result
     }
 
+    /// Lit le fichier ; s'il existe mais ne se lit pas, il est mis de côté
+    /// (« ssh-utilisateurs.json.illisible ») avant que la prochaine écriture ne l'écrase.
     public static func load(from url: URL) -> QuickLoginMemory {
         guard let data = try? Data(contentsOf: url) else { return QuickLoginMemory() }
+        if let memory = decode(data) { return memory }
+        let aside = url.appendingPathExtension("illisible")
+        try? FileManager.default.removeItem(at: aside)
+        try? FileManager.default.moveItem(at: url, to: aside)
+        return QuickLoginMemory()
+    }
+
+    /// Décodage du contenu du fichier, nil s'il est illisible.
+    public static func decode(_ data: Data) -> QuickLoginMemory? {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return (try? decoder.decode(QuickLoginMemory.self, from: data)) ?? QuickLoginMemory()
+        return try? decoder.decode(QuickLoginMemory.self, from: data)
+    }
+
+    /// Enveloppe d'une entrée : nil si elle ne se lit pas, sans faire échouer la liste.
+    private struct FailableEntry: Decodable {
+        let entry: QuickLoginEntry?
+        init(from decoder: Decoder) throws {
+            entry = try? QuickLoginEntry(from: decoder)
+        }
     }
 
     public func save(to url: URL) throws {

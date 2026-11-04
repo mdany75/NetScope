@@ -85,11 +85,11 @@ struct AppCommands: Commands {
 
         CommandMenu("Aller") {
             // Note 34 : Retour / Avancer rendent l'écran, la sélection et le filtre d'avant.
-            // Note 45 : le menu nomme l'écran d'origine (« Retour à Inventaire »).
-            Button(state.history.previous.map { "Retour à \(Screen($0.module).title)" } ?? "Retour") { state.goBack() }
+            // Note 45 : le menu nomme l'écran d'origine (« Retour à « Inventaire » », comme l’infobulle de la barre d’outils).
+            Button(state.history.previous.map { "Retour à «\u{00A0}\(Screen($0.module).title)\u{00A0}»" } ?? "Retour") { state.goBack() }
                 .regShortcut(ShortcutID.back, shortcuts)
                 .disabled(!state.canGoBack)
-            Button(state.history.next.map { "Avancer vers \(Screen($0.module).title)" } ?? "Avancer") { state.goForward() }
+            Button(state.history.next.map { "Avancer vers «\u{00A0}\(Screen($0.module).title)\u{00A0}»" } ?? "Avancer") { state.goForward() }
                 .regShortcut(ShortcutID.forward, shortcuts)
                 .disabled(!state.canGoForward)
             Divider()

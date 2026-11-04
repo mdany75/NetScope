@@ -9,6 +9,8 @@ struct ContentView: View {
     /// Note 49 : le site actif est rappelé dans le titre de la fenêtre.
     @ObservedObject private var sites = SiteModel.shared
     @State private var columns = NavigationSplitViewVisibility.all
+    /// ⌘⇧S avec la barre latérale masquée : elle est remise pour montrer le sélecteur de site.
+    @ObservedObject private var sitePicker = SitePickerPresenter.shared
     /// Nombre de résultats de la recherche, annoncé par l'écran courant.
     @State private var searchResults: [String] = []
 
@@ -52,6 +54,8 @@ struct ContentView: View {
                 }
         }
         .navigationPrompts()
+        .onChange(of: columns) { _, value in sitePicker.sidebarVisible = value != .detailOnly }
+        .onChange(of: sitePicker.sidebarRequest) { _, _ in columns = .all }
         // Captures (NETSCOPE_SITE_CHOIX) : le sélecteur de site ouvert sous son bouton.
         .overlay(alignment: .topLeading) { SitePickerSnapshotOverlay() }
         .font(Theme.body)

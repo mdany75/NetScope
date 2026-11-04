@@ -119,6 +119,24 @@ final class FortiAPStore: ObservableObject {
     /// Borne d'un client : dans la vue de l'écran Wi-Fi (autre site compris), sinon du site actif.
     func ap(for client: FortiWifiClient) -> FortiManagedAP? { shownOverview.ap(for: client) ?? overview.ap(for: client) }
 
+    /// Identifiant d'une borne dans la vue de l'écran Wi-Fi. Une borne du site actif s'appelle
+    /// « FortiGate|SN » dans `overview` mais « Site|SN » dans `shownOverview` (renommée d'après le
+    /// site) : on la retrouve par son numéro de série (à défaut son nom), jamais par l'identifiant seul.
+    func shownAPID(for id: FortiManagedAP.ID) -> FortiManagedAP.ID? {
+        let shown = shownOverview.aps
+        if shown.contains(where: { $0.id == id }) { return id }
+        let key: String
+        if let ap = overview.aps.first(where: { $0.id == id }) {
+            key = ap.serial.isEmpty ? ap.name : ap.serial
+        } else if let bar = id.lastIndex(of: "|") {
+            key = String(id[id.index(after: bar)...])
+        } else {
+            key = id
+        }
+        guard !key.isEmpty else { return nil }
+        return shown.first { ($0.serial.isEmpty ? $0.name : $0.serial) == key }?.id
+    }
+
     func isWeak(_ client: FortiWifiClient) -> Bool { FortiWifiAnalysis.isWeak(client, thresholds: thresholds) }
 
     // MARK: Lecture

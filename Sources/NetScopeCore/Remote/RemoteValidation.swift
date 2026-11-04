@@ -94,6 +94,14 @@ public enum RemoteShell {
         return "'" + word.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
+    /// Titre ou nom venu du réseau (mDNS, DNS inverse, NetBIOS) : caractères de contrôle (ESC, BEL,
+    /// CR, tabulation, U+2028, U+2029…) remplacés par des espaces, une seule ligne, longueur limitée.
+    /// Aucune séquence d'échappement ne peut ainsi atteindre Terminal.
+    public static func sanitizedTitle(_ text: String, limit: Int = 120) -> String {
+        let line = AlertText.singleLine(text)
+        return line.count > limit ? String(line.prefix(limit)).trimmingCharacters(in: .whitespaces) + "…" : line
+    }
+
     /// Ligne de commande à partir de mots.
     public static func command(_ words: [String]) -> String {
         words.map(quote).joined(separator: " ")

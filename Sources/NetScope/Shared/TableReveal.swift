@@ -10,18 +10,23 @@ import SwiftUI
 // sous-jacent (NSTableView) de montrer la ligne, par son rang dans l'ordre affiché.
 
 extension View {
-    /// Ramène en vue la ligne de rang `index` (ordre affiché du tableau) à l'arrivée sur l'écran,
-    /// puis chaque fois que la ligne choisie change de rang depuis un autre écran.
-    func revealRow(_ index: Int?) -> some View {
-        background(TableRowRevealer(index: index))
+    /// Ramène en vue la ligne choisie (`id`) à l'arrivée sur l'écran, puis seulement quand
+    /// l'IDENTIFIANT choisi change : un scan en direct, un tri ou un filtre qui décale son rang ne
+    /// fait jamais défiler le tableau de force. `index` donne son rang dans l'ordre affiché ; il
+    /// est recalculé au moment du défilement (les lignes ont pu changer entre-temps).
+    func revealRow<ID: Hashable>(id: ID?, index: @escaping () -> Int?) -> some View {
+        background(TableRowRevealer(id: id.map(AnyHashable.init), index: index))
     }
 }
 
 private struct TableRowRevealer: NSViewRepresentable {
-    let index: Int?
+    let id: AnyHashable?
+    let index: () -> Int?
 
     final class Coordinator {
-        var revealed: Int?
+        var revealed: AnyHashable?
+        /// Dernier calcul du rang (lignes de la dernière mise à jour de la vue).
+        var index: () -> Int? = { nil }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -33,18 +38,24 @@ private struct TableRowRevealer: NSViewRepresentable {
     }
 
     func updateNSView(_ view: NSView, context: Context) {
-        guard let index, context.coordinator.revealed != index else { return }
-        context.coordinator.revealed = index
+        let coordinator = context.coordinator
+        coordinator.index = index
+        guard let id, coordinator.revealed != id else { return }
+        coordinator.revealed = id
         // Après la mise en page du tableau (ses lignes connues), puis une fois encore quand la
         // sélection demandée arrive un instant après (fiche d'inventaire).
         for delay in [0.05, 0.25] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak view] in
-                guard let view, let table = Self.table(near: view), index < table.numberOfRows else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak view, weak coordinator] in
+                guard let view, let coordinator, coordinator.revealed == id,
+                      let index = coordinator.index(), let table = Self.table(near: view), index < table.numberOfRows else { return }
                 table.scrollRowToVisible(index)
             }
         }
     }
 
+    static func dismantleNSView(_ view: NSView, coordinator: Coordinator) {
+        coordinator.revealed = nil
+    }
     /// Le tableau le plus proche : le premier NSTableView sous l'ancêtre commun le plus proche.
     private static func table(near view: NSView) -> NSTableView? {
         var ancestor = view.superview

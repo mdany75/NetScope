@@ -284,12 +284,23 @@ final class RemoteModel: ObservableObject {
         save()
     }
 
-    /// Note 52 : « Enregistrer dans le carnet » de la feuille de connexion rapide. Une connexion
-    /// de même protocole, hôte et port est mise à jour (nom d'utilisateur) au lieu d'être doublée.
+    /// Note 52 : connexion rapide ouverte par la feuille. `originID` : connexion du carnet d'où
+    /// elle vient (enregistrée sans utilisateur) ; elle est mise à jour (date, et nom d'utilisateur
+    /// si « Enregistrer dans le carnet » est coché) tant que l'hôte et le port sont les siens.
+    /// Sinon, avec la case cochée, la connexion de même protocole, hôte, port ET utilisateur (ou
+    /// sans utilisateur) est mise à jour ; à défaut, une nouvelle est ajoutée : jamais une
+    /// connexion « root » ne devient « admin » en silence.
     @discardableResult
-    func saveQuickConnection(_ connection: RemoteConnection) -> Bool {
+    func saveQuickConnection(_ connection: RemoteConnection, originID: UUID? = nil, saveToBook: Bool = true) -> Bool {
         guard let valid = try? connection.validated() else { return false }
-        if let index = connections.firstIndex(where: { $0.proto == valid.proto && $0.host == valid.host && $0.port == valid.port }) {
+        let sameEndpoint: (RemoteConnection) -> Bool = { $0.proto == valid.proto && $0.host == valid.host && $0.port == valid.port }
+        if let originID, let index = connections.firstIndex(where: { $0.id == originID && sameEndpoint($0) }) {
+            if saveToBook { connections[index].username = valid.username }
+            connections[index].lastConnected = Date()
+        } else if !saveToBook {
+            return false
+        } else if let index = connections.firstIndex(where: { sameEndpoint($0) && $0.username == valid.username })
+                    ?? connections.firstIndex(where: { sameEndpoint($0) && $0.username.isEmpty }) {
             connections[index].username = valid.username
             connections[index].lastConnected = Date()
         } else {

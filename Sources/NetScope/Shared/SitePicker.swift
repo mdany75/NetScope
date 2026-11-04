@@ -18,6 +18,10 @@ import SwiftUI
 final class SitePickerPresenter: ObservableObject {
     static let shared = SitePickerPresenter()
     @Published var isPresented = false
+    /// Demande à ContentView de montrer la barre latérale (le sélecteur y est accroché).
+    @Published private(set) var sidebarRequest = 0
+    /// Barre latérale visible (tenu à jour par ContentView).
+    var sidebarVisible = true
 
     /// Liste ouverte dans les captures, et sa recherche.
     static var snapshotQuery: String? {
@@ -26,10 +30,18 @@ final class SitePickerPresenter: ObservableObject {
         return value == "1" ? "" : value
     }
 
-    /// ⌘⇧S : ouvre le sélecteur (fenêtre principale au premier plan, barre latérale visible).
+    /// ⌘⇧S : ouvre le sélecteur (fenêtre principale au premier plan, barre latérale montrée si
+    /// elle était masquée, puis la fenêtre surgissante une fois le bouton en place).
     func open() {
         MonWindow.open()
-        isPresented = true
+        guard !sidebarVisible else {
+            isPresented = true
+            return
+        }
+        sidebarRequest += 1
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            self?.isPresented = true
+        }
     }
 }
 
@@ -127,7 +139,7 @@ struct SidebarSitePicker: View {
     var body: some View {
         let site = sites.activeSite
         let link = site.map { sites.linkState($0) }
-        Button { presenter.isPresented.toggle() } label: {
+        Button { presenter.isPresented = true } label: {
             HStack(spacing: 8) {
                 ZStack(alignment: .bottomTrailing) {
                     Image(systemName: site == nil ? "mappin.slash" : "mappin.and.ellipse")

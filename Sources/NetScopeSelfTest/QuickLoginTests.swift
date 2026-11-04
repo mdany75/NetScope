@@ -165,8 +165,31 @@ func registerQuickLoginTests(_ suite: TestSuite) {
         try expectEqual(tolerant.entries.first?.user, "root", "entrée lue")
         try expectEqual(tolerant.entries.first?.auth, .automatic, "méthode inconnue : automatique")
         try expectEqual(tolerant.entries.first?.port, 22, "port par défaut")
+        // Une entrée d'une future version (protocole inconnu) n'emporte pas les autres.
+        try #"{"entries":[{"host":"10.0.0.5","user":"root"},{"host":"10.0.0.6","user":"pi","proto":"inconnu"},{"host":"10.0.0.7","user":"x","siteID":"pas-un-uuid","lastUsed":"hier"}]}"#
+            .write(to: url, atomically: true, encoding: .utf8)
+        let mixed = QuickLoginMemory.load(from: url)
+        try expectEqual(mixed.entries.map(\.user), ["root", "x"], "entrée au protocole inconnu écartée seule, champs mal formés tolérés")
         try "pas du JSON".write(to: url, atomically: true, encoding: .utf8)
         try expectEqual(QuickLoginMemory.load(from: url), QuickLoginMemory(), "fichier illisible : mémoire vide")
+        let aside = url.appendingPathExtension("illisible")
+        try expectEqual(try? String(contentsOf: aside, encoding: .utf8), "pas du JSON", "fichier illisible mis de côté avant toute écriture")
+        try expect(!FileManager.default.fileExists(atPath: url.path), "plus rien à écraser")
+    }
+
+    suite.add("SSH rapide : aucun caractère de contrôle venu du réseau dans Terminal") {
+        let hostile = "Piège\u{1B}]0;x\u{07}\r\u{1B}[2J\tfin\u{2028}"
+        let script = RemoteLauncher.commandFile(command: "ssh -- 10.0.0.1", title: hostile)
+        let titleLine = script.split(separator: "\n").first { $0.hasPrefix("printf") }.map(String.init) ?? ""
+        try expect(!titleLine.isEmpty, "ligne du titre")
+        // Seuls les « \033 » et « \007 » écrits en toutes lettres par printf restent.
+        try expect(!titleLine.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) || $0 == "\u{2028}" },
+                   "aucun octet de contrôle dans le titre : \(titleLine.debugDescription)")
+        try expect(titleLine.contains("Piège ]0;x [2J fin"), "texte gardé, contrôles remplacés : \(titleLine)")
+        let long = RemoteShell.sanitizedTitle(String(repeating: "a", count: 400))
+        try expect(long.count <= 121, "titre limité")
+        let book = QuickLogin.connection(for: QuickLoginChoice(host: "10.0.0.2", user: "admin"), name: "SW\r\u{1B}[31mcœur\u{07}")
+        try expectEqual(book.name, "SW [31mcœur", "nom du carnet sans caractère de contrôle")
     }
 
     suite.add("SSH rapide : recherche « admin@10.182.122.2 » dans le carnet") {

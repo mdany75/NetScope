@@ -61,7 +61,9 @@ extension AppState {
             let store = SwitchStore.shared
             // Note 48 : switch choisi dans la vue d'un autre site (ou de plusieurs).
             if SiteScopeStore.shared.keys(for: .switchs) != [SiteModel.shared.activeKey] {
-                return store.browseSelection.flatMap(SiteScope.split).map { .switchPort(host: $0.key, port: nil) }
+                // Identifiant complet « site|adresse » : le Retour retrouve le switch dans SON site,
+                // même quand plusieurs sites (ou tous) sont affichés.
+                return store.browseSelection.map { .switchPort(host: $0, port: nil) }
             }
             return store.selectedHost.map { .switchPort(host: $0, port: store.selectedInterface?.name) }
         case .surveillance:
@@ -193,9 +195,27 @@ extension AppState {
             shownFocus[.inventaire] = focus
         case .switchPort(let host, let port):
             let store = SwitchStore.shared
-            // Note 48 : switch d'un autre site, montré dans la vue de ce site (host : adresse ou nom).
-            if let siteKey, siteKey != SiteModel.shared.activeKey {
+            let active = SiteModel.shared.activeKey
+            let activeView = SiteScopeStore.shared.keys(for: .switchs) == [active]
+            // Note 48 : identifiant composé « site|adresse » (Retour depuis une vue de plusieurs sites).
+            if let split = SiteScope.split(host) {
+                if split.site == active, activeView {
+                    let index = port.flatMap { name in store.snapshots[split.key]?.interfaces.first { $0.name == name }?.index }
+                    store.select(host: split.key, port: index)
+                } else {
+                    store.browseFocus = SwitchBrowseFocus(siteKey: split.site, hostOrName: split.key, port: port)
+                }
+                return
+            }
+            // Switch d'un autre site, montré dans la vue de ce site (host : adresse ou nom).
+            if let siteKey, siteKey != active {
                 store.browseFocus = SwitchBrowseFocus(siteKey: siteKey, hostOrName: host, port: port)
+                return
+            }
+            // Switch du site actif dans une vue de plusieurs sites : choisi dans cette vue, jamais
+            // par la sélection du site actif (qui n'est pas celle qu'on voit).
+            if !activeView {
+                store.browseFocus = SwitchBrowseFocus(siteKey: active, hostOrName: host, port: port)
                 return
             }
             let index = port.flatMap { name in store.snapshots[host]?.interfaces.first { $0.name == name }?.index }
@@ -251,9 +271,10 @@ extension AppState {
                 inventories[key] = Array(records)
             }
         }
+        // Bornes du site actif seulement : la recherche par IP d'un appareil ne doit jamais tomber
+        // sur la borne d'un autre client aux mêmes plages. Une borne d'un autre site montrée dans
+        // Wi-Fi porte déjà son identifiant (objet `.accessPoint`), sans passer par cette liste.
         let fortiAP = FortiAPStore.shared.overview
-        // Note 48 : bornes d'un autre site montrées dans Wi-Fi (double-clic sur une ligne).
-        let shownAPs = FortiAPStore.shared.shownOverview.aps.filter { ap in !fortiAP.aps.contains { $0.id == ap.id } }
         var clients: [String: String] = [:]
         for client in fortiAP.clients {
             if let ap = fortiAP.ap(for: client) { clients[client.mac.formatted(.upperColon)] = ap.id }
@@ -264,7 +285,7 @@ extension AppState {
                           scanner: devices.map { NavDeviceRef($0) },
                           inventories: inventories,
                           switches: SwitchStore.shared.orderedSnapshots,
-                          accessPoints: (fortiAP.aps + shownAPs).map { (id: $0.id, name: $0.name, ip: $0.ip?.description) },
+                          accessPoints: fortiAP.aps.map { (id: $0.id, name: $0.name, ip: $0.ip?.description) },
                           wifiClients: clients,
                           probes: MonStore.shared.probes.map(NavProbeRef.init),
                           remoteHosts: remotes)

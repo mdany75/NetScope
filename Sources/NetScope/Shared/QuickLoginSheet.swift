@@ -125,26 +125,21 @@ struct QuickLoginSheet: View {
         }
     }
 
-    /// Champ libre et liste des noms déjà utilisés (bouton à droite, comme une liste combinée).
+    /// Champ libre et, à côté, menu natif des noms déjà utilisés.
     private var userField: some View {
         HStack(spacing: 6) {
             RegTextField(placeholder: "ex. admin (vide\u{00A0}: \(RegEnvironment.isSnapshot ? "dany" : NSUserName()))", text: $user, mono: true,
                          invalid: userInvalid)
                 .focused($userFocused)
                 .onSubmit(connect)
-            Menu {
+            Menu("Noms") {
                 ForEach(model.knownUsers, id: \.self) { name in
                     Button(name) { user = name }
                 }
-            } label: {
-                Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
+            .menuStyle(.button)
+            .controlSize(.regular)
             .fixedSize()
-            .frame(width: 26, height: Theme.controlHeight)
-            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
             .help("Noms déjà utilisés")
         }
     }
@@ -225,7 +220,9 @@ struct QuickLoginSheet: View {
             Toggle(isOn: $skipPrompt) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Ne plus demander pour cet appareil").font(Theme.body).foregroundStyle(Theme.text)
-                    Text("Le bouton SSH se connecte directement\u{00A0}; ⌥-clic ou clic droit pour changer d’utilisateur.")
+                    Text(target.proto == .ssh
+                         ? "Le bouton SSH se connecte directement\u{00A0}; ⌥-clic ou clic droit pour changer d’utilisateur."
+                         : "La connexion \(target.proto.label) se lance directement, sans cette feuille.")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 }
             }

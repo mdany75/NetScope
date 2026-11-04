@@ -373,10 +373,14 @@ struct ScanDetailActions: View {
                     action("Wake-on-LAN", "power") { scan.wake(device, state: state) }
                         .disabled(device.mac == nil)
                     // Note 52 : feuille de l'utilisateur, nom retenu affiché sur le bouton.
-                    action(QuickLoginFormat.buttonTitle(QuickLoginModel.shared.remembered(QuickLoginTarget(device: device))), "terminal") {
-                        QuickLoginModel.shared.ask(QuickLoginTarget(device: device))
+                    // Même bouton que la fiche Appareil : clic droit pour changer d'utilisateur ou l'oublier.
+                    QuickLoginSSHButton(target: QuickLoginTarget(device: device)) { entry in
+                        HStack(spacing: 8) {
+                            Image(systemName: "terminal").font(.system(size: 13)).frame(width: 16)
+                            Text(QuickLoginFormat.buttonTitle(entry)).lineLimit(1)
+                        }
                     }
-                    .help(QuickLoginFormat.help(entry: QuickLoginModel.shared.remembered(QuickLoginTarget(device: device)), host: device.ip.description))
+                    .buttonStyle(ScanOutlineButtonStyle(height: 34, font: .system(size: 12, weight: .medium), fullWidth: true))
                     action("Copier IP", "doc.on.doc") { scan.copy(device.ip.description, label: "IP") }
                     action("Copier MAC", "doc.on.doc") {
                         if let mac = device.mac { scan.copy(mac.formatted(.upperColon), label: "MAC") }

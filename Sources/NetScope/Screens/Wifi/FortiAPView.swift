@@ -120,8 +120,8 @@ struct FortiAPView: View {
 
     /// Borne demandée par la fiche d'un appareil : sélectionnée, et sa bande montrée sur la carte.
     private func applyFocus() {
-        guard let id = store.focusAP else { return }
-        if store.shownOverview.aps.contains(where: { $0.id == id }) {
+        guard let wanted = store.focusAP else { return }
+        if let id = store.shownAPID(for: wanted) {
             selectedAP = id
             if let b = store.focusBand { band = b }
         }

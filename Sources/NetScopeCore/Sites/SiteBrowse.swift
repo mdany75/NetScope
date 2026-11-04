@@ -131,7 +131,7 @@ public enum SiteLinkState: Hashable, Sendable {
     public func help(time: (Date) -> String) -> String {
         switch self {
         case .noFortiGate: return "Aucune FortiGate associée à ce site"
-        case .notRead: return "FortiGate associée, pas encore lue (fin du prochain scan ou «\u{00A0}Relire\u{00A0}»)"
+        case .notRead: return "FortiGate associée, pas encore lue (à la fin du prochain scan, ou par une lecture à la demande)"
         case .joined(let date): return "FortiGate jointe" + (date.map { ", lue à \(time($0))" } ?? "")
         case .problem(let reason): return "FortiGate injoignable\u{00A0}: \(reason)"
         }

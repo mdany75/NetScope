@@ -21,13 +21,17 @@ struct QuickLoginTarget: Identifiable, Equatable {
     var port: Int?
     /// Dossier du carnet si la connexion y est enregistrée.
     var folder: String?
+    /// Connexion du carnet d'où vient la feuille (mise à jour au lieu d'en ajouter une autre).
+    var connectionID: UUID?
 
-    init(name: String, device: QuickLoginDevice, proto: RemoteProtocol = .ssh, port: Int? = nil, folder: String? = nil) {
+    init(name: String, device: QuickLoginDevice, proto: RemoteProtocol = .ssh, port: Int? = nil, folder: String? = nil,
+         connectionID: UUID? = nil) {
         self.name = name
         self.device = device
         self.proto = proto
         self.port = port
         self.folder = folder
+        self.connectionID = connectionID
     }
 
     /// Appareil du Scanner, de la fiche Appareil ou de l'Inventaire.
@@ -61,7 +65,7 @@ struct QuickLoginTarget: Identifiable, Equatable {
     init(connection: RemoteConnection) {
         self.init(name: connection.name,
                   device: QuickLoginDevice(host: connection.host, siteID: SiteModel.shared.list.activeID),
-                  proto: connection.proto, port: connection.port, folder: connection.folder)
+                  proto: connection.proto, port: connection.port, folder: connection.folder, connectionID: connection.id)
     }
 }
 
@@ -74,8 +78,10 @@ final class QuickLoginModel: ObservableObject {
     @Published var target: QuickLoginTarget?
     /// Erreur d'ouverture d'une connexion lancée sans feuille (« Ne plus demander »).
     @Published var failure: String?
-    /// Dernière connexion ouverte (« SSH admin@10.0.0.2 ouvert dans Terminal »).
+    /// Dernière connexion ouverte (« SSH admin@10.0.0.2 ouvert dans Terminal »), montrée
+    /// quelques secondes en bas de la fenêtre (seul retour quand « Ne plus demander » est coché).
     @Published private(set) var lastOpened: String?
+    private var lastOpenedTask: Task<Void, Never>?
 
     private let url: URL?
 
@@ -133,18 +139,39 @@ final class QuickLoginModel: ObservableObject {
     /// Lance la connexion, retient le choix pour l'appareil et, au besoin, l'ajoute au carnet.
     func open(_ choice: QuickLoginChoice, for target: QuickLoginTarget, skipPrompt: Bool, saveToBook: Bool) throws {
         let valid = try choice.validated()
-        let plan = try QuickLogin.plan(for: valid, name: target.name)
-        let title = "\(target.name) · " + QuickLoginAddress(user: valid.user, host: valid.host, port: valid.port)
+        // Forme user@ip vers un autre hôte que l'appareil : le choix est retenu pour CET hôte
+        // (sans la MAC de l'appareil d'origine), jamais pour l'appareil de la feuille.
+        let otherHost = valid.host.caseInsensitiveCompare(target.device.host) != .orderedSame
+        let device = otherHost ? QuickLoginDevice(host: valid.host, siteID: target.device.siteID) : target.device
+        let name = otherHost ? valid.host : RemoteShell.sanitizedTitle(target.name)
+        let plan = try QuickLogin.plan(for: valid, name: name)
+        let address = QuickLoginAddress(user: valid.user, host: valid.host, port: valid.port)
             .formatted(defaultPort: valid.proto.defaultPort)
-        // Captures et démonstration figée : rien n'est lancé.
-        if !RegEnvironment.isSnapshot { try RemoteExecutor.execute(plan, title: title) }
-        memory.remember(valid, for: target.device, skipPrompt: skipPrompt)
-        persist()
-        if saveToBook {
-            let folder = target.folder ?? SiteModel.shared.list.active?.name ?? ""
-            RemoteModel.shared.saveQuickConnection(QuickLogin.connection(for: valid, name: target.name, folder: folder))
+        let title = "\(name) · " + address
+        if RegEnvironment.isSandboxed {
+            // Captures et démonstration : rien n'est lancé (aucun trafic vers les adresses fictives).
+            showOpened("Démonstration\u{00A0}: \(valid.proto.label.lowercased()) \(address) non lancé")
+        } else {
+            try RemoteExecutor.execute(plan, title: title)
+            showOpened("\(valid.proto.label) \(address) ouvert dans \(plan.appName)")
         }
-        lastOpened = "\(valid.proto.label) \(QuickLoginAddress(user: valid.user, host: valid.host, port: valid.port).formatted(defaultPort: valid.proto.defaultPort)) ouvert dans \(plan.appName)"
+        memory.remember(valid, for: device, skipPrompt: skipPrompt)
+        persist()
+        if saveToBook || target.connectionID != nil {
+            let folder = target.folder ?? SiteModel.shared.list.active?.name ?? ""
+            RemoteModel.shared.saveQuickConnection(QuickLogin.connection(for: valid, name: name, folder: folder),
+                                                   originID: target.connectionID, saveToBook: saveToBook)
+        }
+    }
+
+    private func showOpened(_ message: String) {
+        lastOpened = message
+        lastOpenedTask?.cancel()
+        lastOpenedTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            guard !Task.isCancelled else { return }
+            self?.lastOpened = nil
+        }
     }
 
     /// « Oublier cet appareil » : la feuille revient, sans le nom retenu.
@@ -190,6 +217,7 @@ private struct QuickLoginPresenter: ViewModifier {
     func body(content: Content) -> some View {
         content
             .overlay(alignment: .top) { snapshotSheet }
+            .overlay(alignment: .bottom) { openedToast }
             .sheet(item: $model.target) { target in
                 QuickLoginSheet(target: target, dismiss: { model.target = nil })
             }
@@ -198,6 +226,23 @@ private struct QuickLoginPresenter: ViewModifier {
             } message: {
                 Text(model.failure ?? "")
             }
+    }
+
+    /// Confirmation de la dernière connexion ouverte (« SSH admin@10.0.0.2 ouvert dans Terminal »).
+    @ViewBuilder private var openedToast: some View {
+        if let message = model.lastOpened {
+            Label(message, systemImage: "terminal")
+                .font(Theme.bodyMedium)
+                .foregroundStyle(Theme.text)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(Capsule().fill(Theme.panel))
+                .overlay(Capsule().strokeBorder(Theme.border))
+                .shadow(color: Color(nsColor: .shadowColor).opacity(0.2), radius: 8, y: 3)
+                .padding(.bottom, 18)
+                .transition(.opacity)
+                .allowsHitTesting(false)
+        }
     }
 
     /// Captures (NETSCOPE_SSH_FEUILLE) : la feuille dessinée par-dessus la fiche Appareil, sous

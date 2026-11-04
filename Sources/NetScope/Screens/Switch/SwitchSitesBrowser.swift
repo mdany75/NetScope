@@ -52,6 +52,8 @@ struct SwitchSitesBrowser: View {
                                                                         sortKeys: Self.sortKeys, defaultSort: "groupe")
     @State private var selection: Set<String> = []
     @State private var selectedPort: Int?
+    /// Port demandé par un focus : repris par `onChange(of: selection)` au lieu d'être effacé.
+    @State private var pendingPort: Int??
 
     static let columns: [StandardColumn] = [
         StandardColumn.site,
@@ -125,7 +127,12 @@ struct SwitchSitesBrowser: View {
         .onAppear { applyFocus(rows) }
         .onChange(of: store.browseFocus) { _, _ in applyFocus(rows) }
         .onChange(of: selection) { _, ids in
-            selectedPort = nil
+            if let pending = pendingPort {
+                selectedPort = pending
+                pendingPort = nil
+            } else {
+                selectedPort = nil
+            }
             store.browseSelection = ids.count == 1 ? ids.first : nil
         }
     }
@@ -134,8 +141,14 @@ struct SwitchSitesBrowser: View {
     private func applyFocus(_ rows: [SwitchSiteRow]) {
         if let focus = store.browseFocus {
             if let row = rows.first(where: { $0.entry.siteKey == focus.siteKey && $0.entry.answers(to: focus.hostOrName) }) {
-                selection = [row.id]
-                selectedPort = focus.port.flatMap { name in row.entry.snapshot.interfaces.first { $0.name == name }?.index }
+                let port = focus.port.flatMap { name in row.entry.snapshot.interfaces.first { $0.name == name }?.index }
+                if selection == [row.id] {
+                    selectedPort = port
+                } else {
+                    // Le changement de sélection efface le port : il le reprendra d'ici.
+                    pendingPort = .some(port)
+                    selection = [row.id]
+                }
             }
             store.browseFocus = nil
         } else if selection.isEmpty, let kept = store.browseSelection, rows.contains(where: { $0.id == kept }) {
@@ -369,9 +382,11 @@ private struct SwitchSiteCard: View {
                     Text("\(count) switch\(count > 1 ? "s" : "")").font(Theme.mono(12, weight: .semibold))
                         .foregroundStyle(count > 0 ? Theme.text : Theme.textTertiary)
                 }
-                HStack(spacing: 6) {
+                // Texte complet sur plusieurs lignes : la raison d'un échec ne doit pas être coupée.
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
                     SiteLinkDot(state: link, size: 7)
-                    Text(link.helpText).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.tail)
+                    Text(link.helpText).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 if let message = group.view.emptyMessage {
                     Text(message).font(Theme.small).foregroundStyle(Theme.textSecondary)

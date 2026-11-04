@@ -122,7 +122,7 @@ public enum RemoteLauncher {
         """
         #!/bin/zsh
         rm -f -- "$0"
-        printf '\\033]0;%s\\007' \(RemoteShell.quote(title))
+        printf '\\033]0;%s\\007' \(RemoteShell.quote(RemoteShell.sanitizedTitle(title)))
         clear
         echo \(RemoteShell.quote("NetScope › " + command))
         \(command)
