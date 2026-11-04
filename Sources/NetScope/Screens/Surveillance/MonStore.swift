@@ -298,14 +298,19 @@ final class MonStore: ObservableObject {
         let pinger = self.pinger
         let devices = appState?.devices ?? []
         let inventoryReady = !ScanController.shared.isRunning
+        // Sonde « Service en ligne » : catalogue de l'outil et accès Graph (secret lu au Trousseau).
+        let onlineServices = probe.kind == .onlineService ? SvcStore.shared.services : []
+        let onlineGraph = probe.kind == .onlineService ? SvcStore.shared.graphCredentials() : nil
         Task {
             if perHost {
                 await SwitchStore.shared.loadVault()
                 let host = SwitchStore.shared.community(for: probe.target)
                 community = host.isEmpty ? RegSNMPCredentials.load()?.community : host
             }
-            let context = MonRunContext(pinger: pinger, snmpCommunity: community, devices: devices,
+            var context = MonRunContext(pinger: pinger, snmpCommunity: community, devices: devices,
                                         inventoryReady: inventoryReady, now: Date())
+            context.onlineServices = onlineServices
+            context.onlineServiceGraph = onlineGraph
             let outcome = await MonRunner.run(probe, context: context)
             MonStore.shared.finish(probe.id, outcome: outcome, manual: manual)
         }

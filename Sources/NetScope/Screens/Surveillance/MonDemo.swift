@@ -60,6 +60,10 @@ enum MonDemo {
         Row(name: "Mémoire de ce Mac", kind: .memory, target: "ce Mac", sub: "Macmini-de-Dany", iv: 300, state: .ok,
             value: "Mémoire 68\(s)% · 21,8 Go / 32 Go", latency: nil, orange: [], red: [], dependsOnGateway: false,
             configure: { $0.resourceLimit = 90; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
+        // Service en ligne (note 15) : Teams dégradé selon Microsoft.
+        Row(name: "Microsoft 365", kind: .onlineService, target: "Microsoft 365", sub: "Outlook · Teams · SharePoint · OneDrive",
+            iv: 300, state: .warning, value: "Dégradé · 96\(s)ms", latency: 96, orange: [22, 23], red: [],
+            configure: { $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
     ]
 
     static func load(into store: MonStore) {
@@ -107,6 +111,8 @@ enum MonDemo {
                      resolvedAt: resolvedAt, resolution: resolution, acknowledgedAt: ackAt, acknowledgedBy: ackAt == nil ? nil : "Dany")
         }
         let journal = MonJournal(alerts: [
+            alert(at(13, 7, 12), "Microsoft 365", .warning,
+                  "Service dégradé\(s): Teams\(s): Retards dans la livraison des messages de conversation (incident TM892341)."),
             alert(at(13, 5, 44), "Certificat TLS", .warning,
                   "Le certificat de https://10.182.122.1 expire le 24 nov. 2026 (dans 21\(s)jours)."),
             alert(at(12, 28, 3), "Caméra-Quai", .critical,

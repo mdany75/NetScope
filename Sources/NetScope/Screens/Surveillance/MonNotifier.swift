@@ -52,7 +52,18 @@ final class MonNotifier: NSObject {
                 identifier: UUID().uuidString, sound: false)
     }
 
+    /// Notifie un nouvel incident d'un service en ligne (outil « État des services », note 15).
+    func postService(title: String, body: String, serviceID: String, identifier: String) {
+        deliver(title: title, body: body, thread: "service-" + serviceID, userInfo: ["service": serviceID],
+                identifier: identifier, sound: false)
+    }
+
     private func deliver(title: String, body: String, probe: MonProbe, identifier: String, sound: Bool) {
+        deliver(title: title, body: body, thread: probe.id.uuidString, userInfo: ["probe": probe.id.uuidString],
+                identifier: identifier, sound: sound)
+    }
+
+    private func deliver(title: String, body: String, thread: String, userInfo: [String: String], identifier: String, sound: Bool) {
         guard isAvailable else {
             if sound { NSSound.beep() }
             return
@@ -62,8 +73,8 @@ final class MonNotifier: NSObject {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
-        content.threadIdentifier = probe.id.uuidString
-        content.userInfo = ["probe": probe.id.uuidString]
+        content.threadIdentifier = thread
+        content.userInfo = userInfo
         if sound { content.sound = .default }
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
         switch authorization {
@@ -106,8 +117,17 @@ extension MonNotifier: UNUserNotificationCenterDelegate {
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                             withCompletionHandler completionHandler: @escaping () -> Void) {
         let text = response.notification.request.content.userInfo["probe"] as? String
+        let service = response.notification.request.content.userInfo["service"] as? String
         DispatchQueue.main.async {
             MainActor.assumeIsolated {
+                // Incident d'un service en ligne : ouvre l'outil « État des services » sur ce service.
+                if let service {
+                    SvcStore.shared.selectedServiceID = service
+                    ToolStore.shared.selectedTool = .cloud
+                    ToolStore.shared.toolFilter = ""
+                    MonWindow.open(screen: .outils)
+                    return
+                }
                 if let text, let id = UUID(uuidString: text) { MonStore.shared.selectedID = id }
                 MonWindow.open(screen: .surveillance)
             }

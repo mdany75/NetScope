@@ -22,6 +22,7 @@ struct SurveillanceScreen: View {
                     MonJournalPanel()
                 } side: {
                     VStack(spacing: 14) {
+                        MonServiceTile()
                         MonMenuPreview()
                         MonNotificationPreview()
                     }

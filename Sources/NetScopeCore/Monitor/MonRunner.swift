@@ -11,6 +11,10 @@ public struct MonRunContext: Sendable {
     /// Faux pendant un scan : l'inventaire est vidé puis rempli peu à peu, il ne dit rien de fiable.
     public var inventoryReady: Bool
     public var now: Date
+    /// Catalogue des services en ligne (sonde « Service en ligne ») ; vide : catalogue intégré.
+    public var onlineServices: [SvcService] = []
+    /// Accès Microsoft Graph pour Microsoft 365 (secret lu au Trousseau par l'application).
+    public var onlineServiceGraph: SvcGraphCredentials?
 
     public init(pinger: ScanPinging?, snmpCommunity: String?, devices: [Device], inventoryReady: Bool = true,
                 now: Date = Date()) {
@@ -72,6 +76,8 @@ public enum MonRunner {
                                                  devices: context.devices, now: context.now)
         case .cpu, .memory, .portLoad:
             return MonRunOutcome(result: await MonResourceChecks.run(probe, target: target, context: context))
+        case .onlineService:
+            return MonRunOutcome(result: await SvcMonitorCheck.run(probe, target: target, context: context))
         }
     }
 

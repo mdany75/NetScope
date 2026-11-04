@@ -204,6 +204,7 @@ private struct ToolMainPanel: View {
         case .wol: WakeOnLANView(model: wol, store: store)
         case .dhcp: DHCPTestView(model: dhcp, store: store)
         case .lldp: NeighborCaptureView(model: neighbors, store: store)
+        case .cloud: ServiceStatusView(store: store)
         }
     }
 
@@ -222,6 +223,7 @@ private struct ToolMainPanel: View {
         case .wol: return wol.command
         case .dhcp: return dhcp.command
         case .lldp: return neighbors.command
+        case .cloud: return SvcStore.shared.command
         }
     }
 }
