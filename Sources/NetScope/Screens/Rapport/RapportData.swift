@@ -55,6 +55,9 @@ enum RapportData {
         let scopes = dhcpScopes.overview(devices: devices)
         input.dhcpScopes = scopes.scopes.isEmpty ? nil : scopes
         input.dhcpThresholds = dhcpScopes.thresholds
+        // Diagnostic Wi-Fi (note 47) : diagnostics retenus pour le rapport du site actif.
+        input.wifiDiagnoses = WifiDiagnosisStore.shared.reported(forKey: SiteModel.shared.activeKey)
+        if demo, input.wifiDiagnoses.isEmpty { input.wifiDiagnoses = WifiDiagnosisDemo.reportResults(state: state) }
         // Note 28 : les compléments du croquis décrivent le Siège seulement.
         if demo, SiteModel.shared.activeID == SitesDemo.siegeID { RapportDemo.complete(&input) }
         return input

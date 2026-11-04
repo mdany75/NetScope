@@ -68,6 +68,8 @@ struct WifiScreen: View {
             .padding(.vertical, 16)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+        // Note 47 : captures (NETSCOPE_WIFI_DIAG), la feuille du diagnostic dessinée dans la page.
+        .overlay(alignment: .top) { if part == .fortiap { WifiDiagnosisSnapshotOverlay() } }
         .onAppear {
             store.start()
             if !FortiAPDemo.opensFortiAP, !RegEnvironment.isSnapshot, let saved = WifiScreenPart(rawValue: savedPart) { part = saved }
