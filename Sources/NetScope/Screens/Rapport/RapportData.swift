@@ -55,6 +55,42 @@ enum RapportData {
         return input
     }
 
+    /// Données de chaque site choisi dans le menu « Site ▾ » des Rapports : le site actif d'après le
+    /// Scanner (comme ci-dessus), les autres d'après leur dernier scan enregistré et leur propre
+    /// inventaire (lecture seule, aucun réseau). Rien n'est fusionné d'un site à l'autre.
+    static func inputs(state: AppState, demo: Bool, keys: [String], now: Date = Date()) -> [ReportSiteInput] {
+        let sites = SiteModel.shared
+        return keys.map { key in
+            let name = sites.name(forKey: key)
+            if key == sites.activeKey { return ReportSiteInput(name: name, input: input(state: state, demo: demo, now: now)) }
+            return ReportSiteInput(name: name, input: input(forSite: key, now: now))
+        }
+    }
+
+    /// Un autre site que le site actif : appareils de son dernier scan (sites/<id>/resultats.json),
+    /// fiches de son inventaire dans ses plages. Les relevés SNMP, le Wi-Fi vu par ce Mac et les
+    /// outils (courriel, disques, FortiAP) ne décrivent que le site actif : ils n'y sont pas.
+    static func input(forSite key: String, now: Date = Date()) -> ReportInput {
+        let sites = SiteModel.shared
+        let results = sites.storedResults(for: key) ?? SiteResults()
+        let store = InvModel.shared.inventory(for: key)
+        let named = results.devices.map { device -> Device in
+            var copy = device
+            copy.customName = results.customNames[device.id] ?? device.customName
+            return copy
+        }
+        let devices = store.applyingManualTypes(to: named)
+        let ranges = (sites.site(forKey: key)?.ranges ?? []).filter(\.isEnabled)
+        let parsed = ranges.compactMap { try? $0.parsed() }
+        let inRanges = store.sortedRecords.filter { record in parsed.contains { $0.contains(record.ip) } }
+        var input = ReportInput(
+            devices: devices, records: ReportBuilder.sessionRecords(inRanges, devices: devices),
+            ranges: ranges.map { ReportRange(label: $0.label, text: $0.text, vlan: $0.vlan) },
+            scanDate: results.finishedAt ?? devices.map(\.lastSeen).max(), now: now)
+        input.extraProblems = dhcpProblems(store.events, ranges: parsed)
+        return input
+    }
+
     /// Serveurs DHCP non autorisés signalés par le Test DHCP (alertes « à traiter » de l'inventaire)
     /// dont l'adresse tombe dans les plages du rapport : un problème critique par adresse.
     static func dhcpProblems(_ events: [InvEvent], ranges: [IPRange]) -> [ReportProblem] {

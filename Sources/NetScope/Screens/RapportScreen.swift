@@ -8,6 +8,7 @@ struct RapportScreen: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var model = RapportModel.shared
     @ObservedObject private var inventory = InvModel.shared
+    @ObservedObject private var scope = SiteScopeStore.shared
 
     var body: some View {
         let document = model.document(state: state)
@@ -16,7 +17,10 @@ struct RapportScreen: View {
 
         HStack(alignment: .top, spacing: 14) {
             ScrollView {
-                RapportConfigPanel(model: model, startPages: ReportPaginator.startPages(pages), totalPages: pages.count)
+                VStack(alignment: .leading, spacing: 12) {
+                    siteRow
+                    RapportConfigPanel(model: model, startPages: ReportPaginator.startPages(pages), totalPages: pages.count)
+                }
                     .padding(.vertical, 16)
                     .padding(.leading, Theme.contentPadding)
                     .padding(.trailing, 2)
@@ -29,6 +33,23 @@ struct RapportScreen: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .screenToolbar { toolbar }
         .feedsInventory(state)
+    }
+
+    /// Sites du rapport, en haut de la colonne de réglages : un, plusieurs ou tous les sites ;
+    /// plusieurs donnent un rapport multisite (une section par site).
+    private var siteRow: some View {
+        let count = scope.keys(for: .rapports).count
+        return HStack(spacing: 10) {
+            SiteScopeMenu(screen: .rapports)
+            // Petite colonne : forme courte plutôt qu'une phrase coupée.
+            ViewThatFits(in: .horizontal) {
+                Text(count > 1 ? "Rapport multisite\u{00A0}: une section par site" : "Rapport d’un seul site").fixedSize()
+                Text(count > 1 ? "Une section par site" : "Un seul site").fixedSize()
+                Color.clear.frame(width: 0, height: 0)
+            }
+            .font(Theme.small).foregroundStyle(Theme.textSecondary)
+            Spacer(minLength: 0)
+        }
     }
 
     @ViewBuilder private var toolbar: some View {
@@ -57,6 +78,11 @@ struct RapportScreen: View {
 
     /// « Scan du 3 nov. · 16 app. » : court, pour laisser sa place au champ de recherche de la barre d'outils.
     private var sourceLabel: String {
+        let keys = SiteScopeStore.shared.keys(for: .rapports)
+        if keys != [SiteModel.shared.activeKey] {
+            let count = RapportData.inputs(state: state, demo: model.isDemo, keys: keys).reduce(0) { $0 + $1.input.devices.count }
+            return keys.count > 1 ? "\(keys.count) sites · \(count) app." : "Dernier scan · \(count) app."
+        }
         guard let last = state.devices.map(\.lastSeen).max() else { return "Aucun scan" }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "fr_CA")
@@ -66,6 +92,12 @@ struct RapportScreen: View {
 
     /// Infobulle : le libellé complet (« Scan du 2026-11-03 09:12 · 16 appareils »).
     private var sourceHelp: String {
+        let keys = SiteScopeStore.shared.keys(for: .rapports)
+        if keys != [SiteModel.shared.activeKey] {
+            return "Rapport " + (keys.count > 1 ? "multisite\u{00A0}: une section par site (" : "du site ")
+                + keys.map { SiteModel.shared.name(forKey: $0) }.joined(separator: ", ") + (keys.count > 1 ? ")" : "")
+                + ". Les autres sites que le site actif sont décrits d’après leur dernier scan enregistré et leur inventaire."
+        }
         let source: String
         if let last = state.devices.map(\.lastSeen).max() {
             let count = state.devices.count

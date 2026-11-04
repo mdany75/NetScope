@@ -102,7 +102,7 @@ public enum ReportExport {
                 case .code(let lines): raw = lines
                 }
             }
-            return .init(id: section.kind.rawValue, titre: section.heading, textes: texts, indicateurs: kpis,
+            return .init(id: section.id, titre: section.heading, textes: texts, indicateurs: kpis,
                          repartition: bars, tableaux: tables, brut: raw)
         }
         let report = JSONReport(
@@ -215,7 +215,7 @@ public enum ReportExport {
 
         """
         for section in document.sections {
-            out += "<section id=\"\(e(section.kind.rawValue))\">\n<h2>\(e(section.heading))</h2>\n"
+            out += "<section id=\"\(e(section.id.replacingOccurrences(of: " ", with: "-")))\">\n<h2>\(e(section.heading))</h2>\n"
             for block in section.blocks { out += html(block) }
             out += "</section>\n"
         }

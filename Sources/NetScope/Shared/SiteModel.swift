@@ -127,6 +127,27 @@ final class SiteModel: ObservableObject {
         site.id == activeID ? InvModel.shared.store.count : (site.inventoryCount ?? 0)
     }
 
+    /// Nombre de fiches d'un autre site, après une modification de son inventaire (suppression).
+    func setInventoryCount(_ count: Int, for key: String) {
+        guard let index = list.sites.firstIndex(where: { SiteFiles.key(for: $0.id) == key }),
+              list.sites[index].inventoryCount != count else { return }
+        list.sites[index].inventoryCount = count
+        save()
+    }
+
+    /// Résultats du dernier scan d'un site (Carte, Rapports de plusieurs sites), en lecture seule :
+    /// ceux mis de côté en mémoire, sinon ceux du disque. Le site actif n'est pas rechargé.
+    func storedResults(for key: String) -> SiteResults? {
+        shelf.memory[key] ?? files?.loadResults(for: key)
+    }
+
+    /// Nom d'un site par sa clé (« Aucun site » pour les plages libres).
+    func name(forKey key: String) -> String {
+        sites.first { SiteFiles.key(for: $0.id) == key }?.displayName ?? (key == activeKey ? activeName : "Aucun site")
+    }
+
+    func site(forKey key: String) -> Site? { sites.first { SiteFiles.key(for: $0.id) == key } }
+
     /// Les plages du Scanner ne sont plus celles du site actif (case cochée mise à part).
     func hasUnsavedRanges(_ state: AppState) -> Bool {
         guard let site = activeSite else { return false }

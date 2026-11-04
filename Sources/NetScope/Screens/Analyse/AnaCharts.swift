@@ -5,13 +5,15 @@ import SwiftUI
 struct AnaOnlineChart: View {
     let snapshots: [InvSnapshot]
     let period: AnaPeriod
+    /// Plusieurs sites affichés : le site de la courbe (jamais deux sites sur la même courbe).
+    var siteName: String?
 
     var body: some View {
         let values = snapshots.map { Double($0.onlineCount) }
         Panel(padding: 16) {
             VStack(alignment: .leading, spacing: 10) {
                 InvPanelTitle(title: "Appareils en ligne",
-                              subtitle: "\(snapshots.count) scan\(snapshots.count > 1 ? "s" : "") · \(period.span)") {
+                              subtitle: (siteName.map { $0 + " · " } ?? "") + "\(snapshots.count) scan\(snapshots.count > 1 ? "s" : "") · \(period.span)") {
                     if let peak = values.max(), let low = values.min() {
                         HStack(spacing: 10) {
                             stat("Pic", Int(peak))

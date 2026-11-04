@@ -10,6 +10,9 @@ struct AnaOccupancyPanel: View {
     let records: [InvRecord]
     let now: Date
     let recentWindow: TimeInterval
+    /// Site du /24 (nil : site actif) ; `siteName` : affiché quand plusieurs sites sont choisis.
+    var siteKey: String?
+    var siteName: String?
 
     @State private var selected: Int?
     @State private var hovered: Int?
@@ -24,7 +27,7 @@ struct AnaOccupancyPanel: View {
 
         Panel(padding: 16) {
             VStack(alignment: .leading, spacing: 12) {
-                InvPanelTitle("Carte d’occupation", subtitle: "\(grid.network) · survolez une case pour voir l’adresse")
+                InvPanelTitle("Carte d’occupation", subtitle: (siteName.map { $0 + " · " } ?? "") + "\(grid.network) · survolez une case pour voir l’adresse")
                 HStack(alignment: .top, spacing: 16) {
                     VStack(alignment: .leading, spacing: Self.gap) {
                         HStack(spacing: Self.gap) {
@@ -132,6 +135,7 @@ struct AnaOccupancyPanel: View {
             if let record, cell.state != .libre {
                 HStack(spacing: 2) {
                     Button("Ouvrir la fiche") {
+                        model.selectedSite = siteKey
                         model.selectedKey = record.key
                         state.open(.inventaire)
                     }

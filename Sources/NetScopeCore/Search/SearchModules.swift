@@ -12,13 +12,13 @@ public extension SearchSchema {
     /// Inventaire : fiches des appareils.
     static let inventaire = SearchSchema([
         .type, .switchName, .ip, .name, .mac, .vendor, .port, .vlan, .status, .range, .tag, .location, .wallJack,
-        .owner, .asset, .note, .openPort,
+        .owner, .asset, .note, .openPort, .site.with(example: "Laval"),
     ], example: "type:camera -etat:\"en ligne\"")
 
     /// Analyse : alertes et changements de l'inventaire.
     static let analyse = SearchSchema([
         .severity, .type.with(label: "Changement", example: "\"port de switch\""), .ip, .name, .mac,
-        .status.with(example: "\"à traiter\""), .message.with(example: "conflit"),
+        .status.with(example: "\"à traiter\""), .message.with(example: "conflit"), .site.with(example: "Laval"),
     ], example: "gravite:critique ip:10.182.")
 
     /// Surveillance : sondes.
@@ -230,11 +230,14 @@ public struct InvEventSearchItem: SearchableRecord {
     public var event: InvEvent
     public var deviceName: String
     public var mac: MACAddress?
+    /// Site de l'inventaire de l'alerte (préfixe `site:`).
+    public var siteName: String?
 
-    public init(_ event: InvEvent, deviceName: String, mac: MACAddress? = nil) {
+    public init(_ event: InvEvent, deviceName: String, mac: MACAddress? = nil, siteName: String? = nil) {
         self.event = event
         self.deviceName = deviceName
         self.mac = mac
+        self.siteName = siteName
     }
 
     public func searchValues(for field: SearchAttribute) -> [String] {
@@ -251,6 +254,7 @@ public struct InvEventSearchItem: SearchableRecord {
             case .ignore: return ["Ignoré", "ignored"]
             }
         case "message": return [event.title, event.detail]
+        case "site": return [siteName].compactMap { $0 }
         default: return []
         }
     }

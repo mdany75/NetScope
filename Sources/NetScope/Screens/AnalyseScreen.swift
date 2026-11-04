@@ -30,15 +30,25 @@ enum AnaPeriod: String, CaseIterable, Hashable {
     }
 }
 
+/// Un /24 d'un site (le même /24 sur deux sites donne deux choix distincts).
+struct AnaNetwork: Hashable {
+    let site: String
+    let base: IPv4Address
+}
+
 /// Écran `Screen.analyse` : indicateurs, occupation d'un /24, répartitions, alertes issues de l'inventaire
-/// et comparaison de deux scans (croquis docs/croquis/Analyse.dc.html).
+/// et comparaison de deux scans (croquis docs/croquis/Analyse.dc.html). Menu « Site ▾ » : un,
+/// plusieurs ou tous les sites ; alertes regroupées par site ; carte d'occupation, courbe et
+/// comparaison toujours d'un seul site (celui de la plage choisie).
 struct AnalyseScreen: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var model = InvModel.shared
+    @ObservedObject private var scope = SiteScopeStore.shared
+    @ObservedObject private var sites = SiteModel.shared
 
     @State private var period: AnaPeriod = .jour
     /// /24 choisi ; nil : toutes les plages.
-    @State private var network: IPv4Address?
+    @State private var network: AnaNetwork?
     @State private var networkChosen = false
     @State private var exportDocument: InvCSVDocument?
     @State private var exportName = "analyse.csv"
@@ -47,36 +57,46 @@ struct AnalyseScreen: View {
     var body: some View {
         let now = Date()
         let since = now.addingTimeInterval(-period.seconds)
-        let allRecords = Array(model.store.records.values)
-        let networks = InvOccupancy.networks(of: allRecords)
-        let chosen = networkChosen ? network : defaultNetwork(networks)
-        let records = chosen.map { base in allRecords.filter { $0.ip.value & 0xFFFF_FF00 == base.value } } ?? allRecords
-        let alerts = model.alerts(since: since)
+        let inventories = scope.inventories(for: .analyse)
+        let multiple = inventories.count > 1
+        let networks = inventories.flatMap { inventory in
+            InvOccupancy.networks(of: Array(inventory.store.records.values)).map { AnaNetwork(site: inventory.key, base: $0) }
+        }
+        let wanted = networkChosen ? network : defaultNetwork(networks)
+        let chosen = wanted.flatMap { networks.contains($0) ? $0 : nil }
+        // Site de la carte d'occupation, de la courbe et de la comparaison : celui de la plage choisie.
+        let focus = inventories.first { $0.key == chosen?.site } ?? inventories[0]
+        let focusRecords = Array(focus.store.records.values)
+        let records = chosen.map { network in focusRecords.filter { $0.ip.value & 0xFFFF_FF00 == network.base.value } }
+            ?? inventories.flatMap { Array($0.store.records.values) }
+        let alerts = SiteScope.alerts(inventories, since: since)
+        let siteName = multiple ? focus.name : nil
 
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                filters(networks: networks, chosen: chosen, now: now, since: since)
-                tiles(records: records, chosen: chosen, alerts: alerts, now: now, since: since)
+                filters(networks: networks, chosen: chosen, inventories: inventories, now: now, since: since)
+                tiles(records: records, chosen: chosen, alerts: alerts.map(\.event), now: now, since: since)
                 // Petite fenêtre : courbe et répartitions passent sous la carte d'occupation, qui prend
                 // alors toute la largeur (pas de vide à sa droite).
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .top, spacing: 14) {
-                        occupancy(chosen: chosen, allRecords: allRecords, now: now)
+                        occupancy(chosen: chosen, allRecords: focusRecords, siteName: siteName, now: now)
                             .frame(width: 680)
-                        charts(records: records, since: since)
+                        charts(records: records, snapshots: focus.store.snapshots, siteName: siteName, since: since)
                             .frame(minWidth: 300, idealWidth: 300, maxWidth: .infinity)
                     }
                     VStack(alignment: .leading, spacing: 14) {
-                        occupancy(chosen: chosen, allRecords: allRecords, now: now)
+                        occupancy(chosen: chosen, allRecords: focusRecords, siteName: siteName, now: now)
                             .frame(maxWidth: .infinity)
-                        charts(records: records, since: since)
+                        charts(records: records, snapshots: focus.store.snapshots, siteName: siteName, since: since)
                     }
                 }
                 // Alertes, puis comparaison, sur toute la largeur : leurs tableaux (note 8) ne tiennent
                 // pas côte à côte ; le croquis passe aussi à une colonne quand la place manque.
-                AnaAlertsPanel(alerts: alerts, period: period, query: state.searchQuery(for: .analyse))
+                AnaAlertsPanel(alerts: alerts, period: period, query: state.searchQuery(for: .analyse),
+                               multiple: multiple, siteOrder: inventories.map(\.key))
                     .frame(maxWidth: .infinity)
-                AnaComparePanel(snapshots: model.store.snapshots) { text, name in
+                AnaComparePanel(snapshots: focus.store.snapshots, siteName: siteName) { text, name in
                     exportDocument = InvCSVDocument(text: text)
                     exportName = name
                     exporting = true
@@ -88,7 +108,7 @@ struct AnalyseScreen: View {
         }
         .screenToolbar {
             Button {
-                exportDocument = InvCSVDocument(text: alertsCSV(alerts))
+                exportDocument = InvCSVDocument(text: alertsCSV(alerts, multiple: multiple))
                 exportName = "analyse-\(InvFormat.day(now))-\(period.label.replacingOccurrences(of: " ", with: "")).csv"
                 exporting = true
             } label: { Label("Exporter CSV", systemImage: "square.and.arrow.up") }
@@ -106,9 +126,10 @@ struct AnalyseScreen: View {
     // MARK: Occupation et graphiques
 
     @ViewBuilder
-    private func occupancy(chosen: IPv4Address?, allRecords: [InvRecord], now: Date) -> some View {
+    private func occupancy(chosen: AnaNetwork?, allRecords: [InvRecord], siteName: String?, now: Date) -> some View {
         if let chosen {
-            AnaOccupancyPanel(network: chosen, records: allRecords, now: now, recentWindow: max(period.seconds, 7 * 86_400))
+            AnaOccupancyPanel(network: chosen.base, records: allRecords, now: now, recentWindow: max(period.seconds, 7 * 86_400),
+                              siteKey: chosen.site, siteName: siteName)
         } else {
             Panel(padding: 16) {
                 VStack(alignment: .leading, spacing: 8) {
@@ -122,35 +143,50 @@ struct AnalyseScreen: View {
         }
     }
 
-    private func charts(records: [InvRecord], since: Date) -> some View {
+    private func charts(records: [InvRecord], snapshots: [InvSnapshot], siteName: String?, since: Date) -> some View {
         VStack(spacing: 14) {
-            AnaOnlineChart(snapshots: model.store.snapshots.filter { $0.date >= since }, period: period)
+            AnaOnlineChart(snapshots: snapshots.filter { $0.date >= since }, period: period, siteName: siteName)
             AnaBreakdownPanel(records: records)
         }
     }
 
-    private func defaultNetwork(_ networks: [IPv4Address]) -> IPv4Address? {
+    /// Par défaut : le /24 du Mac dans le site actif, sinon la première plage.
+    private func defaultNetwork(_ networks: [AnaNetwork]) -> AnaNetwork? {
         if let address = state.activeInterface?.address {
-            let base = IPv4Address(address.value & 0xFFFF_FF00)
-            if networks.contains(base) { return base }
+            let mine = AnaNetwork(site: sites.activeKey, base: IPv4Address(address.value & 0xFFFF_FF00))
+            if networks.contains(mine) { return mine }
         }
         return networks.first
     }
 
     // MARK: Filtres
 
-    private func filters(networks: [IPv4Address], chosen: IPv4Address?, now: Date, since: Date) -> some View {
-        let scans = model.store.snapshots.filter { $0.date >= since }.count
-        let last = model.store.lastMerge
+    private func filters(networks: [AnaNetwork], chosen: AnaNetwork?, inventories: [SiteInventory], now: Date, since: Date) -> some View {
+        let scans = inventories.reduce(0) { $0 + $1.store.snapshots.filter { $0.date >= since }.count }
+        let last = inventories.compactMap(\.store.lastMerge).max()
+        let multiple = inventories.count > 1
         return HStack(spacing: 12) {
+            SiteScopeMenu(screen: .analyse)
             InvSegmented(options: AnaPeriod.allCases.map { ($0, $0.label) }, selection: $period)
             HStack(spacing: 8) {
                 Text("Plage / VLAN").font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize()
                 Picker("", selection: Binding(get: { chosen }, set: { network = $0; networkChosen = true })) {
-                    ForEach(networks, id: \.self) { base in
-                        Text(networkLabel(base)).tag(Optional(base))
+                    if multiple {
+                        // Une section par site : le même /24 sur deux sites reste deux choix.
+                        ForEach(inventories, id: \.key) { inventory in
+                            Section(inventory.name) {
+                                ForEach(networks.filter { $0.site == inventory.key }, id: \.self) { item in
+                                    Text(networkLabel(item, store: inventory.store)).tag(Optional(item))
+                                }
+                            }
+                        }
+                    } else {
+                        ForEach(networks, id: \.self) { item in
+                            Text(networkLabel(item, store: inventories[0].store)).tag(Optional(item))
+                        }
                     }
-                    Text("Toutes les plages (\(networks.count))").tag(IPv4Address?.none)
+                    Text(multiple ? "Toutes les plages des \(inventories.count) sites (\(networks.count))" : "Toutes les plages (\(networks.count))")
+                        .tag(AnaNetwork?.none)
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
@@ -162,28 +198,34 @@ struct AnalyseScreen: View {
                     .fixedSize()
                 Text("\(scans) scan\(scans > 1 ? "s" : "")" + (last.map { " · dernier \(InvFormat.timeOrStamp($0))" } ?? ""))
                     .fixedSize()
-                Text("\(scans) scan\(scans > 1 ? "s" : "")").lineLimit(1)
+                Text("\(scans) scan\(scans > 1 ? "s" : "")").fixedSize()
+                // Petite fenêtre avec le menu des sites : rien plutôt qu'un texte coupé (infobulle).
+                Color.clear.frame(width: 0, height: 0)
             }
+            .help("\(scans) scan\(scans > 1 ? "s" : "") sur \(period.span)" + (last.map { " · dernier scan \(InvFormat.timeOrStamp($0))" } ?? ""))
             .font(Theme.small).foregroundStyle(Theme.textSecondary)
             Spacer(minLength: 0)
             if let toast = model.toast { InvToast(text: toast) }
         }
     }
 
-    private func networkLabel(_ base: IPv4Address) -> String {
+    private func networkLabel(_ network: AnaNetwork, store: InventoryStore) -> String {
+        let base = network.base
         let subnet = Subnet(address: base, prefix: 24)
         var label = subnet.description
-        if let range = state.ranges.first(where: { (try? $0.parsed())?.contains(base.next ?? base) == true }) {
+        // Libellé de plage du site du /24 (le Scanner n'a que les plages du site actif).
+        let ranges = network.site == sites.activeKey ? state.ranges : (sites.site(forKey: network.site)?.ranges ?? [])
+        if let range = ranges.first(where: { (try? $0.parsed())?.contains(base.next ?? base) == true }) {
             label += " · " + range.label
         }
-        let vlans = Set(model.store.records.values.filter { subnet.contains($0.ip) }.compactMap(\.vlan)).sorted()
+        let vlans = Set(store.records.values.filter { subnet.contains($0.ip) }.compactMap(\.vlan)).sorted()
         if !vlans.isEmpty { label += " · VLAN " + vlans.map(String.init).joined(separator: ", ") }
         return label
     }
 
     // MARK: Tuiles
 
-    private func tiles(records: [InvRecord], chosen: IPv4Address?, alerts: [InvEvent], now: Date, since: Date) -> some View {
+    private func tiles(records: [InvRecord], chosen: AnaNetwork?, alerts: [InvEvent], now: Date, since: Date) -> some View {
         let added = records.filter { $0.firstSeen >= since && !$0.isImported }.count
         let lost = records.filter { !$0.isOnline && ($0.offlineSince ?? .distantPast) >= since }.count
         let online = records.filter(\.isOnline).count
@@ -192,7 +234,7 @@ struct AnalyseScreen: View {
         let pending = alerts.filter { $0.status == .aTraiter && $0.severity != .info }.count
         // Même fenêtre « vu récemment » que la carte d'occupation affichée dessous.
         let occupancy = chosen.map {
-            InvOccupancy(network: $0, records: records, now: now, recentWindow: max(period.seconds, 7 * 86_400))
+            InvOccupancy(network: $0.base, records: records, now: now, recentWindow: max(period.seconds, 7 * 86_400))
         }
 
         // Une rangée en grande fenêtre ; plusieurs lignes en petite fenêtre plutôt que des tuiles coupées.
@@ -228,17 +270,18 @@ struct AnalyseScreen: View {
 
     // MARK: Export
 
-    private func alertsCSV(_ alerts: [InvEvent]) -> String {
-        var lines = ["Date;Gravité;Type;IP;Titre;Détail;Traitement"]
-        for alert in alerts {
+    private func alertsCSV(_ items: [SiteScopedEvent], multiple: Bool) -> String {
+        var lines = [(multiple ? "Site;" : "") + "Date;Gravité;Type;IP;Titre;Détail;Traitement"]
+        for item in items {
+            let alert = item.event
             let status: String
             switch alert.status {
             case .aTraiter: status = "À traiter"
             case .accepte: status = "Accepté"
             case .ignore: status = "Ignoré"
             }
-            lines.append([InvFormat.stamp(alert.date), alert.severity.label, alert.kind.label, alert.ip.description,
-                          alert.title, alert.detail, status].map(AnaCSV.quote).joined(separator: ";"))
+            lines.append(((multiple ? [item.siteName] : []) + [InvFormat.stamp(alert.date), alert.severity.label, alert.kind.label,
+                          alert.ip.description, alert.title, alert.detail, status]).map(AnaCSV.quote).joined(separator: ";"))
         }
         return lines.joined(separator: "\r\n") + "\r\n"
     }

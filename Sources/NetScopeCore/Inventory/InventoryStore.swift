@@ -10,13 +10,17 @@ public struct InventoryStore: Codable, Sendable {
     public static let conflictWindow: TimeInterval = 15 * 60
 
     public var version = InventoryStore.currentVersion
-    public private(set) var records: [String: InvRecord] = [:]
+    public internal(set) var records: [String: InvRecord] = [:]
     /// Du plus ancien au plus récent.
-    public private(set) var events: [InvEvent] = []
+    public internal(set) var events: [InvEvent] = []
     /// Du plus ancien au plus récent.
     public private(set) var snapshots: [InvSnapshot] = []
     /// Date de la dernière fusion d'un scan.
     public private(set) var lastMerge: Date?
+    /// Appareils qu'on ne suit plus (« Ne plus suivre ces appareils », Inventaire.swift) : un scan
+    /// ne les remet pas dans l'inventaire. Optionnel pour relire les fichiers d'avant la 0.12.0.
+    /// Voir InvRemoval.swift.
+    var exclusions: [String: InvExclusion]?
 
     public init() {}
 
@@ -58,6 +62,8 @@ public struct InventoryStore: Codable, Sendable {
     @discardableResult
     public mutating func merge(_ devices: [Device], at date: Date = Date(), coverage: InvCoverage = .none,
                                snapshot: Bool = true) -> [InvEvent] {
+        // Appareils qu'on ne suit plus : jamais remis dans l'inventaire par un scan.
+        let devices = devices.filter { !isExcluded($0) }
         let baseline = records.isEmpty
         var produced: [InvEvent] = []
         func emit(_ kind: InvEventKind, _ severity: InvSeverity, key: String, ip: IPv4Address, date eventDate: Date? = nil,

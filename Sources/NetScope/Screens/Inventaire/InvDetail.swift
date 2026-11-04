@@ -9,6 +9,8 @@ struct InvDetail: View {
     let record: InvRecord
     let events: [InvEvent]
     let now: Date
+    /// Site de la fiche (nil : site actif) : l'enregistrement va dans l'inventaire de ce site seulement.
+    var siteKey: String?
 
     @State private var draft: InvAnnotations?
 
@@ -153,12 +155,14 @@ struct InvDetail: View {
                             model.show("Aucune modification à enregistrer")
                             return
                         }
-                        model.setAnnotations(draft, for: record.key)
-                        // Le nom saisi suit l'appareil dans les autres écrans.
-                        if state.device(withID: record.ip.description)?.mac == record.mac {
+                        let site = siteKey ?? model.siteKey
+                        model.setAnnotations(draft, for: record.key, site: site)
+                        // Le nom saisi suit l'appareil dans les autres écrans (appareils du site actif seulement).
+                        if site == model.siteKey, state.device(withID: record.ip.description)?.mac == record.mac {
                             state.setCustomName(draft.customName, for: record.ip.description)
                         }
-                        model.show("Fiche enregistrée : \(model.record(record.key)?.displayName ?? record.displayName)")
+                        let name = model.inventory(for: site).record(record.key)?.displayName ?? record.displayName
+                        model.show("Fiche enregistrée\u{00A0}: \(name)" + (site == model.siteKey ? "" : " (site «\u{00A0}\(SiteModel.shared.name(forKey: site))\u{00A0}»)"))
                         self.draft = nil
                     } label: { Label("Enregistrer", systemImage: "checkmark") }
                         .buttonStyle(.primary)
@@ -178,7 +182,8 @@ struct InvDetail: View {
 
     @ViewBuilder
     private var fullSheetButton: some View {
-        if state.device(withID: record.ip.description) != nil {
+        // Fiche complète : appareils du scan du site actif seulement (la même IP d'un autre site n'est pas lui).
+        if (siteKey ?? model.siteKey) == model.siteKey, state.device(withID: record.ip.description) != nil {
             Button("Fiche complète") { state.showDevice(record.ip.description) }.buttonStyle(.ghost)
         }
     }

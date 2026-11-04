@@ -158,16 +158,20 @@ public enum ReportBlock: Codable, Hashable, Sendable {
 }
 
 public struct ReportSection: Codable, Hashable, Sendable, Identifiable {
-    public var id: String { kind.rawValue }
+    /// « inventaire » ; rapport multisite : « Siège|inventaire » (une section par site).
+    public var id: String { site.map { $0 + "|" + kind.rawValue } ?? kind.rawValue }
     public var kind: ReportSectionKind
     /// « 3. Switchs et ports »
     public var heading: String
     public var blocks: [ReportBlock]
+    /// Site décrit par la section (rapport multisite) ; nil : rapport d'un seul site.
+    public var site: String?
 
-    public init(kind: ReportSectionKind, heading: String, blocks: [ReportBlock]) {
+    public init(kind: ReportSectionKind, heading: String, blocks: [ReportBlock], site: String? = nil) {
         self.kind = kind
         self.heading = heading
         self.blocks = blocks
+        self.site = site
     }
 
     /// Tableaux de la section (exports CSV).

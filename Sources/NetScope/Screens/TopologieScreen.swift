@@ -3,10 +3,17 @@ import SwiftUI
 
 /// Écran `Screen.carte` : carte hiérarchique construite à partir du scan
 /// (Internet → passerelle → switchs → points d'accès et groupes d'appareils), croquis docs/croquis/Topologie.dc.html.
+/// Menu « Site ▾ » : un, plusieurs ou tous les sites ; un dessin par site (sélecteur « Dessin »),
+/// jamais deux réseaux dans le même dessin. Les autres sites sont dessinés d'après leur dernier
+/// scan enregistré (sites/<id>/resultats.json), sans changer le site actif.
 struct TopologieScreen: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var model = InvModel.shared
     @ObservedObject private var scan = ScanController.shared
+    @ObservedObject private var scope = SiteScopeStore.shared
+    @ObservedObject private var sites = SiteModel.shared
+    /// Site dessiné quand plusieurs sites sont choisis (nil : le premier, le site actif s'il en fait partie).
+    @State private var drawingSite: String?
 
     @State private var selectedID: String?
     /// nil : la carte s'ajuste à la place disponible.
@@ -18,37 +25,82 @@ struct TopologieScreen: View {
     /// exemple, ne restent pas sur la carte).
     @State private var includePrevious = false
 
-    /// Appareils dessinés : ceux du dernier scan, ou tous ceux que garde le Scanner.
-    private var mapDevices: [Device] {
-        includePrevious ? state.devices : TopoScope.lastScan(state.devices, since: scan.startedAt, ranges: scan.lastScanRanges)
+    // MARK: Site dessiné
+
+    private var shownKeys: [String] { scope.keys(for: .carte) }
+
+    /// Site du dessin : un seul à la fois.
+    private var drawnKey: String {
+        let keys = shownKeys
+        if let drawingSite, keys.contains(drawingSite) { return drawingSite }
+        return keys.first ?? sites.activeKey
     }
 
-    /// Appareils gardés par le Scanner mais absents du dernier scan.
-    private var hiddenCount: Int { state.devices.count - TopoScope.lastScan(state.devices, since: scan.startedAt, ranges: scan.lastScanRanges).count }
+    private var isActiveDrawing: Bool { drawnKey == sites.activeKey }
+
+    /// Appareils du site dessiné et ceux de son dernier scan : le Scanner pour le site actif, sinon
+    /// les résultats enregistrés du site (lecture seule).
+    private var siteDevices: (all: [Device], lastScan: [Device]) {
+        if isActiveDrawing {
+            return (state.devices, TopoScope.lastScan(state.devices, since: scan.startedAt, ranges: scan.lastScanRanges))
+        }
+        let results = sites.storedResults(for: drawnKey) ?? SiteResults()
+        let devices = results.devices.map { device -> Device in
+            var copy = device
+            copy.customName = results.customNames[device.id] ?? device.customName
+            return copy
+        }
+        return (devices, TopoScope.lastScan(devices, since: results.startedAt, ranges: results.parsedScanRanges))
+    }
+
+    /// Appareils dessinés : ceux du dernier scan, ou tous ceux que garde le site ; type choisi à la main.
+    private var mapDevices: [Device] {
+        let devices = siteDevices
+        let shown = includePrevious ? devices.all : devices.lastScan
+        return isActiveDrawing ? model.withManualTypes(shown) : model.inventory(for: drawnKey).applyingManualTypes(to: shown)
+    }
+
+    /// Appareils gardés mais absents du dernier scan.
+    private var hiddenCount: Int {
+        let devices = siteDevices
+        return devices.all.count - devices.lastScan.count
+    }
 
     var body: some View {
-        let graph = TopoGraph.build(devices: model.withManualTypes(mapDevices), gateway: state.activeInterface?.gateway,
-                                    conflictIPs: model.store.conflictIPs)
+        let devices = mapDevices
+        let conflicts = model.inventory(for: drawnKey).conflictIPs
+        let graph = TopoGraph.build(devices: devices, gateway: isActiveDrawing ? state.activeInterface?.gateway : nil,
+                                    conflictIPs: conflicts)
 
-        Group {
-            if mapDevices.isEmpty {
-                EmptyState(systemImage: Screen.carte.symbol, title: "Aucun appareil à placer sur la carte",
-                           message: "La carte se construit à partir du dernier scan : passerelle, switchs, points d’accès et groupes d’appareils par type.") {
+        VStack(alignment: .leading, spacing: 14) {
+            siteBar
+            if devices.isEmpty {
+                EmptyState(systemImage: Screen.carte.symbol,
+                           title: shownKeys.count > 1 ? "Aucun appareil à placer sur la carte de «\u{00A0}\(sites.name(forKey: drawnKey))\u{00A0}»"
+                               : "Aucun appareil à placer sur la carte",
+                           message: "La carte se construit à partir du dernier scan : passerelle, switchs, points d’accès et groupes d’appareils par type.") {
                     Button { state.open(.scanner) } label: { Label("Ouvrir le scanner", systemImage: "magnifyingglass") }
                         .buttonStyle(.primary)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                VStack(alignment: .leading, spacing: 14) {
-                    tiles(graph)
-                    SidePanelSplit(sideWidth: 320, title: "Détail du nœud") {
-                        mapPanel(graph)
-                    } side: {
-                        TopoAside(graph: graph, selectedID: $selectedID)
-                    }
-                    .frame(maxHeight: .infinity)
+                tiles(graph, devices: devices, conflicts: conflicts)
+                SidePanelSplit(sideWidth: 320, title: "Détail du nœud") {
+                    mapPanel(graph)
+                } side: {
+                    TopoAside(graph: graph, selectedID: $selectedID, devices: devices, siteKey: drawnKey,
+                              isActiveSite: isActiveDrawing, conflictIPs: conflicts)
                 }
-                .padding(Theme.contentPadding)
+                .frame(maxHeight: .infinity)
             }
+        }
+        .padding(Theme.contentPadding)
+        .onChange(of: drawnKey) { _, _ in selectedID = nil }
+        .onAppear {
+            // Captures : NETSCOPE_CARTE_DESSIN=laval (partie du nom) choisit le dessin affiché.
+            guard Launcher.isDemo, drawingSite == nil,
+                  let wanted = ProcessInfo.processInfo.environment["NETSCOPE_CARTE_DESSIN"]?.lowercased() else { return }
+            drawingSite = shownKeys.first { sites.name(forKey: $0).lowercased().contains(wanted) }
         }
         .screenToolbar {
             Button { state.open(.switchs) } label: { Label("Switchs et ports", systemImage: Screen.switchs.symbol) }
@@ -60,10 +112,44 @@ struct TopologieScreen: View {
         .feedsInventory(state)
     }
 
+    // MARK: Sites
+
+    /// Menu « Site ▾ » et, avec plusieurs sites, le choix du dessin : un site par dessin.
+    private var siteBar: some View {
+        let keys = shownKeys
+        return HStack(spacing: 12) {
+            SiteScopeMenu(screen: .carte)
+            if keys.count > 1 {
+                Text("Dessin").font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize()
+                Picker("Dessin", selection: Binding(get: { drawnKey }, set: { drawingSite = $0 })) {
+                    ForEach(keys, id: \.self) { key in Text(sites.name(forKey: key)).tag(key) }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .fixedSize()
+                ViewThatFits(in: .horizontal) {
+                    Text("Un dessin par site\u{00A0}: jamais deux réseaux dans le même dessin").fixedSize()
+                    Text("Un dessin par site").fixedSize()
+                    Color.clear.frame(width: 0, height: 0)
+                }
+                .font(Theme.small).foregroundStyle(Theme.textSecondary)
+            }
+            if !isActiveDrawing, let finished = sites.storedResults(for: drawnKey)?.finishedAt {
+                ViewThatFits(in: .horizontal) {
+                    Text("Dernier scan de ce site\u{00A0}: \(InvFormat.timeOrStamp(finished))").fixedSize()
+                    Text("Scan du \(InvFormat.timeOrStamp(finished))").fixedSize()
+                    Color.clear.frame(width: 0, height: 0)
+                }
+                .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                .help("Dessin d’après le dernier scan enregistré de ce site (\(InvFormat.stamp(finished)))")
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
     // MARK: Indicateurs
 
-    private func tiles(_ graph: TopoGraph) -> some View {
-        let devices = mapDevices
+    private func tiles(_ graph: TopoGraph, devices: [Device], conflicts conflictIPs: Set<IPv4Address>) -> some View {
         let online = devices.filter(\.isOnline).count
         let switches = graph.nodes.filter { $0.kind == .switch && !$0.isInferred }.count
         let inferred = graph.nodes.filter { $0.kind == .switch && $0.isInferred && $0.id != "sw:?" }.count
@@ -72,7 +158,7 @@ struct TopologieScreen: View {
         let links = graph.links
         let wireless = links.filter { $0.child.isWireless }.count
         let placed = devices.filter { $0.switchName != nil }.count
-        let conflicts = model.store.conflictIPs.filter { ip in devices.contains { $0.ip == ip } }.sorted()
+        let conflicts = conflictIPs.filter { ip in devices.contains { $0.ip == ip } }.sorted()
 
         var equipment: [String] = []
         if gatewayFound { equipment.append("1 passerelle") }

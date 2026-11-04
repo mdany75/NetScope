@@ -63,6 +63,9 @@ import SwiftUI
 //
 // Une nouvelle donnée = une nouvelle colonne facultative (`isDefaultVisible: false`) : elle apparaît
 // dans les deux menus sans rien changer ailleurs.
+//
+// Plusieurs sites (0.12.0) : colonne facultative `StandardColumn.site` (« Site »), que l'écran
+// affiche d'office quand il montre plus d'un site : `.standardSiteColumn(table, multiple:)`.
 
 /// Colonne d'un tableau standard, pour le menu « Colonnes ».
 struct StandardColumn: Identifiable, Hashable {
@@ -82,8 +85,10 @@ final class StandardTableModel<Row: Identifiable>: ObservableObject {
     let columns: [StandardColumn]
 
     @Published var customization: TableColumnCustomization<Row> {
-        didSet { saveCustomization() }
+        didSet { if !automaticChange { saveCustomization() } }
     }
+    /// Changement fait par l'écran (`setAutomaticVisibility`), pas par l'utilisateur : non enregistré.
+    private var automaticChange = false
     @Published var sortOrder: [KeyPathComparator<Row>] {
         didSet { saveSort() }
     }
@@ -160,6 +165,16 @@ final class StandardTableModel<Row: Identifiable>: ObservableObject {
         customization[visibility: column.id] = visible ? .visible : .hidden
     }
 
+    /// Colonne affichée ou masquée par l'écran lui-même, sans enregistrer ce choix : ex. la colonne
+    /// facultative « Site », affichée automatiquement quand le tableau montre plusieurs sites.
+    func setAutomaticVisibility(_ visible: Bool, _ id: String) {
+        let current = customization[visibility: id] == .visible
+        guard current != visible else { return }
+        automaticChange = true
+        customization[visibility: id] = visible ? .visible : .hidden
+        automaticChange = false
+    }
+
     /// Colonnes, largeurs, ordre et tri d'origine.
     func reset() {
         customization = TableColumnCustomization()
@@ -204,6 +219,19 @@ final class StandardTableModel<Row: Identifiable>: ObservableObject {
             return
         }
         defaults.set(data, forKey: key)
+    }
+}
+
+extension StandardColumn {
+    /// Colonne facultative « Site » des tableaux à plusieurs sites (identifiant « site »).
+    static let site = StandardColumn(id: "site", title: "Site", isDefaultVisible: false)
+}
+
+extension View {
+    /// Affiche la colonne « Site » quand le tableau montre plusieurs sites, la masque sinon.
+    func standardSiteColumn<Row: Identifiable>(_ table: StandardTableModel<Row>, multiple: Bool) -> some View {
+        onAppear { table.setAutomaticVisibility(multiple, StandardColumn.site.id) }
+            .onChange(of: multiple) { _, value in table.setAutomaticVisibility(value, StandardColumn.site.id) }
     }
 }
 

@@ -10,6 +10,26 @@ struct TopoAside: View {
 
     let graph: TopoGraph
     @Binding var selectedID: String?
+    /// Appareils du dessin (types choisis à la main compris) : ceux d'UN seul site.
+    let devices: [Device]
+    /// Site du dessin, et vrai s'il s'agit du site actif (appareils du Scanner : fiche complète, relevés).
+    var siteKey: String
+    var isActiveSite = true
+    /// Adresses en conflit dans l'inventaire de ce site.
+    var conflictIPs: Set<IPv4Address> = []
+
+    private func device(_ id: String) -> Device? { devices.first { $0.id == id } }
+
+    private func open(_ device: Device) {
+        if isActiveSite {
+            state.showDevice(device.id)
+        } else if let key = model.inventory(for: siteKey).record(forIP: device.ip)?.key {
+            // Autre site : sa fiche d'inventaire (le Scanner n'a que les appareils du site actif).
+            model.selectedSite = siteKey
+            model.selectedKey = key
+            state.open(.inventaire)
+        }
+    }
 
     var body: some View {
         ScrollView {
@@ -28,7 +48,7 @@ struct TopoAside: View {
 
     private func detail(_ node: TopoNode) -> some View {
         let colors = TopoStyle.colors(kind: node.kind, type: node.deviceType)
-        let devices = node.deviceIDs.compactMap { state.device(withID: $0) }
+        let devices = node.deviceIDs.compactMap { device($0) }
         let single = devices.count == 1 && node.kind != .groupe ? devices.first : nil
 
         return Panel(padding: 16) {
@@ -69,9 +89,9 @@ struct TopoAside: View {
                         KeyValueRow(key: "MAC", value: device.mac?.formatted(.upperColon) ?? "—", mono: true, keyWidth: 92)
                         KeyValueRow(key: "Fabricant", value: device.vendorLabel, keyWidth: 92)
                         KeyValueRow(key: "VLAN", value: device.vlan.map(String.init) ?? "—", keyWidth: 92)
-                        KeyValueRow(key: "Emplacement", value: device.switchLocation.map { state.locationStatus(device).isCurrent ? $0 : "\($0) (ancien relevé)" } ?? "Port inconnu",
+                        KeyValueRow(key: "Emplacement", value: device.switchLocation.map { !isActiveSite || state.locationStatus(device).isCurrent ? $0 : "\($0) (ancien relevé)" } ?? "Port inconnu",
                                     mono: device.switchLocation != nil, keyWidth: 92)
-                            .help(device.switchLocation == nil ? "" : state.locationStatus(device).explanation ?? "")
+                            .help(device.switchLocation == nil || !isActiveSite ? "" : state.locationStatus(device).explanation ?? "")
                         KeyValueRow(key: "Découverte", value: "Scan (ARP, ping)" + (device.openPorts.isEmpty ? "" : ", ports TCP"), keyWidth: 92)
                         KeyValueRow(key: "Vu", value: InvFormat.seen(device.lastSeen, online: device.isOnline), keyWidth: 92)
                     }
@@ -111,7 +131,7 @@ struct TopoAside: View {
 
                 HStack(spacing: 8) {
                     if let device = single {
-                        Button { state.showDevice(device.id) } label: { Label("Ouvrir la fiche", systemImage: "doc.text") }
+                        Button { open(device) } label: { Label("Ouvrir la fiche", systemImage: "doc.text") }
                             .buttonStyle(.primary)
                     }
                     if node.kind == .switch || node.kind == .pointAcces || node.kind == .passerelle {
@@ -120,7 +140,8 @@ struct TopoAside: View {
                     }
                     if node.kind == .groupe, let first = devices.first {
                         Button {
-                            model.selectedKey = model.store.record(forIP: first.ip)?.key
+                            model.selectedSite = siteKey
+                            model.selectedKey = model.inventory(for: siteKey).record(forIP: first.ip)?.key
                             state.open(.inventaire)
                         } label: { Label("Inventaire", systemImage: Screen.inventaire.symbol) }
                             .buttonStyle(.secondary)
@@ -143,9 +164,10 @@ struct TopoAside: View {
     }
 
     private func conflictText(_ devices: [Device]) -> String {
-        let ips = devices.map(\.ip).filter { model.store.conflictIPs.contains($0) }
+        let store = model.inventory(for: siteKey)
+        let ips = devices.map(\.ip).filter { store.conflictIPs.contains($0) }
         let text = ips.map { ip -> String in
-            let macs = model.store.records.values.filter { $0.ip == ip && $0.isOnline }.compactMap { $0.mac?.formatted(.upperColon) }
+            let macs = store.records.values.filter { $0.ip == ip && $0.isOnline }.compactMap { $0.mac?.formatted(.upperColon) }
             return "\(ip) : " + (macs.isEmpty ? "plusieurs MAC" : macs.joined(separator: " et "))
         }
         return "Conflit IP. " + text.joined(separator: " · ") + " répondent."
@@ -172,7 +194,7 @@ struct TopoAside: View {
                     }
                     .frame(height: 26)
                     .contentShape(Rectangle())
-                    .onTapGesture { state.showDevice(device.id) }
+                    .onTapGesture { open(device) }
                 }
             }
             if devices.count > 10 {
@@ -184,9 +206,9 @@ struct TopoAside: View {
     // MARK: Vue d'ensemble
 
     private var overview: some View {
-        let networks = Set(state.devices.map { $0.ip.value & 0xFFFF_FF00 }).sorted()
+        let networks = Set(devices.map { $0.ip.value & 0xFFFF_FF00 }).sorted()
             .map { Subnet(address: IPv4Address($0), prefix: 24).description }
-        let vlans = Set(state.devices.compactMap(\.vlan)).sorted().map(String.init)
+        let vlans = Set(devices.compactMap(\.vlan)).sorted().map(String.init)
         return Panel(padding: 16) {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Vue d’ensemble").font(Theme.panelTitle)
@@ -206,8 +228,7 @@ struct TopoAside: View {
 
     private var problems: some View {
         // Types affichés (choisis à la main compris), comme les nœuds de la carte (note 20).
-        let devices = model.withManualTypes(state.devices)
-        let conflicts = model.store.conflictIPs.filter { ip in devices.contains { $0.ip == ip } }.sorted()
+        let conflicts = conflictIPs.filter { ip in devices.contains { $0.ip == ip } }.sorted()
         let offlineInfra = devices.filter { !$0.isOnline && [.switch, .pointAcces, .routeur].contains($0.deviceType) }
         let unplaced = graph.node("sw:?").map { graph.children(of: $0.id).flatMap(\.deviceIDs).count } ?? 0
 

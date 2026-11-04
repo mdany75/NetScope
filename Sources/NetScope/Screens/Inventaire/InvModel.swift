@@ -12,6 +12,8 @@ final class InvModel: ObservableObject {
     @Published private(set) var store: InventoryStore
     /// Fiche ouverte dans l'écran Inventaire.
     @Published var selectedKey: String?
+    /// Site de cette fiche (nil : site actif) : « Voir » depuis l'Analyse d'un autre site.
+    @Published var selectedSite: String?
     /// Message bref affiché sous la barre d'outils (« Fiche enregistrée »).
     @Published var toast: String?
     /// Types choisis à la main pour des appareils sans MAC et encore sans fiche, par IP, pour cette
@@ -179,15 +181,108 @@ final class InvModel: ObservableObject {
         }
     }
 
+    // MARK: Inventaires des autres sites (lecture et écriture ciblée)
+
+    /// Inventaires des autres sites lus depuis leur fichier, avec la date du fichier lu.
+    private var readCache: [String: (date: Date?, store: InventoryStore)] = [:]
+
+    /// Inventaire d'un site, pour l'affichage : celui du site actif en direct ; un autre site est
+    /// lu depuis sites/<id>/inventory.json (relu seulement si le fichier a changé), jamais rechargé
+    /// comme site actif. En démonstration : les inventaires gardés en mémoire.
+    func inventory(for key: String) -> InventoryStore {
+        if key == siteKey { return store }
+        if isEphemeral {
+            if let kept = demoStores[key] { return kept }
+            let demo = SitesDemo.inventory(for: key) ?? InventoryStore()
+            demoStores[key] = demo
+            return demo
+        }
+        guard let fileURL = SiteModel.shared.inventoryURL(for: key) else { return InventoryStore() }
+        let date = (try? FileManager.default.attributesOfItem(atPath: fileURL.path))?[.modificationDate] as? Date
+        if let cached = readCache[key], cached.date == date { return cached.store }
+        let loaded = (try? InventoryStore.load(from: fileURL)) ?? InventoryStore()
+        readCache[key] = (date, loaded)
+        return loaded
+    }
+
+    /// Modifie l'inventaire d'UN site, et lui seul : le site actif en mémoire (puis enregistré),
+    /// un autre site dans son fichier (lu juste avant, écrit juste après).
+    @discardableResult
+    func mutate<T>(site key: String, _ body: (inout InventoryStore) -> T) -> T {
+        if key == siteKey {
+            let result = body(&store)
+            save()
+            return result
+        }
+        var other: InventoryStore
+        if isEphemeral {
+            other = inventory(for: key)
+        } else if let fileURL = SiteModel.shared.inventoryURL(for: key) {
+            do {
+                other = try InventoryStore.load(from: fileURL)
+            } catch {
+                // Fichier illisible : on n'écrit rien par-dessus.
+                NSLog("NetScope : inventaire du site %@ illisible, rien n’est modifié : %@", key, error.localizedDescription)
+                var empty = InventoryStore()
+                return body(&empty)
+            }
+        } else {
+            other = InventoryStore()
+        }
+        objectWillChange.send()
+        let result = body(&other)
+        if isEphemeral {
+            demoStores[key] = other
+        } else if let fileURL = SiteModel.shared.inventoryURL(for: key) {
+            do {
+                try other.save(to: fileURL)
+            } catch {
+                NSLog("NetScope : enregistrement impossible de %@ : %@", fileURL.path, error.localizedDescription)
+            }
+            readCache[key] = nil
+        }
+        SiteModel.shared.setInventoryCount(other.count, for: key)
+        return result
+    }
+
+    // MARK: Suppression (plusieurs appareils, un ou plusieurs sites)
+
+    /// Ce qu'une suppression a retiré dans chaque site, pour « Annuler ».
+    struct Removal {
+        var parts: [(site: String, removal: InvRemoval)]
+        var count: Int { parts.reduce(0) { $0 + $1.removal.count } }
+    }
+
+    /// Supprime les appareils désignés par leurs identifiants composés (« site|fiche ») : chaque
+    /// site n'est touché que pour ses propres fiches. `exclude` : les appareils ne sont plus suivis.
+    func remove(_ ids: [String], exclude: Bool) -> Removal {
+        var parts: [(String, InvRemoval)] = []
+        for group in SiteScope.grouped(ids) {
+            let removal = mutate(site: group.site) { $0.removeRecords(group.keys, exclude: exclude) }
+            if !removal.isEmpty { parts.append((group.site, removal)) }
+            if group.site == siteKey, let selected = selectedKey, group.keys.contains(selected) { selectedKey = nil }
+        }
+        return Removal(parts: parts)
+    }
+
+    /// Annule une suppression, site par site.
+    func restore(_ removal: Removal) {
+        for part in removal.parts { mutate(site: part.site) { $0.restore(part.removal) } }
+    }
+
+    /// « Suivre de nouveau » un appareil exclu d'un site.
+    func include(_ key: String, site: String) {
+        mutate(site: site) { $0.include(key) }
+    }
+
     // MARK: Fiches
 
     func record(_ key: String?) -> InvRecord? {
         key.flatMap { store.record($0) }
     }
 
-    func setAnnotations(_ annotations: InvAnnotations, for key: String) {
-        store.setAnnotations(annotations, for: key)
-        save()
+    func setAnnotations(_ annotations: InvAnnotations, for key: String, site: String? = nil) {
+        mutate(site: site ?? siteKey) { $0.setAnnotations(annotations, for: key) }
     }
 
     /// Retient le type choisi à la main (nil : type détecté) ; `all` : appareils du scan, fusionnés
@@ -209,10 +304,11 @@ final class InvModel: ObservableObject {
         return sessionOnly
     }
 
-    func toggleFavorite(_ key: String) {
-        guard let record = store.record(key) else { return }
-        store.setFavorite(!record.annotations.isFavorite, for: key)
-        save()
+    func toggleFavorite(_ key: String, site: String? = nil) {
+        mutate(site: site ?? siteKey) { store in
+            guard let record = store.record(key) else { return }
+            store.setFavorite(!record.annotations.isFavorite, for: key)
+        }
     }
 
     func setFavorite(_ keys: [String]) {
@@ -228,15 +324,14 @@ final class InvModel: ObservableObject {
         return added
     }
 
-    func setEventStatus(_ status: InvEventStatus, for id: UUID) {
-        store.setEventStatus(status, for: id)
-        save()
+    func setEventStatus(_ status: InvEventStatus, for id: UUID, site: String? = nil) {
+        mutate(site: site ?? siteKey) { $0.setEventStatus(status, for: id) }
     }
 
-    func absorb(_ duplicate: InvDuplicate) {
-        store.absorb(duplicate.absorb, into: duplicate.keep)
-        if selectedKey == duplicate.absorb { selectedKey = duplicate.keep }
-        save()
+    func absorb(_ duplicate: InvDuplicate, site: String? = nil) {
+        let site = site ?? siteKey
+        mutate(site: site) { $0.absorb(duplicate.absorb, into: duplicate.keep) }
+        if site == siteKey, selectedKey == duplicate.absorb { selectedKey = duplicate.keep }
     }
 
     /// Importe un CSV ; renvoie le compte rendu à afficher.

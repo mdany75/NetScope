@@ -34,14 +34,19 @@ enum AnaTableMetrics {
 
 // MARK: - Alertes
 
-/// Une ligne du tableau des alertes : l'événement et ce que l'inventaire sait de l'appareil.
+/// Une ligne du tableau des alertes : l'événement, son site et ce que l'inventaire du site sait de
+/// l'appareil. Identifiant « site|événement » : deux sites ne se mélangent jamais.
 struct AnaAlertRow: Identifiable {
     let event: InvEvent
+    let siteKey: String
+    let siteName: String
+    /// Rang du site dans le choix (regroupement par site).
+    let siteRank: Int
     /// Nom de la fiche (« — » si la fiche n'existe plus).
     let device: String
     let mac: String
 
-    var id: UUID { event.id }
+    var id: String { siteKey + "|" + event.id.uuidString }
     var date: Date { event.date }
     var severity: InvSeverity { event.severity }
     var kind: String { event.kind.label }
@@ -72,18 +77,23 @@ struct AnaAlertsPanel: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var model = InvModel.shared
 
-    let alerts: [InvEvent]
+    let alerts: [SiteScopedEvent]
     let period: AnaPeriod
     /// Recherche multiple de l'écran (note 26).
     let query: SearchQuery
+    /// Plusieurs sites : colonne « Site » et lignes regroupées par site.
+    var multiple = false
+    /// Ordre des sites (regroupement).
+    var siteOrder: [String] = []
 
     @State private var filter: AnaSeverityFilter = .toutes
-    @State private var selection: Set<UUID> = []
+    @State private var selection: Set<String> = []
     @StateObject private var table = Self.makeModel()
 
     // MARK: Colonnes
 
     static let columns: [StandardColumn] = [
+        StandardColumn.site,
         StandardColumn(id: "date", title: "Date"),
         StandardColumn(id: "gravite", title: "Gravité"),
         StandardColumn(id: "type", title: "Type"),
@@ -100,6 +110,7 @@ struct AnaAlertsPanel: View {
     static let sortKeys: [String: KeyPathComparator<AnaAlertRow>] = [
         // Date : la plus récente d'abord au premier clic.
         "date": KeyPathComparator(\AnaAlertRow.date, order: .reverse),
+        "site": KeyPathComparator(\AnaAlertRow.siteName, comparator: .localizedStandard),
         "gravite": KeyPathComparator(\AnaAlertRow.severity),
         "type": KeyPathComparator(\AnaAlertRow.kind, comparator: .localizedStandard),
         "appareil": KeyPathComparator(\AnaAlertRow.device, comparator: .localizedStandard),
@@ -125,16 +136,20 @@ struct AnaAlertsPanel: View {
 
     var body: some View {
         let matching = alerts.filter { matches($0) }
-        let shown = matching.filter { filter.includes($0) }
-        let pending = alerts.filter { $0.status == .aTraiter }.count
-        let rows = shown.map(row).sorted(using: table.sortOrder + [KeyPathComparator(\AnaAlertRow.date, order: .reverse)])
+        let shown = matching.filter { filter.includes($0.event) }
+        let pending = alerts.filter { $0.event.status == .aTraiter }.count
+        // Plusieurs sites : alertes regroupées par site (ordre du choix), triées dans chaque site.
+        let order = (multiple ? [KeyPathComparator(\AnaAlertRow.siteRank)] : []) + table.sortOrder
+            + [KeyPathComparator(\AnaAlertRow.date, order: .reverse)]
+        let rows = shown.map(row).sorted(using: order)
 
         Panel(padding: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 10) {
                         Text("Alertes et changements").font(.system(size: 14, weight: .semibold))
-                        Text("\(pending) à traiter · \(alerts.count) changement\(alerts.count > 1 ? "s" : "") sur \(period.label)")
+                        Text("\(pending) à traiter · \(alerts.count) changement\(alerts.count > 1 ? "s" : "") sur \(period.label)"
+                             + (multiple ? " · \(siteOrder.count) sites, regroupés par site" : ""))
                             .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
                         Spacer(minLength: 0)
                         StandardColumnsMenu(model: table)
@@ -160,21 +175,23 @@ struct AnaAlertsPanel: View {
             }
         }
         .searchResults(rows.count, "alerte", "alertes")
+        .standardSiteColumn(table, multiple: multiple)
     }
 
-    private func row(_ event: InvEvent) -> AnaAlertRow {
-        let record = model.record(event.key)
-        return AnaAlertRow(event: event, device: record?.displayName ?? "—",
-                           mac: record?.mac?.formatted(.upperColon) ?? "")
+    private func row(_ item: SiteScopedEvent) -> AnaAlertRow {
+        AnaAlertRow(event: item.event, siteKey: item.siteKey, siteName: item.siteName,
+                    siteRank: siteOrder.firstIndex(of: item.siteKey) ?? 0, device: item.record?.displayName ?? "—",
+                    mac: item.record?.mac?.formatted(.upperColon) ?? "")
     }
 
-    private func matches(_ event: InvEvent) -> Bool {
+    private func matches(_ item: SiteScopedEvent) -> Bool {
         guard !query.isEmpty else { return true }
-        let record = model.record(event.key)
-        return query.matches(InvEventSearchItem(event, deviceName: record?.displayName ?? "", mac: record?.mac))
+        return query.matches(InvEventSearchItem(item.event, deviceName: item.record?.displayName ?? "", mac: item.record?.mac,
+                                                siteName: item.siteName))
     }
 
-    private func tabs(_ alerts: [InvEvent]) -> some View {
+    private func tabs(_ items: [SiteScopedEvent]) -> some View {
+        let alerts = items.map(\.event)
         let options: [(AnaSeverityFilter, String)] = [
             (.toutes, "Toutes (\(alerts.count))"),
             (.critiques, "Critiques (\(alerts.filter { $0.severity == .critique }.count))"),
@@ -189,6 +206,14 @@ struct AnaAlertsPanel: View {
     private func tableView(_ rows: [AnaAlertRow]) -> some View {
         Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
             Group {
+                TableColumn("SITE", sortUsing: table.sort("site")) { row in
+                    Text(row.siteName).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.accentStrong)
+                        .lineLimit(1).help("Inventaire du site «\u{00A0}\(row.siteName)\u{00A0}»")
+                }
+                .width(min: 70, ideal: 110)
+                .customizationID("site")
+                .defaultVisibility(.hidden)
+
                 TableColumn("DATE", sortUsing: table.sort("date")) { row in
                     Text(Date().timeIntervalSince(row.date) < 86_400 ? InvFormat.time(row.date) : InvFormat.day(row.date))
                         .font(Theme.mono(11.5)).foregroundStyle(Theme.textSecondary).lineLimit(1)
@@ -276,7 +301,7 @@ struct AnaAlertsPanel: View {
             }
         }
         .standardTableStyle()
-        .contextMenu(forSelectionType: UUID.self) { ids in
+        .contextMenu(forSelectionType: String.self) { ids in
             let chosen = rows.filter { ids.contains($0.id) }
             if !chosen.isEmpty { menu(chosen) }
         } primaryAction: { ids in
@@ -324,12 +349,14 @@ struct AnaAlertsPanel: View {
     }
 
     private func open(_ row: AnaAlertRow) {
+        model.selectedSite = row.siteKey
         model.selectedKey = row.key
         state.open(.inventaire)
     }
 
+    /// Statut écrit dans l'inventaire du site de chaque alerte, et lui seul.
     private func set(_ status: InvEventStatus, _ rows: [AnaAlertRow]) {
-        for row in rows { model.setEventStatus(status, for: row.id) }
+        for row in rows { model.setEventStatus(status, for: row.event.id, site: row.siteKey) }
         model.updateBadge(state)
     }
 }
@@ -374,6 +401,8 @@ struct AnaDiffLine: Identifiable {
 /// Comparaison de deux instantanés de scan : ajoutés, disparus, modifiés (tableau standard, note 8).
 struct AnaComparePanel: View {
     let snapshots: [InvSnapshot]
+    /// Plusieurs sites affichés : le site des deux scans comparés.
+    var siteName: String?
     let onExport: (String, String) -> Void
 
     @State private var beforeID: UUID?
@@ -418,7 +447,7 @@ struct AnaComparePanel: View {
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 10) {
-                        Text("Comparer deux scans").font(.system(size: 14, weight: .semibold))
+                        Text("Comparer deux scans" + (siteName.map { " · " + $0 } ?? "")).font(.system(size: 14, weight: .semibold))
                         if let before, let after {
                             Text("\(Self.label(before.date)) → \(Self.label(after.date))")
                                 .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)

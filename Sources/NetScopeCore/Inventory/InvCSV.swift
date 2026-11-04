@@ -68,9 +68,11 @@ public enum InvCSV {
 
     // MARK: Export
 
-    public static func export(_ records: [InvRecord], separator: Character = ";", now: Date = Date()) -> String {
-        var lines = [columns.map { quote($0, separator) }.joined(separator: String(separator))]
-        for record in records {
+    /// `sites` (plusieurs sites affichés) : nom du site de chaque fiche, en première colonne « Site ».
+    public static func export(_ records: [InvRecord], sites: [String]? = nil, separator: Character = ";", now: Date = Date()) -> String {
+        let withSites = sites?.count == records.count
+        var lines = [((withSites ? ["Site"] : []) + columns).map { quote($0, separator) }.joined(separator: String(separator))]
+        for (index, record) in records.enumerated() {
             let a = record.annotations
             let fields = [
                 record.ip.description, record.mac?.formatted(.upperColon) ?? "", a.customName ?? "",
@@ -79,7 +81,8 @@ public enum InvCSV {
                 record.switchPort ?? "", record.vlan.map(String.init) ?? "", InvFormat.stamp(record.firstSeen),
                 InvFormat.stamp(record.lastSeen), record.status(now: now).label, a.isFavorite ? "oui" : "",
             ]
-            lines.append(fields.map { quote($0, separator) }.joined(separator: String(separator)))
+            let row = withSites ? [sites?[index] ?? ""] + fields : fields
+            lines.append(row.map { quote($0, separator) }.joined(separator: String(separator)))
         }
         return lines.joined(separator: "\r\n") + "\r\n"
     }

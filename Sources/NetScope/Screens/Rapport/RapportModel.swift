@@ -50,9 +50,19 @@ final class RapportModel: ObservableObject {
 
     // MARK: Document
 
+    /// Rapport du site actif ; plusieurs sites choisis (menu « Site ▾ ») : rapport multisite, une
+    /// section par site.
     func document(state: AppState) -> ReportDocument {
-        ReportBuilder.build(config: config, input: RapportData.input(state: state, demo: isDemo),
-                            generator: "NetScope \(AppInfo.version)")
+        let generator = "NetScope \(AppInfo.version)"
+        let keys = SiteScopeStore.shared.keys(for: .rapports)
+        if keys == [SiteModel.shared.activeKey] {
+            return ReportBuilder.build(config: config, input: RapportData.input(state: state, demo: isDemo), generator: generator)
+        }
+        let inputs = RapportData.inputs(state: state, demo: isDemo, keys: keys)
+        var chosen = config
+        // Un seul autre site : son nom dans l'en-tête (pas celui du site actif).
+        if inputs.count == 1, let only = inputs.first { chosen.site = only.name }
+        return ReportBuilder.buildMultisite(config: chosen, sites: inputs, generator: generator)
     }
 
     func pages(for document: ReportDocument) -> [ReportPage] {
@@ -197,7 +207,7 @@ final class RapportModel: ObservableObject {
             let name = ReportLibrary.availableName(config.fileName(for: format), in: directory)
             let url = directory.appendingPathComponent(name)
             try data.write(to: url, options: .atomic)
-            let site = config.site.trimmingCharacters(in: .whitespaces)
+            let site = document.site.trimmingCharacters(in: .whitespaces)
             library.add(ReportRecent(title: config.template.shortTitle + " — " + (site.isEmpty ? "Site" : site), fileName: name,
                                      format: format, date: config.date,
                                      pages: format == .pdf ? pages.count : nil,

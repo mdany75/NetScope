@@ -279,3 +279,62 @@ enum InvFiles {
         throw CocoaError(.fileReadInapplicableStringEncoding)
     }
 }
+
+// MARK: - Appareils qu'on ne suit plus
+
+/// Appareil exclu d'un site (« Ne plus suivre ces appareils »).
+struct InvExcludedRow: Identifiable {
+    let site: String
+    let siteName: String
+    let exclusion: InvExclusion
+    var id: String { SiteScope.id(site: site, key: exclusion.key) }
+}
+
+/// « 2 non suivis » : liste des appareils qu'un scan ne remet plus dans l'inventaire, avec
+/// « Suivre de nouveau » (le prochain scan de leur site les remettra).
+struct InvExcludedButton: View {
+    let rows: [InvExcludedRow]
+    @State private var open = false
+
+    var body: some View {
+        Button {
+            open.toggle()
+        } label: {
+            Label("\(rows.count) non suivi\(rows.count > 1 ? "s" : "")", systemImage: "eye.slash")
+                .font(Theme.small)
+        }
+        .buttonStyle(.ghost)
+        .fixedSize()
+        .help("Appareils supprimés avec «\u{00A0}Ne plus suivre\u{00A0}»\u{00A0}: un scan ne les remet pas dans l’inventaire")
+        .popover(isPresented: $open, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Appareils non suivis").font(Theme.bodySemibold)
+                Text("Un scan ne les remet pas dans l’inventaire de leur site.")
+                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(rows) { row in
+                            HStack(spacing: 10) {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(row.exclusion.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                                    Text([row.siteName, row.exclusion.ip.description,
+                                          row.exclusion.mac?.formatted(.upperColon) ?? "sans MAC"].joined(separator: " · "))
+                                        .font(Theme.mono(11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                                }
+                                Spacer(minLength: 8)
+                                Button("Suivre de nouveau") {
+                                    InvModel.shared.include(row.exclusion.key, site: row.site)
+                                    InvModel.shared.show("\(row.exclusion.name) sera remis dans l’inventaire au prochain scan de «\u{00A0}\(row.siteName)\u{00A0}».")
+                                }
+                                .controlSize(.small)
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: 260)
+            }
+            .padding(14)
+            .frame(width: 380)
+        }
+    }
+}

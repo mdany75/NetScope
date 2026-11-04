@@ -32,19 +32,28 @@ extension InvRecord {
     var invSortIPHistory: Int { ipHistory.count }
 }
 
-/// Tableau des fiches de l'inventaire : tableau standard (note 8), une ligne par fiche, ligne choisie
-/// = fiche affichée dessous ; étoile : favori ; double-clic : fiche complète de l'appareil.
+/// Tableau des fiches de l'inventaire : tableau standard (note 8), une ligne par fiche ET par site
+/// (identifiant « site|fiche » : deux sites ne fusionnent jamais) ; ligne choisie = fiche affichée
+/// dessous ; ⌘-clic, ⇧-clic, ⌘A : plusieurs lignes ; ⌫ ou clic droit : supprimer de
+/// l'inventaire ; étoile : favori ; double-clic : fiche complète de l'appareil.
 struct InvTable: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var model = InvModel.shared
 
-    let rows: [InvRecord]
+    let rows: [SiteScopedRecord]
     let total: Int
-    let selectedKey: String?
-    @ObservedObject var table: StandardTableModel<InvRecord>
+    /// Lignes choisies (identifiants composés).
+    @Binding var selection: Set<String>
+    @ObservedObject var table: StandardTableModel<SiteScopedRecord>
     let now: Date
-    let onSelect: (String) -> Void
-    let onFavorite: (String) -> Void
+    /// Inventaire vide pour tous les sites affichés (message « lancez un scan »).
+    var inventoryEmpty = false
+    /// Sites affichés (titre du message d'inventaire vide).
+    var siteNames: [String] = []
+    /// Appareils qu'on ne suit plus, dans les sites affichés.
+    var excluded: [InvExcludedRow] = []
+    let onFavorite: (SiteScopedRecord) -> Void
+    let onDelete: ([String]) -> Void
 
     /// Hauteur d'une ligne (contenu 30 pt + marges du tableau) et de l'en-tête, pour donner au
     /// tableau une hauteur fixe dans l'écran qui défile.
@@ -57,6 +66,7 @@ struct InvTable: View {
 
     static let columns: [StandardColumn] = [
         StandardColumn(id: "favori", title: "Favori"),
+        StandardColumn.site,
         StandardColumn(id: "nom", title: "Nom"),
         StandardColumn(id: "type", title: "Type"),
         StandardColumn(id: "ip", title: "IP actuelle", isRequired: true),
@@ -80,45 +90,46 @@ struct InvTable: View {
         StandardColumn(id: "historiqueIP", title: "Historique d’IP", isDefaultVisible: false),
     ]
 
-    static let sortKeys: [String: KeyPathComparator<InvRecord>] = [
-        "favori": KeyPathComparator(\InvRecord.invSortFavorite),
-        "nom": KeyPathComparator(\InvRecord.displayName, comparator: .localizedStandard),
-        "type": KeyPathComparator(\InvRecord.invSortType, comparator: .localizedStandard),
-        "ip": KeyPathComparator(\InvRecord.ip),
-        "mac": KeyPathComparator(\InvRecord.invSortMAC),
-        "fabricant": KeyPathComparator(\InvRecord.vendorLabel, comparator: .localizedStandard),
-        "switch": KeyPathComparator(\InvRecord.invSortSwitch, comparator: .localizedStandard),
+    static let sortKeys: [String: KeyPathComparator<SiteScopedRecord>] = [
+        "favori": KeyPathComparator(\SiteScopedRecord.record.invSortFavorite),
+        "site": KeyPathComparator(\SiteScopedRecord.siteName, comparator: .localizedStandard),
+        "nom": KeyPathComparator(\SiteScopedRecord.record.displayName, comparator: .localizedStandard),
+        "type": KeyPathComparator(\SiteScopedRecord.record.invSortType, comparator: .localizedStandard),
+        "ip": KeyPathComparator(\SiteScopedRecord.record.ip),
+        "mac": KeyPathComparator(\SiteScopedRecord.record.invSortMAC),
+        "fabricant": KeyPathComparator(\SiteScopedRecord.record.vendorLabel, comparator: .localizedStandard),
+        "switch": KeyPathComparator(\SiteScopedRecord.record.invSortSwitch, comparator: .localizedStandard),
         // Dates : la plus récente d'abord au premier clic.
-        "derniereVue": KeyPathComparator(\InvRecord.lastSeen, order: .reverse),
-        "statut": KeyPathComparator(\InvRecord.invSortStatus),
-        "local": KeyPathComparator(\InvRecord.invSortLocation, comparator: .localizedStandard),
-        "prise": KeyPathComparator(\InvRecord.invSortWallJack, comparator: .localizedStandard),
-        "responsable": KeyPathComparator(\InvRecord.invSortOwner, comparator: .localizedStandard),
-        "actif": KeyPathComparator(\InvRecord.invSortAsset, comparator: .localizedStandard),
-        "etiquettes": KeyPathComparator(\InvRecord.invSortTags, comparator: .localizedStandard),
-        "notes": KeyPathComparator(\InvRecord.invSortNotes, comparator: .localizedStandard),
-        "premiereVue": KeyPathComparator(\InvRecord.firstSeen, order: .reverse),
-        "plage": KeyPathComparator(\InvRecord.invSortRange, comparator: .localizedStandard),
-        "vlan": KeyPathComparator(\InvRecord.invSortVLAN),
-        "ports": KeyPathComparator(\InvRecord.invSortPorts),
-        "typeDetecte": KeyPathComparator(\InvRecord.invSortDetectedType, comparator: .localizedStandard),
-        "hostname": KeyPathComparator(\InvRecord.invSortHostname, comparator: .localizedStandard),
-        "historiqueIP": KeyPathComparator(\InvRecord.invSortIPHistory),
+        "derniereVue": KeyPathComparator(\SiteScopedRecord.record.lastSeen, order: .reverse),
+        "statut": KeyPathComparator(\SiteScopedRecord.record.invSortStatus),
+        "local": KeyPathComparator(\SiteScopedRecord.record.invSortLocation, comparator: .localizedStandard),
+        "prise": KeyPathComparator(\SiteScopedRecord.record.invSortWallJack, comparator: .localizedStandard),
+        "responsable": KeyPathComparator(\SiteScopedRecord.record.invSortOwner, comparator: .localizedStandard),
+        "actif": KeyPathComparator(\SiteScopedRecord.record.invSortAsset, comparator: .localizedStandard),
+        "etiquettes": KeyPathComparator(\SiteScopedRecord.record.invSortTags, comparator: .localizedStandard),
+        "notes": KeyPathComparator(\SiteScopedRecord.record.invSortNotes, comparator: .localizedStandard),
+        "premiereVue": KeyPathComparator(\SiteScopedRecord.record.firstSeen, order: .reverse),
+        "plage": KeyPathComparator(\SiteScopedRecord.record.invSortRange, comparator: .localizedStandard),
+        "vlan": KeyPathComparator(\SiteScopedRecord.record.invSortVLAN),
+        "ports": KeyPathComparator(\SiteScopedRecord.record.invSortPorts),
+        "typeDetecte": KeyPathComparator(\SiteScopedRecord.record.invSortDetectedType, comparator: .localizedStandard),
+        "hostname": KeyPathComparator(\SiteScopedRecord.record.invSortHostname, comparator: .localizedStandard),
+        "historiqueIP": KeyPathComparator(\SiteScopedRecord.record.invSortIPHistory),
     ]
 
     /// Premier lancement : dernière détection, la plus récente d'abord (comme le croquis).
     @MainActor
-    static func makeModel() -> StandardTableModel<InvRecord> {
+    static func makeModel() -> StandardTableModel<SiteScopedRecord> {
         StandardTableModel(id: "inventaire", columns: columns, sortKeys: sortKeys, defaultSort: "derniereVue")
     }
 
     /// Lignes triées selon le tableau ; à égalité, par IP.
-    static func sorted(_ records: [InvRecord], by order: [KeyPathComparator<InvRecord>]) -> [InvRecord] {
-        records.sorted(using: order + [KeyPathComparator(\InvRecord.ip), KeyPathComparator(\InvRecord.key)])
+    static func sorted(_ rows: [SiteScopedRecord], by order: [KeyPathComparator<SiteScopedRecord>]) -> [SiteScopedRecord] {
+        rows.sorted(using: order + [KeyPathComparator(\SiteScopedRecord.record.ip), KeyPathComparator(\SiteScopedRecord.id)])
     }
 
     /// « Dernière détection décroissant » : colonne et sens du tri actuel.
-    static func sortLabel(_ order: [KeyPathComparator<InvRecord>]) -> String {
+    static func sortLabel(_ order: [KeyPathComparator<SiteScopedRecord>]) -> String {
         guard let first = order.first,
               let id = sortKeys.first(where: { $0.value.keyPath == first.keyPath })?.key,
               let column = columns.first(where: { $0.id == id }) else { return "aucun" }
@@ -133,16 +144,23 @@ struct InvTable: View {
                 Text("APPAREILS").font(Theme.captionSemibold).kerning(0.5).foregroundStyle(Theme.textSecondary)
                 Text("\(rows.count) affiché\(rows.count > 1 ? "s" : "") · \(total) appareil\(total > 1 ? "s" : "") connu\(total > 1 ? "s" : "")")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                Spacer()
+                    .lineLimit(1)
+                if selection.count > 1 {
+                    Text("· \(selection.count) sélectionnés").font(Theme.small).fontWeight(.semibold)
+                        .foregroundStyle(Theme.accentStrong).fixedSize()
+                }
+                Spacer(minLength: 8)
+                if !excluded.isEmpty { InvExcludedButton(rows: excluded) }
             }
             .padding(.horizontal, 14)
             .frame(height: 40)
             Rectangle().fill(Theme.border).frame(height: 1)
 
-            if rows.isEmpty, model.store.isEmpty, let site = SiteModel.shared.activeSite {
+            if rows.isEmpty, inventoryEmpty, !siteNames.isEmpty, SiteModel.shared.activeSite != nil || siteNames.count > 1 {
                 // Inventaire propre au site : vide tant que ce site n'a pas été scanné.
                 EmptyState(systemImage: "tray",
-                           title: "Inventaire de «\u{00A0}\(site.displayName)\u{00A0}» vide",
+                           title: siteNames.count > 1 ? "Inventaires de ces \(siteNames.count) sites vides"
+                               : "Inventaire de «\u{00A0}\(siteNames[0])\u{00A0}» vide",
                            message: "Lancez un scan de ce site pour le remplir. Les autres sites gardent leur propre inventaire.") {
                     Button("Ouvrir le Scanner") { state.open(.scanner) }
                         .buttonStyle(.secondary)
@@ -160,8 +178,13 @@ struct InvTable: View {
             HStack {
                 Text("Tri\u{00A0}: \(Self.sortLabel(table.sortOrder))")
                 Spacer()
-                Text("Cliquez une ligne pour ouvrir sa fiche · double-clic\u{00A0}: fiche complète · étoile\u{00A0}: favori")
-                    .lineLimit(1)
+                // Petite fenêtre : version courte plutôt qu'une phrase coupée.
+                ViewThatFits(in: .horizontal) {
+                    Text("Cliquez une ligne pour ouvrir sa fiche · ⌘-clic\u{00A0}: plusieurs · ⌫\u{00A0}: supprimer · double-clic\u{00A0}: fiche complète")
+                        .fixedSize()
+                    Text("⌘-clic\u{00A0}: plusieurs · ⌫\u{00A0}: supprimer · double-clic\u{00A0}: fiche complète").fixedSize()
+                    Text("⌫\u{00A0}: supprimer").fixedSize()
+                }
             }
             .font(Theme.small)
             .foregroundStyle(Theme.textSecondary)
@@ -175,26 +198,33 @@ struct InvTable: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
     }
 
-    private var selection: Binding<String?> {
-        Binding(get: { selectedKey }, set: { key in if let key { onSelect(key) } })
-    }
-
     private var tableView: some View {
-        Table(rows, selection: selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+        Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
             Group {
-                TableColumn("★", sortUsing: table.sort("favori")) { record in
-                    favoriteButton(record)
+                TableColumn("★", sortUsing: table.sort("favori")) { row in
+                    favoriteButton(row)
                 }
                 .width(min: 26, ideal: 26, max: 40)
                 .customizationID("favori")
 
-                TableColumn("NOM", sortUsing: table.sort("nom")) { record in
+                // Plusieurs sites : colonne affichée d'office (InventaireScreen, `standardSiteColumn`).
+                TableColumn("SITE", sortUsing: table.sort("site")) { row in
+                    Text(row.siteName).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.accentStrong)
+                        .lineLimit(1).help("Inventaire du site «\u{00A0}\(row.siteName)\u{00A0}»")
+                }
+                .width(min: 70, ideal: 110)
+                .customizationID("site")
+                .defaultVisibility(.hidden)
+
+                TableColumn("NOM", sortUsing: table.sort("nom")) { row in
+                    let record = row.record
                     nameCell(record)
                 }
                 .width(min: 110, ideal: 145)
                 .customizationID("nom")
 
-                TableColumn("TYPE", sortUsing: table.sort("type")) { record in
+                TableColumn("TYPE", sortUsing: table.sort("type")) { row in
+                    let record = row.record
                     HStack(spacing: 5) {
                         Image(systemName: InvStyle.symbol(record.type)).font(.system(size: 11)).frame(width: 14)
                         Text(record.type.label).font(Theme.small).lineLimit(1)
@@ -207,40 +237,46 @@ struct InvTable: View {
                 .width(min: 80, ideal: 128)
                 .customizationID("type")
 
-                TableColumn("IP ACTUELLE", sortUsing: table.sort("ip")) { record in
+                TableColumn("IP ACTUELLE", sortUsing: table.sort("ip")) { row in
+                    let record = row.record
                     Text(record.ip.description).font(Theme.mono(12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
                 }
                 .width(min: 100, ideal: 112)
                 .customizationID("ip")
                 .disabledCustomizationBehavior(.visibility)
 
-                TableColumn("MAC", sortUsing: table.sort("mac")) { record in
+                TableColumn("MAC", sortUsing: table.sort("mac")) { row in
+                    let record = row.record
                     ScanCellText(record.mac?.formatted(.upperColon) ?? "—", mono: true, dimmed: record.mac == nil)
                 }
                 .width(min: 110, ideal: 128)
                 .customizationID("mac")
 
-                TableColumn("FABRICANT", sortUsing: table.sort("fabricant")) { record in
+                TableColumn("FABRICANT", sortUsing: table.sort("fabricant")) { row in
+                    let record = row.record
                     ScanCellText(record.vendorLabel)
                 }
                 .width(min: 70, ideal: 79)
                 .customizationID("fabricant")
 
-                TableColumn("SWITCH / PORT", sortUsing: table.sort("switch")) { record in
+                TableColumn("SWITCH / PORT", sortUsing: table.sort("switch")) { row in
+                    let record = row.record
                     // Le port reste lisible : switch au-dessus du port quand la colonne est étroite.
                     SwitchPortCell(name: record.switchName, port: record.switchPort)
                 }
                 .width(min: 90, ideal: 172)
                 .customizationID("switch")
 
-                TableColumn("DERNIÈRE VUE", sortUsing: table.sort("derniereVue")) { record in
+                TableColumn("DERNIÈRE VUE", sortUsing: table.sort("derniereVue")) { row in
+                    let record = row.record
                     ScanCellText(InvFormat.relative(record.lastSeen, now: now), secondary: true)
                         .help(InvFormat.stamp(record.lastSeen))
                 }
                 .width(min: 80, ideal: 120)
                 .customizationID("derniereVue")
 
-                TableColumn("STATUT", sortUsing: table.sort("statut")) { record in
+                TableColumn("STATUT", sortUsing: table.sort("statut")) { row in
+                    let record = row.record
                     let status = record.status(now: now)
                     let colors = InvStyle.status(status)
                     InvPill(text: status.label, foreground: colors.0, background: colors.1)
@@ -250,35 +286,40 @@ struct InvTable: View {
             }
 
             Group {
-                TableColumn("LOCAL", sortUsing: table.sort("local")) { record in
+                TableColumn("LOCAL", sortUsing: table.sort("local")) { row in
+                    let record = row.record
                     textCell(record.annotations.location)
                 }
                 .width(min: 80, ideal: 170)
                 .customizationID("local")
                 .defaultVisibility(.hidden)
 
-                TableColumn("PRISE MURALE", sortUsing: table.sort("prise")) { record in
+                TableColumn("PRISE MURALE", sortUsing: table.sort("prise")) { row in
+                    let record = row.record
                     textCell(record.annotations.wallJack, mono: true)
                 }
                 .width(min: 60, ideal: 90)
                 .customizationID("prise")
                 .defaultVisibility(.hidden)
 
-                TableColumn("RESPONSABLE", sortUsing: table.sort("responsable")) { record in
+                TableColumn("RESPONSABLE", sortUsing: table.sort("responsable")) { row in
+                    let record = row.record
                     textCell(record.annotations.owner)
                 }
                 .width(min: 70, ideal: 110)
                 .customizationID("responsable")
                 .defaultVisibility(.hidden)
 
-                TableColumn("N° D’ACTIF", sortUsing: table.sort("actif")) { record in
+                TableColumn("N° D’ACTIF", sortUsing: table.sort("actif")) { row in
+                    let record = row.record
                     textCell(record.annotations.assetNumber, mono: true)
                 }
                 .width(min: 60, ideal: 95)
                 .customizationID("actif")
                 .defaultVisibility(.hidden)
 
-                TableColumn("ÉTIQUETTES", sortUsing: table.sort("etiquettes")) { record in
+                TableColumn("ÉTIQUETTES", sortUsing: table.sort("etiquettes")) { row in
+                    let record = row.record
                     StandardTagList(tags: record.annotations.tags, colors: { InvStyle.tag($0) },
                                     help: "Étiquettes\u{00A0}: " + record.annotations.tags.joined(separator: ", "))
                 }
@@ -286,28 +327,32 @@ struct InvTable: View {
                 .customizationID("etiquettes")
                 .defaultVisibility(.hidden)
 
-                TableColumn("NOTES", sortUsing: table.sort("notes")) { record in
+                TableColumn("NOTES", sortUsing: table.sort("notes")) { row in
+                    let record = row.record
                     textCell(record.annotations.notes.replacingOccurrences(of: "\n", with: " "))
                 }
                 .width(min: 80, ideal: 180)
                 .customizationID("notes")
                 .defaultVisibility(.hidden)
 
-                TableColumn("PREMIÈRE VUE", sortUsing: table.sort("premiereVue")) { record in
+                TableColumn("PREMIÈRE VUE", sortUsing: table.sort("premiereVue")) { row in
+                    let record = row.record
                     ScanCellText(InvFormat.day(record.firstSeen), mono: true, secondary: true)
                 }
                 .width(min: 80, ideal: 120)
                 .customizationID("premiereVue")
                 .defaultVisibility(.hidden)
 
-                TableColumn("PLAGE", sortUsing: table.sort("plage")) { record in
+                TableColumn("PLAGE", sortUsing: table.sort("plage")) { row in
+                    let record = row.record
                     textCell(record.rangeLabel ?? "")
                 }
                 .width(min: 60, ideal: 100)
                 .customizationID("plage")
                 .defaultVisibility(.hidden)
 
-                TableColumn("VLAN", sortUsing: table.sort("vlan")) { record in
+                TableColumn("VLAN", sortUsing: table.sort("vlan")) { row in
+                    let record = row.record
                     if let vlan = record.vlan {
                         Chip(text: "\(vlan)", mono: true)
                     } else {
@@ -320,28 +365,32 @@ struct InvTable: View {
             }
 
             Group {
-                TableColumn("PORTS OUVERTS", sortUsing: table.sort("ports")) { record in
+                TableColumn("PORTS OUVERTS", sortUsing: table.sort("ports")) { row in
+                    let record = row.record
                     ScanPortTags(ports: record.openPorts)
                 }
                 .width(min: 70, ideal: 140)
                 .customizationID("ports")
                 .defaultVisibility(.hidden)
 
-                TableColumn("TYPE DÉTECTÉ", sortUsing: table.sort("typeDetecte")) { record in
+                TableColumn("TYPE DÉTECTÉ", sortUsing: table.sort("typeDetecte")) { row in
+                    let record = row.record
                     ScanTypeCell(type: record.detectedType, isManual: false)
                 }
                 .width(min: 80, ideal: 140)
                 .customizationID("typeDetecte")
                 .defaultVisibility(.hidden)
 
-                TableColumn("NOM D’HÔTE", sortUsing: table.sort("hostname")) { record in
+                TableColumn("NOM D’HÔTE", sortUsing: table.sort("hostname")) { row in
+                    let record = row.record
                     textCell(record.hostname ?? "")
                 }
                 .width(min: 80, ideal: 150)
                 .customizationID("hostname")
                 .defaultVisibility(.hidden)
 
-                TableColumn("HISTORIQUE D’IP", sortUsing: table.sort("historiqueIP")) { record in
+                TableColumn("HISTORIQUE D’IP", sortUsing: table.sort("historiqueIP")) { row in
+                    let record = row.record
                     Text("\(record.ipHistory.count)")
                         .font(Theme.mono(12))
                         .foregroundStyle(record.ipHistory.count > 1 ? Theme.text : Theme.textSecondary)
@@ -354,22 +403,29 @@ struct InvTable: View {
             }
         }
         .standardTableStyle()
-        .contextMenu(forSelectionType: String.self) { keys in
-            if let key = keys.first, let record = model.record(key) {
-                menu(record)
-            }
-        } primaryAction: { keys in
-            guard let key = keys.first, let record = model.record(key) else { return }
-            onSelect(key)
-            if state.device(withID: record.ip.description) != nil { state.showDevice(record.ip.description) }
+        .contextMenu(forSelectionType: String.self) { ids in
+            let chosen = rows.filter { ids.contains($0.id) }
+            if !chosen.isEmpty { menu(chosen) }
+        } primaryAction: { ids in
+            guard let row = rows.first(where: { ids.contains($0.id) }) else { return }
+            if isActive(row), state.device(withID: row.record.ip.description) != nil { state.showDevice(row.record.ip.description) }
+        }
+        // Touche Suppr (⌫) et Édition › Supprimer.
+        .onDeleteCommand {
+            let chosen = rows.filter { selection.contains($0.id) }.map(\.id)
+            if !chosen.isEmpty { onDelete(chosen) }
         }
     }
 
+    /// Ligne du site actif : celle dont les appareils sont dans le Scanner (fiche complète, ping).
+    private func isActive(_ row: SiteScopedRecord) -> Bool { row.siteKey == model.siteKey }
+
     // MARK: Cellules
 
-    private func favoriteButton(_ record: InvRecord) -> some View {
+    private func favoriteButton(_ row: SiteScopedRecord) -> some View {
+        let record = row.record
         let favorite = record.annotations.isFavorite
-        return Button { onFavorite(record.key) } label: {
+        return Button { onFavorite(row) } label: {
             Image(systemName: favorite ? "star.fill" : "star")
                 .font(.system(size: 12))
                 .foregroundStyle(favorite ? Theme.warning : Theme.textTertiary)
@@ -402,16 +458,27 @@ struct InvTable: View {
     }
 
     @ViewBuilder
-    private func menu(_ record: InvRecord) -> some View {
-        Button(record.annotations.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris") { onFavorite(record.key) }
+    private func menu(_ chosen: [SiteScopedRecord]) -> some View {
+        if chosen.count == 1, let row = chosen.first {
+            let record = row.record
+            Button(record.annotations.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris") { onFavorite(row) }
+            Divider()
+            Button("Copier l’IP") { copy(record.ip.description, label: "IP") }
+            Button("Copier la MAC") { if let mac = record.mac { copy(mac.formatted(.upperColon), label: "MAC") } }
+                .disabled(record.mac == nil)
+            Divider()
+            Button("Fiche complète") { state.showDevice(record.ip.description) }
+                .disabled(!isActive(row) || state.device(withID: record.ip.description) == nil)
+            Button("Ping continu") { state.sendToPing(record.ip.description) }
+        } else {
+            Text("\(chosen.count) appareils sélectionnés")
+            Button("Copier les IP") {
+                copy(chosen.map(\.record.ip.description).joined(separator: "\n"), label: "Liste d’IP")
+            }
+        }
         Divider()
-        Button("Copier l’IP") { copy(record.ip.description, label: "IP") }
-        Button("Copier la MAC") { if let mac = record.mac { copy(mac.formatted(.upperColon), label: "MAC") } }
-            .disabled(record.mac == nil)
-        Divider()
-        Button("Fiche complète") { state.showDevice(record.ip.description) }
-            .disabled(state.device(withID: record.ip.description) == nil)
-        Button("Ping continu") { state.sendToPing(record.ip.description) }
+        Button(chosen.count > 1 ? "Supprimer ces \(chosen.count) appareils de l’inventaire…" : "Supprimer de l’inventaire…",
+               role: .destructive) { onDelete(chosen.map(\.id)) }
     }
 
     private func copy(_ text: String, label: String) {
