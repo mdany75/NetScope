@@ -32,6 +32,7 @@ registerTableTests(suite)
 registerResourceTests(suite)
 registerSpeedServerTests(suite)
 registerServiceStatusTests(suite)
+registerMailDNSTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

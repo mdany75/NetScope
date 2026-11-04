@@ -148,6 +148,8 @@ public struct ReportInput: Sendable {
     public var sourceIP: String?
     /// « 10.182.122.1 (FortiGate-60F) »
     public var gateway: String?
+    /// Bilans « Santé courriel » de la Boîte à outils (section facultative « Santé courriel »).
+    public var mailHealth: [MailHealthSummary] = []
     public var now: Date
 
     public init(devices: [Device], records: [InvRecord] = [], ranges: [ReportRange] = [], switches: [ReportSwitch] = [],
@@ -350,6 +352,7 @@ public enum ReportBuilder {
             case .securite: blocks = security(input)
             case .problemes: blocks = problemBlocks(problems)
             case .inventaire: blocks = inventory(input, masked: config.maskMAC)
+            case .courriel: blocks = mailHealthBlocks(input.mailHealth)
             case .annexe: blocks = annex(input, masked: config.maskMAC)
             }
             sections.append(ReportSection(kind: kind, heading: heading, blocks: blocks))

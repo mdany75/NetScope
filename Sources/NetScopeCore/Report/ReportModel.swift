@@ -61,7 +61,7 @@ public enum ReportTemplate: String, Codable, CaseIterable, Sendable, Identifiabl
 
 /// Section d'un rapport. L'ordre des cas est celui de la liste à cocher (croquis Rapport).
 public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifiable {
-    case resume, inventaire, plan, switchs, wifi, securite, problemes, annexe
+    case resume, inventaire, plan, switchs, wifi, securite, problemes, courriel, annexe
 
     public var id: String { rawValue }
 
@@ -74,12 +74,15 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
         case .wifi: return "Wi-Fi"
         case .securite: return "Ports ouverts / sécurité"
         case .problemes: return "Problèmes et recommandations"
+        case .courriel: return "Santé courriel"
         case .annexe: return "Annexe brute"
         }
     }
 
-    /// Ordre dans le document : le détail (inventaire, annexe) vient après la synthèse.
-    public static let documentOrder: [ReportSectionKind] = [.resume, .plan, .switchs, .wifi, .securite, .problemes, .inventaire, .annexe]
+    /// Ordre dans le document : le détail (inventaire, annexe) vient après la synthèse. « Santé
+    /// courriel » est facultative : aucun modèle ne la coche par défaut.
+    public static let documentOrder: [ReportSectionKind] = [.resume, .plan, .switchs, .wifi, .securite, .problemes, .courriel,
+                                                            .inventaire, .annexe]
 }
 
 /// Format de sortie.

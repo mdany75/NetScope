@@ -7,12 +7,15 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     case subnet, mac, ports, dns, whois, mtu, iperf, speedtest, wol, dhcp, lldp
     /// État des grands services en ligne (note 15).
     case cloud
+    // Outils courriel (note 14).
+    case mailSuper, mailHealth, mx, blacklist, mailRecords
 
     var id: String { rawValue }
 
     enum Group: String, CaseIterable {
         case adressage = "Adressage", diagnostic = "Diagnostic", performance = "Performance", services = "Services"
         case internet = "Internet"
+        case courriel = "Courriel"
         var tools: [ToolKind] { ToolKind.allCases.filter { $0.group == self } }
     }
 
@@ -23,6 +26,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .iperf, .speedtest: return .performance
         case .wol, .dhcp, .lldp: return .services
         case .cloud: return .internet
+        case .mailSuper, .mailHealth, .mx, .blacklist, .mailRecords: return .courriel
         }
     }
 
@@ -40,6 +44,11 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .dhcp: return "Test DHCP"
         case .lldp: return "Capture LLDP/CDP"
         case .cloud: return "État des services"
+        case .mailSuper: return "Super outil courriel"
+        case .mailHealth: return "Santé courriel"
+        case .mx: return "Recherche MX"
+        case .blacklist: return "Listes noires"
+        case .mailRecords: return "SPF, DKIM, DMARC…"
         }
     }
 
@@ -57,6 +66,11 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .dhcp: return "Détecte tous les serveurs DHCP qui répondent sur le segment."
         case .lldp: return "Identifie le switch, le port et le VLAN où ce Mac est branché."
         case .cloud: return "Microsoft 365, AWS, Google, GitHub…\u{00A0}: page d’état officielle et accès depuis ce réseau."
+        case .mailSuper: return "Domaine, adresse courriel, IP ou nom d’hôte\u{00A0}: toutes les vérifications utiles d’un coup."
+        case .mailHealth: return "Note sur 100 d’un domaine (MX, SPF, DKIM, DMARC, listes noires, MTA-STS, DNSSEC) et recommandations."
+        case .mx: return "Serveurs MX par priorité, leurs adresses et la cohérence du DNS inverse."
+        case .blacklist: return "Une IP ou un domaine dans les principales listes noires DNSBL/RBL."
+        case .mailRecords: return "Lit et explique SPF, DMARC, DKIM, BIMI, MTA-STS et TLS-RPT\u{00A0}; signale les erreurs."
         }
     }
 
@@ -74,6 +88,11 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .dhcp: return "shield.lefthalf.filled"
         case .lldp: return "cable.connector"
         case .cloud: return "cloud"
+        case .mailSuper: return "wand.and.stars"
+        case .mailHealth: return "heart.text.square"
+        case .mx: return "tray.2"
+        case .blacklist: return "hand.raised"
+        case .mailRecords: return "checkmark.shield"
         }
     }
 
@@ -182,6 +201,12 @@ final class ToolStore: ObservableObject {
     let wol = ToolWakeModel()
     let dhcp = ToolDHCPModel()
     let neighbors = ToolNeighborModel()
+    // Outils courriel (note 14).
+    let mailSuper = ToolMailSuperModel()
+    let mailHealth = ToolMailHealthModel()
+    let mx = ToolMXModel()
+    let blacklist = ToolBlacklistModel()
+    let mailRecords = ToolMailRecordsModel()
 
     /// Démonstration (--demo) : données des croquis.
     let isDemo: Bool
@@ -208,6 +233,7 @@ final class ToolStore: ObservableObject {
         }
         if isDemo {
             loadDemo()
+            loadMailDemo()
         } else if !isEphemeral, let data = try? Data(contentsOf: url), let saved = try? JSONDecoder().decode(Snapshot.self, from: data) {
             commands = saved.commands
             recents = saved.recents
@@ -278,6 +304,15 @@ final class ToolStore: ObservableObject {
         } catch {
             NSLog("NetScope : enregistrement impossible de %@ : %@", url.path, error.localizedDescription)
         }
+    }
+
+    /// Outils courriel en démonstration : domaine fictif groupecouture.ca (réponses DNS fixes).
+    private func loadMailDemo() {
+        mailSuper.startDemo()
+        mailHealth.startDemo()
+        mx.startDemo()
+        blacklist.startDemo()
+        mailRecords.startDemo()
     }
 
     /// Données des croquis (renderVals de Toolbox.dc.html).
