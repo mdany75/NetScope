@@ -14,6 +14,7 @@ struct SwitchScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 SwitchSourcesPanel(store: store)
+                SwitchThisMacBanner(switches: store)
 
                 if store.hosts.isEmpty {
                     Panel(padding: 0) {
