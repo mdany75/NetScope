@@ -213,27 +213,46 @@ struct ToolNotice<Trailing: View>: View {
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(tone.foreground)
-                .padding(.top, 1)
-            VStack(alignment: .leading, spacing: 2) {
-                if let title { Text(title).font(Theme.bodySemibold).foregroundStyle(tone.foreground) }
-                Text(message)
-                    .font(title == nil ? Theme.body : Theme.small)
-                    .foregroundStyle(tone == .accent ? Color(light: 0x1E3A8A, dark: 0x9AAFE9) : tone.foreground)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .textSelection(.enabled)
+        // Bouton à droite du texte s'il reste au moins 300 pt au texte, sinon dessous (petite
+        // fenêtre) : le texte n'est jamais coincé dans une colonne étroite.
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 10) {
+                symbol
+                text.frame(minWidth: 300, idealWidth: 300, maxWidth: .infinity, alignment: .leading)
+                trailing
             }
-            Spacer(minLength: 8)
-            trailing
+            HStack(alignment: .top, spacing: 10) {
+                symbol
+                VStack(alignment: .leading, spacing: 6) {
+                    text
+                    trailing
+                }
+                Spacer(minLength: 0)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(tone.background))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(border))
+    }
+
+    private var symbol: some View {
+        Image(systemName: icon)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(tone.foreground)
+            .padding(.top, 1)
+    }
+
+    private var text: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if let title { Text(title).font(Theme.bodySemibold).foregroundStyle(tone.foreground) }
+            Text(message)
+                .font(title == nil ? Theme.body : Theme.small)
+                .foregroundStyle(tone == .accent ? Color(light: 0x1E3A8A, dark: 0x9AAFE9) : tone.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
+        }
     }
 
     private var icon: String {

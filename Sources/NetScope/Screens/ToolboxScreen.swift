@@ -11,14 +11,17 @@ struct ToolboxScreen: View {
     var body: some View {
         ScrollView {
             HStack(alignment: .top, spacing: 16) {
+                // La liste des outils descend jusqu'au bas de la colonne la plus haute.
                 ToolListPanel(store: store)
                     .frame(width: 260)
+                    .frame(maxHeight: .infinity, alignment: .top)
                 SidePanelSplit(sideWidth: 260, collapse: .below, spacing: 16, collapseBelow: 720) {
                     ToolMainPanel(store: store)
                 } side: {
                     ToolSidePanel(store: store)
                 }
             }
+            .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, Theme.contentPadding)
             .padding(.vertical, 16)
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -72,7 +75,7 @@ private struct ToolListPanel: View {
             }
         }
         .padding(10)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
     }

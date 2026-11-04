@@ -136,9 +136,16 @@ struct WifiChannelGraph: View {
                 var labelY = y(network.rssi) - 6
                 if network.id == selectedID, strongest[center]?.id != network.id { labelY = y(network.rssi) + 12 }
                 let name = network.isHidden ? "(caché)" : label(network)
-                context.draw(Text("\(name) \u{2212}\(abs(network.rssi))").font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(WifiText.color(of: network, in: all)),
-                             at: CGPoint(x: x(center), y: max(top + 9, labelY)), anchor: .bottom)
+                let text = context.resolve(Text("\(name) \u{2212}\(abs(network.rssi))").font(.system(size: 10, weight: .semibold))
+                                            .foregroundStyle(WifiText.color(of: network, in: all)))
+                let point = CGPoint(x: x(center), y: max(top + 9, labelY))
+                // Fond de la couleur du panneau : l'étiquette reste lisible quand elle tombe sur la
+                // cloche d'un autre réseau (réseau sélectionné moins fort que le plus fort du canal).
+                let textSize = text.measure(in: CGSize(width: 400, height: 40))
+                let plate = CGRect(x: point.x - textSize.width / 2 - 4, y: point.y - textSize.height - 1,
+                                   width: textSize.width + 8, height: textSize.height + 2)
+                context.fill(Path(roundedRect: plate, cornerRadius: 4), with: .color(Theme.panel.opacity(0.92)))
+                context.draw(text, at: point, anchor: .bottom)
             }
 
             var axisLine = Path()

@@ -174,54 +174,73 @@ private struct DeviceDetailView: View {
         .lineLimit(1)
     }
 
-    /// Boutons d'action ; en petite fenêtre, ils passent à la ligne au lieu d'être tronqués.
+    /// Boutons d'action : une ligne si tout tient, sinon deux lignes de trois (jamais un bouton seul
+    /// sur la deuxième ligne), et en dernier recours un passage à la ligne libre.
     private var actions: some View {
-        SwitchFlowLayout(spacing: 8, lineSpacing: 8) {
-            Button {
-                state.sendToPing(device.ip.description)
-            } label: {
-                Label("Ping continu", systemImage: Screen.ping.symbol)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                primaryActions
+                secondaryActions
             }
-            .buttonStyle(.primary)
-            Button { scanPorts() } label: { Label("Scanner les ports", systemImage: "door.left.hand.open") }
-                .buttonStyle(.secondary)
-            Button {
-                let wol = store.wol
-                if let mac = device.mac { wol.macText = mac.formatted(.upperColon) }
-                if wol.broadcastText.isEmpty { wol.broadcastText = WakeOnLAN.defaultBroadcast(for: state.activeInterface).description }
-                store.open(.wol, in: state)
-            } label: {
-                Label("Wake-on-LAN", systemImage: "power")
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) { primaryActions }
+                HStack(spacing: 8) { secondaryActions }
             }
-            .buttonStyle(.secondary)
-            .disabled(device.mac == nil)
-            Button { ToolActions.open(DeviceSession.defaultURL(for: device)) } label: {
-                Label("Ouvrir dans le navigateur", systemImage: "safari")
+            SwitchFlowLayout(spacing: 8, lineSpacing: 8) {
+                primaryActions
+                secondaryActions
             }
-            .buttonStyle(.secondary)
-            Button { ToolActions.open("ssh://\(device.ip)") } label: { Label("SSH", systemImage: "terminal") }
-                .buttonStyle(.secondary)
-                .help("Ouvre ssh://\(device.ip.description) dans Terminal")
-            Menu {
-                Button("Adresse IP") { copy(device.ip.description, label: "IP copiée") }
-                if let mac = device.mac {
-                    Button("Adresse MAC") { copy(mac.formatted(.upperColon), label: "MAC copiée") }
-                }
-                if let host = device.hostname { Button("Nom d’hôte") { copy(host, label: "Nom copié") } }
-                Divider()
-                Button("Fiche complète") { copy(sheet, label: "Fiche copiée") }
-            } label: {
-                Label(copied ?? "Copier", systemImage: copied == nil ? "doc.on.doc" : "checkmark")
-                    .font(Theme.bodyMedium)
-            }
-            .menuStyle(.borderlessButton)
-            .padding(.horizontal, 12)
-            .frame(height: Theme.controlHeight)
-            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
-            .fixedSize()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder private var primaryActions: some View {
+        Button {
+            state.sendToPing(device.ip.description)
+        } label: {
+            Label("Ping continu", systemImage: Screen.ping.symbol)
+        }
+        .buttonStyle(.primary)
+        Button { scanPorts() } label: { Label("Scanner les ports", systemImage: "door.left.hand.open") }
+            .buttonStyle(.secondary)
+        Button {
+            let wol = store.wol
+            if let mac = device.mac { wol.macText = mac.formatted(.upperColon) }
+            if wol.broadcastText.isEmpty { wol.broadcastText = WakeOnLAN.defaultBroadcast(for: state.activeInterface).description }
+            store.open(.wol, in: state)
+        } label: {
+            Label("Wake-on-LAN", systemImage: "power")
+        }
+        .buttonStyle(.secondary)
+        .disabled(device.mac == nil)
+    }
+
+    @ViewBuilder private var secondaryActions: some View {
+        Button { ToolActions.open(DeviceSession.defaultURL(for: device)) } label: {
+            Label("Ouvrir dans le navigateur", systemImage: "safari")
+        }
+        .buttonStyle(.secondary)
+        Button { ToolActions.open("ssh://\(device.ip)") } label: { Label("SSH", systemImage: "terminal") }
+            .buttonStyle(.secondary)
+            .help("Ouvre ssh://\(device.ip.description) dans Terminal")
+        Menu {
+            Button("Adresse IP") { copy(device.ip.description, label: "IP copiée") }
+            if let mac = device.mac {
+                Button("Adresse MAC") { copy(mac.formatted(.upperColon), label: "MAC copiée") }
+            }
+            if let host = device.hostname { Button("Nom d’hôte") { copy(host, label: "Nom copié") } }
+            Divider()
+            Button("Fiche complète") { copy(sheet, label: "Fiche copiée") }
+        } label: {
+            Label(copied ?? "Copier", systemImage: copied == nil ? "doc.on.doc" : "checkmark")
+                .font(Theme.bodyMedium)
+        }
+        .menuStyle(.borderlessButton)
+        .padding(.horizontal, 12)
+        .frame(height: Theme.controlHeight)
+        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+        .fixedSize()
     }
 
     // MARK: Onglets

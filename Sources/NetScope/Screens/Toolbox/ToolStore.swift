@@ -334,12 +334,12 @@ enum ToolText {
         return formatter.string(from: date)
     }
 
-    /// « il y a 4 min », « à l’instant », « hier 17:02 ».
+    /// « à l’instant », « il y a 4 min », « il y a 15 h », puis « hier 17:02 » au-delà de 24 h.
     static func relative(_ date: Date, now: Date = Date()) -> String {
         let seconds = now.timeIntervalSince(date)
         if seconds < 45 { return "à l’instant" }
         if seconds < 3600 { return "il y a \(Int((seconds / 60).rounded()))\u{00A0}min" }
-        if seconds < 6 * 3600 { return "il y a \(Int(seconds / 3600))\u{00A0}h" }
+        if seconds < 24 * 3600 { return "il y a \(Int(seconds / 3600))\u{00A0}h" }
         return time(date, now: now)
     }
 }

@@ -53,6 +53,8 @@ struct PingScreen: View {
                     .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
             }
+            // Marge avant « Exporter CSV » : le texte d'état ne colle pas au bouton.
+            .padding(.trailing, 10)
         }
         Button { controller.exportCSV() } label: {
             Label("Exporter CSV", systemImage: "square.and.arrow.down")

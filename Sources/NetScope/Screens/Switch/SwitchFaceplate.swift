@@ -77,6 +77,8 @@ struct SwitchFaceplate: View {
     let snapshot: SNMPSwitchSnapshot
     let selected: Int?
     let found: Int?
+    /// Largeur minimale du cadre (largeur de la carte) : le cadre va jusqu'au bord droit.
+    var minWidth: CGFloat = 0
     let onSelect: (Int) -> Void
 
     var body: some View {
@@ -124,8 +126,9 @@ struct SwitchFaceplate: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Color(hex: 0x1E293B)))
         .fixedSize()
+        .frame(minWidth: minWidth, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Color(hex: 0x1E293B)))
     }
 
     private func led(_ text: String) -> some View {

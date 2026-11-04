@@ -222,7 +222,9 @@ struct SwitchCard: View {
                         }
                         .font(Theme.small)
                         .foregroundStyle(Theme.textSecondary)
-                        .lineLimit(1)
+                        // Modèle, adresse et ports : deux lignes plutôt qu'une coupée.
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 0)
                 }
@@ -356,6 +358,8 @@ struct SwitchFaceplatePanel: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var store: SwitchStore
     let snapshot: SNMPSwitchSnapshot
+    /// Largeur de la zone de la façade : le cadre sombre la remplit jusqu'au bord de la carte.
+    @State private var faceplateWidth: CGFloat = 0
 
     var body: some View {
         let uplinks = snapshot.uplinkInterfaces()
@@ -377,8 +381,16 @@ struct SwitchFaceplatePanel: View {
                 }
                 ScrollView(.horizontal, showsIndicators: false) {
                     SwitchFaceplate(snapshot: snapshot, selected: store.selectedPort,
-                                    found: store.findResult?.host == snapshot.id ? store.findResult?.ifIndex : nil) { index in
+                                    found: store.findResult?.host == snapshot.id ? store.findResult?.ifIndex : nil,
+                                    minWidth: faceplateWidth) { index in
                         store.select(host: snapshot.id, port: index)
+                    }
+                }
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .onAppear { faceplateWidth = geometry.size.width }
+                            .onChange(of: geometry.size.width) { _, width in faceplateWidth = width }
                     }
                 }
                 SwitchLegend()

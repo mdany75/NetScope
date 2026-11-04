@@ -84,7 +84,13 @@ final class RemoteModel: ObservableObject {
     @Published var draft: RemoteDraft?
     @Published var draftError: String?
     @Published var showImport = false
+    /// Panneau de détails ouvert en grande fenêtre (ouvert par défaut).
     @Published var showDetails = true
+    /// Panneau de détails ouvert en petite fenêtre : replié par défaut, car il prend alors la place
+    /// de la zone des sessions (trois colonnes ne tiennent pas côte à côte).
+    @Published var showDetailsCompact = false
+    /// Petite fenêtre (mesurée par l'écran).
+    @Published var compactLayout = false
     @Published var toast: String?
     @Published var pendingDeletion: RemoteConnection?
     @Published private(set) var serialPorts: [String] = []
@@ -100,7 +106,8 @@ final class RemoteModel: ObservableObject {
         if demo {
             connections = RemoteDemo.connections
             reachability = RemoteDemo.reachability(for: connections)
-            lastCheck = Calendar.current.date(bySettingHour: 10, minute: 41, second: 0, of: Date())
+            // Vérification juste après la connexion la plus récente de la démonstration (il y a 6 min).
+            lastCheck = Date().addingTimeInterval(-60)
             selectedID = connections.first?.id
         } else {
             connections = store?.load() ?? []
@@ -117,6 +124,19 @@ final class RemoteModel: ObservableObject {
                 if raw.hasPrefix("modifier") { startEditing() }
             }
         }
+    }
+
+    /// Panneau de détails visible, selon la taille de la fenêtre.
+    var detailsVisible: Bool {
+        get { compactLayout ? showDetailsCompact : showDetails }
+        set {
+            if compactLayout { showDetailsCompact = newValue } else { showDetails = newValue }
+        }
+    }
+
+    /// Nom de ce Mac dans l'invite du terminal ; celui du croquis en démonstration.
+    var localHostName: String {
+        ProcessInfo.processInfo.arguments.contains("--demo") ? "Macmini-de-Dany" : speedLocalHostName
     }
 
     var selected: RemoteConnection? {

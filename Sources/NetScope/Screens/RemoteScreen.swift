@@ -32,17 +32,11 @@ struct RemoteScreen: View {
             HStack(alignment: .top, spacing: 12) {
                 RemoteConnectionList(model: model)
                     .frame(width: 272)
-                if model.showDetails, let connection = model.selected {
-                    // Petite fenêtre : le détail se replie (bouton de la barre d'outils) plutôt que
-                    // d'écraser la zone de session.
-                    // Le bouton « Masquer les détails » de l'écran pilote aussi le panneau replié :
-                    // pas de second bouton de panneau dans la barre d'outils.
-                    SidePanelSplit(sideWidth: 300, spacing: 12, collapseBelow: 300 + 12 + 360,
-                                   title: "Détails de la connexion", presented: .constant(true)) {
-                        RemoteSessionArea(model: model)
-                    } side: {
-                        RemoteDetailPanel(model: model, connection: connection)
-                    }
+                if model.compactLayout, model.detailsVisible, let connection = model.selected {
+                    // Petite fenêtre : trois colonnes ne tiennent pas. Le détail, ouvert à la demande
+                    // (bouton de la barre d'outils), prend la place des sessions au lieu de les recouvrir.
+                    RemoteDetailPanel(model: model, connection: connection)
+                        .frame(maxWidth: .infinity, alignment: .top)
                 } else {
                     RemoteSessionArea(model: model)
                         .frame(minWidth: 300)
@@ -52,7 +46,14 @@ struct RemoteScreen: View {
             .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, 16)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background {
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear { updateLayout(width: geometry.size.width) }
+                        .onChange(of: geometry.size.width) { _, width in updateLayout(width: width) }
+                }
+            }
         }
         .overlay {
             if model.showImport { RemoteImportOverlay(model: model) }
@@ -66,9 +67,9 @@ struct RemoteScreen: View {
             .buttonStyle(.secondary)
             .help("Tente une connexion TCP vers chaque hôte (aucune authentification)")
             Button {
-                model.showDetails.toggle()
+                model.detailsVisible.toggle()
             } label: {
-                Label(model.showDetails ? "Masquer les détails" : "Afficher les détails", systemImage: "sidebar.right")
+                Label(model.detailsVisible ? "Masquer les détails" : "Afficher les détails", systemImage: "sidebar.right")
             }
             .buttonStyle(.secondary)
         }
@@ -85,13 +86,22 @@ struct RemoteScreen: View {
         }
     }
 
+    /// Largeur des trois colonnes côte à côte : marges (32), liste (272), sessions (au moins 360)
+    /// et détails (300), plus les espacements.
+    private static let threeColumnWidth: CGFloat = 32 + 272 + 12 + 360 + 12 + 300
+
+    private func updateLayout(width: CGFloat) {
+        let compact = width < Self.threeColumnWidth
+        if model.compactLayout != compact { model.compactLayout = compact }
+    }
+
     @ViewBuilder private var detailColumn: some View {
-        if model.showDetails, let connection = model.selected {
+        if model.detailsVisible, let connection = model.selected {
             RemoteDetailPanel(model: model, connection: connection)
                 .frame(width: 300)
         } else if let connection = model.selected {
             Button {
-                model.showDetails = true
+                model.detailsVisible = true
             } label: {
                 VStack(spacing: 10) {
                     Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold))

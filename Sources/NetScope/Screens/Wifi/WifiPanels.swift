@@ -219,7 +219,7 @@ struct WifiConnectionPanel: View {
             tile("Bande / canal", "\(network.band.label) · canal \(network.channel)", sub: "Largeur \(network.widthMHz)\u{00A0}MHz\(block)")
             tileColored("RSSI · direct", WifiQuality.dbm(network.rssi), color: colors.foreground,
                         sub: network.noise.map { "Bruit \(WifiQuality.dbm($0))" })
-            tile("SNR", network.snr.map { "\($0)\u{00A0}dB" } ?? "—", sub: "Excellent au-delà de 25\u{00A0}dB", mono: true, subMono: false)
+            tile("SNR", network.snr.map { "\($0)\u{00A0}dB" } ?? "—", sub: "Excellent dès 25\u{00A0}dB", mono: true, subMono: false)
             tile("Débit PHY", connection.transmitRate.map { "\(Int($0))\u{00A0}Mb/s" } ?? "—", sub: network.standard.map(WifiConnectionPanel.generation), mono: true, subMono: false)
             tileColored("Sécurité", network.security.label, color: network.security.isOpen ? Theme.critical : (network.security.isWPA3 ? Theme.success : Theme.text),
                         sub: network.security.isOpen ? "aucun chiffrement" : nil, mono: false)
@@ -915,12 +915,12 @@ struct WifiRecommendationsPanel: View {
             }
             .frame(width: 26, height: 26)
             VStack(alignment: .leading, spacing: 3) {
-                HStack(alignment: .top, spacing: 6) {
+                // Badge sur sa propre ligne : le titre prend toute la largeur de la carte.
+                HStack(alignment: .center, spacing: 6) {
                     Text(reco.severity.label.uppercased())
                         .font(.system(size: 10, weight: .bold)).foregroundStyle(foreground)
                         .padding(.horizontal, 5).padding(.vertical, 1)
                         .background(RoundedRectangle(cornerRadius: 4).fill(background))
-                    Text(reco.title).font(.system(size: 12, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                     Button { store.dismissed.insert(reco.id) } label: {
                         Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.textTertiary)
@@ -928,6 +928,7 @@ struct WifiRecommendationsPanel: View {
                     .buttonStyle(.plain)
                     .help("Ignorer\u{00A0}: \(reco.title)")
                 }
+                Text(reco.title).font(.system(size: 12, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
                 Text(reco.detail).font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
                 if reco.networkID != nil || reco.band != nil {
                     Button(reco.networkID != nil ? "Voir le réseau" : "Voir la bande \(reco.band!.label)") { store.focus(reco) }

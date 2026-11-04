@@ -13,8 +13,8 @@ struct RemoteSessionArea: View {
                 Text(model.draft == nil ? "Sessions" : (model.draft?.editingID == nil ? "Nouvelle connexion" : "Modifier la connexion"))
                     .font(.system(size: 12, weight: .semibold))
                 Text("SSH · Telnet · Console série · RDP · VNC").font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
                 Spacer()
-                Chip(text: "Terminal intégré : bientôt", tone: .neutral, systemImage: "clock")
             }
             .padding(.horizontal, 12)
             .frame(height: 38)
@@ -134,7 +134,7 @@ struct RemoteSessionArea: View {
         VStack(alignment: .leading, spacing: 3) {
             switch plan {
             case .success(.terminal(let command)):
-                (Text("\(speedLocalHostName) ~ % ").foregroundColor(Color(hex: 0x4ADE80)) + Text(command))
+                (Text("\(model.localHostName) ~ % ").foregroundColor(Color(hex: 0x4ADE80)) + Text(command))
                 Text(connection.proto == .serie ? "Quitter screen : Ctrl-A puis K" : "La session s’ouvre dans une nouvelle fenêtre de Terminal.")
                     .foregroundStyle(Theme.consoleMuted)
             case .success(.rdpFile(let contents, let fileName)):
