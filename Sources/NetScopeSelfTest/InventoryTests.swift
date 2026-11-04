@@ -274,7 +274,20 @@ func registerInventoryTests(_ suite: TestSuite) {
                         ["10.182.122.0", "10.182.123.0"], "deux /24")
         let old = InvOccupancy(network: IPv4Address("10.182.122.0")!, records: Array(store.records.values),
                                now: t0.addingTimeInterval(30 * 86_400))
-        try expectEqual(old.cells[2].state, .libre, "hors ligne ancien : libre")
+        // Case encadrée par défaut = adresse du détail : le conflit .140, rangée .128, colonne 12.
+        try expectEqual(grid.defaultFocus, 140, "case par défaut : le conflit")
+        try expectEqual(grid.cells[grid.defaultFocus].ip.description, "10.182.122.140", "adresse de la case par défaut")
+        let position = InvOccupancy.position(of: grid.defaultFocus)
+        try expectEqual(position.row * 16, 128, "rangée .128")
+        try expectEqual(position.column, 12, "colonne 12")
+        try expectEqual(InvOccupancy.index(row: position.row, column: position.column), 140, "index de la case")
+        for index in grid.cells.indices {
+            let (row, column) = InvOccupancy.position(of: index)
+            try expectEqual(grid.cells[InvOccupancy.index(row: row, column: column)].index, index, "case \(index)")
+            try expectEqual(Int(grid.cells[index].ip.value & 0xFF), index, "dernier octet de la case \(index)")
+        }
+        try expectEqual(old.defaultFocus, 140, "conflit prioritaire")
+        try expectEqual(old.cells[2].state, .libre,"hors ligne ancien : libre")
     }
 
     suite.add("Carte du réseau : hiérarchie passerelle → switchs → groupes") {

@@ -62,22 +62,30 @@ struct SurveillanceScreen: View {
         .lineLimit(1)
         .fixedSize()
         .padding(.trailing, 6)
-        // Suspendre et exporter en icônes seules (libellé en infobulle) : la barre d'outils garde la
-        // place du champ de recherche à 1440 px au lieu de le réduire à une loupe.
-        let pauseLabel = store.activeCount > 0 ? "Tout suspendre" : "Tout reprendre"
-        Button { store.toggleAll() } label: {
-            Image(systemName: store.activeCount > 0 ? "pause.fill" : "play.fill")
-                .accessibilityLabel(pauseLabel)
+        // Suspendre et exporter regroupés dans un menu « Actions » libellé : des libellés clairs sans
+        // prendre la place du champ de recherche à 1440 px.
+        Menu {
+            Button {
+                store.toggleAll()
+            } label: {
+                Label(store.activeCount > 0 ? "Tout suspendre" : "Tout reprendre",
+                      systemImage: store.activeCount > 0 ? "pause.fill" : "play.fill")
+            }
+            .disabled(store.probes.isEmpty)
+            Button {
+                store.exportJournal()
+            } label: {
+                Label("Exporter le journal (CSV)…", systemImage: "square.and.arrow.down")
+            }
+            .disabled(store.journal.alerts.isEmpty)
+        } label: {
+            Label("Actions", systemImage: "ellipsis.circle")
         }
-        .buttonStyle(.secondary)
-        .disabled(store.probes.isEmpty)
-        .help(store.activeCount > 0 ? "Tout suspendre\u{00A0}: mettre toutes les sondes en pause" : "Tout reprendre\u{00A0}: relancer toutes les sondes")
-        Button { store.exportJournal() } label: {
-            Image(systemName: "square.and.arrow.down").accessibilityLabel("Exporter le journal")
-        }
-        .buttonStyle(.secondary)
-        .disabled(store.journal.alerts.isEmpty)
-        .help("Exporter le journal des alertes en CSV")
+        .menuStyle(.button)
+        .controlSize(.large)
+        .fixedSize()
+        .help(store.activeCount > 0 ? "Tout suspendre ou exporter le journal des alertes"
+              : "Tout reprendre ou exporter le journal des alertes")
         Button { store.addProbe() } label: {
             Label("Nouvelle sonde", systemImage: "plus")
         }

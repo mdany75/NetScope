@@ -106,6 +106,9 @@ struct MonProbeTable: View {
     @ObservedObject private var store = MonStore.shared
     @State private var filter: MonProbeFilter = .all
     @State private var query = ""
+    /// Panneau étroit (petite fenêtre, éditeur passé dessous) : colonnes plus serrées pour que
+    /// « Dispo. 24 h » tienne sans défilement horizontal.
+    @State private var isCompact = false
     @StateObject private var table = StandardTableModel<MonProbeLine>(
         id: "surveillance.sondes", columns: MonProbeTable.columns, sortKeys: MonProbeTable.sortKeys,
         defaultSort: "ordre")
@@ -169,7 +172,10 @@ struct MonProbeTable: View {
                     let now = store.now
                     let rows = probes.enumerated().map { MonProbeLine(probe: $1, order: $0, store: store, now: now) }
                         .sorted(using: table.sortOrder)
-                    MonProbeGrid(rows: rows, table: table)
+                    MonProbeGrid(rows: rows, table: table, isCompact: isCompact)
+                        // Les largeurs idéales ne servent qu’à la création du tableau : on le recrée
+                        // quand le panneau change de catégorie de largeur.
+                        .id(isCompact)
                         .standardTableHeight(rows: rows.count, rowHeight: Self.rowHeight, maxRows: Self.maxRows)
                 }
             }
@@ -179,6 +185,7 @@ struct MonProbeTable: View {
         }
         .frame(maxHeight: .infinity)
         .monPanel()
+        .onGeometryChange(for: Bool.self) { $0.size.width < MonProbeGrid.compactWidth } action: { isCompact = $0 }
     }
 
     private var filtered: [MonProbe] {
@@ -288,6 +295,10 @@ private struct MonProbeGrid: View {
     @ObservedObject private var store = MonStore.shared
     let rows: [MonProbeLine]
     @ObservedObject var table: StandardTableModel<MonProbeLine>
+    var isCompact = false
+
+    /// Largeur du panneau sous laquelle les colonnes se resserrent.
+    static let compactWidth: CGFloat = 780
 
     /// Hauteur du contenu d'une cellule (la ligne fait 40 avec les marges du tableau).
     static let cellHeight: CGFloat = 32
@@ -328,7 +339,7 @@ private struct MonProbeGrid: View {
                     .help("\(line.probe.name)\n\(line.targetLabel)")
                     .monInactive(line)
                 }
-                .width(min: 100, ideal: 180)
+                .width(min: 100, ideal: isCompact ? 130 : 180)
                 .customizationID("sonde")
                 .disabledCustomizationBehavior(.visibility)
 
@@ -349,7 +360,7 @@ private struct MonProbeGrid: View {
                 TableColumn(StandardTableHeading("INTERVALLE"), sortUsing: table.sort("intervalle")) { line in
                     MonCellText(MonProbe.intervalLabel(line.probe.interval), mono: true).monInactive(line)
                 }
-                .width(min: 76, ideal: 84)
+                .width(min: 66, ideal: isCompact ? 80 : 84)
                 .customizationID("intervalle")
 
                 TableColumn(StandardTableHeading("ÉTAT"), sortUsing: table.sort("etat")) { line in
@@ -358,7 +369,7 @@ private struct MonProbeGrid: View {
                 .width(min: 60, ideal: 62)
                 .customizationID("etat")
 
-                TableColumn(StandardTableHeading("DERNIÈRE VALEUR"), sortUsing: table.sort("valeur")) { line in
+                TableColumn(StandardTableHeading(isCompact ? "VALEUR" : "DERNIÈRE VALEUR"), sortUsing: table.sort("valeur")) { line in
                     let alert = line.state == .down || line.state == .warning
                     Text(line.value)
                         .font(Theme.mono(11, weight: alert ? .semibold : .regular))
@@ -368,10 +379,11 @@ private struct MonProbeGrid: View {
                         .help(line.value)
                         .monInactive(line)
                 }
-                .width(min: 100, ideal: 116)
+                .width(min: 96, ideal: isCompact ? 100 : 116)
                 .customizationID("valeur")
 
-                TableColumn(StandardTableHeading("DISPONIBILITÉ 24 H"), sortUsing: table.sort("disponibilite")) { line in
+                // En-tête court : il tient dans la colonne en petite fenêtre (« DISPONIBILITÉ » était coupé).
+                TableColumn(StandardTableHeading("DISPO. 24 H"), sortUsing: table.sort("disponibilite")) { line in
                     MonUptimeBar(slots: line.slots, availability: line.availability,
                                  enabled: line.probe.isEnabled, name: line.probe.name)
                         .monInactive(line)

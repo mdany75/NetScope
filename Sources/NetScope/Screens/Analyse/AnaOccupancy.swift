@@ -19,7 +19,8 @@ struct AnaOccupancyPanel: View {
 
     var body: some View {
         let grid = InvOccupancy(network: network, records: records, now: now, recentWindow: recentWindow)
-        let focus = hovered ?? selected ?? defaultFocus(grid)
+        // Case encadrée = adresse du détail (survolée, choisie, sinon la première en conflit ou en ligne).
+        let focus = hovered ?? selected ?? grid.defaultFocus
 
         Panel(padding: 16) {
             VStack(alignment: .leading, spacing: 12) {
@@ -38,7 +39,8 @@ struct AnaOccupancyPanel: View {
                                 Text(".\(row * 16)").font(Theme.mono(10)).foregroundStyle(Theme.textSecondary)
                                     .frame(width: 30, alignment: .leading)
                                 ForEach(0..<16, id: \.self) { column in
-                                    cellView(grid.cells[row * 16 + column], isFocus: row * 16 + column == (selected ?? -1))
+                                    let index = InvOccupancy.index(row: row, column: column)
+                                    cellView(grid.cells[index], isFocus: index == focus)
                                 }
                             }
                         }
@@ -49,10 +51,6 @@ struct AnaOccupancyPanel: View {
                 }
             }
         }
-    }
-
-    private func defaultFocus(_ grid: InvOccupancy) -> Int {
-        grid.cells.first { $0.state == .conflit }?.index ?? grid.cells.first { $0.state == .enLigne }?.index ?? 1
     }
 
     static func colors(_ state: InvCellState) -> (fill: Color, border: Color) {

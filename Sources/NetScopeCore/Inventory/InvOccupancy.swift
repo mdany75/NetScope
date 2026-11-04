@@ -60,6 +60,18 @@ public struct InvOccupancy: Sendable {
 
     public func count(_ state: InvCellState) -> Int { cells.filter { $0.state == state }.count }
 
+    /// Index de la case à la rangée `row` (libellée « .\(row * 16) ») et à la colonne `column` (0 à 15).
+    public static func index(row: Int, column: Int) -> Int { row * 16 + column }
+
+    /// Rangée et colonne de la case `index` (inverse de `index(row:column:)`).
+    public static func position(of index: Int) -> (row: Int, column: Int) { (index / 16, index % 16) }
+
+    /// Case affichée quand rien n'est survolé ni choisi : le premier conflit, sinon la première
+    /// adresse en ligne, sinon .1. C'est aussi la case encadrée dans la carte.
+    public var defaultFocus: Int {
+        cells.first { $0.state == .conflit }?.index ?? cells.first { $0.state == .enLigne }?.index ?? 1
+    }
+
     /// Adresses occupées (en ligne, hors ligne récents, conflits) sur les 254 utilisables.
     public var usedCount: Int { count(.enLigne) + count(.horsLigne) + count(.conflit) }
     public var usage: Double { Double(usedCount) / 254 }

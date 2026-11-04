@@ -4,8 +4,9 @@ import SwiftUI
 
 /// Barre latérale translucide de macOS (liste « sidebar » du système), fidèle aux croquis pour
 /// l'ordre et les libellés : logo, groupes d'écrans avec leurs compteurs, plages enregistrées,
-/// l'interface active, la version et la mise à jour disponible ; Réglages reste épinglé en bas.
-/// La liste défile quand la fenêtre est basse.
+/// l'interface active, la version et la mise à jour disponible. La carte de l'interface et
+/// Réglages restent épinglés en bas, toujours entiers ; la liste du haut défile quand la fenêtre
+/// est basse. En petite fenêtre, la carte laisse place à la seule mise à jour disponible.
 struct Sidebar: View {
     @EnvironmentObject private var state: AppState
 
@@ -13,14 +14,22 @@ struct Sidebar: View {
     /// fenêtre) : les quatre groupes d'écrans, puis le titre et au moins une plage.
     private static let rangesMinListHeight: CGFloat = 548
 
+    /// Hauteur de la barre latérale (sous la barre de titre) à partir de laquelle la carte
+    /// « Interface active » s'affiche entière au-dessus de Réglages : logo, quatre groupes d'écrans,
+    /// carte et pied. En dessous (fenêtre 1000 × 650), seule la pastille de mise à jour reste.
+    private static let cardMinSidebarHeight: CGFloat = 700
+
     var body: some View {
-        // Hauteur de la liste (entre le logo et Réglages), lue dans la même passe de mise en page :
-        // les plages enregistrées sont masquées quand elles n'ont pas la place.
-        GeometryReader { geometry in
-            list(height: geometry.size.height)
+        GeometryReader { sidebar in
+            let showsCard = sidebar.size.height >= Self.cardMinSidebarHeight
+            // Hauteur de la liste (entre le logo et le pied), lue dans la même passe de mise en page :
+            // les plages enregistrées sont masquées quand elles n'ont pas la place.
+            GeometryReader { geometry in
+                list(height: geometry.size.height)
+            }
+            .safeAreaInset(edge: .top, spacing: 0) { logo }
+            .safeAreaInset(edge: .bottom, spacing: 0) { footer(showsCard: showsCard) }
         }
-        .safeAreaInset(edge: .top, spacing: 0) { logo }
-        .safeAreaInset(edge: .bottom, spacing: 0) { footer }
     }
 
     private func list(height listHeight: CGFloat) -> some View {
@@ -43,13 +52,6 @@ struct Sidebar: View {
                         .selectionDisabled()
                     }
                 }
-            }
-            // Interface active, version et mise à jour : en fin de liste, pour que la barre latérale
-            // défile au lieu d'imposer sa hauteur quand la fenêtre est basse.
-            Section {
-                interfaceCard
-                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-                    .selectionDisabled()
             }
         }
         .listStyle(.sidebar)
@@ -109,10 +111,24 @@ struct Sidebar: View {
         .padding(.bottom, 6)
     }
 
-    /// Réglages épinglé en bas : une seconde liste « sidebar » d'une ligne, pour que sa sélection ait
-    /// exactement l'allure (teinte, forme, fenêtre inactive) de celle des autres écrans.
-    private var footer: some View {
+    /// Pied épinglé en bas : la carte de l'interface active (ou, en petite fenêtre, la seule mise à
+    /// jour disponible), puis Réglages, une seconde liste « sidebar » d'une ligne pour que sa
+    /// sélection ait exactement l'allure (teinte, forme, fenêtre inactive) de celle des autres écrans.
+    private func footer(showsCard: Bool) -> some View {
         VStack(spacing: 0) {
+            if showsCard {
+                interfaceCard
+                    .padding(.horizontal, 10)
+                    .padding(.top, 6)
+                    .padding(.bottom, 8)
+                    .padding(.trailing, Self.legacyScrollerWidth)
+            } else if let update = state.updateAvailable {
+                updateButton(update)
+                    .padding(.horizontal, 10)
+                    .padding(.top, 6)
+                    .padding(.bottom, 6)
+                    .padding(.trailing, Self.legacyScrollerWidth)
+            }
             Divider().padding(.horizontal, 16)
             List(selection: settingsSelection) {
                 Label(Screen.reglages.title, systemImage: Screen.reglages.symbol)
@@ -138,76 +154,95 @@ struct Sidebar: View {
                 set: { if $0 == .reglages { state.open(.reglages) } })
     }
 
+    /// Carte compacte : titre et version, interface, passerelle et DNS (sur une ligne quand elle
+    /// tient), puis la mise à jour disponible.
     private var interfaceCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("INTERFACE ACTIVE")
-                .font(Theme.captionSemibold).kerning(0.44)
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("INTERFACE ACTIVE")
+                    .font(Theme.captionSemibold).kerning(0.44)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                Text("v\(AppInfo.version)").font(Theme.caption).lineLimit(1).fixedSize()
+                    .help("Version \(AppInfo.version)")
+            }
+            .foregroundStyle(.secondary)
             HStack(alignment: .firstTextBaseline, spacing: 7) {
                 Circle()
                     .fill(state.activeInterface == nil ? Theme.neutralDot : Theme.successDot)
                     .frame(width: 8, height: 8)
-                // Lignes logiques : « en0 · 10.182.122.135 », puis le type (« Wi-Fi »).
                 if let interface = state.activeInterface {
-                    VStack(alignment: .leading, spacing: 1) {
-                        // Barre latérale étroite : l'IP passe sous le nom plutôt que d'être coupée.
-                        ViewThatFits(in: .horizontal) {
-                            Text("\(interface.name) · \(interface.address.description)").lineLimit(1).fixedSize()
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(interface.name).lineLimit(1)
-                                Text(interface.address.description).lineLimit(1)
-                            }
+                    // « en0 · 10.182.122.135 · Wi-Fi » quand la ligne tient ; sinon le type passe à la
+                    // ligne, puis l'IP sous le nom plutôt que d'être coupée.
+                    ViewThatFits(in: .horizontal) {
+                        (Text("\(interface.name) · \(interface.address.description)").font(Theme.mono(11))
+                            + Text(" · \(interface.kind.label)").font(Theme.caption).foregroundColor(.secondary))
+                            .lineLimit(1).fixedSize()
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("\(interface.name) · \(interface.address.description)").font(Theme.mono(11))
+                                .lineLimit(1).fixedSize()
+                            Text(interface.kind.label).font(Theme.caption).foregroundStyle(.secondary).lineLimit(1)
                         }
-                        .font(Theme.mono(11))
-                        Text(interface.kind.label)
-                            .font(Theme.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(interface.name).font(Theme.mono(11)).lineLimit(1)
+                            Text(interface.address.description).font(Theme.mono(11)).lineLimit(1)
+                            Text(interface.kind.label).font(Theme.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }
                     }
                 } else {
                     Text("Aucune interface active").font(Theme.mono(11)).lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            // Une ligne pour la passerelle, une pour le DNS (jamais coupées au milieu).
-            ForEach(gatewayLines, id: \.self) { line in
-                Text(line)
-                    .font(Theme.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-            }
-            Text("Version \(AppInfo.version)").font(Theme.caption).foregroundStyle(.secondary)
-            if let update = state.updateAvailable {
-                Button {
-                    state.open(.reglages)
-                } label: {
-                    HStack(spacing: 7) {
-                        Circle().fill(Theme.accent).frame(width: 8, height: 8)
-                        // Barre latérale étroite : le numéro passe à la ligne plutôt que d'être coupé.
-                        ViewThatFits(in: .horizontal) {
-                            (Text("Mise à jour disponible · ") + Text(update).font(Theme.mono(11)))
-                                .lineLimit(1).fixedSize()
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text("Mise à jour disponible").lineLimit(1).fixedSize()
-                                Text(update).font(Theme.mono(11)).lineLimit(1)
-                            }
+            // Passerelle et DNS sur une ligne quand elle tient, sinon une ligne chacun (jamais coupés).
+            if !gatewayLines.isEmpty {
+                ViewThatFits(in: .horizontal) {
+                    Text(gatewayLines.joined(separator: " · ")).lineLimit(1).fixedSize()
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(gatewayLines, id: \.self) { line in
+                            Text(line).lineLimit(1).minimumScaleFactor(0.85)
                         }
-                        .font(.system(size: 11, weight: .medium))
-                        Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 5)
-                    .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.accentSoft))
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .help("Mise à jour disponible\u{00A0}: NetScope \(update). Ouvrir les réglages Mises à jour")
+                .font(Theme.caption)
+                .foregroundStyle(.secondary)
+            }
+            if let update = state.updateAvailable {
+                updateButton(update)
             }
         }
-        .padding(10)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.hover))
+    }
+
+    /// Pastille « Mise à jour disponible · 1.1.0 » (ouvre les réglages Mises à jour), toujours sur une
+    /// ligne : libellé raccourci quand la barre latérale est étroite.
+    private func updateButton(_ update: String) -> some View {
+        Button {
+            state.open(.reglages)
+        } label: {
+            HStack(spacing: 7) {
+                Circle().fill(Theme.accent).frame(width: 8, height: 8)
+                ViewThatFits(in: .horizontal) {
+                    (Text("Mise à jour disponible · ") + Text(update).font(Theme.mono(11)))
+                        .lineLimit(1).fixedSize()
+                    (Text("Mise à jour · ") + Text(update).font(Theme.mono(11)))
+                        .lineLimit(1).fixedSize()
+                    Text(update).font(Theme.mono(11)).lineLimit(1)
+                }
+                .font(.system(size: 11, weight: .medium))
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 7)
+            .padding(.vertical, 5)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.accentSoft))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Mise à jour disponible\u{00A0}: NetScope \(update). Ouvrir les réglages Mises à jour")
     }
 
     private var gatewayLines: [String] {
