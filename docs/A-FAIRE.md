@@ -861,3 +861,20 @@ une connexion rapide (depuis le Scanner, la fiche Appareil ou l'Inventaire) part
 - Nom retenu par appareil et par site, avec « Enregistrer dans le carnet » ; mot de passe dans
   le trousseau macOS, jamais en clair.
 - Même champ pour Telnet, SFTP / FTP (note 50), RDP et VNC quand ils demandent un compte.
+
+## 53. Services en ligne : réseaux sociaux et assistants IA — À PLANIFIER (demande de Dany)
+
+Ajouter au catalogue de la note 15 (`SvcCatalog.swift`, livré dans la 0.6.0) une catégorie
+« Réseaux sociaux » et une catégorie « Assistants IA » :
+
+- Réseaux sociaux : Facebook, Instagram (Meta, page d'état de Meta et test des adresses clés,
+  ex. www.facebook.com, www.instagram.com, graph.facebook.com), TikTok, Snapchat.
+- Assistants IA : Claude (status.anthropic.com, Statuspage JSON ; claude.ai, api.anthropic.com),
+  ChatGPT (status.openai.com ; chatgpt.com, api.openai.com), Microsoft Copilot (page d'état
+  Microsoft 365 et copilot.microsoft.com), Grok (x.ai ; grok.com, x.com).
+- Pour chaque service : page d'état officielle quand elle existe (vérifier le format : Statuspage,
+  incident.io, RSS…), sinon test depuis ce réseau seulement (DNS, TLS, HTTPS, latence), comme
+  Zscaler et Okta ; « panne chez eux » vs « problème chez nous » (filtrage web, pare-feu).
+- Utile pour le technicien : savoir si un site est bloqué par le filtrage de la FortiGate
+  (catégorie web, contrôle des applications) plutôt qu'en panne ; services cochés ou non par
+  site (ex. réseaux sociaux masqués là où ils sont bloqués exprès).
