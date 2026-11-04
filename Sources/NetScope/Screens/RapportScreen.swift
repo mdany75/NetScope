@@ -42,7 +42,8 @@ struct RapportScreen: View {
                 .frame(height: Theme.controlHeight)
                 .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
                 .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
-                .help("Le rapport reprend le dernier scan de cette session et l’inventaire des plages scannées.")
+                .fixedSize()
+                .help(sourceHelp)
         }
         Button { model.newReport() } label: { Label("Nouveau rapport", systemImage: "plus") }
             .buttonStyle(.secondary)
@@ -54,11 +55,25 @@ struct RapportScreen: View {
         .buttonStyle(.primary)
     }
 
-    /// « Scan du 2026-11-03 09:12 · 16 appareils »
+    /// « Scan du 3 nov. · 16 app. » : court, pour laisser sa place au champ de recherche de la barre d'outils.
     private var sourceLabel: String {
-        guard let last = state.devices.map(\.lastSeen).max() else { return "Aucun scan dans cette session" }
-        let count = state.devices.count
-        return "Scan du \(InvFormat.stamp(last)) · \(count) appareil\(count > 1 ? "s" : "")"
+        guard let last = state.devices.map(\.lastSeen).max() else { return "Aucun scan" }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "fr_CA")
+        formatter.setLocalizedDateFormatFromTemplate("dMMM")
+        return "Scan du \(formatter.string(from: last)) · \(state.devices.count) app."
+    }
+
+    /// Infobulle : le libellé complet (« Scan du 2026-11-03 09:12 · 16 appareils »).
+    private var sourceHelp: String {
+        let source: String
+        if let last = state.devices.map(\.lastSeen).max() {
+            let count = state.devices.count
+            source = "Scan du \(InvFormat.stamp(last)) · \(count) appareil\(count > 1 ? "s" : "")"
+        } else {
+            source = "Aucun scan dans cette session"
+        }
+        return source + ". Le rapport reprend le dernier scan de cette session et l’inventaire des plages scannées."
     }
 }
 
@@ -74,10 +89,16 @@ struct RapportPreview: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 SectionHeader("Aperçu").fixedSize()
-                Text("Format lettre · 8,5 × 11 po · \(pages.count) page\(pages.count > 1 ? "s" : "")")
-                    .font(Theme.small)
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
+                // Libellé complet quand la place le permet, sinon une forme courte jamais tronquée.
+                let pageCount = "\(pages.count) page\(pages.count > 1 ? "s" : "")"
+                ViewThatFits(in: .horizontal) {
+                    Text("Format lettre · 8,5 × 11 po · \(pageCount)").fixedSize()
+                    Text("Lettre · \(pageCount)").fixedSize()
+                    Text(pageCount).fixedSize()
+                }
+                .font(Theme.small)
+                .foregroundStyle(Theme.textSecondary)
+                .help("Format lettre · 8,5 × 11 po · \(pageCount)")
                 Spacer(minLength: 8)
                 pager
             }

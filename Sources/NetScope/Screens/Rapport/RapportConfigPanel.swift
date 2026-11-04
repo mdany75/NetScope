@@ -152,7 +152,8 @@ struct RapportConfigPanel: View {
                         .fixedSize()
                 }
                 .padding(.bottom, 6)
-                ForEach(ReportSectionKind.allCases) { kind in
+                // Ordre du document (celui du PDF et de l'aperçu) : les numéros de page se suivent.
+                ForEach(ReportSectionKind.documentOrder) { kind in
                     HStack(spacing: 8) {
                         Toggle(isOn: Binding(get: { model.config.includes(kind) }, set: { _ in model.toggle(kind) })) {
                             Text(kind.label).font(Theme.body).foregroundStyle(Theme.text).lineLimit(1)

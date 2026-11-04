@@ -66,8 +66,11 @@ struct SpeedtestScreen: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .fixedSize()
-            Text(model.tab.hint).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                .help(model.tab.hint)
+            // Phrase d'aide : passe à la ligne en petite fenêtre plutôt que d'être tronquée.
+            Text(model.tab.hint).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
             Spacer(minLength: 0)
             if let toast = model.toast {
                 HStack(spacing: 6) {
