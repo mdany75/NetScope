@@ -1,9 +1,9 @@
-# À faire — NetScope (notes d’essai de la 0.2.1)
+# À faire — NetScope
 
 > Les phases 2, 3 et 4 (notes 6, 10 et 11) peuvent se faire dans n'importe quel ordre
 > (décision de Dany).
 
-## Priorités (revues le 4 novembre 2026)
+## Priorités (revues le 4 novembre 2026, réorganisées avec les notes 45 à 53)
 
 Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0.
 
@@ -34,20 +34,45 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 10. ~~**0.13.0, navigation et charge**~~ : livrée le 4 novembre 2026 (notes 34, 33 et 31 :
     double-clic partout, « Ouvrir dans › », Retour / Avancer ⌘[ ⌘] ; note 36 : essais de charge
     et lenteurs corrigées) ; essai réel à faire sur un vrai scan et un très gros site.
-11. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany) :
-    - **0.12.1** : essais réels (sites, FortiGate, FortiAP) et correctifs ; note 35 (journal et
-      diagnostic).
-    - ~~**0.13.0**~~ : notes 34, 33, 31 et 36, livrées le 4 novembre 2026.
-    - **0.14.0** : notes 32 (recherche dans la Carte), 30 (Téléphonie IP), 37 (étendues DHCP),
-      38 (sauvegarde chiffrée).
-    - **0.15.0** : notes 29 (relire en automatique), 39 (WAN des FortiGate).
-    - **0.16.0** : notes 40 (sauvegarde des configurations), 41 (firmware et licences).
-    - **0.17.0** : notes 42 (rapport de suivi), 10 (Inventaire phase 3).
-    - **0.18.0** : notes 43 (Syslog et traps), 44 (aide et accueil).
+11. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany ;
+    réorganisé le même jour pour placer les notes 45 à 53) :
+    - **0.13.1** : essais réels (sites, FortiGate, FortiAP, navigation) et correctifs ; note 35
+      (journal et diagnostic).
+    - **0.14.0, Carte, VoIP, DHCP, sauvegarde** (en cours) : notes 32 (recherche dans la Carte),
+      30 (Téléphonie IP), 37 (étendues DHCP), 38 (sauvegarde chiffrée).
+    - **0.15.0, sites et navigation** : notes 49 (site sous le logo), 48 (site dans Switchs et
+      Wi-Fi), 45 (fin du Retour : bouton qui nomme l'écran, position dans la liste, historique
+      vidé au changement de site), 52 (nom d'utilisateur SSH).
+    - **0.16.0, Wi-Fi des clients** : notes 46 (clients par borne et par SSID, fiche complète),
+      47 (diagnostic Wi-Fi d'un client, avec solutions).
+    - **0.17.0, suivi automatique** : notes 29 (relire en automatique), 39 (WAN des FortiGate).
+    - **0.18.0, transferts et services** : notes 50 (FTP, FTPS, SFTP), 51 (TFTP), 53 (réseaux
+      sociaux et assistants IA dans les services en ligne).
+    - **0.19.0, parc Fortinet** : notes 40 (sauvegarde des configurations), 41 (firmware et
+      licences).
+    - **0.20.0, rapports et Inventaire** : notes 42 (rapport de suivi), 10 (Inventaire phase 3).
+    - **0.21.0, journaux et aide** : notes 43 (Syslog et traps), 44 (aide et accueil).
     - **Plus tard** : notes 11 (Ping continu), 6 (RustDesk), anglais ; idées d’un cran en dessous :
       navigateur SNMP, toner des imprimantes, test de câble, qualité VoIP (MOS), scan d’un VLAN
       tagué, relevé Wi-Fi sur plan, synchronisation entre deux Mac, retour à la version
       précédente, contrôle IPv6.
+
+## Index par module
+
+| Module | Livrées | À venir |
+| --- | --- | --- |
+| Scanner et sites | 18, 19, 20, 26, 28 | 49 et 48 (0.15.0) |
+| Navigation entre les modules | 31, 33, 34, 36 | 45, fin (0.15.0) |
+| Switchs et ports, Fortinet | 12, 24, 25 | 29 et 39 (0.17.0), 40 et 41 (0.19.0) |
+| Wi-Fi | 1, 27 | 46 et 47 (0.16.0) |
+| Carte du réseau | — | 32 (0.14.0) |
+| Inventaire | 8 | 30 (0.14.0), 10 (0.20.0) |
+| Ping continu | — | 11 (plus tard) |
+| Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22 | 37 (0.14.0), 51 et 53 (0.18.0) |
+| Accès distant | 5 | 52 (0.15.0), 50 (0.18.0), 6 (plus tard) |
+| Surveillance et alertes | 3, 23 | 43 (0.21.0) |
+| Rapports | 4 | 42 (0.20.0) |
+| Réglages, sauvegarde, aide | 9, 13 | 35 (0.13.1), 38 (0.14.0), 44 (0.21.0) |
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
 
@@ -594,14 +619,14 @@ site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
   Rapports, sans changer le site actif du Scanner ; lignes jamais fusionnées entre sites, colonne
   « Site », rapport multisite (une section par site), un dessin de carte par site.
 
-## 29. Relire en automatique — À PLANIFIER (demande de Dany)
+## 29. Relire en automatique — 0.17.0 (demande de Dany)
 
 - Relecture périodique, sans relancer de scan, de la FortiGate (FortiSwitch, FortiAP), des
   switchs SNMP et des emplacements des appareils (aujourd'hui : boutons « Relire la FortiGate »,
   « Relire les bornes », « Interroger les switchs » ou fin de scan).
 - Intervalle réglable par site, pause quand le site n'est pas le site actif.
 
-## 30. Type « Téléphonie IP » — À PLANIFIER (demande de Dany)
+## 30. Type « Téléphonie IP » — 0.14.0 (demande de Dany)
 
 - Nouveau type pour les téléphones IP (Yealink, Poly, Cisco, Mitel, Grandstream, Fanvil, Snom…),
   distinct de « Téléphone » (cellulaires).
@@ -619,7 +644,7 @@ site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
   « Carte : Téléphones ×11 · SW-ETG2-01 », et garde le site affiché sur la Carte.
 - Même chose vers le Scanner et Switchs et ports depuis le détail du nœud.
 
-## 32. Recherche dans la Carte du réseau — À PLANIFIER (demande de Dany)
+## 32. Recherche dans la Carte du réseau — 0.14.0 (demande de Dany)
 
 - Une recherche dans la Carte (ex. une IP, un nom, une MAC, `switch:…`, recherche multiple de la
   note 26) trouve l'appareil et montre où il est : la carte se centre sur sa branche, le nœud (ou
@@ -658,7 +683,7 @@ entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 3
 - Toujours : le même geste partout (double-clic, ou ↩︎), un menu contextuel « Ouvrir dans… »
   qui propose les autres modules, et « Retour » (⌘[) vers l'écran d'où l'on vient.
 
-## 35. Journal de l’app et « Exporter un diagnostic » — À PLANIFIER (analyse, retenue par Dany)
+## 35. Journal de l’app et « Exporter un diagnostic » — 0.13.1 (analyse, retenue par Dany)
 
 - Journal interne consultable (erreurs, avertissements, appels FortiGate/SNMP en échec, avec date
   et module), visible dans l’app ; export .zip « diagnostic » sans aucun secret (jetons,
@@ -672,49 +697,53 @@ entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 3
   inventaires et historiques ; temps d’ouverture des écrans, de changement de site, d’écriture
   de l’inventaire (aujourd’hui réécrit en entier à chaque changement).
 
-## 37. Occupation des étendues DHCP — À PLANIFIER (analyse, retenue par Dany)
+## 37. Occupation des étendues DHCP — 0.14.0 (analyse, retenue par Dany)
 
 - Par la FortiGate (baux et étendues) et le Test DHCP : taux d’occupation de chaque étendue,
   alerte « étendue presque pleine », sonde de Surveillance, ligne dans les rapports.
 
-## 38. Sauvegarde chiffrée par mot de passe — À PLANIFIER (analyse, retenue par Dany)
+## 38. Sauvegarde chiffrée par mot de passe — 0.14.0 (analyse, retenue par Dany)
 
 - Archive de sauvegarde chiffrée (mot de passe choisi), jetons et secrets inclus en option
   (chiffrés) pour restaurer un 2e Mac sans ressaisir 20 jetons ; sans mot de passe : comme
   aujourd’hui, jamais de secret.
 
-## 39. État du WAN de chaque FortiGate — À PLANIFIER (analyse, retenue par Dany)
+## 39. État du WAN de chaque FortiGate — 0.17.0 (analyse, retenue par Dany)
 
 - Liens WAN et SD-WAN (état, latence, perte, gigue), tunnels VPN IPsec (montés ou tombés),
   par site ; sondes « tunnel tombé » et « lien WAN dégradé » ; vue de tous les sites.
 
-## 40. Sauvegarde des configurations — À PLANIFIER (analyse, retenue par Dany)
+## 40. Sauvegarde des configurations — 0.19.0 (analyse, retenue par Dany)
 
 - Copie de la configuration de chaque FortiGate (API, lecture), puis des switchs en SSH ;
   historique par site, comparaison avant/après (différences surlignées), avant une intervention.
 
-## 41. Firmware et licences du parc — À PLANIFIER (analyse, retenue par Dany)
+## 41. Firmware et licences du parc — 0.19.0 (analyse, retenue par Dany)
 
 - Versions FortiOS, FortiSwitch et FortiAP de chaque site, versions recommandées, contrats
   FortiGuard et dates d’expiration ; tableau de tous les sites et drapeau « firmware à jour » du
   rapport enfin rempli ; alertes avant expiration.
 
-## 42. Rapport de suivi et rapports planifiés — À PLANIFIER (analyse, retenue par Dany)
+## 42. Rapport de suivi et rapports planifiés — 0.20.0 (analyse, retenue par Dany)
 
 - « Depuis le dernier rapport » : nouveaux appareils, disparus, problèmes réglés ou nouveaux
   (réutilise la comparaison de l’Analyse) ; rapports produits à date fixe par site.
 
-## 43. Récepteur Syslog et traps SNMP — À PLANIFIER (analyse, retenue par Dany)
+## 43. Récepteur Syslog et traps SNMP — 0.21.0 (analyse, retenue par Dany)
 
 - Réception Syslog et traps SNMP sur le Mac, journaux de la FortiGate par l’API ; recherche
   par heure, appareil et gravité, pour comprendre une coupure intermittente.
 
-## 44. Aide intégrée et accueil au premier lancement — À PLANIFIER (analyse, retenue par Dany)
+## 44. Aide intégrée et accueil au premier lancement — 0.21.0 (analyse, retenue par Dany)
 
 - Accueil au premier lancement (autorisations, premier site, FortiGate), bouton « ? » dans
   chaque écran, menu Aide rempli (aujourd’hui vide).
 
-## 45. Retour à l'écran d'avant, dans tous les modules — À PLANIFIER (demande de Dany)
+## 45. Retour à l'écran d'avant, dans tous les modules — 0.15.0 (demande de Dany)
+
+**En grande partie livrée dans la 0.13.0** (note 34 : Retour / Avancer ⌘[ ⌘], recherche,
+filtre et sélection rendus tels quels). Reste pour la 0.15.0 : le bouton qui nomme l'écran
+d'origine, la position dans la liste et l'historique vidé au changement de site.
 
 « Revenir à l'écran d'avant, peu importe le module, après un double-clic sur un élément. »
 Exemple : Inventaire › double-clic sur une IP › fiche Appareil › Retour › Inventaire. Précise
@@ -729,7 +758,7 @@ le « Retour » de la note 34 :
 - Un clic dans la barre latérale vers un autre module compte aussi comme un écran de
   l'historique ; l'historique se vide en changeant de site.
 
-## 46. Wi-Fi : clients par borne et par SSID, fiche complète du client — À PLANIFIER (demande de Dany)
+## 46. Wi-Fi : clients par borne et par SSID, fiche complète du client — 0.16.0 (demande de Dany)
 
 « Si je clique sur un AP, je vois qui est connecté ; dans la section Wi-Fi, clients vs SSID,
 donc l'info complète du client. » Prolonge la note 27 (liste des clients livrée dans la 0.11.0) :
@@ -745,7 +774,7 @@ donc l'info complète du client. » Prolonge la note 27 (liste des clients livr�
   entre bornes ; liens vers la fiche Appareil, l'Inventaire et le Ping continu (note 34).
 - Retour vers la borne ou le SSID d'origine (note 45).
 
-## 47. Diagnostic des problèmes Wi-Fi d'un client, avec solutions — À PLANIFIER (demande de Dany)
+## 47. Diagnostic des problèmes Wi-Fi d'un client, avec solutions — 0.16.0 (demande de Dany)
 
 « Diagnostiquer les troubles Wi-Fi des clients, la lenteur, toutes les possibilités, et
 suggérer la résolution. » Va plus loin que le diagnostic général de la note 27 : un bouton
@@ -774,7 +803,7 @@ qui vérifie chaque cause possible, dit en clair ce qui ne va pas et propose quo
   rapport du site ; suivi dans le temps (le problème revient-il à certaines heures ?).
 - Lecture seule sur la FortiGate : NetScope propose, le technicien applique.
 
-## 48. Switchs et Wi-Fi : choisir le site — À PLANIFIER (demande de Dany)
+## 48. Switchs et Wi-Fi : choisir le site — 0.15.0 (demande de Dany)
 
 « Dans les modules Switch et Wi-Fi, avoir la possibilité de choisir le site. » Étend aux deux
 modules le menu « Site ▾ » que la note 28 donne à l'Analyse, à l'Inventaire, à la Carte et aux
@@ -789,7 +818,7 @@ Rapports :
 - Le site choisi est retenu par module et suit les sauts entre modules (double-clic sur une borne
   ou un port, note 34 ; Retour, note 45) ; message clair si le site n'a ni FortiGate ni switch.
 
-## 49. Choix du site sous le logo NetScope — À PLANIFIER (demande de Dany)
+## 49. Choix du site sous le logo NetScope — 0.15.0 (demande de Dany)
 
 « Pouvoir choisir le site sous le logo NetScope. » Un sélecteur de site unique, toujours visible
 en haut de la barre latérale :
@@ -805,7 +834,7 @@ en haut de la barre latérale :
 - Changer de site vide l'historique Retour (note 45) et retrouve les résultats laissés sur
   l'autre site (note 28).
 
-## 50. Connexion FTP, FTPS et SFTP — À PLANIFIER (demande de Dany)
+## 50. Connexion FTP, FTPS et SFTP — 0.18.0 (demande de Dany)
 
 « Pouvoir se connecter à un FTP. » Nouveau type de connexion dans Accès distant, à côté de
 Terminal, SSH, Telnet, RDP et VNC :
@@ -826,7 +855,7 @@ Terminal, SSH, Telnet, RDP et VNC :
 - Mots de passe dans le trousseau macOS, jamais en clair ; avertissement quand le FTP n'est pas
   chiffré ; aucune dépendance externe (Network.framework et le SSH déjà présent).
 
-## 51. Serveur et client TFTP dans la Boîte à outils — À PLANIFIER (demande de Dany)
+## 51. Serveur et client TFTP dans la Boîte à outils — 0.18.0 (demande de Dany)
 
 « Une application TFTP dans Outils. » Nouvel outil « TFTP » dans la Boîte à outils (la note 50
 n'en prévoyait qu'un mini serveur temporaire, côté Accès distant) :
@@ -847,7 +876,7 @@ n'en prévoyait qu'un mini serveur temporaire, côté Accès distant) :
   dossier limité au partage choisi (pas de « ../ »), alerte avant d'écraser un fichier ; aucune
   dépendance externe (Network.framework, UDP).
 
-## 52. SSH : entrer le nom d'utilisateur à la connexion — À PLANIFIER (demande de Dany)
+## 52. SSH : entrer le nom d'utilisateur à la connexion — 0.15.0 (demande de Dany)
 
 « Quand je me connecte en SSH, avoir la possibilité d'entrer le nom d'utilisateur. »
 Aujourd'hui le nom n'existe que dans une connexion enregistrée du carnet (Accès distant) ;
@@ -862,7 +891,7 @@ une connexion rapide (depuis le Scanner, la fiche Appareil ou l'Inventaire) part
   le trousseau macOS, jamais en clair.
 - Même champ pour Telnet, SFTP / FTP (note 50), RDP et VNC quand ils demandent un compte.
 
-## 53. Services en ligne : réseaux sociaux et assistants IA — À PLANIFIER (demande de Dany)
+## 53. Services en ligne : réseaux sociaux et assistants IA — 0.18.0 (demande de Dany)
 
 Ajouter au catalogue de la note 15 (`SvcCatalog.swift`, livré dans la 0.6.0) une catégorie
 « Réseaux sociaux » et une catégorie « Assistants IA » :
