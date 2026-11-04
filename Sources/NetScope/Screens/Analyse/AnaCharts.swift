@@ -132,6 +132,7 @@ struct AnaBreakdownPanel: View {
     private static let typeColors: [(String, [DeviceType], UInt32)] = [
         ("Postes de travail", [.poste], 0x1E3A8A),
         ("Téléphones", [.telephone], 0x2563EB),
+        ("Téléphones IP", [.telephoneIP], 0xBE185D),
         ("Objets connectés", [.iot, .domotique, .console], 0x60A5FA),
         ("Points d’accès", [.pointAcces], 0x0F766E),
         ("Imprimantes", [.imprimante], 0x15803D),

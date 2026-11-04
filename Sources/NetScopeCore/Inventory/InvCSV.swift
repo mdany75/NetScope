@@ -237,6 +237,8 @@ public enum InvCSV {
             "pare-feu": .routeur, "routeur": .routeur, "ordinateur": .poste, "ordinateur portable": .poste,
             "portable": .poste, "poste": .poste, "camera": .camera, "affichage numerique": .iot, "iot": .iot,
             "point d'acces": .pointAcces, "ap": .pointAcces, "telephone": .telephone,
+            "telephonie ip": .telephoneIP, "telephones ip": .telephoneIP, "tel. ip": .telephoneIP, "tel ip": .telephoneIP,
+            "voip": .telephoneIP, "ip phone": .telephoneIP, "telephone voip": .telephoneIP, "telephone sip": .telephoneIP,
         ]
         return synonyms[wanted]
     }

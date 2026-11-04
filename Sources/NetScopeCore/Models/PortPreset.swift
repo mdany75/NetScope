@@ -19,7 +19,7 @@ public struct PortPreset: Identifiable, Hashable, Sendable {
         ScanProfile.allCases.map { PortPreset(profile: $0, customPorts: customPorts) }
     }
 
-    /// Libellé du menu : « 20 ports essentiels », « Ports courants (29 ports) », « 1 091 ports (complet) »…
+    /// Libellé du menu : « 22 ports essentiels », « Ports courants (31 ports) », « 1 091 ports (complet) »…
     public var label: String {
         let count = Self.count(ports.count)
         switch profile {
@@ -30,7 +30,7 @@ public struct PortPreset: Identifiable, Hashable, Sendable {
         }
     }
 
-    /// Libellé court du bouton de la barre d'outils, après « Ports : » (« 20 essentiels »).
+    /// Libellé court du bouton de la barre d'outils, après « Ports : » (« 22 essentiels »).
     public var shortLabel: String {
         let number = Self.number(ports.count)
         switch profile {

@@ -2,7 +2,7 @@ import Foundation
 
 /// Famille d'appareil, déduite des ports, du fabricant et des protocoles (ou choisie à la main).
 public enum DeviceType: String, Codable, CaseIterable, Sendable {
-    case poste, serveur, imprimante, camera, pointAcces, `switch`, routeur, telephone, console, domotique, iot, inconnu
+    case poste, serveur, imprimante, camera, pointAcces, `switch`, routeur, telephone, telephoneIP, console, domotique, iot, inconnu
 
     public var label: String {
         switch self {
@@ -14,6 +14,7 @@ public enum DeviceType: String, Codable, CaseIterable, Sendable {
         case .switch: return "Switch"
         case .routeur: return "Routeur / pare-feu"
         case .telephone: return "Téléphone"
+        case .telephoneIP: return "Téléphone IP"
         case .console: return "Console de jeu"
         case .domotique: return "Domotique"
         case .iot: return "Objet connecté"
@@ -49,13 +50,17 @@ public struct Device: Identifiable, Codable, Hashable, Sendable {
     public var nameDomain: String?
     /// Nature de l'appareil d'après la découverte SNMP (switch, routeur, imprimante…), si elle a répondu.
     public var snmpKind: SNMPDeviceKind?
+    /// Indices de téléphonie IP connus hors du scan (note 30) : capacité « téléphone » annoncée par
+    /// LLDP ou CDP, VLAN voix. Nil dans les fichiers antérieurs à la 0.14.0 (lus sans changement).
+    public var voipSignals: VoIPSignals?
 
     public init(ip: IPv4Address, mac: MACAddress? = nil, vendor: String? = nil, hostname: String? = nil,
                 customName: String? = nil, isOnline: Bool = true, latencyMs: Double? = nil,
                 openPorts: [UInt16] = [], switchName: String? = nil, switchPort: String? = nil,
                 vlan: Int? = nil, firstSeen: Date = Date(), lastSeen: Date = Date(),
                 rangeLabel: String? = nil, deviceType: DeviceType = .inconnu,
-                nameSource: NameDetails.Source? = nil, nameDomain: String? = nil, snmpKind: SNMPDeviceKind? = nil) {
+                nameSource: NameDetails.Source? = nil, nameDomain: String? = nil, snmpKind: SNMPDeviceKind? = nil,
+                voipSignals: VoIPSignals? = nil) {
         self.ip = ip
         self.mac = mac
         self.vendor = vendor
@@ -74,6 +79,7 @@ public struct Device: Identifiable, Codable, Hashable, Sendable {
         self.nameSource = nameSource
         self.nameDomain = nameDomain
         self.snmpKind = snmpKind
+        self.voipSignals = voipSignals
     }
 
     /// Nom d'hôte à afficher, sans le suffixe « .local » de mDNS.

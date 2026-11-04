@@ -92,7 +92,8 @@ enum SwitchDemo {
                                                       sysDescr: "Aruba JL261A 2930F-24G-PoE+-4SFP+ Switch, revision WC.16.11.0012",
                                                       capabilities: [.bridge]))
                 add(&coreFDB, mac("10.182.122.3"), 1, n)
-                for ip in ["10.182.122.100", "10.182.122.106", "10.182.122.111", "10.182.122.113", "10.182.122.140"] {
+                for ip in ["10.182.122.100", "10.182.122.106", "10.182.122.111", "10.182.122.113", "10.182.122.140",
+                           "10.182.122.121", "10.182.122.122", "10.182.122.123"] {
                     add(&coreFDB, mac(ip), devices.first { $0.id == ip }?.vlan ?? 1, n)
                 }
                 for k in [1, 10, 13, 15, 21] { add(&coreFDB, synth(vendors[k % 3], 200 + k), 1, n) }
@@ -177,6 +178,23 @@ enum SwitchDemo {
                 etgPoE.insert(n)
                 iface.speedMbps = 100
                 iface.alias = "Affichage dynamique hall"
+            case 10, 15, 16:
+                // Note 30 : téléphone IP Yealink (VLAN voix 20 étiqueté, LLDP-MED « Bridge, Telephone »)
+                // et le poste branché derrière lui (VLAN natif 1).
+                let ip = n == 10 ? "10.182.122.121" : n == 15 ? "10.182.122.122" : "10.182.122.123"
+                let phone = devices.first { $0.id == ip }!
+                add(&etgFDB, phone.mac!, 20, n)
+                etgPoE.insert(n)
+                etgNeighbors.append(SNMPLLDPNeighbor(localPortNum: n, ifIndex: n, sysName: phone.hostname ?? "",
+                                                     portID: phone.mac!.formatted(.upperColon), portDescr: "WAN PORT",
+                                                     sysDescr: "Yealink \(phone.hostname ?? "") 96.86.0.70",
+                                                     capabilities: [.bridge, .telephone]))
+                iface.alias = n == 10 ? "Accueil · téléphone et poste" : n == 15 ? "Bureau 2.15 · téléphone et poste" : "Salle de conférence 2.08 · téléphone"
+                if n != 16 {
+                    let m = synth(vendors[n % 3], 200 + n)
+                    names[m] = "WKS4\(10 + n)"
+                    add(&etgFDB, m, 1, n)
+                }
             case 14:
                 add(&etgFDB, mac("10.182.122.111"), 30, n)
                 etgPvid[n] = 30

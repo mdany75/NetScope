@@ -63,16 +63,16 @@ public enum ScanProfile: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 
     /// Ports essentiels, sondés à chaque scan (profil Rapide) : administration, web, partage,
-    /// impression, vidéo, domotique.
+    /// impression, vidéo, domotique, téléphonie IP (SIP 5060 et 5061, note 30).
     public static let essentialPorts: [UInt16] = [
-        21, 22, 23, 53, 80, 135, 139, 443, 445, 515, 554, 631, 1883, 3389, 5000, 5001, 5900, 8080, 8443, 9100,
+        21, 22, 23, 53, 80, 135, 139, 443, 445, 515, 554, 631, 1883, 3389, 5000, 5001, 5060, 5061, 5900, 8080, 8443, 9100,
     ]
 
     /// Ports courants du technicien : les essentiels et les services de messagerie, annuaire et bases de données.
     /// (SNMP passe par UDP 161 : la découverte SNMP s'en charge, pas le sondage TCP.)
     public static let commonPorts: [UInt16] = [
         21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 389, 443, 445, 515, 554, 631, 993, 995,
-        1433, 1883, 3306, 3389, 5000, 5001, 5900, 8000, 8080, 8443, 9100,
+        1433, 1883, 3306, 3389, 5000, 5001, 5060, 5061, 5900, 8000, 8080, 8443, 9100,
     ]
 
     /// Profil complet : ports 1 à 1024 et ports applicatifs courants au-delà (environ 1000 ports).

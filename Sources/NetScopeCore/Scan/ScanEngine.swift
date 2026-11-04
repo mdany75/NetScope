@@ -389,13 +389,14 @@ public enum ScanDeviceClassifier {
     /// Type d'un appareil d'après tout ce qu'on en sait (ports, fabricant, nom, découverte SNMP).
     public static func guess(_ device: Device) -> DeviceType {
         guess(ports: device.openPorts, vendor: device.vendor, hostname: device.hostname, mac: device.mac,
-              snmpKind: device.snmpKind)
+              snmpKind: device.snmpKind, voip: device.voipSignals ?? [])
     }
 
     /// La découverte SNMP fait foi quand elle a répondu (switch, routeur, imprimante) ; sinon
-    /// ports, fabricant et nom. SNMP passe par UDP : aucun port TCP ne le révèle.
+    /// ports, fabricant et nom. SNMP passe par UDP : aucun port TCP ne le révèle. `voip` : annonce
+    /// LLDP / CDP « téléphone » et VLAN voix, quand NetScope les connaît (note 30).
     public static func guess(ports: [UInt16], vendor: String?, hostname: String?, mac: MACAddress?,
-                             snmpKind: SNMPDeviceKind? = nil) -> DeviceType {
+                             snmpKind: SNMPDeviceKind? = nil, voip: VoIPSignals = []) -> DeviceType {
         switch snmpKind {
         case .switch?: return .switch
         case .routeur?: return .routeur
@@ -414,6 +415,11 @@ public enum ScanDeviceClassifier {
         if !open.isDisjoint(with: printerPorts) || vendorIs(printerVendors) { return .imprimante }
         if !open.isDisjoint(with: cameraPorts) || vendorIs(cameraVendors) { return .camera }
         if open.contains(88) && open.contains(389) || open.contains(53) && open.contains(389) { return .serveur }
+        // Téléphones IP de bureau (note 30), avant les équipements réseau des mêmes fabricants
+        // (FortiFone, Cisco) et avant les cellulaires, qui n'en sont jamais.
+        if VoIPClassifier.isIPPhone(open: open, vendorWords: vendorWords, vendor: vendor, host: host, mac: mac, signals: voip) {
+            return .telephoneIP
+        }
         if host.hasPrefix("fortiap") || host.contains("-ap-") || host.hasPrefix("uap") { return .pointAcces }
         if open.contains(541) || vendorIs(["fortinet"]) || host.hasPrefix("fortigate") { return .routeur }
         if open.contains(8291) { return .routeur }

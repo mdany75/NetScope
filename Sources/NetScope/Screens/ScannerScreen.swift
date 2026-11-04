@@ -117,7 +117,7 @@ struct ScannerScreen: View {
         .help(state.scanProfile.summary)
     }
 
-    /// « Ports : 20 essentiels ▾ » (note 19) : préréglages des Réglages, coche sur celui en vigueur.
+    /// « Ports : 22 essentiels ▾ » (note 19) : préréglages des Réglages, coche sur celui en vigueur.
     private var portsMenu: some View {
         let current = scan.portPreset
         let online = exportRows.filter(\.isOnline)

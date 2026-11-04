@@ -66,7 +66,7 @@ enum LoadFixtures {
         (0x94DDF8, "Brother", .imprimante, [80, 443, 631, 9100]),
         (0xBCAD28, "Hikvision", .camera, [80, 554]),
         (0xB8A44F, "Axis", .camera, [80, 443, 554]),
-        (0x805EC0, "Yealink", .telephone, [80, 5060]),
+        (0x805EC0, "Yealink", .telephoneIP, [80, 5060]),
         (0x5CF938, "Apple", .telephone, []),
         (0x04D590, "Fortinet", .routeur, [22, 443]),
         (0xD8BBC1, "Micro-Star", .poste, [445]),
