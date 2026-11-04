@@ -1,105 +1,133 @@
+import AppKit
 import NetScopeCore
 import SwiftUI
 
-enum InvSortKey: String {
-    case nom, ip, premiere, derniere
+// MARK: - Clés de tri (toujours Comparable : les valeurs absentes passent en dernier)
 
-    var label: String {
-        switch self {
-        case .nom: return "Nom"
-        case .ip: return "IP actuelle"
-        case .premiere: return "Première détection"
-        case .derniere: return "Dernière détection"
+extension InvRecord {
+    /// Favoris en premier dans l'ordre croissant.
+    var invSortFavorite: Int { annotations.isFavorite ? 0 : 1 }
+    var invSortStatus: Int {
+        switch status() {
+        case .conflit: return 0
+        case .enLigne: return 1
+        case .horsLigne: return 2
+        case .disparu: return 3
         }
     }
-
-    /// Sens proposé au premier clic.
-    var defaultAscending: Bool { self == .nom || self == .ip }
+    var invSortType: String { type.label }
+    var invSortDetectedType: String { detectedType.label }
+    var invSortMAC: UInt64 { mac?.value ?? .max }
+    var invSortSwitch: String { switchLocation ?? "\u{10FFFF}" }
+    var invSortHostname: String { hostname ?? "\u{10FFFF}" }
+    var invSortRange: String { rangeLabel ?? "\u{10FFFF}" }
+    var invSortVLAN: Int { vlan ?? .max }
+    var invSortPorts: Int { openPorts.count }
+    var invSortTags: String { annotations.tags.joined(separator: ", ") }
+    var invSortLocation: String { annotations.location }
+    var invSortWallJack: String { annotations.wallJack }
+    var invSortOwner: String { annotations.owner }
+    var invSortAsset: String { annotations.assetNumber }
+    var invSortNotes: String { annotations.notes }
+    var invSortIPHistory: Int { ipHistory.count }
 }
 
-/// Colonnes du tableau d'inventaire ; les moins utiles disparaissent quand la fenêtre est étroite.
-enum InvColumn: CaseIterable {
-    case favori, nom, type, ip, mac, fabricant, etiquettes, local, switchPort, responsable, premiere, derniere, statut
-
-    var title: String {
-        switch self {
-        case .favori: return ""
-        case .nom: return "Nom"
-        case .type: return "Type"
-        case .ip: return "IP actuelle"
-        case .mac: return "MAC"
-        case .fabricant: return "Fabricant"
-        case .etiquettes: return "Étiquettes"
-        case .local: return "Local / prise murale"
-        case .switchPort: return "Switch / port"
-        case .responsable: return "Responsable"
-        case .premiere: return "Première détection"
-        case .derniere: return "Dernière détection"
-        case .statut: return "Statut"
-        }
-    }
-
-    /// Largeur fixe ; nil pour la colonne Nom, qui prend le reste.
-    var width: CGFloat? {
-        switch self {
-        case .favori: return 30
-        case .nom: return nil
-        case .type: return 136
-        case .ip: return 124
-        case .mac: return 140
-        case .fabricant: return 90
-        case .etiquettes: return 150
-        case .local: return 150
-        case .switchPort: return 170
-        case .responsable: return 110
-        case .premiere: return 100
-        case .derniere: return 128
-        case .statut: return 90
-        }
-    }
-
-    var sortKey: InvSortKey? {
-        switch self {
-        case .nom: return .nom
-        case .ip: return .ip
-        case .premiere: return .premiere
-        case .derniere: return .derniere
-        default: return nil
-        }
-    }
-
-    /// Ordre de retrait quand la place manque.
-    static let dropOrder: [InvColumn] = [.responsable, .premiere, .fabricant, .type, .etiquettes]
-
-    static func visible(for width: CGFloat) -> [InvColumn] {
-        var columns = allCases
-        let minimumName: CGFloat = 160
-        for column in dropOrder {
-            let used = columns.compactMap(\.width).reduce(0, +) + minimumName
-            if used <= width { break }
-            columns.removeAll { $0 == column }
-        }
-        return columns
-    }
-}
-
-/// Tableau triable des fiches (lignes de 38 pt, en-tête gris, ligne choisie en bleu pâle).
+/// Tableau des fiches de l'inventaire : tableau standard (note 8), une ligne par fiche, ligne choisie
+/// = fiche affichée dessous ; étoile : favori ; double-clic : fiche complète de l'appareil.
 struct InvTable: View {
+    @EnvironmentObject private var state: AppState
+    @ObservedObject private var model = InvModel.shared
+
     let rows: [InvRecord]
     let total: Int
-    let width: CGFloat
     let selectedKey: String?
-    @Binding var sort: InvSortKey
-    @Binding var ascending: Bool
+    @ObservedObject var table: StandardTableModel<InvRecord>
     let now: Date
     let onSelect: (String) -> Void
     let onFavorite: (String) -> Void
 
-    private static let rowHeight: CGFloat = 38
+    /// Hauteur d'une ligne (contenu 30 pt + marges du tableau) et de l'en-tête, pour donner au
+    /// tableau une hauteur fixe dans l'écran qui défile.
+    static let rowHeight: CGFloat = 38
+    static let headerHeight: CGFloat = 40
     private static let maxVisibleRows = 11
+    private static let cellHeight: CGFloat = 30
+
+    // MARK: Colonnes
+
+    static let columns: [StandardColumn] = [
+        StandardColumn(id: "favori", title: "Favori"),
+        StandardColumn(id: "nom", title: "Nom"),
+        StandardColumn(id: "type", title: "Type"),
+        StandardColumn(id: "ip", title: "IP actuelle", isRequired: true),
+        StandardColumn(id: "mac", title: "MAC"),
+        StandardColumn(id: "fabricant", title: "Fabricant"),
+        StandardColumn(id: "switch", title: "Switch / port"),
+        StandardColumn(id: "derniereVue", title: "Dernière vue"),
+        StandardColumn(id: "statut", title: "Statut"),
+        StandardColumn(id: "local", title: "Local", isDefaultVisible: false),
+        StandardColumn(id: "prise", title: "Prise murale", isDefaultVisible: false),
+        StandardColumn(id: "responsable", title: "Responsable", isDefaultVisible: false),
+        StandardColumn(id: "actif", title: "N° d’actif", isDefaultVisible: false),
+        StandardColumn(id: "etiquettes", title: "Étiquettes", isDefaultVisible: false),
+        StandardColumn(id: "notes", title: "Notes", isDefaultVisible: false),
+        StandardColumn(id: "premiereVue", title: "Première vue", isDefaultVisible: false),
+        StandardColumn(id: "plage", title: "Plage", isDefaultVisible: false),
+        StandardColumn(id: "vlan", title: "VLAN", isDefaultVisible: false),
+        StandardColumn(id: "ports", title: "Ports ouverts", isDefaultVisible: false),
+        StandardColumn(id: "typeDetecte", title: "Type détecté", isDefaultVisible: false),
+        StandardColumn(id: "hostname", title: "Nom d’hôte", isDefaultVisible: false),
+        StandardColumn(id: "historiqueIP", title: "Historique d’IP", isDefaultVisible: false),
+    ]
+
+    static let sortKeys: [String: KeyPathComparator<InvRecord>] = [
+        "favori": KeyPathComparator(\InvRecord.invSortFavorite),
+        "nom": KeyPathComparator(\InvRecord.displayName, comparator: .localizedStandard),
+        "type": KeyPathComparator(\InvRecord.invSortType, comparator: .localizedStandard),
+        "ip": KeyPathComparator(\InvRecord.ip),
+        "mac": KeyPathComparator(\InvRecord.invSortMAC),
+        "fabricant": KeyPathComparator(\InvRecord.vendorLabel, comparator: .localizedStandard),
+        "switch": KeyPathComparator(\InvRecord.invSortSwitch, comparator: .localizedStandard),
+        // Dates : la plus récente d'abord au premier clic.
+        "derniereVue": KeyPathComparator(\InvRecord.lastSeen, order: .reverse),
+        "statut": KeyPathComparator(\InvRecord.invSortStatus),
+        "local": KeyPathComparator(\InvRecord.invSortLocation, comparator: .localizedStandard),
+        "prise": KeyPathComparator(\InvRecord.invSortWallJack, comparator: .localizedStandard),
+        "responsable": KeyPathComparator(\InvRecord.invSortOwner, comparator: .localizedStandard),
+        "actif": KeyPathComparator(\InvRecord.invSortAsset, comparator: .localizedStandard),
+        "etiquettes": KeyPathComparator(\InvRecord.invSortTags, comparator: .localizedStandard),
+        "notes": KeyPathComparator(\InvRecord.invSortNotes, comparator: .localizedStandard),
+        "premiereVue": KeyPathComparator(\InvRecord.firstSeen, order: .reverse),
+        "plage": KeyPathComparator(\InvRecord.invSortRange, comparator: .localizedStandard),
+        "vlan": KeyPathComparator(\InvRecord.invSortVLAN),
+        "ports": KeyPathComparator(\InvRecord.invSortPorts),
+        "typeDetecte": KeyPathComparator(\InvRecord.invSortDetectedType, comparator: .localizedStandard),
+        "hostname": KeyPathComparator(\InvRecord.invSortHostname, comparator: .localizedStandard),
+        "historiqueIP": KeyPathComparator(\InvRecord.invSortIPHistory),
+    ]
+
+    /// Premier lancement : dernière détection, la plus récente d'abord (comme le croquis).
+    @MainActor
+    static func makeModel() -> StandardTableModel<InvRecord> {
+        StandardTableModel(id: "inventaire", columns: columns, sortKeys: sortKeys, defaultSort: "derniereVue")
+    }
+
+    /// Lignes triées selon le tableau ; à égalité, par IP.
+    static func sorted(_ records: [InvRecord], by order: [KeyPathComparator<InvRecord>]) -> [InvRecord] {
+        records.sorted(using: order + [KeyPathComparator(\InvRecord.ip), KeyPathComparator(\InvRecord.key)])
+    }
+
+    /// « Dernière détection décroissant » : colonne et sens du tri actuel.
+    static func sortLabel(_ order: [KeyPathComparator<InvRecord>]) -> String {
+        guard let first = order.first,
+              let id = sortKeys.first(where: { $0.value.keyPath == first.keyPath })?.key,
+              let column = columns.first(where: { $0.id == id }) else { return "aucun" }
+        return "\(column.title) \(first.order == .forward ? "croissant" : "décroissant")"
+    }
+
+    // MARK: Vue
 
     var body: some View {
-        let columns = InvColumn.visible(for: width - 2)
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
                 Text("APPAREILS").font(Theme.captionSemibold).kerning(0.5).foregroundStyle(Theme.textSecondary)
@@ -109,26 +137,22 @@ struct InvTable: View {
             }
             .padding(.horizontal, 14)
             .frame(height: 40)
+            Rectangle().fill(Theme.border).frame(height: 1)
 
-            header(columns)
             if rows.isEmpty {
                 Text("Aucun appareil ne correspond à cette vue ou à la recherche.")
                     .font(Theme.body).foregroundStyle(Theme.textSecondary)
                     .frame(maxWidth: .infinity, minHeight: 80)
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(rows) { record in
-                            row(record, columns)
-                        }
-                    }
-                }
-                .frame(height: CGFloat(min(rows.count, Self.maxVisibleRows)) * Self.rowHeight)
+                tableView
+                    .frame(height: Self.headerHeight + CGFloat(min(rows.count, Self.maxVisibleRows)) * Self.rowHeight)
+                    .scrollIndicators(rows.count > Self.maxVisibleRows ? .automatic : .never, axes: .vertical)
             }
             HStack {
-                Text("Tri : \(sort.label) \(ascending ? "croissant" : "décroissant")")
+                Text("Tri\u{00A0}: \(Self.sortLabel(table.sortOrder))")
                 Spacer()
-                Text("Cliquez une ligne pour ouvrir sa fiche · étoile : favori")
+                Text("Cliquez une ligne pour ouvrir sa fiche · double-clic\u{00A0}: fiche complète · étoile\u{00A0}: favori")
+                    .lineLimit(1)
             }
             .font(Theme.small)
             .foregroundStyle(Theme.textSecondary)
@@ -142,153 +166,248 @@ struct InvTable: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
     }
 
-    private func header(_ columns: [InvColumn]) -> some View {
-        HStack(spacing: 0) {
-            ForEach(columns, id: \.self) { column in
-                cell(column) {
-                    if let key = column.sortKey {
-                        Button {
-                            if sort == key { ascending.toggle() } else { sort = key; ascending = key.defaultAscending }
-                        } label: {
-                            HStack(spacing: 3) {
-                                headerText(column.title)
-                                Text(sort == key ? (ascending ? "↑" : "↓") : "↕")
-                                    .font(.system(size: sort == key ? 12 : 11))
-                                    .foregroundStyle(sort == key ? Theme.accentStrong : Theme.textTertiary)
-                            }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
+    private var selection: Binding<String?> {
+        Binding(get: { selectedKey }, set: { key in if let key { onSelect(key) } })
+    }
+
+    private var tableView: some View {
+        Table(rows, selection: selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+            Group {
+                TableColumn("★", sortUsing: table.sort("favori")) { record in
+                    favoriteButton(record)
+                }
+                .width(min: 26, ideal: 26, max: 40)
+                .customizationID("favori")
+
+                TableColumn("NOM", sortUsing: table.sort("nom")) { record in
+                    nameCell(record)
+                }
+                .width(min: 110, ideal: 145)
+                .customizationID("nom")
+
+                TableColumn("TYPE", sortUsing: table.sort("type")) { record in
+                    HStack(spacing: 5) {
+                        Image(systemName: InvStyle.symbol(record.type)).font(.system(size: 11)).frame(width: 14)
+                        Text(record.type.label).font(Theme.small).lineLimit(1)
+                        if record.annotations.customType != nil { ManualTypeMark() }
+                    }
+                    .foregroundStyle(record.type == .inconnu ? Theme.textTertiary : Theme.neutralText)
+                    .help(record.annotations.customType != nil ? "\(record.type.label) · choisi à la main"
+                          : "\(record.type.label) · détecté par le scan")
+                }
+                .width(min: 80, ideal: 135)
+                .customizationID("type")
+
+                TableColumn("IP ACTUELLE", sortUsing: table.sort("ip")) { record in
+                    Text(record.ip.description).font(Theme.mono(12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
+                }
+                .width(min: 100, ideal: 112)
+                .customizationID("ip")
+                .disabledCustomizationBehavior(.visibility)
+
+                TableColumn("MAC", sortUsing: table.sort("mac")) { record in
+                    ScanCellText(record.mac?.formatted(.upperColon) ?? "—", mono: true, dimmed: record.mac == nil)
+                }
+                .width(min: 110, ideal: 128)
+                .customizationID("mac")
+
+                TableColumn("FABRICANT", sortUsing: table.sort("fabricant")) { record in
+                    ScanCellText(record.vendorLabel)
+                }
+                .width(min: 70, ideal: 80)
+                .customizationID("fabricant")
+
+                TableColumn("SWITCH / PORT", sortUsing: table.sort("switch")) { record in
+                    ScanCellText(record.switchLocation ?? "—", mono: true, dimmed: record.switchLocation == nil)
+                        .help(record.switchLocation ?? "")
+                }
+                .width(min: 100, ideal: 155)
+                .customizationID("switch")
+
+                TableColumn("DERNIÈRE VUE", sortUsing: table.sort("derniereVue")) { record in
+                    ScanCellText(InvFormat.relative(record.lastSeen, now: now), secondary: true)
+                        .help(InvFormat.stamp(record.lastSeen))
+                }
+                .width(min: 80, ideal: 125)
+                .customizationID("derniereVue")
+
+                TableColumn("STATUT", sortUsing: table.sort("statut")) { record in
+                    let status = record.status(now: now)
+                    let colors = InvStyle.status(status)
+                    InvPill(text: status.label, foreground: colors.0, background: colors.1)
+                }
+                .width(min: 70, ideal: 80)
+                .customizationID("statut")
+            }
+
+            Group {
+                TableColumn("LOCAL", sortUsing: table.sort("local")) { record in
+                    textCell(record.annotations.location)
+                }
+                .width(min: 80, ideal: 170)
+                .customizationID("local")
+                .defaultVisibility(.hidden)
+
+                TableColumn("PRISE MURALE", sortUsing: table.sort("prise")) { record in
+                    textCell(record.annotations.wallJack, mono: true)
+                }
+                .width(min: 60, ideal: 90)
+                .customizationID("prise")
+                .defaultVisibility(.hidden)
+
+                TableColumn("RESPONSABLE", sortUsing: table.sort("responsable")) { record in
+                    textCell(record.annotations.owner)
+                }
+                .width(min: 70, ideal: 110)
+                .customizationID("responsable")
+                .defaultVisibility(.hidden)
+
+                TableColumn("N° D’ACTIF", sortUsing: table.sort("actif")) { record in
+                    textCell(record.annotations.assetNumber, mono: true)
+                }
+                .width(min: 60, ideal: 95)
+                .customizationID("actif")
+                .defaultVisibility(.hidden)
+
+                TableColumn("ÉTIQUETTES", sortUsing: table.sort("etiquettes")) { record in
+                    StandardTagList(tags: record.annotations.tags,
+                                    help: "Étiquettes\u{00A0}: " + record.annotations.tags.joined(separator: ", "))
+                }
+                .width(min: 70, ideal: 150)
+                .customizationID("etiquettes")
+                .defaultVisibility(.hidden)
+
+                TableColumn("NOTES", sortUsing: table.sort("notes")) { record in
+                    textCell(record.annotations.notes.replacingOccurrences(of: "\n", with: " "))
+                }
+                .width(min: 80, ideal: 180)
+                .customizationID("notes")
+                .defaultVisibility(.hidden)
+
+                TableColumn("PREMIÈRE VUE", sortUsing: table.sort("premiereVue")) { record in
+                    ScanCellText(InvFormat.day(record.firstSeen), mono: true, secondary: true)
+                }
+                .width(min: 80, ideal: 120)
+                .customizationID("premiereVue")
+                .defaultVisibility(.hidden)
+
+                TableColumn("PLAGE", sortUsing: table.sort("plage")) { record in
+                    textCell(record.rangeLabel ?? "")
+                }
+                .width(min: 60, ideal: 100)
+                .customizationID("plage")
+                .defaultVisibility(.hidden)
+
+                TableColumn("VLAN", sortUsing: table.sort("vlan")) { record in
+                    if let vlan = record.vlan {
+                        Chip(text: "\(vlan)", mono: true)
                     } else {
-                        headerText(column.title)
+                        ScanCellText("—", dimmed: true)
                     }
                 }
+                .width(min: 44, ideal: 56)
+                .customizationID("vlan")
+                .defaultVisibility(.hidden)
+            }
+
+            Group {
+                TableColumn("PORTS OUVERTS", sortUsing: table.sort("ports")) { record in
+                    ScanPortTags(ports: record.openPorts)
+                }
+                .width(min: 70, ideal: 140)
+                .customizationID("ports")
+                .defaultVisibility(.hidden)
+
+                TableColumn("TYPE DÉTECTÉ", sortUsing: table.sort("typeDetecte")) { record in
+                    ScanTypeCell(type: record.detectedType, isManual: false)
+                }
+                .width(min: 80, ideal: 140)
+                .customizationID("typeDetecte")
+                .defaultVisibility(.hidden)
+
+                TableColumn("NOM D’HÔTE", sortUsing: table.sort("hostname")) { record in
+                    textCell(record.hostname ?? "")
+                }
+                .width(min: 80, ideal: 150)
+                .customizationID("hostname")
+                .defaultVisibility(.hidden)
+
+                TableColumn("HISTORIQUE D’IP", sortUsing: table.sort("historiqueIP")) { record in
+                    Text("\(record.ipHistory.count)")
+                        .font(Theme.mono(12))
+                        .foregroundStyle(record.ipHistory.count > 1 ? Theme.text : Theme.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .help(record.ipHistory.reversed().map(\.ip.description).joined(separator: ", "))
+                }
+                .width(min: 60, ideal: 100)
+                .customizationID("historiqueIP")
+                .defaultVisibility(.hidden)
             }
         }
-        .frame(height: 32)
-        .background(Theme.panelMuted)
-        .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+        .standardTableStyle()
+        .contextMenu(forSelectionType: String.self) { keys in
+            if let key = keys.first, let record = model.record(key) {
+                menu(record)
+            }
+        } primaryAction: { keys in
+            guard let key = keys.first, let record = model.record(key) else { return }
+            onSelect(key)
+            if state.device(withID: record.ip.description) != nil { state.showDevice(record.ip.description) }
+        }
     }
 
-    private func headerText(_ title: String) -> some View {
-        Text(title.uppercased())
-            .font(Theme.captionSemibold)
-            .kerning(0.3)
-            .foregroundStyle(Theme.textSecondary)
-            .lineLimit(1)
+    // MARK: Cellules
+
+    private func favoriteButton(_ record: InvRecord) -> some View {
+        let favorite = record.annotations.isFavorite
+        return Button { onFavorite(record.key) } label: {
+            Image(systemName: favorite ? "star.fill" : "star")
+                .font(.system(size: 12))
+                .foregroundStyle(favorite ? Theme.warning : Theme.textTertiary)
+                .frame(maxWidth: .infinity, minHeight: Self.cellHeight)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(favorite ? "Retirer \(record.displayName) des favoris" : "Ajouter \(record.displayName) aux favoris")
+    }
+
+    private func nameCell(_ record: InvRecord) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            HStack(spacing: 6) {
+                Text(record.displayName).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
+                if record.isUnidentified {
+                    InvPill(text: "NON IDENTIFIÉ", foreground: Theme.warning, background: Theme.warningSoft, size: 9.5)
+                }
+            }
+            if let host = record.hostname, host != record.displayName {
+                Text(host).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            }
+        }
+        .frame(height: Self.cellHeight)
+        .help(record.hostname.map { "\(record.displayName) · \($0)" } ?? record.displayName)
+    }
+
+    private func textCell(_ text: String, mono: Bool = false) -> some View {
+        ScanCellText(text.isEmpty ? "—" : text, mono: mono, dimmed: text.isEmpty)
+            .help(text)
     }
 
     @ViewBuilder
-    private func cell<Content: View>(_ column: InvColumn, @ViewBuilder _ content: () -> Content) -> some View {
-        let inner = content().padding(.horizontal, 8)
-        if let width = column.width {
-            inner.frame(width: width, alignment: .leading)
-        } else {
-            inner.frame(maxWidth: .infinity, alignment: .leading)
-        }
+    private func menu(_ record: InvRecord) -> some View {
+        Button(record.annotations.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris") { onFavorite(record.key) }
+        Divider()
+        Button("Copier l’IP") { copy(record.ip.description, label: "IP") }
+        Button("Copier la MAC") { if let mac = record.mac { copy(mac.formatted(.upperColon), label: "MAC") } }
+            .disabled(record.mac == nil)
+        Divider()
+        Button("Fiche complète") { state.showDevice(record.ip.description) }
+            .disabled(state.device(withID: record.ip.description) == nil)
+        Button("Ping continu") { state.sendToPing(record.ip.description) }
     }
 
-    private func row(_ record: InvRecord, _ columns: [InvColumn]) -> some View {
-        let selected = record.key == selectedKey
-        return HStack(spacing: 0) {
-            ForEach(columns, id: \.self) { column in
-                cell(column) { content(column, record, typeHidden: !columns.contains(.type)) }
-            }
-        }
-        .frame(height: Self.rowHeight)
-        .background(selected ? Theme.accentSoft : Theme.panel)
-        .overlay(alignment: .leading) {
-            if selected { Rectangle().fill(Theme.accent).frame(width: 3) }
-        }
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
-        .contentShape(Rectangle())
-        .onTapGesture { onSelect(record.key) }
-    }
-
-    @ViewBuilder
-    private func content(_ column: InvColumn, _ record: InvRecord, typeHidden: Bool) -> some View {
-        let notes = record.annotations
-        switch column {
-        case .favori:
-            Button { onFavorite(record.key) } label: {
-                Image(systemName: notes.isFavorite ? "star.fill" : "star")
-                    .font(.system(size: 12))
-                    .foregroundStyle(notes.isFavorite ? Theme.warning : Theme.textTertiary)
-            }
-            .buttonStyle(.plain)
-            .help(notes.isFavorite ? "Retirer \(record.displayName) des favoris" : "Ajouter \(record.displayName) aux favoris")
-        case .nom:
-            HStack(spacing: 8) {
-            if typeHidden {
-                Image(systemName: InvStyle.symbol(record.type)).font(.system(size: 12))
-                    .foregroundStyle(Theme.neutralText).frame(width: 16)
-                    .help(record.type.label)
-            }
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 6) {
-                    Text(record.displayName).font(.system(size: 12, weight: .semibold)).lineLimit(1)
-                    if record.isUnidentified {
-                        InvPill(text: "NON IDENTIFIÉ", foreground: Theme.warning, background: Theme.warningSoft, size: 9.5)
-                    }
-                }
-                if let host = record.hostname, host != record.displayName {
-                    Text(host).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                }
-            }
-            }
-        case .type:
-            HStack(spacing: 5) {
-                Image(systemName: InvStyle.symbol(record.type)).font(.system(size: 11)).frame(width: 14)
-                Text(record.type.label).font(Theme.small).lineLimit(1)
-            }
-            .foregroundStyle(Theme.neutralText)
-        case .ip:
-            Text(record.ip.description).font(Theme.mono(12, weight: .semibold)).lineLimit(1)
-        case .mac:
-            Text(record.mac?.formatted(.upperColon) ?? "—").font(Theme.mono(11)).foregroundStyle(Theme.neutralText).lineLimit(1)
-        case .fabricant:
-            Text(record.vendorLabel).font(Theme.small).foregroundStyle(Theme.neutralText).lineLimit(1)
-        case .etiquettes:
-            if notes.tags.isEmpty {
-                Text("—").foregroundStyle(Theme.textTertiary)
-            } else {
-                HStack(spacing: 4) {
-                    ForEach(notes.tags.prefix(2), id: \.self) { tag in
-                        let colors = InvStyle.tag(tag)
-                        InvPill(text: tag, foreground: colors.0, background: colors.1)
-                    }
-                    if notes.tags.count > 2 {
-                        Text("+\(notes.tags.count - 2)").font(Theme.caption).foregroundStyle(Theme.textSecondary)
-                    }
-                }
-            }
-        case .local:
-            Text(locationLabel(notes)).font(Theme.small).foregroundStyle(Theme.neutralText).lineLimit(1)
-                .help(locationLabel(notes))
-        case .switchPort:
-            Text(record.switchLocation ?? "—").font(Theme.mono(11)).foregroundStyle(Theme.neutralText).lineLimit(1)
-                .help(record.switchLocation ?? "")
-        case .responsable:
-            Text(notes.owner.isEmpty ? "—" : notes.owner).font(Theme.small).foregroundStyle(Theme.neutralText).lineLimit(1)
-        case .premiere:
-            Text(InvFormat.day(record.firstSeen)).font(Theme.mono(11.5)).foregroundStyle(Theme.textSecondary)
-        case .derniere:
-            Text(InvFormat.relative(record.lastSeen, now: now))
-                .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
-        case .statut:
-            let status = record.status(now: now)
-            let colors = InvStyle.status(status)
-            InvPill(text: status.label, foreground: colors.0, background: colors.1)
-        }
-    }
-
-    private func locationLabel(_ notes: InvAnnotations) -> String {
-        switch (notes.location.isEmpty, notes.wallJack.isEmpty) {
-        case (true, true): return "—"
-        case (false, true): return notes.location
-        case (true, false): return "Prise \(notes.wallJack)"
-        case (false, false): return "\(notes.location) · Prise \(notes.wallJack)"
-        }
+    private func copy(_ text: String, label: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        model.show("\(label) copiée\u{00A0}: \(text)")
     }
 }

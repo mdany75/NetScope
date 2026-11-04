@@ -77,16 +77,16 @@ struct AnalyseScreen: View {
                     }
                     .frame(maxWidth: .infinity)
                 }
-                HStack(alignment: .top, spacing: 14) {
-                    AnaAlertsPanel(alerts: alerts, period: period, query: state.searchText)
-                        .frame(maxWidth: .infinity)
-                    AnaComparePanel(snapshots: model.store.snapshots) { text, name in
-                        exportDocument = InvCSVDocument(text: text)
-                        exportName = name
-                        exporting = true
-                    }
+                // Alertes, puis comparaison, sur toute la largeur : leurs tableaux (note 8) ne tiennent
+                // pas côte à côte ; le croquis passe aussi à une colonne quand la place manque.
+                AnaAlertsPanel(alerts: alerts, period: period, query: state.searchText)
                     .frame(maxWidth: .infinity)
+                AnaComparePanel(snapshots: model.store.snapshots) { text, name in
+                    exportDocument = InvCSVDocument(text: text)
+                    exportName = name
+                    exporting = true
                 }
+                .frame(maxWidth: .infinity)
             }
             .padding(Theme.contentPadding)
             .frame(maxWidth: .infinity, alignment: .topLeading)

@@ -19,7 +19,7 @@ struct InvDetail: View {
         HStack(alignment: .top, spacing: 14) {
             sheet.frame(maxWidth: .infinity)
             timeline.frame(maxWidth: .infinity)
-            histories.frame(maxWidth: .infinity)
+            histories.frame(minWidth: 410, maxWidth: .infinity)
         }
     }
 
@@ -217,10 +217,10 @@ struct InvDetail: View {
             Panel(padding: 16) {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionHeader("Historique des IP")
-                    miniTable(headers: ["IP", "Du", "Au"],
-                              rows: record.ipHistory.reversed().map { span in
-                                  [span.ip.description, InvFormat.day(span.from), until(span.to)]
-                              })
+                    InvIPHistoryTable(rows: record.ipHistory.enumerated().map { index, span in
+                        InvIPHistoryRow(id: index, ip: span.ip, from: span.from, until: untilDate(span.to),
+                                        untilLabel: until(span.to))
+                    })
                 }
             }
             Panel(padding: 16) {
@@ -231,10 +231,10 @@ struct InvDetail: View {
                             .font(Theme.small).foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     } else {
-                        miniTable(headers: ["Switch / port", "VLAN", "Du", "Au"],
-                                  rows: record.portHistory.reversed().map { span in
-                                      [span.label, span.vlan.map { "VLAN \($0)" } ?? "—", InvFormat.day(span.from), until(span.to)]
-                                  })
+                        InvPortHistoryTable(rows: record.portHistory.enumerated().map { index, span in
+                            InvPortHistoryRow(id: index, switchName: span.switchName, port: span.port, vlan: span.vlan,
+                                              from: span.from, until: untilDate(span.to), untilLabel: until(span.to))
+                        })
                     }
                     HStack(spacing: 4) {
                         Button("Voir le port actuel") { state.open(.switchs) }.buttonStyle(.ghost)
@@ -251,36 +251,168 @@ struct InvDetail: View {
         return InvFormat.day(date)
     }
 
-    private func miniTable(headers: [String], rows: [[String]]) -> some View {
-        Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 0) {
-            GridRow {
-                ForEach(headers, id: \.self) { title in
-                    Text(title.uppercased()).font(Theme.captionSemibold).foregroundStyle(Theme.textSecondary)
-                        .frame(height: 24, alignment: .leading)
-                }
+    /// Date de fin pour le tri : la période en cours est la plus récente.
+    private func untilDate(_ date: Date?) -> Date {
+        guard let date else { return record.isGone(now: now) ? record.lastSeen : .distantFuture }
+        return date
+    }
+}
+
+// MARK: - Historiques (tableaux standard, note 8)
+
+struct InvIPHistoryRow: Identifiable {
+    let id: Int
+    let ip: IPv4Address
+    let from: Date
+    /// Fin de la période ; `.distantFuture` pour l'adresse actuelle.
+    let until: Date
+    let untilLabel: String
+}
+
+struct InvPortHistoryRow: Identifiable {
+    let id: Int
+    let switchName: String
+    let port: String
+    let vlan: Int?
+    let from: Date
+    let until: Date
+    let untilLabel: String
+
+    var label: String { "\(switchName) · \(port)" }
+    var sortVLAN: Int { vlan ?? .max }
+}
+
+/// Mesures communes des petits tableaux d'historique (hauteur fixe dans l'écran qui défile).
+enum InvHistoryMetrics {
+    static let headerHeight: CGFloat = 40
+    static let maxVisibleRows = 6
+
+    static func height(rows: Int, rowHeight: CGFloat) -> CGFloat {
+        headerHeight + CGFloat(min(max(rows, 1), maxVisibleRows)) * rowHeight
+    }
+
+    static func text(_ text: String) -> some View {
+        Text(text).font(Theme.small).foregroundStyle(Theme.neutralText).monospacedDigit().lineLimit(1)
+    }
+}
+
+/// Historique des IP d'une fiche : IP, Du, Au (la plus récente d'abord).
+struct InvIPHistoryTable: View {
+    let rows: [InvIPHistoryRow]
+    @StateObject private var table = Self.makeModel()
+
+    static let columns: [StandardColumn] = [
+        StandardColumn(id: "ip", title: "IP", isRequired: true),
+        StandardColumn(id: "du", title: "Du"),
+        StandardColumn(id: "au", title: "Au"),
+    ]
+
+    static let sortKeys: [String: KeyPathComparator<InvIPHistoryRow>] = [
+        "ip": KeyPathComparator(\InvIPHistoryRow.ip),
+        "du": KeyPathComparator(\InvIPHistoryRow.from, order: .reverse),
+        "au": KeyPathComparator(\InvIPHistoryRow.until, order: .reverse),
+    ]
+
+    @MainActor
+    static func makeModel() -> StandardTableModel<InvIPHistoryRow> {
+        StandardTableModel(id: "inventaire.historiqueIP", columns: columns, sortKeys: sortKeys, defaultSort: "du")
+    }
+
+    private static let rowHeight: CGFloat = 28
+
+    var body: some View {
+        Table(rows.sorted(using: table.sortOrder), sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+            TableColumn("IP", sortUsing: table.sort("ip")) { row in
+                Text(row.ip.description).font(Theme.mono(11.5, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
+                    .frame(height: 20)
             }
-            Divider().gridCellUnsizedAxes(.horizontal)
-            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                GridRow {
-                    ForEach(Array(row.enumerated()), id: \.offset) { index, value in
-                        Group {
-                            if headers[index] == "VLAN" {
-                                Text(value).font(Theme.caption).foregroundStyle(Theme.neutralText)
-                                    .padding(.horizontal, 5).padding(.vertical, 1)
-                                    .background(RoundedRectangle(cornerRadius: 4).fill(Theme.neutralSoft))
-                            } else {
-                                Text(value)
-                                    .font(index == 0 ? Theme.mono(11.5, weight: .semibold) : Theme.mono(11))
-                                    .foregroundStyle(index == 0 ? Theme.text : Theme.neutralText)
-                                    .lineLimit(2)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                        .frame(minHeight: 28, alignment: .leading)
-                        .padding(.vertical, 2)
-                    }
-                }
+            .width(min: 90, ideal: 112)
+            .customizationID("ip")
+            .disabledCustomizationBehavior(.visibility)
+
+            TableColumn("DU", sortUsing: table.sort("du")) { row in
+                InvHistoryMetrics.text(InvFormat.day(row.from))
             }
+            .width(min: 70, ideal: 74)
+            .customizationID("du")
+
+            TableColumn("AU", sortUsing: table.sort("au")) { row in
+                InvHistoryMetrics.text(row.untilLabel)
+            }
+            .width(min: 62, ideal: 74)
+            .customizationID("au")
         }
+        .standardTableStyle()
+        .frame(height: InvHistoryMetrics.height(rows: rows.count, rowHeight: Self.rowHeight))
+        .scrollIndicators(rows.count > InvHistoryMetrics.maxVisibleRows ? .automatic : .never, axes: .vertical)
+    }
+}
+
+/// Historique des ports de switch d'une fiche : Switch / port, VLAN, Du, Au (le plus récent d'abord).
+struct InvPortHistoryTable: View {
+    let rows: [InvPortHistoryRow]
+    @StateObject private var table = Self.makeModel()
+
+    static let columns: [StandardColumn] = [
+        StandardColumn(id: "switch", title: "Switch / port", isRequired: true),
+        StandardColumn(id: "vlan", title: "VLAN"),
+        StandardColumn(id: "du", title: "Du"),
+        StandardColumn(id: "au", title: "Au"),
+    ]
+
+    static let sortKeys: [String: KeyPathComparator<InvPortHistoryRow>] = [
+        "switch": KeyPathComparator(\InvPortHistoryRow.label, comparator: .localizedStandard),
+        "vlan": KeyPathComparator(\InvPortHistoryRow.sortVLAN),
+        "du": KeyPathComparator(\InvPortHistoryRow.from, order: .reverse),
+        "au": KeyPathComparator(\InvPortHistoryRow.until, order: .reverse),
+    ]
+
+    @MainActor
+    static func makeModel() -> StandardTableModel<InvPortHistoryRow> {
+        StandardTableModel(id: "inventaire.historiquePorts", columns: columns, sortKeys: sortKeys, defaultSort: "du")
+    }
+
+    /// Deux lignes par cellule : le switch, puis le port (le panneau est étroit).
+    private static let rowHeight: CGFloat = 38
+
+    var body: some View {
+        Table(rows.sorted(using: table.sortOrder), sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+            TableColumn("SWITCH / PORT", sortUsing: table.sort("switch")) { row in
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(row.switchName).font(Theme.mono(11.5, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
+                    Text(row.port).font(Theme.mono(11)).foregroundStyle(Theme.neutralText).lineLimit(1)
+                }
+                .frame(height: 30)
+                .help(row.label)
+            }
+            .width(min: 90, ideal: 100)
+            .customizationID("switch")
+            .disabledCustomizationBehavior(.visibility)
+
+            TableColumn("VLAN", sortUsing: table.sort("vlan")) { row in
+                if let vlan = row.vlan {
+                    Chip(text: "\(vlan)", mono: true)
+                } else {
+                    Text("—").font(Theme.small).foregroundStyle(Theme.textTertiary)
+                }
+            }
+            .width(min: 38, ideal: 40)
+            .customizationID("vlan")
+
+            TableColumn("DU", sortUsing: table.sort("du")) { row in
+                InvHistoryMetrics.text(InvFormat.day(row.from))
+            }
+            .width(min: 70, ideal: 72)
+            .customizationID("du")
+
+            TableColumn("AU", sortUsing: table.sort("au")) { row in
+                InvHistoryMetrics.text(row.untilLabel)
+            }
+            .width(min: 70, ideal: 74)
+            .customizationID("au")
+        }
+        .standardTableStyle()
+        .frame(height: InvHistoryMetrics.height(rows: rows.count, rowHeight: Self.rowHeight))
+        .scrollIndicators(rows.count > InvHistoryMetrics.maxVisibleRows ? .automatic : .never, axes: .vertical)
     }
 }
