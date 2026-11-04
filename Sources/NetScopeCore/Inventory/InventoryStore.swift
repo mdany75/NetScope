@@ -6,13 +6,18 @@ public struct InventoryStore: Codable, Sendable {
     public static let currentVersion = 1
     public static let maxEvents = 5_000
     public static let maxSnapshots = 100
+    /// Plafond du nombre total de lignes des instantanés (note 36) : un site de 5 000 appareils
+    /// garde environ ses 30 derniers scans au lieu de 100 (le fichier dépassait 100 Mo, relu et réécrit en
+    /// entier) ; un site de 1 500 appareils ou moins garde toujours ses 100 scans. Au moins deux
+    /// instantanés restent, pour la comparaison du dernier scan au précédent.
+    public static let maxSnapshotEntries = 150_000
     /// Deux MAC différentes sur la même IP à moins de ce délai : conflit IP.
     public static let conflictWindow: TimeInterval = 15 * 60
 
     public var version = InventoryStore.currentVersion
-    public internal(set) var records: [String: InvRecord] = [:]
+    public internal(set) var records: [String: InvRecord] = [:] { didSet { memo = InvMemo() } }
     /// Du plus ancien au plus récent.
-    public internal(set) var events: [InvEvent] = []
+    public internal(set) var events: [InvEvent] = [] { didSet { memo = InvMemo() } }
     /// Du plus ancien au plus récent.
     public private(set) var snapshots: [InvSnapshot] = []
     /// Date de la dernière fusion d'un scan.
@@ -21,6 +26,14 @@ public struct InventoryStore: Codable, Sendable {
     /// ne les remet pas dans l'inventaire. Optionnel pour relire les fichiers d'avant la 0.12.0.
     /// Voir InvRemoval.swift.
     var exclusions: [String: InvExclusion]?
+    /// Calculs gardés tant que les fiches et les événements ne changent pas (note 36 : les écrans
+    /// relisent l'inventaire à chaque rendu). Jamais enregistré ; une copie modifiée repart d'une
+    /// mémoire vide, les autres copies gardent la leur.
+    var memo = InvMemo()
+
+    enum CodingKeys: String, CodingKey {
+        case version, records, events, snapshots, lastMerge, exclusions
+    }
 
     public init() {}
 
@@ -36,22 +49,30 @@ public struct InventoryStore: Codable, Sendable {
 
     /// Fiches triées par IP.
     public var sortedRecords: [InvRecord] {
-        records.values.sorted { ($0.ip, $0.key) < ($1.ip, $1.key) }
+        memo.value(\.sorted) { records.values.sorted { ($0.ip, $0.key) < ($1.ip, $1.key) } }
     }
 
     /// Fiche la plus récemment vue à cette adresse.
     public func record(forIP ip: IPv4Address) -> InvRecord? {
-        records.values.filter { $0.ip == ip }.max { $0.lastSeen < $1.lastSeen }
+        let index = memo.value(\.byIP) {
+            var latest: [IPv4Address: InvRecord] = [:]
+            // Même règle que `max(by:)` : à date égale, la première fiche rencontrée reste.
+            for record in records.values where latest[record.ip].map({ $0.lastSeen < record.lastSeen }) ?? true {
+                latest[record.ip] = record
+            }
+            return latest
+        }
+        return index[ip]
     }
 
     /// Événements d'une fiche, du plus ancien au plus récent.
     public func events(for key: String) -> [InvEvent] {
-        events.filter { $0.key == key }
+        memo.value(\.eventsByKey) { Dictionary(grouping: events, by: \.key) }[key] ?? []
     }
 
     /// IP en conflit actuellement.
     public var conflictIPs: Set<IPv4Address> {
-        Set(records.values.filter(\.hasConflict).map(\.ip))
+        memo.value(\.conflictIPs) { Set(records.values.filter(\.hasConflict).map(\.ip)) }
     }
 
     // MARK: Fusion d'un scan
@@ -360,6 +381,13 @@ public struct InventoryStore: Codable, Sendable {
         if let last = snapshots.last, last.entries == entries { return }
         snapshots.append(InvSnapshot(date: date, entries: entries))
         if snapshots.count > Self.maxSnapshots { snapshots.removeFirst(snapshots.count - Self.maxSnapshots) }
+        var total = snapshots.reduce(0) { $0 + $1.entries.count }
+        var drop = 0
+        while total > Self.maxSnapshotEntries && snapshots.count - drop > 2 {
+            total -= snapshots[drop].entries.count
+            drop += 1
+        }
+        if drop > 0 { snapshots.removeFirst(drop) }
     }
 
     // MARK: Fiches
@@ -479,6 +507,10 @@ public struct InventoryStore: Codable, Sendable {
 
     /// Fiches au même nom d'hôte, à MAC différentes du même fabricant (ou aléatoires), jamais en ligne ensemble.
     public func probableDuplicates() -> [InvDuplicate] {
+        memo.value(\.duplicates) { computeDuplicates() }
+    }
+
+    private func computeDuplicates() -> [InvDuplicate] {
         var byHost: [String: [InvRecord]] = [:]
         for record in records.values {
             guard let host = record.hostname?.lowercased(), host.count > 2, record.mac != nil,
@@ -602,6 +634,35 @@ public struct InventoryStore: Codable, Sendable {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return try decoder.decode(InventoryStore.self, from: data)
+    }
+
+    /// Lit plusieurs inventaires en parallèle (note 36 : « Tous les sites »), dans l'ordre donné.
+    public static func loadAll(_ urls: [URL]) -> [Result<InventoryStore, Error>] {
+        guard urls.count > 1 else { return urls.map { url in Result { try load(from: url) } } }
+        let box = LoadBox(count: urls.count)
+        DispatchQueue.concurrentPerform(iterations: urls.count) { index in
+            box.set(index, Result { try load(from: urls[index]) })
+        }
+        return box.results
+    }
+
+    private final class LoadBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var items: [Result<InventoryStore, Error>?]
+
+        init(count: Int) { items = Array(repeating: nil, count: count) }
+
+        func set(_ index: Int, _ result: Result<InventoryStore, Error>) {
+            lock.lock()
+            items[index] = result
+            lock.unlock()
+        }
+
+        var results: [Result<InventoryStore, Error>] {
+            lock.lock()
+            defer { lock.unlock() }
+            return items.map { $0 ?? .success(InventoryStore()) }
+        }
     }
 
     public func save(to url: URL) throws {

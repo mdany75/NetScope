@@ -30,6 +30,12 @@ public struct MACAddress: Hashable, Comparable, Sendable, Codable, CustomStringC
     /// Accepte « aa:bb:cc:dd:ee:ff », « AA-BB-CC-DD-EE-FF », « aabb.ccdd.eeff », « aabbccddeeff »,
     /// et les octets sans zéro en tête que renvoie `arp -a` sur macOS (« 0:1a:2b:3:4:5 »).
     public init?(_ text: String) {
+        // Chemin rapide (note 36) : « aa:bb:cc:dd:ee:ff » exact, la forme écrite par NetScope
+        // (inventaires, résultats) et renvoyée par la FortiGate. Même résultat que la lecture complète.
+        if let fast = MACAddress.parseCanonical(text) {
+            self = fast
+            return
+        }
         let trimmed = text.trimmingCharacters(in: .whitespaces).lowercased()
         guard !trimmed.isEmpty else { return nil }
         let hex = Set("0123456789abcdef")
@@ -63,24 +69,59 @@ public struct MACAddress: Hashable, Comparable, Sendable, Codable, CustomStringC
         (0..<6).map { UInt8((value >> UInt64(8 * (5 - $0))) & 0xFF) }
     }
 
+    /// Écrit directement les chiffres hexadécimaux (note 36 : `String(format:)` six fois par
+    /// adresse coûtait cher dans les recherches et les fusions de milliers d'appareils).
     public func formatted(_ style: Style = .colon) -> String {
-        let pairs = bytes.map { String(format: "%02x", $0) }
+        let digits: StaticString = style == .upperColon ? "0123456789ABCDEF" : "0123456789abcdef"
+        let separator: UInt8
         switch style {
-        case .colon: return pairs.joined(separator: ":")
-        case .upperColon: return pairs.joined(separator: ":").uppercased()
-        case .hyphen: return pairs.joined(separator: "-")
-        case .bare: return pairs.joined()
-        case .cisco:
-            let all = pairs.joined()
-            var groups: [String] = []
-            var index = all.startIndex
-            for _ in 0..<3 {
-                let next = all.index(index, offsetBy: 4)
-                groups.append(String(all[index..<next]))
-                index = next
-            }
-            return groups.joined(separator: ".")
+        case .colon, .upperColon: separator = UInt8(ascii: ":")
+        case .hyphen: separator = UInt8(ascii: "-")
+        case .cisco: separator = UInt8(ascii: ".")
+        case .bare: separator = 0
         }
+        let length = separator == 0 ? 12 : (style == .cisco ? 14 : 17)
+        let value = self.value
+        return digits.withUTF8Buffer { hex in
+            String(unsafeUninitializedCapacity: length) { out in
+                var position = 0
+                for index in 0..<6 {
+                    if index > 0, separator != 0, style != .cisco || index % 2 == 0 {
+                        out[position] = separator
+                        position += 1
+                    }
+                    let byte = Int((value >> UInt64(8 * (5 - index))) & 0xFF)
+                    out[position] = hex[byte >> 4]
+                    out[position + 1] = hex[byte & 0x0F]
+                    position += 2
+                }
+                return position
+            }
+        }
+    }
+
+    /// « aa:bb:cc:dd:ee:ff » (minuscules ou majuscules, deux chiffres par octet), sinon nil.
+    private static func parseCanonical(_ text: String) -> MACAddress? {
+        var value: UInt64 = 0
+        var count = 0
+        for byte in text.utf8 {
+            let position = count
+            count += 1
+            guard count <= 17 else { return nil }
+            if position % 3 == 2 {
+                guard byte == UInt8(ascii: ":") else { return nil }
+                continue
+            }
+            let nibble: UInt8
+            switch byte {
+            case UInt8(ascii: "0")...UInt8(ascii: "9"): nibble = byte - UInt8(ascii: "0")
+            case UInt8(ascii: "a")...UInt8(ascii: "f"): nibble = byte - UInt8(ascii: "a") + 10
+            case UInt8(ascii: "A")...UInt8(ascii: "F"): nibble = byte - UInt8(ascii: "A") + 10
+            default: return nil
+            }
+            value = value << 4 | UInt64(nibble)
+        }
+        return count == 17 ? MACAddress(value: value) : nil
     }
 
     public var description: String { formatted(.colon) }
@@ -89,7 +130,7 @@ public struct MACAddress: Hashable, Comparable, Sendable, Codable, CustomStringC
     public var ouiValue: UInt32 { UInt32(value >> 24) }
 
     /// Préfixe constructeur, « aa:bb:cc ».
-    public var oui: String { bytes.prefix(3).map { String(format: "%02x", $0) }.joined(separator: ":") }
+    public var oui: String { String(formatted(.colon).prefix(8)) }
 
     /// Bit « adresse administrée localement » (deuxième bit du premier octet).
     public var isLocallyAdministered: Bool { bytes[0] & 0x02 != 0 }

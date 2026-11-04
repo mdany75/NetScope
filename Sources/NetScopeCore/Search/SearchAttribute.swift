@@ -136,10 +136,25 @@ public struct SearchSchema: Sendable {
 public enum SearchText {
     /// Minuscules, sans accents ni largeur, apostrophe typographique ramenée à l'apostrophe droite.
     public static func fold(_ text: String) -> String {
-        text.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
+        // Chemin rapide (note 36) : un texte tout en ASCII n'a ni accent, ni pleine chasse, ni
+        // apostrophe typographique, ni espace insécable ; plier revient à passer en minuscules.
+        if text.utf8.allSatisfy({ $0 < 0x80 }) {
+            return text.utf8.contains(where: { $0 >= UInt8(ascii: "A") && $0 <= UInt8(ascii: "Z") }) ? text.lowercased() : text
+        }
+        // Les textes accentués se répètent beaucoup (types « Caméra IP », noms de sites) : pliés
+        // une fois, puis relus dans une petite mémoire.
+        if let known = FoldMemo.shared.value(for: text) { return known }
+        let folded = text.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
             .replacingOccurrences(of: "\u{2019}", with: "'")
             .replacingOccurrences(of: "\u{00A0}", with: " ")
             .replacingOccurrences(of: "\u{202F}", with: " ")
+        FoldMemo.shared.store(folded, for: text)
+        return folded
+    }
+
+    /// Textes pliés réunis par U+0001 (voir `SearchableRecord.searchFoldedText`).
+    public static func foldedJoined(_ texts: [String]) -> String {
+        texts.map(fold).joined(separator: "\u{1}")
     }
 
     /// Chiffres hexadécimaux seulement (comparaison des adresses MAC).
@@ -161,5 +176,28 @@ public enum SearchText {
         }
         if !digits.isEmpty { found = digits }
         return found.flatMap { Int($0.prefix(9)) }
+    }
+}
+
+/// Mémoire des textes non ASCII déjà pliés (bornée : vidée quand elle est pleine).
+private final class FoldMemo: @unchecked Sendable {
+    static let shared = FoldMemo()
+    private static let limit = 8_192
+    private let lock = NSLock()
+    private var values: [String: String] = [:]
+
+    func value(for text: String) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return values[text]
+    }
+
+    func store(_ folded: String, for text: String) {
+        // Les longs textes (notes) ne se répètent pas : inutile de les garder.
+        guard text.utf8.count <= 64 else { return }
+        lock.lock()
+        defer { lock.unlock() }
+        if values.count >= Self.limit { values.removeAll(keepingCapacity: true) }
+        values[text] = folded
     }
 }

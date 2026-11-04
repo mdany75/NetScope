@@ -41,6 +41,10 @@ final class InvModel: ObservableObject {
     private var generation = 0
     /// Autres sites dont l'inventaire est illisible (affichés vides, avec un message).
     private(set) var unreadableSites: Set<String> = []
+    /// Note 36 : écritures différées et regroupées, sur une file de fond (toujours atomiques).
+    private let writer = InventoryWriter(onError: { url, error in
+        NSLog("NetScope : enregistrement impossible de %@ : %@", url.path, error.localizedDescription)
+    })
 
     init() {
         let arguments = CommandLine.arguments
@@ -66,7 +70,8 @@ final class InvModel: ObservableObject {
 
     // MARK: Sites (note 28)
 
-    /// Fusion en attente faite tout de suite (dans le site de ses appareils), puis enregistrement.
+    /// Fusion en attente faite tout de suite (dans le site de ses appareils), puis enregistrement
+    /// immédiat (changement de site, fermeture de NetScope).
     func flushAndSave() {
         pending?.cancel()
         pending = nil
@@ -75,6 +80,12 @@ final class InvModel: ObservableObject {
             ingest(waiting.devices, site: waiting.site)
         }
         save()
+        writer.flush()
+    }
+
+    /// Écrit tout de suite les enregistrements différés (sauvegarde, dossier de site déplacé).
+    func flushPendingWrites() {
+        writer.flush()
     }
 
     /// Charge l'inventaire d'un autre site : celui du site quitté est d'abord enregistré (sauf
@@ -84,6 +95,8 @@ final class InvModel: ObservableObject {
             pending?.cancel()
             pending = nil
             pendingDevices = nil
+            // Site supprimé : une écriture différée ne doit pas recréer son dossier.
+            if let url { writer.cancel(url) }
         } else {
             flushAndSave()
         }
@@ -108,6 +121,9 @@ final class InvModel: ObservableObject {
             pendingDevices = nil
             ingest(waiting.devices, site: waiting.site, saving: false)
         }
+        // Une écriture différée vers l'ancien fichier part d'abord (SiteModel l'a déjà faite avant de
+        // déplacer le dossier) ; la suite va au nouveau fichier.
+        writer.flush()
         renames.append((generation, siteKey, key))
         generation += 1
         if let kept = held.removeValue(forKey: siteKey) { held[key, default: []] += kept }
@@ -194,13 +210,11 @@ final class InvModel: ObservableObject {
         return hasher.finalize()
     }
 
+    /// Enregistrement différé et regroupé (note 36) : l'inventaire est écrit sur une file de fond
+    /// moins d'une seconde après le dernier changement.
     private func save() {
         guard !isEphemeral, let url else { return }
-        do {
-            try store.save(to: url)
-        } catch {
-            NSLog("NetScope : enregistrement impossible de %@ : %@", url.path, error.localizedDescription)
-        }
+        writer.schedule(store, to: url)
     }
 
     // MARK: Inventaires des autres sites (lecture et écriture ciblée)
@@ -235,6 +249,33 @@ final class InvModel: ObservableObject {
         return loaded
     }
 
+    /// Note 36 : lit en parallèle les inventaires des autres sites qui ne sont pas encore en mémoire
+    /// (ou dont le fichier a changé), avant que l'écran les demande un par un (« Tous les sites » :
+    /// 20 fichiers lus ensemble plutôt qu'à la suite).
+    func prefetch(_ keys: [String]) {
+        guard !isEphemeral else { return }
+        var wanted: [(key: String, url: URL, date: Date?)] = []
+        for key in keys where key != siteKey {
+            guard let fileURL = SiteModel.shared.inventoryURL(for: key) else { continue }
+            let date = (try? FileManager.default.attributesOfItem(atPath: fileURL.path))?[.modificationDate] as? Date
+            if let cached = readCache[key], cached.date == date { continue }
+            wanted.append((key, fileURL, date))
+        }
+        guard wanted.count > 1 else { return }
+        let results = InventoryStore.loadAll(wanted.map(\.url))
+        for (item, result) in zip(wanted, results) {
+            switch result {
+            case .success(let loaded):
+                unreadableSites.remove(item.key)
+                readCache[item.key] = (item.date, loaded)
+            case .failure(let error):
+                NSLog("NetScope : inventaire du site %@ illisible : %@", item.key, error.localizedDescription)
+                unreadableSites.insert(item.key)
+                readCache[item.key] = (item.date, InventoryStore())
+            }
+        }
+    }
+
     /// Le site existe-t-il encore (site actif, plages libres, ou site de la liste) ?
     private func siteExists(_ key: String) -> Bool {
         key == siteKey || key == SiteFiles.noSiteKey || SiteModel.shared.site(forKey: key) != nil
@@ -263,6 +304,7 @@ final class InvModel: ObservableObject {
                 return nil
             }
             do {
+                writer.flush()
                 other = try InventoryStore.load(from: fileURL)
             } catch {
                 // Fichier illisible : on n'écrit rien par-dessus.
