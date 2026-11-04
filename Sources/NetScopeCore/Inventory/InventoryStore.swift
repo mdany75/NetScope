@@ -372,11 +372,23 @@ public struct InventoryStore: Codable, Sendable {
 
     // MARK: Type choisi à la main (note 20)
 
-    /// Type choisi à la main pour un appareil du scan : celui de sa fiche (par MAC ; par IP seulement
-    /// pour un appareil sans MAC dont la fiche a été annotée dans l'Inventaire).
+    /// Fiche existante d'un appareil du scan, résolue comme à la fusion : par MAC ; sans MAC, la fiche
+    /// à MAC qui a cette IP (la plus récente), sinon la fiche par IP.
+    public func existingKey(for device: Device) -> String? {
+        if let mac = device.mac {
+            let key = Self.key(mac: mac)
+            return records[key] == nil ? nil : key
+        }
+        if let match = records.values.filter({ $0.mac != nil && $0.ip == device.ip }).max(by: { $0.lastSeen < $1.lastSeen }) {
+            return match.key
+        }
+        let ipKey = Self.key(ip: device.ip)
+        return records[ipKey] == nil ? nil : ipKey
+    }
+
+    /// Type choisi à la main pour un appareil du scan : celui de sa fiche (même résolution qu'à la fusion).
     public func manualType(for device: Device) -> DeviceType? {
-        let key = device.mac.map { Self.key(mac: $0) } ?? Self.key(ip: device.ip)
-        return records[key]?.annotations.customType
+        existingKey(for: device).flatMap { records[$0]?.annotations.customType }
     }
 
     /// Type affiché d'un appareil : choix de session (par IP, appareils sans MAC), sinon choix de la
@@ -386,11 +398,17 @@ public struct InventoryStore: Codable, Sendable {
         return DeviceTypeChoice(detected: device.deviceType, manual: manual)
     }
 
-    /// Retient le type choisi à la main (nil : revenir au type détecté) sur la fiche de la MAC,
-    /// créée au besoin. Faux, sans rien changer, pour un appareil sans MAC.
+    /// Retient le type choisi à la main (nil : revenir au type détecté) sur la fiche de l'appareil :
+    /// celle de la MAC, créée au besoin ; sans MAC, la fiche existante (à MAC de même IP, sinon par IP).
+    /// Faux, sans rien changer, pour un appareil sans MAC qui n'a pas encore de fiche.
     @discardableResult
     public mutating func setManualType(_ type: DeviceType?, for device: Device, at date: Date = Date()) -> Bool {
-        guard let mac = device.mac else { return false }
+        guard let mac = device.mac else {
+            guard let key = existingKey(for: device), var annotations = records[key]?.annotations else { return false }
+            annotations.customType = type
+            setAnnotations(annotations, for: key, at: date)
+            return true
+        }
         let key = Self.key(mac: mac)
         if records[key] == nil {
             var record = makeRecord(key: key, device: device, at: date)

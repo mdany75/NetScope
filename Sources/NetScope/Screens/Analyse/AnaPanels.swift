@@ -497,7 +497,7 @@ struct AnaComparePanel: View {
                     .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
             }
             HStack {
-                Text("Base : \(before.total) appareils avant → \(after.total) après (+\(diff.added.count) −\(diff.removed.count)).")
+                Text("Base\u{00A0}: \(before.total) appareils avant → \(after.total) après (+\(diff.added.count) −\(diff.removed.count)).")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 Spacer()
                 Button("Exporter l’écart CSV") {

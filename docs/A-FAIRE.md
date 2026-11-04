@@ -357,6 +357,10 @@ Dropbox, Zscaler, fournisseurs Internet courants… liste modifiable.
   (ceux de Réglages › Profils de scan : 20 ports essentiels, ports courants, ~1 000 ports,
   personnalisé…), avec coche sur celui en vigueur, « Modifier les préréglages… » (ouvre
   Réglages) et « Rescanner les ports avec ce préréglage ».
+  **Remplacé dans la 0.4.0** : l'en-tête d'un `Table` SwiftUI ne prend ni menu ni clic droit à
+  nous (son clic droit ne montre que les cases des colonnes) ; ce menu, identique, est celui du
+  bouton « Ports : … » de la barre d'outils. **Reporté** : le mettre aussi sur l'en-tête si le
+  tableau passe un jour à un en-tête AppKit (NSTableHeaderView).
 - Même menu au clic droit sur un ou plusieurs appareils : « Scanner les ports › <préréglage> »
   (remplace l'actuel scan approfondi unique).
 - Rappel visible du préréglage choisi près du bouton « Lancer le scan » (ex. « Ports : 20

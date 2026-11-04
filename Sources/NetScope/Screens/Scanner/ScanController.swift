@@ -42,6 +42,11 @@ final class ScanController: ObservableObject {
     @Published private(set) var latencyHistory: [Device.ID: [Double?]] = [:]
     @Published private(set) var measuring: Set<Device.ID> = []
     @Published private(set) var probing: Set<Device.ID> = []
+    /// Sonde de ports en cours (menu « Ports », clic droit, détail) : appareils faits sur le total.
+    @Published private(set) var portProbe: PortProbeProgress?
+    /// Préréglage qui a servi au dernier scan (libellé), et à la dernière sonde de chaque appareil.
+    @Published private(set) var lastScanPortLabel: String?
+    @Published private(set) var portLabels: [Device.ID: String] = [:]
     @Published var toast: ScanToast?
     /// Préréglage de ports du Scanner (note 19) : profil dont on prend les ports, retenu d'un
     /// lancement à l'autre (rien n'est écrit en démonstration).
@@ -50,20 +55,60 @@ final class ScanController: ObservableObject {
     }
 
     private var scanTask: Task<Void, Never>?
+    private var portTask: Task<Void, Never>?
     private var toastTask: Task<Void, Never>?
     private var pingerCache: ICMPPinger?
 
     private static let portPresetKey = "scan.prereglagePorts"
+    /// Ancienne liste du profil Personnalisé propre au Scanner (0.3).
+    private static let legacyCustomPortsKey = "scan.customPorts"
+
+    /// Avancement d'une sonde de ports lancée hors d'un scan.
+    struct PortProbeProgress: Equatable {
+        var done: Int
+        let total: Int
+        let label: String
+    }
+
+    /// Scan ou sonde de ports en cours (le bouton Arrêter s'applique aux deux).
+    var isBusy: Bool { isRunning || portProbe != nil }
 
     init() {
         let defaults = UserDefaults.standard
         let saved = Launcher.isDemo ? nil : defaults.string(forKey: Self.portPresetKey).flatMap(ScanProfile.init(rawValue:))
         portPresetProfile = saved ?? RegPrefs.shared.defaultProfile
         // Ancienne liste du profil Personnalisé propre au Scanner : reprise une fois par les Réglages,
-        // désormais la seule source des ports personnalisés.
-        if !Launcher.isDemo, let old = defaults.string(forKey: "scan.customPorts") {
-            if defaults.string(forKey: RegPrefs.Key.ports) == nil { RegPrefs.shared.tuning.portsText = old }
-            defaults.removeObject(forKey: "scan.customPorts")
+        // désormais la seule source des ports personnalisés. Jamais en démonstration ni en capture.
+        if !RegEnvironment.isSandboxed, let old = defaults.string(forKey: Self.legacyCustomPortsKey) {
+            migrateLegacyCustomPorts(old, defaults: defaults)
+        }
+    }
+
+    /// Reprend l'ancienne liste Personnalisé du Scanner dans les Réglages. Si les Réglages ont déjà
+    /// une liste à eux (autre que celle par défaut, que la 0.3 écrivait dès qu'on touchait aux Threads,
+    /// au Délai ou aux Tentatives), les deux sont fusionnées et un message l'annonce. L'ancienne clé
+    /// n'est effacée qu'une fois la liste enregistrée dans les Réglages.
+    private func migrateLegacyCustomPorts(_ old: String, defaults: UserDefaults) {
+        let prefs = RegPrefs.shared
+        var legacy = RegScanTuning()
+        legacy.portsText = old.trimmingCharacters(in: .whitespacesAndNewlines)
+        let current = prefs.tuning
+        let currentIsDefault = defaults.string(forKey: RegPrefs.Key.ports) == nil
+            || current.ports == RegScanTuning().ports
+        var merged = false
+        if legacy.ports.isEmpty || Set(legacy.ports).isSubset(of: Set(current.ports)) {
+            // Rien à reprendre : liste vide ou invalide, ou déjà contenue dans les Réglages.
+        } else if currentIsDefault {
+            prefs.tuning.portsText = legacy.portsText
+        } else {
+            prefs.tuning.portsText = current.portsText + ", " + legacy.portsText
+            merged = true
+        }
+        // Si l'enregistrement n'a pas eu lieu, l'ancienne liste reste là pour un prochain lancement.
+        if !legacy.ports.isEmpty, !Set(legacy.ports).isSubset(of: Set(RegScanTuning.current.ports)) { return }
+        defaults.removeObject(forKey: Self.legacyCustomPortsKey)
+        if merged {
+            show("Ports personnalisés du Scanner ajoutés à ceux des Réglages\u{00A0}: \(legacy.portsText)", tone: .neutral)
         }
     }
 
@@ -91,6 +136,8 @@ final class ScanController: ObservableObject {
 
     func start(_ state: AppState) {
         guard !isRunning else { return }
+        // Un nouveau scan sonde lui-même les ports : la sonde en cours s'arrête.
+        stopPortProbe()
         // Démonstration : les plages sont fictives mais pourraient exister sur le vrai réseau.
         guard !Launcher.isDemo else {
             show("Démonstration\u{00A0}: aucun scan réel n’est lancé, les résultats affichés sont fictifs.", tone: .neutral)
@@ -110,11 +157,13 @@ final class ScanController: ObservableObject {
         let publicRanges = targets.filter(Self.hasPublicAddresses)
         if prefs.confirmPublicRanges, !publicRanges.isEmpty, !confirmPublic(publicRanges) { return }
         if !invalid.isEmpty {
-            show("Plage ignorée (invalide) : \(invalid.joined(separator: ", "))", tone: .warning)
+            show("Plage ignorée (invalide)\u{00A0}: \(invalid.joined(separator: ", "))", tone: .warning)
         }
 
         var options = ScanOptions(profile: state.scanProfile, customPorts: prefs.tuning.ports)
         options.portOverride = portPreset.ports
+        lastScanPortLabel = portPreset.label
+        portLabels = [:]
         // Découverte SNMP des switchs : réglage automatique (activé par défaut) ou profil Complet.
         let discoversSwitches = prefs.autoDiscoverSwitches || state.scanProfile.alwaysDiscoversSwitches
         let readGatewayARP = prefs.readGatewayARP
@@ -124,7 +173,7 @@ final class ScanController: ObservableObject {
             pinger = icmp
         } else {
             pinger = ScanNullPinger()
-            show("Ping ICMP indisponible : seuls les appareils de la table ARP seront trouvés.", tone: .warning)
+            show("Ping ICMP indisponible\u{00A0}: seuls les appareils de la table ARP seront trouvés.", tone: .warning)
         }
 
         let baseline = Set(state.devices.map(\.id))
@@ -238,6 +287,22 @@ final class ScanController: ObservableObject {
 
     func stop() {
         scanTask?.cancel()
+        stopPortProbe()
+    }
+
+    /// Arrête la sonde de ports en cours (les appareils déjà faits gardent leur résultat).
+    func stopPortProbe() {
+        portTask?.cancel()
+        portTask = nil
+        guard let progress = portProbe else { return }
+        probing = []
+        portProbe = nil
+        show("Sonde des ports arrêtée\u{00A0}: \(progress.done) sur \(Self.count(progress.total)).", tone: .neutral, place: .actions)
+    }
+
+    /// Préréglage qui a servi aux ports affichés pour cet appareil (nil : inconnu).
+    func portLabel(for id: Device.ID) -> String? {
+        portLabels[id] ?? lastScanPortLabel
     }
 
     /// Efface les résultats (appareils, avancement, nouveautés, bilan des switchs).
@@ -354,8 +419,9 @@ final class ScanController: ObservableObject {
     }
 
     /// Sonde les ports des appareils donnés avec un préréglage (menu contextuel, barre d'outils,
-    /// panneau de détail). Les ports connus hors du préréglage sont gardés. En démonstration, rien
-    /// ne part sur le réseau.
+    /// panneau de détail). Les ports connus hors du préréglage sont gardés. Plusieurs appareils à la
+    /// fois, avec avancement et arrêt possible ; confirmation au-delà d'un gros volume. En
+    /// démonstration, rien ne part sur le réseau.
     func probePorts(of devices: [Device], preset: PortPreset, state: AppState) {
         let targets = devices.filter { !probing.contains($0.id) }
         guard !targets.isEmpty else { return }
@@ -364,34 +430,71 @@ final class ScanController: ObservableObject {
                  tone: .neutral, place: .actions)
             return
         }
+        guard !isRunning, portProbe == nil else {
+            show("Une sonde de ports ou un scan est déjà en cours\u{00A0}: arrêtez-le d’abord.", tone: .warning, place: .actions)
+            return
+        }
         guard !preset.ports.isEmpty else {
-            show("Le préréglage « \(preset.profile.label) » n’a aucun port : réglez-le dans Réglages › Profils de scan.",
+            show("Le préréglage « \(preset.profile.label) » n’a aucun port\u{00A0}: réglez-le dans Réglages › Profils de scan.",
                  tone: .warning, place: .actions)
             return
         }
-        for device in targets { probing.insert(device.id) }
         let ports = preset.ports
+        if targets.count * ports.count > Self.confirmProbeVolume, !confirmProbe(targets.count, preset: preset) { return }
+        for device in targets { probing.insert(device.id) }
+        portProbe = PortProbeProgress(done: 0, total: targets.count, label: preset.label)
         let probed = Set(ports)
-        Task { [weak self] in
-            var openTotal = 0
-            for device in targets {
+        let label = preset.label
+        probeOpenTotal = 0
+        portTask = Task { [weak self] in
+            await ScanConcurrency.forEach(targets, limit: Self.devicesInParallel) { device in
                 let open = await PortProber().openPorts(device.ip, ports: ports, timeout: .milliseconds(800), concurrency: 64)
-                guard let self else { return }
-                self.probing.remove(device.id)
-                openTotal += open.count
-                if var current = state.device(withID: device.id) {
-                    current.openPorts = Self.mergedPorts(open, probed: probed, known: current.openPorts)
-                    current.lastSeen = Date()
-                    let guessed = ScanDeviceClassifier.guess(current)
-                    if guessed != .inconnu { current.deviceType = guessed }
-                    state.merge([current])
+                await MainActor.run {
+                    guard let self, !Task.isCancelled, self.portProbe != nil else { return }
+                    self.probing.remove(device.id)
+                    self.portProbe?.done += 1
+                    self.portLabels[device.id] = label
+                    self.probeOpenTotal += open.count
+                    if var current = state.device(withID: device.id) {
+                        current.openPorts = Self.mergedPorts(open, probed: probed, known: current.openPorts)
+                        current.lastSeen = Date()
+                        let guessed = ScanDeviceClassifier.guess(current)
+                        if guessed != .inconnu { current.deviceType = guessed }
+                        state.merge([current])
+                    }
                 }
             }
-            guard let self else { return }
+            // Arrêtée : stopPortProbe() a déjà tout remis à zéro et prévenu.
+            guard let self, !Task.isCancelled else { return }
+            let total = self.probeOpenTotal
+            self.probing = []
+            self.portProbe = nil
+            self.portTask = nil
             let subject = targets.count == 1 ? targets[0].ip.description : Self.count(targets.count)
-            self.show(openTotal == 0 ? "Aucun port ouvert sur \(subject) (\(preset.label))."
-                                     : "\(openTotal) ports ouverts sur \(subject) (\(preset.label)).", place: .actions)
+            self.show(total == 0 ? "Aucun port ouvert sur \(subject) (\(label))."
+                                 : "\(total) ports ouverts sur \(subject) (\(label)).", place: .actions)
         }
+    }
+
+    /// Appareils sondés en même temps (64 connexions chacun).
+    private static let devicesInParallel = 4
+    /// Au-delà de ce nombre de sondes (appareils × ports), on demande confirmation.
+    private static let confirmProbeVolume = 50_000
+    private var probeOpenTotal = 0
+
+    /// Confirmation d'une longue sonde de ports (ex. préréglage Complet sur plus de 50 appareils).
+    private func confirmProbe(_ devices: Int, preset: PortPreset) -> Bool {
+        // Pire cas : hôtes filtrés, une vague de 64 ports par seconde et par appareil.
+        let waves = (preset.ports.count + 63) / 64
+        let seconds = Double(waves * ((devices + Self.devicesInParallel - 1) / Self.devicesInParallel))
+        let alert = NSAlert()
+        alert.messageText = "Sonder \(Self.count(devices)) avec « \(preset.label) »\u{00A0}?"
+        alert.informativeText = "Cela représente \(PortPreset.count(preset.ports.count * devices)) à sonder et peut prendre jusqu’à "
+            + "\(ScanFormat.seconds(seconds)) si les appareils ne répondent pas. Vous pourrez l’arrêter avec le bouton Arrêter."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Sonder")
+        alert.addButton(withTitle: "Annuler")
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     private static func count(_ devices: Int) -> String {

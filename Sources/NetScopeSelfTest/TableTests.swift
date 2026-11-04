@@ -72,6 +72,20 @@ func registerTableTests(_ suite: TestSuite) {
         try expectEqual(store.typeChoice(for: routed, session: [routed.id: .camera]).type, .camera, "choix de session par IP")
         try expectEqual(store.typeChoice(for: printer, session: [printer.id: .camera]).type, .poste,
                         "avec MAC : la session ne compte pas")
+        // Sans MAC mais rattaché à la fiche à MAC de même IP (comme à la fusion) : le choix est repris.
+        store.setManualType(.imprimante, for: printer, at: t0.addingTimeInterval(180))
+        let viaRouter = Device(ip: IPv4Address("10.0.0.111")!, deviceType: .poste)
+        let routedChoice = store.typeChoice(for: viaRouter)
+        try expect(routedChoice.isManual && routedChoice.type == .imprimante, "sans MAC : fiche à MAC de même IP")
+        try expect(store.setManualType(nil, for: viaRouter, at: t0.addingTimeInterval(200)), "sans MAC : fiche existante modifiée")
+        try expectEqual(store.record(key)?.annotations.customType, nil, "retour au type détecté sur la fiche à MAC")
+        // Sans MAC, fiche par IP (annotée dans l'Inventaire) : « Revenir » efface vraiment le type.
+        store.merge([routed], at: t0.addingTimeInterval(240))
+        try expect(store.setManualType(.camera, for: routed, at: t0.addingTimeInterval(250)), "fiche ip: retenue")
+        try expectEqual(store.record(InventoryStore.key(ip: routed.ip))?.annotations.customType, .camera, "fiche par IP")
+        try expectEqual(store.typeChoice(for: routed).type, .camera, "type de la fiche par IP")
+        store.setManualType(nil, for: routed, at: t0.addingTimeInterval(260))
+        try expectEqual(store.typeChoice(for: routed), DeviceTypeChoice(detected: .inconnu), "revenir : type détecté rétabli")
         // Plusieurs appareils : type commun coché seulement s'ils l'ont tous.
         try expectEqual(DeviceTypeChoice.common([DeviceTypeChoice(detected: .poste), DeviceTypeChoice(detected: .serveur, manual: .poste)]),
                         .poste, "même type")

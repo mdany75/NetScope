@@ -53,11 +53,20 @@ struct AnaOnlineChart: View {
         period == .jour ? InvFormat.time(date) : InvFormat.stamp(date)
     }
 
+    /// Haut de l'axe : au moins 15 % au-dessus du pic, en quatre pas ronds et entiers.
+    static func axisMax(_ peak: Double) -> Double {
+        let raw = max(peak * 1.15, 1) / 4
+        let magnitude = pow(10, floor(log10(raw)))
+        let step = [1.0, 2, 5, 10].map { $0 * magnitude }.first { $0 >= raw } ?? raw
+        return max(step.rounded(.up), 1) * 4
+    }
+
     private func chart(_ values: [Double]) -> some View {
         let dates = snapshots.map(\.date)
         return GeometryReader { geometry in
             let size = geometry.size
-            let maxValue = max((values.max() ?? 1) * 1.15, 1)
+            // Haut de l'axe arrondi à un pas rond (1, 2, 5 × 10ⁿ) : chaque ligne porte une valeur exacte.
+            let maxValue = Self.axisMax(values.max() ?? 1)
             let start = dates.first!.timeIntervalSince1970
             let span = max(dates.last!.timeIntervalSince1970 - start, 1)
             // Marge à gauche pour les étiquettes de l'axe : elles ne chevauchent jamais la courbe.
@@ -75,7 +84,7 @@ struct AnaOnlineChart: View {
                         path.addLine(to: CGPoint(x: size.width, y: y))
                     }
                     .stroke(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                    Text("\(Int(maxValue * Double(4 - line) / 4))")
+                    Text("\(Int((maxValue * Double(4 - line) / 4).rounded()))")
                         .font(Theme.mono(9)).foregroundStyle(Theme.textTertiary)
                         .frame(width: gutter - 6, alignment: .trailing)
                         .offset(x: 0, y: y - 6)
@@ -148,12 +157,14 @@ struct AnaBreakdownPanel: View {
                                 }
                             }
                             .frame(height: 10)
-                            HStack(spacing: 4) {
+                            // Deux colonnes alignées : on ne lit jamais « 3 18 % » comme « 318 % ».
+                            HStack(spacing: 8) {
                                 Text("\(count)").font(Theme.mono(11, weight: .semibold))
-                                Text("\(Int((Double(count) / Double(total) * 100).rounded())) %")
+                                    .frame(width: 24, alignment: .trailing)
+                                Text("\(Int((Double(count) / Double(total) * 100).rounded()))\u{00A0}%")
                                     .font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+                                    .frame(width: 40, alignment: .trailing)
                             }
-                            .frame(width: 58, alignment: .trailing)
                         }
                     }
                 }

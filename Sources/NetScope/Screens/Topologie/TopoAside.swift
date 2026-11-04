@@ -205,7 +205,8 @@ struct TopoAside: View {
     // MARK: Problèmes
 
     private var problems: some View {
-        let devices = state.devices
+        // Types affichés (choisis à la main compris), comme les nœuds de la carte (note 20).
+        let devices = model.withManualTypes(state.devices)
         let conflicts = model.store.conflictIPs.filter { ip in devices.contains { $0.ip == ip } }.sorted()
         let offlineInfra = devices.filter { !$0.isOnline && [.switch, .pointAcces, .routeur].contains($0.deviceType) }
         let unplaced = graph.node("sw:?").map { graph.children(of: $0.id).flatMap(\.deviceIDs).count } ?? 0

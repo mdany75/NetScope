@@ -43,7 +43,7 @@ struct MonEditor: View {
             draft = saved
             originLocation = saved.expectedLocation
         }
-        .confirmationDialog("Supprimer la sonde «\u{00A0}\(draft?.name ?? "")\u{00A0}» ?", isPresented: $confirmDelete) {
+        .confirmationDialog("Supprimer la sonde «\u{00A0}\(draft?.name ?? "")\u{00A0}»\u{00A0}?", isPresented: $confirmDelete) {
             Button("Supprimer", role: .destructive) { if let id = draft?.id { store.delete(id) } }
             Button("Annuler", role: .cancel) {}
         } message: {

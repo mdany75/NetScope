@@ -202,7 +202,7 @@ struct SwitchCard: View {
                                 statusChip(snapshot)
                                 if store.isAutoDiscovered(host) {
                                     Chip(text: "Découvert automatiquement", tone: .accent)
-                                        .help("Trouvé par la découverte SNMP à la fin du scan ; la communauté qui a répondu est gardée au Trousseau.")
+                                        .help("Trouvé par la découverte SNMP à la fin du scan\u{00A0}; la communauté qui a répondu est gardée au Trousseau.")
                                 } else if let role = snapshot?.system.location {
                                     Chip(text: role, tone: .neutral)
                                 }

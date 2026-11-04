@@ -197,6 +197,11 @@ struct ScanResultsPanel: View {
                 footerCount(scan.newIDs.count, "nouveaux", color: Theme.accentStrong)
                 Spacer(minLength: 8)
                 Text("\(shown) affichés sur \(inView) dans cette vue")
+                if let probe = scan.portProbe {
+                    Text("Ports\u{00A0}: \(probe.done)/\(probe.total) appareils")
+                        .font(Theme.mono(12))
+                        .help("Sonde des ports en cours (\(probe.label))\u{00A0}; bouton Arrêter pour l’interrompre")
+                }
                 Text("Durée du scan : \(durationLabel(at: context.date))").font(Theme.mono(12))
             }
             .font(Theme.small)
@@ -544,7 +549,7 @@ struct ScanPortPresetMenu: View {
                 state.open(.reglages)
             }
         }
-        .disabled(devices.allSatisfy { scan.probing.contains($0.id) })
+        .disabled(scan.isBusy)
     }
 }
 

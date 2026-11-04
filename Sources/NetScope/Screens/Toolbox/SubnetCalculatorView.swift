@@ -20,14 +20,14 @@ struct SubnetCalculation {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
         if trimmed.isEmpty { return .failure(.message("Saisir un réseau, par exemple 10.182.122.0/24.")) }
         if IPv4Address(trimmed) != nil {
-            return .failure(.message("Préfixe manquant : ajoutez /xx, par exemple \(trimmed)/24."))
+            return .failure(.message("Préfixe manquant\u{00A0}: ajoutez /xx, par exemple \(trimmed)/24."))
         }
         do {
             let subnet = try Subnet(parsing: trimmed)
             let head = trimmed.split(whereSeparator: { $0 == "/" || $0 == " " }).first.map(String.init) ?? ""
             return .success(SubnetCalculation(subnet: subnet, entered: IPv4Address(head) ?? subnet.network))
         } catch {
-            return .failure(.message((error as? LocalizedError)?.errorDescription ?? "Format attendu : a.b.c.d/préfixe, par exemple 10.182.122.0/24."))
+            return .failure(.message((error as? LocalizedError)?.errorDescription ?? "Format attendu\u{00A0}: a.b.c.d/préfixe, par exemple 10.182.122.0/24."))
         }
     }
 
@@ -346,6 +346,9 @@ struct SubnetSplitRow: Identifiable {
     var hostCount: UInt64 { subnet.hostCount }
     var mask: IPv4Address { subnet.mask }
     var wildcard: IPv4Address { subnet.wildcard }
+    /// Clé de tri de « Plage d'hôtes » : même valeur que `firstHost`, mais chemin distinct pour que le
+    /// tableau sache laquelle des deux colonnes est triée.
+    var rangeStart: IPv4Address { subnet.firstHost }
 
     static func rows(_ pieces: [Subnet]) -> [SubnetSplitRow] {
         pieces.enumerated().map { SubnetSplitRow(id: $0.offset, subnet: $0.element) }
@@ -374,7 +377,7 @@ struct SubnetSplitTable: View {
     static let sortKeys: [String: KeyPathComparator<SubnetSplitRow>] = [
         "rang": KeyPathComparator(\SubnetSplitRow.id),
         "sousreseau": KeyPathComparator(\SubnetSplitRow.network),
-        "plage": KeyPathComparator(\SubnetSplitRow.firstHost),
+        "plage": KeyPathComparator(\SubnetSplitRow.rangeStart),
         "broadcast": KeyPathComparator(\SubnetSplitRow.broadcast),
         "hotes": KeyPathComparator(\SubnetSplitRow.hostCount),
         "masque": KeyPathComparator(\SubnetSplitRow.mask),

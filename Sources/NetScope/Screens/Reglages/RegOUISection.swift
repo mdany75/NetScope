@@ -155,7 +155,7 @@ struct RegOUISection: View {
                         .disabled(!canRevert)
                         .opacity(canRevert ? 1 : 0.5)
                         .help(controller.hasUserFile ? "Supprime la base mise à jour et reprend celle fournie avec l’application."
-                                                     : "Aucune base mise à jour : la base fournie avec l’application est déjà utilisée.")
+                                                     : "Aucune base mise à jour\u{00A0}: la base fournie avec l’application est déjà utilisée.")
                 }
                 Spacer()
             }

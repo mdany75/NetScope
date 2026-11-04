@@ -8,6 +8,10 @@ import SwiftUI
 /// PDF (`unit` 0,9 : 612 × 792 pt). Chaque élément est dessiné à la hauteur que la pagination du
 /// moteur (`ReportPageMetrics`) lui a comptée.
 struct RapportPageView: View {
+    /// Bleu fixe du rapport remis au client : jamais la couleur d'accent du Mac du technicien
+    /// (Graphite, Rouge…), pour que le même rapport ait les mêmes couleurs partout.
+    static let reportAccent = Color(hex: 0x2563EB)
+
     let document: ReportDocument
     let page: ReportPage
     let totalPages: Int
@@ -197,7 +201,7 @@ struct RapportPageView: View {
                             ZStack(alignment: .leading) {
                                 RoundedRectangle(cornerRadius: px(2)).fill(Color(hex: 0xF3F4F6))
                                 RoundedRectangle(cornerRadius: px(2))
-                                    .fill(bar.muted ? Color(hex: 0x6B7280) : Theme.accent)
+                                    .fill(bar.muted ? Color(hex: 0x6B7280) : Self.reportAccent)
                                     .frame(width: max(px(2), geometry.size.width * bar.fraction))
                             }
                         }
@@ -287,7 +291,7 @@ struct RapportPageView: View {
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: px(2)).fill(Color(hex: 0xF3F4F6))
                         RoundedRectangle(cornerRadius: px(2))
-                            .fill(bar >= 0.7 ? Theme.warning : Theme.accent)
+                            .fill(bar >= 0.7 ? Theme.warning : Self.reportAccent)
                             .frame(width: max(px(2), geometry.size.width * min(1, bar)))
                     }
                 }

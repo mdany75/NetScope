@@ -26,6 +26,9 @@ struct ContentView: View {
         }
         .font(Theme.body)
         .foregroundStyle(Theme.text)
+        // Pastille Analyse dès le lancement (alertes « à traiter » enregistrées), sans attendre
+        // l'ouverture d'un écran branché sur l'inventaire.
+        .onAppear { InvModel.shared.updateBadge(state) }
     }
 
     @ViewBuilder private var screenView: some View {

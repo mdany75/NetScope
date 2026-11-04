@@ -2,8 +2,9 @@ import NetScopeCore
 import SwiftUI
 
 // Type d'équipement choisi à la main (note 20). Une seule source : `customType` de la fiche
-// d'inventaire (InvAnnotations), retenue par MAC ; un appareil sans MAC n'a qu'un choix de session,
-// par IP. Tous les écrans qui affichent le type d'un appareil du scan passent par ici.
+// d'inventaire (InvAnnotations), retenue par MAC ; un appareil sans MAC utilise la fiche trouvée comme à
+// la fusion (fiche à MAC de même IP, sinon fiche par IP), et n'a un choix de session, par IP, que s'il
+// n'a pas encore de fiche. Tous les écrans qui affichent le type d'un appareil du scan passent par ici.
 
 extension InvModel {
     /// Type affiché d'un appareil du scan (détecté, ou choisi à la main).
@@ -74,7 +75,7 @@ struct DeviceTypeMenuItems: View {
         .disabled(!choices.contains(where: \.isManual))
         if devices.contains(where: { $0.mac == nil }) {
             Divider()
-            Text("Sans adresse MAC\u{00A0}: type retenu pour cette session seulement")
+            Text("Sans adresse MAC\u{00A0}: type retenu sur la fiche de son adresse IP")
         }
     }
 

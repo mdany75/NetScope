@@ -155,7 +155,7 @@ struct RegKnownSwitchTable: View {
 
             TableColumn("SNMP", sortUsing: table.sort("snmp")) { row in
                 RegSwitchCell(row.snmp, secondary: true)
-                    .help("SNMP v2c en lecture seule. « Propre au switch » : la communauté qui a répondu est retenue au Trousseau ; « commune » : celle des Identifiants. La communauté n’est jamais affichée.")
+                    .help("SNMP v2c en lecture seule. « Propre au switch »\u{00A0}: la communauté qui a répondu est retenue au Trousseau\u{00A0}; « commune »\u{00A0}: celle des Identifiants. La communauté n’est jamais affichée.")
             }
             .width(min: 80, ideal: 120)
             .customizationID("snmp")

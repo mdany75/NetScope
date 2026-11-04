@@ -91,7 +91,7 @@ private struct DeviceDetailView: View {
                             .onSubmit(commitName)
                             .onChange(of: nameFocused) { _, focused in if !focused { commitName() } }
                             .fixedSize()
-                            .help("Nom personnalisé (vide : nom d’hôte)")
+                            .help("Nom personnalisé (vide\u{00A0}: nom d’hôte)")
                         Image(systemName: "pencil").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
                         statusChip
                     }

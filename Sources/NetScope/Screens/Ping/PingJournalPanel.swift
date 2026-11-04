@@ -10,6 +10,8 @@ struct PingEventLine: Identifiable {
     var id: UUID { event.id }
 
     var sortDate: Date { event.date }
+    /// Clé de tri de la colonne « Date » : même valeur, chemin distinct de celui d'« Heure ».
+    var sortDay: Date { event.date }
     var sortLevel: Int {
         switch event.level {
         case .coupure: return 0
@@ -52,7 +54,7 @@ struct PingJournalPanel: View {
         "evenement": KeyPathComparator(\PingEventLine.sortMessage),
         "niveau": KeyPathComparator(\PingEventLine.sortLevel),
         "cible": KeyPathComparator(\PingEventLine.sortSubject),
-        "date": KeyPathComparator(\PingEventLine.sortDate),
+        "date": KeyPathComparator(\PingEventLine.sortDay),
     ]
 
     static let timeFormatter: DateFormatter = {

@@ -245,7 +245,7 @@ struct WifiConnectionPanel: View {
     /// Point d'accès du scan dont la MAC partage le préfixe du BSSID (même boîtier, MAC voisine).
     private func accessPoint(for network: WifiNetwork) -> Device? {
         guard let bssid = network.bssid else { return nil }
-        let candidates = state.devices.filter { $0.deviceType == .pointAcces && $0.mac?.ouiValue == bssid.ouiValue }
+        let candidates = InvModel.shared.withManualTypes(state.devices).filter { $0.deviceType == .pointAcces && $0.mac?.ouiValue == bssid.ouiValue }
         return candidates.min { a, b in
             distance(a.mac!, bssid) < distance(b.mac!, bssid)
         }

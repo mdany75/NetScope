@@ -268,7 +268,7 @@ struct ScanDetailLatency: View {
 
                 ScanCardTitle(text: "Ports ouverts").padding(.top, 8).padding(.bottom, 8)
                 if device.openPorts.isEmpty {
-                    Text(scan.probing.contains(device.id) ? "Scan des ports…" : "Aucun port ouvert détecté (\(profileLabel)).")
+                    Text(scan.probing.contains(device.id) ? "Scan des ports…" : noPortsText)
                         .font(Theme.small)
                         .foregroundStyle(Theme.textSecondary)
                 } else {
@@ -283,7 +283,11 @@ struct ScanDetailLatency: View {
     }
 
     @EnvironmentObject private var state: AppState
-    private var profileLabel: String { scan.portPreset.label }
+    /// Préréglage qui a réellement servi (dernier scan, ou dernière sonde de cet appareil).
+    private var noPortsText: String {
+        guard let label = scan.portLabel(for: device.id) else { return "Aucun port ouvert détecté." }
+        return "Aucun port ouvert détecté (\(label))."
+    }
 
     private var summary: String {
         let values = history.compactMap { $0 }
@@ -336,7 +340,7 @@ struct ScanDetailActions: View {
                     action(scan.probing.contains(device.id) ? "Scan des ports…" : "Scanner les ports", "square.grid.3x3") {
                         scan.probePorts(of: [device], preset: scan.portPreset, state: state)
                     }
-                    .disabled(scan.probing.contains(device.id))
+                    .disabled(scan.isBusy)
                     .help("Ports du préréglage en vigueur\u{00A0}: \(scan.portPreset.label) (autres préréglages au clic droit sur la ligne)")
                     action("Wake-on-LAN", "power") { scan.wake(device, state: state) }
                         .disabled(device.mac == nil)

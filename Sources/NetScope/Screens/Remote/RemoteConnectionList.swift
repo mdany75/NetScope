@@ -130,7 +130,7 @@ struct RemoteConnectionList: View {
                 }
                 .foregroundStyle(Theme.warning)
                 .fixedSize()
-                .help("Non sécurisé : \(connection.proto.label) circule en clair sur le réseau")
+                .help("Non sécurisé\u{00A0}: \(connection.proto.label) circule en clair sur le réseau")
             }
         }
     }

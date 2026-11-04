@@ -4,10 +4,24 @@ import SwiftUI
 
 /// Informations sur l'application.
 enum AppInfo {
-    /// Version lue dans Info.plist ; « 0.2.1 » quand l'exécutable tourne hors de son paquet (.build/).
-    static var version: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.1"
-    }
+    /// Version lue dans Info.plist du paquet ; hors paquet (.build/, captures), celle de
+    /// `Resources/Info.plist` du dépôt, sinon « dev ».
+    static let version: String = {
+        if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+            return version
+        }
+        let plist = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent() // Sources/NetScope
+            .deletingLastPathComponent() // Sources
+            .deletingLastPathComponent() // dépôt
+            .appendingPathComponent("Resources/Info.plist")
+        if let data = try? Data(contentsOf: plist),
+           let info = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+           let version = info["CFBundleShortVersionString"] as? String {
+            return version
+        }
+        return "dev"
+    }()
 }
 
 /// État partagé de l'application : écran courant, appareils, plages, sélection.

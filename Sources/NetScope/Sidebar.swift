@@ -1,3 +1,4 @@
+import AppKit
 import NetScopeCore
 import SwiftUI
 
@@ -96,13 +97,33 @@ struct Sidebar: View {
         .padding(.bottom, 6)
     }
 
+    /// Réglages épinglé en bas : une seconde liste « sidebar » d'une ligne, pour que sa sélection ait
+    /// exactement l'allure (teinte, forme, fenêtre inactive) de celle des autres écrans.
     private var footer: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Divider().padding(.horizontal, 6)
-            SidebarSettingsRow()
+        VStack(spacing: 0) {
+            Divider().padding(.horizontal, 16)
+            List(selection: settingsSelection) {
+                Label(Screen.reglages.title, systemImage: Screen.reglages.symbol)
+                    .tag(Screen.reglages)
+            }
+            .listStyle(.sidebar)
+            .scrollDisabled(true)
+            .scrollContentBackground(.hidden)
+            .frame(height: 44)
+            // Barres de défilement classiques (souris) : la liste du haut perd la largeur de la sienne ;
+            // on retire la même largeur ici pour que les deux sélections aient la même longueur.
+            .padding(.trailing, Self.legacyScrollerWidth)
         }
-        .padding(.horizontal, 10)
-        .padding(.bottom, 10)
+    }
+
+    private static var legacyScrollerWidth: CGFloat {
+        NSScroller.preferredScrollerStyle == .legacy
+            ? NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy) : 0
+    }
+
+    private var settingsSelection: Binding<Screen?> {
+        Binding(get: { state.screen == .reglages ? .reglages : nil },
+                set: { if $0 == .reglages { state.open(.reglages) } })
     }
 
     private var interfaceCard: some View {
@@ -151,7 +172,7 @@ struct Sidebar: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Mise à jour disponible : NetScope \(update). Ouvrir les réglages Mises à jour")
+                .help("Mise à jour disponible\u{00A0}: NetScope \(update). Ouvrir les réglages Mises à jour")
             }
         }
         .padding(10)
@@ -164,35 +185,5 @@ struct Sidebar: View {
         if let gateway = state.activeInterface?.gateway { parts.append("Passerelle \(gateway)") }
         if let dns = state.dnsServers.first { parts.append("DNS \(dns)") }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-}
-
-/// Réglages, épinglé en bas de la barre latérale comme dans les croquis ; même allure qu'une ligne
-/// de la liste (sélection grise du système).
-private struct SidebarSettingsRow: View {
-    @EnvironmentObject private var state: AppState
-    @State private var hovering = false
-
-    var body: some View {
-        let active = state.screen == .reglages
-        Button {
-            state.open(.reglages)
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: Screen.reglages.symbol)
-                    .foregroundStyle(Theme.accent)
-                    .frame(width: 18)
-                Text(Screen.reglages.title)
-                Spacer(minLength: 4)
-            }
-            .padding(.horizontal, 8)
-            .frame(height: 28)
-            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius)
-                .fill(active ? Color.primary.opacity(0.1) : hovering ? Theme.hover : .clear))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .accessibilityAddTraits(active ? .isSelected : [])
     }
 }
