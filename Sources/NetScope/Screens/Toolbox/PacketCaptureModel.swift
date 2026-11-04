@@ -334,6 +334,8 @@ final class ToolPacketCaptureModel: ObservableObject {
             compiledDisplayFilter = filter
             displayFilterError = nil
             rows = log.packets.filter { filter?.matches($0) ?? true }.map(PacketRow.init)
+            // Le paquet choisi n'est plus affiché : les détails ne doivent pas montrer une trame absente de la liste.
+            if let selected = selection, !rows.contains(where: { $0.id == selected }) { selection = nil }
         case .failure(let failure):
             displayFilterError = failure.message
         }
@@ -516,6 +518,8 @@ final class ToolPacketCaptureModel: ObservableObject {
             pane = .statistics
         case "filtre":
             displayFilter = "tcp.analysis.flags || dns"
+            // La retransmission, premier problème que le filtre fait ressortir.
+            if let retransmission = log.packets.first(where: { $0.analysis.contains(.retransmission) }) { selection = retransmission.id }
         default:
             break
         }

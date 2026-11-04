@@ -68,12 +68,12 @@ extension ReportBuilder {
                 ReportCell(record.limit.label, badge: record.limit.reportTone),
             ])
         }
-        blocks.append(.table(ReportTable(columns: [ReportColumn("Emplacement", weight: 1.5), ReportColumn("Type", weight: 1.8),
-                                                   ReportColumn("Écriture", weight: 1, trailing: true),
-                                                   ReportColumn("Lecture", weight: 1, trailing: true),
-                                                   ReportColumn("IOPS 4\u{00A0}Kio", weight: 0.9, trailing: true),
-                                                   ReportColumn("p95 4\u{00A0}Kio", weight: 0.9, trailing: true),
-                                                   ReportColumn("Limite", weight: 1)],
+        blocks.append(.table(ReportTable(columns: [ReportColumn("Emplacement", weight: 1.5), ReportColumn("Type", weight: 1.4),
+                                                   ReportColumn("Écriture", weight: 0.95, trailing: true),
+                                                   ReportColumn("Lecture", weight: 0.95, trailing: true),
+                                                   ReportColumn("IOPS 4\u{00A0}Kio", weight: 1.15, trailing: true),
+                                                   ReportColumn("p95 4\u{00A0}Kio", weight: 1, trailing: true),
+                                                   ReportColumn("Limite", weight: 1.15)],
                                          rows: rows, wraps: true)))
         let verdicts = records.map { record in
             ReportRow([ReportCell(record.locationName, bold: true), ReportCell(formatter.string(from: record.date), tone: .muted),

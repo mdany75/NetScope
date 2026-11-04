@@ -306,13 +306,19 @@ struct PacketFlowView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Flux \(stream.key.kind.label) · \(stream.packetNumbers.count) paquet\(stream.packetNumbers.count > 1 ? "s" : "")")
                 .font(Theme.bodySemibold)
-            HStack(spacing: 8) {
-                legend(color: PacketPalette.clientText, background: PacketPalette.clientBackground,
-                       text: "Client \(stream.client.label) · \(PacketText.bytes(stream.clientBytes))")
-                legend(color: PacketPalette.serverText, background: PacketPalette.serverBackground,
-                       text: "Serveur \(stream.server.label) · \(PacketText.bytes(stream.serverBytes))")
+            // Petite fenêtre : les deux pastilles passent l'une sous l'autre plutôt que d'élargir la page.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { legends }
+                VStack(alignment: .leading, spacing: 4) { legends }
             }
         }
+    }
+
+    @ViewBuilder private var legends: some View {
+        legend(color: PacketPalette.clientText, background: PacketPalette.clientBackground,
+               text: "Client \(stream.client.label) · \(PacketText.bytes(stream.clientBytes))")
+        legend(color: PacketPalette.serverText, background: PacketPalette.serverBackground,
+               text: "Serveur \(stream.server.label) · \(PacketText.bytes(stream.serverBytes))")
     }
 
     private func legend(color: Color, background: Color, text: String) -> some View {
