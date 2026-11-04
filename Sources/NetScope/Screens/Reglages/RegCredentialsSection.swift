@@ -23,33 +23,54 @@ struct RegCredentialsSection: View {
                      }
                  }, content: {
                      vaultBanner
-                     HStack(alignment: .top, spacing: 14) {
+                     // Côte à côte en grande fenêtre, l'un sous l'autre en petite.
+                     RegColumns(minColumnWidth: 340) {
                          v2cBox
                          v3Box
                      }
                      .padding(.top, 14)
-                     HStack(spacing: 8) {
-                         if let message {
-                             Text(message.text).font(Theme.small).foregroundStyle(message.tone.foreground)
-                         } else if isDirty {
-                             Text("Modifications non enregistrées").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.warning)
+                     // État et boutons sur une ligne s'ils tiennent, sinon l'état au-dessus.
+                     ViewThatFits(in: .horizontal) {
+                         HStack(spacing: 8) {
+                             status
+                             Spacer(minLength: 8)
+                             actions
                          }
-                         Spacer()
-                         Button("Effacer du Trousseau", role: .destructive, action: erase)
-                             .buttonStyle(.secondary)
-                             .regDisabled(saved == nil)
-                         Button("Annuler", action: { draft = mergedDraft(from: saved); message = nil })
-                             .buttonStyle(.secondary)
-                             .regDisabled(!isDirty)
-                         Button(action: save) { Label("Enregistrer dans le Trousseau", systemImage: "lock") }
-                             .buttonStyle(.primary)
-                             .regDisabled(!isDirty)
+                         VStack(alignment: .trailing, spacing: 8) {
+                             status.frame(maxWidth: .infinity, alignment: .leading)
+                             actions
+                         }
                      }
                      .padding(.top, 14)
                      RegNotice("SSH et WMI (identifiants par switch ou par plage, ordre d’essai) : bientôt.", tone: .neutral)
                          .padding(.top, 12)
                  })
         .onAppear(perform: load)
+    }
+
+    @ViewBuilder private var status: some View {
+        if let message {
+            Text(message.text).font(Theme.small).foregroundStyle(message.tone.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+        } else if isDirty {
+            Text("Modifications non enregistrées").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.warning)
+                .lineLimit(1)
+        }
+    }
+
+    private var actions: some View {
+        HStack(spacing: 8) {
+            Button("Effacer du Trousseau", role: .destructive, action: erase)
+                .buttonStyle(.secondary)
+                .regDisabled(saved == nil)
+            Button("Annuler", action: { draft = mergedDraft(from: saved); message = nil })
+                .buttonStyle(.secondary)
+                .regDisabled(!isDirty)
+            Button(action: save) { Label("Enregistrer dans le Trousseau", systemImage: "lock") }
+                .buttonStyle(.primary)
+                .regDisabled(!isDirty)
+        }
+        .fixedSize()
     }
 
     private var vaultBanner: some View {
@@ -60,7 +81,8 @@ struct RegCredentialsSection: View {
                 Text(saved == nil ? "Aucun identifiant enregistré." : "\(saved?.configuredCount ?? 0) identifiant(s) enregistré(s), chiffrés par macOS.")
                     .font(Theme.small)
             }
-            Spacer()
+            .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
         }
         .foregroundStyle(saved == nil ? Theme.neutralText : Theme.success)
         .padding(.horizontal, 12).padding(.vertical, 10)
@@ -77,7 +99,7 @@ struct RegCredentialsSection: View {
             content()
         }
         .padding(12)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
     }
 
@@ -99,47 +121,61 @@ struct RegCredentialsSection: View {
 
     private var v3Box: some View {
         box("Utilisateur SNMP v3", type: "SNMP v3", tone: .success) {
-            HStack(alignment: .bottom, spacing: 10) {
-                RegField(label: "Utilisateur") {
+            // Grille : les libellés d'une même ligne sont alignés, menus et champs aussi.
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                labelRow("Utilisateur", "Niveau de sécurité", first: true)
+                GridRow {
                     RegTextField(placeholder: "ex. netscope-ro", text: $draft.v3User, mono: true)
-                }
-                RegField(label: "Niveau de sécurité") {
                     Picker("", selection: $draft.v3Level) {
                         ForEach(RegSNMPCredentials.Level.allCases) { Text($0.rawValue).tag($0) }
                     }
-                    .labelsHidden().frame(width: 140)
+                    .labelsHidden()
+                    .frame(width: 150)
                 }
-            }
-            if draft.v3Level != .noAuthNoPriv {
-                HStack(alignment: .bottom, spacing: 10) {
-                    RegField(label: "Authentification") {
+                if draft.v3Level != .noAuthNoPriv {
+                    labelRow("Mot de passe auth.", "Authentification")
+                    GridRow {
+                        RegTextField(placeholder: secretPlaceholder(!(saved?.v3AuthPassword.isEmpty ?? true)), text: $draft.v3AuthPassword, mono: true, secure: true)
                         Picker("", selection: $draft.v3AuthProtocol) {
                             ForEach(RegSNMPCredentials.authProtocols, id: \.self) { Text($0).tag($0) }
                         }
-                        .labelsHidden().frame(width: 110)
-                    }
-                    RegField(label: "Mot de passe auth.") {
-                        RegTextField(placeholder: secretPlaceholder(!(saved?.v3AuthPassword.isEmpty ?? true)), text: $draft.v3AuthPassword, mono: true, secure: true)
+                        .labelsHidden()
+                        .frame(width: 150)
                     }
                 }
-            }
-            if draft.v3Level == .authPriv {
-                HStack(alignment: .bottom, spacing: 10) {
-                    RegField(label: "Confidentialité") {
+                if draft.v3Level == .authPriv {
+                    labelRow("Mot de passe priv.", "Confidentialité")
+                    GridRow {
+                        RegTextField(placeholder: secretPlaceholder(!(saved?.v3PrivPassword.isEmpty ?? true)), text: $draft.v3PrivPassword, mono: true, secure: true)
                         Picker("", selection: $draft.v3PrivProtocol) {
                             ForEach(RegSNMPCredentials.privProtocols, id: \.self) { Text($0).tag($0) }
                         }
-                        .labelsHidden().frame(width: 110)
-                    }
-                    RegField(label: "Mot de passe priv.") {
-                        RegTextField(placeholder: secretPlaceholder(!(saved?.v3PrivPassword.isEmpty ?? true)), text: $draft.v3PrivPassword, mono: true, secure: true)
+                        .labelsHidden()
+                        .frame(width: 150)
                     }
                 }
-            }
-            RegField(label: "Contexte (facultatif)") {
-                RegTextField(placeholder: "vide par défaut", text: $draft.v3Context, mono: true)
+                GridRow {
+                    fieldLabel("Contexte (facultatif)").gridCellColumns(2).padding(.top, 6)
+                }
+                GridRow {
+                    RegTextField(placeholder: "vide par défaut", text: $draft.v3Context, mono: true)
+                        .gridCellColumns(2)
+                }
             }
         }
+    }
+
+    /// Libellés d'une ligne de la grille v3 (même style que `RegField`).
+    private func labelRow(_ left: String, _ right: String, first: Bool = false) -> some View {
+        GridRow {
+            fieldLabel(left)
+            fieldLabel(right)
+        }
+        .padding(.top, first ? 0 : 6)
+    }
+
+    private func fieldLabel(_ text: String) -> some View {
+        Text(text).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
     }
 
     // MARK: Trousseau

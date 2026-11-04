@@ -73,19 +73,17 @@ struct RegSwitchesSection: View {
             Text("Ordre d’essai\u{00A0}: communauté enregistrée dans Réglages › Identifiants, puis cette liste («\u{00A0}public\u{00A0}» par défaut). La liste et la communauté qui a répondu pour chaque switch sont gardées dans le Trousseau macOS, jamais dans les préférences. Attention\u{00A0}: en v2c, la communauté circule en clair sur le réseau.")
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 8) {
-                if let message {
-                    Text(message.text).font(Theme.small).foregroundStyle(message.tone.foreground)
-                } else if rows != savedRows {
-                    Text("Modifications non enregistrées").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.warning)
+            // État et boutons sur une ligne s'ils tiennent, sinon l'état au-dessus.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    saveStatus
+                    Spacer(minLength: 8)
+                    saveButtons
                 }
-                Spacer()
-                Button("Annuler") { rows = savedRows; message = nil }
-                    .buttonStyle(.secondary)
-                    .regDisabled(rows == savedRows)
-                Button(action: save) { Label("Enregistrer dans le Trousseau", systemImage: "lock") }
-                    .buttonStyle(.primary)
-                    .regDisabled(rows == savedRows)
+                VStack(alignment: .trailing, spacing: 8) {
+                    saveStatus.frame(maxWidth: .infinity, alignment: .leading)
+                    saveButtons
+                }
             }
         }
         .padding(12)
@@ -93,26 +91,62 @@ struct RegSwitchesSection: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
     }
 
+    @ViewBuilder private var saveStatus: some View {
+        if let message {
+            Text(message.text).font(Theme.small).foregroundStyle(message.tone.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+        } else if rows != savedRows {
+            Text("Modifications non enregistrées").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.warning)
+                .lineLimit(1)
+        }
+    }
+
+    private var saveButtons: some View {
+        HStack(spacing: 8) {
+            Button("Annuler") { rows = savedRows; message = nil }
+                .buttonStyle(.secondary)
+                .regDisabled(rows == savedRows)
+            Button(action: save) { Label("Enregistrer dans le Trousseau", systemImage: "lock") }
+                .buttonStyle(.primary)
+                .regDisabled(rows == savedRows)
+        }
+        .fixedSize()
+    }
+
     // MARK: Switchs connus
 
     @ViewBuilder private var knownSwitches: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                RegLabel("Switchs connus")
-                Spacer()
-                if let result = store.autoResult {
-                    Text("Dernière découverte\u{00A0}: \(SwitchText.dateTime(result.date))")
-                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
+            // La date de découverte passe sous le titre quand la ligne est trop étroite.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    RegLabel("Switchs connus")
+                    Spacer(minLength: 8)
+                    lastDiscovery
+                    columnsMenu
                 }
-                if !store.hosts.isEmpty { StandardColumnsMenu(model: switchTable) }
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 10) {
+                        RegLabel("Switchs connus")
+                        Spacer(minLength: 8)
+                        columnsMenu
+                    }
+                    lastDiscovery
+                }
             }
             if store.rememberedCommunities > 0 {
-                HStack(spacing: 8) {
-                    Text("\(store.rememberedCommunities) communauté\(store.rememberedCommunities > 1 ? "s" : "") retenue\(store.rememberedCommunities > 1 ? "s" : "") au Trousseau pour les switchs découverts.")
-                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                    Spacer()
-                    Button("Oublier les communautés retenues") { store.forgetCommunities() }
-                        .buttonStyle(.secondary)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        rememberedText.lineLimit(1)
+                        Spacer(minLength: 8)
+                        forgetButton
+                    }
+                    VStack(alignment: .trailing, spacing: 6) {
+                        rememberedText
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        forgetButton
+                    }
                 }
             }
             if store.hosts.isEmpty {
@@ -133,6 +167,31 @@ struct RegSwitchesSection: View {
                     .regTableFrame()
             }
         }
+    }
+
+    @ViewBuilder private var lastDiscovery: some View {
+        if let result = store.autoResult {
+            Text("Dernière découverte\u{00A0}: \(SwitchText.dateTime(result.date))")
+                .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                .lineLimit(1)
+        }
+    }
+
+    @ViewBuilder private var columnsMenu: some View {
+        if !store.hosts.isEmpty { StandardColumnsMenu(model: switchTable) }
+    }
+
+    private var rememberedText: some View {
+        let count = store.rememberedCommunities
+        let plural = count > 1 ? "s" : ""
+        return Text("\(count) communauté\(plural) retenue\(plural) au Trousseau pour les switchs découverts.")
+            .font(Theme.small).foregroundStyle(Theme.textSecondary)
+    }
+
+    private var forgetButton: some View {
+        Button("Oublier les communautés retenues") { store.forgetCommunities() }
+            .buttonStyle(.secondary)
+            .fixedSize()
     }
 
     // MARK: Trousseau
