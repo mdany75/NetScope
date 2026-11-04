@@ -10,6 +10,8 @@ struct DevicePortsTab: View {
     let device: Device
     @ObservedObject var model: ToolPortScanModel
     @ObservedObject var store: ToolStore
+    /// Tableau standard des ports (note 8), état propre à la fiche appareil.
+    @StateObject private var table = PortResultsTable.makeModel(id: "appareil.ports", showProto: true)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -26,6 +28,7 @@ struct DevicePortsTab: View {
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
+                ToolColumnsMenu(model: table)
                 Button("Copier CSV") { ToolActions.copy(csv) }
                     .buttonStyle(ToolCompactButtonStyle())
                     .disabled(rows.isEmpty)
@@ -44,7 +47,8 @@ struct DevicePortsTab: View {
             if let error = model.error {
                 ToolNotice(tone: .critical, message: error).padding(.horizontal, 16).padding(.bottom, 10)
             }
-            PortResultsTable(host: device.ip.description, results: rows, showProto: true)
+            PortResultsTable(host: device.ip.description, results: rows, table: table,
+                             probedAt: model.isRunning || model.summary == nil ? nil : model.finishedAt)
                 .padding(.horizontal, 16)
             footer
                 .padding(16)
@@ -95,7 +99,7 @@ struct DevicePortsTab: View {
     }
 
     private var csv: String {
-        (["port;etat;service;banniere;delai_ms"] + rows.map {
+        (["port;etat;service;banniere;delai_ms"] + rows.sorted(using: table.sortOrder).map {
             "\($0.port);\($0.state.label);\($0.service ?? "");\(($0.banner ?? "").replacingOccurrences(of: ";", with: ","));\($0.rttMs.map { String(format: "%.1f", $0) } ?? "")"
         }).joined(separator: "\n")
     }

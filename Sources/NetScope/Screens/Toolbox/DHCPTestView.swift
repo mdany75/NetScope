@@ -327,6 +327,7 @@ struct DHCPTestView: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var model: ToolDHCPModel
     @ObservedObject var store: ToolStore
+    @StateObject private var offerTable = DHCPOfferRow.makeModel()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -573,58 +574,130 @@ struct DHCPTestView: View {
 
     // MARK: Tableau et détail
 
-    /// Les sept informations du croquis (serveur, MAC / fabricant, IP offerte, passerelle, DNS, bail,
-    /// statut) tiennent dans la colonne centrale à 1440 pt : la MAC et le fabricant passent sous le
-    /// serveur, le DNS sous la passerelle, et le statut suit le serveur. Si la largeur manque malgré
-    /// tout, le tableau défile horizontalement.
+    /// Offres reçues (tableau standard « outils.dhcp », note 8). Les sept informations du croquis
+    /// (serveur, MAC / fabricant, IP offerte, passerelle, DNS, bail, statut) tiennent dans la colonne
+    /// centrale à 1440 pt : la MAC et le fabricant passent sous le serveur, le DNS sous la passerelle.
+    /// Facultatives : masque, domaine, NTP, options, délai de réponse, fabricant. Cliquer une ligne
+    /// affiche son détail dessous.
     private var table: some View {
-        ViewThatFits(in: .horizontal) {
-            tableBody
-            ScrollView(.horizontal, showsIndicators: true) { tableBody }
-        }
-    }
+        let rows = DHCPOfferRow.rows(model.offers, policy: model.policy).sorted(using: offerTable.sortOrder)
+        let selection = Binding<Int?>(
+            get: { rows.first { $0.offer.server == model.selectedServer }?.id },
+            set: { id in
+                if let id, let row = rows.first(where: { $0.id == id }) { model.selectedServer = row.offer.server }
+            })
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                ToolFieldLabel("Offres reçues · \(rows.count)")
+                Spacer(minLength: 8)
+                ToolColumnsMenu(model: offerTable)
+            }
+            ToolStandardTableFrame(rowCount: rows.count, rowHeight: ToolTableMetrics.doubleRowHeight, maxRows: 8) {
+                Table(rows, selection: selection, sortOrder: $offerTable.sortOrder,
+                      columnCustomization: $offerTable.customization) {
+                    Group {
+                        TableColumn("SERVEUR · MAC", sortUsing: offerTable.sort("serveur")) { row in
+                            serverCell(row)
+                        }
+                        .width(min: 110, ideal: 132)
+                        .customizationID("serveur")
+                        .disabledCustomizationBehavior(.visibility)
 
-    private var tableBody: some View {
-        ToolTable(columns: [
-            .init(title: "Serveur · MAC"),
-            .init(title: "Statut", width: 106),
-            .init(title: "IP offerte", width: 126),
-            .init(title: "Passerelle · DNS", width: 136),
-            .init(title: "Bail", width: 44),
-        ]) {
-            ForEach(Array(model.offers.enumerated()), id: \.offset) { _, offer in
-                row(offer)
+                        TableColumn("STATUT", sortUsing: offerTable.sort("statut")) { row in
+                            statusChip(row.status)
+                        }
+                        .width(min: 80, ideal: 88)
+                        .customizationID("statut")
+
+                        TableColumn("IP OFFERTE", sortUsing: offerTable.sort("offerte")) { row in
+                            ToolTableText(row.offer.offeredAddress.description, size: 11)
+                        }
+                        .width(min: 90, ideal: 100)
+                        .customizationID("offerte")
+
+                        TableColumn("PASSERELLE · DNS", sortUsing: offerTable.sort("passerelle")) { row in
+                            VStack(alignment: .leading, spacing: 2) {
+                                ToolTableText(row.offer.routers.first?.description ?? "—")
+                                Text(dnsText(row.offer)).font(Theme.mono(11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                            }
+                            .help(row.offer.dnsServers.count > 1
+                                  ? "DNS\u{00A0}: " + row.offer.dnsServers.map(\.description).joined(separator: ", ") : "")
+                        }
+                        .width(min: 90, ideal: 126)
+                        .customizationID("passerelle")
+
+                        TableColumn("BAIL", sortUsing: offerTable.sort("bail")) { row in
+                            ToolTableText(DHCPOffer.leaseText(row.offer.leaseTime), mono: false)
+                        }
+                        .width(min: 34, ideal: 38)
+                        .customizationID("bail")
+                    }
+                    Group {
+                        TableColumn("MASQUE", sortUsing: offerTable.sort("masque")) { row in
+                            ToolTableText(row.offer.subnetMask?.description ?? "—")
+                        }
+                        .width(min: 90, ideal: 116)
+                        .customizationID("masque")
+                        .defaultVisibility(.hidden)
+
+                        TableColumn("DOMAINE", sortUsing: offerTable.sort("domaine")) { row in
+                            ToolTableText(row.offer.domainName ?? "—").help(row.offer.domainName ?? "")
+                        }
+                        .width(min: 70, ideal: 120)
+                        .customizationID("domaine")
+                        .defaultVisibility(.hidden)
+
+                        TableColumn("NTP", sortUsing: offerTable.sort("ntp")) { row in
+                            ToolTableText(row.ntp.isEmpty ? "—" : row.ntp).help(row.ntp)
+                        }
+                        .width(min: 70, ideal: 116)
+                        .customizationID("ntp")
+                        .defaultVisibility(.hidden)
+
+                        TableColumn("OPTIONS", sortUsing: offerTable.sort("options")) { row in
+                            ToolTableText(row.options, color: Theme.textSecondary).help("Options DHCP\u{00A0}: " + row.options)
+                        }
+                        .width(min: 80, ideal: 160)
+                        .customizationID("options")
+                        .defaultVisibility(.hidden)
+
+                        TableColumn("DÉLAI", sortUsing: offerTable.sort("delai")) { row in
+                            ToolTableText(row.offer.delay.map { ToolFormat.milliseconds($0 * 1000) } ?? "—", alignment: .trailing)
+                        }
+                        .width(min: 50, ideal: 70)
+                        .customizationID("delai")
+                        .defaultVisibility(.hidden)
+
+                        TableColumn("FABRICANT", sortUsing: offerTable.sort("fabricant")) { row in
+                            ToolTableText(row.vendor ?? "—", mono: false).help(row.vendor ?? "")
+                        }
+                        .width(min: 70, ideal: 120)
+                        .customizationID("fabricant")
+                        .defaultVisibility(.hidden)
+                    }
+                }
             }
         }
     }
 
-    private func row(_ offer: DHCPOffer) -> some View {
-        let status = model.policy.status(of: offer)
-        let selected = offer.server == model.selectedServer
-        let vendor = offer.sourceMAC.flatMap { OUIDatabase.builtIn.vendor(for: $0) }
-        return ToolTableRow(height: 46, highlight: status == .unauthorized ? Color(hex: 0xFEF2F2) : (selected ? Theme.accentSoft : nil)) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(offer.server?.description ?? "?").font(Theme.mono(12, weight: .semibold)).lineLimit(1)
-                (Text(offer.sourceMAC?.formatted(.upperColon) ?? "MAC inconnue").font(Theme.mono(11))
-                 + Text(vendor.map { " · \($0)" } ?? "").font(Theme.caption))
-                    .foregroundColor(Theme.textSecondary)
+    private func serverCell(_ row: DHCPOfferRow) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 5) {
+                if row.status == .unauthorized {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10)).foregroundStyle(Theme.critical)
+                }
+                Text(row.offer.server?.description ?? "?").font(Theme.mono(12, weight: .semibold))
+                    .foregroundStyle(row.status == .unauthorized ? Theme.critical : Theme.text)
                     .lineLimit(1)
-                    .truncationMode(.tail)
             }
-            .frame(minWidth: 0, idealWidth: 140, maxWidth: .infinity, alignment: .leading)
-            .toolCell(nil)
-            statusChip(status).toolCell(106)
-            Text(offer.offeredAddress.description).font(Theme.mono(12)).toolCell(126)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(offer.routers.first?.description ?? "—").font(Theme.mono(12)).lineLimit(1)
-                Text(dnsText(offer)).font(Theme.mono(11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-            }
-            .toolCell(136)
-            Text(DHCPOffer.leaseText(offer.leaseTime)).font(Theme.body).toolCell(44)
+            (Text(row.offer.sourceMAC?.formatted(.upperColon) ?? "MAC inconnue").font(Theme.mono(11))
+             + Text(row.vendor.map { " · \($0)" } ?? "").font(Theme.caption))
+                .foregroundColor(Theme.textSecondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
-        .help(offer.dnsServers.count > 1 ? "DNS\u{00A0}: " + offer.dnsServers.map(\.description).joined(separator: ", ") : "")
-        .contentShape(Rectangle())
-        .onTapGesture { model.selectedServer = offer.server }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Premier serveur DNS (« — » s'il n'y en a pas), suivi de « +N » s'il y en a d'autres.
@@ -677,4 +750,78 @@ struct DHCPTestView: View {
 
 private extension String {
     func ifEmpty(_ fallback: String) -> String { isEmpty ? fallback : self }
+}
+
+// MARK: - Tableau des offres
+
+/// Ligne du tableau des offres DHCP : l'offre, son statut d'après les serveurs autorisés et le
+/// fabricant de la MAC du serveur.
+struct DHCPOfferRow: Identifiable {
+    let id: Int
+    let offer: DHCPOffer
+    let status: DHCPServerPolicy.Status
+    let vendor: String?
+
+    var ntp: String { offer.ntpServers.map(\.description).joined(separator: ", ") }
+    var options: String { offer.optionCodes.map(String.init).joined(separator: ", ") }
+
+    // Clés de tri (toujours Comparable ; une valeur absente va en fin de liste).
+    var sortServer: UInt32 { offer.server?.value ?? .max }
+    /// Non autorisé d'abord, puis non vérifié, puis attendu.
+    var sortStatus: Int {
+        switch status {
+        case .unauthorized: return 0
+        case .unchecked: return 1
+        case .expected: return 2
+        }
+    }
+    var sortOffered: IPv4Address { offer.offeredAddress }
+    var sortGateway: UInt32 { offer.routers.first?.value ?? .max }
+    var sortLease: UInt32 { offer.leaseTime ?? .max }
+    var sortMask: UInt32 { offer.subnetMask?.value ?? 0 }
+    var sortDomain: String { offer.domainName?.lowercased() ?? "~" }
+    var sortNTP: UInt32 { offer.ntpServers.first?.value ?? .max }
+    var sortOptions: Int { offer.optionCodes.count }
+    var sortDelay: Double { offer.delay ?? .infinity }
+    var sortVendor: String { vendor?.lowercased() ?? "~" }
+
+    static func rows(_ offers: [DHCPOffer], policy: DHCPServerPolicy) -> [DHCPOfferRow] {
+        offers.enumerated().map { index, offer in
+            DHCPOfferRow(id: index, offer: offer, status: policy.status(of: offer),
+                         vendor: offer.sourceMAC.flatMap { OUIDatabase.builtIn.vendor(for: $0) })
+        }
+    }
+
+    static let columns: [StandardColumn] = [
+        StandardColumn(id: "serveur", title: "Serveur · MAC", isRequired: true),
+        StandardColumn(id: "statut", title: "Statut"),
+        StandardColumn(id: "offerte", title: "IP offerte"),
+        StandardColumn(id: "passerelle", title: "Passerelle · DNS"),
+        StandardColumn(id: "bail", title: "Bail"),
+        StandardColumn(id: "masque", title: "Masque", isDefaultVisible: false),
+        StandardColumn(id: "domaine", title: "Domaine", isDefaultVisible: false),
+        StandardColumn(id: "ntp", title: "NTP", isDefaultVisible: false),
+        StandardColumn(id: "options", title: "Options", isDefaultVisible: false),
+        StandardColumn(id: "delai", title: "Délai de réponse", isDefaultVisible: false),
+        StandardColumn(id: "fabricant", title: "Fabricant", isDefaultVisible: false),
+    ]
+
+    static let sortKeys: [String: KeyPathComparator<DHCPOfferRow>] = [
+        "serveur": KeyPathComparator(\DHCPOfferRow.sortServer),
+        "statut": KeyPathComparator(\DHCPOfferRow.sortStatus),
+        "offerte": KeyPathComparator(\DHCPOfferRow.sortOffered),
+        "passerelle": KeyPathComparator(\DHCPOfferRow.sortGateway),
+        "bail": KeyPathComparator(\DHCPOfferRow.sortLease),
+        "masque": KeyPathComparator(\DHCPOfferRow.sortMask),
+        "domaine": KeyPathComparator(\DHCPOfferRow.sortDomain),
+        "ntp": KeyPathComparator(\DHCPOfferRow.sortNTP),
+        "options": KeyPathComparator(\DHCPOfferRow.sortOptions),
+        "delai": KeyPathComparator(\DHCPOfferRow.sortDelay),
+        "fabricant": KeyPathComparator(\DHCPOfferRow.sortVendor),
+    ]
+
+    @MainActor
+    static func makeModel() -> StandardTableModel<DHCPOfferRow> {
+        StandardTableModel(id: "outils.dhcp", columns: columns, sortKeys: sortKeys, defaultSort: "serveur")
+    }
 }

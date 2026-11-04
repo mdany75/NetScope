@@ -302,6 +302,7 @@ struct NeighborCaptureView: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var model: ToolNeighborModel
     @ObservedObject var store: ToolStore
+    @StateObject private var table = NeighborTable.makeModel()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -322,8 +323,15 @@ struct NeighborCaptureView: View {
                     Text(tip).font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
                 }
                 if model.neighbors.count > 1 {
-                    Text("Autres voisins reçus\u{00A0}: " + model.neighbors.dropFirst().map(\.headline).joined(separator: " · "))
-                        .font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+                    // Plusieurs voisins (switch et téléphone IP, deux switchs…) : tous dans un tableau.
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            ToolFieldLabel("Voisins reçus · \(model.neighbors.count)")
+                            Spacer(minLength: 8)
+                            ToolColumnsMenu(model: table)
+                        }
+                        NeighborTable(rows: NeighborRow.rows(model.neighbors), table: table)
+                    }
                 }
             } else if model.phase == .listening {
                 waiting
@@ -555,5 +563,154 @@ struct NeighborFieldGrid: View {
         .padding(.vertical, 9)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(Theme.panel)
+    }
+}
+
+// MARK: - Tableau des voisins
+
+/// Ligne du tableau des voisins LLDP/CDP.
+struct NeighborRow: Identifiable {
+    let id: Int
+    let neighbor: NetworkNeighbor
+
+    var sortSwitch: String { neighbor.systemName?.lowercased() ?? "~" }
+    var sortPort: String { neighbor.portID ?? "~" }
+    var sortPortDescription: String { neighbor.portDescription?.lowercased() ?? "~" }
+    var sortVLAN: Int { neighbor.nativeVLAN ?? .max }
+    var sortProtocol: String { neighbor.protocolLabel }
+    var sortTTL: Int { neighbor.ttl ?? .max }
+    var sortCapabilities: String { neighbor.capabilities.joined(separator: ", ") }
+    var sortManagement: String { neighbor.managementAddresses.first ?? "~" }
+    var sortSystem: String { neighbor.systemDescription ?? "~" }
+    var sortModel: String { neighbor.model ?? "~" }
+    var sortChassis: String { neighbor.chassisID ?? "~" }
+
+    static func rows(_ neighbors: [NetworkNeighbor]) -> [NeighborRow] {
+        neighbors.enumerated().map { NeighborRow(id: $0.offset, neighbor: $0.element) }
+    }
+}
+
+/// Voisins reçus (tableau standard « outils.voisins », note 8) : switch, port, description du
+/// port, VLAN (PVID), protocole, TTL ; facultatives : capacités, adresse de gestion, description du
+/// système, modèle, châssis.
+struct NeighborTable: View {
+    let rows: [NeighborRow]
+    @ObservedObject var table: StandardTableModel<NeighborRow>
+
+    static let columns: [StandardColumn] = [
+        StandardColumn(id: "switch", title: "Switch", isRequired: true),
+        StandardColumn(id: "port", title: "Port"),
+        StandardColumn(id: "descriptionPort", title: "Description du port"),
+        StandardColumn(id: "vlan", title: "VLAN (PVID)"),
+        StandardColumn(id: "protocole", title: "Protocole"),
+        StandardColumn(id: "ttl", title: "TTL"),
+        StandardColumn(id: "capacites", title: "Capacités", isDefaultVisible: false),
+        StandardColumn(id: "gestion", title: "Adresse de gestion", isDefaultVisible: false),
+        StandardColumn(id: "systeme", title: "Description du système", isDefaultVisible: false),
+        StandardColumn(id: "modele", title: "Modèle", isDefaultVisible: false),
+        StandardColumn(id: "chassis", title: "Châssis ID", isDefaultVisible: false),
+    ]
+
+    static let sortKeys: [String: KeyPathComparator<NeighborRow>] = [
+        "switch": KeyPathComparator(\NeighborRow.sortSwitch),
+        "port": KeyPathComparator(\NeighborRow.sortPort),
+        "descriptionPort": KeyPathComparator(\NeighborRow.sortPortDescription),
+        "vlan": KeyPathComparator(\NeighborRow.sortVLAN),
+        "protocole": KeyPathComparator(\NeighborRow.sortProtocol),
+        "ttl": KeyPathComparator(\NeighborRow.sortTTL),
+        "capacites": KeyPathComparator(\NeighborRow.sortCapabilities),
+        "gestion": KeyPathComparator(\NeighborRow.sortManagement),
+        "systeme": KeyPathComparator(\NeighborRow.sortSystem),
+        "modele": KeyPathComparator(\NeighborRow.sortModel),
+        "chassis": KeyPathComparator(\NeighborRow.sortChassis),
+    ]
+
+    @MainActor
+    static func makeModel() -> StandardTableModel<NeighborRow> {
+        StandardTableModel(id: "outils.voisins", columns: columns, sortKeys: sortKeys, defaultSort: "switch")
+    }
+
+    var body: some View {
+        let sorted = rows.sorted(using: table.sortOrder)
+        ToolStandardTableFrame(rowCount: sorted.count, maxRows: 6) {
+            Table(sorted, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+                Group {
+                    TableColumn("SWITCH", sortUsing: table.sort("switch")) { row in
+                        ToolTableText(row.neighbor.systemName ?? "—", weight: .semibold)
+                    }
+                    .width(min: 80, ideal: 100)
+                    .customizationID("switch")
+                    .disabledCustomizationBehavior(.visibility)
+
+                    TableColumn("PORT", sortUsing: table.sort("port")) { row in
+                        ToolTableText(row.neighbor.portID ?? "—")
+                    }
+                    .width(min: 40, ideal: 48)
+                    .customizationID("port")
+
+                    TableColumn("DESCRIPTION", sortUsing: table.sort("descriptionPort")) { row in
+                        ToolTableText(row.neighbor.portDescription ?? "—", mono: false).help(row.neighbor.portDescription ?? "")
+                    }
+                    .width(min: 70, ideal: 96)
+                    .customizationID("descriptionPort")
+
+                    TableColumn("VLAN (PVID)", sortUsing: table.sort("vlan")) { row in
+                        ToolTableText(row.neighbor.nativeVLAN.map(String.init) ?? "—")
+                    }
+                    .width(min: 60, ideal: 82)
+                    .customizationID("vlan")
+
+                    TableColumn("PROTOCOLE", sortUsing: table.sort("protocole")) { row in
+                        ToolTableText(row.neighbor.protocolLabel, mono: false)
+                    }
+                    .width(min: 60, ideal: 86)
+                    .customizationID("protocole")
+
+                    TableColumn("TTL", sortUsing: table.sort("ttl")) { row in
+                        ToolTableText(row.neighbor.ttl.map { "\($0)\u{00A0}s" } ?? "—", alignment: .trailing)
+                    }
+                    .width(min: 36, ideal: 44)
+                    .customizationID("ttl")
+                }
+                Group {
+                    TableColumn("CAPACITÉS", sortUsing: table.sort("capacites")) { row in
+                        ToolTableText(row.neighbor.capabilities.isEmpty ? "—" : row.sortCapabilities, mono: false)
+                    }
+                    .width(min: 70, ideal: 120)
+                    .customizationID("capacites")
+                    .defaultVisibility(.hidden)
+
+                    TableColumn("ADRESSE DE GESTION", sortUsing: table.sort("gestion")) { row in
+                        ToolTableText(row.neighbor.managementAddresses.first ?? "—")
+                            .help(row.neighbor.managementAddresses.joined(separator: ", "))
+                    }
+                    .width(min: 90, ideal: 116)
+                    .customizationID("gestion")
+                    .defaultVisibility(.hidden)
+
+                    TableColumn("DESCRIPTION DU SYSTÈME", sortUsing: table.sort("systeme")) { row in
+                        ToolTableText(row.neighbor.systemDescription ?? "—", mono: false)
+                            .help(row.neighbor.systemDescription ?? "")
+                    }
+                    .width(min: 100, ideal: 220)
+                    .customizationID("systeme")
+                    .defaultVisibility(.hidden)
+
+                    TableColumn("MODÈLE", sortUsing: table.sort("modele")) { row in
+                        ToolTableText(row.neighbor.model ?? "—", mono: false)
+                    }
+                    .width(min: 70, ideal: 120)
+                    .customizationID("modele")
+                    .defaultVisibility(.hidden)
+
+                    TableColumn("CHÂSSIS ID", sortUsing: table.sort("chassis")) { row in
+                        ToolTableText(row.neighbor.chassisID ?? "—")
+                    }
+                    .width(min: 90, ideal: 136)
+                    .customizationID("chassis")
+                    .defaultVisibility(.hidden)
+                }
+            }
+        }
     }
 }

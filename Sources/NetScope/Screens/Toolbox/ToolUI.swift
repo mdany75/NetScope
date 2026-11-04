@@ -228,43 +228,106 @@ extension ToolNotice where Trailing == EmptyView {
     }
 }
 
-/// Cadre de tableau (bordure, rayon 8) avec en-tête et lignes de 34 pt.
-struct ToolTable<Rows: View>: View {
-    let columns: [TableHeader.Column]
-    @ViewBuilder var rows: Rows
+// MARK: - Tableaux (tableau standard, note 8)
 
-    var body: some View {
-        VStack(spacing: 0) {
-            TableHeader(columns: columns)
-            rows
-        }
-        .background(Theme.panel)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
-        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
-    }
-}
-
-/// Ligne de tableau : cellules de largeur fixe ou extensible, filet en haut.
-struct ToolTableRow<Content: View>: View {
-    var height: CGFloat = 34
-    var highlight: Color? = nil
+/// Tableaux des outils et de la fiche appareil : tableau standard (Shared/StandardTable.swift) dans
+/// un cadre arrondi. L'outil défile avec la page : le tableau prend la hauteur de ses lignes (comme
+/// les tableaux des croquis) et ne défile lui-même qu'au-delà de `maxRows` lignes.
+///
+/// Mode d'emploi : le modèle `StandardTableModel` (clé « outils.xxx » ou « appareil.xxx ») est gardé
+/// par la vue qui affiche le tableau ; `Table(…)` va dans ce cadre ; `ToolColumnsMenu` se place dans
+/// la barre au-dessus du tableau (ou dans l'en-tête du panneau).
+struct ToolStandardTableFrame<Content: View>: View {
+    let rowCount: Int
+    var rowHeight: CGFloat = ToolTableMetrics.rowHeight
+    var maxRows = ToolTableMetrics.maxRows
+    /// Texte sous l'en-tête quand le tableau est vide.
+    var emptyText: String? = nil
+    /// Cadre arrondi ; false quand le tableau est déjà dans un bloc encadré (découpage en sous-réseaux).
+    var bordered = true
     @ViewBuilder var content: Content
 
     var body: some View {
-        HStack(spacing: 0) { content }
-            .frame(minHeight: height)
-            .background(highlight ?? Color.clear)
-            .overlay(alignment: .top) { Rectangle().fill(Theme.neutralSoft).frame(height: 1) }
+        let table = content
+            .standardTableStyle()
+            .frame(height: ToolTableMetrics.height(rows: rowCount, rowHeight: rowHeight, maxRows: maxRows))
+            .overlay(alignment: .top) {
+                if rowCount == 0, let emptyText {
+                    Text(emptyText)
+                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: ToolTableMetrics.emptyHeight)
+                        .padding(.top, ToolTableMetrics.headerHeight)
+                        .allowsHitTesting(false)
+                }
+            }
+            .background(Theme.panel)
+        if bordered {
+            table
+                .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+        } else {
+            table
+        }
     }
 }
 
-extension View {
-    /// Cellule de tableau alignée sur une colonne de `TableHeader`.
-    func toolCell(_ width: CGFloat?, alignment: Alignment = .leading) -> some View {
-        self.lineLimit(1)
-            .padding(.horizontal, 8)
-            .frame(width: width, alignment: alignment)
-            .frame(maxWidth: width == nil ? .infinity : width, alignment: alignment)
+/// Mesures des tableaux standard des outils (style `.inset` de macOS).
+enum ToolTableMetrics {
+    /// Ligne d'une seule ligne de texte (cellule d'au plus `cellHeight`).
+    static let rowHeight: CGFloat = 26
+    /// Hauteur maximale du contenu d'une cellule d'une ligne (un bouton plus haut agrandirait sa ligne).
+    static let cellHeight: CGFloat = 18
+    /// Ligne de deux lignes de texte (Test DHCP).
+    static let doubleRowHeight: CGFloat = 44
+    static let headerHeight: CGFloat = 28
+    /// Hauteur de la zone « Aucun… » d'un tableau vide.
+    static let emptyHeight: CGFloat = 40
+    static let maxRows = 14
+    /// Marges haute et basse du style `.inset`.
+    static let insets: CGFloat = 16
+
+    static func height(rows: Int, rowHeight: CGFloat = rowHeight, maxRows: Int = maxRows) -> CGFloat {
+        guard rows > 0 else { return headerHeight + emptyHeight + insets }
+        return headerHeight + CGFloat(min(rows, maxRows)) * rowHeight + insets
+    }
+}
+
+/// Texte d'une cellule de tableau d'outil : une ligne, tronquée à la fin.
+struct ToolTableText: View {
+    let text: String
+    var size: CGFloat = 12
+    var mono = true
+    var weight: Font.Weight = .regular
+    var color: Color = Theme.text
+    var alignment: Alignment = .leading
+
+    init(_ text: String, size: CGFloat = 12, mono: Bool = true, weight: Font.Weight = .regular,
+         color: Color = Theme.text, alignment: Alignment = .leading) {
+        self.text = text
+        self.size = size
+        self.mono = mono
+        self.weight = weight
+        self.color = color
+        self.alignment = alignment
+    }
+
+    var body: some View {
+        Text(text)
+            .font(mono ? Theme.mono(size, weight: weight) : .system(size: size, weight: weight))
+            .foregroundStyle(color)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .frame(maxWidth: .infinity, alignment: alignment)
+    }
+}
+
+/// Bouton « Colonnes » d'un tableau d'outil, en petit format (barre au-dessus du tableau).
+struct ToolColumnsMenu<Row: Identifiable>: View {
+    @ObservedObject var model: StandardTableModel<Row>
+
+    var body: some View {
+        StandardColumnsMenu(model: model)
+            .controlSize(.small)
     }
 }
 
