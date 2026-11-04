@@ -65,7 +65,7 @@ final class AlertDispatcher: ObservableObject {
         if let data = defaults?.data(forKey: Key.journal), let saved = try? JSONDecoder().decode([AlertLogEntry].self, from: data) {
             journal = saved
         }
-        refreshSecrets()
+        // Le Trousseau n'est lu qu'à l'ouverture de Réglages › Alertes et juste avant un envoi.
     }
 
     private func save() {
@@ -155,7 +155,7 @@ final class AlertDispatcher: ObservableObject {
     /// coupées : c'est une action explicite, et le seul envoi possible dans ce cas.
     func sendTest(_ channel: AlertChannel) {
         guard !testing.contains(channel) else { return }
-        let origin = Host.current().localizedName ?? "Mac"
+        let origin = isSandboxed ? "MacBook de démonstration" : (Host.current().localizedName ?? "Mac")
         let batch = AlertBatch.test(now: Date(), origin: origin)
         if isSandboxed {
             // Démonstration : rien ne part, une ligne « Simulée » montre ce qui se passerait.

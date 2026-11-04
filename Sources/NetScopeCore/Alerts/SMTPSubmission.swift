@@ -355,8 +355,8 @@ public enum SMTPSubmission {
     private static func politeQuit(transport: SMTPSubmitTransport, log: SMTPSubmitLog) async {
         guard log.isOpen else { return }
         do {
-            log.client("QUIT")
             try await transport.write(Array("QUIT\r\n".utf8))
+            log.client("QUIT")
             if let reply = try? await transport.readReply(timeout: 2) { log.server(reply) }
         } catch {}
     }

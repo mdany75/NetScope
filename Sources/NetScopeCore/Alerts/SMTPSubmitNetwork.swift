@@ -146,12 +146,20 @@ public final class SMTPNetworkTransport: SMTPSubmitTransport, @unchecked Sendabl
             try bridge.write(bytes)
             return
         }
-        guard let connection = lockedConnection else { throw SMTPSubmitError.connectionClosed("") }
+        guard let connection = lockedConnection, watcher.isUsable else { throw SMTPSubmitError.connectionClosed("") }
+        let queue = self.queue
+        let timeout = connectTimeout
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            // Une connexion en échec peut ne jamais rappeler : délai de garde.
+            let once = ToolOnce()
             connection.send(content: Data(bytes), completion: .contentProcessed { error in
+                guard once.claim() else { return }
                 if error != nil { continuation.resume(throwing: SMTPSubmitError.connectionClosed("")) }
                 else { continuation.resume() }
             })
+            queue.asyncAfter(deadline: .now() + timeout) {
+                if once.claim() { continuation.resume(throwing: SMTPSubmitError.timeout("")) }
+            }
         }
     }
 
@@ -280,6 +288,9 @@ final class SMTPConnectionWatcher: @unchecked Sendable {
     private var ready = false
     private var failure: SMTPSubmitError?
     private var waiters: [UUID: CheckedContinuation<Void, Error>] = [:]
+
+    /// Faux dès que la connexion a échoué ou a été fermée.
+    var isUsable: Bool { lock.withLock { failure == nil } }
 
     func attach(_ connection: NWConnection) {
         connection.stateUpdateHandler = { [weak self] state in

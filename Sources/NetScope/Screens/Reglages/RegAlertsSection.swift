@@ -22,6 +22,7 @@ struct RegAlertsSection: View {
             RegAlertRulesPanel()
             RegAlertJournalPanel()
         }
+        .onAppear { alerts.refreshSecrets() }
     }
 
     private var channelsPanel: some View {

@@ -236,6 +236,22 @@ func registerAlertTests(_ suite: TestSuite) {
         try expectEqual(verbs, ["EHLO", "QUIT"], "EHLO puis QUIT, rien d’autre")
     }
 
+    suite.add("Alertes : STARTTLS réel et certificat auto-signé refusé (serveur local fourni par NETSCOPE_ALERTES_TLS_PORT)") {
+        // Vérification manuelle : faux serveur SMTP avec STARTTLS et certificat auto-signé sur 127.0.0.1.
+        guard let raw = ProcessInfo.processInfo.environment["NETSCOPE_ALERTES_TLS_PORT"], let port = UInt16(raw) else {
+            throw TestSkipped(reason: "NETSCOPE_ALERTES_TLS_PORT non défini")
+        }
+        let message = AlertMailMessage(from: "a@exemple.ca", to: ["b@exemple.ca"], subject: "s", textBody: "t", date: fixedDate)
+        let config = SMTPSubmitConfig(host: "127.0.0.1", port: port, security: .startTLS, username: "u", password: "p", timeout: 4)
+        let outcome = await SMTPSubmission.send(message, config: config,
+                                                transport: SMTPNetworkTransport(host: "127.0.0.1", port: port, security: .startTLS, connectTimeout: 4))
+        print(outcome.transcript.joined(separator: "\n"))
+        print("  Erreur : \(outcome.error?.errorDescription ?? "aucune")")
+        guard case .tlsFailed(let reason)? = outcome.error else { throw TestFailure(message: "échec TLS attendu", file: #fileID, line: #line) }
+        try expect(reason.contains("non approuvé"), "certificat auto-signé refusé : \(reason)")
+        try expect(!outcome.transcript.contains { $0.hasPrefix("C: AUTH") }, "aucun mot de passe envoyé")
+    }
+
     suite.add("Alertes : connexion refusée sur 127.0.0.1") {
         let port = try LocalTCPServer.unusedPort()
         let message = AlertMailMessage(from: "a@exemple.ca", to: ["b@exemple.ca"], subject: "s", textBody: "t", date: fixedDate)
