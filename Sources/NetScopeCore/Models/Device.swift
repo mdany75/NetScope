@@ -2,7 +2,7 @@ import Foundation
 
 /// Famille d'appareil, déduite des ports, du fabricant et des protocoles (ou choisie à la main).
 public enum DeviceType: String, Codable, CaseIterable, Sendable {
-    case poste, serveur, imprimante, camera, pointAcces, `switch`, routeur, telephone, iot, inconnu
+    case poste, serveur, imprimante, camera, pointAcces, `switch`, routeur, telephone, console, domotique, iot, inconnu
 
     public var label: String {
         switch self {
@@ -14,6 +14,8 @@ public enum DeviceType: String, Codable, CaseIterable, Sendable {
         case .switch: return "Switch"
         case .routeur: return "Routeur / pare-feu"
         case .telephone: return "Téléphone"
+        case .console: return "Console de jeu"
+        case .domotique: return "Domotique"
         case .iot: return "Objet connecté"
         case .inconnu: return "Inconnu"
         }

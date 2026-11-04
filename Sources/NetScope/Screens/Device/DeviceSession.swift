@@ -175,6 +175,8 @@ extension DeviceType {
         case .switch: return "rectangle.connected.to.line.below"
         case .routeur: return "shield.lefthalf.filled"
         case .telephone: return "iphone"
+        case .console: return "gamecontroller"
+        case .domotique: return "house"
         case .iot: return "sensor"
         case .inconnu: return "questionmark.circle"
         }

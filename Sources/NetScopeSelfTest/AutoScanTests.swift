@@ -39,6 +39,27 @@ func registerAutoScanTests(_ suite: TestSuite) {
         try expectEqual(pc?.deviceType, .poste, "RDP : poste")
     }
 
+    suite.add("Types Console de jeu et Domotique : détection, libellés, import CSV") {
+        let g = { (ports: [UInt16], vendor: String?, host: String?) in
+            ScanDeviceClassifier.guess(ports: ports, vendor: vendor, hostname: host, mac: nil)
+        }
+        try expectEqual(g([], "Nintendo Co.,Ltd", nil), .console, "fabricant Nintendo")
+        try expectEqual(g([], "Sony Interactive Entertainment Inc.", nil), .console, "fabricant Sony Interactive")
+        try expectEqual(g([], "Microsoft Corporation", "XboxOne"), .console, "nom Xbox")
+        try expectEqual(g([], "Sony Corporation", "PS5-123"), .console, "nom PS5")
+        try expectEqual(g([], "Sony Corporation", nil), .inconnu, "Sony seul : pas forcément une console")
+        try expectEqual(g([80], "Signify Netherlands B.V.", nil), .domotique, "pont Philips Hue (Signify)")
+        try expectEqual(g([8123], nil, "homeassistant"), .domotique, "Home Assistant (port 8123)")
+        try expectEqual(g([80], "Espressif Inc.", "shelly1-ABCDEF"), .domotique, "module Shelly nommé")
+        try expectEqual(g([80], "Espressif Inc.", nil), .iot, "Espressif sans autre indice : objet connecté")
+        try expectEqual(g([1400], "Sonos, Inc.", nil), .iot, "Sonos reste un objet connecté")
+        try expectEqual(g([62078], "Apple, Inc.", "iPhone-de-Dany"), .telephone, "un iPhone n'est pas une console")
+        try expectEqual(DeviceType.console.label, "Console de jeu", "libellé")
+        try expectEqual(DeviceType.domotique.label, "Domotique", "libellé")
+        try expectEqual(InvCSV.parseType("Console de jeu"), .console, "import CSV par libellé")
+        try expectEqual(InvCSV.parseType("domotique"), .domotique, "import CSV par identifiant")
+    }
+
     suite.add("Scanner auto : type d'après la découverte SNMP, plus de « 161 TCP »") {
         try expectEqual(ScanDeviceClassifier.guess(ports: [161], vendor: nil, hostname: nil, mac: nil), .inconnu,
                         "161 TCP ne veut rien dire (SNMP = UDP)")

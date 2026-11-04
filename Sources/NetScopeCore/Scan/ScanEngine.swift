@@ -345,7 +345,12 @@ public enum ScanDeviceClassifier {
     static let cameraVendors = ["hikvision", "axis", "dahua", "hanwha", "vivotek", "uniview", "reolink"]
     static let printerVendors = ["brother", "epson", "canon", "xerox", "lexmark", "kyocera", "ricoh", "konica"]
     static let networkVendors = ["cisco", "aruba", "juniper", "netgear", "tp-link", "d-link", "mikrotik", "ubiquiti", "meraki"]
-    static let iotVendors = ["espressif", "tuya", "sonos", "shelly", "brightsign", "amazon", "google", "roku", "raspberry"]
+    static let iotVendors = ["espressif", "sonos", "brightsign", "amazon", "google", "roku", "raspberry"]
+    static let consoleVendors = ["nintendo", "valve"]
+    static let consoleHints = ["xbox", "playstation", "ps4", "ps5", "nintendo", "steamdeck", "steam-deck"]
+    static let homeVendors = ["signify", "lutron", "ecobee", "tuya", "shelly", "itead", "hubitat", "philips-hue"]
+    static let homeHints = ["homeassistant", "home-assistant", "hue-bridge", "philips-hue", "ecobee", "nest-",
+                            "shelly", "tasmota", "zigbee", "hubitat", "smartthings", "lutron", "sonoff"]
     static let phoneHints = ["android", "iphone", "ipad", "galaxy", "pixel", "redmi", "oneplus"]
 
     /// Type d'un appareil d'après tout ce qu'on en sait (ports, fabricant, nom, découverte SNMP).
@@ -382,6 +387,12 @@ public enum ScanDeviceClassifier {
         if vendorIs(networkVendors) && switchName { return .switch }
         if open.contains(3389) { return .poste }
         if phoneHints.contains(where: { host.contains($0) }) { return .telephone }
+        if vendorIs(consoleVendors) || vendor.contains("sony interactive")
+            || consoleHints.contains(where: { host.contains($0) }) { return .console }
+        // 8123 : Home Assistant ; 1400 n'est pas pris (Sonos est un objet connecté).
+        if open.contains(8123) || vendorIs(homeVendors) || homeHints.contains(where: { host.contains($0) }) {
+            return .domotique
+        }
         if open.contains(1883) || open.contains(8883) || vendorIs(iotVendors) { return .iot }
         if open.contains(445) || open.contains(135) || open.contains(5900) { return .poste }
         if vendorIs(["apple", "dell", "lenovo", "intel"]) {

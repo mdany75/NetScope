@@ -1,5 +1,13 @@
 # Changements
 
+## À venir
+
+### Ajouté
+- Deux types d’appareil : **Console de jeu** et **Domotique**, au clic droit « Changer le type »,
+  dans l’Inventaire et à l’import CSV. Détection automatique : Nintendo, Sony Interactive, Valve,
+  noms Xbox / PS5 pour les consoles ; Philips Hue (Signify), Lutron, ecobee, Shelly, Tuya,
+  Home Assistant (port 8123) pour la domotique.
+
 ## 0.4.0 — 2026-11-03
 
 Tableaux standard dans tous les écrans, colonne Type modifiable, préréglages de ports dans le

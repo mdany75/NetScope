@@ -71,12 +71,14 @@ public struct TopoGraph: Sendable {
         case .switch: return "Switchs"
         case .routeur: return "Routeurs"
         case .telephone: return "Téléphones"
+        case .console: return "Consoles de jeu"
+        case .domotique: return "Domotique"
         case .iot: return "IoT"
         case .inconnu: return "Inconnus"
         }
     }
 
-    private static let typeOrder: [DeviceType] = [.serveur, .poste, .telephone, .imprimante, .camera, .iot, .routeur, .inconnu, .switch, .pointAcces]
+    private static let typeOrder: [DeviceType] = [.serveur, .poste, .telephone, .console, .imprimante, .camera, .domotique, .iot, .routeur, .inconnu, .switch, .pointAcces]
 
     /// Construit la carte. `gateway` : passerelle de l'interface active, si connue.
     public static func build(devices input: [Device], gateway: IPv4Address?, conflictIPs: Set<IPv4Address> = []) -> TopoGraph {

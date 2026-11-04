@@ -147,6 +147,8 @@ enum InvStyle {
         case .switch: return "rectangle.connected.to.line.below"
         case .routeur: return "shield.lefthalf.filled"
         case .telephone: return "iphone"
+        case .console: return "gamecontroller"
+        case .domotique: return "house"
         case .iot: return "tv"
         case .inconnu: return "questionmark.square.dashed"
         }

@@ -489,7 +489,7 @@ public enum ReportBuilder {
         guard let top = counts.max(by: { ($0.value, -rank($0.key)) < ($1.value, -rank($1.key)) })?.key else { return "VLAN \(vlan)" }
         switch top {
         case .pointAcces, .telephone: return "Wi-Fi / AP"
-        case .imprimante, .iot: return "Imprimantes et IoT"
+        case .imprimante, .iot, .domotique: return "Imprimantes et IoT"
         case .camera: return "Caméras"
         case .serveur: return "Serveurs"
         case .poste: return "Postes"
@@ -614,6 +614,8 @@ public enum ReportBuilder {
         case .switch: return "Switch"
         case .routeur: return "Pare-feu"
         case .telephone: return "Téléphone"
+        case .console: base = "Console"
+        case .domotique: base = "Domotique"
         case .iot: return "Objet connecté"
         case .inconnu: return device.vendor ?? "Inconnu"
         }
