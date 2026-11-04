@@ -103,14 +103,8 @@ struct RemoteSessionArea: View {
                     Text(launchSubtitle(connection, plan: plan)).font(Theme.small).foregroundStyle(Theme.textSecondary)
                 }
                 Spacer()
-                Button {
-                    model.connect(connection)
-                } label: {
-                    Label("Connecter", systemImage: "play.fill")
-                }
-                .buttonStyle(.primary)
-                .fixedSize()
-                .speedDisabled((try? plan.get()) == nil)
+                RemoteConnectButton(model: model, connection: connection, large: true,
+                                    isEnabled: (try? plan.get()) != nil)
             }
             terminalPreview(connection, plan: plan)
             if connection.proto.isInsecure {
@@ -145,12 +139,15 @@ struct RemoteSessionArea: View {
                     .foregroundStyle(Theme.sidebarHeading)
             case .success(.rdpFile(let contents, let fileName)):
                 Text(fileName).foregroundColor(Color(hex: 0x4ADE80))
-                ForEach(contents.split(separator: "\r\n").prefix(4).map(String.init), id: \.self) { line in
+                ForEach(rdpPreviewLines(contents), id: \.self) { line in
                     Text(line).foregroundStyle(Theme.sidebarHeading)
                 }
             case .success(.url(let url)):
                 Text("open ").foregroundColor(Color(hex: 0x4ADE80)) + Text(url.absoluteString)
                 Text("Partage d’écran demande le mot de passe du compte distant.").foregroundStyle(Theme.sidebarHeading)
+                Text("Affichage\u{00A0}: \(connection.display.summary(for: .vnc).lowercased())"
+                     + (connection.display.mode == .fullScreen ? " (après l’identification, avec l’autorisation Accessibilité)" : ""))
+                    .foregroundStyle(Theme.sidebarHeading)
             case .failure(let error):
                 Text((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
                     .foregroundColor(Color(hex: 0xFCA5A5))
@@ -165,6 +162,12 @@ struct RemoteSessionArea: View {
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Color(hex: 0x0B1220)))
+    }
+
+    /// Lignes du .rdp montrées dans l'aperçu : adresse, utilisateur et affichage.
+    private func rdpPreviewLines(_ contents: String) -> [String] {
+        let keys = ["full address", "username", "screen mode id", "desktopwidth", "desktopheight", "use multimon"]
+        return contents.components(separatedBy: "\r\n").filter { line in keys.contains { line.hasPrefix($0 + ":") } }
     }
 
     private var soonBox: some View {
@@ -207,7 +210,7 @@ struct RemoteForm: View {
                         ForEach(RemoteProtocol.allCases) { option in
                             let on = proto == option
                             Button {
-                                draft.wrappedValue.proto = option
+                                draft.wrappedValue.switchProtocol(to: option)
                                 draft.wrappedValue.port = String(option.defaultPort)
                                 if option == .serie, !draft.wrappedValue.host.hasPrefix("/dev/") {
                                     draft.wrappedValue.host = model.serialPorts.first ?? ""
@@ -286,6 +289,9 @@ struct RemoteForm: View {
                     fieldLabel("Description")
                     RemoteInput(placeholder: "Modèle, système, emplacement…", text: draft.note, mono: false)
                 }
+                if proto == .rdp || proto == .vnc {
+                    RemoteDisplayForm(draft: draft)
+                }
                 Toggle("Favori", isOn: draft.isFavorite).toggleStyle(.checkbox).font(Theme.small)
                 if proto.isInsecure {
                     SpeedBanner(text: "Telnet n’est pas chiffré. Utilisez SSH si l’appareil le permet.")
@@ -317,8 +323,8 @@ struct RemoteForm: View {
             SectionHeader("Ce que fait « Connecter »")
             helpLine("SSH", "Terminal ; clés et empreintes de ~/.ssh, vérifiées par ssh.")
             helpLine("Telnet", "Terminal ; client Homebrew (brew install telnet), sinon nc.")
-            helpLine("RDP", "Fichier .rdp ouvert par Windows App ; identifiants demandés à l’ouverture.")
-            helpLine("VNC", "Partage d’écran de macOS (vnc://).")
+            helpLine("RDP", "Windows App, en fenêtre ou en plein écran (fichier .rdp) ; identifiants demandés à l’ouverture.")
+            helpLine("VNC", "Partage d’écran de macOS (vnc://)\u{00A0}; plein écran par l’accessibilité.")
             helpLine("Série", "screen dans Terminal ; quitter avec Ctrl-A puis K.")
             Text("Hôte : lettres, chiffres, point, tiret et deux-points seulement.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
