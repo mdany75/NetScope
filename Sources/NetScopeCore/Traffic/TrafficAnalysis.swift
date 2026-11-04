@@ -129,9 +129,11 @@ public enum TrafficAnalysis {
             let total = totals[entry.site] ?? 0
             return total > 0 ? weight(entry, rates: rates[entry.site] ?? false) / total * 100 : 0
         }
+        // Même unité partout (débits, ou octets) : classement absolu ; sinon par part de chaque site.
+        let sameUnit = Set(rates.values).count <= 1
         let ranked = sources.sorted { a, b in
             let (wa, wb) = (weight(a, rates: rates[a.site] ?? false), weight(b, rates: rates[b.site] ?? false))
-            if a.site == b.site, wa != wb { return wa > wb }
+            if a.site == b.site || sameUnit, wa != wb { return wa > wb }
             if share(a) != share(b) { return share(a) > share(b) }
             return a.id < b.id
         }

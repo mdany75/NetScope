@@ -254,7 +254,7 @@ struct TrafficEntryTable<Tools: View>: View {
         TableColumn(nameTitle, sortUsing: table.sort(view == .policies ? "politique" : "nom")) { row in
             nameCell(row)
         }
-        .width(min: 120, ideal: view == .threats ? 240 : 190)
+        .width(min: 110, ideal: view == .threats ? 240 : 170)
         .customizationID(view == .policies ? "politique" : "nom")
         .disabledCustomizationBehavior(.visibility)
     }
@@ -268,7 +268,7 @@ struct TrafficEntryTable<Tools: View>: View {
                 ToolTableText(row.entry.ip?.description ?? "—", color: Theme.textSecondary)
             }
         }
-        .width(min: 90, ideal: view == .threats ? 220 : 110)
+        .width(min: 90, ideal: view == .threats ? 220 : 104)
         .customizationID("ip")
     }
 
@@ -329,7 +329,7 @@ struct TrafficEntryTable<Tools: View>: View {
         TableColumn("Débit", sortUsing: table.sort("debit")) { row in
             ToolTableText(TrafficFormat.rate(row.entry.bandwidth), alignment: .trailing)
         }
-        .width(min: 70, ideal: 92)
+        .width(min: 64, ideal: 84)
         .customizationID("debit")
     }
 
@@ -393,7 +393,7 @@ struct TrafficEntryTable<Tools: View>: View {
             ToolTableText(row.location ?? "—", color: row.location == nil ? Theme.textTertiary : Theme.text)
                 .help(row.location.map { "Branché sur \($0) (double-clic\u{00A0}: fiche de l’appareil, clic droit\u{00A0}: Voir le port)" } ?? "")
         }
-        .width(min: 90, ideal: 140)
+        .width(min: 90, ideal: 130)
         .customizationID("port")
     }
 
@@ -401,7 +401,7 @@ struct TrafficEntryTable<Tools: View>: View {
         TableColumn("Borne Wi-Fi", sortUsing: table.sort("borne")) { row in
             ToolTableText(row.accessPoint ?? "—", mono: false, color: row.accessPoint == nil ? Theme.textTertiary : Theme.text)
         }
-        .width(min: 80, ideal: 120)
+        .width(min: 70, ideal: 104)
         .customizationID("borne")
     }
 

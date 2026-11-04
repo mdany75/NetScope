@@ -179,20 +179,50 @@ struct TraficScreen: View {
 
     // MARK: En-tête
 
+    /// Site, partie, période et source sur une ligne ; sur deux en petite fenêtre.
     private func header(_ overview: TrafficOverview) -> some View {
-        HStack(spacing: 12) {
-            SiteScopeMenu(screen: .trafic)
-            Picker("Partie", selection: $screen.part) {
-                Text("Trafic").tag(TrafficPart.trafic)
-                Text("Analyse complète").tag(TrafficPart.analyse)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                SiteScopeMenu(screen: .trafic)
+                partPicker
+                periodPicker
+                source(overview)
+                Spacer(minLength: 0)
             }
-            .labelsHidden()
-            .pickerStyle(.segmented)
-            .fixedSize()
-            if screen.part == .trafic {
-                InvSegmented(options: TrafficPeriod.allCases.map { ($0, $0.label) }, selection: $store.period)
-                    .help("Temps réel\u{00A0}: sessions en cours. 5\u{00A0}min à 7\u{00A0}j\u{00A0}: historique de FortiView (journalisation sur disque, FortiAnalyzer ou FortiGate Cloud).")
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 12) {
+                    SiteScopeMenu(screen: .trafic)
+                    partPicker
+                    Spacer(minLength: 0)
+                }
+                HStack(spacing: 12) {
+                    periodPicker
+                    source(overview)
+                    Spacer(minLength: 0)
+                }
             }
+        }
+    }
+
+    private var partPicker: some View {
+        Picker("Partie", selection: $screen.part) {
+            Text("Trafic").tag(TrafficPart.trafic)
+            Text("Analyse complète").tag(TrafficPart.analyse)
+        }
+        .labelsHidden()
+        .pickerStyle(.segmented)
+        .fixedSize()
+    }
+
+    @ViewBuilder private var periodPicker: some View {
+        if screen.part == .trafic {
+            InvSegmented(options: TrafficPeriod.allCases.map { ($0, $0.label) }, selection: $store.period)
+                .help("Temps réel\u{00A0}: sessions en cours. 5\u{00A0}min à 7\u{00A0}j\u{00A0}: historique de FortiView (journalisation sur disque, FortiAnalyzer ou FortiGate Cloud).")
+        }
+    }
+
+    private func source(_ overview: TrafficOverview) -> some View {
+        HStack(spacing: 6) {
             ViewThatFits(in: .horizontal) {
                 Text(sourceText(overview)).fixedSize()
                 Text(shortSourceText(overview)).fixedSize()
@@ -201,7 +231,6 @@ struct TraficScreen: View {
             .font(Theme.small).foregroundStyle(Theme.textSecondary)
             .help(sourceText(overview))
             if store.isBusy { ProgressView().controlSize(.small) }
-            Spacer(minLength: 0)
         }
     }
 

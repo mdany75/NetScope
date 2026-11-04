@@ -381,6 +381,10 @@ final class TrafficStore: ObservableObject {
     /// actif, Wi-Fi, étendues DHCP et inconnus de l'inventaire. Rien n'est lu sur le réseau ici :
     /// l'analyse réunit ce que NetScope a déjà relevé.
     func runAnalysis(state: AppState) {
+        analysis = makeAnalysis(state: state, traffic: overview, keys: shownKeys)
+    }
+
+    private func makeAnalysis(state: AppState, traffic overview: TrafficOverview, keys shownKeys: [String]) -> NetworkAnalysisResult {
         var input = NetworkAnalysisInput(traffic: overview.isEmpty ? nil : overview, trafficThresholds: thresholds, now: Date())
         input.wan = wanStatuses(sites: overview.sites)
         let active = SiteModel.shared.activeKey
@@ -413,7 +417,23 @@ final class TrafficStore: ObservableObject {
             }
         }
         if hasInventory { input.unknownDevices = unknown }
-        analysis = NetworkAnalysis.analyze(input)
+        return NetworkAnalysis.analyze(input)
+    }
+
+    /// Trafic et analyse de la section « Trafic et analyse » des rapports : ceux de l'écran Trafic ;
+    /// en démonstration, sans visite de l'écran, ceux du site actif (rien n'est modifié ici).
+    func reportContent(state: AppState) -> (traffic: TrafficOverview?, analysis: NetworkAnalysisResult?) {
+        // Noms NetScope des appareils (sans republier : l'écran les recalcule à son ouverture).
+        if appState == nil { appState = state }
+        if !overview.isEmpty || !isDemo { return (overview.isEmpty ? nil : overview, analysis) }
+        let key = SiteModel.shared.activeKey
+        let reports = controllerIDs(forKey: key).compactMap { id -> TrafficSiteReport? in
+            TrafficDemo.report(controllerID: id, period: period).map {
+                TrafficSiteReport(controllerID: id, site: FortiGateStore.shared.controller(id)?.displayName ?? "FortiGate", report: $0)
+            }
+        }
+        let demo = named(TrafficAnalysis.merge(reports, period: period))
+        return (demo.isEmpty ? nil : demo, analysis ?? makeAnalysis(state: state, traffic: demo, keys: [key]))
     }
 
     /// État du WAN et des tunnels pour l'analyse. Note 39 : à la fusion, renvoyer ici l'état lu

@@ -78,7 +78,7 @@ extension ReportBuilder {
                           ReportCell(c.mainApplication ?? "—", tone: c.mainApplication == nil ? .muted : .normal)]
                 return ReportRow(cells)
             }
-            var columns = [ReportColumn("Plus gros consommateurs", weight: 1.5), ReportColumn("Adresse", weight: 1, mono: true)]
+            var columns = [ReportColumn("Appareil", weight: 1.5), ReportColumn("Adresse", weight: 1, mono: true)]
             if multi { columns.append(ReportColumn("Site", weight: 0.9)) }
             columns += [ReportColumn(traffic.period.isRealtime ? "Débit" : "Volume", weight: 0.9, trailing: true),
                         ReportColumn("Part", weight: 1.1), ReportColumn("Application", weight: 1.2)]
@@ -88,11 +88,22 @@ extension ReportBuilder {
         let apps = TrafficAnalysis.sorted(traffic.entries(.applications), by: .bytes).prefix(8)
         if !apps.isEmpty {
             let total = Double(apps.reduce(UInt64(0)) { $0 &+ $1.bytes })
-            blocks.append(.bars(title: "Applications les plus utilisées", apps.map { app in
+            let rows = apps.map { app -> ReportRow in
                 let fraction = total > 0 ? Double(app.bytes) / total : 0
-                return ReportBar(label: app.name + (multi ? " (\(app.site))" : ""), count: Int(min(app.bytes, UInt64(Int.max))), fraction: fraction,
-                                 share: TrafficFormat.bytes(app.bytes))
-            }))
+                var cells = [ReportCell(app.name, bold: true)]
+                if multi { cells.append(ReportCell(app.site, tone: .muted)) }
+                let risk = app.risk ?? 0
+                cells += [ReportCell(app.category ?? "—", tone: .muted),
+                          ReportCell(app.risk.map { TrafficFormat.risk($0) } ?? "—", tone: risk >= 4 ? .critical : (risk == 3 ? .warning : .normal)),
+                          ReportCell(TrafficFormat.bytes(app.bytes)),
+                          ReportCell(ResourceFormat.percent(fraction * 100), bar: fraction)]
+                return ReportRow(cells)
+            }
+            var columns = [ReportColumn("Application", weight: 1.5)]
+            if multi { columns.append(ReportColumn("Site", weight: 0.9)) }
+            columns += [ReportColumn("Catégorie", weight: 1.1), ReportColumn("Risque", weight: 1), ReportColumn("Volume", weight: 0.8, trailing: true),
+                        ReportColumn("Part", weight: 1.1)]
+            blocks.append(.table(ReportTable(columns: columns, rows: rows, wraps: true)))
         }
 
         if !threats.isEmpty {

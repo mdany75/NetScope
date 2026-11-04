@@ -673,7 +673,12 @@ final class FortiGateStore: ObservableObject {
         let dhcp = dhcpCalls.isEmpty ? "" : "\n\n" + FortiDiagnostic.text(calls: dhcpCalls, config: c.config, system: nil, token: tokens[id],
                                                                         date: DHCPScopeStore.shared.lastRefresh ?? Date())
             .replacingOccurrences(of: "réponses brutes de la FortiGate", with: "réponses brutes des étendues DHCP de la FortiGate")
-        return "Site\u{00A0}: \(c.displayName)\n" + text + wifi + dhcp
+        // Note 54 : appels FortiView de la dernière lecture du trafic (même retrait du jeton).
+        let trafficCalls = calls == nil ? TrafficStore.shared.diagnosticCalls(id) : []
+        let traffic = trafficCalls.isEmpty ? "" : "\n\n" + FortiDiagnostic.text(calls: trafficCalls, config: c.config, system: nil, token: tokens[id],
+                                                                              date: TrafficStore.shared.lastRefresh ?? Date())
+            .replacingOccurrences(of: "réponses brutes de la FortiGate", with: "réponses brutes du trafic (FortiView) de la FortiGate")
+        return "Site\u{00A0}: \(c.displayName)\n" + text + wifi + dhcp + traffic
     }
 
     // MARK: Wi-Fi (note 27)
