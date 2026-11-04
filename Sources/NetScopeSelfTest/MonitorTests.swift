@@ -183,6 +183,27 @@ func registerMonitorTests(_ suite: TestSuite) {
         try expect(waiting.result.reachable && waiting.result.problem == nil, "inventaire vide : aucune alerte")
         let empty = MonInventoryChecks.newDevices(range: "10.182.122.0/24", known: nil, devices: [], now: now)
         try expect(empty.knownMACs == nil, "pas de base apprise sans scan")
+        try expect(waiting.noData && empty.noData, "inventaire vide : rien à évaluer")
+        let absent = MonInventoryChecks.switchPort(mac: "B0:7B:25:44:A1:6C", expected: "SW-CORE-01 · Gi1/0/22",
+                                                   devices: [device("10.182.122.9", "00:11:22:33:44:99", port: "1")], now: now)
+        try expect(absent.noData, "appareil absent du scan : rien à évaluer")
+
+        // Port de switch en alerte, puis inventaire vide (relancement ou scan) : aucun retour à la normale.
+        var port = MonProbe(name: "Port de WKS346", kind: .switchPort, target: "B0:7B:25:44:A1:6C")
+        port.expectedLocation = "SW-CORE-01 · Gi1/0/22"
+        let alerted = MonStateMachine.evaluate(probe: port, tracker: MonTracker(), result: movedAway.result, dependencyDown: false)
+        try expectEqual(alerted.tracker.state, .warning, "déplacement : en alerte")
+        let after = MonStateMachine.step(probe: port, tracker: alerted.tracker, outcome: waiting, dependencyDown: false)
+        try expect(after == nil, "sans donnée : le suivi ne bouge pas, aucun événement « rétablie »")
+        let real = MonStateMachine.step(probe: port, tracker: alerted.tracker, outcome: movedAway, dependencyDown: false)
+        try expect(real?.events.isEmpty == true, "toujours déplacé : pas de nouvelle alerte")
+
+        // Scan en cours : l'inventaire se vide et se remplit, rien n'est évalué.
+        let scanning = MonRunContext(pinger: nil, snmpCommunity: nil,
+                                     devices: [device("10.182.122.117", "B0:7B:25:44:A1:6C", port: "Gi1/0/24")],
+                                     inventoryReady: false, now: now)
+        let during = await MonRunner.run(port, context: scanning)
+        try expect(during.noData && during.result.value == "Scan en cours", "scan en cours : rien à évaluer")
 
         let a = device("10.182.122.10", "00:11:22:33:44:55", port: "1")
         let b = device("10.182.122.133", "D6:4E:81:7A:33:C0", port: "2")
@@ -225,6 +246,16 @@ func registerMonitorTests(_ suite: TestSuite) {
         try expectEqual(journal.alerts[0].severity, .info, "nouvel appareil = info")
         journal.record([MonEvent(.recovered, "revenu")], probe: news, date: monDate(13, 5))
         try expect(!journal.alerts[0].isResolved, "une information n'est pas « résolue »")
+
+        // Sonde modifiée, suspendue ou supprimée : ses alertes ouvertes sont closes.
+        var cam = MonProbe(name: "Caméra-Quai", kind: .ping, target: "192.168.50.21")
+        cam.id = UUID()
+        var closing = MonJournal()
+        closing.record([MonEvent(.down, "192.168.50.21 ne répond plus.")], probe: cam, date: monDate(9))
+        try expectEqual(closing.openCount(probe: cam.id), 1, "une alerte ouverte")
+        try expectEqual(closing.resolveOpen(probe: cam.id, reason: "sonde modifiée", date: monDate(9, 5)), 1, "close")
+        try expectEqual(closing.unreadCount, 0, "plus de badge")
+        try expect(closing.alerts[0].fullMessage.hasSuffix("sonde modifiée à 09:05."), "raison : \(closing.alerts[0].fullMessage)")
 
         let csv = journal.csv()
         try expect(csv.hasPrefix("horodatage;gravite;sonde;evenement"), "en-tête CSV")
@@ -286,6 +317,27 @@ func registerMonitorTests(_ suite: TestSuite) {
         let read = try JSONDecoder().decode(MonProbe.self, from: Data(minimal.utf8))
         try expectEqual(read.thresholds.failures, 2, "seuil lu")
         try expect(read.thresholds.latencyMs == nil && read.keyword == nil, "facultatifs absents")
+
+        // Fichier d'une autre version : seuls les éléments illisibles sont écartés.
+        let keep = UUID(), other = UUID()
+        let future = """
+        {"version":2,"probes":[
+          {"id":"\(keep.uuidString)","name":"Ping","kind":"ping","target":"10.0.0.1","schedule":"nuits","interval":30},
+          {"id":"\(other.uuidString)","name":"DHCP","kind":"dhcp","target":"en0"}],
+         "trackers":{"\(keep.uuidString)":{"state":"ok","consecutiveFailures":0},"\(other.uuidString)":{"state":"inconnu","consecutiveFailures":0}},
+         "journal":{"alerts":[
+          {"id":"\(UUID().uuidString)","date":"2026-11-03T14:00:00Z","probeName":"Ping","severity":"critical","message":"panne"},
+          {"id":"\(UUID().uuidString)","date":"2026-11-03T14:01:00Z","probeName":"DHCP","severity":"debug","message":"?"}]}}
+        """
+        let tolerant = try MonArchive.decode(Data(future.utf8))
+        try expectEqual(tolerant.probes.map(\.id), [keep], "sonde de type inconnu écartée, l'autre gardée")
+        try expectEqual(tolerant.probes[0].schedule, .always, "plage horaire inconnue : toujours")
+        try expectEqual(tolerant.probes[0].interval, 30, "intervalle lu")
+        try expectEqual(tolerant.trackers.count, 1, "suivi illisible écarté")
+        try expectEqual(tolerant.journal.alerts.count, 1, "entrée de gravité inconnue écartée")
+        try expectEqual(tolerant.skipped, 3, "trois éléments écartés")
+        try expectEqual(tolerant.history, MonHistory(), "historique absent : vide")
+
         try expectEqual(MonProbe.intervalLabel(300), "5\u{00A0}min", "intervalle 5 min")
         try expectEqual(MonProbe.intervalMenuLabel(3600), "Toutes les heures", "toutes les heures")
     }

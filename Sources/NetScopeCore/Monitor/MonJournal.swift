@@ -87,6 +87,19 @@ public struct MonJournal: Codable, Equatable, Sendable {
         self.alerts = alerts
     }
 
+    private enum CodingKeys: String, CodingKey { case alerts }
+
+    /// Une entrée illisible (gravité inconnue d'une autre version) est écartée, pas tout le journal.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let list = (try? container.decodeIfPresent([MonLossy<MonAlert>].self, forKey: .alerts)) ?? []
+        alerts = list.compactMap(\.value)
+        skipped = list.count - alerts.count
+    }
+
+    /// Entrées écartées à la lecture (non enregistré).
+    public var skipped = 0
+
     /// Alertes actives non accusées (badge de la barre latérale).
     public var unreadCount: Int { alerts.filter(\.isUnread).count }
     /// Entrées non accusées, résolues ou non (« 5 non accusées »).
@@ -117,6 +130,25 @@ public struct MonJournal: Codable, Equatable, Sendable {
         }
         trim()
         return created
+    }
+
+    /// Nombre d'alertes (critiques ou avertissements) encore ouvertes pour une sonde.
+    public func openCount(probe id: UUID) -> Int {
+        alerts.filter { $0.probeID == id && !$0.isResolved && ($0.severity == .critical || $0.severity == .warning) }.count
+    }
+
+    /// Résout les alertes ouvertes d'une sonde modifiée, désactivée ou supprimée : aucun retour à la
+    /// normale ne viendra plus les fermer. Renvoie le nombre d'alertes résolues.
+    @discardableResult
+    public mutating func resolveOpen(probe id: UUID, reason: String, date: Date) -> Int {
+        var count = 0
+        for index in alerts.indices where alerts[index].probeID == id && !alerts[index].isResolved
+            && (alerts[index].severity == .critical || alerts[index].severity == .warning) {
+            alerts[index].resolvedAt = date
+            alerts[index].resolution = reason + " à " + MonJournal.clock(date, seconds: false)
+            count += 1
+        }
+        return count
     }
 
     /// Ajoute une entrée libre (test manuel, information).

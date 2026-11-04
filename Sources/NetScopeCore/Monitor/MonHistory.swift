@@ -110,6 +110,10 @@ public struct MonArchive: Codable, Equatable, Sendable {
     public var trackers: [String: MonTracker]
     public var history: MonHistory
     public var journal: MonJournal
+    /// Éléments écartés à la lecture (sondes, suivis ou entrées illisibles) ; non enregistré.
+    public var skipped = 0
+
+    private enum CodingKeys: String, CodingKey { case version, probes, trackers, history, journal }
 
     public init(probes: [MonProbe] = [], trackers: [String: MonTracker] = [:], history: MonHistory = MonHistory(),
                 journal: MonJournal = MonJournal()) {
@@ -118,6 +122,29 @@ public struct MonArchive: Codable, Equatable, Sendable {
         self.trackers = trackers
         self.history = history
         self.journal = journal
+    }
+
+    /// Lecture tolérante : une sonde, un suivi ou une entrée du journal illisible (valeur inconnue
+    /// d'une autre version) est écarté seul ; le reste du fichier est gardé.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = (try? c.decodeIfPresent(Int.self, forKey: .version)) ?? MonArchive.currentVersion
+        let probeList = (try? c.decodeIfPresent([MonLossy<MonProbe>].self, forKey: .probes)) ?? []
+        probes = probeList.compactMap(\.value)
+        let trackerMap = (try? c.decodeIfPresent([String: MonLossy<MonTracker>].self, forKey: .trackers)) ?? [:]
+        trackers = trackerMap.compactMapValues(\.value)
+        history = (try? c.decodeIfPresent(MonHistory.self, forKey: .history)) ?? MonHistory()
+        journal = (try? c.decodeIfPresent(MonJournal.self, forKey: .journal)) ?? MonJournal()
+        skipped = (probeList.count - probes.count) + (trackerMap.count - trackers.count) + journal.skipped
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(version, forKey: .version)
+        try c.encode(probes, forKey: .probes)
+        try c.encode(trackers, forKey: .trackers)
+        try c.encode(history, forKey: .history)
+        try c.encode(journal, forKey: .journal)
     }
 
     public func encoded() throws -> Data {

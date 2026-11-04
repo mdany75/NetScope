@@ -242,6 +242,62 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
+// MARK: Décodage tolérant
+//
+// surveillance.json peut venir d'une autre version de NetScope : un champ manquant prend sa valeur
+// par défaut, une valeur inconnue (plage horaire, comparaison) aussi ; seul un type de sonde
+// inconnu rend la sonde illisible (elle est alors écartée, pas tout le fichier).
+
+extension MonThresholds {
+    private enum Keys: String, CodingKey { case latencyMs, lossPercent, failures }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: Keys.self)
+        self.init(latencyMs: try? container.decodeIfPresent(Double.self, forKey: .latencyMs),
+                  lossPercent: try? container.decodeIfPresent(Double.self, forKey: .lossPercent),
+                  failures: (try? container.decodeIfPresent(Int.self, forKey: .failures)) ?? 3)
+    }
+}
+
+extension MonProbe {
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(id: try c.decode(UUID.self, forKey: .id),
+                  name: (try? c.decodeIfPresent(String.self, forKey: .name)) ?? "Sonde",
+                  kind: try c.decode(MonProbeKind.self, forKey: .kind),
+                  target: (try? c.decodeIfPresent(String.self, forKey: .target)) ?? "",
+                  subtitle: (try? c.decodeIfPresent(String.self, forKey: .subtitle)) ?? "",
+                  isEnabled: (try? c.decodeIfPresent(Bool.self, forKey: .isEnabled)) ?? true,
+                  interval: (try? c.decodeIfPresent(Int.self, forKey: .interval)) ?? 60,
+                  thresholds: (try? c.decodeIfPresent(MonThresholds.self, forKey: .thresholds)) ?? MonThresholds(),
+                  schedule: (try? c.decodeIfPresent(MonSchedule.self, forKey: .schedule)) ?? .always,
+                  dependsOn: try? c.decodeIfPresent(UUID.self, forKey: .dependsOn),
+                  notify: (try? c.decodeIfPresent(Bool.self, forKey: .notify)) ?? true,
+                  sound: (try? c.decodeIfPresent(Bool.self, forKey: .sound)) ?? false)
+        fallbackPort = try? c.decodeIfPresent(UInt16.self, forKey: .fallbackPort)
+        expectedStatus = try? c.decodeIfPresent(Int.self, forKey: .expectedStatus)
+        keyword = try? c.decodeIfPresent(String.self, forKey: .keyword)
+        certificateDays = try? c.decodeIfPresent(Int.self, forKey: .certificateDays)
+        dnsServer = try? c.decodeIfPresent(String.self, forKey: .dnsServer)
+        dnsExpected = try? c.decodeIfPresent(String.self, forKey: .dnsExpected)
+        snmpOID = try? c.decodeIfPresent(String.self, forKey: .snmpOID)
+        snmpComparison = try? c.decodeIfPresent(MonComparison.self, forKey: .snmpComparison)
+        snmpLimit = try? c.decodeIfPresent(Double.self, forKey: .snmpLimit)
+        snmpUnit = try? c.decodeIfPresent(String.self, forKey: .snmpUnit)
+        expectedLocation = try? c.decodeIfPresent(String.self, forKey: .expectedLocation)
+        knownMACs = try? c.decodeIfPresent([String].self, forKey: .knownMACs)
+    }
+}
+
+/// Élément d'un tableau lu sans faire échouer le tableau entier : nil s'il est illisible.
+struct MonLossy<Value: Decodable>: Decodable {
+    let value: Value?
+
+    init(from decoder: Decoder) throws {
+        value = try? Value(from: decoder)
+    }
+}
+
 /// Mise en forme commune (typographie française, espaces insécables).
 public enum MonFormat {
     /// « 41 », « 2,5 ».

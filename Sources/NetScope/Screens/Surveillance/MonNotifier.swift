@@ -11,7 +11,17 @@ import UserNotifications
 final class MonNotifier: NSObject {
     static let shared = MonNotifier()
 
-    private var authorizationRequested = false
+    private enum Authorization { case unknown, pending, granted, denied }
+    private var authorization = Authorization.unknown
+    /// Notifications prêtes pendant que l'utilisateur répond à la demande d'autorisation.
+    private var queued: [UNNotificationRequest] = []
+
+    /// À appeler au lancement : le délégué doit être en place avant que macOS ne transmette le clic
+    /// sur une notification qui a lancé l'app.
+    func install() {
+        guard isAvailable else { return }
+        UNUserNotificationCenter.current().delegate = self
+    }
 
     /// Vrai si les notifications sont possibles ici.
     var isAvailable: Bool {
@@ -48,7 +58,7 @@ final class MonNotifier: NSObject {
             return
         }
         let center = UNUserNotificationCenter.current()
-        center.delegate = self
+        if center.delegate == nil { center.delegate = self }
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
@@ -56,15 +66,32 @@ final class MonNotifier: NSObject {
         content.userInfo = ["probe": probe.id.uuidString]
         if sound { content.sound = .default }
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
-        let send = { center.add(request) { _ in } }
-        if authorizationRequested {
-            send()
-        } else {
-            authorizationRequested = true
+        switch authorization {
+        case .granted:
+            center.add(request) { _ in }
+        case .denied:
+            if sound { NSSound.beep() }
+        case .pending:
+            queued.append(request)
+        case .unknown:
+            authorization = .pending
+            queued.append(request)
             center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
-                if granted { send() }
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { MonNotifier.shared.authorized(granted) }
+                }
             }
         }
+    }
+
+    /// Réponse à la demande d'autorisation : la file d'attente part (ou est abandonnée).
+    private func authorized(_ granted: Bool) {
+        authorization = granted ? .granted : .denied
+        let pending = queued
+        queued = []
+        guard granted else { return }
+        let center = UNUserNotificationCenter.current()
+        for request in pending { center.add(request) { _ in } }
     }
 }
 
@@ -105,8 +132,17 @@ enum MonWindow {
         } else {
             openAction?(id: windowID)
         }
-        if let screen { appState?.open(screen) }
+        guard let screen else { return }
+        if let appState {
+            appState.open(screen)
+        } else {
+            // Lancement par un clic sur une notification : la fenêtre n'est pas encore là.
+            pendingScreen = screen
+        }
     }
+
+    /// Écran à ouvrir dès que la fenêtre principale apparaît.
+    static var pendingScreen: Screen?
 }
 
 /// Retient l'action openWindow de la fenêtre principale.
@@ -120,6 +156,10 @@ struct MonWindowHook: View {
             .onAppear {
                 MonWindow.openAction = openWindow
                 MonWindow.appState = state
+                if let screen = MonWindow.pendingScreen {
+                    MonWindow.pendingScreen = nil
+                    state.open(screen)
+                }
             }
     }
 }

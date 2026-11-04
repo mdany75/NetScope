@@ -39,7 +39,7 @@ struct SurveillanceScreen: View {
     // MARK: Barre d'outils
 
     @ViewBuilder private var toolbarActions: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             HStack(spacing: 6) {
                 Circle().fill(Theme.success).frame(width: 8, height: 8)
                 Text(MonText.plural(store.activeCount, "sonde active", "sondes actives"))
@@ -55,7 +55,9 @@ struct SurveillanceScreen: View {
                 .font(Theme.bodySemibold)
                 .foregroundStyle(store.downCount > 0 ? Theme.critical : Theme.textSecondary)
         }
-        .padding(.trailing, 4)
+        if store.activeCount > 0 {
+            MonEngineIndicator()
+        }
         Button { store.toggleAll() } label: {
             Label(store.activeCount > 0 ? "Tout suspendre" : "Tout reprendre",
                   systemImage: store.activeCount > 0 ? "pause" : "play")
@@ -76,6 +78,44 @@ struct SurveillanceScreen: View {
 }
 
 // MARK: - Éléments communs de l'écran
+
+/// Point bleu pulsé et durée du cycle « 00:42 » (croquis : « Surveillance en arrière-plan · cycle
+/// 00:42 », raccourci ici pour tenir dans la barre d'outils à 1440 px ; la phrase complète est dans
+/// l'infobulle).
+struct MonEngineIndicator: View {
+    @ObservedObject private var store = MonStore.shared
+    @State private var dim = false
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(Theme.accent)
+                .frame(width: 7, height: 7)
+                .opacity(dim ? 0.35 : 1)
+                .onAppear {
+                    guard store.demoNow == nil else { return }
+                    withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) { dim = true }
+                }
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                Text(Self.clock(
+                    (store.demoNow ?? context.date).timeIntervalSince(store.cycleStart)))
+                    .font(Theme.caption)
+                    .foregroundStyle(Theme.textSecondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+        }
+        .help("Surveillance en arrière-plan, cycle en cours depuis cette durée\u{00A0}: les sondes continuent de tourner fenêtre fermée (icône de la barre de menus).")
+    }
+
+    /// « 00:42 », « 59:59 », « 1:02:03 ».
+    static func clock(_ interval: TimeInterval) -> String {
+        let total = max(0, Int(interval))
+        if total >= 3600 { return String(format: "%d:%02d:%02d", total / 3600, total / 60 % 60, total % 60) }
+        return String(format: "%02d:%02d", total / 60, total % 60)
+    }
+}
 
 enum MonText {
     /// « 1 sonde active », « 12 sondes actives ».

@@ -163,6 +163,15 @@ public enum MonStateMachine {
         return (next, events)
     }
 
+    /// Comme `evaluate`, pour le résultat d'un exécuteur : sans donnée (`noData`), nil (le suivi ne
+    /// bouge pas, aucun événement, rien dans l'historique).
+    public static func step(probe: MonProbe, tracker: MonTracker, outcome: MonRunOutcome, dependencyDown: Bool,
+                            calendar: Calendar = .current) -> (tracker: MonTracker, events: [MonEvent])? {
+        guard !outcome.noData else { return nil }
+        return evaluate(probe: probe, tracker: tracker, result: outcome.result, dependencyDown: dependencyDown,
+                        calendar: calendar)
+    }
+
     /// Avertissements d'une réponse : seuils de latence et de perte, condition du type.
     public static func warnings(probe: MonProbe, result: MonResult) -> [String] {
         var list: [String] = []

@@ -8,12 +8,16 @@ public struct MonRunContext: Sendable {
     public var snmpCommunity: String?
     /// Appareils connus (inventaire du Scanner), pour le port de switch et les nouveaux appareils.
     public var devices: [Device]
+    /// Faux pendant un scan : l'inventaire est vidé puis rempli peu à peu, il ne dit rien de fiable.
+    public var inventoryReady: Bool
     public var now: Date
 
-    public init(pinger: ScanPinging?, snmpCommunity: String?, devices: [Device], now: Date = Date()) {
+    public init(pinger: ScanPinging?, snmpCommunity: String?, devices: [Device], inventoryReady: Bool = true,
+                now: Date = Date()) {
         self.pinger = pinger
         self.snmpCommunity = snmpCommunity
         self.devices = devices
+        self.inventoryReady = inventoryReady
         self.now = now
     }
 }
@@ -23,11 +27,20 @@ public struct MonRunOutcome: Sendable {
     public var result: MonResult
     public var learnedLocation: String?
     public var knownMACs: [String]?
+    /// Rien à évaluer (inventaire vide, appareil absent, scan en cours) : ni réussite ni échec.
+    /// Le suivi reste tel quel, sans événement ni case d'historique.
+    public var noData: Bool
 
-    public init(result: MonResult, learnedLocation: String? = nil, knownMACs: [String]? = nil) {
+    public init(result: MonResult, learnedLocation: String? = nil, knownMACs: [String]? = nil, noData: Bool = false) {
         self.result = result
         self.learnedLocation = learnedLocation
         self.knownMACs = knownMACs
+        self.noData = noData
+    }
+
+    /// Aucune donnée à évaluer, avec la raison affichée (« En attente d’un scan »).
+    public static func noData(_ now: Date, _ reason: String) -> MonRunOutcome {
+        MonRunOutcome(result: MonResult(date: now, reachable: true, value: reason), noData: true)
     }
 }
 
@@ -41,6 +54,9 @@ public enum MonRunner {
         let target = probe.target.trimmingCharacters(in: .whitespaces)
         guard !target.isEmpty else {
             return MonRunOutcome(result: .failure(context.now, error: "Cible à compléter"))
+        }
+        if !probe.kind.usesNetwork, !context.inventoryReady {
+            return .noData(context.now, "Scan en cours")
         }
         switch probe.kind {
         case .ping: return MonRunOutcome(result: await ping(probe, host: target, context: context))
@@ -235,9 +251,9 @@ public enum MonInventoryChecks {
             return MonRunOutcome(result: .failure(now, error: "Adresse MAC invalide"))
         }
         guard let device = devices.first(where: { $0.mac == mac }) else {
-            // Inventaire vide (aucun scan depuis le lancement) ou appareil éteint : rien à signaler.
-            return MonRunOutcome(result: MonResult(date: now, reachable: true,
-                                                   value: devices.isEmpty ? "En attente d’un scan" : "Absent du dernier scan"))
+            // Inventaire vide (aucun scan depuis le lancement) ou appareil éteint : rien à évaluer,
+            // ce n'est ni une panne ni un retour à la normale.
+            return .noData(now, devices.isEmpty ? "En attente d’un scan" : "Absent du dernier scan")
         }
         guard let location = device.switchLocation else {
             return MonRunOutcome(result: MonResult(date: now, reachable: true, value: "Port inconnu",
@@ -266,7 +282,7 @@ public enum MonInventoryChecks {
         let macs = inRange.compactMap { $0.mac?.description }
         // Aucun appareil connu sur la plage (pas encore de scan) : on attend avant d'apprendre la base.
         guard !inRange.isEmpty else {
-            return MonRunOutcome(result: MonResult(date: now, reachable: true, value: "En attente d’un scan"))
+            return .noData(now, "En attente d’un scan")
         }
         guard let known else {
             return MonRunOutcome(result: MonResult(date: now, reachable: true, value: "Base : \(macs.count) appareils · \(online) en ligne"),

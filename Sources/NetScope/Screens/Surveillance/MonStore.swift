@@ -36,6 +36,9 @@ final class MonStore: ObservableObject {
     private(set) var demoNow: Date?
 
     private var nextRun: [UUID: Date] = [:]
+    /// Sonde telle qu'elle était au lancement de la vérification en cours : un résultat qui revient
+    /// après un changement de type ou de cible est écarté.
+    private var launched: [UUID: MonProbe] = [:]
     private var timer: Timer?
     private weak var appState: AppState?
     private var pinger: ICMPPinger?
@@ -172,6 +175,7 @@ final class MonStore: ObservableObject {
         probes[index] = probe
         // Cible ou type changé : on repart de zéro (l'historique précédent ne veut plus rien dire).
         if old.kind != probe.kind || old.target != probe.target {
+            journal.resolveOpen(probe: probe.id, reason: "sonde modifiée", date: Date())
             trackers[probe.id] = MonTracker()
             history.buckets[probe.id.uuidString] = nil
             nextRun[probe.id] = Date().addingTimeInterval(1)
@@ -185,14 +189,26 @@ final class MonStore: ObservableObject {
     func setEnabled(_ enabled: Bool, for id: UUID) {
         guard let index = probes.firstIndex(where: { $0.id == id }) else { return }
         probes[index].isEnabled = enabled
-        if enabled { nextRun[id] = Date().addingTimeInterval(1) }
+        if enabled {
+            nextRun[id] = Date().addingTimeInterval(1)
+        } else {
+            suspend(id)
+        }
         changed()
+    }
+
+    /// Sonde suspendue : ses alertes ouvertes sont closes (aucun retour à la normale ne viendra) et
+    /// une panne toujours présente à la reprise créera une nouvelle alerte.
+    private func suspend(_ id: UUID) {
+        journal.resolveOpen(probe: id, reason: "surveillance suspendue", date: Date())
+        trackers[id]?.alerted = nil
     }
 
     /// « Tout suspendre » / « Tout reprendre ».
     func toggleAll() {
         let enable = activeCount == 0
         for index in probes.indices { probes[index].isEnabled = enable }
+        if !enable { probes.forEach { suspend($0.id) } }
         if enable {
             cycleStart = Date()
             let now = Date()
@@ -208,6 +224,8 @@ final class MonStore: ObservableObject {
         nextRun[id] = nil
         manualTests[id] = nil
         history.buckets[id.uuidString] = nil
+        launched[id] = nil
+        journal.resolveOpen(probe: id, reason: "sonde supprimée", date: Date())
         journal.detach(probe: id)
         for index in probes.indices where probes[index].dependsOn == id { probes[index].dependsOn = nil }
         selectedID = probes.first?.id
@@ -270,7 +288,9 @@ final class MonStore: ObservableObject {
             do { pinger = try ICMPPinger() } catch { pingerFailed = true }
         }
         let community = probe.kind == .snmp ? RegSNMPCredentials.load()?.community : nil
-        let context = MonRunContext(pinger: pinger, snmpCommunity: community, devices: appState?.devices ?? [], now: Date())
+        launched[probe.id] = probe
+        let context = MonRunContext(pinger: pinger, snmpCommunity: community, devices: appState?.devices ?? [],
+                                    inventoryReady: !ScanController.shared.isRunning, now: Date())
         Task {
             let outcome = await MonRunner.run(probe, context: context)
             MonStore.shared.finish(probe.id, outcome: outcome, manual: manual)
@@ -279,20 +299,33 @@ final class MonStore: ObservableObject {
 
     private func finish(_ id: UUID, outcome: MonRunOutcome, manual: Bool) {
         running.remove(id)
+        let started = launched.removeValue(forKey: id)
         guard let index = probes.firstIndex(where: { $0.id == id }) else { return }
+        // Type ou cible changé pendant la vérification : ce résultat concerne l'ancienne cible.
+        if let started, started.kind != probes[index].kind || started.target != probes[index].target { return }
+        if outcome.noData {
+            if manual {
+                let text = "Test manuel\u{00A0}: rien à évaluer (\(outcome.result.value))."
+                manualTests[id] = MonManualTest(date: outcome.result.date, text: text, tone: .neutral)
+            }
+            changed()
+            return
+        }
         if let location = outcome.learnedLocation, probes[index].expectedLocation == nil {
             probes[index].expectedLocation = location
         }
         if let macs = outcome.knownMACs { probes[index].knownMACs = macs }
         let probe = probes[index]
         let dependencyDown = self.probe(probe.dependsOn).map { state(of: $0) == .down } ?? false
-        let step = MonStateMachine.evaluate(probe: probe, tracker: trackers[id] ?? MonTracker(),
-                                            result: outcome.result, dependencyDown: dependencyDown)
+        guard let step = MonStateMachine.step(probe: probe, tracker: trackers[id] ?? MonTracker(),
+                                              outcome: outcome, dependencyDown: dependencyDown) else { return }
         trackers[id] = step.tracker
         history.record(probe: id, result: outcome.result, state: step.tracker.state)
+        let openBefore = journal.openCount(probe: id)
         let created = journal.record(step.events, probe: probe, date: outcome.result.date)
         for alert in created { MonNotifier.shared.post(alert, probe: probe) }
-        if step.events.contains(where: { $0.kind == .recovered }) {
+        // Retour à la normale notifié seulement s'il a fermé une alerte (pas pour une simple information).
+        if step.events.contains(where: { $0.kind == .recovered }), journal.openCount(probe: id) < openBefore {
             MonNotifier.shared.postRecovery(probe: probe, value: outcome.result.value)
         }
         if manual {
@@ -364,6 +397,11 @@ final class MonStore: ObservableObject {
         guard let data = try? Data(contentsOf: url) else { return }
         do {
             let archive = try MonArchive.decode(data)
+            if archive.skipped > 0 || archive.version > MonArchive.currentVersion {
+                // Écrit par une autre version (valeurs inconnues écartées) : copie intacte gardée de côté.
+                NSLog("NetScope : %d élément(s) illisible(s) écarté(s) de %@", archive.skipped, url.path)
+                try? FileManager.default.copyItem(at: url, to: backupURL("autre-version"))
+            }
             probes = archive.probes
             var map: [UUID: MonTracker] = [:]
             for (key, tracker) in archive.trackers {
@@ -377,10 +415,23 @@ final class MonStore: ObservableObject {
         } catch {
             NSLog("NetScope : lecture impossible de %@ : %@", url.path, error.localizedDescription)
             // Fichier illisible : on le garde de côté plutôt que de l'écraser.
-            let backup = url.deletingPathExtension().appendingPathExtension("illisible.json")
-            try? FileManager.default.removeItem(at: backup)
-            try? FileManager.default.moveItem(at: url, to: backup)
+            try? FileManager.default.moveItem(at: url, to: backupURL("illisible"))
         }
+    }
+
+    /// « surveillance.illisible-20261103-143010.json » : horodaté, une copie n'en écrase jamais une autre.
+    private func backupURL(_ label: String) -> URL {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let name = "surveillance.\(label)-\(formatter.string(from: Date()))"
+        var candidate = url.deletingLastPathComponent().appendingPathComponent(name + ".json")
+        var counter = 2
+        while FileManager.default.fileExists(atPath: candidate.path) {
+            candidate = url.deletingLastPathComponent().appendingPathComponent("\(name)-\(counter).json")
+            counter += 1
+        }
+        return candidate
     }
 
     func save() {

@@ -37,6 +37,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        // Délégué des notifications en place avant tout : un clic sur une notification qui lance
+        // NetScope doit ouvrir la sonde.
+        MainActor.assumeIsolated { MonNotifier.shared.install() }
+    }
+
     /// Tant que des sondes de surveillance sont actives, NetScope reste dans la barre de menus.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         MainActor.assumeIsolated { !MonStore.shared.hasActiveProbes }

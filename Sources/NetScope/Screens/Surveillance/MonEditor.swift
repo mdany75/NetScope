@@ -5,6 +5,9 @@ import SwiftUI
 struct MonEditor: View {
     @ObservedObject private var store = MonStore.shared
     @State private var draft: MonProbe?
+    /// Emplacement de la sonde enregistrée quand le brouillon a été ouvert : tant que le brouillon
+    /// le garde tel quel, c'est l'emplacement appris depuis par le moteur qui compte.
+    @State private var originLocation: String?
     @State private var confirmDelete = false
 
     var body: some View {
@@ -28,8 +31,17 @@ struct MonEditor: View {
         .onChange(of: store.probes) { _, _ in
             // Changement venu d'ailleurs (interrupteur, apprentissage, enregistrement) : repris si rien n'est en cours.
             guard let saved = store.selectedProbe else { draft = nil; return }
-            if let current = draft, current.id == saved.id, isDirty(saved: saved, draft: current) { return }
+            if var current = draft, current.id == saved.id, isDirty(saved: saved, draft: current) {
+                // Brouillon en cours : seul l'emplacement appris est repris, s'il n'a pas été touché.
+                if current.expectedLocation == originLocation, current.expectedLocation != saved.expectedLocation {
+                    current.expectedLocation = saved.expectedLocation
+                    draft = current
+                }
+                originLocation = saved.expectedLocation
+                return
+            }
             draft = saved
+            originLocation = saved.expectedLocation
         }
         .confirmationDialog("Supprimer la sonde «\u{00A0}\(draft?.name ?? "")\u{00A0}» ?", isPresented: $confirmDelete) {
             Button("Supprimer", role: .destructive) { if let id = draft?.id { store.delete(id) } }
@@ -41,6 +53,7 @@ struct MonEditor: View {
 
     private func reload() {
         draft = store.selectedProbe
+        originLocation = draft?.expectedLocation
     }
 
     private func draftBinding(_ value: MonProbe) -> Binding<MonProbe> {
@@ -52,6 +65,7 @@ struct MonEditor: View {
         var probe = draft
         probe.isEnabled = saved.isEnabled
         probe.knownMACs = saved.knownMACs
+        if probe.expectedLocation == originLocation { probe.expectedLocation = saved.expectedLocation }
         return probe
     }
 
