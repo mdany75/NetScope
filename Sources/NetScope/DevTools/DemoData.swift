@@ -58,6 +58,9 @@ enum DemoData {
         Row(ip: "192.168.50.21", name: "Caméra quai", host: "DS-2CD2143G2-I", vendor: "Hikvision", mac: "BC:AD:28:6F:01:5A", latency: 3.0, ports: [80, 443, 554], sw: "SW-CORE-01", port: "Gi1/0/33", vlan: 40, minutesAgo: 0, type: .camera, online: true, range: "Caméras"),
         Row(ip: "192.168.50.22", name: nil, host: "axis-b8a44f2c19e0", vendor: "Axis", mac: "B8:A4:4F:2C:19:E0", latency: 2.7, ports: [80, 443, 554], sw: "SW-CORE-01", port: "Gi1/0/34", vlan: 40, minutesAgo: 0, type: .camera, online: true, range: "Caméras"),
         Row(ip: "10.10.0.10", name: "Contrôleur de domaine", host: "SRV-AD-01", vendor: "Dell", mac: "F4:EE:08:3C:72:A1", latency: 0.9, ports: [53, 88, 389, 445], sw: "SW-CORE-01", port: "Gi1/0/40", vlan: 100, minutesAgo: 0, type: .serveur, online: true, range: "Serveurs"),
+        // Note 24 : branchés sur des FortiSwitch gérés par la FortiGate (FortiGateDemo, mêmes MAC).
+        Row(ip: "10.10.0.31", name: "Serveur de sauvegarde", host: "SRV-BACKUP", vendor: "VMware", mac: "00:50:56:AA:10:31", latency: 1.2, ports: [22, 443, 445], sw: "FSW-SERVEURS", port: "port1", vlan: 100, minutesAgo: 0, type: .serveur, online: true, range: "Serveurs"),
+        Row(ip: "192.168.50.31", name: nil, host: "CAM-ENTREPOT-01", vendor: "Hikvision", mac: "BC:AD:28:6F:22:31", latency: 3.6, ports: [80, 443, 554], sw: "FSW-QUAI", port: "port1", vlan: 40, minutesAgo: 1, type: .camera, online: true, range: "Caméras"),
     ]
 
     /// Origine du nom (et groupe NetBIOS) de chaque appareil fictif, comme la résolution automatique
@@ -68,7 +71,7 @@ enum DemoData {
         "10.182.122.111": (.mdns, nil), "10.182.122.113": (.netbios, "BUREAU"), "10.182.122.117": (.netbios, "BUREAU"),
         "10.182.122.133": (.dns, nil), "10.182.122.135": (.mdns, nil), "10.182.122.140": (.netbios, "WORKGROUP"),
         "10.182.122.146": (.netbios, "BUREAU"), "192.168.50.21": (.dns, nil), "192.168.50.22": (.mdns, nil),
-        "10.10.0.10": (.dns, nil),
+        "10.10.0.10": (.dns, nil), "10.10.0.31": (.fortigate, nil), "192.168.50.31": (.fortigate, nil),
     ]
 
     /// Nature SNMP des appareils qui ont répondu à la découverte automatique (démonstration).

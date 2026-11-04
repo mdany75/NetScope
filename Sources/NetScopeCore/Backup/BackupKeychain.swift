@@ -34,6 +34,7 @@ public enum BackupKeychainScan {
         case "wmi": return "Identifiants WMI"
         case "smtp": return "Alertes par courriel (SMTP)"
         case "webhook": return "Alertes par webhook"
+        case "fortigate": return "Jeton de l’API REST de la FortiGate"
         default: return suffix
         }
     }

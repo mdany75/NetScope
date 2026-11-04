@@ -14,9 +14,10 @@ struct SwitchScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 SwitchSourcesPanel(store: store)
+                SwitchFortiGatePanel()
                 SwitchThisMacBanner(switches: store)
 
-                if store.hosts.isEmpty {
+                if store.allHosts.isEmpty {
                     Panel(padding: 0) {
                         EmptyState(systemImage: "rectangle.connected.to.line.below",
                                    title: "Aucun switch à interroger",
@@ -28,16 +29,36 @@ struct SwitchScreen: View {
                     }
                     SwitchCandidates(store: store)
                 } else {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12, alignment: .top), count: min(max(store.hosts.count, 1), 3)),
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12, alignment: .top), count: min(max(store.allHosts.count, 1), 3)),
                               spacing: 12) {
-                        ForEach(store.hosts, id: \.self) { host in
+                        ForEach(store.allHosts, id: \.self) { host in
                             SwitchCard(store: store, host: host)
                         }
                     }
                     SwitchCandidates(store: store)
                 }
 
-                if let snapshot = store.current {
+                if let snapshot = store.current, snapshot.isViaController {
+                    // FortiSwitch géré (note 24) : tout vient de la FortiGate, aucun relevé SNMP du
+                    // trafic (son adresse FortiLink n'est pas joignable depuis ce Mac).
+                    SidePanelSplit(sideWidth: 330, collapse: .below, spacing: 16) {
+                        VStack(spacing: 16) {
+                            SwitchFaceplatePanel(store: store, snapshot: snapshot)
+                            SwitchFortiPortTable(store: store, snapshot: snapshot)
+                                .id(snapshot.id)
+                            SwitchMacTable(store: store, snapshot: snapshot)
+                        }
+                    } side: {
+                        VStack(spacing: 16) {
+                            if let iface = store.selectedInterface {
+                                SwitchPortDetail(store: store, snapshot: snapshot, iface: iface)
+                            } else {
+                                Panel { Text("Choisissez un port sur la façade.").font(Theme.small).foregroundStyle(Theme.textSecondary) }
+                            }
+                            SwitchTopology(store: store)
+                        }
+                    }
+                } else if let snapshot = store.current {
                     // Relevés de trafic (note 21) du switch affiché, partagés avec sa fiche Appareil.
                     let traffic = ResourceMonitors.snmp(snapshot.host.description)
                     // Colonne principale (façade, ports chargés, table MAC) et colonne de détail (port, trafic, topologie).
@@ -59,7 +80,7 @@ struct SwitchScreen: View {
                         }
                     }
                     .modifier(SwitchResourceLifecycle(monitor: traffic))
-                } else if !store.hosts.isEmpty {
+                } else if !store.allHosts.isEmpty {
                     Panel {
                         HStack(spacing: 10) {
                             Image(systemName: "info.circle").foregroundStyle(Theme.accent)
@@ -74,7 +95,10 @@ struct SwitchScreen: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         // Communautés lues au Trousseau à l'ouverture de l'écran, hors du fil principal.
-        .task { await store.loadVault() }
+        .task {
+            await store.loadVault()
+            await FortiGateStore.shared.loadToken()
+        }
         .screenToolbar {
             Button { showAdd = true } label: { Label("Ajouter un switch", systemImage: "plus") }
                 .buttonStyle(.secondary)

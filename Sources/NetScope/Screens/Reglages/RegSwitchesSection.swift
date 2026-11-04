@@ -18,6 +18,14 @@ struct RegSwitchesSection: View {
     @StateObject private var ignoredTable = RegIgnoredSwitchTable.makeModel()
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Note 24 : FortiSwitch gérés, lus par la FortiGate (prioritaire sur SNMP).
+            RegFortiGatePanel()
+            snmpPanel
+        }
+    }
+
+    private var snmpPanel: some View {
         RegPanel(title: "Switchs interrogés",
                  subtitle: "Tables MAC, voisins LLDP/CDP et état des ports servent à localiser chaque appareil (switch, port, VLAN).") {
             RegToggleRow(title: "Découvrir les switchs automatiquement (SNMP)",

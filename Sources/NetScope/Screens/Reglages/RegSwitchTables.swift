@@ -312,7 +312,7 @@ struct RegIgnoredSwitchTable: View {
 }
 
 /// Texte d'une cellule ; « — » grisé quand il est vide.
-private struct RegSwitchCell: View {
+struct RegSwitchCell: View {
     let text: String
     var mono = false
     var secondary = false

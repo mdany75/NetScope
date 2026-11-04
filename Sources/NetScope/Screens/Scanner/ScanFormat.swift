@@ -94,6 +94,7 @@ enum ScanFormat {
             case .mdns?: methods.append("mDNS")
             case .netbios?: methods.append("NetBIOS")
             case .dns?: methods.append("DNS inverse")
+            case .fortigate?: methods.append("FortiGate")
             case .snmp?, nil: methods.append("nom d’hôte")
             }
         }

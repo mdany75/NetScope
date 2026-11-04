@@ -44,6 +44,7 @@ registerCredentialTests(suite)
 registerBackupMethodsTests(suite)
 registerAlertTests(suite)
 registerSafeNumberTests(suite)
+registerFortinetTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)
