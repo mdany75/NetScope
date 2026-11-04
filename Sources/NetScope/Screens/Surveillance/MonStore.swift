@@ -227,6 +227,7 @@ final class MonStore: ObservableObject {
         launched[id] = nil
         journal.resolveOpen(probe: id, reason: "sonde supprimée", date: Date())
         journal.detach(probe: id)
+        AlertDispatcher.shared.setExcluded(false, probe: id)
         for index in probes.indices where probes[index].dependsOn == id { probes[index].dependsOn = nil }
         selectedID = probes.first?.id
         toast = "Sonde «\u{00A0}\(probe.name)\u{00A0}» supprimée."

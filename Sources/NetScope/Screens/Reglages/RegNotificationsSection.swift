@@ -196,7 +196,7 @@ struct RegNotificationsSection: View {
             .labelsHidden()
             .datePickerStyle(.field)
             .controlSize(.small)
-            .environment(\.locale, Locale(identifier: "fr_FR"))
+            .environment(\.locale, RegFormat.timeLocale)
             .fixedSize()
             .accessibilityLabel(label)
     }

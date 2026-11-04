@@ -9,6 +9,9 @@ struct MonEditor: View {
     /// le garde tel quel, c'est l'emplacement appris depuis par le moteur qui compte.
     @State private var originLocation: String?
     @State private var confirmDelete = false
+    /// Case « Courriel, webhook » du brouillon (nil : inchangée) : appliquée à « Enregistrer ».
+    @State private var alertsExcluded: Bool?
+    @ObservedObject private var alerts = AlertDispatcher.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 11) {
@@ -52,6 +55,7 @@ struct MonEditor: View {
     }
 
     private func reload() {
+        alertsExcluded = nil
         draft = store.selectedProbe
         originLocation = draft?.expectedLocation
     }
@@ -70,7 +74,18 @@ struct MonEditor: View {
     }
 
     private func isDirty(saved: MonProbe, draft: MonProbe) -> Bool {
-        normalized(draft, saved: saved) != saved
+        normalized(draft, saved: saved) != saved || exclusionChanged(saved.id)
+    }
+
+    private func isExcluded(_ id: UUID) -> Bool { alerts.settings.rules.excludedProbes.contains(id) }
+
+    private func exclusionChanged(_ id: UUID) -> Bool {
+        alertsExcluded.map { $0 != isExcluded(id) } ?? false
+    }
+
+    /// Case « Courriel, webhook » : cochée quand la sonde n'est pas exclue (valeur du brouillon).
+    private func alertsBinding(_ id: UUID) -> Binding<Bool> {
+        Binding(get: { !(alertsExcluded ?? isExcluded(id)) }, set: { alertsExcluded = !$0 })
     }
 
     // MARK: Formulaire
@@ -149,7 +164,7 @@ struct MonEditor: View {
                     ToolCheckbox(label: "Notification macOS", isOn: draft.notify)
                     ToolCheckbox(label: "Son", isOn: draft.sound)
                 }
-                MonAlertChannelsRow(probeID: saved.id)
+                MonAlertChannelsRow(probeID: saved.id, isOn: alertsBinding(saved.id))
                 soonRow("Exécuter un script", placeholder: "~/Scripts/…")
             }
         }
@@ -186,7 +201,11 @@ struct MonEditor: View {
     }
 
     private func saveButton(saved: MonProbe, draft: Binding<MonProbe>) -> some View {
-        Button { store.save(normalized(draft.wrappedValue, saved: saved)) } label: {
+        Button {
+            store.save(normalized(draft.wrappedValue, saved: saved))
+            if let excluded = alertsExcluded, excluded != isExcluded(saved.id) { alerts.setExcluded(excluded, probe: saved.id) }
+            alertsExcluded = nil
+        } label: {
             Label("Enregistrer", systemImage: "checkmark")
         }
         .buttonStyle(.secondary)

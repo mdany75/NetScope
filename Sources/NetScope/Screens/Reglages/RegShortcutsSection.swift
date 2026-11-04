@@ -79,7 +79,7 @@ struct RegShortcutsSection: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(Theme.textSecondary)
-                    .help("Revenir à " + (action.defaultCombo?.display ?? "aucun raccourci"))
+                    .help(action.defaultCombo.map { "Revenir à \($0.display)" } ?? "Retirer le raccourci (valeur d’origine\u{00A0}: aucun)")
                 }
                 Button {
                     rejection = nil

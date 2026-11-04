@@ -10,6 +10,8 @@ struct ReglagesScreen: View {
     // Pastilles des sections Notifications (autorisation refusée) et Raccourcis (conflits).
     @ObservedObject private var notifications = RegNotifStore.shared
     @ObservedObject private var shortcuts = RegShortcutStore.shared
+    /// Pastille « Export et sauvegarde » : nombre de sauvegardes, suivi après chaque sauvegarde ou rotation.
+    @ObservedObject private var backupStore = RegBackupController.shared
     @State private var query = ""
 
     var body: some View {
@@ -153,8 +155,8 @@ struct ReglagesScreen: View {
                     .help("Notifications refusées par macOS")
             }
         case .export:
-            if !RegBackupController.shared.backups.isEmpty {
-                Text("\(RegBackupController.shared.backups.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+            if !backupStore.backups.isEmpty {
+                Text("\(backupStore.backups.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
             }
         default:
             EmptyView()

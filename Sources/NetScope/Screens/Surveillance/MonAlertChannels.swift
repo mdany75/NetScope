@@ -2,22 +2,21 @@ import NetScopeCore
 import SwiftUI
 
 /// Éditeur de sonde, « Actions d'alerte » : envoi hors du Mac (courriel, webhooks) de cette sonde.
-/// La case exclut ou inclut la sonde ; le champ dit où partent ses alertes (Réglages › Alertes).
+/// La case (brouillon de l'éditeur, appliquée à « Enregistrer ») exclut ou inclut la sonde ; le
+/// champ dit où partent ses alertes (Réglages › Alertes).
 struct MonAlertChannelsRow: View {
     let probeID: UUID
+    @Binding var isOn: Bool
     @EnvironmentObject private var state: AppState
     @ObservedObject private var alerts = AlertDispatcher.shared
 
     var body: some View {
-        let summary = alerts.channelSummary(forProbe: probeID)
+        // Le résumé suit la case du brouillon : décochée, la sonde sera exclue à l'enregistrement.
+        let summary: (text: String, active: Bool) = isOn || !alerts.settings.isEnabled
+            ? alerts.channelSummary(forProbe: probeID) : ("Sonde exclue des alertes", false)
         HStack(spacing: 8) {
-            Toggle(isOn: Binding(get: { !alerts.settings.rules.excludedProbes.contains(probeID) },
-                                 set: { alerts.setExcluded(!$0, probe: probeID) })) {
-                Text("Courriel, webhook").font(Theme.small)
-            }
-            .toggleStyle(.checkbox)
-            .controlSize(.small)
-            .frame(width: 132, alignment: .leading)
+            ToolCheckbox(label: "Courriel, webhook", isOn: $isOn)
+                .frame(width: 132, alignment: .leading)
             HStack(spacing: 6) {
                 Image(systemName: summary.active ? "paperplane.fill" : "paperplane")
                     .font(.system(size: 10, weight: .semibold))

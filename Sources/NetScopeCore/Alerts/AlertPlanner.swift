@@ -146,7 +146,22 @@ public struct AlertPlanner: Sendable, Equatable {
         return AlertBatch(events: events, suppressedCount: count, createdAt: now)
     }
 
-    /// Oublie l'anti-rafale (après un changement de règles, par exemple).
+    /// Applique de nouvelles règles sans perdre l'état : la file en attente garde les événements
+    /// encore choisis et les pannes déjà signalées restent ouvertes (leur rétablissement partira).
+    /// L'anti-rafale n'est oublié que si son intervalle change.
+    public mutating func applyRules(_ rules: AlertRules, previous: AlertRules) {
+        pending.removeAll { event in
+            if !rules.kinds.contains(event.kind) { return true }
+            if let probe = event.probeID, rules.excludedProbes.contains(probe) { return true }
+            return event.kind != .probeRecovered && event.severity < rules.minimumSeverity
+        }
+        if rules.throttleMinutes != previous.throttleMinutes {
+            lastQueued = [:]
+            suppressed = [:]
+        }
+    }
+
+    /// Oublie tout (à la coupure de l'interrupteur général).
     public mutating func reset() {
         self = AlertPlanner()
     }

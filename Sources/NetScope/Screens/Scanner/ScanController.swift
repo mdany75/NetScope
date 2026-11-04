@@ -55,6 +55,8 @@ final class ScanController: ObservableObject {
     }
 
     private var scanTask: Task<Void, Never>?
+    /// Écoute LLDP/CDP passive du scan en cours (annulée par « Arrêter » et par un nouveau scan).
+    var neighborTask: Task<Void, Never>?
     private var portTask: Task<Void, Never>?
     private var toastTask: Task<Void, Never>?
     private var pingerCache: ICMPPinger?
@@ -136,6 +138,8 @@ final class ScanController: ObservableObject {
 
     func start(_ state: AppState) {
         guard !isRunning else { return }
+        neighborTask?.cancel()
+        neighborTask = nil
         // Un nouveau scan sonde lui-même les ports : la sonde en cours s'arrête.
         stopPortProbe()
         // Démonstration : les plages sont fictives mais pourraient exister sur le vrai réseau.
@@ -298,6 +302,8 @@ final class ScanController: ObservableObject {
 
     func stop() {
         scanTask?.cancel()
+        neighborTask?.cancel()
+        neighborTask = nil
         stopPortProbe()
     }
 
@@ -615,7 +621,7 @@ final class ScanController: ObservableObject {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try ScanCSV.data(devices).write(to: url, options: .atomic)
-            show("\(devices.count) appareils exportés dans \(url.lastPathComponent)")
+            show("\(ScanController.exportedLabel(devices.count)) dans \(url.lastPathComponent)")
         } catch {
             show("Export impossible : \(error.localizedDescription)", tone: .critical)
         }

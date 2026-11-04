@@ -10,6 +10,8 @@ struct RegBackupSection: View {
     @StateObject private var table = RegBackupTable.makeModel()
     @State private var selection: BackupInfo.ID?
     @State private var restoring: BackupInfo?
+    /// Nombre gardé choisi qui retirerait des sauvegardes : en attente de confirmation.
+    @State private var pendingKeep: Int?
 
     var body: some View {
         RegPanel(title: "Export et sauvegarde",
@@ -26,6 +28,7 @@ struct RegBackupSection: View {
                                      ? "iCloud Drive n’est pas activé sur ce Mac."
                                      : "Pour retrouver la configuration sur un autre Mac (dossier NetScope › Sauvegardes d’iCloud Drive).",
                                  isOn: $backups.copyToICloud)
+                        .regDisabled(RegBackupController.iCloudFolder == nil && !RegEnvironment.isDemo)
                 }
                 .padding(.top, 12)
                 listHeader.padding(.top, 14)
@@ -46,6 +49,16 @@ struct RegBackupSection: View {
         .onAppear {
             backups.refresh()
             backups.takeRestoreReport()
+        }
+        .confirmationDialog(keepTitle, isPresented: Binding(get: { pendingKeep != nil }, set: { if !$0 { pendingKeep = nil } }),
+                            titleVisibility: .visible) {
+            Button("Placer dans la corbeille", role: .destructive) {
+                if let value = pendingKeep { backups.applyKeep(value) }
+                pendingKeep = nil
+            }
+            Button("Annuler", role: .cancel) { pendingKeep = nil }
+        } message: {
+            Text("Les sauvegardes les plus anciennes iront dans la corbeille, d’où vous pourrez les récupérer.")
         }
         .alert(item: $restoring) { info in
             Alert(title: Text("Restaurer la sauvegarde du \(RegFormat.moment(info.date))\u{00A0}?"),
@@ -92,10 +105,22 @@ struct RegBackupSection: View {
         }
     }
 
+    /// Choix du nombre gardé : confirmation s'il retirerait des sauvegardes existantes.
+    private var keepBinding: Binding<Int> {
+        Binding(get: { backups.keep }, set: { value in
+            if backups.excessCount(keep: value) > 0 { pendingKeep = value } else { backups.keep = value }
+        })
+    }
+
+    private var keepTitle: String {
+        let n = pendingKeep.map { backups.excessCount(keep: $0) } ?? 0
+        return "\(n)\u{00A0}sauvegarde\(n > 1 ? "s" : "") ser\(n > 1 ? "ont placées" : "a placée") dans la corbeille"
+    }
+
     private var retention: some View {
         HStack(alignment: .top, spacing: 14) {
             RegField(label: "Conserver") {
-                Picker("", selection: $backups.keep) {
+                Picker("", selection: keepBinding) {
                     ForEach(RegBackupController.keepChoices, id: \.self) { count in
                         Text(count == 0 ? "Toutes les sauvegardes" : "\(count) dernières").tag(count)
                     }

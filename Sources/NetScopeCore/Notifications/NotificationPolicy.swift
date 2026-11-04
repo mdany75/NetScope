@@ -255,7 +255,9 @@ public struct NotificationPolicy: Sendable {
     }
 
     public mutating func decide(_ event: NetScopeEvent, settings: NotificationSettings, context: NotificationContext) -> NotificationDecision {
-        let sound = Self.wantsSound(event, settings: settings)
+        // Une source qui refuse la bannière (sonde « sans notification ») ne sonne que si elle
+        // demande elle-même le son : le réglage global ne la rend pas bruyante.
+        let sound = Self.wantsSound(event, settings: settings) && (event.sourceAllowsBanner || event.sourceRequestsSound)
         // Notification de test : toujours livrée, avec le son choisi, pour vérifier l'autorisation.
         if event.kind == .test {
             return .deliver(NotificationDelivery(identifier: event.id, title: event.title, body: event.detail, banner: true,

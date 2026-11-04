@@ -85,7 +85,12 @@ func registerNotificationShortcutTests(_ suite: TestSuite) {
         // Sonde sans notification mais avec son : un bip seul.
         let beep = policy.decide(event(.probeDown, date: at(10), banner: false, sound: true), settings: settings, context: context)
         try expect(beep.delivery?.banner == false && beep.delivery?.sound == true, "bip seul")
+        // Sonde sans notification ni son : muette, même avec « Tous ».
+        try expectEqual(policy.decide(event(.probeDown, date: at(10), banner: false, sound: false), settings: settings, context: context),
+                        .suppress(.sourceDeclined), "sonde silencieuse, son « Tous »")
         settings.sound = .critical
+        try expectEqual(policy.decide(event(.probeDown, date: at(10), banner: false, sound: false), settings: settings, context: context),
+                        .suppress(.sourceDeclined), "sonde silencieuse, panne critique")
         try expectEqual(policy.decide(event(.probeWarning, date: at(10), banner: false), settings: settings, context: context),
                         .suppress(.sourceDeclined), "notification désactivée sur la sonde")
         settings.bannersEnabled = false

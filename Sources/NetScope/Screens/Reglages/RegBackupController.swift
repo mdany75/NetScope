@@ -25,13 +25,17 @@ final class RegBackupController: ObservableObject {
     static let keepChoices = [5, 10, 30, 60, 0]
 
     @Published var automatic: Bool { didSet { defaults?.set(automatic, forKey: Key.automatic); if automatic { runIfDue() } } }
-    @Published var keep: Int { didSet { defaults?.set(keep, forKey: Key.keep); rotate() } }
+    /// Changer ce nombre ne supprime rien tout de suite : la section demande d'abord confirmation
+    /// (`excessCount`, puis `applyKeep`), sinon la rotation attend la prochaine sauvegarde.
+    @Published var keep: Int { didSet { defaults?.set(keep, forKey: Key.keep) } }
     @Published var format: BackupFormat { didSet { defaults?.set(format.rawValue, forKey: Key.format) } }
     @Published var copyToICloud: Bool { didSet { defaults?.set(copyToICloud, forKey: Key.iCloud) } }
     @Published private(set) var folder: URL
     @Published private(set) var backups: [BackupInfo] = []
     @Published private(set) var lastBackup: Date?
-    @Published private(set) var isWorking = false
+    /// Sauvegardes en cours (compteur : deux sauvegardes peuvent se chevaucher, sécurité comprise).
+    @Published private var workCount = 0
+    var isWorking: Bool { workCount > 0 }
     @Published var message: (text: String, tone: Tone)?
     /// Comptes du Trousseau à ressaisir après une restauration ailleurs (noms seulement).
     @Published private(set) var keychainItems: [BackupKeychainItem] = []
@@ -68,7 +72,8 @@ final class RegBackupController: ObservableObject {
         automatic = defaults?.object(forKey: Key.automatic) as? Bool ?? true
         keep = defaults?.object(forKey: Key.keep) as? Int ?? 30
         format = defaults?.string(forKey: Key.format).flatMap(BackupFormat.init(rawValue:)) ?? .zip
-        copyToICloud = defaults?.bool(forKey: Key.iCloud) ?? false
+        // Sans iCloud Drive, la copie n'aurait jamais lieu : l'option reste éteinte.
+        copyToICloud = (defaults?.bool(forKey: Key.iCloud) ?? false) && (Self.iCloudFolder != nil || RegEnvironment.isDemo)
         folder = defaults?.string(forKey: Key.folder).map { URL(fileURLWithPath: $0, isDirectory: true) } ?? Self.defaultFolder
         lastBackup = defaults?.object(forKey: Key.last) as? Date
         pendingRestore = defaults?.string(forKey: Key.pending)
@@ -96,6 +101,7 @@ final class RegBackupController: ObservableObject {
     /// Lancement : sauvegarde du jour si elle est due, puis vérification toutes les heures.
     func startSchedule() {
         guard !RegEnvironment.isSandboxed, timer == nil else { return }
+        refresh()
         runIfDue()
         let timer = Timer(timeInterval: 3600, repeats: true) { _ in
             Task { @MainActor in RegBackupController.shared.runIfDue() }
@@ -114,6 +120,7 @@ final class RegBackupController: ObservableObject {
             message = ("Démonstration\u{00A0}: aucune sauvegarde n’est écrite sur le disque.", .neutral)
             return
         }
+        guard !isWorking else { return }
         Task { await backup(kind: .manuelle) }
     }
 
@@ -131,8 +138,8 @@ final class RegBackupController: ObservableObject {
     @discardableResult
     func backup(kind: BackupKind, to target: URL? = nil, format chosen: BackupFormat? = nil) async -> BackupInfo? {
         guard !RegEnvironment.isSandboxed else { return nil }
-        isWorking = true
-        defer { isWorking = false }
+        workCount += 1
+        defer { workCount -= 1 }
         // Les fichiers en mémoire sont écrits d'abord : la sauvegarde contient l'état actuel.
         MonStore.shared.save()
         let folder = target ?? self.folder
@@ -164,12 +171,33 @@ final class RegBackupController: ObservableObject {
         }
     }
 
-    private func rotate() {
+    /// Sauvegardes ordinaires que la rotation retirerait avec ce nombre gardé.
+    func excessCount(keep: Int) -> Int {
+        guard keep > 0 else { return 0 }
+        return max(0, backups.filter { $0.manifest.kind != .securite }.count - keep)
+    }
+
+    /// Nouveau nombre gardé, confirmé : rotation tout de suite (vers la corbeille).
+    func applyKeep(_ value: Int) {
+        keep = value
+        rotate(reportCount: true)
+    }
+
+    /// Rotation : les sauvegardes en trop vont à la corbeille (jamais supprimées définitivement).
+    private func rotate(reportCount: Bool = false) {
         guard !RegEnvironment.isSandboxed else { return }
         let folder = self.folder, keep = self.keep
         Task.detached(priority: .utility) {
-            _ = try? BackupEngine.rotate(in: folder, keep: keep)
-            await MainActor.run { RegBackupController.shared.refresh() }
+            let removed = (try? BackupEngine.rotate(in: folder, keep: keep,
+                                                    remove: { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) })) ?? []
+            await MainActor.run {
+                let controller = RegBackupController.shared
+                if reportCount, !removed.isEmpty {
+                    let n = removed.count
+                    controller.message = ("\(n) sauvegarde\(n > 1 ? "s" : "") placée\(n > 1 ? "s" : "") dans la corbeille.", .success)
+                }
+                controller.refresh()
+            }
         }
     }
 
@@ -220,7 +248,7 @@ final class RegBackupController: ObservableObject {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard !isWorking, panel.runModal() == .OK, let url = panel.url else { return }
         Task { await backup(kind: .manuelle, to: url, format: .zip) }
     }
 
@@ -288,10 +316,11 @@ final class RegBackupController: ObservableObject {
         }
         // Attend la fin de ce processus (ses fichiers sont écrits en quittant), puis rouvre l'app.
         let pid = ProcessInfo.processInfo.processIdentifier
-        let script = "while kill -0 \(pid) 2>/dev/null; do sleep 0.2; done; /usr/bin/open \"\(bundle.path)\""
+        // Valeurs passées en arguments positionnels, jamais insérées dans le script (chemin avec « " » ou « $( »).
+        let script = "while kill -0 \"$1\" 2>/dev/null; do sleep 0.2; done; exec /usr/bin/open \"$2\""
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = ["-c", script]
+        process.arguments = ["-c", script, "sh", String(pid), bundle.path]
         try? process.run()
         NSApp.terminate(nil)
     }

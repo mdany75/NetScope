@@ -99,6 +99,24 @@ func registerBackupMethodsTests(_ suite: TestSuite) {
         try future.write(to: futureURL)
         try expectThrows(BackupError.newerVersion(99), "version future") { _ = try BackupEngine.read(futureURL) }
         try expect(!BackupEngine.isSafeRelativePath("../etc/passwd") && BackupEngine.isSafeRelativePath("outils/a.json"), "chemins refusés")
+        try expect(!BackupEngine.isSafeRelativePath("ssh_known_hosts") && !BackupEngine.isSafeRelativePath("oui.tsv")
+                   && !BackupEngine.isSafeRelativePath(".cache/a.json") && !BackupEngine.isSafeRelativePath("a//b.json"),
+                   "fichiers non JSON, cachés ou à composant vide refusés")
+        // Manifeste fabriqué (CRC32 recalculés) qui veut remplacer des fichiers de l'app : refusé.
+        for name in ["ssh_known_hosts", "oui.tsv"] {
+            let payload = Data("faux contenu".utf8)
+            var forged = contents.manifest
+            forged.files = [BackupManifest.File(path: name, bytes: payload.count, crc32: CRC32.checksum(payload))]
+            let archive = BackupZip.archive([
+                BackupZip.Entry(path: "manifeste.json", data: try BackupEngine.encoder().encode(forged)),
+                BackupZip.Entry(path: BackupEngine.filesFolder + "/" + name, data: payload),
+            ])
+            let forgedURL = sandbox.backups.appendingPathComponent("NetScope-sauvegarde-fabriquee.zip")
+            try archive.write(to: forgedURL)
+            try expectThrows(BackupError.corrupted("chemin « \(name) » refusé"), "manifeste fabriqué avec « \(name) »") {
+                _ = try BackupEngine.read(forgedURL)
+            }
+        }
     }
 
     suite.add("Méthodes de découverte : anciens profils sans méthodes, valeurs partielles") {

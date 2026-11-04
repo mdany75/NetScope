@@ -22,7 +22,13 @@ final class AlertDispatcher: ObservableObject {
         didSet {
             guard settings != oldValue else { return }
             save()
-            if settings.rules != oldValue.rules || settings.isEnabled != oldValue.isEnabled { planner.reset() }
+            if settings.isEnabled != oldValue.isEnabled {
+                planner.reset()
+                scheduleFlush()
+            } else if settings.rules != oldValue.rules {
+                planner.applyRules(settings.rules, previous: oldValue.rules)
+                scheduleFlush()
+            }
         }
     }
     @Published private(set) var journal: [AlertLogEntry] = []

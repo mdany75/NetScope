@@ -131,7 +131,7 @@ struct RegAlertRulesPanel: View {
             .labelsHidden()
             .datePickerStyle(.field)
             .controlSize(.small)
-            .environment(\.locale, Locale(identifier: "fr_CA"))
+            .environment(\.locale, RegFormat.timeLocale)
             .fixedSize()
     }
 }

@@ -139,7 +139,7 @@ struct RegMethodsPanel: View {
         } else if methods.snmp, !plan.snmp {
             RegNotice("SNMP est coché, mais la découverte automatique des switchs est coupée (Réglages › Switchs) : seul le profil Complet la fait.", tone: .neutral)
         } else if methods.lldp {
-            RegNotice("LLDP/CDP passif demande l’accès à /dev/bpf (ChmodBPF de Wireshark) ; sinon, l’outil « Voisin LLDP/CDP » de la Boîte à outils le demande à macOS.", tone: .neutral)
+            RegNotice("LLDP/CDP passif demande l’accès à /dev/bpf (ChmodBPF de Wireshark) ; sinon, l’outil «\u{00A0}\(ToolKind.lldp.label)\u{00A0}» de la Boîte à outils le demande à macOS.", tone: .neutral)
         } else {
             Text("TCP SYN demi-ouvert et SSDP demandent des droits d’administrateur : NetScope utilise la connexion TCP complète et mDNS.")
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)

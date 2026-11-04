@@ -164,6 +164,10 @@ func registerCredentialTests(_ suite: TestSuite) {
         try expectEqual(noShell.status, .partial, "switch sans uname : authentifié quand même")
         let killed = SSHCredentialTest.analyze(exitCode: 15, stdout: "", stderr: "", host: "x", milliseconds: 12_000, timedOut: true)
         try expect(killed.message.contains("délai dépassé"), "processus arrêté après le délai")
+        let notLaunched = SSHCredentialTest.analyze(exitCode: -1, stdout: "", stderr: "Permission refusée", host: "x", milliseconds: 1)
+        try expectEqual(notLaunched.status, .failure, "ssh non lancé : échec, pas réussite partielle")
+        let signaled = SSHCredentialTest.analyze(exitCode: 9, stdout: "", stderr: "", host: "x", milliseconds: 50, signal: 9)
+        try expectEqual(signaled.status, .failure, "ssh tué par un signal : échec")
     }
 
     suite.add("SSH : vrai /usr/bin/ssh vers un port fermé de 127.0.0.1") {

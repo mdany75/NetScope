@@ -68,7 +68,7 @@ struct RegCredentialsSection: View {
             RegTextField(placeholder: "ex. 10.182.122.2", text: $tester.host, mono: true,
                          invalid: !tester.host.isEmpty && tester.hostAddress == nil)
                 .frame(width: 170)
-            Text("Lecture de sysName, sysDescr et sysUpTime (UDP 161, délai 2 s, un renvoi).")
+            Text("Lecture de sysName, sysDescr et sysUpTime (UDP 161, délai 2\u{00A0}s, un renvoi).")
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 .lineLimit(2)
             Spacer(minLength: 0)

@@ -49,6 +49,12 @@ struct ScannerScreen: View {
         .screenToolbar { toolbar }
         // Passerelle et DNS de la barre latérale : lus sur la machine, sans trafic.
         .task(id: state.activeInterface.map { "\($0.name) \($0.subnet)" }) { scan.fillLocalInfo(state) }
+        .onAppear {
+            let filter = $filter, table = table, state = state, scan = scan
+            ScanController.displayedRows = {
+                ScanResultsPanel.visibleRows(state: state, scan: scan, filter: filter.wrappedValue, sortOrder: table.sortOrder)
+            }
+        }
     }
 
     @ViewBuilder private var toolbar: some View {

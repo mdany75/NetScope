@@ -38,7 +38,7 @@ struct RegAlertMailCard: View {
                         }
                 }
                 RegField(label: "Utilisateur") {
-                    RegTextField(placeholder: "alertes@exemple.ca (vide : relais sans compte)", text: smtp.username, mono: true)
+                    RegTextField(placeholder: "alertes@exemple.ca (vide\u{00A0}: relais sans compte)", text: smtp.username, mono: true)
                 }
                 RegField(label: "Mot de passe") {
                     HStack(spacing: 6) {
@@ -323,7 +323,7 @@ struct RegAlertWebhookEditor: View {
                              text: $address, mono: true)
             }
             if let addressProblem, !address.isEmpty || !hasSavedURL {
-                RegNotice(addressProblem, tone: canSave ? .warning : .neutral)
+                RegNotice(addressProblem, tone: canSave ? .warning : (address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .neutral : .critical))
             }
             if hook.kind == .generic {
                 HStack(alignment: .top, spacing: 10) {

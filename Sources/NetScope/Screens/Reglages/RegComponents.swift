@@ -287,6 +287,10 @@ struct RegSlider: View {
 }
 
 enum RegFormat {
+    /// Locale des champs d'heure (heures de silence des Notifications et des Alertes) : « 22:00 »
+    /// sur 24 heures, la même dans toutes les sections.
+    static let timeLocale = Locale(identifier: "fr_FR")
+
     /// « 18,4 Mo » (unités décimales, virgule française).
     static func megabytes(_ bytes: Int64) -> String {
         let value = Double(bytes) / 1_000_000

@@ -369,6 +369,10 @@ public final class SNMPv3Client: Sendable {
                 }
                 throw SNMPv3Error.report(report)
             }
+            // Une vraie réponse à une requête authentifiée doit être signée (et chiffrée en authPriv) :
+            // sinon rien n'a été vérifié (agent mal configuré ou réponse usurpée).
+            if credentials.level != .noAuthNoPriv, !reply.isAuthenticated { throw SNMPv3Error.badResponseDigest }
+            if credentials.level == .authPriv, !reply.isEncrypted { throw SNMPv3Error.responseDecryption }
             guard response.type == .response else { throw SNMPError.unexpectedResponse }
             if response.errorStatus != 0 { throw SNMPError.agent(status: response.errorStatus, index: response.errorIndex) }
             return response.varbinds

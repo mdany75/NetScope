@@ -434,9 +434,13 @@ public enum BackupEngine {
         return BackupContents(manifest: manifest, files: files, preferences: preferences)
     }
 
-    /// Chemin relatif sans « .. » ni racine (rien n'est écrit hors du dossier de données).
+    /// Chemin relatif sans « .. » ni racine (rien n'est écrit hors du dossier de données), fichier
+    /// JSON seulement (la règle même de `dataFiles`), sans composant vide ni caché : une sauvegarde
+    /// fabriquée ne peut pas remplacer « ssh_known_hosts », « oui.tsv » ou un autre fichier de l'app.
     static func isSafeRelativePath(_ path: String) -> Bool {
-        !path.isEmpty && !path.hasPrefix("/") && !path.split(separator: "/").contains("..")
+        guard !path.isEmpty, !path.hasPrefix("/"), path.lowercased().hasSuffix(".json") else { return false }
+        let components = path.split(separator: "/", omittingEmptySubsequences: false)
+        return components.allSatisfy { !$0.isEmpty && !$0.hasPrefix(".") && $0 != ".." }
     }
 
     /// Remet les fichiers de la sauvegarde dans le dossier de données : chaque fichier est remplacé,
@@ -446,16 +450,36 @@ public enum BackupEngine {
     public static func restoreFiles(_ contents: BackupContents, to directory: URL) throws -> (written: [String], removed: [String]) {
         let manager = FileManager.default
         try manager.createDirectory(at: directory, withIntermediateDirectories: true)
+        for file in contents.files where !isSafeRelativePath(file.path) {
+            throw BackupError.corrupted("chemin « \(file.path) » refusé")
+        }
+        // 1. Tout est d'abord écrit dans un dossier voisin : un disque plein ou un refus d'écriture
+        //    laisse le dossier de données intact.
+        let staging = directory.deletingLastPathComponent()
+            .appendingPathComponent(".\(directory.lastPathComponent)-restauration-\(UUID().uuidString)", isDirectory: true)
+        defer { try? manager.removeItem(at: staging) }
+        for file in contents.files {
+            let url = staging.appendingPathComponent(file.path)
+            try manager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try file.data.write(to: url)
+        }
+        // 2. Remplacement fichier par fichier (même volume : rapide et atomique pour chacun).
+        for file in contents.files {
+            let target = directory.appendingPathComponent(file.path)
+            let source = staging.appendingPathComponent(file.path)
+            try manager.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+            if manager.fileExists(atPath: target.path) {
+                _ = try manager.replaceItemAt(target, withItemAt: source)
+            } else {
+                try manager.moveItem(at: source, to: target)
+            }
+        }
+        // 3. Seulement quand tout est en place : retrait des fichiers JSON absents de la sauvegarde.
         let keep = Set(contents.files.map(\.path))
         var removed: [String] = []
         for path in dataFiles(in: directory).files where !keep.contains(path) {
             try manager.removeItem(at: directory.appendingPathComponent(path))
             removed.append(path)
-        }
-        for file in contents.files {
-            let url = directory.appendingPathComponent(file.path)
-            try manager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try file.data.write(to: url, options: .atomic)
         }
         return (contents.files.map(\.path), removed)
     }

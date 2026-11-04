@@ -10,6 +10,8 @@ struct RegRemoteCredentialsPanel: View {
     @State private var selection: UUID?
     @State private var secretDraft = ""
     @State private var hostDraft = ""
+    /// Identifiant dont la suppression attend confirmation.
+    @State private var removing: RemoteCredential?
 
     private var selected: RemoteCredential? {
         store.credentials.first { $0.id == selection } ?? store.credentials.first
@@ -43,6 +45,18 @@ struct RegRemoteCredentialsPanel: View {
                  })
         .onAppear {
             if selection == nil { select(store.credentials.first(where: { $0.kind == .ssh }) ?? store.credentials.first) }
+        }
+        .confirmationDialog("Supprimer cet identifiant\u{00A0}?",
+                            isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
+                            titleVisibility: .visible, presenting: removing) { credential in
+            Button("Supprimer «\u{00A0}\(credential.name)\u{00A0}»", role: .destructive) {
+                store.remove(credential.id)
+                select(store.credentials.first)
+                removing = nil
+            }
+            Button("Annuler", role: .cancel) { removing = nil }
+        } message: { _ in
+            Text("Le mot de passe ou la phrase secrète seront effacés du Trousseau.")
         }
     }
 
@@ -216,16 +230,13 @@ struct RegRemoteCredentialsPanel: View {
                     .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border.opacity(resultTone(credential, running: isRunning) == .neutral ? 1 : 0)))
             }
             Text(credential.kind == .ssh
-                 ? "Test par /usr/bin/ssh (BatchMode, délai 6 s) avec la commande inoffensive « uname -a ». L’empreinte de l’hôte est retenue par NetScope au premier test, sans toucher à ~/.ssh/known_hosts."
+                 ? "Test par /usr/bin/ssh (BatchMode, délai 6\u{00A0}s) avec la commande inoffensive « uname -a ». L’empreinte de l’hôte est retenue par NetScope au premier test, sans toucher à ~/.ssh/known_hosts."
                  : WMIReachabilityTest.limitation)
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
                 Spacer()
-                Button("Supprimer", role: .destructive) {
-                    store.remove(credential.id)
-                    select(store.credentials.first)
-                }
+                Button("Supprimer", role: .destructive) { removing = credential }
                 .buttonStyle(.secondary)
             }
         }
@@ -355,7 +366,7 @@ struct RegRemoteCredentialTable: View {
             .width(min: 90, ideal: 130)
             .customizationID("test")
 
-            TableColumn("TEST", sortUsing: table.sort("action")) { row in
+            TableColumn("TESTER", sortUsing: table.sort("action")) { row in
                 Button("Tester") { onTest(row) }
                     .buttonStyle(RegSmallButtonStyle())
                     .regDisabled(store.running.contains(row.id) || row.lastHost.isEmpty && row.id != selection)

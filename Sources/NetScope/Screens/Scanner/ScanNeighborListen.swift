@@ -11,11 +11,14 @@ extension ScanController {
     func listenForNeighbor(_ state: AppState) {
         guard !Launcher.isDemo, let interface = state.activeInterface else { return }
         let active = state.activeInterface
-        Task.detached(priority: .utility) {
+        let toolName = "Boîte à outils › \(ToolKind.lldp.label)"
+        neighborTask?.cancel()
+        neighborTask = Task.detached(priority: .utility) {
             guard BPFCapture.readableDevice() != nil,
                   let capture = try? BPFCapture(interface: interface.name, filter: BPFFilter.neighbors, promiscuous: false) else {
+                guard !Task.isCancelled else { return }
                 await MainActor.run {
-                    ScanController.shared.show("LLDP/CDP passif\u{00A0}: /dev/bpf n’est pas lisible. Utilisez Outils › Voisin LLDP/CDP (autorisation de macOS).",
+                    ScanController.shared.show("LLDP/CDP passif\u{00A0}: /dev/bpf n’est pas lisible. Utilisez \(toolName) (autorisation de macOS).",
                                                tone: .neutral)
                 }
                 return
@@ -23,10 +26,11 @@ extension ScanController {
             defer { capture.stop() }
             let end = Date().addingTimeInterval(ScanController.neighborListenSeconds)
             var frames: [CapturedFrame] = []
-            while Date() < end {
+            while Date() < end, !Task.isCancelled {
                 frames += capture.read(timeout: 0.5)
                 let neighbors = NeighborFrameDecoder.neighbors(in: frames, interface: interface.name)
                 if let neighbor = neighbors.first(where: { $0.protocols.contains(.lldp) }) ?? neighbors.first {
+                    guard !Task.isCancelled else { return }
                     await MainActor.run {
                         ToolStore.shared.neighbors.recordPassive(neighbor, interface: interface, active: active)
                         ScanController.shared.show("Switch voisin entendu (\(neighbor.headline)).", tone: .success)

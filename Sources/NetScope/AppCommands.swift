@@ -28,7 +28,7 @@ struct AppCommands: Commands {
         CommandGroup(replacing: .importExport) {
             Button("Exporter les résultats du scan…") { AppActions.export(state) }
                 .regShortcut(ShortcutID.export, shortcuts)
-                .disabled(state.devices.isEmpty)
+                .disabled(state.filteredDevices.isEmpty)
         }
         // Pas d'impression générale (le rapport s'imprime depuis l'écran Rapports).
         CommandGroup(replacing: .printItem) {}
@@ -152,8 +152,10 @@ enum AppActions {
     }
 
     static func export(_ state: AppState) {
-        guard !state.devices.isEmpty else { return }
-        ScanController.shared.exportCSV(state.filteredDevices)
+        // Mêmes lignes et même format que le bouton « Exporter » du Scanner.
+        let rows = ScanController.displayedRows?() ?? state.filteredDevices
+        guard !rows.isEmpty else { return }
+        ScanController.shared.export(rows, state: state)
     }
 
     /// Place le curseur dans le champ de recherche de la barre d'outils.

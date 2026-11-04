@@ -449,6 +449,28 @@ func registerAlertTests(_ suite: TestSuite) {
         try expectEqual(planner.submit(recovery, settings: settings, now: fixedDate + 40), .skipped(.noOpenAlert), "une seule fois")
     }
 
+    suite.add("Alertes : un changement de règles garde la file et les pannes ouvertes") {
+        var planner = AlertPlanner()
+        var settings = AlertSettings()
+        settings.isEnabled = true
+        let probe = UUID()
+        _ = planner.submit(sampleEvent(subject: "cam", at: fixedDate), settings: settings, now: fixedDate)
+        _ = planner.submit(sampleEvent(subject: "nas", at: fixedDate, probe: probe), settings: settings, now: fixedDate)
+        let previous = settings.rules
+        settings.rules.groupingSeconds = 300
+        settings.rules.excludedProbes = [probe]
+        planner.applyRules(settings.rules, previous: previous)
+        try expectEqual(planner.pending.map(\.subject), ["cam"], "seule la sonde exclue quitte la file")
+        try expect(planner.lastQueued["sonde.panne|cam"] != nil, "anti-rafale gardé (intervalle inchangé)")
+        let before = settings.rules
+        settings.rules.throttleMinutes = 5
+        planner.applyRules(settings.rules, previous: before)
+        try expect(planner.lastQueued.isEmpty, "anti-rafale oublié quand l’intervalle change")
+        _ = planner.flush(now: fixedDate + 400, rules: settings.rules)
+        try expectEqual(planner.submit(sampleEvent(.probeRecovered, subject: "cam", severity: .info), settings: settings, now: fixedDate + 500),
+                        .queued, "rétablissement accepté après le changement de règles")
+    }
+
     suite.add("Alertes : heures de silence (passage de minuit, critiques permises)") {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = utc

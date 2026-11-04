@@ -14,8 +14,8 @@ enum Launcher {
             Snapshots.run(arguments: arguments)
         }
         // Restauration d'une sauvegarde demandée avant le redémarrage : appliquée avant que les
-        // écrans ne lisent leurs fichiers (jamais en démonstration).
-        if !isDemo { RegBackupController.applyPendingRestore() }
+        // écrans ne lisent leurs fichiers (jamais en démonstration ni pendant une capture).
+        if !RegEnvironment.isSandboxed { RegBackupController.applyPendingRestore() }
         NetScopeApp.main()
     }
 

@@ -70,9 +70,10 @@ public enum SSHCredentialTest {
         return Invocation(executable: executable, arguments: arguments, environment: environment)
     }
 
-    /// Analyse de la sortie de ssh (code 255 : erreur de ssh lui-même).
+    /// Analyse de la sortie de ssh (code 255 : erreur de ssh lui-même ; code négatif : ssh n'a pas
+    /// pu être lancé ; `signal` : ssh tué par un signal autre que le délai).
     public static func analyze(exitCode: Int32, stdout: String, stderr: String, host: String, milliseconds: Int,
-                               timedOut: Bool = false) -> CredentialTestOutcome {
+                               timedOut: Bool = false, signal: Int32? = nil) -> CredentialTestOutcome {
         let output = stdout.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         let errors = stderr.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty && !$0.hasPrefix("Warning: Permanently added") }
@@ -85,10 +86,18 @@ public enum SSHCredentialTest {
             return CredentialTestOutcome(status: .success, message: "Réussi · \(host) · session ouverte · \(first) · \(milliseconds)\u{00A0}ms",
                                          details: output)
         }
+        if exitCode < 0 {
+            return CredentialTestOutcome(status: .failure,
+                                         message: "Échec · ssh n’a pas pu être lancé\u{00A0}: \(errors.last ?? "erreur inconnue").", details: errors)
+        }
+        if let signal {
+            return CredentialTestOutcome(status: .failure,
+                                         message: "Échec · ssh a été interrompu (signal \(signal)) avant la fin du test.", details: output + errors)
+        }
         if exitCode != 255 {
             // Session ouverte et authentifiée, mais la commande n'existe pas (switch, routeur, Windows).
             return CredentialTestOutcome(status: .partial,
-                                         message: "Réussi en partie · connexion et authentification acceptées par \(host), mais « uname » a renvoyé le code \(exitCode) (équipement sans shell Unix ?).",
+                                         message: "Réussi en partie · connexion et authentification acceptées par \(host), mais « uname » a renvoyé le code \(exitCode) (équipement sans shell Unix\u{00A0}?).",
                                          details: output + errors)
         }
         let reason: String
@@ -113,7 +122,7 @@ public enum SSHCredentialTest {
         } else if lower.contains("no matching") || lower.contains("unable to negotiate") {
             reason = "algorithmes incompatibles (équipement ancien : chiffrement ou échange de clés non accepté par OpenSSH)"
         } else if lower.contains("connection closed") || lower.contains("connection reset") || lower.contains("kex_exchange_identification") {
-            reason = "connexion fermée par \(host) avant l’authentification (limite de sessions, liste d’accès ?)"
+            reason = "connexion fermée par \(host) avant l’authentification (limite de sessions, liste d’accès\u{00A0}?)"
         } else {
             reason = errors.last ?? "erreur de ssh (code 255)"
         }
@@ -160,7 +169,8 @@ public enum SSHCredentialTest {
         let start = Date()
         let result = await ProcessRunner.run(invocation.executable, invocation.arguments, environment: invocation.environment, timeout: limit)
         return analyze(exitCode: result.status, stdout: result.stdout, stderr: result.stderr, host: host,
-                       milliseconds: Int(Date().timeIntervalSince(start) * 1000), timedOut: result.timedOut)
+                       milliseconds: Int(Date().timeIntervalSince(start) * 1000), timedOut: result.timedOut,
+                       signal: result.timedOut ? nil : result.signal)
     }
 }
 
@@ -171,6 +181,8 @@ enum ProcessRunner {
         var stdout: String
         var stderr: String
         var timedOut: Bool
+        /// Signal qui a tué le processus (nil : sortie normale ; `status` vaut alors le numéro du signal).
+        var signal: Int32? = nil
     }
 
     static func run(_ executable: String, _ arguments: [String], environment: [String: String], timeout: TimeInterval) async -> Result {
@@ -197,10 +209,12 @@ enum ProcessRunner {
                 let stdout = out.fileHandleForReading.readDataToEndOfFile()
                 let stderr = err.fileHandleForReading.readDataToEndOfFile()
                 process.waitUntilExit()
+                let signaled = process.terminationReason == .uncaughtSignal
                 continuation.resume(returning: Result(status: process.terminationStatus,
                                                       stdout: String(decoding: stdout.prefix(64_000), as: UTF8.self),
                                                       stderr: String(decoding: stderr.prefix(64_000), as: UTF8.self),
-                                                      timedOut: timedOut.isClaimed))
+                                                      timedOut: timedOut.isClaimed,
+                                                      signal: signaled ? process.terminationStatus : nil))
             }
         }
     }
