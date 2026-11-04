@@ -734,3 +734,32 @@ donc l'info complète du client. » Prolonge la note 27 (liste des clients livr�
   (PSK, 802.1X, utilisateur), durée de connexion, octets échangés, historique d'itinérance
   entre bornes ; liens vers la fiche Appareil, l'Inventaire et le Ping continu (note 34).
 - Retour vers la borne ou le SSID d'origine (note 45).
+
+## 47. Diagnostic des problèmes Wi-Fi d'un client, avec solutions — À PLANIFIER (demande de Dany)
+
+« Diagnostiquer les troubles Wi-Fi des clients, la lenteur, toutes les possibilités, et
+suggérer la résolution. » Va plus loin que le diagnostic général de la note 27 : un bouton
+« Diagnostiquer » sur la fiche d'un client Wi-Fi (note 46), sur une borne et sur un SSID,
+qui vérifie chaque cause possible, dit en clair ce qui ne va pas et propose quoi faire.
+
+- Signal : RSSI faible ou SNR bas (client trop loin, obstacle) → rapprocher la borne, en
+  ajouter une, vérifier la puissance d'émission ; client « collant » resté sur une borne
+  éloignée → activer l'itinérance assistée (802.11k/v/r), seuil de RSSI minimal.
+- Canal et interférences : canal saturé, chevauchement avec les bornes voisines ou les AP
+  non autorisés, largeur trop grande en 2,4 GHz, DFS (changements de canal radar) → canal
+  et largeur conseillés, plan de canaux.
+- Charge : trop de clients sur la borne ou la radio, utilisation du canal élevée, clients
+  lents (anciens standards, bas débits de base) qui ralentissent tout le monde → équilibrage
+  de charge, pilotage de bande vers 5/6 GHz, retirer les débits anciens.
+- Client : débit négocié bas, standard ancien (Wi-Fi 4), une seule antenne, pilote ou
+  économie d'énergie, bande 2,4 GHz alors que 5 GHz est possible → conseils pour le poste.
+- Connexion et authentification : échecs ou déconnexions répétées, itinérances trop
+  fréquentes, mauvais mot de passe, 802.1X / RADIUS refusé, délai DHCP, pas d'IP ou IP
+  169.254 → cause probable et correction.
+- Au-delà du Wi-Fi : perte et latence vers la passerelle, le DNS et Internet (Ping continu,
+  traceroute), lien de la borne vers son switch (port, PoE, vitesse, erreurs, note 33), WAN
+  et SD-WAN du site (note 39), limite de bande passante ou mise en forme du trafic par SSID.
+- Résultat : un verdict par cause (OK, à surveiller, problème), la cause la plus probable en
+  tête, les mesures qui le prouvent, les actions suggérées dans l'ordre, et un export dans le
+  rapport du site ; suivi dans le temps (le problème revient-il à certaines heures ?).
+- Lecture seule sur la FortiGate : NetScope propose, le technicien applique.
