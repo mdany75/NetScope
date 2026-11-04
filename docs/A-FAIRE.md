@@ -577,3 +577,17 @@ site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
 - Choix d'un ou plusieurs sites (menu « Site ▾ ») dans l'Analyse, l'Inventaire, la Carte et les
   Rapports, sans changer le site actif du Scanner ; lignes jamais fusionnées entre sites, colonne
   « Site », rapport multisite (une section par site), un dessin de carte par site.
+
+## 29. Relire en automatique — À PLANIFIER (demande de Dany)
+
+- Relecture périodique, sans relancer de scan, de la FortiGate (FortiSwitch, FortiAP), des
+  switchs SNMP et des emplacements des appareils (aujourd'hui : boutons « Relire la FortiGate »,
+  « Relire les bornes », « Interroger les switchs » ou fin de scan).
+- Intervalle réglable par site, pause quand le site n'est pas le site actif.
+
+## 30. Type « Téléphonie IP » — À PLANIFIER (demande de Dany)
+
+- Nouveau type pour les téléphones IP (Yealink, Poly, Cisco, Mitel, Grandstream, Fanvil, Snom…),
+  distinct de « Téléphone » (cellulaires).
+- Détection : fabricant (OUI), ports SIP 5060/5061, annonce LLDP-MED, VLAN voix.
+- Clic droit « Changer le type », import CSV, Carte, Rapports, comme les autres types.
