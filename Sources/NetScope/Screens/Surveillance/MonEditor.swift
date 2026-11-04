@@ -100,6 +100,7 @@ struct MonEditor: View {
                         Button(kind.label) {
                             draft.wrappedValue.kind = kind
                             MonResourceConditionFields.prepare(&draft.wrappedValue)
+                            MonServiceConditionFields.prepare(&draft.wrappedValue)
                         }
                     }
                 }
@@ -359,6 +360,8 @@ private struct MonConditionFields: View {
                  + (probe.knownMACs.map { " (\($0.count) connues)" } ?? " (base apprise au premier passage)") + ".")
         case .cpu, .memory, .portLoad:
             MonResourceConditionFields(probe: $probe)
+        case .onlineService:
+            MonServiceConditionFields(probe: $probe)
         }
     }
 

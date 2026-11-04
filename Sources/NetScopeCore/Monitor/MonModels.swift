@@ -8,6 +8,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
     case ping, tcp, http, dns, snmp, switchPort, newDevices
     /// Ressources (note 21) : processeur, mémoire, port saturé (ce Mac ou SNMP).
     case cpu, memory, portLoad
+    /// État d'un grand service en ligne (note 15) : page d'état officielle et test depuis ce réseau.
+    case onlineService
 
     public var id: String { rawValue }
 
@@ -24,6 +26,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .cpu: return "Processeur > X\u{00A0}%"
         case .memory: return "Mémoire > X\u{00A0}%"
         case .portLoad: return "Port saturé > X\u{00A0}%"
+        case .onlineService: return "Service en ligne"
         }
     }
 
@@ -40,6 +43,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .cpu: return "CPU"
         case .memory: return "Mémoire"
         case .portLoad: return "Débit"
+        case .onlineService: return "Service"
         }
     }
 
@@ -55,6 +59,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .newDevices: return "Plage (10.0.0.0/24)"
         case .cpu, .memory: return "ce Mac, ou adresse IP de l’agent SNMP"
         case .portLoad: return "ce Mac, ou adresse IP du switch"
+        case .onlineService: return "Service du catalogue (Microsoft 365, GitHub…)"
         }
     }
 
@@ -251,6 +256,8 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
         case .portLoad:
             let port = resourcePort.flatMap { $0.isEmpty ? nil : $0 } ?? "port à choisir"
             return "Alerte si \(port) > \(MonFormat.percent(resourceLimit ?? MonProbe.defaultResourceLimit(.portLoad))) du lien"
+        case .onlineService:
+            return "Alerte si panne chez eux, dégradé ou injoignable d’ici"
         }
     }
 

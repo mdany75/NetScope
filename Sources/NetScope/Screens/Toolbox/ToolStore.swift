@@ -5,11 +5,14 @@ import SwiftUI
 /// Les outils de la boîte à outils, dans l'ordre du croquis (docs/croquis/Toolbox.dc.html).
 enum ToolKind: String, CaseIterable, Identifiable, Codable {
     case subnet, mac, ports, dns, whois, mtu, iperf, speedtest, wol, dhcp, lldp
+    /// État des grands services en ligne (note 15).
+    case cloud
 
     var id: String { rawValue }
 
     enum Group: String, CaseIterable {
         case adressage = "Adressage", diagnostic = "Diagnostic", performance = "Performance", services = "Services"
+        case internet = "Internet"
         var tools: [ToolKind] { ToolKind.allCases.filter { $0.group == self } }
     }
 
@@ -19,6 +22,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .ports, .dns, .whois, .mtu: return .diagnostic
         case .iperf, .speedtest: return .performance
         case .wol, .dhcp, .lldp: return .services
+        case .cloud: return .internet
         }
     }
 
@@ -35,6 +39,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .wol: return "Wake-on-LAN"
         case .dhcp: return "Test DHCP"
         case .lldp: return "Capture LLDP/CDP"
+        case .cloud: return "État des services"
         }
     }
 
@@ -51,6 +56,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .wol: return "Envoie un paquet magique pour réveiller un poste."
         case .dhcp: return "Détecte tous les serveurs DHCP qui répondent sur le segment."
         case .lldp: return "Identifie le switch, le port et le VLAN où ce Mac est branché."
+        case .cloud: return "Microsoft 365, AWS, Google, GitHub…\u{00A0}: page d’état officielle et accès depuis ce réseau."
         }
     }
 
@@ -67,6 +73,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .wol: return "power"
         case .dhcp: return "shield.lefthalf.filled"
         case .lldp: return "cable.connector"
+        case .cloud: return "cloud"
         }
     }
 
