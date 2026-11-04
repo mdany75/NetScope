@@ -31,7 +31,21 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
    l'Inventaire et le choix d'un ou plusieurs sites, et correction de la Carte, dernier scan
    seulement) ; essai réel à faire sur les sites de Dany (« Détecter mon site »,
    migration de l'inventaire, import CSV, switchs SNMP associés).
-10. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
+10. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany) :
+    - **0.12.1** : essais réels (sites, FortiGate, FortiAP) et correctifs ; note 35 (journal et
+      diagnostic).
+    - **0.13.0** : note 34 (double-clic partout, « Ouvrir dans… », Retour ⌘[) avec les notes 33
+      et 31 ; note 36 (essais de charge).
+    - **0.14.0** : notes 32 (recherche dans la Carte), 30 (Téléphonie IP), 37 (étendues DHCP),
+      38 (sauvegarde chiffrée).
+    - **0.15.0** : notes 29 (relire en automatique), 39 (WAN des FortiGate).
+    - **0.16.0** : notes 40 (sauvegarde des configurations), 41 (firmware et licences).
+    - **0.17.0** : notes 42 (rapport de suivi), 10 (Inventaire phase 3).
+    - **0.18.0** : notes 43 (Syslog et traps), 44 (aide et accueil).
+    - **Plus tard** : notes 11 (Ping continu), 6 (RustDesk), anglais ; idées d’un cran en dessous :
+      navigateur SNMP, toner des imprimantes, test de câble, qualité VoIP (MOS), scan d’un VLAN
+      tagué, relevé Wi-Fi sur plan, synchronisation entre deux Mac, retour à la version
+      précédente, contrôle IPv6.
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
 
@@ -635,3 +649,57 @@ entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 3
 - Service en ligne, résultat d'outil, sauvegarde, connexion d'Accès distant → leur détail.
 - Toujours : le même geste partout (double-clic, ou ↩︎), un menu contextuel « Ouvrir dans… »
   qui propose les autres modules, et « Retour » (⌘[) vers l'écran d'où l'on vient.
+
+## 35. Journal de l’app et « Exporter un diagnostic » — À PLANIFIER (analyse, retenue par Dany)
+
+- Journal interne consultable (erreurs, avertissements, appels FortiGate/SNMP en échec, avec date
+  et module), visible dans l’app ; export .zip « diagnostic » sans aucun secret (jetons,
+  communautés, mots de passe masqués) ; rapport des plantages précédents au lancement.
+
+## 36. Essais de charge sans réseau — À PLANIFIER (analyse, retenue par Dany)
+
+- Tests de performance avec des données fictives : 20 sites, plages de 65 536 adresses, gros
+  inventaires et historiques ; temps d’ouverture des écrans, de changement de site, d’écriture
+  de l’inventaire (aujourd’hui réécrit en entier à chaque changement).
+
+## 37. Occupation des étendues DHCP — À PLANIFIER (analyse, retenue par Dany)
+
+- Par la FortiGate (baux et étendues) et le Test DHCP : taux d’occupation de chaque étendue,
+  alerte « étendue presque pleine », sonde de Surveillance, ligne dans les rapports.
+
+## 38. Sauvegarde chiffrée par mot de passe — À PLANIFIER (analyse, retenue par Dany)
+
+- Archive de sauvegarde chiffrée (mot de passe choisi), jetons et secrets inclus en option
+  (chiffrés) pour restaurer un 2e Mac sans ressaisir 20 jetons ; sans mot de passe : comme
+  aujourd’hui, jamais de secret.
+
+## 39. État du WAN de chaque FortiGate — À PLANIFIER (analyse, retenue par Dany)
+
+- Liens WAN et SD-WAN (état, latence, perte, gigue), tunnels VPN IPsec (montés ou tombés),
+  par site ; sondes « tunnel tombé » et « lien WAN dégradé » ; vue de tous les sites.
+
+## 40. Sauvegarde des configurations — À PLANIFIER (analyse, retenue par Dany)
+
+- Copie de la configuration de chaque FortiGate (API, lecture), puis des switchs en SSH ;
+  historique par site, comparaison avant/après (différences surlignées), avant une intervention.
+
+## 41. Firmware et licences du parc — À PLANIFIER (analyse, retenue par Dany)
+
+- Versions FortiOS, FortiSwitch et FortiAP de chaque site, versions recommandées, contrats
+  FortiGuard et dates d’expiration ; tableau de tous les sites et drapeau « firmware à jour » du
+  rapport enfin rempli ; alertes avant expiration.
+
+## 42. Rapport de suivi et rapports planifiés — À PLANIFIER (analyse, retenue par Dany)
+
+- « Depuis le dernier rapport » : nouveaux appareils, disparus, problèmes réglés ou nouveaux
+  (réutilise la comparaison de l’Analyse) ; rapports produits à date fixe par site.
+
+## 43. Récepteur Syslog et traps SNMP — À PLANIFIER (analyse, retenue par Dany)
+
+- Réception Syslog et traps SNMP sur le Mac, journaux de la FortiGate par l’API ; recherche
+  par heure, appareil et gravité, pour comprendre une coupure intermittente.
+
+## 44. Aide intégrée et accueil au premier lancement — À PLANIFIER (analyse, retenue par Dany)
+
+- Accueil au premier lancement (autorisations, premier site, FortiGate), bouton « ? » dans
+  chaque écran, menu Aide rempli (aujourd’hui vide).
