@@ -138,20 +138,25 @@ struct WifiConnectionPanel: View {
         }
     }
 
+    /// Le bouton suit l'état de l'autorisation (WifiLocationGuidance) ; le message sous le texte
+    /// dit ce qui se passe et ce qu'il faut faire.
     private var locationBanner: some View {
-        HStack(spacing: 10) {
+        let guidance = store.locationGuidance
+        return HStack(spacing: 10) {
             Image(systemName: "location.slash").foregroundStyle(Theme.warning)
             VStack(alignment: .leading, spacing: 2) {
                 Text("macOS masque le nom du réseau (SSID) et le BSSID").font(Theme.bodySemibold)
                 Text("Depuis macOS 14, lire le SSID exige l’autorisation de localisation. NetScope ne s’en sert que pour lire le nom des réseaux Wi-Fi.")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
+                Text(guidance.message)
+                    .font(Theme.small.weight(guidance.isWarning ? .semibold : .regular))
+                    .foregroundStyle(guidance.isWarning ? Theme.warning : Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
-            Button(store.authorization == .denied ? "Ouvrir les réglages de localisation" : "Autoriser la localisation") {
-                store.requestLocation()
-            }
-            .buttonStyle(.primary)
+            Button(guidance.buttonTitle) { store.requestLocation() }
+                .buttonStyle(.primary)
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.warningSoft))

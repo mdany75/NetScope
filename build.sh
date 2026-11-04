@@ -17,7 +17,8 @@
 #      ou si scripts/make-icon.swift est plus récent
 #   3. assemblage de « NetScope.app » dans un dossier temporaire (avec Resources/oui.tsv,
 #      la base des fabricants)
-#   4. signature : Developer ID et runtime durci (ad hoc sans certificat), puis vérification
+#   4. signature : Developer ID et runtime durci (ad hoc sans certificat), avec les droits de
+#      Resources/NetScope.entitlements (localisation), puis vérification
 #   5. installation dans /Applications, seulement avec --install
 #   6. image disque « build/NetScope.dmg » (application + raccourci vers Applications)
 #   7. signature de l'image disque, notarisation chez Apple, agrafage du ticket
@@ -42,6 +43,9 @@ ICON_SCRIPT="${SCRIPT_DIR}/make-icon.swift"
 ICON_FILE="${RESOURCES_DIR}/AppIcon.icns"
 LPROJ_DIR="${RESOURCES_DIR}/fr.lproj"
 OUI_FILE="${RESOURCES_DIR}/oui.tsv"
+# Droits de l'application (runtime durci) : localisation, exigée par macOS pour lire le nom
+# des réseaux Wi-Fi. Sans ce droit, macOS refuse la localisation sans afficher de fenêtre.
+ENTITLEMENTS="${RESOURCES_DIR}/NetScope.entitlements"
 
 DIST_DIR="${ROOT_DIR}/build"
 
@@ -80,6 +84,8 @@ for tool in swift iconutil codesign plutil hdiutil ditto security xcrun spctl; d
 done
 
 plutil -lint "${INFO_PLIST}" >/dev/null || die "Info.plist invalide : ${INFO_PLIST}"
+[[ -f "${ENTITLEMENTS}" ]] || die "fichier manquant : ${ENTITLEMENTS}"
+plutil -lint "${ENTITLEMENTS}" >/dev/null || die "fichier de droits invalide : ${ENTITLEMENTS}"
 
 # --- Signature et notarisation ------------------------------------------------
 #
@@ -230,7 +236,8 @@ plutil -lint "${CONTENTS_DIR}/Info.plist" >/dev/null || die "Info.plist invalide
 step "Signature (${SIGN_IDENTITY})"
 # Les attributs étendus (informations du Finder, etc.) font échouer codesign.
 xattr -cr "${STAGE_APP}"
-sign_code "${SIGN_ARGS[@]}" "${STAGE_APP}"
+# Les droits s'appliquent à l'application seulement (pas à l'image disque).
+sign_code --entitlements "${ENTITLEMENTS}" "${SIGN_ARGS[@]}" "${STAGE_APP}"
 
 # --- 5. Installation (avec --install) -----------------------------------------
 

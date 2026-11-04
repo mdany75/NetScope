@@ -51,5 +51,7 @@
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>NetScope a besoin de la localisation pour lire le nom des réseaux Wi-Fi (exigence de macOS).</string>
+	<key>NSLocationUsageDescription</key>
+	<string>NetScope a besoin de la localisation pour lire le nom des réseaux Wi-Fi (exigence de macOS).</string>
 </dict>
 </plist>
