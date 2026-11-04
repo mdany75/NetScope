@@ -19,8 +19,19 @@ struct RemoteDraft: Equatable {
     var folder = ""
     var note = ""
     var isFavorite = false
+    var display = RemoteDisplaySettings.defaults(for: .ssh)
+    /// Taille personnalisée saisie (texte du champ).
+    var customWidth = "1600"
+    var customHeight = "1000"
 
     init() {}
+
+    /// Change de protocole ; l'affichage reprend les valeurs par défaut du nouveau protocole s'il
+    /// n'avait pas été modifié.
+    mutating func switchProtocol(to option: RemoteProtocol) {
+        if display == .defaults(for: proto) { display = .defaults(for: option) }
+        proto = option
+    }
 
     init(_ connection: RemoteConnection) {
         editingID = connection.id
@@ -32,6 +43,9 @@ struct RemoteDraft: Equatable {
         folder = connection.folder
         note = connection.note
         isFavorite = connection.isFavorite
+        display = connection.display
+        customWidth = String(connection.display.customWidth)
+        customHeight = String(connection.display.customHeight)
     }
 
     /// Connexion validée, ou erreur à afficher.
@@ -49,6 +63,9 @@ struct RemoteDraft: Equatable {
         connection.folder = folder
         connection.note = note
         connection.isFavorite = isFavorite
+        // Taille personnalisée lue seulement si ses champs sont affichés (RDP, fenêtre, personnalisée).
+        let display = try display.applyingCustomSize(width: customWidth, height: customHeight, for: proto)
+        connection.display = display
         return try connection.validated()
     }
 }
@@ -73,6 +90,8 @@ final class RemoteModel: ObservableObject {
     @Published private(set) var serialPorts: [String] = []
 
     private let store: RemoteConnectionStore?
+    /// Passage en plein écran de Partage d'écran en attente, un seul par connexion.
+    private var fullScreenTasks: [UUID: Task<Void, Never>] = [:]
 
     private init() {
         let arguments = ProcessInfo.processInfo.arguments
@@ -91,6 +110,12 @@ final class RemoteModel: ObservableObject {
         if let raw = ProcessInfo.processInfo.environment["NETSCOPE_REMOTE_VIEW"] {
             if raw == "nouveau" { draft = RemoteDraft() }
             if raw == "import" { showImport = true }
+            // Captures : connexion RDP choisie, ou son formulaire de modification.
+            if ["rdp", "vnc", "modifier-rdp", "modifier-vnc"].contains(raw) {
+                let proto: RemoteProtocol = raw.hasSuffix("vnc") ? .vnc : .rdp
+                selectedID = connections.first { $0.proto == proto }?.id
+                if raw.hasPrefix("modifier") { startEditing() }
+            }
         }
     }
 
@@ -155,7 +180,7 @@ final class RemoteModel: ObservableObject {
 
     func startNew(proto: RemoteProtocol = .ssh) {
         var draft = RemoteDraft()
-        draft.proto = proto
+        draft.switchProtocol(to: proto)
         draft.port = String(proto.defaultPort)
         draft.folder = selected?.folder ?? ""
         if proto == .serie { draft.host = serialPorts.first ?? "" }
@@ -272,18 +297,50 @@ final class RemoteModel: ObservableObject {
         Result { try RemoteLauncher.plan(for: connection) }
     }
 
-    func connect(_ connection: RemoteConnection) {
+    /// Ouvre la connexion ; `mode` : choix rapide du bouton « Connecter » (fenêtre ou plein
+    /// écran pour cette fois seulement, sans changer la connexion enregistrée).
+    func connect(_ connection: RemoteConnection, mode: RemoteDisplayMode? = nil) {
+        var target = connection
+        if let mode { target.display = connection.display.with(mode: mode) }
         do {
-            let plan = try RemoteLauncher.plan(for: connection)
-            try RemoteExecutor.execute(plan, title: connection.name)
+            let plan = try RemoteLauncher.plan(for: target)
+            let wantsFullScreen = target.proto == .vnc && target.display.mode == .fullScreen
+            let note = target.proto == .vnc ? prepareScreenSharing(target) : ""
+            let before = wantsFullScreen ? RemoteScreenSharingControl.snapshot() : nil
+            try RemoteExecutor.execute(plan, title: target.name)
             if let index = connections.firstIndex(where: { $0.id == connection.id }) {
                 connections[index].lastConnected = Date()
                 save()
             }
-            toast = "Ouverture dans \(plan.appName) : \(connection.name)."
+            toast = "Ouverture dans \(plan.appName)\u{00A0}: \(target.name)\(note)."
+            fullScreenTasks[connection.id]?.cancel()
+            fullScreenTasks[connection.id] = nil
+            if let before, RemoteScreenSharingControl.isTrusted(prompt: false) {
+                let id = connection.id, host = target.host, name = target.name
+                fullScreenTasks[id] = Task {
+                    let outcome = await RemoteScreenSharingControl.enterFullScreen(host: host, name: name, before: before)
+                    // Une tâche remplacée (nouveau clic) ne touche plus à rien.
+                    guard !Task.isCancelled else { return }
+                    self.fullScreenTasks[id] = nil
+                    if outcome == .timedOut {
+                        self.toast = "Plein écran non appliqué à « \(name) »\u{00A0}: utilisez Présentation › Passer en plein écran dans Partage d’écran."
+                    }
+                }
+            }
         } catch {
             toast = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
+    }
+
+    /// Échelle de Partage d'écran et autorisation d'accessibilité pour le plein écran ;
+    /// renvoie un complément au message d'ouverture.
+    private func prepareScreenSharing(_ connection: RemoteConnection) -> String {
+        RemoteScreenSharingControl.applyScale(connection.display.vncScale)
+        guard connection.display.mode == .fullScreen else { return "" }
+        if RemoteScreenSharingControl.isTrusted(prompt: true) {
+            return " (plein écran après l’identification)"
+        }
+        return ", en fenêtre\u{00A0}: pour le plein écran, autorisez NetScope dans Réglages Système › Confidentialité et sécurité › Accessibilité"
     }
 
     func refreshSerialPorts() {

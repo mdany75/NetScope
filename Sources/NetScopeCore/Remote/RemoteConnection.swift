@@ -83,10 +83,12 @@ public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
     public var note: String
     public var lastConnected: Date?
     public var createdAt: Date
+    /// Fenêtre ou plein écran, taille, échelle (RDP et VNC).
+    public var display: RemoteDisplaySettings
 
     public init(id: UUID = UUID(), name: String, proto: RemoteProtocol, host: String, port: Int? = nil,
                 username: String = "", folder: String = "", isFavorite: Bool = false, note: String = "",
-                lastConnected: Date? = nil, createdAt: Date = Date()) {
+                lastConnected: Date? = nil, createdAt: Date = Date(), display: RemoteDisplaySettings? = nil) {
         self.id = id
         self.name = name
         self.proto = proto
@@ -98,6 +100,29 @@ public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
         self.note = note
         self.lastConnected = lastConnected
         self.createdAt = createdAt
+        self.display = display ?? .defaults(for: proto)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, proto, host, port, username, folder, isFavorite, note, lastConnected, createdAt, display
+    }
+
+    /// Les connexions enregistrées avant les réglages d'affichage (sans « display ») se lisent
+    /// toujours, avec le comportement d'alors.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        proto = try c.decode(RemoteProtocol.self, forKey: .proto)
+        host = try c.decode(String.self, forKey: .host)
+        port = try c.decode(Int.self, forKey: .port)
+        username = try c.decode(String.self, forKey: .username)
+        folder = try c.decode(String.self, forKey: .folder)
+        isFavorite = try c.decode(Bool.self, forKey: .isFavorite)
+        note = try c.decode(String.self, forKey: .note)
+        lastConnected = try c.decodeIfPresent(Date.self, forKey: .lastConnected)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        display = try c.decodeIfPresent(RemoteDisplaySettings.self, forKey: .display) ?? .defaults(for: proto)
     }
 
     /// « 10.182.122.2:22 » ou « cu.usbserial-A10K · 9600 8N1 ».
@@ -147,6 +172,8 @@ public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
             copy.username = try RemoteValidator.validateUser(username, allowDomain: proto == .rdp)
         }
         copy.folder = folder.trimmingCharacters(in: .whitespacesAndNewlines)
+        copy.display.customWidth = RemoteDisplaySettings.clamp(display.customWidth, RemoteDisplaySettings.widthRange)
+        copy.display.customHeight = RemoteDisplaySettings.clamp(display.customHeight, RemoteDisplaySettings.heightRange)
         return copy
     }
 }

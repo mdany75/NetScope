@@ -34,6 +34,7 @@ struct RemoteDetailPanel: View {
                         }
                         .padding(.top, 4)
                     }
+                    .layoutPriority(1)
                     Spacer(minLength: 0)
                     Button {
                         model.showDetails = false
@@ -53,6 +54,9 @@ struct RemoteDetailPanel: View {
                                 value: connection.proto == .serie ? "\(connection.port) bauds · 8N1" : String(connection.port),
                                 mono: true, keyWidth: 92)
                     KeyValueRow(key: "Utilisateur", value: connection.username.isEmpty ? "—" : connection.username, mono: true, keyWidth: 92)
+                    if connection.proto == .rdp || connection.proto == .vnc {
+                        KeyValueRow(key: "Affichage", value: connection.display.summary(for: connection.proto), keyWidth: 92)
+                    }
                     KeyValueRow(key: "Dernière", value: RemoteFormat.relative(connection.lastConnected), keyWidth: 92)
                 }
             }
@@ -89,13 +93,9 @@ struct RemoteDetailPanel: View {
         return Panel {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 6) {
-                    Button {
-                        model.connect(connection)
-                    } label: {
-                        Label("Connecter", systemImage: "play.fill").labelStyle(RemoteCompactLabelStyle())
-                    }
-                    .buttonStyle(RemoteSmallButtonStyle(primary: true, tint: reach == .unreachable ? Theme.textSecondary : Theme.accent))
-                    .speedDisabled((try? plan.get()) == nil)
+                    RemoteConnectButton(model: model, connection: connection,
+                                        tint: reach == .unreachable ? Theme.textSecondary : Theme.accent,
+                                        isEnabled: (try? plan.get()) != nil)
                     Button("Modifier") { model.startEditing() }.buttonStyle(RemoteSmallButtonStyle())
                     Button("Dupliquer") { model.duplicateSelected() }.buttonStyle(RemoteSmallButtonStyle())
                 }

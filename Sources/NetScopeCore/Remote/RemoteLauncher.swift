@@ -73,15 +73,25 @@ public enum RemoteLauncher {
     }
 
     /// Contenu d'un fichier .rdp (format Microsoft, lignes « clé:type:valeur » séparées par CRLF).
+    /// Affichage : plein écran (« screen mode id:i:2 ») ou fenêtre (« :i:1 ») ajustée (résolution
+    /// dynamique) ou de taille fixe (« desktopwidth », « desktopheight », réduite à la fenêtre au
+    /// besoin par « smart sizing ») ; « use multimon:i:1 » pour tous les écrans (plein écran seulement).
     public static func rdpFile(for c: RemoteConnection) -> String {
         let address = c.host.contains(":") ? "[\(c.host)]" : c.host
+        let display = c.display
+        let fixedSize = display.mode == .window ? display.resolvedWindowSize : nil
         var lines = [
             "full address:s:\(address):\(c.port)",
             "prompt for credentials:i:1",
-            "screen mode id:i:2",
-            "use multimon:i:0",
+            "screen mode id:i:\(display.mode == .fullScreen ? 2 : 1)",
+        ]
+        if let fixedSize {
+            lines += ["desktopwidth:i:\(fixedSize.width)", "desktopheight:i:\(fixedSize.height)"]
+        }
+        lines += [
+            "use multimon:i:\(display.mode == .fullScreen && display.allMonitors ? 1 : 0)",
             "session bpp:i:32",
-            "dynamic resolution:i:1",
+            "dynamic resolution:i:\(fixedSize == nil ? 1 : 0)",
             "smart sizing:i:1",
             "redirectclipboard:i:1",
             "redirectprinters:i:0",
