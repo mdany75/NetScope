@@ -24,6 +24,13 @@ struct TopologieScreen: View {
     /// Faux : seulement les appareils du dernier scan (les scans précédents, d'un autre site par
     /// exemple, ne restent pas sur la carte).
     @State private var includePrevious = false
+    // Note 32 : recherche de la barre d'outils sur la carte.
+    /// Rang du résultat montré.
+    @State private var searchIndex = 0
+    /// Vrai si la recherche a zoomé la carte (rendue à l'ajustement quand la recherche est effacée).
+    @State private var searchZoomed = false
+    /// Demande de défilement jusqu'au résultat (change à chaque nouveau résultat montré).
+    @State private var scrollRequest = 0
 
     // MARK: Site dessiné
 
@@ -70,6 +77,7 @@ struct TopologieScreen: View {
         let devices = mapDevices
         let conflicts = model.inventory(for: drawnKey).conflictIPs
         let graph = TopoGraph.build(devices: devices, gateway: drawnGateway(devices), conflictIPs: conflicts)
+        let search = searchContext(graph, devices: devices)
 
         VStack(alignment: .leading, spacing: 14) {
             siteBar
@@ -84,17 +92,33 @@ struct TopologieScreen: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 tiles(graph, devices: devices, conflicts: conflicts)
-                SidePanelSplit(sideWidth: 320, title: "Détail du nœud") {
-                    mapPanel(graph, devices: devices)
+                SidePanelSplit(sideWidth: 320, title: search == nil ? "Détail du nœud" : "Résultat de la recherche") {
+                    mapPanel(graph, devices: devices, search: search)
                 } side: {
                     TopoAside(graph: graph, selectedID: $selectedID, devices: devices, siteKey: drawnKey,
-                              isActiveSite: isActiveDrawing, conflictIPs: conflicts)
+                              isActiveSite: isActiveDrawing, conflictIPs: conflicts,
+                              search: search, searchActions: search == nil ? nil : searchActions)
                 }
                 .frame(maxHeight: .infinity)
             }
         }
         .padding(Theme.contentPadding)
-        .onChange(of: drawnKey) { _, _ in selectedID = nil }
+        .preference(key: SearchResultsKey.self, value: [searchResultsLabel(search?.hits.count ?? 0)])
+        .onChange(of: drawnKey) { _, _ in
+            selectedID = nil
+            searchIndex = 0
+            focusSearch()
+        }
+        // Note 32 : chaque nouvelle recherche montre son premier résultat ; ↩︎ / ⇧↩︎ parcourent.
+        .onChange(of: searchSignature) { _, _ in
+            searchIndex = 0
+            focusSearch()
+        }
+        .onChange(of: state.searchSubmit) { _, submit in
+            guard submit.screen == .carte else { return }
+            stepSearch(submit.backwards ? -1 : 1)
+        }
+        .onAppear { if !searchQuery.isEmpty { focusSearch() } }
         // Note 34 : nœud demandé par un autre écran (« Ouvrir dans › Carte du réseau »), et nœud
         // choisi retenu pour Retour.
         .onAppear { restoreShownFocus(); adoptPendingFocus() }
@@ -114,6 +138,113 @@ struct TopologieScreen: View {
                 .help("Relancer un scan depuis l’écran Scanner pour mettre la carte à jour")
         }
         .feedsInventory(state)
+    }
+
+    // MARK: Recherche (note 32)
+
+    private var searchQuery: SearchQuery { state.searchQuery(for: .carte) }
+
+    /// Nombre de résultats, à côté des étiquettes de la recherche.
+    private func searchResultsLabel(_ count: Int) -> String {
+        switch count {
+        case 0: return "Aucun appareil trouvé"
+        case 1: return "1 appareil trouvé"
+        default: return "\(count) appareils trouvés"
+        }
+    }
+
+    /// Change avec la recherche, le dessin ou le calque des scans précédents.
+    private var searchSignature: String {
+        "\(drawnKey)|\(includePrevious)|\(searchQuery.isEmpty ? "" : state.searchTexts[.carte] ?? "")"
+    }
+
+    /// Notes des fiches (le préfixe `note:` les cherche) : celles du Scanner pour le site actif,
+    /// celles de l'inventaire du site pour un autre site.
+    private func notes(_ device: Device) -> [String] {
+        if isActiveDrawing {
+            let note = DeviceNotesStore.shared.note(for: device)
+            let record = model.record(DeviceNotesStore.key(for: device))
+            return [note, record?.annotations.notes ?? ""].filter { !$0.isEmpty }
+        }
+        let note = model.inventory(for: drawnKey).record(forIP: device.ip)?.annotations.notes ?? ""
+        return note.isEmpty ? [] : [note]
+    }
+
+    /// Résultats sur le site dessiné, autres sites où la recherche trouve aussi des appareils, et
+    /// appareils trouvés parmi ceux des scans précédents (masqués). nil sans recherche.
+    private func searchContext(_ graph: TopoGraph, devices: [Device]) -> TopoSearchContext? {
+        let query = searchQuery
+        guard !query.isEmpty else { return nil }
+        let hits = TopoSearch.hits(query, graph: graph, items: TopoSearch.items(devices, graph: graph, notes: notes))
+        var previous = 0
+        if !includePrevious, hits.isEmpty {
+            let shown = Set(devices.map(\.id))
+            let hidden = siteDevices.all.filter { !shown.contains($0.id) }
+            previous = TopoSearch.items(hidden, graph: nil).filter(query.matches).count
+        }
+        let others = TopoSearch.otherSites(query, sites: otherSiteDevices, excluding: drawnKey)
+        return TopoSearchContext(text: state.searchTexts[.carte] ?? "", hits: hits,
+                                 index: min(searchIndex, max(hits.count - 1, 0)), otherSites: others,
+                                 previousCount: previous, siteName: sites.name(forKey: drawnKey),
+                                 ipExample: devices.first.map { "\($0.ip.octets.0).\($0.ip.octets.1).\($0.ip.octets.2)." } ?? "10.0.0.")
+    }
+
+    /// Appareils gardés par chaque site (le Scanner pour le site actif, le dernier scan enregistré
+    /// pour les autres), pour « Aussi sur : … ».
+    private var otherSiteDevices: [TopoSiteDevices] {
+        sites.sortedSites.compactMap { site in
+            let key = SiteFiles.key(for: site.id)
+            guard key != drawnKey else { return nil }
+            let devices = key == sites.activeKey ? model.withManualTypes(state.devices) : (sites.storedResults(for: key)?.devices ?? [])
+            return devices.isEmpty ? nil : TopoSiteDevices(key: key, name: site.displayName, devices: devices)
+        }
+    }
+
+    private var searchActions: TopoSearchActions {
+        TopoSearchActions(
+            step: { stepSearch($0) },
+            showSite: { key in
+                // Le site est ajouté aux sites affichés (pour cette session) et dessiné.
+                scope.include(key, in: .carte)
+                drawingSite = key
+                searchIndex = 0
+                focusSearch()
+            },
+            showPrevious: {
+                includePrevious = true
+                searchIndex = 0
+                focusSearch()
+            },
+            clear: { state.searchTexts[.carte] = nil })
+    }
+
+    private func stepSearch(_ delta: Int) {
+        guard let search = currentSearch(), !search.context.hits.isEmpty else { return }
+        searchIndex = TopoSearch.step(search.context.index, by: delta, count: search.context.hits.count)
+        focusSearch()
+    }
+
+    private func currentSearch() -> (context: TopoSearchContext, graph: TopoGraph)? {
+        let devices = mapDevices
+        let graph = TopoGraph.build(devices: devices, gateway: drawnGateway(devices),
+                                    conflictIPs: model.inventory(for: drawnKey).conflictIPs)
+        return searchContext(graph, devices: devices).map { ($0, graph) }
+    }
+
+    /// Montre le résultat courant : son nœud (ou son groupe) choisi, les appareils finaux affichés,
+    /// la carte zoomée à 100 % au moins et centrée dessus. Sans recherche : rend le zoom d'avant.
+    private func focusSearch() {
+        guard let search = currentSearch() else {
+            if searchZoomed { zoom = nil; searchZoomed = false }
+            return
+        }
+        guard let hit = search.context.current else { return }
+        selectedID = hit.nodeID
+        if let kind = search.graph.node(hit.nodeID)?.kind, kind == .groupe || kind == .appareil, !showEndDevices {
+            showEndDevices = true
+        }
+        // Zoom et défilement : par la carte (revealResult), qui connaît le zoom d'ajustement du moment.
+        scrollRequest += 1
     }
 
     // MARK: Sites
@@ -266,8 +397,9 @@ struct TopologieScreen: View {
         }
     }
 
-    private func mapPanel(_ graph: TopoGraph, devices: [Device]) -> some View {
+    private func mapPanel(_ graph: TopoGraph, devices: [Device], search: TopoSearchContext?) -> some View {
         let scale = zoom ?? fitScale
+        let highlight = search?.highlight(graph)
         return VStack(spacing: 0) {
             HStack(spacing: 16) {
                 HStack(spacing: 8) {
@@ -294,7 +426,7 @@ struct TopologieScreen: View {
                     zoomButton("minus", "Zoom arrière") { zoom = max(0.3, scale / 1.2) }
                     Text("\(Int((scale * 100).rounded())) %").font(Theme.mono(12, weight: .semibold)).frame(width: 46)
                     zoomButton("plus", "Zoom avant") { zoom = min(2, scale * 1.2) }
-                    Button { zoom = nil } label: { Label("Ajuster", systemImage: "arrow.up.left.and.arrow.down.right") }
+                    Button { zoom = nil; searchZoomed = false } label: { Label("Ajuster", systemImage: "arrow.up.left.and.arrow.down.right") }
                         .buttonStyle(.secondary)
                         .controlSize(.small)
                 }
@@ -302,6 +434,9 @@ struct TopologieScreen: View {
             .padding(.horizontal, 14)
             .frame(height: 46)
             Rectangle().fill(Theme.border).frame(height: 1)
+            if let search {
+                TopoSearchBand(search: search, graph: graph, actions: searchActions)
+            }
 
             GeometryReader { geometry in
                 let fitted = fittedLayout(graph, in: geometry.size)
@@ -312,22 +447,30 @@ struct TopologieScreen: View {
                 // taille exacte (aucun fond à la taille du cadre qui déborderait sous une barre de défilement
                 // et ferait défiler, ou couper, le bord droit de la carte).
                 let fitsWhole = layout.width * scale <= geometry.size.width && layout.height * scale <= geometry.size.height
+                // Note 32 : avec un résultat de recherche, la vue s'ouvre centrée sur son nœud (point
+                // d'ancrage calculé), et se rouvre ainsi à chaque nouveau résultat ou changement de zoom.
+                let anchor = highlight.flatMap { searchScrollAnchor($0, layout: layout, scale: scale, viewport: geometry.size) }
                 ScrollView([.horizontal, .vertical]) {
-                    ZStack(alignment: fitsWhole ? .center : .topLeading) {
-                        if fitsWhole {
-                            Color.clear.frame(width: geometry.size.width, height: geometry.size.height)
+                        ZStack(alignment: fitsWhole ? .center : .topLeading) {
+                            if fitsWhole {
+                                Color.clear.frame(width: geometry.size.width, height: geometry.size.height)
+                            }
+                            TopoCanvas(graph: graph, layout: layout, selectedID: $selectedID, showPortLabels: showPortLabels,
+                                       object: { TopoNav.object($0, graph: graph, devices: devices, siteKey: drawnKey) },
+                                       onOpen: { state.perform($0) }, search: highlight)
+                                .frame(width: layout.width, height: layout.height)
+                                .scaleEffect(scale, anchor: .topLeading)
+                                .frame(width: layout.width * scale, height: layout.height * scale, alignment: .topLeading)
                         }
-                        TopoCanvas(graph: graph, layout: layout, selectedID: $selectedID, showPortLabels: showPortLabels,
-                                   object: { TopoNav.object($0, graph: graph, devices: devices, siteKey: drawnKey) },
-                                   onOpen: { state.perform($0) })
-                            .frame(width: layout.width, height: layout.height)
-                            .scaleEffect(scale, anchor: .topLeading)
-                            .frame(width: layout.width * scale, height: layout.height * scale, alignment: .topLeading)
-                    }
                 }
-                .defaultScrollAnchor(.topLeading)
-                .onAppear { fitScale = fit }
+                .defaultScrollAnchor(anchor ?? .topLeading)
+                .id(anchor == nil ? "carte" : "carte-\(scrollRequest)-\(scale)")
+                .onAppear {
+                    fitScale = fit
+                    if highlight != nil { zoomForResult(fit: fit) }
+                }
                 .onChange(of: fit) { _, value in fitScale = value }
+                .onChange(of: scrollRequest) { _, _ in zoomForResult(fit: fit) }
             }
             .background(Theme.panelMuted)
 
@@ -337,6 +480,27 @@ struct TopologieScreen: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Résultat montré : la carte passe à 100 % si elle est plus petite (nœuds lisibles).
+    private func zoomForResult(fit: CGFloat) {
+        guard (zoom ?? fit) < 1 else { return }
+        zoom = 1
+        searchZoomed = true
+    }
+
+    /// Point d'ancrage du défilement qui met le nœud du résultat au centre du cadre (ramené aux
+    /// bords de la carte) ; nil si la carte entière tient dans le cadre.
+    private func searchScrollAnchor(_ highlight: TopoSearchHighlight, layout: TopoGraph.Layout, scale: CGFloat,
+                                    viewport: CGSize) -> UnitPoint? {
+        guard let id = highlight.current, let point = layout.positions[id] else { return nil }
+        let content = CGSize(width: layout.width * scale, height: layout.height * scale)
+        guard content.width > viewport.width || content.height > viewport.height else { return nil }
+        func unit(_ position: Double, _ content: CGFloat, _ viewport: CGFloat) -> CGFloat {
+            guard content > viewport else { return 0 }
+            return min(max((CGFloat(position) * scale - viewport / 2) / (content - viewport), 0), 1)
+        }
+        return UnitPoint(x: unit(point.x, content.width, viewport.width), y: unit(point.y, content.height, viewport.height))
     }
 
     private func zoomButton(_ symbol: String, _ help: String, action: @escaping () -> Void) -> some View {

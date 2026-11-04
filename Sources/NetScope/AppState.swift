@@ -37,6 +37,8 @@ final class AppState: ObservableObject {
     /// Recherche de la barre d'outils, propre à chaque module (note 26) : les préfixes
     /// (`switch:`, `type:`…) dépendent du module, une recherche du Scanner ne filtre pas les Réglages.
     @Published var searchTexts: [Screen: String] = [:]
+    /// Note 32 : dernière validation du champ de recherche (↩︎ suivant, ⇧↩︎ précédent).
+    @Published var searchSubmit = SearchSubmit()
 
     // MARK: Navigation entre les modules (notes 31, 33 et 34 ; Shared/Navigation.swift)
 
@@ -60,6 +62,11 @@ final class AppState: ObservableObject {
     var searchText: String {
         get { searchTexts[screen] ?? "" }
         set { searchTexts[screen] = newValue.isEmpty ? nil : newValue }
+    }
+
+    /// Validation du champ de recherche de l'écran courant (↩︎, ou ⇧↩︎ pour revenir en arrière).
+    func submitSearch(backwards: Bool) {
+        searchSubmit = SearchSubmit(screen: screen, backwards: backwards, serial: searchSubmit.serial + 1)
     }
 
     /// Recherche d'un module, analysée avec ses champs (requête vide si l'écran n'en a pas).

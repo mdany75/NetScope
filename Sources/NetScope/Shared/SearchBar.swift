@@ -9,6 +9,7 @@ extension Screen {
     var searchSchema: SearchSchema? {
         switch self {
         case .scanner: return .scanner
+        case .carte: return .carte
         case .inventaire: return .inventaire
         case .analyse: return .analyse
         case .surveillance: return .surveillance
@@ -25,6 +26,7 @@ extension Screen {
     var searchScope: String {
         switch self {
         case .scanner: return "les appareils du scan"
+        case .carte: return "les appareils du site dessiné (la carte se centre sur chaque résultat)"
         case .inventaire: return "les fiches de l’inventaire"
         case .analyse: return "les alertes et changements"
         case .surveillance: return "les sondes et le journal des alertes"
@@ -57,6 +59,16 @@ enum DeviceSearch {
             query.matches(item(device, typed: shown)) ? device : nil
         }
     }
+}
+
+// MARK: - Validation du champ (note 32)
+
+/// ↩︎ ou ⇧↩︎ dans le champ de recherche de la barre d'outils : l'écran passe au résultat suivant
+/// ou précédent (Carte du réseau). `serial` change à chaque validation.
+struct SearchSubmit: Equatable {
+    var screen: Screen?
+    var backwards = false
+    var serial = 0
 }
 
 // MARK: - Nombre de résultats

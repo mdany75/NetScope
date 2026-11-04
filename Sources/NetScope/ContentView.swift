@@ -39,6 +39,8 @@ struct ContentView: View {
                         SearchPrefixSuggestions(text: state.searchText, schema: schema)
                     }
                 }
+                // Note 32 : ↩︎ résultat suivant, ⇧↩︎ précédent (Carte du réseau).
+                .onSubmit(of: .search) { state.submitSearch(backwards: NSEvent.modifierFlags.contains(.shift)) }
                 // Note 34 : Retour / Avancer (⌘[ et ⌘]), boutons natifs ‹ › comme le Finder.
                 .toolbar {
                     ToolbarItem(placement: .navigation) { NavHistoryButtons() }

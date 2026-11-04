@@ -51,6 +51,7 @@ registerFortiWifiTests(suite)
 registerSiteTests(suite)
 registerSiteScopeTests(suite)
 registerNavigationTests(suite)
+registerTopoSearchTests(suite)
 registerPerformanceTests(suite)
 registerLoadTests(suite)
 
