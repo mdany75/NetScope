@@ -52,9 +52,12 @@ public enum BPFFilter {
     ]
 
     /// Exécute le programme sur une trame ; renvoie le nombre d'octets gardés (0 : rejetée).
-    /// Comme le noyau, une lecture hors de la trame rejette la trame.
-    public static func run(_ program: [BPFInstruction], on packet: [UInt8]) -> UInt32 {
+    /// Comme le noyau, une lecture hors de la trame ou une division par zéro rejette la trame.
+    /// Interprète complet du BPF classique (chargements, mémoire, arithmétique, sauts, retours) :
+    /// il exécute aussi les programmes compilés par tcpdump (`tcpdump -dd`) pour les tests.
+    public static func run(_ program: [BPFInstruction], on packet: [UInt8], wireLength: Int? = nil) -> UInt32 {
         var a: UInt32 = 0, x: UInt32 = 0, pc = 0
+        var memory = [UInt32](repeating: 0, count: 16)
         func load(_ offset: Int, _ size: Int) -> UInt32? {
             guard offset >= 0, offset + size <= packet.count else { return nil }
             switch size {
@@ -63,19 +66,66 @@ public enum BPFFilter {
             default: return CaptureBytes.u32(packet, offset)
             }
         }
+        var steps = 0
         while pc < program.count {
+            steps += 1
+            guard steps <= 100_000 else { return 0 }
             let insn = program[pc]
             pc += 1
-            switch insn.code {
-            case ldW: guard let v = load(Int(insn.k), 4) else { return 0 }; a = v
-            case ldH: guard let v = load(Int(insn.k), 2) else { return 0 }; a = v
-            case ldB: guard let v = load(Int(insn.k), 1) else { return 0 }; a = v
-            case ldHInd: guard let v = load(Int(x) + Int(insn.k), 2) else { return 0 }; a = v
-            case ldxMSH: guard let v = load(Int(insn.k), 1) else { return 0 }; x = (v & 0x0F) * 4
-            case jeq: pc += Int(a == insn.k ? insn.jt : insn.jf)
-            case jset: pc += Int(a & insn.k != 0 ? insn.jt : insn.jf)
-            case ret: return insn.k
-            default: return 0
+            let code = insn.code, k = insn.k
+            let size = code & 0x18 == 0x00 ? 4 : code & 0x18 == 0x08 ? 2 : 1
+            switch code & 0x07 {
+            case 0x00, 0x01:                                                          // LD, LDX
+                let isX = code & 0x07 == 0x01
+                let value: UInt32
+                switch code & 0xE0 {
+                case 0x00: value = k                                                  // IMM
+                case 0x20: guard let v = load(Int(k), size) else { return 0 }; value = v               // ABS
+                case 0x40: guard let v = load(Int(x) + Int(k), size) else { return 0 }; value = v      // IND
+                case 0x60: guard k < 16 else { return 0 }; value = memory[Int(k)]     // MEM
+                case 0x80: value = UInt32(wireLength ?? packet.count)                 // LEN
+                case 0xA0: guard let v = load(Int(k), 1) else { return 0 }; value = (v & 0x0F) * 4     // MSH
+                default: return 0
+                }
+                if isX { x = value } else { a = value }
+            case 0x02: guard k < 16 else { return 0 }; memory[Int(k)] = a             // ST
+            case 0x03: guard k < 16 else { return 0 }; memory[Int(k)] = x             // STX
+            case 0x04:                                                                // ALU
+                let operand = code & 0x08 != 0 ? x : k
+                switch code & 0xF0 {
+                case 0x00: a = a &+ operand
+                case 0x10: a = a &- operand
+                case 0x20: a = a &* operand
+                case 0x30: guard operand != 0 else { return 0 }; a /= operand
+                case 0x40: a |= operand
+                case 0x50: a &= operand
+                case 0x60: a = operand >= 32 ? 0 : a << operand
+                case 0x70: a = operand >= 32 ? 0 : a >> operand
+                case 0x80: a = 0 &- a
+                case 0x90: guard operand != 0 else { return 0 }; a %= operand
+                case 0xA0: a ^= operand
+                default: return 0
+                }
+            case 0x05:                                                                // JMP
+                let operand = code & 0x08 != 0 ? x : k
+                switch code & 0xF0 {
+                case 0x00: pc += Int(k)
+                case 0x10: pc += Int(a == operand ? insn.jt : insn.jf)
+                case 0x20: pc += Int(a > operand ? insn.jt : insn.jf)
+                case 0x30: pc += Int(a >= operand ? insn.jt : insn.jf)
+                case 0x40: pc += Int(a & operand != 0 ? insn.jt : insn.jf)
+                default: return 0
+                }
+            case 0x06:                                                                // RET
+                switch code & 0x18 {
+                case 0x00: return k
+                case 0x10: return a
+                default: return x
+                }
+            case 0x07:                                                                // MISC
+                if code & 0xF8 == 0x00 { x = a } else if code & 0xF8 == 0x80 { a = x } else { return 0 }
+            default:
+                return 0
             }
         }
         return 0
@@ -96,12 +146,15 @@ public enum BPFBuffer {
             let seconds = CaptureBytes.le32(buffer, offset)
             let micros = CaptureBytes.le32(buffer, offset + 4)
             let capLength = Int(CaptureBytes.le32(buffer, offset + 8))
+            let wireLength = Int(CaptureBytes.le32(buffer, offset + 12))
             let headerLength = Int(CaptureBytes.le16(buffer, offset + 16))
             guard headerLength >= 18, capLength >= 0 else { break }
             let start = offset + headerLength
             guard start + capLength <= end else { break }
             let date = Date(timeIntervalSince1970: TimeInterval(seconds) + TimeInterval(micros) / 1_000_000)
-            frames.append(CapturedFrame(bytes: Array(buffer[start..<(start + capLength)]), date: date))
+            var frame = CapturedFrame(bytes: Array(buffer[start..<(start + capLength)]), date: date)
+            frame.originalLength = max(wireLength, capLength)
+            frames.append(frame)
             let next = offset + align(headerLength + capLength)
             guard next > offset else { break }
             offset = next
@@ -127,6 +180,7 @@ public enum BPFIoctl {
     public static let setInterface = code(`in`, 108, 32)                // BIOCSETIF (struct ifreq)
     public static let immediate = code(`in`, 112, 4)                    // BIOCIMMEDIATE
     public static let seeSent = code(`in`, 119, 4)                      // BIOCSSEESENT
+    public static let getLinkType = code(out, 106, 4)                   // BIOCGDLT
 }
 
 /// Capture passive sur /dev/bpf*, possible seulement si l'utilisateur peut ouvrir ces fichiers
@@ -134,6 +188,8 @@ public enum BPFIoctl {
 public final class BPFCapture: @unchecked Sendable {
     private var fd: Int32
     private let bufferLength: Int
+    /// Type de liaison de l'interface (DLT, BIOCGDLT) : 1 pour Ethernet et Wi-Fi.
+    public let linkType: UInt32
     private let lock = NSLock()
     /// Lectures en cours (poll/read hors verrou) : le descripteur n'est fermé qu'à zéro, pour
     /// qu'un numéro fermé puis réattribué ne soit jamais lu.
@@ -156,8 +212,11 @@ public final class BPFCapture: @unchecked Sendable {
         return nil
     }
 
-    /// Ouvre un périphérique BPF, l'attache à l'interface et pose le filtre fixe.
-    public init(interface: String, filter: [BPFInstruction], promiscuous: Bool) throws {
+    /// Ouvre un périphérique BPF, l'attache à l'interface et pose le filtre.
+    /// - `seeSent` : voir aussi les paquets envoyés par ce Mac (capture de paquets) ;
+    /// - `bufferSize` : tampon demandé au noyau (64 Kio pour LLDP/CDP, plus pour tout le trafic).
+    public init(interface: String, filter: [BPFInstruction], promiscuous: Bool, seeSent: Bool = false,
+                bufferSize: UInt32 = 1 << 16) throws {
         guard CaptureInterfaceName.isValid(interface) else {
             throw ToolError.invalidInput("Nom d’interface refusé\u{00A0}: « \(interface) ».")
         }
@@ -170,7 +229,7 @@ public final class BPFCapture: @unchecked Sendable {
         guard opened >= 0 else { throw ToolSocket.lastError("ouverture de /dev/bpf") }
         fd = opened
 
-        var length: UInt32 = 1 << 16
+        var length: UInt32 = bufferSize
         _ = ioctl(fd, BPFIoctl.setBufferLength, &length)
         var actual: UInt32 = 0
         guard ioctl(fd, BPFIoctl.getBufferLength, &actual) == 0, actual > 0 else {
@@ -189,8 +248,11 @@ public final class BPFCapture: @unchecked Sendable {
         }
         var one: UInt32 = 1
         _ = ioctl(fd, BPFIoctl.immediate, &one)
-        var zero: UInt32 = 0
-        _ = ioctl(fd, BPFIoctl.seeSent, &zero)
+        var see: UInt32 = seeSent ? 1 : 0
+        _ = ioctl(fd, BPFIoctl.seeSent, &see)
+        var dlt: UInt32 = 1
+        _ = ioctl(fd, BPFIoctl.getLinkType, &dlt)
+        linkType = dlt
         if promiscuous {
             // Mode promiscuité : seulement pour recevoir les adresses de groupe LLDP et CDP.
             _ = ioctl(fd, BPFIoctl.promiscuous, 0)

@@ -20,12 +20,15 @@ public enum PrivilegedCapture {
         case neighbors
         /// Réponses DHCP reçues par ce Mac (port UDP 68).
         case dhcp
+        /// Capture de paquets (note 7) : fichier pcap, filtre saisi et validé (`packetShellCommand`).
+        case packets
 
-        /// Filtre tcpdump fixe (jamais construit à partir d'une saisie).
+        /// Filtre tcpdump fixe (jamais construit à partir d'une saisie) ; vide pour `packets`.
         public var filter: String {
             switch self {
             case .neighbors: return "ether proto 0x88cc or ether dst 01:00:0c:cc:cc:cc"
             case .dhcp: return "udp dst port 68"
+            case .packets: return ""
             }
         }
     }
@@ -61,6 +64,7 @@ public enum PrivilegedCapture {
     ///   - owner: numéro de l'utilisateur, à qui le dossier de sortie est donné à la fin.
     public static func shellCommand(interface: String, purpose: Purpose, seconds: Int, directory: String,
                                     outputDirectory: String, owner: UInt32) throws -> String {
+        guard purpose != .packets else { throw ToolError.invalidInput("Capture de paquets\u{00A0}: commande dédiée.") }
         guard CaptureInterfaceName.isValid(interface) else {
             throw ToolError.invalidInput("Nom d’interface refusé\u{00A0}: « \(interface) ».")
         }
@@ -76,6 +80,44 @@ public enum PrivilegedCapture {
         return "umask 022; /bin/mkdir -m 755 \(out) || exit 1; "
             + "\(tcpdumpPath) -i \(interface) -n -tt -e -xx -l -s 1600 '\(purpose.filter)' "
             + ">\(out)/\(outputName) 2>\(out)/\(errorName) & p=$!; i=0; "
+            + "while [ $i -lt \(seconds) ] && [ ! -e \(stop) ] && kill -0 $p 2>/dev/null; do sleep 1; i=$((i+1)); done; "
+            + "kill $p 2>/dev/null; wait $p 2>/dev/null; /usr/sbin/chown -R \(owner) \(out); exit 0"
+    }
+
+    // MARK: Capture de paquets (note 7)
+
+    public static let packetOutputName = "capture.pcap"
+    public static let packetDurationRange = 5...3600
+    public static let packetCountRange = 1...1_000_000
+    /// Octets gardés par paquet (comme Wireshark par défaut, assez pour tous les en-têtes).
+    public static let packetSnapLength = 65_535
+
+    /// Commande de la capture de paquets : tcpdump écrit un fichier pcap (`-w`, paquet par paquet
+    /// avec `-U`), s'arrête après `maxPackets` (`-c`), après `seconds` ou au fichier « arreter ».
+    /// Le filtre saisi est validé (`CaptureFilterCompiler.isSafe` : aucune apostrophe, guillemet,
+    /// barre oblique inverse, $ ni ;) puis passé entre apostrophes : il ne peut rien injecter.
+    public static func packetShellCommand(interface: String, filter: String, seconds: Int, maxPackets: Int, promiscuous: Bool,
+                                          directory: String, outputDirectory: String, owner: UInt32) throws -> String {
+        guard CaptureInterfaceName.isValid(interface) else {
+            throw ToolError.invalidInput("Nom d’interface refusé\u{00A0}: « \(interface) ».")
+        }
+        guard packetDurationRange.contains(seconds) else {
+            throw ToolError.invalidInput("Durée de capture hors limites (\(packetDurationRange.lowerBound) à \(packetDurationRange.upperBound) s).")
+        }
+        guard packetCountRange.contains(maxPackets) else { throw ToolError.invalidInput("Nombre de paquets hors limites.") }
+        let clean = CaptureFilterCompiler.normalized(filter)
+        guard CaptureFilterCompiler.isSafe(clean), !clean.contains("'") else { throw ToolError.invalidInput("Filtre de capture refusé.") }
+        let dir = directory.hasSuffix("/") ? String(directory.dropLast()) : directory
+        guard isSafePath(dir) else { throw ToolError.invalidInput("Dossier de capture refusé.") }
+        guard isSafeOutputDirectory(outputDirectory) else { throw ToolError.invalidInput("Dossier de sortie refusé.") }
+        guard owner != 0 else { throw ToolError.invalidInput("Utilisateur refusé.") }
+        let out = "'\(outputDirectory)'"
+        let stop = "'\(dir)/\(stopName)'"
+        let filterArgument = clean.isEmpty ? "" : " '\(clean)'"
+        return "umask 022; /bin/mkdir -m 755 \(out) || exit 1; "
+            + "\(tcpdumpPath) -i \(interface) -n -U\(promiscuous ? "" : " -p") -s \(packetSnapLength) -c \(maxPackets) "
+            + "-w \(out)/\(packetOutputName)\(filterArgument) "
+            + "2>\(out)/\(errorName) & p=$!; i=0; "
             + "while [ $i -lt \(seconds) ] && [ ! -e \(stop) ] && kill -0 $p 2>/dev/null; do sleep 1; i=$((i+1)); done; "
             + "kill $p 2>/dev/null; wait $p 2>/dev/null; /usr/sbin/chown -R \(owner) \(out); exit 0"
     }
@@ -96,6 +138,8 @@ public enum PrivilegedCapture {
             return "NetScope veut écouter les trames LLDP et CDP sur \(interface) avec tcpdump (lecture seule, arrêt automatique)."
         case .dhcp:
             return "NetScope veut lire les réponses DHCP sur \(interface) avec tcpdump (lecture seule, arrêt automatique)."
+        case .packets:
+            return "NetScope veut capturer les paquets de \(interface) avec tcpdump (lecture seule, arrêt automatique)."
         }
     }
 }
@@ -210,10 +254,35 @@ public final class PrivilegedCaptureSession: @unchecked Sendable {
     /// tué avec lui et peut encore tourner (jusqu'à `seconds`) en attendant le fichier « arreter ».
     private var runnerKilled = false
 
-    public init(interface: String, purpose: PrivilegedCapture.Purpose, seconds: Int) throws {
+    /// Réglages de la capture de paquets (`purpose == .packets`).
+    public struct PacketOptions: Sendable, Equatable {
+        public var filter: String
+        public var maxPackets: Int
+        public var promiscuous: Bool
+
+        public init(filter: String, maxPackets: Int, promiscuous: Bool) {
+            self.filter = filter
+            self.maxPackets = maxPackets
+            self.promiscuous = promiscuous
+        }
+    }
+
+    public let packetOptions: PacketOptions?
+
+    /// Capture de paquets : tcpdump écrit un fichier pcap lu au fur et à mesure (`pcapBytes`).
+    public convenience init(interface: String, packets options: PacketOptions, seconds: Int) throws {
+        try self.init(interface: interface, purpose: .packets, seconds: seconds, options: options)
+    }
+
+    public convenience init(interface: String, purpose: PrivilegedCapture.Purpose, seconds: Int) throws {
+        try self.init(interface: interface, purpose: purpose, seconds: seconds, options: nil)
+    }
+
+    private init(interface: String, purpose: PrivilegedCapture.Purpose, seconds: Int, options: PacketOptions?) throws {
         self.interface = interface
         self.purpose = purpose
         self.seconds = seconds
+        packetOptions = options
         let base = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
         let id = UUID().uuidString.lowercased()
         directory = base.appendingPathComponent("netscope-capture-\(id)", isDirectory: true)
@@ -223,8 +292,13 @@ public final class PrivilegedCaptureSession: @unchecked Sendable {
     }
 
     private func command() throws -> String {
-        try PrivilegedCapture.shellCommand(interface: interface, purpose: purpose, seconds: seconds, directory: directory.path,
-                                           outputDirectory: outputDirectory.path, owner: getuid())
+        if let packetOptions {
+            return try PrivilegedCapture.packetShellCommand(interface: interface, filter: packetOptions.filter, seconds: seconds,
+                                                            maxPackets: packetOptions.maxPackets, promiscuous: packetOptions.promiscuous,
+                                                            directory: directory.path, outputDirectory: outputDirectory.path, owner: getuid())
+        }
+        return try PrivilegedCapture.shellCommand(interface: interface, purpose: purpose, seconds: seconds, directory: directory.path,
+                                                  outputDirectory: outputDirectory.path, owner: getuid())
     }
 
     /// Lance osascript (fenêtre d'autorisation de macOS, puis tcpdump). `completion` est appelé
@@ -286,6 +360,19 @@ public final class PrivilegedCaptureSession: @unchecked Sendable {
             return []
         }
         return TcpdumpHexParser.frames(from: text, includeLast: final)
+    }
+
+    /// Octets du fichier pcap écrits par tcpdump à partir de `offset` (lecture de la suite).
+    public func pcapBytes(from offset: Int) -> [UInt8] {
+        let url = outputDirectory.appendingPathComponent(PrivilegedCapture.packetOutputName)
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return [] }
+        defer { try? handle.close() }
+        do {
+            try handle.seek(toOffset: UInt64(max(0, offset)))
+            return [UInt8](try handle.readToEnd() ?? Data())
+        } catch {
+            return []
+        }
     }
 
     /// Supprime les dossiers temporaires (celui de root a été donné à l'utilisateur à la fin du script).
