@@ -286,3 +286,96 @@ Dropbox, Zscaler, fournisseurs Internet courants… liste modifiable.
 - Rafraîchissement réglable (5 min par défaut), notifications en cas de nouvel incident (note 13),
   alerte possible dans la Surveillance (note 3).
 - Tests : analyse de réponses JSON/RSS fixes de chaque format, sans réseau.
+
+## 16. Speedtest : choix du serveur — À PLANIFIER (demande de Dany)
+
+- Remplacer « Choix d'un autre serveur (Ookla, serveur du fournisseur) : bientôt » par un vrai
+  sélecteur de serveur : le plus proche automatiquement, ou un serveur choisi dans une liste
+  (ville, opérateur, distance, latence mesurée), favoris, serveur personnalisé (adresse).
+- Sources possibles, à vérifier avant de construire :
+  - **Ookla (Speedtest.net)** : pas d'API publique libre ; leur outil officiel `speedtest`
+    (CLI) a sa propre licence. Option honnête : si Dany l'a installé, NetScope le lance et lit
+    son résultat JSON (avec mention de la licence) ; sinon, lien de téléchargement.
+  - **Serveurs ouverts** : M-Lab (NDT7, gratuit, nombreux serveurs dont au Canada), serveurs
+    LibreSpeed (souvent hébergés par des fournisseurs), Cloudflare (déjà utilisé ?), serveurs
+    iperf3 publics pour le débit local/étendu.
+  - **Serveur du fournisseur** : beaucoup de fournisseurs hébergent un serveur Ookla ou
+    LibreSpeed ; le proposer en tête quand on le détecte (nom du fournisseur via l'IP publique).
+- Historique : retenir le serveur utilisé pour chaque test et pouvoir comparer par serveur.
+- Tests : analyse des listes de serveurs et des résultats fixes, sans réseau.
+
+## 17. Bouton « Installer » pour les outils manquants — À PLANIFIER (demande de Dany)
+
+- Là où NetScope dit qu'un outil manque (iperf3 dans Speedtest › Local, telnet dans Accès
+  distant, et tout outil externe ajouté plus tard), afficher un bouton **« Installer »** au lieu
+  du seul message.
+- Si Homebrew est présent (`/opt/homebrew/bin/brew` ou `/usr/local/bin/brew`) : ouvrir Terminal
+  avec `brew install iperf3` (commande fixe, visible avant de lancer ; Dany voit tout et peut
+  annuler), puis revérifier la présence de l'outil quand Terminal a fini (bouton « Vérifier de
+  nouveau », détection automatique).
+- Si Homebrew est absent : expliquer et proposer « Installer Homebrew » (ouvre brew.sh, la
+  commande officielle s'exécute dans Terminal, jamais en cachette), ou un lien vers le
+  téléchargement officiel de l'outil.
+- Rien n'est installé sans clic de Dany ; aucune élévation de droits cachée.
+- Rappel côté appareil cible : pour iperf3, afficher aussi la commande `iperf3 -s` à lancer sur
+  l'autre appareil (bouton Copier), et pour un Windows, le lien de téléchargement officiel.
+
+## 18. Bilan des switchs périmé quand on change de plage — À PLANIFIER (demande de Dany)
+
+- Constat : après un scan de 192.168.1.0/24, le Scanner affiche encore « Switch trouvé mais
+  relevé impossible (10.182.122.124)… », qui vient d'un scan précédent sur 10.182.122.0/24.
+  Cette information n'est plus valide pour la plage affichée.
+- Correction : chaque bilan (switchs découverts, relevés impossibles, appareils localisés) est
+  rattaché aux plages du scan qui l'a produit ; il disparaît, ou passe en « ancien scan » grisé,
+  dès que les plages scannées ou affichées ne contiennent plus ces adresses (changement de plage,
+  de réseau ou d'interface, ou nouveau scan sans ces switchs).
+- Même principe pour les autres informations liées au réseau : passerelle, VLAN, emplacements
+  Switch / Port, alertes d'Analyse, encart « Ce Mac est branché sur… » (périmé si l'interface
+  ou le réseau change).
+- Le message peut aussi préciser la plage concernée (« Plage 10.182.122.0/24 : … »).
+- Tests : bilan conservé pour la même plage, effacé ou marqué ancien pour une autre plage.
+
+## 19. Scanner : choisir le préréglage de ports sur place — À PLANIFIER (demande de Dany)
+
+- Clic droit sur l'en-tête de la colonne « Ports ouverts » : menu des préréglages de ports
+  (ceux de Réglages › Profils de scan : 20 ports essentiels, ports courants, ~1 000 ports,
+  personnalisé…), avec coche sur celui en vigueur, « Modifier les préréglages… » (ouvre
+  Réglages) et « Rescanner les ports avec ce préréglage ».
+- Même menu au clic droit sur un ou plusieurs appareils : « Scanner les ports › <préréglage> »
+  (remplace l'actuel scan approfondi unique).
+- Rappel visible du préréglage choisi près du bouton « Lancer le scan » (ex. « Ports : 20
+  essentiels »), et choix aussi possible depuis ce bouton.
+- Le choix fait dans le Scanner est retenu et reste cohérent avec Réglages (même liste, même
+  source) ; un préréglage ajouté dans Réglages apparaît dans le menu.
+- À faire avec les tableaux standard (note 8), qui gèrent déjà le clic droit sur l'en-tête.
+
+## 20. Scanner : colonne « Type d'équipement » modifiable (demande de Dany)
+
+- Ajouter au Scanner une colonne **Type** (icône + libellé : poste, serveur, imprimante, caméra,
+  switch, point d'accès, routeur/pare-feu, téléphone, objet connecté, inconnu…), triable, visible
+  par défaut.
+- **Clic droit sur un ou plusieurs appareils › « Changer le type › … »** (liste des types, coche
+  sur le type actuel, « Revenir au type détecté »). Aussi depuis le panneau de détail.
+- Le type choisi à la main est celui de l'inventaire (`customType` d'InvModels, déjà modifiable
+  dans le détail de l'Inventaire) : une seule source, retenue par MAC, reprise par la Carte,
+  l'Analyse, les Rapports, la Surveillance et les scans suivants ; une petite marque indique
+  « type choisi à la main ».
+- Un scan ne remplace jamais un type choisi à la main.
+- À faire avec les tableaux standard (note 8), dans la même version.
+
+## 21. Ressources : processeur, mémoire, réseau — À PLANIFIER (demande de Dany)
+
+- **Ce Mac** : processeur (total et par cœur), mémoire (utilisée, compressée, pression),
+  réseau par interface (débit entrant/sortant en direct, totaux, erreurs), avec courbes sur
+  quelques minutes ; lecture locale seulement (host_statistics, sysctl, getifaddrs), aucun
+  trafic.
+- **Appareils du réseau** (switchs, serveurs, imprimantes, NAS) par SNMP en lecture :
+  processeur et mémoire (HOST-RESOURCES-MIB, MIB Cisco/HPE/Fortinet courantes), et surtout
+  **trafic par port** (IF-MIB ifHCInOctets/ifHCOutOctets, erreurs, rejets) avec débit calculé et
+  pourcentage de la vitesse du lien ; « top ports » les plus chargés d'un switch.
+- Où : nouvel onglet dans la fiche Appareil et dans Switchs et ports (port choisi), tuile dans la
+  barre de menus pour ce Mac, et sondes de Surveillance « Processeur > X % », « Mémoire > X % »,
+  « Port saturé > X % » (note 3).
+- Historique court en mémoire, export CSV ; intervalle réglable.
+- Tests : calcul des débits à partir de compteurs fixes (y compris le retour à zéro des
+  compteurs 32 bits), analyse des réponses SNMP fixes, sans réseau.

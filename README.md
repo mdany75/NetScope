@@ -8,8 +8,8 @@ surveillance, rapports et accès distant, le tout en français.
 
 ## Fonctions
 
-Version 0.2.1 : douze écrans sur quatorze fonctionnent ; Surveillance et Rapports sont encore
-en construction.
+Version 0.3.0 : les quatorze écrans fonctionnent. La suite prévue est dans
+[docs/A-FAIRE.md](docs/A-FAIRE.md).
 
 - **Scanner multi-plages qui se remplit tout seul** : plusieurs plages à la fois, ping ICMP
   sans droits administrateur, table ARP, noms d’hôte (DNS inverse, mDNS/Bonjour, NetBIOS,
@@ -28,6 +28,18 @@ en construction.
   **VLAN** de chaque appareil. Un switch retiré à la main n’est plus interrogé (« Ne plus
   ignorer » dans Réglages › Switchs). Limite : mDNS ne répond pas d’un VLAN à l’autre ; sur
   les autres VLAN, les noms viennent du DNS inverse, de NetBIOS (Windows) et du sysName SNMP.
+- **Surveillance** : sondes Ping, TCP, HTTP(S) (certificat qui expire, mot-clé), DNS, SNMP,
+  port de switch et nouveaux appareils, avec seuils, plage horaire et dépendance ; barre de
+  disponibilité 24 h, journal des alertes, notifications macOS et **icône dans la barre de
+  menus** ; les sondes continuent fenêtre fermée.
+- **Rapports** : rapport client en **PDF** (format lettre, « Page N de M », signature),
+  quatre modèles, sections tirées du scan, de l’inventaire, des switchs et du Wi-Fi ; exports
+  CSV, JSON et HTML ; brouillon Mail avec le PDF joint (rien n’est envoyé sans toi).
+- **Test DHCP** : tous les serveurs DHCP qui répondent, avec leur offre, et alerte si un
+  serveur n’est pas autorisé (jamais de bail accepté).
+- **Capture LLDP/CDP** : le switch, le port, le VLAN et le PoE où ce Mac est branché, sans
+  SNMP. Il faut l’accès BPF (ChmodBPF de Wireshark) ou l’autorisation d’administrateur de
+  macOS, demandée une fois par capture.
 - **Ping continu** multi-cibles (intervalle, taille de paquet pour le test MTU), statistiques
   (min, moyenne, max, gigue, perte, P95), graphes, journal des coupures, **traceroute et MTR**.
 - **Switchs et ports** : client SNMP v2c intégré (table MAC BRIDGE-MIB / Q-BRIDGE-MIB, LLDP,
@@ -47,7 +59,8 @@ en construction.
   type, alertes (nouvel appareil, conflit IP…), comparaison de deux scans.
 - **Carte du réseau** construite à partir du scan (passerelle, switchs, groupes d’appareils).
 - **Accès distant** : connexions SSH, Telnet, console série, RDP et VNC enregistrées par site,
-  ouvertes dans Terminal, Windows App ou Partage d’écran ; import depuis le scan.
+  ouvertes dans Terminal, Windows App ou Partage d’écran ; import depuis le scan ; RDP et VNC
+  **en fenêtre ou en plein écran** (taille de la fenêtre RDP, « Tous les écrans »).
 - **Speedtest** : débit Internet (multi-flux, latence au repos et en charge, gigue),
   débit local avec iperf3, historique.
 - **Mise à jour automatique** depuis les Releases GitHub (canal Stable ou Bêta, vérification
@@ -60,8 +73,7 @@ en construction.
   `10.10.0.1-10.10.0.50`, `10.0.0.5`, ou une liste ; limite de sécurité de 65 536 adresses.
 - Calculateur de sous-réseaux : réseau, masque, masque inverse, broadcast, premier et dernier
   hôte, nombre d’hôtes, classe, privé ou public, masque en binaire, découpage.
-- Fabricant d’après l’adresse MAC (table intégrée d’environ 230 préfixes courants) et
-  reconnaissance des adresses MAC privées (aléatoires).
+- Reconnaissance des adresses MAC privées (aléatoires).
 - Au premier lancement, la plage proposée est celle du réseau de l’interface active.
 - Plages enregistrées et noms personnalisés conservés d’un lancement à l’autre.
 
@@ -71,7 +83,9 @@ Télécharge [NetScope.dmg](https://github.com/mdany75/NetScope/releases/latest/
 (toujours la dernière version), ouvre-le et glisse NetScope dans Applications.
 
 Configuration requise : macOS 14 ou plus récent. Au premier scan, macOS demande l’accès au
-réseau local ; pour lire le nom des réseaux Wi-Fi, il demande aussi la localisation.
+réseau local ; pour lire le nom des réseaux Wi-Fi, il demande aussi la localisation (bouton
+« Autoriser la localisation » de l’écran Wi-Fi). La Surveillance demande l’autorisation des
+notifications, et le plein écran VNC celle de l’Accessibilité.
 
 ## Reconstruire
 
@@ -94,7 +108,7 @@ swift build && ./.build/debug/NetScope --snapshot /tmp/netscope-snap --demo
 swift build && ./.build/debug/NetScopeSelfTest
 ```
 
-Les tests portent sur le moteur (adresses, plages, sous-réseaux, MAC, fabricants, scan, ping, SNMP, DNS, mise à jour, inventaire, Speedtest, accès distant). Ils
+Les tests portent sur le moteur (adresses, plages, sous-réseaux, MAC, fabricants, scan, ping, SNMP, DNS, mise à jour, inventaire, Speedtest, accès distant, DHCP, LLDP/CDP, surveillance, rapports). Ils
 n’envoient rien sur le réseau : aucun scan, aucune requête, sauf éventuellement vers 127.0.0.1.
 
 ## Organisation
@@ -113,6 +127,7 @@ n’envoient rien sur le réseau : aucun scan, aucune requête, sauf éventuelle
   produit), copiée dans l’application par `build.sh`
 - `Resources/Info.plist` : identité de l’application et autorisations (réseau local, Bonjour, localisation)
 - `docs/capture.png` : capture de la fenêtre
+- `docs/A-FAIRE.md` : notes d’essai et suite prévue ; `docs/feuille-de-route.html` : feuille de route
 - `docs/croquis/` : croquis de conception des quatorze écrans (`Main.dc.html` pour le Scanner,
   `Ping.dc.html`, `Switch.dc.html`…, et `canvas.json` qui les assemble) ; ils font foi pour la
   disposition, les couleurs, la densité et les libellés

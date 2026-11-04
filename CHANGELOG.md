@@ -1,5 +1,56 @@
 # Changements
 
+## 0.3.0 — 2026-11-03
+
+Surveillance, Rapports, Test DHCP et capture LLDP/CDP : les deux derniers écrans en construction
+et les deux outils « Bientôt » sont faits.
+
+### Ajouté
+- **Surveillance** : sondes Ping, TCP, HTTP(S) (code attendu, mot-clé, expiration du
+  certificat), DNS, SNMP (valeur d’un OID), port de switch et nouveaux appareils ; seuils de
+  latence, de perte et d’échecs consécutifs, plage horaire et dépendance entre sondes.
+  - Barre de disponibilité 24 h par sonde, éditeur avec « Tester maintenant », journal des
+    alertes avec filtres, « Accuser réception » et export CSV.
+  - Notifications macOS des alertes et des retours à la normale.
+  - Icône dans la barre de menus (état du réseau, latence de la passerelle, alertes,
+    « Scan rapide », « Ouvrir NetScope ») ; les sondes continuent fenêtre fermée.
+  - Badge de la barre latérale = alertes non lues ; historique dans
+    `~/Library/Application Support/NetScope/surveillance.json`.
+- **Rapports** : modèles Audit réseau complet, Inventaire simple, Sécurité et Intervention
+  technique ; client, site, technicien, date, logo et sections à cocher.
+  - Aperçu page par page au format lettre et export PDF natif (en-tête, « Page N de M »,
+    bloc de signature) ; exports CSV (protégé contre les formules), JSON et HTML.
+  - Sections tirées du scan, de l’inventaire, des switchs et du Wi-Fi : résumé, plan
+    d’adressage, switchs et ports, points d’accès, ports ouverts à risque, problèmes et
+    recommandations, inventaire avec l’emplacement physique, annexe brute.
+  - « Enregistrer comme modèle », rapports récents, option « Masquer les adresses MAC », et
+    « Envoyer par courriel », qui prépare un brouillon Mail avec le PDF joint sans rien envoyer.
+- **Test DHCP** (Boîte à outils) : envoie un DHCPDISCOVER (jamais de DHCPREQUEST), liste chaque
+  serveur qui répond avec son offre (adresse, masque, passerelle, DNS, domaine, bail, T1/T2,
+  options 66, 67 et 43) et signale tout serveur DHCP non autorisé (liste réglable) ;
+  « Créer une alerte » l’ajoute à Analyse.
+- **Capture LLDP/CDP** (Boîte à outils) : switch, port, VLAN natif et voix, adresse de
+  gestion, modèle, capacités et PoE du port où ce Mac est branché, avec compte à rebours ; encart
+  « Ce Mac est branché sur… » dans Switchs et ports.
+  - Accès aux trames par /dev/bpf s’il est déjà permis (ChmodBPF de Wireshark), sinon par
+    tcpdump lancé une seule fois avec l’autorisation d’administrateur de macOS, en lecture
+    seule, avec un filtre fixe et une durée bornée.
+- **Accès distant** : Fenêtre ou Plein écran par connexion RDP et VNC, rappelé dans le panneau
+  de détail, et menu du bouton « Connecter » pour choisir pour cette fois seulement.
+  - RDP en fenêtre : taille au choix (Ajuster, 1280 × 800, 1440 × 900, 1920 × 1080 ou
+    personnalisée) ; « Tous les écrans » en plein écran ; le fichier .rdp suit le choix.
+  - VNC : mise à l’échelle de Partage d’écran (Ajuster à la fenêtre ou Taille réelle) et
+    plein écran après l’identification, avec l’autorisation Accessibilité.
+- `docs/A-FAIRE.md` (notes d’essai et suite prévue) et `docs/feuille-de-route.html`.
+
+### Corrigé
+- Wi-Fi : « Autoriser la localisation » affiche enfin la fenêtre de macOS (droit de
+  localisation ajouté à la signature, clé NSLocationUsageDescription). Le bouton suit l’état de
+  l’accès (désactivé, en attente, refusé ou restreint, autorisé), ouvre Réglages Système ›
+  Service de localisation quand macOS ne redemande plus, et actualise les noms des réseaux une
+  fois l’accès autorisé.
+- Accès distant : le nom d’une connexion n’est plus tronqué dans le titre du panneau de détail.
+
 ## 0.2.1 — 2026-11-03
 
 Les fabricants viennent maintenant du registre IEEE complet.

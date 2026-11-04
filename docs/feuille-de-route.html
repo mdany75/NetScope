@@ -92,8 +92,8 @@ code { font-family: var(--f-mono); font-size: 12.5px; }
       </div>
     </div>
     <div class="facts">
-      <div>Version installée<b>0.2.1</b></div>
-      <div>Prochaine version<b>0.3.0</b></div>
+      <div>Dernière version<b>0.3.0</b></div>
+      <div>Prochaine version<b>0.4.0</b></div>
       <div>Mise à jour<b>3 nov. 2026</b></div>
     </div>
   </div>
@@ -140,10 +140,10 @@ code { font-family: var(--f-mono); font-size: 12.5px; }
         </article>
       </section>
 
-      <section class="stage run">
+      <section class="stage done">
         <div class="stage-head">
-          <h2>En cours <span class="tag">0.3.0</span></h2>
-          <p>Réalisation, relecture et corrections en parallèle</p>
+          <h2>Livré <span class="tag">0.3.0</span></h2>
+          <p>Publié le 3 novembre 2026 ; reste à essayer sur le vrai réseau</p>
         </div>
         <article class="card">
           <h3><span class="num">Note 1</span>Autorisation de la localisation</h3>
@@ -151,7 +151,7 @@ code { font-family: var(--f-mono); font-size: 12.5px; }
             <li>Le bouton du Wi-Fi ouvre la fenêtre de macOS</li>
             <li>Si l’accès est refusé : lien vers Réglages Système</li>
           </ul>
-          <span class="state"><i class="dot pulse"></i>En cours</span>
+          <span class="state" style="--c:var(--ok)"><i class="dot"></i>Livré dans la 0.3.0</span>
         </article>
         <article class="card">
           <h3><span class="num">Note 2</span>Test DHCP et capture LLDP/CDP</h3>
@@ -159,7 +159,7 @@ code { font-family: var(--f-mono); font-size: 12.5px; }
             <li>Tous les serveurs DHCP du segment, alerte si un serveur n’est pas autorisé</li>
             <li>« Ce Mac est branché sur… » : switch, port, VLAN, PoE</li>
           </ul>
-          <span class="state"><i class="dot pulse"></i>En cours</span>
+          <span class="state" style="--c:var(--ok)"><i class="dot"></i>Livré dans la 0.3.0</span>
         </article>
         <article class="card">
           <h3><span class="num">Note 3</span>Écran Surveillance</h3>
@@ -167,7 +167,7 @@ code { font-family: var(--f-mono); font-size: 12.5px; }
             <li>Sondes ping, TCP, HTTP, DNS, SNMP avec seuils</li>
             <li>Notifications macOS et icône dans la barre de menus</li>
           </ul>
-          <span class="state"><i class="dot pulse"></i>En cours</span>
+          <span class="state" style="--c:var(--ok)"><i class="dot"></i>Livré dans la 0.3.0</span>
         </article>
         <article class="card">
           <h3><span class="num">Note 4</span>Écran Rapports</h3>
@@ -175,7 +175,7 @@ code { font-family: var(--f-mono); font-size: 12.5px; }
             <li>Rapport client en PDF (format lettre, « Page N de M »)</li>
             <li>Exports CSV, JSON et HTML ; brouillon Mail avec le PDF joint</li>
           </ul>
-          <span class="state"><i class="dot pulse"></i>En cours</span>
+          <span class="state" style="--c:var(--ok)"><i class="dot"></i>Livré dans la 0.3.0</span>
         </article>
         <article class="card">
           <h3><span class="num">Note 5</span>RDP et VNC en fenêtre ou plein écran</h3>
@@ -183,7 +183,7 @@ code { font-family: var(--f-mono); font-size: 12.5px; }
             <li>Choix par connexion et au moment de « Connecter »</li>
             <li>Taille de la fenêtre RDP, option « Tous les écrans »</li>
           </ul>
-          <span class="state"><i class="dot pulse"></i>En cours</span>
+          <span class="state" style="--c:var(--ok)"><i class="dot"></i>Livré dans la 0.3.0</span>
         </article>
         <article class="card">
           <h3><span class="num">Note 8</span>Tableaux standard dans tous les écrans</h3>
@@ -192,8 +192,9 @@ code { font-family: var(--f-mono); font-size: 12.5px; }
             <li>Colonnes à masquer ou à ajouter (clic droit sur l’en-tête, bouton « Colonnes »)</li>
             <li>Choix retenus par tableau</li>
             <li>Colonne « Ports ouverts » plus large : plus de ports affichés, puis « +N »</li>
+            <li>Note 20 : colonne « Type » dans le Scanner, changeable par clic droit (retenu par MAC)</li>
           </ul>
-          <span class="state">Après la fusion des notes 1 à 5</span>
+          <span class="state" style="--c:var(--run)">Prochaine : 0.4.0</span>
         </article>
         <article class="card">
           <h3><span class="num">Note 9</span>Style Mac et petite fenêtre</h3>
@@ -202,7 +203,7 @@ code { font-family: var(--f-mono); font-size: 12.5px; }
             <li>Fenêtre réduite : le panneau de droite défile de haut en bas au lieu d’être coupé</li>
           </ul>
           <p class="decide">À confirmer : Mac natif complet, hybride (garder le bleu nuit) ou mode sombre seulement.</p>
-          <span class="state">Après la note 8</span>
+          <span class="state" style="--c:var(--run)">Prochaine : 0.4.0, après la note 8</span>
         </article>
       </section>
 
@@ -253,6 +254,42 @@ code { font-family: var(--f-mono); font-size: 12.5px; }
             <li>Microsoft 365, Azure, Apple, AWS, Google, Cloudflare, GitHub, Zoom… liste modifiable</li>
             <li>Page d’état officielle et test depuis ce réseau</li>
             <li>« Panne chez eux » ou « problème chez nous », incidents en cours, notifications</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3><span class="num">Note 16</span>Speedtest : choix du serveur</h3>
+          <ul>
+            <li>Serveur le plus proche ou choisi dans une liste, favoris, serveur personnalisé</li>
+            <li>Ookla par son outil officiel s’il est installé, serveurs ouverts (M-Lab, LibreSpeed), serveur du fournisseur</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3><span class="num">Note 17</span>Bouton « Installer » pour les outils manquants</h3>
+          <ul>
+            <li>iperf3, telnet… installés par Homebrew dans Terminal, en un clic</li>
+            <li>Sans Homebrew : lien d’installation officiel ; rien sans clic de Dany</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3><span class="num">Note 18</span>Bilan des switchs périmé</h3>
+          <ul>
+            <li>Un message d’un ancien scan (autre plage) disparaît ou passe en « ancien scan »</li>
+            <li>Même règle pour passerelle, VLAN, emplacements et « Ce Mac est branché sur… »</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3><span class="num">Note 19</span>Préréglage de ports dans le Scanner</h3>
+          <ul>
+            <li>Clic droit sur « Ports ouverts » ou sur des appareils : choix du préréglage de Réglages</li>
+            <li>« Rescanner les ports avec ce préréglage », rappel près de « Lancer le scan »</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3><span class="num">Note 21</span>Ressources : processeur, mémoire, réseau</h3>
+          <ul>
+            <li>Ce Mac : processeur, mémoire, débit par interface en direct</li>
+            <li>Appareils par SNMP : processeur, mémoire, trafic par port de switch</li>
+            <li>Sondes de Surveillance sur ces valeurs</li>
           </ul>
         </article>
         <article class="card">
