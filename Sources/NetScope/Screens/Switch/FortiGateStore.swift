@@ -379,6 +379,7 @@ final class FortiGateStore: ObservableObject {
             sites = FortiGateSitesDemo.sites(for: chosen)
             lastRefresh = Date()
             applySites(state: state)
+            FortiAPStore.shared.refresh(selection: chosen, state: state)
             return
         }
         await loadTokens()
@@ -408,6 +409,8 @@ final class FortiGateStore: ObservableObject {
         sites = fresh
         lastRefresh = Date()
         applySites(state: state)
+        // Note 27 : Wi-Fi des mêmes FortiGate, lu à part une fois les switchs appliqués.
+        FortiAPStore.shared.refresh(selection: chosen, state: state)
     }
 
     /// « Tester tout » : chaque FortiGate activée, quatre à la fois ; résultat sur chaque ligne.
@@ -615,7 +618,31 @@ final class FortiGateStore: ObservableObject {
         let r = runtime[id]
         let text = FortiDiagnostic.text(calls: calls ?? r?.calls ?? [], config: c.config, system: r?.report?.system, token: tokens[id],
                                         date: r?.lastAttempt ?? Date())
-        return "Site\u{00A0}: \(c.displayName)\n" + text
+        // Note 27 : appels Wi-Fi de la dernière lecture des FortiAP (même retrait du jeton).
+        let wifiCalls = calls == nil ? FortiAPStore.shared.calls[id] ?? [] : []
+        let wifi = wifiCalls.isEmpty ? "" : "\n\n" + FortiDiagnostic.text(calls: wifiCalls, config: c.config, system: nil, token: tokens[id],
+                                                                        date: FortiAPStore.shared.lastRefresh ?? Date())
+            .replacingOccurrences(of: "réponses brutes de la FortiGate", with: "réponses brutes Wi-Fi (FortiAP) de la FortiGate")
+        return "Site\u{00A0}: \(c.displayName)\n" + text + wifi
+    }
+
+    // MARK: Wi-Fi (note 27)
+
+    /// FortiGate choisies prêtes à lire, avec leur jeton (lecture Wi-Fi de FortiAPStore). Les
+    /// autres sont rendues avec la raison pour laquelle elles ne peuvent pas être lues.
+    func wifiTargets(for selection: FortiControllerSelection) async -> (ready: [(FortiGateController, String)], blocked: [UUID: String]) {
+        await loadTokens()
+        var ready: [(FortiGateController, String)] = []
+        var blocked: [UUID: String] = [:]
+        for id in selection.controllerIDs {
+            guard let c = controller(id), c.isEnabled else { continue }
+            if let reason = notReadyReason(c) {
+                blocked[id] = reason
+            } else if let token = tokens[id] {
+                ready.append((c, token))
+            }
+        }
+        return (ready, blocked)
     }
 
     func copyDiagnostic(_ id: UUID, calls: [FortiCallRecord]? = nil) {

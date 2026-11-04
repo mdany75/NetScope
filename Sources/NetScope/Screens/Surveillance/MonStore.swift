@@ -302,7 +302,15 @@ final class MonStore: ObservableObject {
         // Sonde « Service en ligne » : catalogue de l'outil et accès Graph (secret lu au Trousseau).
         let onlineServices = probe.kind == .onlineService ? SvcStore.shared.services : []
         let onlineGraph = probe.kind == .onlineService ? SvcStore.shared.graphCredentials() : nil
+        // Sondes FortiAP (note 27) : lecture Wi-Fi des FortiGate, relue si plus vieille que l'intervalle.
+        let isFortiAP = probe.kind == .fortiAPOffline || probe.kind == .fortiAPOverload
+        let appState = self.appState
         Task {
+            var fortiWifi: FortiWifiOverview?
+            if isFortiAP {
+                await FortiAPStore.shared.refreshForMonitoring(maxAge: TimeInterval(probe.interval), state: appState)
+                fortiWifi = FortiAPStore.shared.overview
+            }
             if perHost {
                 await SwitchStore.shared.loadVault()
                 let host = SwitchStore.shared.community(for: probe.target)
@@ -312,6 +320,7 @@ final class MonStore: ObservableObject {
                                         inventoryReady: inventoryReady, now: Date())
             context.onlineServices = onlineServices
             context.onlineServiceGraph = onlineGraph
+            context.fortiWifi = fortiWifi
             let outcome = await MonRunner.run(probe, context: context)
             MonStore.shared.finish(probe.id, outcome: outcome, manual: manual)
         }

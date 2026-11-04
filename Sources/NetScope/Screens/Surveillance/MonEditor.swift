@@ -380,6 +380,10 @@ private struct MonConditionFields: View {
             MonResourceConditionFields(probe: $probe)
         case .onlineService:
             MonServiceConditionFields(probe: $probe)
+        case .fortiAPOffline:
+            note("Alerte quand la FortiGate du site voit la borne déconnectée («\u{00A0}*\u{00A0}» : toutes les bornes lues). La FortiGate est relue au plus à chaque intervalle, en lecture seule.")
+        case .fortiAPOverload:
+            MonFortiAPConditionFields(probe: $probe)
         }
     }
 
@@ -524,5 +528,37 @@ struct MonDangerButtonStyle: ButtonStyle {
             .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius)
                 .strokeBorder(configuration.isPressed ? Color(light: 0xFCA5A5, dark: 0x822B2B) : Theme.border))
             .contentShape(RoundedRectangle(cornerRadius: Theme.buttonRadius))
+    }
+}
+
+/// Sonde « Borne surchargée » (note 27) : clients par radio et utilisation du canal.
+private struct MonFortiAPConditionFields: View {
+    @Binding var probe: MonProbe
+
+    var body: some View {
+        let t = probe.wifiThresholds ?? .standard
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text("Plus de").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
+                MonInput(placeholder: "30", text: Binding(get: { String(t.maxClientsPerRadio) }, set: { text in
+                    guard let v = Int(text.trimmingCharacters(in: .whitespaces)), v > 0 else { return }
+                    var next = probe.wifiThresholds ?? .standard
+                    next.maxClientsPerRadio = min(500, v)
+                    probe.wifiThresholds = next
+                }), mono: true)
+                .frame(width: 52)
+                Text("clients par radio, ou canal occupé à plus de").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
+                MonInput(placeholder: "70", text: Binding(get: { MonFormat.number(t.maxChannelUtilization) }, set: { text in
+                    guard let v = Double(text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")), v > 0 else { return }
+                    var next = probe.wifiThresholds ?? .standard
+                    next.maxChannelUtilization = min(100, v)
+                    probe.wifiThresholds = next
+                }), mono: true)
+                .frame(width: 52)
+                Text("%").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
+            }
+            Text("D’après la dernière lecture Wi-Fi de la FortiGate (relue au plus à chaque intervalle).")
+                .font(Theme.caption).foregroundStyle(Theme.textSecondary)
+        }
     }
 }

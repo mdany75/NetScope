@@ -44,6 +44,10 @@ enum RapportData {
         if demo, input.mailHealth.isEmpty, let summary = mail.report?.summary { input.mailHealth = [summary] }
         // Vitesse des disques : dernier test de chaque emplacement (historique de l'outil).
         input.diskTests = DiskSpeedModel.shared.reportRecords
+        // Wi-Fi FortiAP (note 27) : dernière lecture des bornes par les FortiGate.
+        let fortiAP = FortiAPStore.shared
+        input.fortiWifi = fortiAP.hasData ? fortiAP.overview : nil
+        input.fortiWifiThresholds = fortiAP.thresholds
         if demo { RapportDemo.complete(&input) }
         return input
     }

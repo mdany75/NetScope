@@ -262,6 +262,7 @@ struct ScanDeviceTable: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var switches = SwitchStore.shared
     @ObservedObject private var inventory = InvModel.shared
+    @ObservedObject private var fortiAP = FortiAPStore.shared
     /// Appareils affichés, avec le type choisi à la main.
     let rows: [Device]
     @ObservedObject var scan: ScanController
@@ -293,6 +294,9 @@ struct ScanDeviceTable: View {
         StandardColumn(id: "snmp", title: "Nature SNMP", isDefaultVisible: false),
         StandardColumn(id: "oui", title: "OUI", isDefaultVisible: false),
         StandardColumn(id: "emplacement", title: "État de l’emplacement", isDefaultVisible: false),
+        // Note 27 : client Wi-Fi vu par la FortiGate (borne FortiAP et SSID), comme Switch / port.
+        StandardColumn(id: "borneWifi", title: "Borne Wi-Fi", isDefaultVisible: false),
+        StandardColumn(id: "ssid", title: "SSID", isDefaultVisible: false),
     ]
 
     static let sortKeys: [String: KeyPathComparator<Device>] = [
@@ -488,6 +492,26 @@ struct ScanDeviceTable: View {
                 }
                 .width(min: 90, ideal: 175)
                 .customizationID("emplacement")
+                .defaultVisibility(.hidden)
+            }
+
+            Group {
+                TableColumn(StandardTableHeading("BORNE WI-FI")) { device in
+                    let client = fortiAP.client(for: device)
+                    ScanCellText(client.map { c in [c.apName ?? "?", c.band?.label, c.rssi.map(WifiQuality.dbm)].compactMap { $0 }.joined(separator: " · ") } ?? "—",
+                                 mono: client != nil, dimmed: client == nil)
+                        .help(client.map { "Client Wi-Fi vu par la FortiGate «\u{00A0}\($0.site)\u{00A0}»" + ($0.channel.map { ", canal \($0)" } ?? "") } ?? "")
+                }
+                .width(min: 90, ideal: 170)
+                .customizationID("borneWifi")
+                .defaultVisibility(.hidden)
+
+                TableColumn(StandardTableHeading("SSID")) { device in
+                    let ssid = fortiAP.client(for: device)?.ssid
+                    ScanCellText(ssid ?? "—", dimmed: ssid == nil)
+                }
+                .width(min: 70, ideal: 110)
+                .customizationID("ssid")
                 .defaultVisibility(.hidden)
             }
         }
