@@ -607,88 +607,318 @@ extension SwitchText {
 
 // MARK: - Table MAC / ports
 
+/// Table MAC du switch affiché : tableau standard (note 8, clé « switchs.mac ») ; un clic sur une
+/// ligne choisit son port sur la façade, et un port choisi sur la façade sélectionne sa première ligne.
 struct SwitchMacTable: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var store: SwitchStore
+    @ObservedObject private var inventory = InvModel.shared
     let snapshot: SNMPSwitchSnapshot
+    @StateObject private var table = StandardTableModel<Row>(id: "switchs.mac", columns: Self.columns,
+                                                             sortKeys: Self.sortKeys, defaultSort: "port")
+    @State private var selection: Row.ID?
 
+    /// Ligne de la table : une MAC apprise sur un port (valeurs affichées et clés de tri).
     struct Row: Identifiable {
         var id: String
         var ifIndex: Int
         var port: String
         var vlan: String
+        var vlanSort: Int
         var mac: String
+        var macSort: UInt64
         var ip: String
+        var ipSort: UInt32
         var host: String
         var vendor: String
         var source: SwitchSource
+        var seen: Date
+        var deviceID: Device.ID?
+        // Colonnes facultatives
+        var customName: String?
+        var type: DeviceType?
+        var typeIsManual: Bool
+        var oui: String
+        var portAlias: String
+        var poe: Bool?
+        var portStatus: String
+        var speed: String
+        var speedSort: UInt64
+        var location: String
+        var locationCurrent: Bool
+        var locationHelp: String
+
+        /// Les valeurs absentes (« — ») vont en fin de liste en tri croissant.
+        private static let last = "\u{10FFFF}"
+        var hostSort: String { host == "—" ? Self.last : host.lowercased() }
+        var vendorSort: String { vendor.lowercased() }
+        var sourceSort: String { source.rawValue }
+        var customNameSort: String { customName?.lowercased() ?? Self.last }
+        var typeSort: String { type?.label ?? Self.last }
+        var poeSort: Int { poe.map { $0 ? 0 : 1 } ?? 2 }
+        var aliasSort: String { portAlias.isEmpty ? Self.last : portAlias.lowercased() }
+        var locationSort: String { location == "—" ? Self.last : location }
     }
 
-    private static let columns: [TableHeader.Column] = [
-        .init(title: "Port", width: 86), .init(title: "VLAN", width: 50), .init(title: "MAC", width: 146),
-        .init(title: "IP", width: 128), .init(title: "Hostname"), .init(title: "Fabricant", width: 112),
-        .init(title: "Source", width: 70), .init(title: "Vu", width: 84),
+    static let columns: [StandardColumn] = [
+        StandardColumn(id: "port", title: "Port", isRequired: true),
+        StandardColumn(id: "vlan", title: "VLAN"),
+        StandardColumn(id: "mac", title: "MAC"),
+        StandardColumn(id: "ip", title: "IP"),
+        StandardColumn(id: "hostname", title: "Hostname"),
+        StandardColumn(id: "fabricant", title: "Fabricant"),
+        StandardColumn(id: "source", title: "Source"),
+        StandardColumn(id: "vu", title: "Vu"),
+        StandardColumn(id: "nom", title: "Nom personnalisé", isDefaultVisible: false),
+        StandardColumn(id: "type", title: "Type", isDefaultVisible: false),
+        StandardColumn(id: "oui", title: "OUI", isDefaultVisible: false),
+        StandardColumn(id: "description", title: "Description du port", isDefaultVisible: false),
+        StandardColumn(id: "poe", title: "PoE du port", isDefaultVisible: false),
+        StandardColumn(id: "etat", title: "État du port", isDefaultVisible: false),
+        StandardColumn(id: "vitesse", title: "Vitesse", isDefaultVisible: false),
+        StandardColumn(id: "emplacement", title: "État de l’emplacement", isDefaultVisible: false),
+    ]
+
+    static let sortKeys: [String: KeyPathComparator<Row>] = [
+        "port": KeyPathComparator(\Row.ifIndex),
+        "vlan": KeyPathComparator(\Row.vlanSort),
+        "mac": KeyPathComparator(\Row.macSort),
+        "ip": KeyPathComparator(\Row.ipSort),
+        "hostname": KeyPathComparator(\Row.hostSort),
+        "fabricant": KeyPathComparator(\Row.vendorSort),
+        "source": KeyPathComparator(\Row.sourceSort),
+        "vu": KeyPathComparator(\Row.seen),
+        "nom": KeyPathComparator(\Row.customNameSort),
+        "type": KeyPathComparator(\Row.typeSort),
+        "oui": KeyPathComparator(\Row.oui),
+        "description": KeyPathComparator(\Row.aliasSort),
+        "poe": KeyPathComparator(\Row.poeSort),
+        "etat": KeyPathComparator(\Row.portStatus),
+        "vitesse": KeyPathComparator(\Row.speedSort),
+        "emplacement": KeyPathComparator(\Row.locationSort),
     ]
 
     var body: some View {
-        let rows = self.rows
+        // Tri du tableau, puis port et MAC pour départager (ordre stable d'un relevé à l'autre).
+        let rows = self.rows.sorted(using: table.sortOrder + [KeyPathComparator(\Row.ifIndex), KeyPathComparator(\Row.macSort)])
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                Text("Table MAC / ports").font(.system(size: 14, weight: .semibold))
-                Text("\(rows.count) entrées · \(snapshot.displayName) · \(snapshot.fdb.contains { $0.vlan != nil } ? "Q-BRIDGE-MIB" : "BRIDGE-MIB")")
+                Text("Table MAC / ports").font(.system(size: 14, weight: .semibold)).fixedSize()
+                // Le nom du switch est déjà dans l'en-tête de la façade : il passe en infobulle pour
+                // laisser la place au bouton « Colonnes ».
+                let mib = snapshot.fdb.contains { $0.vlan != nil } ? "Q-BRIDGE-MIB" : "BRIDGE-MIB"
+                Text("\(rows.count) entrées · \(mib)")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                Spacer()
+                    .lineLimit(1).truncationMode(.tail)
+                    .layoutPriority(-1)
+                    .help("\(rows.count) entrées · \(snapshot.displayName) · relevé SNMP \(mib)")
+                Spacer(minLength: 0)
                 Toggle("Masquer les uplinks", isOn: $store.hideUplinks)
                     .toggleStyle(.checkbox)
                     .font(Theme.small)
+                    .fixedSize()
                 HStack(spacing: 6) {
                     Image(systemName: "line.3.horizontal.decrease").font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
                     TextField("", text: $store.tableFilter, prompt: Text("Filtrer port, VLAN, MAC, IP…").foregroundStyle(Theme.textTertiary))
                         .textFieldStyle(.plain)
                         .font(Theme.small)
-                        .frame(width: 180)
+                        .frame(width: 164)
                 }
                 .padding(.horizontal, 8)
                 .frame(height: 28)
                 .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+                StandardColumnsMenu(model: table)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             Rectangle().fill(Theme.border).frame(height: 1)
-            TableHeader(columns: Self.columns)
-            ScrollView(.vertical) {
-                LazyVStack(spacing: 0) {
-                    ForEach(rows) { row in
-                        rowView(row)
-                    }
-                    if rows.isEmpty {
-                        Text(store.tableFilter.isEmpty ? "Aucune adresse MAC apprise." : "Aucune entrée ne correspond à «\u{00A0}\(store.tableFilter)\u{00A0}».")
-                            .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                            .padding(20)
-                    }
-                }
+            if rows.isEmpty {
+                Text(store.tableFilter.isEmpty ? "Aucune adresse MAC apprise." : "Aucune entrée ne correspond à «\u{00A0}\(store.tableFilter)\u{00A0}».")
+                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    .padding(20)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            } else {
+                tableView(rows)
             }
-            .frame(height: 340)
         }
+        .frame(height: 390)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
         .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
     }
 
+    private func tableView(_ rows: [Row]) -> some View {
+        Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+            Group {
+                TableColumn("PORT", sortUsing: table.sort("port")) { row in
+                    SwitchCell(row.port, mono: true, strong: true).help(row.portAlias)
+                }
+                .width(min: 60, ideal: 70)
+                .customizationID("port")
+                .disabledCustomizationBehavior(.visibility)
+
+                TableColumn("VLAN", sortUsing: table.sort("vlan")) { row in SwitchCell(row.vlan, mono: true) }
+                    .width(min: 36, ideal: 40)
+                    .customizationID("vlan")
+
+                TableColumn("MAC", sortUsing: table.sort("mac")) { row in SwitchCell(row.mac, mono: true) }
+                    .width(min: 110, ideal: 128)
+                    .customizationID("mac")
+
+                TableColumn("IP", sortUsing: table.sort("ip")) { row in SwitchCell(row.ip, mono: true, dimmed: row.ip == "—") }
+                    .width(min: 90, ideal: 104)
+                    .customizationID("ip")
+
+                TableColumn("HOSTNAME", sortUsing: table.sort("hostname")) { row in SwitchCell(row.host, dimmed: row.host == "—").help(row.host) }
+                    .width(min: 70, ideal: 92)
+                    .customizationID("hostname")
+
+                TableColumn("FABRICANT", sortUsing: table.sort("fabricant")) { row in SwitchCell(row.vendor) }
+                    .width(min: 60, ideal: 76)
+                    .customizationID("fabricant")
+
+                TableColumn("SOURCE", sortUsing: table.sort("source")) { row in SwitchSourceTag(source: row.source) }
+                    .width(min: 56, ideal: 64)
+                    .customizationID("source")
+
+                TableColumn("VU", sortUsing: table.sort("vu")) { row in
+                    TimelineView(.periodic(from: .now, by: 30)) { _ in
+                        SwitchCell(SwitchText.ago(row.seen), secondary: true)
+                    }
+                }
+                .width(min: 60, ideal: 70)
+                .customizationID("vu")
+            }
+
+            Group {
+                TableColumn("NOM PERSONNALISÉ", sortUsing: table.sort("nom")) { row in
+                    SwitchCell(row.customName ?? "—", dimmed: row.customName == nil)
+                }
+                .width(min: 80, ideal: 130)
+                .customizationID("nom")
+                .defaultVisibility(.hidden)
+
+                TableColumn("TYPE", sortUsing: table.sort("type")) { row in
+                    if let type = row.type {
+                        ScanTypeCell(type: type, isManual: row.typeIsManual)
+                    } else {
+                        SwitchCell("—", dimmed: true).help("Appareil absent du scan")
+                    }
+                }
+                .width(min: 80, ideal: 140)
+                .customizationID("type")
+                .defaultVisibility(.hidden)
+
+                TableColumn("OUI", sortUsing: table.sort("oui")) { row in SwitchCell(row.oui, mono: true) }
+                    .width(min: 64, ideal: 76)
+                    .customizationID("oui")
+                    .defaultVisibility(.hidden)
+
+                TableColumn("DESCRIPTION DU PORT", sortUsing: table.sort("description")) { row in
+                    SwitchCell(row.portAlias.isEmpty ? "—" : row.portAlias, dimmed: row.portAlias.isEmpty)
+                }
+                .width(min: 80, ideal: 150)
+                .customizationID("description")
+                .defaultVisibility(.hidden)
+
+                TableColumn("POE", sortUsing: table.sort("poe")) { row in
+                    SwitchCell(row.poe.map { $0 ? "Délivre du courant" : "Aucune charge" } ?? "—", dimmed: row.poe != true)
+                }
+                .width(min: 60, ideal: 120)
+                .customizationID("poe")
+                .defaultVisibility(.hidden)
+
+                TableColumn("ÉTAT DU PORT", sortUsing: table.sort("etat")) { row in SwitchCell(row.portStatus) }
+                    .width(min: 60, ideal: 120)
+                    .customizationID("etat")
+                    .defaultVisibility(.hidden)
+
+                TableColumn("VITESSE", sortUsing: table.sort("vitesse")) { row in
+                    SwitchCell(row.speed, mono: true, dimmed: row.speed == "—")
+                }
+                .width(min: 60, ideal: 80)
+                .customizationID("vitesse")
+                .defaultVisibility(.hidden)
+
+                TableColumn("ÉTAT DE L’EMPLACEMENT", sortUsing: table.sort("emplacement")) { row in
+                    SwitchCell(row.location, dimmed: !row.locationCurrent).help(row.locationHelp)
+                }
+                .width(min: 80, ideal: 150)
+                .customizationID("emplacement")
+                .defaultVisibility(.hidden)
+            }
+        }
+        .standardTableStyle()
+        .contextMenu(forSelectionType: Row.ID.self) { ids in
+            if let row = rows.first(where: { ids.contains($0.id) }) {
+                Button("Copier la MAC") { copy(row.mac) }
+                Button("Copier l’IP") { copy(row.ip) }.disabled(row.ip == "—")
+                Divider()
+                Button("Voir le port sur la façade") { store.select(host: snapshot.id, port: row.ifIndex) }
+                Button("Voir la fiche complète") { if let id = row.deviceID { state.showDevice(id) } }
+                    .disabled(row.deviceID == nil)
+            }
+        } primaryAction: { ids in
+            if let id = rows.first(where: { ids.contains($0.id) })?.deviceID { state.showDevice(id) }
+        }
+        .onAppear { followSelectedPort(rows) }
+        .onChange(of: selection) { _, id in
+            guard let row = rows.first(where: { $0.id == id }), row.ifIndex != store.selectedPort else { return }
+            store.select(host: snapshot.id, port: row.ifIndex)
+        }
+        .onChange(of: store.selectedPort) { _, _ in followSelectedPort(rows) }
+    }
+
+    /// Sélectionne la première ligne du port choisi sur la façade (s'il n'en a pas déjà une).
+    private func followSelectedPort(_ rows: [Row]) {
+        guard let port = store.selectedPort else { return }
+        if let current = rows.first(where: { $0.id == selection }), current.ifIndex == port { return }
+        selection = rows.first { $0.ifIndex == port }?.id
+    }
+
+    private func copy(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
     private var rows: [Row] {
         let uplinks = snapshot.uplinkInterfaces()
         let query = store.tableFilter.trimmingCharacters(in: .whitespaces).lowercased()
+        // Appareils du scan par MAC, avec le type choisi à la main (note 20).
+        var devices: [MACAddress: Device] = [:]
+        for device in inventory.withManualTypes(state.devices) {
+            if let mac = device.mac, devices[mac] == nil { devices[mac] = device }
+        }
         var result: [Row] = []
-        for entry in snapshot.fdb.sorted(by: { ($0.ifIndex ?? 0, $0.mac) < ($1.ifIndex ?? 0, $1.mac) }) {
+        for entry in snapshot.fdb {
             guard let i = entry.ifIndex else { continue }
             let isUplink = uplinks.contains(i)
             if isUplink && store.hideUplinks { continue }
             let info = store.describe(entry.mac, devices: state.devices)
             let neighbor = snapshot.neighbor(on: i)
             let source: SwitchSource = isUplink ? .uplink : (store.isAnnounced(entry.mac, by: neighbor, devices: state.devices) ? .lldp : .fdb)
-            let row = Row(id: "\(i)-\(entry.mac)-\(entry.vlan ?? 0)", ifIndex: i, port: snapshot.interface(i)?.name ?? "\(entry.bridgePort)",
-                          vlan: (entry.vlan ?? snapshot.pvid[i]).map(String.init) ?? "—", mac: entry.mac.formatted(.upperColon),
-                          ip: info.ip, host: info.name, vendor: info.vendor, source: source)
+            let iface = snapshot.interface(i)
+            let device = devices[entry.mac]
+            let vlan = entry.vlan ?? snapshot.pvid[i]
+            let located = device?.switchName != nil
+            let status = located ? device.map { state.locationStatus($0) } : nil
+            let macText = entry.mac.formatted(.upperColon)
+            let row = Row(id: "\(i)-\(entry.mac)-\(entry.vlan ?? 0)", ifIndex: i, port: iface?.name ?? "\(entry.bridgePort)",
+                          vlan: vlan.map(String.init) ?? "—", vlanSort: vlan ?? Int.max,
+                          mac: macText, macSort: entry.mac.value,
+                          ip: info.ip, ipSort: IPv4Address(info.ip)?.value ?? UInt32.max,
+                          host: info.name, vendor: info.vendor, source: source, seen: snapshot.polledAt,
+                          deviceID: info.deviceID,
+                          customName: device?.customName, type: device?.deviceType,
+                          typeIsManual: device.map { inventory.typeChoice(for: $0).isManual } ?? false,
+                          oui: String(macText.prefix(8)), portAlias: iface?.alias ?? "",
+                          poe: iface.map { _ in snapshot.poePorts.contains(i) },
+                          portStatus: iface.map { "\($0.adminUp ? "Activé" : "Désactivé") / \($0.operStatus.label)" } ?? "—",
+                          speed: iface.flatMap { $0.isUp ? SNMPFormat.speed(mbps: $0.speedMbps) : nil } ?? "—",
+                          speedSort: iface.flatMap { $0.isUp ? $0.speedMbps : nil } ?? 0,
+                          location: status.map(ScanDeviceTable.locationLabel) ?? "—",
+                          locationCurrent: status?.isCurrent == true,
+                          locationHelp: status.map { $0.explanation ?? "Relevé sur le réseau actuel" } ?? "")
             if !query.isEmpty {
                 let hay = [row.port, row.vlan, row.mac, row.ip, row.host, row.vendor, row.source.rawValue].joined(separator: " ").lowercased()
                 if !hay.contains(query) && !hay.contains(query.replacingOccurrences(of: "-", with: ":")) { continue }
@@ -697,30 +927,31 @@ struct SwitchMacTable: View {
         }
         return result
     }
+}
 
-    private func rowView(_ row: Row) -> some View {
-        let selected = store.selectedPort == row.ifIndex
-        return HStack(spacing: 0) {
-            cell(row.port, width: 86, mono: true)
-            cell(row.vlan, width: 50, mono: true)
-            cell(row.mac, width: 146, mono: true)
-            cell(row.ip, width: 128, mono: true)
-            cell(row.host, width: nil, mono: false)
-            cell(row.vendor, width: 112, mono: false)
-            SwitchSourceTag(source: row.source).padding(.horizontal, 8).frame(width: 70, alignment: .leading)
-            cell(SwitchText.ago(snapshot.polledAt), width: 84, mono: false)
-        }
-        .frame(height: 30)
-        .background(selected ? Theme.accentSoft : Color.clear)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.neutralSoft).frame(height: 1) }
-        .contentShape(Rectangle())
-        .onTapGesture { store.select(host: snapshot.id, port: row.ifIndex) }
+/// Texte d'une cellule des tableaux de l'écran Switchs.
+struct SwitchCell: View {
+    let text: String
+    var mono = false
+    var dimmed = false
+    var secondary = false
+    var strong = false
+
+    init(_ text: String, mono: Bool = false, dimmed: Bool = false, secondary: Bool = false, strong: Bool = false) {
+        self.text = text
+        self.mono = mono
+        self.dimmed = dimmed
+        self.secondary = secondary
+        self.strong = strong
     }
 
-    @ViewBuilder private func cell(_ text: String, width: CGFloat?, mono: Bool) -> some View {
-        let label = Text(text).font(mono ? Theme.mono(12) : Theme.small).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.tail)
-            .padding(.horizontal, 8)
-        if let width { label.frame(width: width, alignment: .leading) } else { label.frame(maxWidth: .infinity, alignment: .leading) }
+    var body: some View {
+        Text(text)
+            .font(mono ? Theme.mono(12, weight: strong ? .semibold : .regular) : Theme.small)
+            .foregroundStyle(dimmed ? Theme.textTertiary : (secondary ? Theme.textSecondary : Theme.text))
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .frame(height: 20)
     }
 }
 
