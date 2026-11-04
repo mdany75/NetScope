@@ -7,9 +7,9 @@
 
 Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0.
 
-1. **0.8.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé) : essais réels de la 0.3.x (localisation, DHCP, capture,
+1. **0.9.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate à essayer, réponses brutes à m’envoyer) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
-   des 0.5.0 à 0.8.0 (voir ci-dessous) ; 0.8.2 au besoin.
+   des 0.5.0 à 0.8.0 (voir ci-dessous) ; 0.9.1 au besoin.
 2. ~~**0.5.0, diagnostic du poste et du réseau local**~~ : livrée le 4 novembre 2026
    (notes 12, 21, 17 et 16) ; essais réels à faire (PoE sur une vraie switch, SNMP, M-Lab,
    LibreSpeed, Ookla, bouton Installer).
