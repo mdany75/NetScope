@@ -1,0 +1,485 @@
+import NetScopeCore
+import SwiftUI
+
+/// Panneau « Éditeur de sonde » : les changements restent dans un brouillon jusqu'à « Enregistrer ».
+struct MonEditor: View {
+    @ObservedObject private var store = MonStore.shared
+    @State private var draft: MonProbe?
+    @State private var confirmDelete = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            if let saved = store.selectedProbe, let draft, draft.id == saved.id {
+                form(saved: saved, draft: draftBinding(draft))
+            } else {
+                MonHeading("Éditeur de sonde")
+                Text("Aucune sonde. «\u{00A0}Nouvelle sonde\u{00A0}» en crée une, préremplie avec la passerelle.")
+                    .font(Theme.small)
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let toast = store.toast { RegNotice(toast, tone: .success) }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .monPanel()
+        .onAppear(perform: reload)
+        .onChange(of: store.selectedProbe?.id) { _, _ in reload() }
+        .onChange(of: store.probes) { _, _ in
+            // Changement venu d'ailleurs (interrupteur, apprentissage, enregistrement) : repris si rien n'est en cours.
+            guard let saved = store.selectedProbe else { draft = nil; return }
+            if let current = draft, current.id == saved.id, isDirty(saved: saved, draft: current) { return }
+            draft = saved
+        }
+        .confirmationDialog("Supprimer la sonde «\u{00A0}\(draft?.name ?? "")\u{00A0}» ?", isPresented: $confirmDelete) {
+            Button("Supprimer", role: .destructive) { if let id = draft?.id { store.delete(id) } }
+            Button("Annuler", role: .cancel) {}
+        } message: {
+            Text("Son historique de 24 h est effacé ; ses entrées restent au journal des alertes.")
+        }
+    }
+
+    private func reload() {
+        draft = store.selectedProbe
+    }
+
+    private func draftBinding(_ value: MonProbe) -> Binding<MonProbe> {
+        Binding(get: { draft ?? value }, set: { draft = $0 })
+    }
+
+    /// Brouillon prêt à enregistrer : l'interrupteur et les MAC apprises restent ceux de la sonde.
+    private func normalized(_ draft: MonProbe, saved: MonProbe) -> MonProbe {
+        var probe = draft
+        probe.isEnabled = saved.isEnabled
+        probe.knownMACs = saved.knownMACs
+        return probe
+    }
+
+    private func isDirty(saved: MonProbe, draft: MonProbe) -> Bool {
+        normalized(draft, saved: saved) != saved
+    }
+
+    // MARK: Formulaire
+
+    @ViewBuilder private func form(saved: MonProbe, draft: Binding<MonProbe>) -> some View {
+        let state = store.state(of: saved)
+        HStack(spacing: 8) {
+            MonHeading("Éditeur de sonde")
+            RegPill(text: MonText.label(state), tone: MonText.tone(state))
+            Spacer(minLength: 4)
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                Text(nextLabel(saved, at: store.demoNow ?? context.date))
+                    .font(Theme.caption)
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+        }
+
+        field("Nom") {
+            MonInput(placeholder: "Nom de la sonde", text: draft.name, font: .system(size: 13, weight: .semibold), height: 32)
+        }
+        HStack(alignment: .top, spacing: 8) {
+            field("Type") {
+                MonMenuField(title: draft.wrappedValue.kind.label) {
+                    ForEach(MonProbeKind.allCases) { kind in
+                        Button(kind.label) { draft.wrappedValue.kind = kind }
+                    }
+                }
+            }
+            field("Intervalle") {
+                MonMenuField(title: MonProbe.intervalMenuLabel(draft.wrappedValue.interval)) {
+                    ForEach(MonProbe.intervals, id: \.self) { seconds in
+                        Button(MonProbe.intervalMenuLabel(seconds)) { draft.wrappedValue.interval = seconds }
+                    }
+                }
+            }
+        }
+        field("Cible") {
+            MonInput(placeholder: draft.wrappedValue.kind.targetPlaceholder, text: draft.target, mono: true)
+        }
+        field("Condition d’alerte propre au type") {
+            MonConditionFields(probe: draft)
+        }
+        MonFieldset("Seuils") {
+            HStack(alignment: .top, spacing: 8) {
+                small("Latence > (ms)") {
+                    MonInput(placeholder: "—", text: optionalNumber(draft.thresholds.latencyMs), mono: true, height: 28)
+                }
+                small("Perte > (%)") {
+                    MonInput(placeholder: "—", text: optionalNumber(draft.thresholds.lossPercent), mono: true, height: 28)
+                }
+                small("Échecs consécutifs") {
+                    MonInput(placeholder: "3", text: failuresText(draft), mono: true, height: 28)
+                }
+            }
+        }
+        field("Plage horaire des alertes") {
+            MonMenuField(title: draft.wrappedValue.schedule.label) {
+                ForEach(MonSchedule.allCases) { schedule in
+                    Button(schedule.label) { draft.wrappedValue.schedule = schedule }
+                }
+            }
+        }
+        dependencyRow(draft)
+        MonFieldset("Actions d’alerte") {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 14) {
+                    ToolCheckbox(label: "Notification macOS", isOn: draft.notify)
+                    ToolCheckbox(label: "Son", isOn: draft.sound)
+                }
+                soonRow("Courriel", placeholder: "[ADRESSE]")
+                soonRow("Webhook", placeholder: "[URL] Teams / Slack")
+                soonRow("Exécuter un script", placeholder: "~/Scripts/…")
+            }
+        }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                testButton(saved: saved, draft: draft)
+                saveButton(saved: saved, draft: draft)
+                Spacer(minLength: 0)
+                deleteButton
+            }
+            HStack(spacing: 6) {
+                testButton(saved: saved, draft: draft)
+                saveButton(saved: saved, draft: draft)
+                Spacer(minLength: 0)
+                deleteButton.labelStyle(.iconOnly).help("Supprimer la sonde")
+            }
+        }
+        if let test = store.manualTests[saved.id] {
+            RegNotice(MonJournal.clock(test.date) + " · " + test.text, tone: test.tone)
+        }
+        if let toast = store.toast {
+            RegNotice(toast, tone: .success)
+        }
+    }
+
+    private func testButton(saved: MonProbe, draft: Binding<MonProbe>) -> some View {
+        Button { store.testNow(saved.id) } label: {
+            Label(store.running.contains(saved.id) ? "Test en cours…" : "Tester maintenant", systemImage: "play.fill")
+        }
+        .buttonStyle(.primary)
+        .fixedSize()
+        .disabled(store.running.contains(saved.id) || saved.target.trimmingCharacters(in: .whitespaces).isEmpty)
+        .help(isDirty(saved: saved, draft: draft.wrappedValue) ? "Teste la sonde enregistrée (enregistrez d’abord vos changements)" : "Vérifier la sonde tout de suite")
+    }
+
+    private func saveButton(saved: MonProbe, draft: Binding<MonProbe>) -> some View {
+        Button { store.save(normalized(draft.wrappedValue, saved: saved)) } label: {
+            Label("Enregistrer", systemImage: "checkmark")
+        }
+        .buttonStyle(.secondary)
+        .fixedSize()
+        .disabled(!isDirty(saved: saved, draft: draft.wrappedValue))
+    }
+
+    private var deleteButton: some View {
+        Button { confirmDelete = true } label: {
+            Label("Supprimer", systemImage: "trash")
+                .foregroundStyle(Theme.critical)
+        }
+        .buttonStyle(MonDangerButtonStyle())
+        .fixedSize()
+    }
+
+    private func nextLabel(_ probe: MonProbe, at date: Date) -> String {
+        guard let left = store.nextCheck(of: probe, at: date) else { return "Sonde inactive" }
+        if store.running.contains(probe.id) { return "Vérification…" }
+        let seconds = Int(left.rounded(.up))
+        return "Prochaine vérif. " + (seconds <= 90 ? "\(seconds)\u{00A0}s" : "\(Int((Double(seconds) / 60).rounded(.up)))\u{00A0}min")
+    }
+
+    @ViewBuilder private func dependencyRow(_ draft: Binding<MonProbe>) -> some View {
+        let others = store.probes.filter { $0.id != draft.wrappedValue.id }
+        let current = others.first { $0.id == draft.wrappedValue.dependsOn }
+        let defaultParent = others.first { $0.kind == .ping && $0.target == store.gatewayAddress } ?? others.first
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Toggle(isOn: Binding(get: { draft.wrappedValue.dependsOn != nil && current != nil },
+                                 set: { draft.wrappedValue.dependsOn = $0 ? defaultParent?.id : nil })) { EmptyView() }
+                .toggleStyle(.checkbox)
+                .labelsHidden()
+                .disabled(others.isEmpty)
+            VStack(alignment: .leading, spacing: 5) {
+                (Text("Dépendance\u{00A0}:").fontWeight(.semibold)
+                 + Text(" ignorer si \(dependencyName(current ?? defaultParent)) est hors ligne"))
+                    .font(Theme.small)
+                    .foregroundStyle(others.isEmpty ? Theme.textTertiary : Theme.text)
+                    .fixedSize(horizontal: false, vertical: true)
+                if current != nil, others.count > 1 {
+                    Menu {
+                        ForEach(others) { probe in
+                            Button(probe.name) { draft.wrappedValue.dependsOn = probe.id }
+                        }
+                    } label: {
+                        Text("Changer de sonde parente").font(.system(size: 12, weight: .semibold))
+                    }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.visible)
+                    .fixedSize()
+                    .tint(Theme.accentStrong)
+                }
+            }
+        }
+    }
+
+    private func dependencyName(_ probe: MonProbe?) -> String {
+        guard let probe else { return "une autre sonde" }
+        if probe.kind == .ping, probe.target == store.gatewayAddress { return "la passerelle \(probe.target)" }
+        return "«\u{00A0}\(probe.name)\u{00A0}»"
+    }
+
+    private func soonRow(_ title: String, placeholder: String) -> some View {
+        HStack(spacing: 8) {
+            Toggle(isOn: .constant(false)) { Text(title).font(Theme.small) }
+                .toggleStyle(.checkbox)
+                .controlSize(.small)
+                .disabled(true)
+                .frame(width: 132, alignment: .leading)
+            Text(placeholder)
+                .font(Theme.mono(12))
+                .foregroundStyle(Theme.textTertiary)
+                .lineLimit(1)
+                .padding(.horizontal, 8)
+                .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
+                .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+        }
+        .help("Bientôt\u{00A0}: courriel, webhook et script d’alerte ne sont pas encore offerts.")
+    }
+
+    private func field<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func small<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1).minimumScaleFactor(0.9)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: Adaptateurs de saisie
+
+    private func optionalNumber(_ value: Binding<Double?>) -> Binding<String> {
+        Binding(get: { value.wrappedValue.map(MonFormat.number) ?? "" },
+                set: { text in
+                    let cleaned = text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
+                    value.wrappedValue = cleaned.isEmpty ? nil : Double(cleaned).map { max(0, $0) } ?? value.wrappedValue
+                })
+    }
+
+    private func failuresText(_ draft: Binding<MonProbe>) -> Binding<String> {
+        Binding(get: { String(draft.wrappedValue.thresholds.failures) },
+                set: { text in
+                    if let value = Int(text.trimmingCharacters(in: .whitespaces)) {
+                        draft.wrappedValue.thresholds.failures = min(20, max(1, value))
+                    }
+                })
+    }
+}
+
+/// Champs de la condition propre au type de sonde.
+private struct MonConditionFields: View {
+    @Binding var probe: MonProbe
+
+    var body: some View {
+        switch probe.kind {
+        case .ping:
+            HStack(spacing: 8) {
+                Text("Port TCP de repli").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
+                MonInput(placeholder: "aucun", text: port($probe.fallbackPort), mono: true)
+                    .frame(width: 80)
+                Text("si l’ICMP est muet").font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            }
+        case .tcp:
+            note("Port attendu\u{00A0}: ouvert (port indiqué dans la cible).")
+        case .http:
+            HStack(spacing: 6) {
+                labeled("Code") { MonInput(placeholder: "200", text: int($probe.expectedStatus), mono: true).frame(width: 52) }
+                labeled("Mot-clé") { MonInput(placeholder: "facultatif", text: text($probe.keyword)) }
+                labeled("Cert. < j") { MonInput(placeholder: "—", text: int($probe.certificateDays), mono: true).frame(width: 52) }
+            }
+        case .dns:
+            HStack(spacing: 6) {
+                labeled("Serveur") { MonInput(placeholder: "système", text: text($probe.dnsServer), mono: true) }
+                labeled("Réponse attendue") { MonInput(placeholder: "toute adresse", text: text($probe.dnsExpected), mono: true) }
+            }
+        case .snmp:
+            VStack(alignment: .leading, spacing: 6) {
+                MonInput(placeholder: "OID (1.3.6.1.2.1.1.3.0)", text: text($probe.snmpOID), mono: true)
+                HStack(spacing: 6) {
+                    Text("Alerte si").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
+                    MonMenuField(title: probe.snmpComparison?.symbol ?? "—") {
+                        Button("Aucune comparaison") { probe.snmpComparison = nil }
+                        ForEach(MonComparison.allCases) { item in
+                            Button(item.symbol) { probe.snmpComparison = item }
+                        }
+                    }
+                    .frame(width: 64)
+                    MonInput(placeholder: "limite", text: double($probe.snmpLimit), mono: true)
+                    MonInput(placeholder: "unité", text: text($probe.snmpUnit))
+                        .frame(width: 64)
+                }
+                Text("Communauté SNMP v2c lue dans Réglages › Identifiants.")
+                    .font(Theme.caption).foregroundStyle(Theme.textSecondary)
+            }
+        case .switchPort:
+            HStack(spacing: 8) {
+                Text("Port attendu").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
+                MonInput(placeholder: "appris au premier passage", text: text($probe.expectedLocation), mono: true)
+            }
+        case .newDevices:
+            note("Alerte à chaque nouvelle adresse MAC vue par le Scanner sur la plage"
+                 + (probe.knownMACs.map { " (\($0.count) connues)" } ?? " (base apprise au premier passage)") + ".")
+        }
+    }
+
+    private func note(_ text: String) -> some View {
+        Text(text)
+            .font(Theme.small)
+            .foregroundStyle(Theme.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
+            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+    }
+
+    private func labeled<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
+            content()
+        }
+    }
+
+    private func text(_ value: Binding<String?>) -> Binding<String> {
+        Binding(get: { value.wrappedValue ?? "" },
+                set: { value.wrappedValue = $0.isEmpty ? nil : $0 })
+    }
+
+    private func int(_ value: Binding<Int?>) -> Binding<String> {
+        Binding(get: { value.wrappedValue.map(String.init) ?? "" },
+                set: { text in
+                    let trimmed = text.trimmingCharacters(in: .whitespaces)
+                    value.wrappedValue = trimmed.isEmpty ? nil : Int(trimmed) ?? value.wrappedValue
+                })
+    }
+
+    private func port(_ value: Binding<UInt16?>) -> Binding<String> {
+        Binding(get: { value.wrappedValue.map(String.init) ?? "" },
+                set: { text in
+                    let trimmed = text.trimmingCharacters(in: .whitespaces)
+                    value.wrappedValue = trimmed.isEmpty ? nil : UInt16(trimmed).flatMap { $0 > 0 ? $0 : nil } ?? value.wrappedValue
+                })
+    }
+
+    private func double(_ value: Binding<Double?>) -> Binding<String> {
+        Binding(get: { value.wrappedValue.map(MonFormat.number) ?? "" },
+                set: { text in
+                    let cleaned = text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
+                    value.wrappedValue = cleaned.isEmpty ? nil : Double(cleaned) ?? value.wrappedValue
+                })
+    }
+}
+
+// MARK: - Champs
+
+/// Champ de saisie du croquis (blanc, bordure grise, rayon 6).
+struct MonInput: View {
+    let placeholder: String
+    @Binding var text: String
+    var mono = false
+    var font: Font? = nil
+    var height: CGFloat = 30
+
+    var body: some View {
+        TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(Theme.textTertiary))
+            .textFieldStyle(.plain)
+            .font(font ?? (mono ? Theme.mono(12) : Theme.small))
+            .foregroundStyle(Theme.text)
+            .autocorrectionDisabled()
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .frame(height: height)
+            .frame(maxWidth: .infinity)
+            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
+            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+    }
+}
+
+/// Liste déroulante du croquis : libellé, chevrons à droite, bordure grise.
+struct MonMenuField<Items: View>: View {
+    let title: String
+    @ViewBuilder var items: Items
+
+    var body: some View {
+        Menu {
+            items
+        } label: {
+            HStack(spacing: 4) {
+                Text(title).font(Theme.small).foregroundStyle(Theme.text).lineLimit(1)
+                Spacer(minLength: 2)
+                Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 30)
+            .frame(maxWidth: .infinity)
+            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
+            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+            .contentShape(Rectangle())
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+    }
+}
+
+/// Groupe encadré avec sa légende en petites majuscules (fieldset du croquis).
+struct MonFieldset<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: Content
+
+    init(_ title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .padding(.horizontal, 10)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+            .overlay(alignment: .topLeading) {
+                MonHeading(title)
+                    .padding(.horizontal, 4)
+                    .background(Theme.panel)
+                    .offset(x: 8, y: -7)
+            }
+            .padding(.top, 4)
+    }
+}
+
+/// Bouton « Supprimer » : contour gris, fond rouge pâle au clic.
+struct MonDangerButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(Theme.bodyMedium)
+            .padding(.horizontal, 12)
+            .frame(height: Theme.controlHeight)
+            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius)
+                .fill(configuration.isPressed ? Color(hex: 0xFEF2F2) : Theme.panel))
+            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius)
+                .strokeBorder(configuration.isPressed ? Color(hex: 0xFCA5A5) : Theme.border))
+            .contentShape(RoundedRectangle(cornerRadius: Theme.buttonRadius))
+    }
+}

@@ -16,6 +16,7 @@ enum DemoData {
         state.updateAvailable = "1.1.0"
         state.pingTargets = ["10.182.122.1", "10.182.122.111", "8.8.8.8"]
         state.sidebarBadges = [.surveillance: 3, .analyse: 1]
+        MonStore.shared.attach(to: state) // badge Surveillance = alertes non lues de la démonstration
     }
 
     static let ranges = [
