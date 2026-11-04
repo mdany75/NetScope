@@ -784,7 +784,7 @@ Rapports :
 « Pouvoir choisir le site sous le logo NetScope. » Un sélecteur de site unique, toujours visible
 en haut de la barre latérale :
 
-- Juste sous le logo NetScope : menu « Site ▾ » avec le nom du site actif (et son pastille
+- Juste sous le logo NetScope : menu « Site ▾ » avec le nom du site actif (et sa pastille
   d'état : FortiGate jointe ou non) ; liste des sites avec recherche, « Tous les sites »,
   « Détecter mon site » et « Gérer les sites… » (Réglages › Sites et plages).
 - Choisir un site ici change le site actif de toute l'app : plages du Scanner, Inventaire,

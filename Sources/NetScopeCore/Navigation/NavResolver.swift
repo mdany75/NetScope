@@ -37,13 +37,20 @@ public struct NavContext: Sendable {
         scanner.values.first { $0.mac == mac }
     }
 
-    /// Appareil du Scanner : par MAC si on la connaît, sinon par IP.
+    /// Appareil du Scanner : d'abord à son IP si les MAC ne se contredisent pas (plusieurs
+    /// appareils peuvent partager une MAC : interfaces VLAN, proxy ARP), puis par MAC (IP changée).
     func scannerDevice(_ ref: NavDeviceRef) -> NavDeviceRef? {
-        if let mac = ref.mac, let found = scannerDevice(mac: mac) { return found }
-        guard let found = scanner[ref.ip] else { return nil }
-        // Même IP mais autre MAC : un autre appareil a pris l'adresse.
-        if let mac = ref.mac, let other = found.mac, mac != other { return nil }
-        return found
+        if let found = scanner[ref.ip] {
+            // Même IP mais autre MAC : un autre appareil a pris l'adresse.
+            if let mac = ref.mac, let other = found.mac, mac != other {
+                // Ne pas l'ouvrir ; chercher l'appareil par sa MAC.
+            } else {
+                return found
+            }
+        }
+        guard let mac = ref.mac else { return nil }
+        // Plusieurs appareils de même MAC : ordre fixe (IP la plus petite).
+        return scanner.values.filter { $0.mac == mac }.min { $0.ip.compare($1.ip, options: .numeric) == .orderedAscending }
     }
 
     /// Fiche d'inventaire du site : par MAC, sinon par IP actuelle.
@@ -97,7 +104,7 @@ public enum NavResolver {
             return .go(NavDestination(.wifi, focus: .accessPoint(id)))
         case .wifiClient(let mac, let ip, let name, let apID):
             let ref = NavDeviceRef(ip: ip ?? "", mac: mac, name: name)
-            if let found = context.scannerDevice(ref) ?? (ip == nil ? nil : context.scanner[ip!]) {
+            if let found = context.scannerDevice(ref) {
                 return .go(NavDestination(.appareil, focus: .device(found.ip)))
             }
             if ip != nil || mac != nil, let record = context.record(ref, site: context.activeSiteKey) {
@@ -211,7 +218,8 @@ public enum NavResolver {
     public static func openIn(_ object: NavObject, in context: NavContext) -> [NavMenuItem] {
         var items: [NavMenuItem] = []
         func add(_ title: String, _ destination: NavDestination) {
-            guard !items.contains(where: { $0.destination == destination }) else { return }
+            // Une seule entrée par destination et par titre (le titre sert d'identifiant au menu).
+            guard !items.contains(where: { $0.destination == destination || $0.title == title }) else { return }
             items.append(NavMenuItem(title, destination))
         }
         switch object {

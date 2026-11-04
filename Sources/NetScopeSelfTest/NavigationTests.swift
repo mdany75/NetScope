@@ -103,6 +103,37 @@ func registerNavigationTests(_ suite: TestSuite) {
                    "une autre MAC à la même IP n'ouvre pas la fiche de l'imprimante")
     }
 
+    suite.add("Navigation : deux appareils de même MAC → chacun ouvre sa propre fiche") {
+        let a = device("10.182.122.1", "00:09:0F:AA:BB:01", "FortiGate VLAN 1")
+        let b = device("10.182.130.1", "00:09:0F:AA:BB:01", "FortiGate VLAN 30")
+        let ctx = NavContext(activeSiteKey: siege, scanner: [a, b])
+        for _ in 0..<5 {
+            try expectEqual(NavResolver.primary(.device(b), in: ctx).destination,
+                            NavDestination(.appareil, focus: .device(b.ip)), "la ligne B ouvre B")
+            try expectEqual(NavResolver.primary(.device(a), in: ctx).destination,
+                            NavDestination(.appareil, focus: .device(a.ip)), "la ligne A ouvre A")
+        }
+        let moved = device("10.182.140.9", "00:09:0F:AA:BB:01", "IP changée")
+        try expectEqual(NavResolver.primary(.device(moved), in: ctx).destination,
+                        NavDestination(.appareil, focus: .device(a.ip)), "IP changée : par MAC, ordre fixe")
+    }
+
+    suite.add("Navigation : client Wi-Fi absent du scan, autre appareil à son IP → pas sa fiche") {
+        let ctx = context()
+        let outcome = NavResolver.primary(.wifiClient(mac: "AA:BB:CC:00:11:22", ip: printer.ip, name: "Téléphone", apID: "siege|FP231F0001"), in: ctx)
+        try expect(outcome.destination?.module != .appareil, "l'imprimante à la même IP n'est pas ouverte")
+    }
+
+    suite.add("Navigation : « Ouvrir dans › » sans titre en double") {
+        let ctx = context()
+        let objects: [NavObject] = [.remoteConnection(id: remoteID, host: "10.182.122.113"),
+                                    .switchUnit(host: "10.182.122.3", name: "SW-ETG2-01"), .device(printer), .device(desk)]
+        for object in objects {
+            let titles = NavResolver.openIn(object, in: ctx).map(\.title)
+            try expectEqual(titles.count, Set(titles).count, "titres uniques : \(titles)")
+        }
+    }
+
     suite.add("Navigation : switch, borne, client Wi-Fi, plage, VLAN, site") {
         let ctx = context()
         try expectEqual(NavResolver.primary(.switchUnit(host: nil, name: "sw-etg2-01"), in: ctx).destination,
