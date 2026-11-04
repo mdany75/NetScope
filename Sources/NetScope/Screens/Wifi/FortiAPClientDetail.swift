@@ -137,6 +137,7 @@ struct FortiAPClientDetailView: View {
     private func tiles(_ facts: WifiClientFacts) -> some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 110), spacing: 10), count: 5), spacing: 10) {
             tile("Signal", FortiAPText.dbm(client.rssi), sub: facts.isWeak ? "sous le seuil de \(FortiAPText.dbm(store.thresholds.weakRSSI))" : (client.rssi.map { WifiQuality(rssi: $0).label } ?? "inconnu"),
+                 shortSub: facts.isWeak ? "seuil \(FortiAPText.dbm(store.thresholds.weakRSSI))" : nil,
                  color: facts.rssiColor)
             tile("SNR", client.snr.map { "\($0)\u{00A0}dB" } ?? "—", sub: client.noise.map { "bruit \($0)\u{00A0}dBm" } ?? "bruit inconnu", color: facts.snrColor)
             tile("Débit négocié", FortiAPText.rate(client.rateMbps), sub: client.standard?.shortLabel ?? "standard inconnu", color: Theme.text)
@@ -145,11 +146,16 @@ struct FortiAPClientDetailView: View {
         }
     }
 
-    private func tile(_ title: String, _ value: String, sub: String, color: Color) -> some View {
+    /// `shortSub` : forme courte du sous-titre quand la tuile est étroite (petite fenêtre).
+    private func tile(_ title: String, _ value: String, sub: String, shortSub: String? = nil, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
             Text(value).font(Theme.mono(18, weight: .bold)).foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.7)
-            Text(sub).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            ViewThatFits(in: .horizontal) {
+                Text(sub).fixedSize()
+                Text(shortSub ?? sub).lineLimit(1)
+            }
+            .font(Theme.caption).foregroundStyle(Theme.textSecondary)
         }
         .modifier(WifiTileStyle())
     }

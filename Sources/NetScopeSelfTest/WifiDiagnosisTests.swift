@@ -429,6 +429,11 @@ func registerWifiDiagnosisTests(_ suite: TestSuite) {
         try expectEqual(r.cause(.signal)?.verdict, .problem, "3 clients sur 5 faibles")
         try expectEqual(r.cause(.band)?.verdict, .watch, "4 clients sur 5 en 2,4 GHz")
         try expectEqual(r.cause(.uplink)?.verdict, .notMeasured, "port inconnu")
+        // Deux radios : chaque bruit de fond dit sa bande.
+        let noise = r.cause(.interference)?.evidence.filter { $0.contains("Bruit de fond") } ?? []
+        try expectEqual(noise.count, 2, "un bruit de fond par radio : \(noise)")
+        try expect(noise.contains { $0.hasPrefix("2,4\u{00A0}GHz\u{00A0}:") } && noise.contains { $0.hasPrefix("5\u{00A0}GHz\u{00A0}:") },
+                   "bande en tête de chaque preuve : \(noise)")
         let o = WifiDiagnosis.diagnose(ap: off, overview: overview)
         try expectEqual(o.primary?.cause, .uplink, "borne hors ligne en tête")
         try expect(o.actions.first?.contains("PoE") == true, "action PoE : \(o.actions)")

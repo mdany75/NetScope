@@ -28,12 +28,12 @@ extension WifiDiagnosis {
             causes.append(uplink(measures, t))
         }
         if !ap.isOffline && !radios.isEmpty {
-            causes.append(merge(.channel, radios.map { channelResult(radio: $0, ap: ap, siteAPs: siteAPs, neighbors: neighbors, t) }))
-            causes.append(merge(.interference, radios.map { interferenceResult(radio: $0, ap: ap, siteAPs: siteAPs, neighbors: neighbors, t) }))
-            causes.append(merge(.width, radios.map { widthResult(radio: $0, ap: ap, siteAPs: siteAPs) }))
-            causes.append(merge(.dfs, radios.filter { $0.band == .ghz5 }.map { dfsResult(radio: $0, ap: ap, changes: measures.dfsChannelChanges) }))
-            causes.append(merge(.load, radios.map { loadResult(radio: $0, ap: ap, clients: clients, t) }))
-            causes.append(merge(.slowClients, radios.map { slowResult(radio: $0, ap: ap, clients: clients, t) }))
+            causes.append(merge(.channel, perRadio(radios) { channelResult(radio: $0, ap: ap, siteAPs: siteAPs, neighbors: neighbors, t) }))
+            causes.append(merge(.interference, perRadio(radios) { interferenceResult(radio: $0, ap: ap, siteAPs: siteAPs, neighbors: neighbors, t) }))
+            causes.append(merge(.width, perRadio(radios) { widthResult(radio: $0, ap: ap, siteAPs: siteAPs) }))
+            causes.append(merge(.dfs, perRadio(radios.filter { $0.band == .ghz5 }) { dfsResult(radio: $0, ap: ap, changes: measures.dfsChannelChanges) }))
+            causes.append(merge(.load, perRadio(radios) { loadResult(radio: $0, ap: ap, clients: clients, t) }))
+            causes.append(merge(.slowClients, perRadio(radios) { slowResult(radio: $0, ap: ap, clients: clients, t) }))
             causes.append(groupSignal(clients, where: "sur \(ap.name)", t))
             causes.append(groupBand(clients, has5: ap.radio(.ghz5) != nil || ap.radio(.ghz6) != nil, t))
         } else if !ap.isOffline {
@@ -51,6 +51,27 @@ extension WifiDiagnosis {
         if measures.paths.isEmpty { notes.append("Mesures de ping non faites\(nb): passerelle, DNS et Internet non vérifiés.") }
         return WifiDiagnosisResult(id: id, subject: .ap(name: ap.name), site: ap.site, date: now, context: context.joined(separator: " · "),
                                    causes: causes, actions: actions(causes), measured: !measures.paths.isEmpty, notes: notes)
+    }
+
+    /// Résultat de chaque radio ; avec plusieurs radios, chaque preuve est précédée de sa radio
+    /// (« 2,4 GHz : Bruit de fond −93 dBm », « 5 GHz : … »), sinon deux bruits de fond se suivent
+    /// sans qu'on sache lequel est lequel. Deux radios de la même bande : « Radio 1 », « Radio 2 ».
+    /// Une preuve qui nomme déjà sa bande n'est pas préfixée.
+    static func perRadio(_ radios: [FortiAPRadio], _ make: (FortiAPRadio) -> WifiCauseResult) -> [WifiCauseResult] {
+        let results = radios.map(make)
+        guard radios.count > 1 else { return results }
+        let bands = radios.map(\.band)
+        let uniqueBands = Set(bands.compactMap { $0 }).count == radios.count
+        return zip(radios, results).map { radio, result in
+            let label = uniqueBands ? (radio.band?.label.replacingOccurrences(of: " ", with: nb) ?? "Radio \(radio.radioID)") : "Radio \(radio.radioID)"
+            var r = result
+            // Une preuve qui nomme déjà sa bande (« AP-ETG2 2,4 GHz canal 11 ») reste telle quelle.
+            let plain = label.replacingOccurrences(of: nb, with: " ")
+            r.evidence = result.evidence.map { line in
+                line.replacingOccurrences(of: nb, with: " ").contains(plain) ? line : "\(label)\(nb): \(line)"
+            }
+            return r
+        }
     }
 
     /// Plusieurs radios d'une même cause : le pire verdict, les preuves de toutes, les actions des radios en cause.

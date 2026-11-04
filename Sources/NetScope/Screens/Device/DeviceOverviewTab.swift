@@ -150,6 +150,9 @@ struct DeviceOverviewTab: View {
         DeviceCard(title: "Emplacement physique") {
             if let switchName = device.switchName {
                 let switchDevice = state.devices.first { $0.hostname == switchName || $0.customName == switchName }
+                // Client Wi-Fi : la borne vient de la FortiGate (toutes les FortiAP d'un même modèle
+                // portent le même nom d'hôte, « FortiAP-231F » ne suffit pas à trouver la bonne).
+                let wifiAP = device.switchPort == "Wi-Fi" ? fortiAP.client(for: device).flatMap(fortiAP.ap(for:)) : nil
                 let status = state.locationStatus(device)
                 VStack(alignment: .leading, spacing: 10) {
                     if let explanation = status.explanation {
@@ -159,10 +162,11 @@ struct DeviceOverviewTab: View {
                     // Switch et port gardent leur largeur ; le nom de l'appareil tient sur une ligne
                     // quand la place le permet, sinon passe sur deux lignes en coupant à un espace
                     // (traits d'union insécables : « Brother / DCP‑L2640DW », jamais « DCP- / L2640DW » ; coupure
-                    // permise après un point : « Macmini‑de‑Dany. / local », jamais « .loc / al »).
+                    // permise après un point : « Macmini‑de‑Dany. / local », jamais « .loc / al » ; de même après « _ » : « Android_ / 89UM1WTN »).
                     let deviceName = device.hostname ?? device.displayName
                     HStack(spacing: 4) {
-                        node(title: switchName, detail: switchDevice?.ip.description ?? "switch", highlighted: false)
+                        node(title: wifiAP?.name ?? switchName,
+                             detail: wifiAP.map { $0.ip?.description ?? $0.model } ?? switchDevice?.ip.description ?? "switch", highlighted: false)
                             .fixedSize()
                         Text("─").foregroundStyle(Theme.textSecondary)
                         node(title: device.switchPort ?? "?", detail: device.vlan.map { "VLAN \($0)" } ?? "port", highlighted: true)
@@ -171,14 +175,19 @@ struct DeviceOverviewTab: View {
                         ViewThatFits(in: .horizontal) {
                             node(title: deviceName, detail: ".\(device.ip.octets.3)", highlighted: false)
                                 .fixedSize()
-                            node(title: deviceName.replacingOccurrences(of: "-", with: "\u{2011}").replacingOccurrences(of: ".", with: ".\u{200B}"),
+                            node(title: deviceName.replacingOccurrences(of: "-", with: "\u{2011}").replacingOccurrences(of: ".", with: ".\u{200B}")
+                                    .replacingOccurrences(of: "_", with: "_\u{200B}"),
                                  detail: ".\(device.ip.octets.3)", highlighted: false, titleLines: 2)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                     .opacity(status.isCurrent ? 1 : 0.55)
                     VStack(spacing: 0) {
-                        DeviceKVRow(key: "Switch", value: switchName + (switchDevice.map { " · \($0.vendorLabel)" } ?? ""))
+                        if let wifiAP {
+                            DeviceKVRow(key: "Borne", value: "\(wifiAP.name) · \(wifiAP.model)")
+                        } else {
+                            DeviceKVRow(key: "Switch", value: switchName + (switchDevice.map { " · \($0.vendorLabel)" } ?? ""))
+                        }
                         DeviceKVRow(key: "Port", value: device.switchPort ?? "Inconnu")
                         DeviceKVRow(key: "VLAN", value: device.vlan.map(String.init) ?? "Inconnu")
                         if device.switchPort != "Wi-Fi" {
