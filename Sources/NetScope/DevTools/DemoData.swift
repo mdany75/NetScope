@@ -29,11 +29,17 @@ enum DemoData {
                                           netmask: IPv4Address("255.255.255.0")!, kind: .wifi,
                                           gateway: IPv4Address("10.182.122.1")!)
 
-    static let ranges = [
-        ScanRangeConfig(text: "10.182.122.0/24", label: "Bureau", vlan: 1),
-        ScanRangeConfig(text: "192.168.50.0/24", label: "Caméras", vlan: 40),
-        ScanRangeConfig(text: "10.10.0.1-50", label: "Serveurs", vlan: 100),
-    ]
+    /// Plages de la démonstration ; la capture à deux sites (NETSCOPE_FORTIGATE_MULTI=1) y ajoute
+    /// celle de l'entrepôt de Laval, pour que le Scanner montre la plage dont la FortiGate est lue.
+    static var ranges: [ScanRangeConfig] {
+        var ranges = [
+            ScanRangeConfig(text: "10.182.122.0/24", label: "Bureau", vlan: 1),
+            ScanRangeConfig(text: "192.168.50.0/24", label: "Caméras", vlan: 40),
+            ScanRangeConfig(text: "10.10.0.1-50", label: "Serveurs", vlan: 100),
+        ]
+        if FortiGateSitesDemo.multiSite { ranges.append(ScanRangeConfig(text: "10.20.10.0/24", label: "Entrepôt Laval", vlan: 10)) }
+        return ranges
+    }
 
     private struct Row {
         let ip: String, name: String?, host: String, vendor: String?, mac: String, latency: Double?

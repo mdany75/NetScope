@@ -34,9 +34,7 @@ enum FortiGateSitesDemo {
 
     /// Plages scannées de la démonstration (et celle de Laval pour la capture à deux sites).
     static var scannedRanges: [IPRange] {
-        var ranges = DemoData.ranges.compactMap { try? $0.parsed() }
-        if multiSite, let laval = try? IPRange(parsing: "10.20.10.0/24") { ranges.append(laval) }
-        return ranges
+        DemoData.ranges.compactMap { try? $0.parsed() }
     }
 
     static func controllers(now: Date = Date()) -> [FortiGateController] {

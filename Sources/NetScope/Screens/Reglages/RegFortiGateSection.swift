@@ -437,7 +437,7 @@ struct RegFortiControllerTable: View {
                 RegSwitchCell("\(row.order)", mono: true, secondary: true)
                     .help("Position dans la liste\u{00A0}: à précision égale, la première de la liste l’emporte.")
             }
-            .width(min: 30, ideal: 38, max: 50)
+            .width(min: 30, ideal: 34, max: 50)
             .customizationID("ordre")
 
             TableColumn("SITE", sortUsing: table.sort("site")) { row in
@@ -448,20 +448,20 @@ struct RegFortiControllerTable: View {
                 }
                 .frame(height: Self.rowHeight - 8)
             }
-            .width(min: 90, ideal: 160)
+            .width(min: 90, ideal: 155)
             .customizationID("site")
             .disabledCustomizationBehavior(.visibility)
 
             TableColumn("FORTIGATE", sortUsing: table.sort("fortigate")) { row in
                 RegSwitchCell(row.address + (row.vdom.isEmpty ? "" : " · \(row.vdom)"), mono: true)
             }
-            .width(min: 75, ideal: 130)
+            .width(min: 75, ideal: 135)
             .customizationID("fortigate")
 
             TableColumn("PLAGES COUVERTES", sortUsing: table.sort("plages")) { row in
                 StandardTagList(tags: row.ranges, empty: "à renseigner")
             }
-            .width(min: 80, ideal: 185)
+            .width(min: 80, ideal: 132)
             .customizationID("plages")
 
             TableColumn("JETON", sortUsing: table.sort("jeton")) { row in
@@ -469,21 +469,21 @@ struct RegFortiControllerTable: View {
                      systemImage: row.hasToken ? "lock.fill" : "lock.open")
                     .help(row.hasToken ? "Au Trousseau (service com.danymenard.netscope.fortigate, compte propre à cette FortiGate)." : "Aucun jeton au Trousseau pour cette FortiGate.")
             }
-            .width(min: 64, ideal: 100)
+            .width(min: 64, ideal: 90)
             .customizationID("jeton")
 
             TableColumn("ÉTAT", sortUsing: table.sort("etat")) { row in
                 Chip(text: row.state, tone: row.stateTone)
                     .help(row.stateHelp)
             }
-            .width(min: 70, ideal: 110)
+            .width(min: 70, ideal: 100)
             .customizationID("etat")
 
             TableColumn("DERNIER TEST", sortUsing: table.sort("test")) { row in
                 RegSwitchCell(row.lastTest.map { SwitchText.ago($0) } ?? "", secondary: true)
                     .help(row.lastTest.map { "Le \(SwitchText.dateTime($0))" } ?? "Jamais testée")
             }
-            .width(min: 66, ideal: 110)
+            .width(min: 66, ideal: 95)
             .customizationID("test")
 
             TableColumn("UTILISÉE", sortUsing: table.sort("utilisee")) { row in
