@@ -600,3 +600,13 @@ site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
 - Le filtre s'affiche comme une étiquette retirable (recherche multiple, note 26), par exemple
   « Carte : Téléphones ×11 · SW-ETG2-01 », et garde le site affiché sur la Carte.
 - Même chose vers le Scanner et Switchs et ports depuis le détail du nœud.
+
+## 32. Recherche dans la Carte du réseau — À PLANIFIER (demande de Dany)
+
+- Une recherche dans la Carte (ex. une IP, un nom, une MAC, `switch:…`, recherche multiple de la
+  note 26) trouve l'appareil et montre où il est : la carte se centre sur sa branche, le nœud (ou
+  le groupe qui le contient, ex. « Téléphones ×11 ») est surligné, et le détail affiche sa fiche
+  (IP, MAC, switch / port, VLAN, borne Wi-Fi) avec « Ouvrir la fiche ».
+- Plusieurs résultats : liste à parcourir (suivant / précédent) ; aucun : message clair.
+- Avec plusieurs sites (0.12.0) : cherche dans le site dessiné, et propose les autres sites où
+  l'IP existe.
