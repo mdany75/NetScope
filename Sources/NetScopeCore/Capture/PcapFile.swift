@@ -68,9 +68,11 @@ public enum PcapFile {
     /// Un enregistrement : secondes, microsecondes, longueur capturée, longueur d'origine, octets.
     public static func record(_ record: PacketRecord) -> [UInt8] {
         var bytes: [UInt8] = []
-        let seconds = floor(record.timestamp)
-        var micros = UInt32(((record.timestamp - seconds) * 1_000_000).rounded())
-        var whole = UInt32(clamping: Int64(seconds))
+        // Horodatage relu d'un pcapng exotique : borné au champ de 32 bits (jamais infini ni hors limites).
+        let timestamp = record.timestamp.isFinite ? min(max(record.timestamp, 0), Double(UInt32.max)) : 0
+        let seconds = floor(timestamp)
+        var micros = UInt32(((timestamp - seconds) * 1_000_000).rounded())
+        var whole = UInt32(seconds)
         if micros >= 1_000_000 { micros -= 1_000_000; whole &+= 1 }
         bytes.appendLE32(whole)
         bytes.appendLE32(micros)

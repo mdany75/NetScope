@@ -44,9 +44,14 @@ enum InternetChecksum {
         var index = bytes.startIndex
         while index + 1 < bytes.endIndex {
             sum += UInt32(bytes[index]) << 8 | UInt32(bytes[index + 1])
+            // Repli à chaque mot : une très longue trame (16 Mio) ne déborde plus.
+            if sum >> 31 != 0 { sum = (sum & 0xFFFF) + (sum >> 16) }
             index += 2
         }
-        if index < bytes.endIndex { sum += UInt32(bytes[index]) << 8 }
+        if index < bytes.endIndex {
+            sum += UInt32(bytes[index]) << 8
+            if sum >> 31 != 0 { sum = (sum & 0xFFFF) + (sum >> 16) }
+        }
         return sum
     }
 

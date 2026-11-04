@@ -107,7 +107,7 @@ public enum OoklaParser {
         let loaded = [loadedDown, loadedUp].compactMap { $0 }
         let loss = IperfParser.double(object["packetLoss"])
         // Perte en % : ramenée à un nombre de paquets sur 1 000 pour le modèle commun (0,1 % près).
-        let lost = loss.map { Int(($0 * 10).rounded()) } ?? 0
+        let lost = loss.map { (min(max($0, 0), 100) * 10).clampedInt } ?? 0
         return SpeedTestSummary(
             downMbps: downBandwidth * 8 / 1_000_000, upMbps: upBandwidth * 8 / 1_000_000, idleLatencyMs: latency,
             loadedLatencyMs: loaded.isEmpty ? nil : loaded.max(), jitterMs: IperfParser.double(ping["jitter"]),

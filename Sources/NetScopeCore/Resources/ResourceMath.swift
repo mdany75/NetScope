@@ -318,7 +318,7 @@ public enum ResourceFormat {
         let clamped = max(0, value)
         if clamped > 0, clamped < 0.1 { return "<\u{00A0}0,1" + nbsp + "%" }
         let text = clamped < 10 && clamped > 0 && clamped.rounded() != clamped
-            ? ToolFormat.decimal(clamped) : String(Int(clamped.rounded()))
+            ? ToolFormat.decimal(clamped) : String(clamped.clampedInt)
         return text + nbsp + "%"
     }
 
@@ -333,7 +333,7 @@ public enum ResourceFormat {
             unit += 1
         }
         let text: String
-        if unit == 0 || amount >= 100 || amount.rounded() == amount { text = String(Int(amount.rounded())) }
+        if unit == 0 || amount >= 100 || amount.rounded() == amount { text = String(amount.clampedInt) }
         else { text = ToolFormat.decimal(amount) }
         return text + nbsp + units[unit]
     }
@@ -344,7 +344,7 @@ public enum ResourceFormat {
     }
 
     private static func number(_ amount: Double, unit: Int) -> String {
-        if unit == 0 || amount >= 100 { return String(Int(amount.rounded())) }
+        if unit == 0 || amount >= 100 { return String(amount.clampedInt) }
         if amount >= 10 { return ToolFormat.decimal(amount) }
         return ToolFormat.decimal(amount, digits: 2)
     }

@@ -113,7 +113,7 @@ public enum SvcCatalog {
         guard !trimmed.isEmpty else { return nil }
         let candidate = trimmed.contains("://") ? trimmed : "https://" + trimmed
         guard let url = URL(string: candidate), url.scheme?.lowercased() == "https", let host = url.host,
-              !host.isEmpty, !host.contains(" ") else { return nil }
+              !host.isEmpty, !host.contains(" "), (1...65_535).contains(url.port ?? 443) else { return nil }
         return url.path.isEmpty ? candidate + "/" : candidate
     }
 }

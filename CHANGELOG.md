@@ -1,5 +1,27 @@
 # Changements
 
+## 0.8.1 — 2026-11-04
+
+Correctif : « Vitesse des disques » ne ferme plus l’application à la fin d’un test sur un
+partage réseau (NAS).
+
+### Corrigé
+- **Vitesse des disques** : quand l’interface donnait un débit de lien invalide (nul, presque
+  nul ou infini), le calcul « C’est X % du débit du lien » du bilan devenait infini et
+  l’application se fermait à la fin du test. Ce débit est maintenant ignoré (bilan « Débit du
+  lien inconnu » ou « Limité par le serveur »), de même qu’une latence ou un débit montant
+  invalides ; une valeur impossible s’affiche « — ».
+- **Même famille de plantages ailleurs** : 22 conversions de mesures en nombres entiers sont
+  protégées contre les valeurs infinies, NaN ou hors limites. Elles touchent le Speedtest
+  (iperf3, Ookla, NDT7, forfait saisi), les Ressources, les seuils de Surveillance, l’état des
+  services (port invalide), la capture de paquets (horodatages pcapng aberrants, très grandes
+  trames), les délais des outils, les notifications, les alertes, le Wi-Fi et les durées
+  affichées. Les valeurs normales s’affichent comme avant.
+
+### Ajouté
+- Tests « Nombres sûrs » et « bilan sans plantage avec des valeurs invalides » : NaN, infini,
+  zéro et très grandes valeurs passés aux fonctions de calcul et d’affichage.
+
 ## 0.8.0 — 2026-11-04
 
 Réglages et alertes : la plupart des sections « Bientôt » des Réglages fonctionnent (notifications,

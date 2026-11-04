@@ -34,18 +34,20 @@ public enum ToolFormat {
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "fr_CA")
         formatter.numberStyle = .decimal
-        return (formatter.string(from: NSNumber(value: Int64(value))) ?? "\(value)")
+        return (formatter.string(from: NSNumber(value: Int64(clamping: value))) ?? "\(value)")
             .replacingOccurrences(of: "\u{202F}", with: "\u{00A0}")
     }
 
     /// « 2,8 s », « 450 ms ».
     public static func seconds(_ value: TimeInterval) -> String {
-        value < 1 ? "\(Int((value * 1000).rounded()))\u{00A0}ms" : "\(decimal(value))\u{00A0}s"
+        guard value.isFinite else { return "—" }
+        return value < 1 ? "\((value * 1000).clampedInt)\u{00A0}ms" : "\(decimal(value))\u{00A0}s"
     }
 
     /// « 1,8 ms », « 12 ms ».
     public static func milliseconds(_ value: Double) -> String {
-        value < 10 ? "\(decimal(value))\u{00A0}ms" : "\(Int(value.rounded()))\u{00A0}ms"
+        guard value.isFinite else { return "—" }
+        return value < 10 ? "\(decimal(value))\u{00A0}ms" : "\(value.clampedInt)\u{00A0}ms"
     }
 }
 
@@ -65,7 +67,9 @@ enum ToolSocket {
     }
 
     static func setTimeouts(_ fd: Int32, _ timeout: TimeInterval) {
-        var tv = timeval(tv_sec: Int(timeout), tv_usec: Int32((timeout - floor(timeout)) * 1_000_000))
+        // Délai borné (0 à un jour) : un délai NaN, infini ou démesuré ne fait plus planter Int(…) ni Int32(…).
+        let bounded = timeout.isFinite ? min(max(timeout, 0), 86_400) : 3
+        var tv = timeval(tv_sec: Int(bounded), tv_usec: Int32((bounded - floor(bounded)) * 1_000_000))
         setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
         setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
         var one: Int32 = 1
@@ -94,7 +98,7 @@ enum ToolSocket {
                 throw error
             }
             var pfd = pollfd(fd: fd, events: Int16(POLLOUT), revents: 0)
-            let ready = poll(&pfd, 1, Int32(timeout * 1000))
+            let ready = poll(&pfd, 1, Int32(clamping: max(0, (timeout * 1000).rounded(.towardZero).clampedInt)))
             if ready <= 0 {
                 close(fd)
                 throw ToolError.timeout(timeout)

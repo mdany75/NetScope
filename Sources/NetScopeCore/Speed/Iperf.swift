@@ -269,8 +269,9 @@ public enum IperfParser {
     }
 
     static func double(_ value: Any?) -> Double? {
-        if let number = value as? NSNumber { return number.doubleValue }
-        if let text = value as? String { return Double(text) }
+        // Un JSON externe peut contenir « nan », « inf » ou 1e400 : seules les valeurs finies passent.
+        if let number = value as? NSNumber { return number.doubleValue.finiteOrNil }
+        if let text = value as? String { return Double(text)?.finiteOrNil }
         return nil
     }
 

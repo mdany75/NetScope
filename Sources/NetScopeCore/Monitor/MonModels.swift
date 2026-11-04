@@ -338,11 +338,11 @@ struct MonLossy<Value: Decodable>: Decodable {
 public enum MonFormat {
     /// « 41 », « 2,5 ».
     public static func number(_ value: Double) -> String {
-        value == value.rounded() && abs(value) < 1e12 ? String(Int(value)) : ToolFormat.decimal(value)
+        value == value.rounded() && abs(value) < 1e12 ? String(value.clampedInt) : ToolFormat.decimal(value)
     }
 
     /// « 0 % », « 12,5 % ».
     public static func percent(_ value: Double) -> String {
-        (value == value.rounded() ? String(Int(value)) : ToolFormat.decimal(value)) + "\u{00A0}%"
+        (value == value.rounded() && abs(value) < 1e12 ? String(value.clampedInt) : ToolFormat.decimal(value)) + "\u{00A0}%"
     }
 }

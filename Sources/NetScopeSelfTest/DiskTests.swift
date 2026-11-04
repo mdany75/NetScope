@@ -209,6 +209,48 @@ func registerDiskTests(_ suite: TestSuite) {
                         .inconnu, "sans lecture : pas de bilan")
     }
 
+    suite.add("Disques : bilan sans plantage avec des valeurs invalides (plantage 0.8.0)") {
+        let gib: Int64 = 1 << 30
+        let share = DiskBenchmarkResult(sizeBytes: gib, passes: 1, writePasses: [95], readPasses: [110])
+        // Débit de lien presque nul, nul, négatif, infini ou NaN : ignoré, jamais de pourcentage infini.
+        for link in [Double.leastNonzeroMagnitude, 1e-300, 0, -5, .infinity, -.infinity, .nan] {
+            let verdict = DiskAdvisor.verdict(kind: .reseau, result: share,
+                                              context: DiskNetworkContext(linkMbps: link, linkKind: "Ethernet", serverLatencyMs: 0.6))
+            try expect(verdict.limit != .reseau, "lien \(link) ignoré : \(verdict.title)")
+            try expect(!verdict.detail.contains("inf") && !verdict.detail.contains("nan"), "aucun « inf » ni « nan » : \(verdict.detail)")
+        }
+        // Latence infinie ou NaN : ignorée.
+        for latency in [Double.infinity, .nan, -1] {
+            let verdict = DiskAdvisor.verdict(kind: .reseau, result: share,
+                                              context: DiskNetworkContext(linkMbps: 1000, linkKind: "Ethernet", serverLatencyMs: latency))
+            try expect(verdict.limit != .latence, "latence \(latency) ignorée")
+        }
+        // Mesures non finies : ignorées dans la moyenne, bilan « incomplet » s'il ne reste rien.
+        let broken = DiskBenchmarkResult(sizeBytes: gib, passes: 2, writePasses: [.infinity, 90], readPasses: [.nan])
+        try expectEqual(broken.writeMBps, 90, "moyenne sans la passe infinie")
+        try expectEqual(DiskAdvisor.verdict(kind: .reseau, result: broken, context: DiskNetworkContext(linkMbps: 1000)).limit,
+                        .inconnu, "lecture NaN : pas de bilan")
+        // Débit montant Internet invalide (dossier nuage).
+        let sent = DiskBenchmarkResult(sizeBytes: 256 << 20, passes: 1, writePasses: [1450], cloudStatus: .envoye, uploadSeconds: 50)
+        for up in [Double.infinity, .nan, 0] {
+            _ = DiskAdvisor.verdict(kind: .nuage, result: sent, context: DiskNetworkContext(internetUpMbps: up))
+        }
+        // Mise en forme : « — » au lieu d'un plantage.
+        for value in [Double.infinity, -.infinity, .nan] {
+            try expectEqual(DiskFormat.rate(value), "—", "débit \(value)")
+            try expectEqual(DiskFormat.bits(value), "—", "bits \(value)")
+            try expectEqual(DiskFormat.latency(value), "—", "latence \(value)")
+            try expectEqual(DiskFormat.duration(value), "—", "durée \(value)")
+            try expectEqual(DiskFormat.iops(value), "—", "IOPS \(value)")
+        }
+        try expectEqual(DiskFormat.rate(1e300), DiskFormat.grouped(Int.max), "très grand débit ramené à Int.max")
+        try expectEqual(DiskMath.percentile([1, 2, 3], .nan), 3, "percentile NaN")
+        try expectEqual(Double.nan.clampedInt, 0, "NaN → 0")
+        try expectEqual(Double.infinity.clampedInt, Int.max, "infini → Int.max")
+        try expectEqual((-Double.infinity).clampedInt, Int.min, "−infini → Int.min")
+        try expectEqual(2.5.clampedInt, 3, "arrondi")
+    }
+
     suite.add("Disques : bilan des dossiers nuage") {
         let size: Int64 = 256 << 20
         // 256 Mio envoyés en 50 s ≈ 43 Mbit/s, montée Internet 50 Mbit/s : Internet limite.

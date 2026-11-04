@@ -127,7 +127,7 @@ struct RegNotificationsSection: View {
             .padding(.vertical, 8)
             .overlay(alignment: .top) { Rectangle().fill(Theme.neutralSoft).frame(height: 1) }
             compactToggle("Regrouper les rafales",
-                          detail: "Au-delà de \(store.settings.groupBurst) événements du même type en \(Int(store.settings.groupWindow / 60))\u{00A0}min, une seule notification résume les suivants.",
+                          detail: "Au-delà de \(store.settings.groupBurst) événements du même type en \((store.settings.groupWindow / 60).rounded(.towardZero).clampedInt)\u{00A0}min, une seule notification résume les suivants.",
                           isOn: $store.settings.grouping)
             // Autres canaux (courriel, webhook) : ils reçoivent les mêmes événements (NetScopeEventCenter).
         }

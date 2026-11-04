@@ -128,7 +128,7 @@ struct MonEngineIndicator: View {
 
     /// « 00:42 », « 59:59 », « 1:02:03 ».
     static func clock(_ interval: TimeInterval) -> String {
-        let total = max(0, Int(interval))
+        let total = max(0, interval.rounded(.towardZero).clampedInt)
         if total >= 3600 { return String(format: "%d:%02d:%02d", total / 3600, total / 60 % 60, total % 60) }
         return String(format: "%02d:%02d", total / 60, total % 60)
     }

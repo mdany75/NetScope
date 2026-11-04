@@ -43,6 +43,28 @@ public struct DiskNetworkContext: Codable, Hashable, Sendable {
         self.internetUpMbps = internetUpMbps
     }
 
+    /// Plus petit et plus grand débit de lien crédibles (Mbit/s) : en dehors, la valeur lue est
+    /// une erreur de l'interface (0, presque 0, infinie) et ne sert pas au bilan.
+    public static let plausibleLinkMbps: ClosedRange<Double> = 1...1_000_000
+
+    /// Débit du lien s'il est crédible, sinon nil.
+    public var validLinkMbps: Double? {
+        guard let link = linkMbps, link.isFinite, Self.plausibleLinkMbps.contains(link) else { return nil }
+        return link
+    }
+
+    /// Latence vers le serveur si elle est finie et positive, sinon nil.
+    public var validServerLatencyMs: Double? {
+        guard let latency = serverLatencyMs, latency.isFinite, latency >= 0 else { return nil }
+        return latency
+    }
+
+    /// Débit montant Internet s'il est fini et positif, sinon nil.
+    public var validInternetUpMbps: Double? {
+        guard let up = internetUpMbps, up.isFinite, up > 0 else { return nil }
+        return up
+    }
+
     public var isWifi: Bool { linkKind?.lowercased().contains("wi-fi") == true || linkKind?.lowercased().contains("wifi") == true }
 }
 
@@ -101,24 +123,24 @@ public enum DiskAdvisor {
     }
 
     static func network(result: DiskBenchmarkResult, context: DiskNetworkContext) -> DiskVerdict {
-        guard let write = result.writeMBps, let read = result.readMBps else {
+        guard let write = result.writeMBps, let read = result.readMBps, write.isFinite, read.isFinite else {
             return DiskVerdict(limit: .inconnu, title: "Mesure incomplète", detail: "Relancez le test pour obtenir un bilan.", tone: .neutral)
         }
         let best = DiskMath.megabits(fromMegabytes: max(write, read))
         let measured = "Meilleur débit\u{00A0}: \(DiskFormat.bits(best)) (\(DiskFormat.rateWithUnit(max(write, read))))."
         let linkName = context.isWifi ? "réseau Wi-Fi" : (context.linkKind.map { "lien \($0)" } ?? "lien réseau")
-        if let link = context.linkMbps, link > 0, best >= link * linkSaturation {
-            var detail = measured + " C’est \(Int((best / link * 100).rounded()))\u{00A0}% du débit du \(linkName) (\(DiskFormat.bits(link)))\u{00A0}: le serveur et ses disques suivent."
+        if let link = context.validLinkMbps, best >= link * linkSaturation {
+            var detail = measured + " C’est \((best / link * 100).clampedInt)\u{00A0}% du débit du \(linkName) (\(DiskFormat.bits(link)))\u{00A0}: le serveur et ses disques suivent."
             detail += context.isWifi ? " Branchez ce Mac en Ethernet pour aller plus vite." : " Un lien plus rapide (2,5 ou 10 Gbit/s) serait nécessaire pour aller plus loin."
             return DiskVerdict(limit: .reseau, title: "Limité par le \(linkName) à \(DiskFormat.bits(link))", detail: detail, tone: .warning)
         }
-        if let latency = context.serverLatencyMs, latency >= highLatencyMs {
+        if let latency = context.validServerLatencyMs, latency >= highLatencyMs {
             let detail = measured + " La latence vers le serveur est de \(DiskFormat.latency(latency))\u{00A0}: partage distant, VPN ou Wi-Fi encombré. Chaque requête attend l’aller-retour."
             return DiskVerdict(limit: .latence, title: "Limité par la latence vers le serveur (\(DiskFormat.latency(latency)))", detail: detail, tone: .warning)
         }
-        if let link = context.linkMbps, link > 0 {
+        if let link = context.validLinkMbps {
             var detail = measured + " Le \(linkName) permettrait environ \(DiskFormat.bits(link * linkSaturation)) utiles"
-            if let latency = context.serverLatencyMs { detail += " et la latence est faible (\(DiskFormat.latency(latency)))" }
+            if let latency = context.validServerLatencyMs { detail += " et la latence est faible (\(DiskFormat.latency(latency)))" }
             detail += "\u{00A0}: la limite vient du serveur (disques, processeur, chiffrement SMB) ou de sa propre connexion."
             return DiskVerdict(limit: .serveur, title: "Limité par le serveur, pas par le réseau", detail: detail, tone: .accent)
         }
@@ -138,9 +160,9 @@ public enum DiskAdvisor {
             }
             guard let up = result.uploadMbps, let seconds = result.uploadSeconds else { break }
             var detail = local + " Envoyé \(DiskFormat.duration(seconds)) après la fin de l’écriture, soit au moins \(DiskFormat.bits(up))."
-            if let internet = context.internetUpMbps, internet > 0 {
+            if let internet = context.validInternetUpMbps {
                 if up >= internet * uploadSaturation {
-                    detail += " C’est \(Int((up / internet * 100).rounded()))\u{00A0}% du débit montant mesuré par le Speedtest (\(DiskFormat.bits(internet)))."
+                    detail += " C’est \((up / internet * 100).clampedInt)\u{00A0}% du débit montant mesuré par le Speedtest (\(DiskFormat.bits(internet)))."
                     return DiskVerdict(limit: .internet, title: "Envoi limité par le lien Internet montant", detail: detail, tone: .accent)
                 }
                 detail += " Le Speedtest a mesuré \(DiskFormat.bits(internet)) en montée\u{00A0}: le service nuage ralentit l’envoi (file d’attente, limite du service ou petit fichier)."

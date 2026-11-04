@@ -32,7 +32,11 @@ public struct SvcNetworkProber: SvcProbing {
         }
         result.addresses = addresses
         // 2. Connexion TCP et poignée de main TLS
-        let port = UInt16(url.port ?? 443)
+        guard let port = UInt16(exactly: url.port ?? 443), port > 0 else {
+            result.failure = .http
+            result.detail = "port invalide"
+            return result
+        }
         switch await SvcReachability.tlsHandshake(host: host, port: port, timeout: timeout) {
         case .success(let ms):
             result.tlsMs = ms

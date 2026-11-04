@@ -271,7 +271,7 @@ enum DeviceFormat {
 
     /// « 14 jours », « aujourd’hui ».
     static func span(from date: Date, now: Date = Date()) -> String {
-        let days = Int(now.timeIntervalSince(date) / 86_400)
+        let days = (now.timeIntervalSince(date) / 86_400).rounded(.towardZero).clampedInt
         switch days {
         case ..<1: return "aujourd’hui"
         case 1: return "1 jour"

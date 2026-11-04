@@ -125,7 +125,7 @@ struct SpeedInternetView: View {
             VStack(spacing: 5) {
                 ProgressBar(fraction: model.fraction)
                 HStack {
-                    Text("\(Int((model.fraction * 100).rounded())) %")
+                    Text("\((model.fraction * 100).clampedInt) %")
                     Spacer()
                     Text("\(SpeedFormat.number(model.elapsed, digits: 1)) s")
                 }
@@ -317,7 +317,7 @@ struct SpeedInternetView: View {
         func planText(_ value: Double?, _ plan: Double?) -> String {
             guard let value else { return "en attente" }
             guard let plan, let ratio = SpeedMath.planRatio(measured: value, plan: plan) else { return "forfait non renseigné" }
-            return "\(Int((ratio * 100).rounded())) % du forfait"
+            return "\((ratio * 100).clampedInt) % du forfait"
         }
         var grade: String?
         var loadedDetail = "mesurée pendant le débit"
@@ -525,7 +525,7 @@ struct SpeedInternetView: View {
     private func planBarText(measured: Double?, plan: Double?, ratio: Double?) -> String {
         guard let measured else { return "—" }
         guard let plan, let ratio else { return "\(SpeedFormat.rate(measured)) Mb/s" }
-        return "\(SpeedFormat.rate(measured)) / \(SpeedFormat.integer(plan)) · \(Int((ratio * 100).rounded())) %"
+        return "\(SpeedFormat.rate(measured)) / \(SpeedFormat.integer(plan)) · \((ratio * 100).clampedInt) %"
     }
 }
 

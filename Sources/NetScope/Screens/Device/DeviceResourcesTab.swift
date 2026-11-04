@@ -342,7 +342,7 @@ private struct ResourceHeader: View {
 
     /// « à l'instant », « il y a 12 s », « à 14:32 ».
     static func ago(_ date: Date, now: Date) -> String {
-        let seconds = Int(now.timeIntervalSince(date))
+        let seconds = now.timeIntervalSince(date).rounded(.towardZero).clampedInt
         if seconds < 2 { return "à l’instant" }
         if seconds < 120 { return "il y a \(seconds)\u{00A0}s" }
         let formatter = DateFormatter()

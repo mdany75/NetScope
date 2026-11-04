@@ -254,7 +254,7 @@ enum SwitchText {
 
     /// « à l’instant », « il y a 4 min », « il y a 3 h ».
     static func ago(_ date: Date, now: Date = Date()) -> String {
-        let seconds = Int(now.timeIntervalSince(date))
+        let seconds = now.timeIntervalSince(date).rounded(.towardZero).clampedInt
         if seconds < 60 { return "à l’instant" }
         if seconds < 3600 { return "il y a \(seconds / 60)\u{00A0}min" }
         if seconds < 86_400 { return "il y a \(seconds / 3600)\u{00A0}h" }

@@ -177,7 +177,7 @@ struct SpeedLanView: View {
                     .frame(maxWidth: .infinity).padding(16)
             }
             ForEach(Array(intervals.enumerated()), id: \.offset) { _, interval in
-                intervalRow(label: "\(Int(interval.start.rounded()))–\(Int(interval.end.rounded())) s",
+                intervalRow(label: "\(interval.start.clampedInt)–\(interval.end.clampedInt) s",
                             transfer: SpeedFormat.bytes(interval.bytes),
                             rate: "\(SpeedFormat.rate(interval.megabitsPerSecond)) Mb/s",
                             extra: isUDP ? (interval.packets.map(String.init) ?? "—") : (interval.retransmits.map(String.init) ?? "—"),
@@ -259,7 +259,7 @@ struct SpeedLanView: View {
             HStack {
                 Text("0 s")
                 Spacer()
-                Text("\(Int(model.lanResult?.duration.rounded() ?? Double(model.lanDuration))) s")
+                Text("\((model.lanResult?.duration ?? Double(model.lanDuration)).clampedInt) s")
             }
             .font(Theme.mono(11))
             .foregroundStyle(Theme.textSecondary)
@@ -330,7 +330,7 @@ struct SpeedLanView: View {
                     comparisonBar(pair.wired.interfaceLabel, pair.wired.downMbps, top, Theme.accent)
                     comparisonBar(pair.wifi.interfaceLabel, pair.wifi.downMbps, top, Theme.warning)
                     let ratio = pair.wifi.downMbps / max(pair.wired.downMbps, 1)
-                    Text("Le Wi-Fi atteint \(Int((ratio * 100).rounded())) % du filaire. "
+                    Text("Le Wi-Fi atteint \((ratio * 100).clampedInt) % du filaire. "
                          + (ratio < 0.8 ? "Le goulot est probablement le lien radio, pas le réseau." : "L’écart est faible : le lien radio n’est pas le facteur limitant."))
                         .font(Theme.small)
                         .foregroundStyle(Theme.neutralText)

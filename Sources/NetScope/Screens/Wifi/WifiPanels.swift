@@ -220,7 +220,7 @@ struct WifiConnectionPanel: View {
             tileColored("RSSI · direct", WifiQuality.dbm(network.rssi), color: colors.foreground,
                         sub: network.noise.map { "Bruit \(WifiQuality.dbm($0))" })
             tile("SNR", network.snr.map { "\($0)\u{00A0}dB" } ?? "—", sub: "Excellent dès 25\u{00A0}dB", mono: true, subMono: false)
-            tile("Débit PHY", connection.transmitRate.map { "\(Int($0))\u{00A0}Mb/s" } ?? "—", sub: network.standard.map(WifiConnectionPanel.generation), mono: true, subMono: false)
+            tile("Débit PHY", connection.transmitRate.flatMap(\.finiteOrNil).map { "\($0.rounded(.towardZero).clampedInt)\u{00A0}Mb/s" } ?? "—", sub: network.standard.map(WifiConnectionPanel.generation), mono: true, subMono: false)
             tileColored("Sécurité", network.security.label, color: network.security.isOpen ? Theme.critical : (network.security.isWPA3 ? Theme.success : Theme.text),
                         sub: network.security.isOpen ? "aucun chiffrement" : nil, mono: false)
             tile("VLAN / IP", myDevice?.vlan.map { "VLAN \($0)" } ?? (state.activeInterface?.address.description ?? "—"),

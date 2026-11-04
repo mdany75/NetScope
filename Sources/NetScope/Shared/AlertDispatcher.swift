@@ -105,7 +105,8 @@ final class AlertDispatcher: ObservableObject {
         guard let due = planner.nextFlush(rules: settings.rules) else { return }
         let delay = max(0, due.timeIntervalSinceNow)
         flushTask = Task { [weak self] in
-            if delay > 0 { try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000)) }
+            // Borne d'un an : un regroupement relu démesuré ne fait plus déborder UInt64.
+            if delay > 0 { try? await Task.sleep(nanoseconds: UInt64(min(delay, 365 * 86_400) * 1_000_000_000)) }
             guard !Task.isCancelled else { return }
             self?.flush()
         }

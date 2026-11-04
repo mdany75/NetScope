@@ -305,7 +305,7 @@ struct DiskSpeedView: View {
                 AxisMarks(values: .automatic(desiredCount: 5)) { value in
                     AxisGridLine().foregroundStyle(Theme.border)
                     AxisValueLabel {
-                        if let seconds = value.as(Double.self) { Text("\(Int(seconds))\u{00A0}s").font(Theme.caption) }
+                        if let seconds = value.as(Double.self) { Text("\(seconds.clampedInt)\u{00A0}s").font(Theme.caption) }
                     }
                 }
             }
@@ -313,7 +313,7 @@ struct DiskSpeedView: View {
                 AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { value in
                     AxisGridLine().foregroundStyle(Theme.border)
                     AxisValueLabel {
-                        if let rate = value.as(Double.self) { Text(DiskFormat.grouped(Int(rate.rounded()))).font(Theme.caption) }
+                        if let rate = value.as(Double.self) { Text(DiskFormat.grouped(rate.clampedInt)).font(Theme.caption) }
                     }
                 }
             }
@@ -348,7 +348,7 @@ struct DiskSpeedView: View {
             HStack(spacing: 8) {
                 Text(statusText).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 Spacer(minLength: 8)
-                Text("\(Int((model.fraction * 100).rounded()))\u{00A0}% · \(DiskFormat.number(model.elapsed, digits: 1))\u{00A0}s")
+                Text("\((model.fraction * 100).clampedInt)\u{00A0}% · \(DiskFormat.number(model.elapsed, digits: 1))\u{00A0}s")
                     .font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
             }
             ProgressBar(fraction: model.fraction, color: model.isRunning ? Theme.accent : (model.result != nil ? Theme.success : Theme.accent))
@@ -533,7 +533,7 @@ struct DiskGauge: View {
 
     private static func arc(center: CGPoint, radius: CGFloat, from start: Double, to end: Double) -> Path {
         var path = Path()
-        let steps = max(2, Int((end - start) * 100))
+        let steps = max(2, min(10_000, ((end - start) * 100).clampedInt))
         for step in 0...steps {
             let p = point(center: center, radius: radius, fraction: start + (end - start) * Double(step) / Double(steps))
             if step == 0 { path.move(to: p) } else { path.addLine(to: p) }
@@ -756,7 +756,7 @@ struct DiskHistoryTable: View {
 
     static func readText(_ row: DiskTestRecord) -> String {
         if row.kind == .nuage {
-            return row.uploadSeconds.map { "↑\u{00A0}" + ($0 < 1000 ? "\(Int($0.rounded()))\u{00A0}s" : DiskFormat.duration($0)) } ?? (row.cloudStatus?.label ?? "—")
+            return row.uploadSeconds.map { "↑\u{00A0}" + ($0 < 1000 ? "\($0.clampedInt)\u{00A0}s" : DiskFormat.duration($0)) } ?? (row.cloudStatus?.label ?? "—")
         }
         return row.readMBps.map(DiskFormat.rate) ?? "—"
     }

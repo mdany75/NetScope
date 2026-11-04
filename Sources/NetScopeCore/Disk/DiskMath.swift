@@ -24,9 +24,11 @@ public enum DiskMath {
         return Double(operations) / seconds
     }
 
+    /// Moyenne des valeurs finies (une mesure NaN ou infinie est ignorée) ; nil s'il n'y en a aucune.
     public static func mean(_ values: [Double]) -> Double? {
-        guard !values.isEmpty else { return nil }
-        return values.reduce(0, +) / Double(values.count)
+        let finite = values.filter(\.isFinite)
+        guard !finite.isEmpty else { return nil }
+        return finite.reduce(0, +) / Double(finite.count)
     }
 
     /// Percentile par la méthode du rang le plus proche (p95 : la valeur sous laquelle se trouvent
@@ -34,7 +36,8 @@ public enum DiskMath {
     public static func percentile(_ values: [Double], _ fraction: Double) -> Double? {
         guard !values.isEmpty else { return nil }
         let sorted = values.sorted()
-        let rank = Int((min(max(fraction, 0), 1) * Double(sorted.count)).rounded(.up))
+        let clamped = fraction.isFinite ? min(max(fraction, 0), 1) : 1
+        let rank = Int((clamped * Double(sorted.count)).rounded(.up))
         return sorted[min(max(rank - 1, 0), sorted.count - 1)]
     }
 
@@ -84,12 +87,14 @@ public enum DiskFormat {
     static let nbsp = "\u{00A0}"
 
     public static func number(_ value: Double, digits: Int = 1) -> String {
-        String(format: "%.\(digits)f", value).replacingOccurrences(of: ".", with: ",")
+        guard value.isFinite else { return "—" }
+        return String(format: "%.\(digits)f", value).replacingOccurrences(of: ".", with: ",")
     }
 
     /// « 2 850 » (espace fine insécable entre les milliers), « 98,4 » sous 100, « 7,2 » sous 10.
     public static func rate(_ value: Double) -> String {
-        if value >= 100 { return grouped(Int(value.rounded())) }
+        guard value.isFinite else { return "—" }
+        if value >= 100 { return grouped(value.clampedInt) }
         return number(value, digits: 1)
     }
 
@@ -98,22 +103,25 @@ public enum DiskFormat {
 
     /// « 940 Mbit/s », « 1,2 Gbit/s ».
     public static func bits(_ megabits: Double) -> String {
+        guard megabits.isFinite else { return "—" }
         if megabits >= 1000 { return number(megabits / 1000, digits: megabits >= 10_000 ? 0 : 1) + nbsp + "Gbit/s" }
-        return grouped(Int(megabits.rounded())) + nbsp + "Mbit/s"
+        return grouped(megabits.clampedInt) + nbsp + "Mbit/s"
     }
 
-    public static func iops(_ value: Double) -> String { grouped(Int(value.rounded())) }
+    public static func iops(_ value: Double) -> String { value.isFinite ? grouped(value.clampedInt) : "—" }
 
     /// Latence : « 0,08 ms », « 1,4 ms », « 23 ms ».
     public static func latency(_ ms: Double) -> String {
+        guard ms.isFinite else { return "—" }
         if ms < 1 { return number(ms, digits: 2) + nbsp + "ms" }
         if ms < 10 { return number(ms, digits: 1) + nbsp + "ms" }
-        return grouped(Int(ms.rounded())) + nbsp + "ms"
+        return grouped(ms.clampedInt) + nbsp + "ms"
     }
 
     /// Durée : « 42 s », « 3 min 05 s ».
     public static func duration(_ seconds: Double) -> String {
-        let total = Int(seconds.rounded())
+        guard seconds.isFinite else { return "—" }
+        let total = max(0, seconds.clampedInt)
         if total < 60 { return "\(total)" + nbsp + "s" }
         return "\(total / 60)" + nbsp + "min " + String(format: "%02d", total % 60) + nbsp + "s"
     }
@@ -122,8 +130,8 @@ public enum DiskFormat {
     public static func size(_ bytes: Int64) -> String {
         let value = Double(bytes)
         if value >= 1e12 { return number(value / 1e12, digits: 1) + nbsp + "To" }
-        if value >= 1e9 { return grouped(Int((value / 1e9).rounded())) + nbsp + "Go" }
-        return grouped(Int((value / 1e6).rounded())) + nbsp + "Mo"
+        if value >= 1e9 { return grouped((value / 1e9).clampedInt) + nbsp + "Go" }
+        return grouped((value / 1e6).clampedInt) + nbsp + "Mo"
     }
 
     /// Taille d'un fichier d'essai (binaire) : « 256 Mio », « 1 Gio », « 10 Gio ».

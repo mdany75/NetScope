@@ -17,7 +17,7 @@ enum ScanFormat {
 
     /// « 23 s », « 2 min 05 s ».
     static func seconds(_ interval: TimeInterval) -> String {
-        let total = max(0, Int(interval.rounded()))
+        let total = max(0, interval.clampedInt)
         if total < 60 { return "\(total) s" }
         return String(format: "%d min %02d s", total / 60, total % 60)
     }
@@ -28,7 +28,7 @@ enum ScanFormat {
         if elapsed < 60 { return "À l’instant" }
         if elapsed < 3600 { return "Il y a \(Int(elapsed / 60)) min" }
         if elapsed < 86_400 { return "Il y a \(Int(elapsed / 3600)) h" }
-        return "Il y a \(Int(elapsed / 86_400)) j"
+        return "Il y a \((elapsed / 86_400).rounded(.towardZero).clampedInt) j"
     }
 
     private static let longDate: DateFormatter = {

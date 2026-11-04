@@ -396,7 +396,7 @@ final class SpeedtestModel: ObservableObject {
         switch event {
         case .update(let update):
             runState = .running(update.phase)
-            fraction = update.fraction
+            fraction = update.fraction.isFinite ? update.fraction : fraction
             switch update.phase {
             case .latency:
                 elapsed = update.elapsed
@@ -615,7 +615,7 @@ enum SpeedFormat {
     }
 
     static func integer(_ value: Double) -> String {
-        String(Int(value.rounded()))
+        value.isFinite ? String(value.clampedInt) : "—"
     }
 
     /// Débit : entier au-delà de 100 Mb/s, une décimale en dessous.
@@ -630,7 +630,8 @@ enum SpeedFormat {
 
     static func parse(_ text: String) -> Double? {
         let cleaned = text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
-        guard let value = Double(cleaned), value > 0 else { return nil }
+        // « inf », « nan » ou « 1e400 » ne font pas un forfait : borne réaliste en Mb/s.
+        guard let value = Double(cleaned), value.isFinite, value > 0, value <= 1_000_000 else { return nil }
         return value
     }
 

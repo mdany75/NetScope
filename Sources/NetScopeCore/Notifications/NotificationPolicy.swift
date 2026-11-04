@@ -148,7 +148,7 @@ public struct NotificationSettings: Codable, Equatable, Sendable {
         criticalBypassQuietHours = (try? c.decodeIfPresent(Bool.self, forKey: .criticalBypassQuietHours)) ?? defaults.criticalBypassQuietHours
         grouping = (try? c.decodeIfPresent(Bool.self, forKey: .grouping)) ?? defaults.grouping
         groupBurst = max(1, (try? c.decodeIfPresent(Int.self, forKey: .groupBurst)) ?? defaults.groupBurst)
-        groupWindow = max(10, (try? c.decodeIfPresent(TimeInterval.self, forKey: .groupWindow)) ?? defaults.groupWindow)
+        groupWindow = min(max(10, (try? c.decodeIfPresent(TimeInterval.self, forKey: .groupWindow)) ?? defaults.groupWindow), 86_400)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -293,7 +293,7 @@ public struct NotificationPolicy: Sendable {
                                                  sound: sound, thread: thread, groupedCount: 1))
         }
         let grouped = burst.count - limit
-        let minutes = max(1, Int((settings.groupWindow / 60).rounded()))
+        let minutes = max(1, (settings.groupWindow / 60).clampedInt)
         let title = "\(event.kind.label)\u{00A0}: \(burst.count) événements en \(minutes)\u{00A0}min"
         let body = "Dernier\u{00A0}: \(event.title)" + (grouped > 1 ? " (et \(grouped - 1) autre\(grouped - 1 > 1 ? "s" : "") regroupé\(grouped - 1 > 1 ? "s" : ""))" : "")
         let identifier = "groupe-\(event.kind.rawValue)-\(Int(burst.start.timeIntervalSince1970))"

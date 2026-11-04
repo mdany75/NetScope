@@ -172,7 +172,7 @@ public enum TcpdumpHexParser {
                 var bytes: [UInt8] = []
                 var valid = true
                 for group in trimmed[trimmed.index(after: colon)...].split(separator: " ") {
-                    guard group.count == 2 || group.count == 4, group.allSatisfy(\.isHexDigit) else {
+                    guard group.count == 2 || group.count == 4, group.allSatisfy({ $0.isASCII && $0.isHexDigit }) else {
                         // Colonne ASCII (-X) : fin des octets de la ligne.
                         if bytes.isEmpty { valid = false }
                         break
@@ -180,7 +180,8 @@ public enum TcpdumpHexParser {
                     var index = group.startIndex
                     while index < group.endIndex {
                         let next = group.index(index, offsetBy: 2)
-                        bytes.append(UInt8(group[index..<next], radix: 16)!)
+                        guard let byte = UInt8(group[index..<next], radix: 16) else { valid = false; break }
+                        bytes.append(byte)
                         index = next
                     }
                 }

@@ -85,8 +85,8 @@ struct RegProfilesSection: View {
     /// Estimation grossière pour un /24, reprise du croquis.
     private var estimate: String {
         let ports = Double(tuning.ports.count)
-        let seconds = max(1, Int((254 * (1 + ports * 0.3) * Double(max(tuning.timeoutMs, 50)) * Double(1 + tuning.retries) * 0.35
-            / Double(max(tuning.threads, 1)) / 1000).rounded(.up)))
+        let seconds = max(1, (254 * (1 + ports * 0.3) * Double(max(tuning.timeoutMs, 50)) * (1 + Double(tuning.retries)) * 0.35
+            / Double(max(tuning.threads, 1)) / 1000).rounded(.up).clampedInt)
         let text = seconds >= 60 ? "\(seconds / 60) min \(seconds % 60) s" : "\(seconds) s"
         return "≈ \(text) estimé pour un /24"
     }

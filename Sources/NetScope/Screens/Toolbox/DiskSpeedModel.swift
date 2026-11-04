@@ -262,11 +262,17 @@ final class DiskSpeedModel: ObservableObject {
         case .reseau:
             let interface = state.activeInterface
             var link: Double?
+            // Un débit invalide (0, presque 0, infini : interface qui ne le connaît pas) est ignoré :
+            // c'est lui qui faisait planter le bilan de la 0.8.0.
+            func plausible(_ value: Double?) -> Double? {
+                guard let value, value.isFinite, DiskNetworkContext.plausibleLinkMbps.contains(value) else { return nil }
+                return value
+            }
             if interface?.kind == .wifi {
-                link = WifiStore.shared.connection?.transmitRate
+                link = plausible(WifiStore.shared.connection?.transmitRate)
             }
             if link == nil, let name = interface?.name, !isDemo {
-                link = LocalResources.interfaces().first { $0.name == name }?.counters.speedMbps.map(Double.init)
+                link = plausible(LocalResources.interfaces().first { $0.name == name }?.counters.speedMbps.map(Double.init))
             }
             var context = DiskNetworkContext(linkMbps: link, linkKind: interface?.kind.label, interfaceName: interface?.name)
             if isDemo { context.serverLatencyMs = DiskSpeedDemo.serverLatency }

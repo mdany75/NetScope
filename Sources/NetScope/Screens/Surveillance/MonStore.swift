@@ -487,7 +487,7 @@ final class MonStore: ObservableObject {
 
     /// « 2 h 04 », « 12 min », « 40 s ».
     static func duration(_ seconds: TimeInterval) -> String {
-        let total = max(0, Int(seconds))
+        let total = max(0, seconds.rounded(.towardZero).clampedInt)
         if total < 60 { return "\(total)\u{00A0}s" }
         if total < 3600 { return "\(total / 60)\u{00A0}min" }
         if total < 86_400 { return String(format: "%d\u{00A0}h\u{00A0}%02d", total / 3600, total / 60 % 60) }

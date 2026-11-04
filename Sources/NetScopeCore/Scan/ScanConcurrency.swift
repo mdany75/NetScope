@@ -50,7 +50,8 @@ extension Duration {
     var scanNanoseconds: UInt64 {
         let (seconds, attoseconds) = components
         let total = Double(seconds) * 1e9 + Double(attoseconds) / 1e9
-        return total <= 0 ? 0 : UInt64(total)
+        guard total.isFinite, total > 0 else { return 0 }
+        return total >= Double(UInt64.max) ? UInt64.max : UInt64(total)
     }
 
     /// Durée en secondes.

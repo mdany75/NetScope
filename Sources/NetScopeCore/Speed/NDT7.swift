@@ -220,7 +220,7 @@ public final class NDT7Tester: SpeedTestEngine, @unchecked Sendable {
 
         // 2. Latence au repos : connexions TCP vers le serveur (le protocole NDT7 n'a pas de « ping »).
         let host = target.downloadURL.host ?? target.machine
-        let port = UInt16(target.downloadURL.port ?? 443)
+        let port = UInt16(exactly: target.downloadURL.port ?? 443) ?? 443
         let start = Date()
         _ = await SpeedLatencyProbe.tcpConnect(host: host, port: port)
         var rtts: [Double] = []
