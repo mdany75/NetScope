@@ -96,12 +96,12 @@ public struct SNMPPoEPort: Codable, Hashable, Sendable {
         return parts.isEmpty ? stateLabel : parts.joined(separator: " · ")
     }
 
-    /// Texte court pour une colonne : « Oui · 18,4 W », « Oui », « Port PoE, sans charge », « Désactivé ».
+    /// Texte court pour une colonne : « Oui · 18,4 W », « Oui », « Non (port PoE) », « PoE désactivé ».
     public var shortLabel: String {
         if isDelivering { return consumptionW.map { "Oui · \(PoEPowerInfo.watts($0))" } ?? "Oui" }
         if adminEnabled == false || detection == .disabled { return "PoE désactivé" }
         if detection?.isFault == true { return "Défaut PoE" }
-        return "Port PoE, sans charge"
+        return "Non (port PoE)"
     }
 }
 
@@ -274,10 +274,10 @@ public struct DevicePoEStatus: Hashable, Sendable {
         return switchHasPoE ? false : nil
     }
 
-    /// Texte de colonne : « Oui · 18,4 W », « Port PoE, sans charge », « Non », « Inconnu ».
+    /// Texte de colonne : « Oui · 18,4 W », « Non (port PoE) », « Non (sans PoE) », « Inconnu ».
     public var shortLabel: String {
         if let port { return port.shortLabel }
-        return switchHasPoE ? "Non (port sans PoE)" : "Inconnu"
+        return switchHasPoE ? "Non (sans PoE)" : "Inconnu"
     }
 
     /// Phrase de la fiche : « Alimenté par PoE · classe 4 · 18,4 W (Cisco) ».
@@ -286,7 +286,11 @@ public struct DevicePoEStatus: Hashable, Sendable {
             return switchHasPoE ? "Non · le port \(portName) ne fournit pas de PoE"
                 : "Inconnu · \(switchName) ne répond pas à POWER-ETHERNET-MIB"
         }
-        guard port.isDelivering else { return "Non alimenté · \(port.stateLabel.lowercased()) (port PoE)" }
+        guard port.isDelivering else {
+            if port.adminEnabled == false || port.detection == .disabled { return "Non · PoE désactivé sur ce port" }
+            if port.detection?.isFault == true { return "Non · défaut PoE sur ce port" }
+            return "Non · port PoE, aucune charge détectée"
+        }
         var parts = ["Alimenté par PoE"]
         if let powerClass = port.powerClass { parts.append("classe \(powerClass)") }
         if let watts = port.consumptionW { parts.append(PoEPowerInfo.watts(watts) + (port.wattsSource.map { " (\($0))" } ?? "")) }

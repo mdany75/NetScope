@@ -161,7 +161,7 @@ extension PoEPowerInfo {
     var bannerText: String {
         var text: String
         switch isPoEPort {
-        case true?: text = "port PoE" + (typeLabel.map { " (\($0))" } ?? "")
+        case true?: text = "port PoE" + (standard.map { " \($0.rawValue)" } ?? "")
         case false?: text = "port sans PoE"
         case nil: text = "PoE non annoncé"
         }
