@@ -7,11 +7,12 @@ import Foundation
 
 public enum DNSRecordType: String, CaseIterable, Sendable, Identifiable, Codable {
     case a = "A", aaaa = "AAAA", mx = "MX", ptr = "PTR", txt = "TXT", ns = "NS", cname = "CNAME", soa = "SOA"
+    case srv = "SRV", caa = "CAA", dnskey = "DNSKEY", ds = "DS"
 
     public var id: String { rawValue }
 
     /// Types proposés dans l'interface.
-    public static let queryable: [DNSRecordType] = [.a, .aaaa, .mx, .ptr, .txt, .ns, .cname]
+    public static let queryable: [DNSRecordType] = [.a, .aaaa, .mx, .ptr, .txt, .ns, .cname, .soa, .srv, .caa, .dnskey, .ds]
 
     public var code: UInt16 {
         switch self {
@@ -23,6 +24,10 @@ public enum DNSRecordType: String, CaseIterable, Sendable, Identifiable, Codable
         case .mx: return 15
         case .txt: return 16
         case .aaaa: return 28
+        case .srv: return 33
+        case .ds: return 43
+        case .dnskey: return 48
+        case .caa: return 257
         }
     }
 
@@ -241,6 +246,8 @@ public enum DNSMessageCodec {
             guard position + 20 <= start + length else { throw DNSError.truncatedMessage }
             let numbers = (0..<5).map { UInt32(u16(bytes, position + $0 * 4)) << 16 | UInt32(u16(bytes, position + $0 * 4 + 2)) }
             return "\(mname) \(rname) " + numbers.map(String.init).joined(separator: " ")
+        case .srv, .caa, .dnskey, .ds:
+            return try DNSExtendedRData.decode(type: type, bytes, start, length)
         case nil:
             return "\\# \(length) " + slice.map { String(format: "%02x", $0) }.joined()
         }
@@ -275,6 +282,18 @@ public struct DNSLookupResult: Sendable {
     /// « 10.182.122.1#53 (UDP) », « résolveur du système », « dig ».
     public var serverLabel: String
     public var durationMs: Double
+
+    public init(query: String, type: DNSRecordType, rcode: String, records: [DNSRecord], answerCount: Int,
+                isAuthoritative: Bool, serverLabel: String, durationMs: Double) {
+        self.query = query
+        self.type = type
+        self.rcode = rcode
+        self.records = records
+        self.answerCount = answerCount
+        self.isAuthoritative = isAuthoritative
+        self.serverLabel = serverLabel
+        self.durationMs = durationMs
+    }
 
     /// « NOERROR · 1 réponse · 3 ms · serveur 10.182.122.1#53 (UDP) ».
     public var summary: String {

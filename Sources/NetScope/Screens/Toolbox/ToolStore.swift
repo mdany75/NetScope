@@ -9,6 +9,8 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     case cloud
     // Outils courriel (note 14).
     case mailSuper, mailHealth, mx, blacklist, mailRecords
+    // Courriel (note 14, partie 2)
+    case smtp, headers = "entetes"
 
     var id: String { rawValue }
 
@@ -27,6 +29,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .wol, .dhcp, .lldp: return .services
         case .cloud: return .internet
         case .mailSuper, .mailHealth, .mx, .blacklist, .mailRecords: return .courriel
+        case .smtp, .headers: return .courriel
         }
     }
 
@@ -49,6 +52,8 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .mx: return "Recherche MX"
         case .blacklist: return "Listes noires"
         case .mailRecords: return "SPF, DKIM, DMARC…"
+        case .smtp: return "Diagnostic SMTP"
+        case .headers: return "Analyse d’en-têtes"
         }
     }
 
@@ -57,7 +62,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .subnet: return "Adresse réseau, masques, broadcast, plage d’hôtes et découpage."
         case .mac: return "Formats MAC, fabricant OUI et correspondance avec l’inventaire."
         case .ports: return "Ports TCP ouverts et bannières des services texte (SSH, FTP, SMTP, HTTP)."
-        case .dns: return "Résolution A, AAAA, MX, PTR, TXT, NS et CNAME sur le serveur choisi."
+        case .dns: return "Résolution A, AAAA, MX, TXT, SOA, SRV, CAA, DNSSEC… ; comparaison de serveurs et propagation."
         case .whois: return "Propriétaire d’une adresse, d’un ASN ou d’un domaine."
         case .mtu: return "Recherche de la MTU du chemin avec le bit Don’t Fragment."
         case .iperf: return "Débit réel entre ce Mac et un serveur iperf3 du réseau."
@@ -71,6 +76,8 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .mx: return "Serveurs MX par priorité, leurs adresses et la cohérence du DNS inverse."
         case .blacklist: return "Une IP ou un domaine dans les principales listes noires DNSBL/RBL."
         case .mailRecords: return "Lit et explique SPF, DMARC, DKIM, BIMI, MTA-STS et TLS-RPT\u{00A0}; signale les erreurs."
+        case .smtp: return "Bannière, EHLO, STARTTLS, certificat et temps de réponse d’un serveur de courriel, sans rien envoyer."
+        case .headers: return "Trajet d’un courriel, SPF, DKIM, DMARC et alertes d’usurpation, à partir des en-têtes collés."
         }
     }
 
@@ -93,6 +100,8 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .mx: return "tray.2"
         case .blacklist: return "hand.raised"
         case .mailRecords: return "checkmark.shield"
+        case .smtp: return "envelope.badge.shield.half.filled"
+        case .headers: return "envelope.open"
         }
     }
 
@@ -207,6 +216,8 @@ final class ToolStore: ObservableObject {
     let mx = ToolMXModel()
     let blacklist = ToolBlacklistModel()
     let mailRecords = ToolMailRecordsModel()
+    let smtp = ToolSMTPModel()
+    let headers = ToolHeaderModel()
 
     /// Démonstration (--demo) : données des croquis.
     let isDemo: Bool

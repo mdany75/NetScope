@@ -127,6 +127,8 @@ private struct ToolMainPanel: View {
     @ObservedObject private var mx = ToolStore.shared.mx
     @ObservedObject private var blacklist = ToolStore.shared.blacklist
     @ObservedObject private var mailRecords = ToolStore.shared.mailRecords
+    @ObservedObject private var smtp = ToolStore.shared.smtp
+    @ObservedObject private var headers = ToolStore.shared.headers
 
     var body: some View {
         let tool = store.selectedTool
@@ -215,6 +217,8 @@ private struct ToolMainPanel: View {
         case .mx: MXLookupView(model: mx, store: store)
         case .blacklist: BlacklistView(model: blacklist, store: store)
         case .mailRecords: MailRecordsView(model: mailRecords, store: store)
+        case .smtp: SMTPDiagnosticView(model: smtp, store: store)
+        case .headers: MailHeaderView(model: headers, store: store)
         }
     }
 
@@ -224,8 +228,7 @@ private struct ToolMainPanel: View {
         case .subnet: return "ipcalc \(subnet.cidr.trimmingCharacters(in: .whitespaces))"
         case .mac: return "oui \(mac.text.trimmingCharacters(in: .whitespaces))"
         case .ports: return ports.command
-        case .dns:
-            return DNSLookup.command(for: dns.query.isEmpty ? "<nom>" : dns.query, type: dns.type, server: dns.effectiveServer)
+        case .dns: return dns.command
         case .whois: return "whois \(whois.target)"
         case .mtu: return "ping -D -s 1472 \(state.activeInterface?.gateway?.description ?? "<cible>")"
         case .iperf: return "iperf3 -c <serveur> -P 4 -t 10"
@@ -239,6 +242,8 @@ private struct ToolMainPanel: View {
         case .mx: return mx.command
         case .blacklist: return blacklist.command
         case .mailRecords: return mailRecords.command
+        case .smtp: return smtp.command
+        case .headers: return "analyse locale des en-têtes (rien n’est envoyé)"
         }
     }
 }
