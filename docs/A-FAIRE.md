@@ -45,7 +45,8 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       vidé au changement de site), 52 (nom d'utilisateur SSH).
     - **0.16.0, Wi-Fi des clients** : notes 46 (clients par borne et par SSID, fiche complète),
       47 (diagnostic Wi-Fi d'un client, avec solutions).
-    - **0.17.0, suivi automatique** : notes 29 (relire en automatique), 39 (WAN des FortiGate).
+    - **0.17.0, suivi automatique et trafic** : notes 29 (relire en automatique), 39 (WAN des
+      FortiGate), 54 (FortiView : trafic et analyse complète du réseau).
     - **0.18.0, transferts et services** : notes 50 (FTP, FTPS, SFTP), 51 (TFTP), 53 (réseaux
       sociaux et assistants IA dans les services en ligne).
     - **0.19.0, parc Fortinet** : notes 40 (sauvegarde des configurations), 41 (firmware et
@@ -63,7 +64,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 | --- | --- | --- |
 | Scanner et sites | 18, 19, 20, 26, 28 | 49 et 48 (0.15.0) |
 | Navigation entre les modules | 31, 33, 34, 36 | 45, fin (0.15.0) |
-| Switchs et ports, Fortinet | 12, 24, 25 | 29 et 39 (0.17.0), 40 et 41 (0.19.0) |
+| Switchs et ports, Fortinet | 12, 24, 25 | 29, 39 et 54 (0.17.0), 40 et 41 (0.19.0) |
 | Wi-Fi | 1, 27 | 46 et 47 (0.16.0) |
 | Carte du réseau | — | 32 (0.14.0) |
 | Inventaire | 8 | 30 (0.14.0), 10 (0.20.0) |
@@ -907,3 +908,24 @@ Ajouter au catalogue de la note 15 (`SvcCatalog.swift`, livré dans la 0.6.0) un
 - Utile pour le technicien : savoir si un site est bloqué par le filtrage de la FortiGate
   (catégorie web, contrôle des applications) plutôt qu'en panne ; services cochés ou non par
   site (ex. réseaux sociaux masqués là où ils sont bloqués exprès).
+
+## 54. FortiView : trafic et analyse complète du réseau — 0.17.0 (demande de Dany)
+
+« Ajouter FortiView, le trafic, une analyse complète du réseau. » Nouvel écran « Trafic »
+(groupe SUIVI), lu sur la FortiGate de chaque site par l'API REST de FortiOS (moniteurs
+FortiView), en lecture seule comme les notes 24 et 25 :
+
+- Vues FortiView : sources (appareils et utilisateurs), destinations (IP, pays, domaines),
+  applications (contrôle des applications), catégories web, interfaces et liens WAN,
+  politiques de pare-feu, sessions en cours, menaces (IPS, antivirus, filtrage web bloqué).
+- Périodes : temps réel, 5 min, 1 h, 24 h, 7 jours (selon ce que garde la FortiGate ou
+  FortiAnalyzer / FortiGate Cloud s'il est relié) ; tri par débit, octets, sessions.
+- Lien avec NetScope : chaque source reliée à sa fiche Appareil, son port de switch et sa borne
+  Wi-Fi (double-clic, note 34) ; « Qui sature le lien ? » en un clic ; vue « Tous les sites ».
+- Analyse complète du réseau : un bilan qui réunit trafic (plus gros consommateurs, applications
+  inattendues, pays inhabituels), sécurité (menaces, appareils infectés ou bloqués), santé
+  (WAN et SD-WAN, note 39 ; ports de switch saturés ou en erreur ; Wi-Fi, notes 46 et 47 ;
+  étendues DHCP, note 37) et inventaire (appareils inconnus) ; points classés par gravité,
+  avec explications et actions conseillées, et une section « Trafic » dans les Rapports.
+- Surveillance : sondes « lien saturé », « appareil qui consomme trop », « nouvelle menace ».
+- Droits du profil API à ajouter en lecture : « Log & Report » et « FortiView » si nécessaire.
