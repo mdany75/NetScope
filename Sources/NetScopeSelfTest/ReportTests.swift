@@ -187,6 +187,54 @@ func registerReportTests(_ suite: TestSuite) {
         try expectEqual(sw.uplink, "Gi1/0/1", "uplink LLDP")
     }
 
+    suite.add("Rapport\u{00A0}: note jamais seule sous «\u{00A0}(suite)\u{00A0}», pas de ligne veuve, hauteur des lignes juste") {
+        let metrics = ReportPageMetrics()
+        func doc(_ sections: [ReportSection]) -> ReportDocument {
+            ReportDocument(title: "T", template: .audit, client: "", site: "", technician: "", date: "", dateLabel: "",
+                           reference: "", generator: "", signature: false, sections: sections, problems: [])
+        }
+        let capacity = metrics.contentHeight
+        // Le tableau remplit la page à lui seul ; sa note ne tient plus dessous.
+        let rowsThatFit = Int((capacity - metrics.headingHeight - metrics.tableHeaderHeight) / metrics.rowHeight)
+        let rows = (1...rowsThatFit).map { ReportRow([ReportCell("ligne \($0)")]) }
+        let note = String(repeating: "Note longue sous le tableau. ", count: 12)
+        let pages = ReportPaginator.paginate(doc([
+            ReportSection(kind: .securite, heading: "5. Ports", blocks: [.table(ReportTable(columns: [ReportColumn("A")], rows: rows)), .note(note)]),
+        ]), metrics: metrics)
+        for page in pages {
+            var hasTable = false
+            var hasNote = false
+            for case .block(let block) in page.items {
+                if case .table = block { hasTable = true }
+                if case .note = block { hasNote = true }
+            }
+            try expect(!hasNote || hasTable, "page \(page.number) : la note n'est pas seule")
+        }
+        try expectEqual(pages.count, 2, "la note et la dernière ligne passent à la page 2")
+        var all: [String] = []
+        for page in pages { for case .block(.table(let part)) in page.items { all += part.rows.map { $0.cells[0].text } } }
+        try expectEqual(all, rows.map { $0.cells[0].text }, "aucune ligne perdue ni doublée")
+
+        // Une section qui commence en bas de page n'y laisse pas une seule ligne de tableau.
+        let filler = String(repeating: "Texte d’introduction assez long pour remplir la page. ", count: 60)
+        let inventory = (1...30).map { ReportRow([ReportCell("poste \($0)")]) }
+        let pages2 = ReportPaginator.paginate(doc([
+            ReportSection(kind: .resume, heading: "1. Résumé", blocks: [.paragraph(filler)]),
+            ReportSection(kind: .inventaire, heading: "7. Inventaire", blocks: [.table(ReportTable(columns: [ReportColumn("A")], rows: inventory))]),
+        ]), metrics: metrics)
+        for page in pages2 {
+            for case .block(.table(let part)) in page.items where part.rows.count < 3 {
+                try expect(part.rows.last?.cells[0].text == "poste 30", "page \(page.number) : pas de début de tableau à moins de trois lignes")
+            }
+        }
+
+        // Une cellule qui tient sur une ligne garde la hauteur ordinaire ; coupure possible après « SW- ».
+        try expectEqual(ReportPageMetrics.hyphenPieces("SW-ETG2-01"), ["SW-", "ETG2-01"], "coupure après un trait d’union suivi d’une lettre")
+        try expectEqual(ReportPageMetrics.hyphenPieces("FortiAP-231F"), ["FortiAP-231F"], "pas de coupure avant un chiffre")
+        let table = ReportTable(columns: [ReportColumn("Service")], rows: [ReportRow([ReportCell("HTTP sans TLS")])], wraps: true)
+        try expectEqual(metrics.rowHeight(table.rows[0], in: table), metrics.rowHeight.rounded(.up), "une seule ligne : hauteur ordinaire")
+    }
+
     suite.add("Rapport\u{00A0}: pagination lettre, tableaux coupés avec «\u{00A0}(suite)\u{00A0}», signature en dernière page") {
         var devices: [Device] = []
         for n in 1...120 {

@@ -159,7 +159,7 @@ public final class BPFCapture: @unchecked Sendable {
     /// Ouvre un périphérique BPF, l'attache à l'interface et pose le filtre fixe.
     public init(interface: String, filter: [BPFInstruction], promiscuous: Bool) throws {
         guard CaptureInterfaceName.isValid(interface) else {
-            throw ToolError.invalidInput("Nom d’interface refusé : « \(interface) ».")
+            throw ToolError.invalidInput("Nom d’interface refusé\u{00A0}: « \(interface) ».")
         }
         var opened: Int32 = -1
         for index in 0..<256 {

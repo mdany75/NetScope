@@ -8,6 +8,7 @@ enum Launcher {
     static func main() {
         let arguments = CommandLine.arguments
         raiseFileLimit()
+        RapportTextMeasure.install()
         // Outil de développement : captures de chaque écran, hors écran, puis sortie.
         if arguments.contains("--snapshot") {
             Snapshots.run(arguments: arguments)

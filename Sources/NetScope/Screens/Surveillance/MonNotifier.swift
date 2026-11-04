@@ -126,8 +126,15 @@ enum MonWindow {
 
     static func open(screen: Screen? = nil) {
         NSApp.setActivationPolicy(.regular)
+        // Une app masquée (Cmd-H) ou une fenêtre réduite dans le Dock a isVisible == false : on
+        // démasque et on cherche aussi les fenêtres réduites, pour ramener l'existante plutôt que
+        // d'en ouvrir une seconde par openWindow.
+        NSApp.unhide(nil)
         NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first(where: { $0.canBecomeMain && $0.isVisible }) {
+        let candidates = NSApp.windows.filter { $0.canBecomeMain && ($0.isVisible || $0.isMiniaturized) }
+        let window = candidates.first { $0.identifier?.rawValue.hasPrefix(windowID) == true } ?? candidates.first
+        if let window {
+            if window.isMiniaturized { window.deminiaturize(nil) }
             window.makeKeyAndOrderFront(nil)
         } else {
             openAction?(id: windowID)

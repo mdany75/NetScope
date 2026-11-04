@@ -125,7 +125,7 @@ struct ReglagesScreen: View {
             if state.updateAvailable != nil { CountBadge(count: 1) }
         case .switchs:
             Text("\(SwitchStore.shared.hosts.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
-        case .notifications, .export, .raccourcis:
+        case .export, .raccourcis:
             Text("bientôt").font(Theme.caption).foregroundStyle(Theme.textTertiary)
         default:
             EmptyView()
@@ -144,7 +144,14 @@ struct ReglagesScreen: View {
         case .majs: RegUpdatesSection()
         case .apropos: RegAboutSection()
         case .switchs: RegSwitchesSection()
-        case .notifications, .export, .raccourcis:
+        case .notifications:
+            RegPanel(title: navigation.section.label) {
+                RegNotice(text: "Les notifications macOS, le son, le courriel et le webhook se règlent sonde par sonde dans Surveillance (Actions d’alerte de chaque sonde).", tone: .accent) {
+                    Button("Ouvrir Surveillance") { state.open(.surveillance) }
+                        .buttonStyle(.secondary)
+                }
+            }
+        case .export, .raccourcis:
             RegPanel(title: navigation.section.label) {
                 RegNotice("Section prévue au croquis, pas encore disponible dans cette version de NetScope.", tone: .neutral)
             }

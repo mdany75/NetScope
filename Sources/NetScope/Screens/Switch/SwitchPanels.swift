@@ -73,7 +73,7 @@ struct SwitchSourcesPanel: View {
                     Text("Comment l’appareil est localisé").font(Theme.bodySemibold)
                     SwitchFlowLayout(spacing: 8) {
                         source(.lldp, "voisins annoncés")
-                        source(.cdp, "équipements Cisco · bientôt")
+                        source(.cdp, "trames reçues par ce Mac · voisins CDP par SNMP\u{00A0}: bientôt")
                         source(.fdb, "table MAC par SNMP v2c · BRIDGE-MIB / Q-BRIDGE-MIB")
                         source(.arp, arpText)
                     }

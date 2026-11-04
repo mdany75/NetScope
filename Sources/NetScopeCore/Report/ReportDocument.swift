@@ -228,6 +228,35 @@ public struct ReportDocument: Codable, Hashable, Sendable {
 
 // MARK: - Pagination
 
+/// Mesure de la largeur d'un texte avec la vraie police de dessin (fournie par l'application, qui
+/// seule peut utiliser AppKit). Sans mesureur, `ReportPageMetrics` se rabat sur une estimation.
+public struct ReportTextMeasurer: Hashable, Sendable {
+    /// Nom du mesureur (égalité et hachage).
+    public let name: String
+    /// Largeur en points d'un texte sur une ligne, à `size` points (mono : police à chasse fixe).
+    public let measure: @Sendable (_ text: String, _ size: Double, _ mono: Bool, _ bold: Bool) -> Double
+
+    public init(name: String, measure: @escaping @Sendable (_ text: String, _ size: Double, _ mono: Bool, _ bold: Bool) -> Double) {
+        self.name = name
+        self.measure = measure
+    }
+
+    public static func == (lhs: ReportTextMeasurer, rhs: ReportTextMeasurer) -> Bool { lhs.name == rhs.name }
+    public func hash(into hasher: inout Hasher) { hasher.combine(name) }
+
+    private final class Slot: @unchecked Sendable {
+        let lock = NSLock()
+        var value: ReportTextMeasurer?
+    }
+    private static let slot = Slot()
+
+    /// Mesureur installé par l'application au lancement ; repris par chaque `ReportPageMetrics()`.
+    public static var installed: ReportTextMeasurer? {
+        get { slot.lock.lock(); defer { slot.lock.unlock() }; return slot.value }
+        set { slot.lock.lock(); slot.value = newValue; slot.lock.unlock() }
+    }
+}
+
 /// Dimensions d'une page lettre (en points PDF) et hauteurs des éléments, d'après le croquis
 /// Rapport.dc.html (page de 680 px de large ramenée à 612 pt : facteur 0,9). La vue de page de
 /// l'application dessine chaque élément exactement à ces hauteurs : la pagination reste fidèle.
@@ -258,6 +287,8 @@ public struct ReportPageMetrics: Hashable, Sendable {
     public var barHeight: Double = 16.2
     public var codeLineHeight: Double = 15.3
     public var codePadding: Double = 14.4
+    /// Vraie police de dessin, si l'application en a installé une (sinon : estimation).
+    public var measurer: ReportTextMeasurer? = ReportTextMeasurer.installed
 
     public init() {}
 
@@ -267,11 +298,11 @@ public struct ReportPageMetrics: Hashable, Sendable {
     public var lineHeight: Double { bodySize * 1.5 }
     public var noteLineHeight: Double { noteSize * 1.5 }
 
-    /// Nombre de lignes estimé d'un texte sur `width` points : retour à la ligne mot par mot (un mot
-    /// trop long est coupé), avec 5 % de marge sur la largeur.
+    /// Nombre de lignes d'un texte sur `width` points : retour à la ligne mot par mot (un mot trop
+    /// long est coupé). Avec la vraie police, 1 pt de marge ; avec l'estimation, 5 % de la largeur.
     public func lines(_ text: String, width: Double, size: Double? = nil, mono: Bool = false, bold: Bool = false) -> Int {
         let size = size ?? bodySize
-        let usable = width * 0.95
+        let usable = measurer == nil ? width * 0.95 : width - 1
         guard usable > 1 else { return max(1, text.count) }
         let space = textWidth(" ", size: size, mono: mono, bold: bold)
         var total = 0
@@ -279,22 +310,43 @@ public struct ReportPageMetrics: Hashable, Sendable {
             var count = 1
             var line = 0.0
             for word in paragraph.split(separator: " ") {
-                var w = textWidth(String(word), size: size, mono: mono, bold: bold)
-                let needed = line == 0 ? w : line + space + w
-                if needed <= usable {
-                    line = needed
-                    continue
+                // Comme le dessin, on peut passer à la ligne après un trait d'union (« SW-|ETG2-01 »).
+                for (index, piece) in Self.hyphenPieces(String(word)).enumerated() {
+                    var w = textWidth(piece, size: size, mono: mono, bold: bold)
+                    let gap = index == 0 ? space : 0
+                    let needed = line == 0 ? w : line + gap + w
+                    if needed <= usable {
+                        line = needed
+                        continue
+                    }
+                    if line > 0 { count += 1 }
+                    while w > usable {
+                        count += 1
+                        w -= usable
+                    }
+                    line = w
                 }
-                if line > 0 { count += 1 }
-                while w > usable {
-                    count += 1
-                    w -= usable
-                }
-                line = w
             }
             total += count
         }
         return total
+    }
+
+    /// Morceaux d'un mot coupables après un trait d'union suivi d'une lettre, comme le fait le
+    /// dessin (« SW-ETG2-01 » → « SW- », « ETG2-01 » ; « FortiAP-231F » reste entier).
+    public static func hyphenPieces(_ word: String) -> [String] {
+        var pieces: [String] = []
+        var current = ""
+        let chars = Array(word)
+        for (index, char) in chars.enumerated() {
+            current.append(char)
+            if char == "-", current.count > 1, index + 1 < chars.count, chars[index + 1].isLetter {
+                pieces.append(current)
+                current = ""
+            }
+        }
+        if !current.isEmpty { pieces.append(current) }
+        return pieces
     }
 
     public func paragraphHeight(_ text: String) -> Double {
@@ -308,6 +360,7 @@ public struct ReportPageMetrics: Hashable, Sendable {
     /// Largeur estimée d'un texte sur une ligne (volontairement un peu large : mieux vaut une
     /// colonne trop large qu'une adresse IP tronquée).
     public func textWidth(_ text: String, size: Double, mono: Bool = false, bold: Bool = false) -> Double {
+        if let measurer { return measurer.measure(text, size, mono, bold) }
         if mono { return Double(text.count) * size * 0.64 }
         // Police proportionnelle : majuscules et chiffres plus larges que les minuscules.
         var em = 0.0
@@ -347,10 +400,21 @@ public struct ReportPageMetrics: Hashable, Sendable {
         let padding = cellPadding(table)
         var natural = table.columns.map { Double($0.title.count) * headerSize(table) * 0.7 + padding }
         var flexible = table.columns.map { $0.shrinks ?? !$0.mono }
+        // Plus long mot de chaque colonne : une colonne souple ne descend pas en dessous, pour ne pas
+        // couper un nom d'hôte, un nom de switch ou de port au milieu (plafonné à 22 % de la page).
+        var longestWord = table.columns.map { _ in 0.0 }
         for row in table.rows {
             for (index, cell) in row.cells.enumerated() where index < natural.count {
-                natural[index] = max(natural[index], naturalWidth(cell, column: table.columns[index], padding: padding))
-                if cell.badge != nil || cell.bar != nil { flexible[index] = false }
+                let column = table.columns[index]
+                natural[index] = max(natural[index], naturalWidth(cell, column: column, padding: padding))
+                if cell.badge != nil || cell.bar != nil { flexible[index] = false; continue }
+                // Le dessin peut passer à la ligne après un trait d'union : seul le plus long morceau compte.
+                for word in cell.text.split(whereSeparator: { $0 == " " || $0 == "\n" }) {
+                    for piece in Self.hyphenPieces(String(word)) {
+                        let w = textWidth(piece, size: column.size ?? bodySize, mono: column.mono, bold: cell.bold)
+                        longestWord[index] = max(longestWord[index], w)
+                    }
+                }
             }
         }
         let total = natural.reduce(0, +)
@@ -366,9 +430,20 @@ public struct ReportPageMetrics: Hashable, Sendable {
         let budget = width - fixed
         var widths = natural
         if !soft.isEmpty {
-            let floor = 45.0
+            var minimum = natural.indices.map { index in
+                min(natural[index], max(45.0, min(longestWord[index] + padding + 1, width * 0.22)))
+            }
+            // Si ces planchers ne tiennent pas tous, les colonnes de plus faible poids (type, modèle)
+            // cèdent d'abord, jusqu'à 45 pt ; les noms et ports en dernier. Les adresses et pastilles
+            // ne rétrécissent jamais à cause d'un long mot.
+            var excess = soft.map { minimum[$0] }.reduce(0, +) - budget
+            for index in soft.sorted(by: { table.columns[$0].weight < table.columns[$1].weight }) where excess > 0 {
+                let cut = min(excess, max(0, minimum[index] - 45))
+                minimum[index] -= cut
+                excess -= cut
+            }
             func fill(_ t: Double) -> Double {
-                soft.map { min(natural[$0], max(floor, t * table.columns[$0].weight)) }.reduce(0, +)
+                soft.map { min(natural[$0], max(minimum[$0], t * table.columns[$0].weight)) }.reduce(0, +)
             }
             var low = 0.0
             var high = (soft.map { natural[$0] / max(table.columns[$0].weight, 0.01) }.max() ?? 0) + 1
@@ -376,7 +451,7 @@ public struct ReportPageMetrics: Hashable, Sendable {
                 let mid = (low + high) / 2
                 if fill(mid) <= budget { low = mid } else { high = mid }
             }
-            for index in soft { widths[index] = min(natural[index], max(floor, low * table.columns[index].weight)) }
+            for index in soft { widths[index] = min(natural[index], max(minimum[index], low * table.columns[index].weight)) }
         }
         let remaining = widths.reduce(0, +)
         if remaining > width { widths = widths.map { $0 * width / remaining } }
@@ -396,7 +471,8 @@ public struct ReportPageMetrics: Hashable, Sendable {
             let available = widths[index] - cellPadding(table)
             // Une cellule qui tient sur une ligne garde la hauteur ordinaire.
             if naturalWidth(cell, column: column, padding: 0) <= available { continue }
-            let count = max(2, lines(cell.text, width: available, size: size, mono: column.mono, bold: cell.bold))
+            let count = lines(cell.text, width: available, size: size, mono: column.mono, bold: cell.bold)
+            if count <= 1 { continue }
             height = max(height, Double(count) * size * 1.45 + cellVerticalPadding(table))
         }
         return height.rounded(.up)
@@ -514,10 +590,25 @@ public enum ReportPaginator {
                     continue
                 }
                 guard case .table(let table) = block else {
-                    // Bloc insécable : page suivante (ou coupé s'il dépasse une page entière).
+                    // Bloc insécable : page suivante (ou coupé s'il dépasse une page entière). Une note
+                    // qui suit un tableau n'y part pas seule : la dernière ligne du tableau l'accompagne.
+                    var carried: [ReportPageItem] = []
+                    var carriedHeight = 0.0
+                    if case .note = block, case .block(.table(var previous))? = items.last, previous.rows.count >= 2,
+                       let lastRow = previous.rows.last {
+                        let rowHeight = metrics.rowHeight(lastRow, in: previous)
+                        previous.rows.removeLast()
+                        items[items.count - 1] = .block(.table(previous))
+                        used -= rowHeight
+                        var part = previous
+                        part.rows = [lastRow]
+                        carried = [.block(.table(part))]
+                        carriedHeight = metrics.height(of: .table(part)) + metrics.blockGap
+                    }
                     newPage()
                     items.append(.heading(section.heading, continued: true))
-                    used = metrics.headingHeight + height
+                    items.append(contentsOf: carried)
+                    used = metrics.headingHeight + carriedHeight + height
                     items.append(.block(block))
                     continue
                 }
@@ -535,6 +626,14 @@ public enum ReportPaginator {
                         slice.append(row)
                         room -= rowHeight
                         remaining = remaining.dropFirst()
+                    }
+                    // Pas de ligne veuve : un tableau qui ne tient pas en entier ne commence pas en bas
+                    // de page avec moins de trois lignes (sur une page déjà entamée).
+                    let minimumRows = min(3, table.rows.count)
+                    if !freshPage, !remaining.isEmpty, !slice.isEmpty, slice.count < minimumRows,
+                       items.count > 1 || !(items.first.map(Self.isHeading) ?? false) {
+                        remaining = table.rows[...]
+                        slice = []
                     }
                     if slice.isEmpty {
                         newPage()
@@ -622,10 +721,15 @@ public enum ReportPaginator {
         return page
     }
 
-    /// Hauteur minimale d'un bloc pour qu'il commence sur une page (en-tête et une ligne d'un tableau).
+    static func isHeading(_ item: ReportPageItem) -> Bool {
+        if case .heading = item { return true }
+        return false
+    }
+
+    /// Hauteur minimale d'un bloc pour qu'il commence sur une page (en-tête et trois lignes d'un tableau).
     static func minimumHeight(_ block: ReportBlock, _ metrics: ReportPageMetrics) -> Double {
-        if case .table(let table) = block, let first = table.rows.first {
-            return metrics.tableHeaderHeight + metrics.rowHeight(first, in: table)
+        if case .table(let table) = block, !table.rows.isEmpty {
+            return metrics.tableHeaderHeight + table.rows.prefix(3).map { metrics.rowHeight($0, in: table) }.reduce(0, +)
         }
         if case .code(let lines) = block {
             return metrics.codePadding + Double(min(3, lines.count)) * metrics.codeLineHeight

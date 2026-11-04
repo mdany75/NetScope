@@ -62,7 +62,7 @@ public enum PrivilegedCapture {
     public static func shellCommand(interface: String, purpose: Purpose, seconds: Int, directory: String,
                                     outputDirectory: String, owner: UInt32) throws -> String {
         guard CaptureInterfaceName.isValid(interface) else {
-            throw ToolError.invalidInput("Nom d’interface refusé : « \(interface) ».")
+            throw ToolError.invalidInput("Nom d’interface refusé\u{00A0}: « \(interface) ».")
         }
         guard durationRange.contains(seconds) else {
             throw ToolError.invalidInput("Durée de capture hors limites (\(durationRange.lowerBound) à \(durationRange.upperBound) s).")
@@ -205,6 +205,10 @@ public final class PrivilegedCaptureSession: @unchecked Sendable {
     public let outputDirectory: URL
     private let lock = NSLock()
     private var process: Process?
+    private var startDate: Date?
+    /// Vrai quand osascript a été arrêté par `cancel()` : le /bin/sh root qu'il a lancé n'est pas
+    /// tué avec lui et peut encore tourner (jusqu'à `seconds`) en attendant le fichier « arreter ».
+    private var runnerKilled = false
 
     public init(interface: String, purpose: PrivilegedCapture.Purpose, seconds: Int) throws {
         self.interface = interface
@@ -249,6 +253,7 @@ public final class PrivilegedCaptureSession: @unchecked Sendable {
         }
         lock.lock()
         self.process = process
+        startDate = Date()
         lock.unlock()
         try process.run()
     }
@@ -264,6 +269,7 @@ public final class PrivilegedCaptureSession: @unchecked Sendable {
         stop()
         lock.lock()
         let running = process
+        if let running, running.isRunning { runnerKilled = true }
         lock.unlock()
         if let running, running.isRunning { running.terminate() }
     }
@@ -283,8 +289,28 @@ public final class PrivilegedCaptureSession: @unchecked Sendable {
     }
 
     /// Supprime les dossiers temporaires (celui de root a été donné à l'utilisateur à la fin du script).
+    ///
+    /// Si osascript a été arrêté par `cancel()`, le script root peut encore tourner : le fichier
+    /// « arreter » doit rester visible jusqu'à sa fin, et son dossier de sortie n'appartient à
+    /// l'utilisateur qu'après le `chown` final. La suppression est alors repoussée au-delà de la
+    /// durée maximale du script (`seconds` après le lancement, plus une marge).
     public func cleanup() {
-        try? FileManager.default.removeItem(at: directory)
-        try? FileManager.default.removeItem(at: outputDirectory)
+        lock.lock()
+        let killed = runnerKilled
+        let started = startDate ?? Date()
+        lock.unlock()
+        let directory = directory
+        let outputDirectory = outputDirectory
+        let remove: @Sendable () -> Void = {
+            try? FileManager.default.removeItem(at: directory)
+            try? FileManager.default.removeItem(at: outputDirectory)
+        }
+        guard killed else { remove(); return }
+        let deadline = started.addingTimeInterval(TimeInterval(seconds) + Self.cleanupMargin)
+        let delay = max(Self.cleanupMargin, deadline.timeIntervalSinceNow)
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + delay, execute: remove)
     }
+
+    /// Marge après la durée maximale du script root avant d'effacer ses fichiers (secondes).
+    static let cleanupMargin: TimeInterval = 10
 }

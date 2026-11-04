@@ -78,7 +78,7 @@ public enum MonRunner {
     static func ping(_ probe: MonProbe, host: String, context: MonRunContext) async -> MonResult {
         let start = context.now
         guard let address = try? await PingResolver.resolveAsync(host) else {
-            return .failure(start, error: "Nom introuvable : \(host)")
+            return .failure(start, error: "Nom introuvable\u{00A0}: \(host)")
         }
         var rtts: [Double] = []
         if let pinger = context.pinger {
@@ -112,7 +112,7 @@ public enum MonRunner {
 
     static func tcp(host target: String, context: MonRunContext) async -> MonResult {
         guard let (host, port) = MonProbe.hostAndPort(target) else {
-            return .failure(context.now, error: "Cible attendue : adresse:port")
+            return .failure(context.now, error: "Cible attendue\u{00A0}: adresse:port")
         }
         let result = await PortScanner.probe(host: host, port: port,
                                              options: PortScanOptions(timeout: 3, concurrency: 1, grabBanners: false))
@@ -210,7 +210,7 @@ public enum MonRunner {
             return .failure(context.now, error: "OID à compléter")
         }
         guard let address = try? await PingResolver.resolveAsync(host) else {
-            return .failure(context.now, error: "Nom introuvable : \(host)")
+            return .failure(context.now, error: "Nom introuvable\u{00A0}: \(host)")
         }
         let client = SNMPClient(target: SNMPTarget(host: address, community: community, timeout: 2, retries: 1))
         do {
@@ -236,7 +236,7 @@ public enum MonRunner {
                     problem = "Valeur \(label)\(unit) \(comparison.symbol) \(MonFormat.number(limit))\(unit)"
                 }
             } else {
-                problem = "Valeur non numérique : \(label)"
+                problem = "Valeur non numérique\u{00A0}: \(label)"
             }
         }
         return MonResult(date: now, reachable: true, value: label + unit, problem: problem)
@@ -285,7 +285,7 @@ public enum MonInventoryChecks {
             return .noData(now, "En attente d’un scan")
         }
         guard let known else {
-            return MonRunOutcome(result: MonResult(date: now, reachable: true, value: "Base : \(macs.count) appareils · \(online) en ligne"),
+            return MonRunOutcome(result: MonResult(date: now, reachable: true, value: "Base\u{00A0}: \(macs.count) appareils · \(online) en ligne"),
                                  knownMACs: Array(Set(macs)).sorted())
         }
         let knownSet = Set(known)
@@ -296,7 +296,7 @@ public enum MonInventoryChecks {
         }
         let list = fresh.prefix(3).map { "\($0.ip) \($0.displayName) (MAC \($0.mac?.description ?? "?"))" }.joined(separator: ", ")
         let more = fresh.count > 3 ? " et \(fresh.count - 3) autres" : ""
-        let problem = (fresh.count == 1 ? "Nouvel appareil " : "Nouveaux appareils : ") + list + more
+        let problem = (fresh.count == 1 ? "Nouvel appareil " : "Nouveaux appareils\u{00A0}: ") + list + more
         return MonRunOutcome(result: MonResult(date: now, reachable: true, value: value, problem: problem),
                              knownMACs: Array(knownSet.union(macs)).sorted())
     }

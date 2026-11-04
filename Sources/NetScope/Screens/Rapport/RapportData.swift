@@ -27,6 +27,7 @@ enum RapportData {
             switches: switches, links: links(snapshots), wifiNote: wifiNote(WifiStore.shared.networks),
             annex: snapshots.flatMap { ReportRawLine.macTable($0) + [ReportRawLine("")] }.dropLast().map { $0 },
             scanDate: devices.map(\.lastSeen).max(), now: now)
+        input.extraProblems = dhcpProblems(InvModel.shared.store.events, ranges: parsed)
 
         if let interface = state.activeInterface {
             input.sourceIP = interface.address.description
@@ -38,6 +39,25 @@ enum RapportData {
         }
         if demo { RapportDemo.complete(&input) }
         return input
+    }
+
+    /// Serveurs DHCP non autorisés signalés par le Test DHCP (alertes « à traiter » de l'inventaire)
+    /// dont l'adresse tombe dans les plages du rapport : un problème critique par adresse.
+    static func dhcpProblems(_ events: [InvEvent], ranges: [IPRange]) -> [ReportProblem] {
+        var seen: Set<IPv4Address> = []
+        var result: [ReportProblem] = []
+        for event in events.sorted(by: { $0.date > $1.date })
+        where event.kind == .dhcpNonAutorise && event.status == .aTraiter && !event.baseline
+            && ranges.contains(where: { $0.contains(event.ip) }) && !seen.contains(event.ip) {
+            seen.insert(event.ip)
+            var detail = event.detail.trimmingCharacters(in: .whitespaces)
+            if !detail.isEmpty, !detail.hasSuffix(".") { detail += "." }
+            result.append(ReportProblem(
+                title: "DHCP non autorisé sur \(event.ip)", severity: .critique,
+                recommendation: (detail.isEmpty ? "" : detail + " ")
+                    + "Débrancher l’appareil, puis activer DHCP snooping sur les VLAN concernés."))
+        }
+        return result
     }
 
     /// Liens entre switchs relevés, d'après LLDP : « SW-CORE-01 Gi1/0/47 ↔ SW-ETG2-01 25 (LLDP) ».

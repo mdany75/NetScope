@@ -47,7 +47,7 @@ struct MonEditor: View {
             Button("Supprimer", role: .destructive) { if let id = draft?.id { store.delete(id) } }
             Button("Annuler", role: .cancel) {}
         } message: {
-            Text("Son historique de 24 h est effacé ; ses entrées restent au journal des alertes.")
+            Text("Son historique de 24\u{00A0}h est effacé\u{00A0}; ses entrées restent au journal des alertes.")
         }
     }
 

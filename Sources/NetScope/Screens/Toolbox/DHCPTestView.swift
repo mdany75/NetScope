@@ -573,8 +573,10 @@ struct DHCPTestView: View {
 
     // MARK: Tableau et détail
 
-    /// Sept colonnes sur une ligne, comme le croquis (MAC / fabricant prend la place qui reste) ;
-    /// si la largeur manque, le tableau défile horizontalement (croquis : min-width 680 px).
+    /// Les sept informations du croquis (serveur, MAC / fabricant, IP offerte, passerelle, DNS, bail,
+    /// statut) tiennent dans la colonne centrale à 1440 pt : la MAC et le fabricant passent sous le
+    /// serveur, le DNS sous la passerelle, et le statut suit le serveur. Si la largeur manque malgré
+    /// tout, le tableau défile horizontalement.
     private var table: some View {
         ViewThatFits(in: .horizontal) {
             tableBody
@@ -584,13 +586,11 @@ struct DHCPTestView: View {
 
     private var tableBody: some View {
         ToolTable(columns: [
-            .init(title: "Serveur", width: 120),
-            .init(title: "MAC / fabricant"),
-            .init(title: "IP offerte", width: 120),
-            .init(title: "Passerelle", width: 108),
-            .init(title: "DNS", width: 108),
-            .init(title: "Bail", width: 52),
-            .init(title: "Statut", width: 112),
+            .init(title: "Serveur · MAC"),
+            .init(title: "Statut", width: 106),
+            .init(title: "IP offerte", width: 126),
+            .init(title: "Passerelle · DNS", width: 136),
+            .init(title: "Bail", width: 44),
         ]) {
             ForEach(Array(model.offers.enumerated()), id: \.offset) { _, offer in
                 row(offer)
@@ -602,21 +602,36 @@ struct DHCPTestView: View {
         let status = model.policy.status(of: offer)
         let selected = offer.server == model.selectedServer
         let vendor = offer.sourceMAC.flatMap { OUIDatabase.builtIn.vendor(for: $0) }
-        return ToolTableRow(height: 36, highlight: status == .unauthorized ? Color(hex: 0xFEF2F2) : (selected ? Theme.accentSoft : nil)) {
-            Text(offer.server?.description ?? "?").font(Theme.mono(12, weight: .semibold)).toolCell(120)
-            (Text(offer.sourceMAC?.formatted(.upperColon) ?? "inconnue").font(Theme.mono(12))
-             + Text(vendor.map { " · \($0)" } ?? "").font(Theme.body).foregroundColor(Theme.textSecondary))
-                .truncationMode(.tail)
-                .toolCell(nil)
-            Text(offer.offeredAddress.description).font(Theme.mono(12)).toolCell(120)
-            Text(offer.routers.first?.description ?? "—").font(Theme.mono(12)).toolCell(108)
-            Text(offer.dnsServers.first?.description ?? "—").font(Theme.mono(12)).toolCell(108)
-            Text(DHCPOffer.leaseText(offer.leaseTime)).font(Theme.body).toolCell(52)
-            statusChip(status).toolCell(112)
+        return ToolTableRow(height: 46, highlight: status == .unauthorized ? Color(hex: 0xFEF2F2) : (selected ? Theme.accentSoft : nil)) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(offer.server?.description ?? "?").font(Theme.mono(12, weight: .semibold)).lineLimit(1)
+                (Text(offer.sourceMAC?.formatted(.upperColon) ?? "MAC inconnue").font(Theme.mono(11))
+                 + Text(vendor.map { " · \($0)" } ?? "").font(Theme.caption))
+                    .foregroundColor(Theme.textSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .frame(minWidth: 0, idealWidth: 140, maxWidth: .infinity, alignment: .leading)
+            .toolCell(nil)
+            statusChip(status).toolCell(106)
+            Text(offer.offeredAddress.description).font(Theme.mono(12)).toolCell(126)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(offer.routers.first?.description ?? "—").font(Theme.mono(12)).lineLimit(1)
+                Text(dnsText(offer)).font(Theme.mono(11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            }
+            .toolCell(136)
+            Text(DHCPOffer.leaseText(offer.leaseTime)).font(Theme.body).toolCell(44)
         }
         .help(offer.dnsServers.count > 1 ? "DNS\u{00A0}: " + offer.dnsServers.map(\.description).joined(separator: ", ") : "")
         .contentShape(Rectangle())
         .onTapGesture { model.selectedServer = offer.server }
+    }
+
+    /// Premier serveur DNS (« — » s'il n'y en a pas), suivi de « +N » s'il y en a d'autres.
+    private func dnsText(_ offer: DHCPOffer) -> String {
+        guard let first = offer.dnsServers.first else { return "—" }
+        let more = offer.dnsServers.count - 1
+        return first.description + (more > 0 ? " +\(more)" : "")
     }
 
     @ViewBuilder private func statusChip(_ status: DHCPServerPolicy.Status) -> some View {

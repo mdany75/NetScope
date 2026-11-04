@@ -17,21 +17,23 @@ enum RapportDemo {
                      date: "2026-08-12", rows: 188, technician: ""),
     ]
 
-    /// Ajoute ce que le scan de démonstration ne fournit pas : DHCP non autorisé (note 2, pas encore
-    /// réalisé), radios de la borne, offres DHCP de l'annexe.
+    /// Complète ce que le scan de démonstration ne fournit pas : le DHCP non autorisé du croquis
+    /// (si l'inventaire ne l'a pas déjà signalé par le Test DHCP), radios de la borne, offres DHCP
+    /// de l'annexe. Les problèmes déjà présents sont gardés.
     static func complete(_ input: inout ReportInput) {
-        input.extraProblems = [
-            ReportProblem(title: "DHCP non autorisé sur 10.182.122.250", severity: .critique,
-                          recommendation: "Localisé sur SW-ETG2-01 port 1/7. Débrancher l’appareil, puis activer DHCP snooping sur les VLAN 1 et 20."),
-            ReportProblem(title: "Canal 2,4 GHz encombré", severity: .moyen,
-                          recommendation: "Passer FortiAP-231F sur le canal 1 ou 11 et réduire la puissance 2,4 GHz."),
-        ]
+        let rogue = "DHCP non autorisé sur 10.182.122.250"
+        if !input.extraProblems.contains(where: { $0.title == rogue }) {
+            input.extraProblems.append(ReportProblem(title: rogue, severity: .critique,
+                recommendation: "Localisé sur SW-CORE-01 · Gi1/0/37 · VLAN 1. Débrancher l’appareil, puis activer DHCP snooping sur les VLAN 1 et 20."))
+        }
+        input.extraProblems.append(ReportProblem(title: "Canal 2,4 GHz encombré", severity: .moyen,
+                          recommendation: "Passer FortiAP-231F sur le canal 1 ou 11 et réduire la puissance 2,4 GHz."))
         input.radios = ["10.182.122.102": ReportRadio(channel24: 6, channel5: 36, congested24: true)]
         input.wifiNote = "La borne FortiAP-231F (VLAN 20) partage le canal 6 avec 11 réseaux voisins détectés."
         if !input.annex.isEmpty { input.annex.append(ReportRawLine("")) }
         input.annex += [
             ReportRawLine("DHCPOFFER  10.182.122.1    -> FortiGate-60F (autorisé)"),
-            ReportRawLine("DHCPOFFER  10.182.122.250  -> SW-ETG2-01 1/7 (NON AUTORISÉ)"),
+            ReportRawLine("DHCPOFFER  10.182.122.250  -> SW-CORE-01 Gi1/0/37 (NON AUTORISÉ)"),
         ]
     }
 }

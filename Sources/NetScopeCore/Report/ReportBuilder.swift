@@ -522,7 +522,7 @@ public enum ReportBuilder {
     }
 
     static func switchTable(_ rows: [ReportRow]) -> ReportTable {
-        ReportTable(columns: [ReportColumn("Switch", weight: 1.15), ReportColumn("Modèle", weight: 1.9), ReportColumn("IP", weight: 1.05, mono: true),
+        ReportTable(columns: [ReportColumn("Switch", weight: 1.5), ReportColumn("Modèle", weight: 1.4), ReportColumn("IP", weight: 1.05, mono: true),
                               ReportColumn("Ports actifs", weight: 0.85, trailing: true, mono: true), ReportColumn("Firmware", weight: 1.1, mono: true),
                               ReportColumn("Uplink", weight: 0.8, mono: true)],
                     rows: rows, wraps: true)
@@ -592,8 +592,8 @@ public enum ReportBuilder {
         }
         // Inventaire dense (croquis : MAC et port en 11 px) : sept colonnes sur la largeur d'une page lettre.
         let table = ReportTable(columns: [ReportColumn("IP", weight: 1.05, mono: true, size: 9.9), ReportColumn("Nom", weight: 1.8, size: 9.9),
-                                          ReportColumn("Type", weight: 1.1, size: 9.9), ReportColumn("MAC", weight: 1.3, mono: true, size: 8.6),
-                                          ReportColumn("Port", weight: 1.2, mono: true, size: 9, shrinks: true), ReportColumn("VLAN", weight: 0.45, mono: true, size: 9.9),
+                                          ReportColumn("Type", weight: 0.9, size: 9.9), ReportColumn("MAC", weight: 1.3, mono: true, size: 8.6),
+                                          ReportColumn("Port", weight: 1.4, mono: true, size: 9, shrinks: true), ReportColumn("VLAN", weight: 0.45, mono: true, size: 9.9),
                                           ReportColumn("État", weight: 0.8)],
                                 rows: rows, wraps: true, dense: true)
         let online = input.devices.filter(\.isOnline).count
