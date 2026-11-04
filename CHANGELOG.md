@@ -1,6 +1,6 @@
 # Changements
 
-## À venir
+## 0.4.1 — 2026-11-03
 
 ### Ajouté
 - Deux types d’appareil : **Console de jeu** et **Domotique**, au clic droit « Changer le type »,

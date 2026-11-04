@@ -5,11 +5,11 @@
 
 ## Priorités (revues le 3 novembre 2026)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0.
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1.
 
 1. **0.4.x, retours d'essai** : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour) et de la 0.4.0 (menus de colonnes, type, ports, sombre) ;
-   0.4.1 au besoin.
+   0.4.2 au besoin.
 2. **0.5.0, diagnostic du poste et du réseau local** : notes 12 (PoE), 21 (ressources),
    17 (bouton Installer), 16 (serveur Speedtest).
 3. **0.6.0, Internet et nuage** : notes 15 (état des services), 14 (courriel et DNS).
