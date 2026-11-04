@@ -166,6 +166,26 @@ func registerCredentialTests(_ suite: TestSuite) {
         try expect(killed.message.contains("délai dépassé"), "processus arrêté après le délai")
     }
 
+    suite.add("SSH : vrai /usr/bin/ssh vers un port fermé de 127.0.0.1") {
+        guard FileManager.default.isExecutableFile(atPath: SSHCredentialTest.executable) else {
+            throw TestSkipped(reason: "/usr/bin/ssh absent")
+        }
+        let port = try ScanTestListener.freePort()
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("netscope-ssh-test-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let credential = RemoteCredential(kind: .ssh, name: "local", user: "personne", port: port, sshMethod: .password)
+        let temp = FileManager.default.temporaryDirectory.path
+        func askpassFolders() -> Set<String> {
+            Set(((try? FileManager.default.contentsOfDirectory(atPath: temp)) ?? []).filter { $0.hasPrefix("netscope-ssh-") && !$0.contains("-test-") })
+        }
+        let before = askpassFolders()
+        let outcome = await SSHCredentialTest.run(host: "127.0.0.1", credential: credential, secret: "pas-un-vrai-mdp",
+                                                  knownHosts: folder.appendingPathComponent("known_hosts"), connectTimeout: 2)
+        try expectEqual(outcome.status, .failure, "échec attendu : \(outcome.message)")
+        try expect(outcome.message.contains("connexion refusée"), "port fermé reconnu : \(outcome.message)")
+        try expectEqual(askpassFolders(), before, "script askpass temporaire supprimé")
+    }
+
     suite.add("WMI : bilan honnête d'après les ports 135, 5985, 5986") {
         let ports = WMIReachabilityTest.ports
         let open = WMIReachabilityTest.analyze(host: "10.10.0.10", states: [(ports[0], .open(milliseconds: 4)), (ports[1], .refused(milliseconds: 2)),
