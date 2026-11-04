@@ -13,15 +13,6 @@ enum MonProbeFilter: String, CaseIterable {
         case .paused: return "Inactives"
         }
     }
-
-    var dot: Color? {
-        switch self {
-        case .all: return nil
-        case .warning: return Theme.warning
-        case .down: return Theme.critical
-        case .paused: return Theme.textTertiary
-        }
-    }
 }
 
 /// Une ligne du tableau des sondes : la sonde et ce que le moteur en sait, figés au moment de
@@ -211,28 +202,53 @@ struct MonProbeTable: View {
         }
     }
 
+    /// En-tête : intertitre, filtres, colonnes et recherche sur une ligne ; en petite fenêtre, les
+    /// colonnes et la recherche passent sur une deuxième ligne au lieu d'élargir l'écran.
     private var header: some View {
-        HStack(spacing: 8) {
-            MonHeading("Sondes").padding(.trailing, 6)
-            ForEach(MonProbeFilter.allCases, id: \.self) { item in
-                MonFilterChip(title: item.title, count: count(item), dot: item.dot, isOn: filter == item) { filter = item }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                MonHeading("Sondes").padding(.trailing, 6)
+                filterPicker
+                Spacer(minLength: 8)
+                tools(searchWidth: 160)
             }
-            Spacer(minLength: 8)
-            StandardColumnsMenu(model: table)
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary)
-                TextField("", text: $query, prompt: Text("Nom, IP, type…").foregroundStyle(Theme.textTertiary))
-                    .textFieldStyle(.plain)
-                    .font(Theme.small)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    MonHeading("Sondes").padding(.trailing, 6)
+                    filterPicker
+                    Spacer(minLength: 0)
+                }
+                HStack(spacing: 8) {
+                    Spacer(minLength: 0)
+                    tools(searchWidth: 200)
+                }
             }
-            .padding(.horizontal, 8)
-            .frame(width: 160, height: 30)
-            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+    }
+
+    /// Filtres natifs (contrôle segmenté) : « Toutes 12 », « En alerte 1 »…
+    private var filterPicker: some View {
+        Picker("Filtre des sondes", selection: $filter) {
+            ForEach(MonProbeFilter.allCases, id: \.self) { item in
+                Text("\(item.title) \(count(item))").tag(item)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .fixedSize()
+    }
+
+    private func tools(searchWidth: CGFloat) -> some View {
+        HStack(spacing: 8) {
+            StandardColumnsMenu(model: table)
+            TextField("Rechercher une sonde", text: $query, prompt: Text("Nom, IP, type…"))
+                .textFieldStyle(.roundedBorder)
+                .labelsHidden()
+                .frame(width: searchWidth)
+        }
     }
 
     private var footer: some View {
@@ -310,7 +326,7 @@ private struct MonProbeGrid: View {
                     .help("\(line.probe.name)\n\(line.targetLabel)")
                     .monInactive(line)
                 }
-                .width(min: 110, ideal: 138)
+                .width(min: 100, ideal: 120)
                 .customizationID("sonde")
                 .disabledCustomizationBehavior(.visibility)
 
@@ -325,13 +341,13 @@ private struct MonProbeGrid: View {
                         .help(line.probe.kind.label)
                         .monInactive(line)
                 }
-                .width(min: 56, ideal: 64)
+                .width(min: 56, ideal: 60)
                 .customizationID("type")
 
                 TableColumn(StandardTableHeading("INTERVALLE"), sortUsing: table.sort("intervalle")) { line in
                     MonCellText(MonProbe.intervalLabel(line.probe.interval), mono: true).monInactive(line)
                 }
-                .width(min: 60, ideal: 76)
+                .width(min: 54, ideal: 74)
                 .customizationID("intervalle")
 
                 TableColumn(StandardTableHeading("ÉTAT"), sortUsing: table.sort("etat")) { line in
@@ -350,7 +366,7 @@ private struct MonProbeGrid: View {
                         .help(line.value)
                         .monInactive(line)
                 }
-                .width(min: 90, ideal: 120)
+                .width(min: 84, ideal: 104)
                 .customizationID("valeur")
 
                 TableColumn(StandardTableHeading("DISPONIBILITÉ 24 H"), sortUsing: table.sort("disponibilite")) { line in
@@ -358,7 +374,7 @@ private struct MonProbeGrid: View {
                                  enabled: line.probe.isEnabled, name: line.probe.name)
                         .monInactive(line)
                 }
-                .width(min: 168, ideal: 170)
+                .width(min: 130, ideal: 150)
                 .customizationID("disponibilite")
             }
 
@@ -485,12 +501,23 @@ struct MonUptimeBar: View {
     var name = ""
 
     var body: some View {
+        // Colonne étroite (petite fenêtre) : cases plus fines plutôt qu'un pourcentage coupé.
+        ViewThatFits(in: .horizontal) {
+            bar(slotWidth: 3, spacing: 2)
+            bar(slotWidth: 3, spacing: 1)
+            bar(slotWidth: 2, spacing: 1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Disponibilité sur 24 h de \(name) : \(label)")
+    }
+
+    private func bar(slotWidth: CGFloat, spacing: CGFloat) -> some View {
         HStack(spacing: 6) {
-            HStack(spacing: 2) {
+            HStack(spacing: spacing) {
                 ForEach(Array(slots.enumerated()), id: \.offset) { _, slot in
                     RoundedRectangle(cornerRadius: 1)
                         .fill(enabled ? color(slot) : Theme.borderStrong)
-                        .frame(width: 3, height: 14)
+                        .frame(width: slotWidth, height: 14)
                 }
             }
             Text(label)
@@ -499,8 +526,7 @@ struct MonUptimeBar: View {
                 .lineLimit(1)
                 .fixedSize()
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Disponibilité sur 24 h de \(name) : \(label)")
+        .fixedSize()
     }
 
     private var label: String {

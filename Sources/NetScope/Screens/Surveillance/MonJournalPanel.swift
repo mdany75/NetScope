@@ -104,31 +104,66 @@ struct MonJournalPanel: View {
         .monPanel()
     }
 
+    /// En-tête : sur une ligne, ou sur deux en petite fenêtre (au lieu d'élargir l'écran).
     private var header: some View {
-        HStack(spacing: 8) {
-            MonHeading("Journal des alertes").padding(.trailing, 6)
-            ForEach(MonJournalFilter.allCases, id: \.self) { item in
-                MonFilterChip(title: item.label, count: store.journal.count(item), isOn: filter == item) { filter = item }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                MonHeading("Journal des alertes").padding(.trailing, 6)
+                filterPicker
+                pendingCount
+                Spacer(minLength: 8)
+                tools
             }
-            let unacknowledged = store.journal.unacknowledgedCount
-            Text(unacknowledged > 0 ? MonText.plural(unacknowledged, "non accusée", "non accusées") : "Tout est accusé")
-                .font(Theme.small)
-                .foregroundStyle(Theme.textSecondary)
-                .lineLimit(1)
-                .fixedSize()
-            Spacer(minLength: 8)
-            // Icône seule : l'en-tête du croquis est déjà plein (aussi au clic droit sur l'en-tête).
-            StandardColumnsMenu(model: table, compact: true)
-            Button { store.acknowledgeAll() } label: {
-                Label("Tout accuser réception", systemImage: "checkmark.circle")
-                    .font(.system(size: 12, weight: .medium))
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    MonHeading("Journal des alertes").padding(.trailing, 6)
+                    filterPicker
+                    Spacer(minLength: 0)
+                }
+                HStack(spacing: 8) {
+                    pendingCount
+                    Spacer(minLength: 8)
+                    tools
+                }
             }
-            .buttonStyle(MonCompactButtonStyle(height: 30))
-            .disabled(unacknowledged == 0)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+    }
+
+    /// Filtres natifs (contrôle segmenté) : « Toutes 7 », « Critiques 1 », « Résolues 4 ».
+    private var filterPicker: some View {
+        Picker("Filtre du journal", selection: $filter) {
+            ForEach(MonJournalFilter.allCases, id: \.self) { item in
+                Text("\(item.label) \(store.journal.count(item))").tag(item)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .fixedSize()
+    }
+
+    private var pendingCount: some View {
+        let unacknowledged = store.journal.unacknowledgedCount
+        return Text(unacknowledged > 0 ? MonText.plural(unacknowledged, "non accusée", "non accusées") : "Tout est accusé")
+            .font(Theme.small)
+            .foregroundStyle(Theme.textSecondary)
+            .lineLimit(1)
+            .fixedSize()
+    }
+
+    private var tools: some View {
+        HStack(spacing: 8) {
+            // Icône seule : l'en-tête du croquis est déjà plein (aussi au clic droit sur l'en-tête).
+            StandardColumnsMenu(model: table, compact: true)
+            Button { store.acknowledgeAll() } label: {
+                Label("Tout accuser réception", systemImage: "checkmark.circle")
+            }
+            .buttonStyle(.bordered)
+            .fixedSize()
+            .disabled(store.journal.unacknowledgedCount == 0)
+        }
     }
 }
 
@@ -241,8 +276,9 @@ private struct MonJournalFollow: View {
                     .help(text)
             } else {
                 Button("Accuser réception") { store.acknowledge(alert.id) }
-                    .buttonStyle(MonCompactButtonStyle(height: 26))
-                    .font(.system(size: 12, weight: .medium))
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .fixedSize()
             }
         }
     }
@@ -256,7 +292,7 @@ private struct MonJournalFollow: View {
     }
 }
 
-/// Petit bouton secondaire (26 à 30 pt) du journal.
+/// Petit bouton secondaire (26 à 30 pt) des aperçus dessinés (barre de menus, notification).
 struct MonCompactButtonStyle: ButtonStyle {
     var height: CGFloat = 26
     @Environment(\.isEnabled) private var isEnabled

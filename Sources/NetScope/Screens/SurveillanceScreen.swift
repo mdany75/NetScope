@@ -52,10 +52,16 @@ struct SurveillanceScreen: View {
             Text("\(store.downCount) hors ligne")
                 .font(Theme.bodySemibold)
                 .foregroundStyle(store.downCount > 0 ? Theme.critical : Theme.textSecondary)
+            // Dans le même groupe que le statut, après un séparateur : sinon la barre d'outils colle
+            // le point bleu à « hors ligne » (« 1 hors ligne● 00:42 »).
+            if store.activeCount > 0 {
+                Text("·").foregroundStyle(Theme.textTertiary)
+                MonEngineIndicator()
+            }
         }
-        if store.activeCount > 0 {
-            MonEngineIndicator()
-        }
+        .lineLimit(1)
+        .fixedSize()
+        .padding(.trailing, 6)
         Button { store.toggleAll() } label: {
             Label(store.activeCount > 0 ? "Tout suspendre" : "Tout reprendre",
                   systemImage: store.activeCount > 0 ? "pause" : "play")
@@ -139,34 +145,6 @@ enum MonText {
         case .info: return .neutral
         case .success: return .success
         }
-    }
-}
-
-/// Puce de filtre du croquis : capsule blanche, bleu clair bordé d'accent quand active.
-struct MonFilterChip: View {
-    let title: String
-    let count: Int
-    var dot: Color? = nil
-    let isOn: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                if let dot { Circle().fill(dot).frame(width: 7, height: 7) }
-                Text(title).font(.system(size: 12, weight: .medium))
-                Text("\(count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
-            }
-            .foregroundStyle(isOn ? Theme.accentStrong : Theme.text)
-            .padding(.horizontal, 10)
-            .frame(height: 28)
-            .background(Capsule().fill(isOn ? Theme.accentSoft : Theme.panel))
-            .overlay(Capsule().strokeBorder(isOn ? Theme.accent : Theme.border))
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .fixedSize()
-        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 }
 
