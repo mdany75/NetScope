@@ -27,6 +27,13 @@ struct SpeedtestScreen: View {
         .screenToolbar {
             statusPill
             Button {
+                ToolStore.shared.open(.disques, in: state)
+            } label: {
+                Label("Vitesse des disques", systemImage: "internaldrive")
+            }
+            .buttonStyle(.secondary)
+            .help("Mesurer un disque, un partage réseau ou un dossier nuage (Boîte à outils)")
+            Button {
                 model.exportCSV()
             } label: {
                 Label("Exporter CSV", systemImage: "square.and.arrow.down")

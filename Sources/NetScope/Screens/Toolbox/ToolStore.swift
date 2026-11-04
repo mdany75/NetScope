@@ -13,6 +13,8 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     case smtp, headers = "entetes"
     /// Capture et inspection de paquets (note 7).
     case capture
+    // Vitesse des disques (note 22).
+    case disques
 
     var id: String { rawValue }
 
@@ -28,6 +30,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .subnet, .mac: return .adressage
         case .ports, .dns, .whois, .mtu, .capture: return .diagnostic
         case .iperf, .speedtest: return .performance
+        case .disques: return .performance
         case .wol, .dhcp, .lldp: return .services
         case .cloud: return .internet
         case .mailSuper, .mailHealth, .mx, .blacklist, .mailRecords: return .courriel
@@ -57,6 +60,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .smtp: return "Diagnostic SMTP"
         case .headers: return "Analyse d’en-têtes"
         case .capture: return "Capture de paquets"
+        case .disques: return "Vitesse des disques"
         }
     }
 
@@ -82,6 +86,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .smtp: return "Bannière, EHLO, STARTTLS, certificat et temps de réponse d’un serveur de courriel, sans rien envoyer."
         case .headers: return "Trajet d’un courriel, SPF, DKIM, DMARC et alertes d’usurpation, à partir des en-têtes collés."
         case .capture: return "Paquets en direct ou fichier .pcap\u{00A0}: détail par couche, hexadécimal, flux, statistiques, façon Wireshark."
+        case .disques: return "Écriture, lecture et accès 4\u{00A0}Kio d’un disque, d’un partage réseau ou d’un dossier nuage\u{00A0}; d’où vient la limite."
         }
     }
 
@@ -107,6 +112,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .smtp: return "envelope.badge.shield.half.filled"
         case .headers: return "envelope.open"
         case .capture: return "waveform.path.ecg.rectangle"
+        case .disques: return "internaldrive"
         }
     }
 

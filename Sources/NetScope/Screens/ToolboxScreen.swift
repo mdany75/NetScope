@@ -135,6 +135,7 @@ private struct ToolMainPanel: View {
     @ObservedObject private var smtp = ToolStore.shared.smtp
     @ObservedObject private var headers = ToolStore.shared.headers
     @ObservedObject private var capture = ToolStore.shared.capture
+    @ObservedObject private var disks = DiskSpeedModel.shared
 
     var body: some View {
         let tool = store.selectedTool
@@ -226,6 +227,7 @@ private struct ToolMainPanel: View {
         case .smtp: SMTPDiagnosticView(model: smtp, store: store)
         case .headers: MailHeaderView(model: headers, store: store)
         case .capture: PacketCaptureView(model: capture, store: store)
+        case .disques: DiskSpeedView(model: disks, store: store)
         }
     }
 
@@ -252,6 +254,7 @@ private struct ToolMainPanel: View {
         case .smtp: return smtp.command
         case .headers: return "analyse locale des en-têtes (rien n’est envoyé)"
         case .capture: return capture.command
+        case .disques: return disks.command
         }
     }
 }

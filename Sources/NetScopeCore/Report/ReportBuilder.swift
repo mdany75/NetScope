@@ -150,6 +150,8 @@ public struct ReportInput: Sendable {
     public var gateway: String?
     /// Bilans « Santé courriel » de la Boîte à outils (section facultative « Santé courriel »).
     public var mailHealth: [MailHealthSummary] = []
+    /// Derniers tests de vitesse des disques (section facultative « Vitesse des disques »).
+    public var diskTests: [DiskTestRecord] = []
     public var now: Date
 
     public init(devices: [Device], records: [InvRecord] = [], ranges: [ReportRange] = [], switches: [ReportSwitch] = [],
@@ -353,6 +355,7 @@ public enum ReportBuilder {
             case .problemes: blocks = problemBlocks(problems)
             case .inventaire: blocks = inventory(input, masked: config.maskMAC)
             case .courriel: blocks = mailHealthBlocks(input.mailHealth)
+            case .disques: blocks = diskBlocks(input.diskTests)
             case .annexe: blocks = annex(input, masked: config.maskMAC)
             }
             sections.append(ReportSection(kind: kind, heading: heading, blocks: blocks))

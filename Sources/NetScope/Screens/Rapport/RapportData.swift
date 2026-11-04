@@ -42,6 +42,8 @@ enum RapportData {
         let mail = ToolStore.shared.mailHealth
         input.mailHealth = mail.exported
         if demo, input.mailHealth.isEmpty, let summary = mail.report?.summary { input.mailHealth = [summary] }
+        // Vitesse des disques : dernier test de chaque emplacement (historique de l'outil).
+        input.diskTests = DiskSpeedModel.shared.reportRecords
         if demo { RapportDemo.complete(&input) }
         return input
     }
