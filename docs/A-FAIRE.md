@@ -804,3 +804,21 @@ en haut de la barre latérale :
   est rappelé dans le titre de la fenêtre.
 - Changer de site vide l'historique Retour (note 45) et retrouve les résultats laissés sur
   l'autre site (note 28).
+
+## 50. Connexion FTP, FTPS et SFTP — À PLANIFIER (demande de Dany)
+
+« Pouvoir se connecter à un FTP. » Nouveau type de connexion dans Accès distant, à côté de
+Terminal, SSH, Telnet, RDP et VNC :
+
+- Protocoles : FTP (mode passif et actif), FTPS (TLS explicite et implicite) et SFTP (par SSH,
+  mot de passe ou clé, avec les clés déjà connues d'Accès distant).
+- Navigateur de fichiers en deux volets (Mac ↔ serveur) : parcourir, glisser-déposer pour
+  envoyer ou recevoir, créer un dossier, renommer, supprimer (avec confirmation), droits et
+  dates ; file des transferts avec progression, débit, reprise après coupure et annulation.
+- Cas de technicien : envoyer un firmware ou une configuration à un switch, une borne ou une
+  imprimante, récupérer des journaux ou une sauvegarde (note 40) ; mini serveur FTP/TFTP
+  temporaire sur le Mac pour les appareils qui viennent chercher leur fichier eux-mêmes.
+- Depuis un appareil (fiche Appareil, Scanner, Inventaire) : « Ouvrir en FTP / SFTP » quand
+  le port 21 ou 22 est ouvert (note 34) ; connexions enregistrées dans le carnet, par site.
+- Mots de passe dans le trousseau macOS, jamais en clair ; avertissement quand le FTP n'est pas
+  chiffré ; aucune dépendance externe (Network.framework et le SSH déjà présent).
