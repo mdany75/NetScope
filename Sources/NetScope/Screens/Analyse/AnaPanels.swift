@@ -408,6 +408,8 @@ struct AnaDiffLine: Identifiable {
 /// Comparaison de deux instantanés de scan : ajoutés, disparus, modifiés (tableau standard, note 8).
 struct AnaComparePanel: View {
     let snapshots: [InvSnapshot]
+    /// Site des deux scans comparés (pas forcément le site actif).
+    let siteKey: String
     /// Plusieurs sites affichés : le site des deux scans comparés.
     var siteName: String?
     let onExport: (String, String) -> Void
@@ -415,6 +417,7 @@ struct AnaComparePanel: View {
     @State private var beforeID: UUID?
     @State private var afterID: UUID?
     @State private var tab: AnaDiffTab = .modified
+    @State private var selection: Set<String> = []
     @StateObject private var table = Self.makeModel()
 
     static let columns: [StandardColumn] = [
@@ -547,7 +550,7 @@ struct AnaComparePanel: View {
 
     private func tableView(_ rows: [AnaDiffLine]) -> some View {
         let afterColor: Color = tab == .added ? Theme.success : (tab == .removed ? Theme.critical : Theme.warning)
-        return Table(rows, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+        return Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
             TableColumn("IP", sortUsing: table.sort("ip")) { line in
                 Text(line.ip.description).font(Theme.mono(11.5, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
                     .frame(height: 24)
@@ -600,9 +603,10 @@ struct AnaComparePanel: View {
         }
         .standardTableStyle()
         // Note 34 : double-clic sur un changement → l'appareil (fiche, sinon fiche d'inventaire).
-        .standardRowActions(selection: [String](), object: { id in
+        .standardRowActions(selection: rows.map(\.id).filter(selection.contains), object: { id in
             rows.first { $0.id == id }.map { line in
-                .device(NavDeviceRef(ip: line.ip.description, mac: line.mac == "—" ? nil : line.mac, name: line.name))
+                .device(NavDeviceRef(ip: line.ip.description, mac: line.mac == "—" ? nil : line.mac, name: line.name,
+                                     siteKey: siteKey))
             }
         }) { ids in
             if let line = rows.first(where: { ids.contains($0.id) }) {

@@ -231,7 +231,7 @@ struct SwitchTopPorts: View {
             state.perform(.port(NavPortRef(host: snapshot.id, ifIndex: load.index)))
         })
         .contextMenu { OpenInMenu(object: .port(NavPortRef(host: snapshot.id, ifIndex: load.index))) }
-        .help("\(load.name) · entrée \(ResourceFormat.percent(load.rate.inPercent)), sortie \(ResourceFormat.percent(load.rate.outPercent)) du lien de \(SNMPFormat.speed(mbps: load.speedMbps)) · cliquer pour le sélectionner")
+        .help("\(load.name) · entrée \(ResourceFormat.percent(load.rate.inPercent)), sortie \(ResourceFormat.percent(load.rate.outPercent)) du lien de \(SNMPFormat.speed(mbps: load.speedMbps)) · clic\u{00A0}: le sélectionner · double-clic\u{00A0}: appareil branché")
     }
 
     private func bar(_ percent: Double?, color: Color) -> some View {

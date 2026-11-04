@@ -177,12 +177,15 @@ struct ScanResultsPanel: View {
             }
         } else {
             let query = state.searchText.trimmingCharacters(in: .whitespaces)
+            let navFilter = state.navFilters[.scanner]
             EmptyState(systemImage: "line.3.horizontal.decrease.circle", title: "Aucun résultat",
-                       message: query.isEmpty ? "Aucun appareil ne correspond aux filtres actifs."
-                           : "Aucun appareil ne correspond à « \(query) » avec les filtres actifs.") {
+                       message: navFilter.map { "Aucun appareil du filtre «\u{00A0}\($0.label)\u{00A0}» n’est dans le dernier scan." }
+                           ?? (query.isEmpty ? "Aucun appareil ne correspond aux filtres actifs."
+                               : "Aucun appareil ne correspond à « \(query) » avec les filtres actifs.")) {
                 Button("Réinitialiser les filtres") {
                     filter = ScanFilter()
                     state.searchText = ""
+                    state.navFilters[.scanner] = nil
                 }
                 .buttonStyle(.secondary)
             }

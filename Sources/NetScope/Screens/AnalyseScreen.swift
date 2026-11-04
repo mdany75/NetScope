@@ -109,7 +109,7 @@ struct AnalyseScreen: View {
                 AnaAlertsPanel(alerts: alerts, period: period, query: state.searchQuery(for: .analyse),
                                multiple: multiple, siteOrder: inventories.map(\.key))
                     .frame(maxWidth: .infinity)
-                AnaComparePanel(snapshots: focus.store.snapshots, siteName: siteName) { text, name in
+                AnaComparePanel(snapshots: focus.store.snapshots, siteKey: focus.key, siteName: siteName) { text, name in
                     exportDocument = InvCSVDocument(text: text)
                     exportName = name
                     exporting = true

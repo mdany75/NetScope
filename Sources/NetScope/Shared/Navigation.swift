@@ -85,14 +85,19 @@ extension AppState {
         defer { isNavigating = false }
         if let search = destination.search { searchTexts[target] = search.isEmpty ? nil : search }
         // Une nouvelle recherche ou un nouveau filtre remplace le filtre transmis précédent.
-        if destination.filter != nil || destination.search != nil { navFilters[target] = destination.filter }
+        if destination.filter != nil || destination.search != nil {
+            navFilters[target] = destination.filter
+        } else if destination.focus != nil {
+            // Un objet précis à montrer : le filtre transmis précédent pourrait le cacher.
+            navFilters[target] = nil
+        }
         if let sites = destination.sites, SiteScopeStore.screens.contains(target) {
             switch sites {
             case .include(let key): SiteScopeStore.shared.include(key, in: target)
             case .only(let keys): SiteScopeStore.shared.set(.sites(keys), for: target, persist: false)
             }
         }
-        if let focus = destination.focus { apply(focus, on: target) }
+        if let focus = destination.focus { apply(focus, on: target, siteKey: destination.sites?.includedKey) }
         if screen != target { screen = target }
         if recordsHistory { history.leave(here, to: location(of: target)) }
     }
@@ -156,11 +161,19 @@ extension AppState {
     }
 
     /// Montre l'objet dans l'écran d'arrivée (les écrans lisent les magasins communs).
-    private func apply(_ focus: NavFocus, on screen: Screen) {
+    /// `siteKey` : site de l'objet quand la destination le donne (sinon le site actif).
+    private func apply(_ focus: NavFocus, on screen: Screen, siteKey: String? = nil) {
         switch focus {
         case .device(let id):
-            selectedDeviceID = id
-            if screen == .carte { pendingFocus[.carte] = focus }
+            if screen == .carte {
+                pendingFocus[.carte] = focus
+                // Sélection du Scanner : seulement un appareil du site actif (même IP sur un autre
+                // site = autre appareil).
+                let sameSite = siteKey == nil || siteKey == SiteModel.shared.activeKey
+                if sameSite, device(withID: id) != nil { selectedDeviceID = id }
+            } else {
+                selectedDeviceID = id
+            }
         case .record(let site, let key):
             InvModel.shared.selectedSite = site
             InvModel.shared.selectedKey = key
@@ -243,15 +256,21 @@ extension AppState {
 /// Boutons ‹ › de la barre d'outils, comme le Finder.
 struct NavHistoryButtons: View {
     @EnvironmentObject private var state: AppState
+    @ObservedObject private var shortcuts = RegShortcutStore.shared
+
+    /// Raccourci en vigueur (Réglages › Raccourcis), s'il y en a un.
+    private func shortcutSuffix(_ id: String) -> String {
+        shortcuts.combo(id).map { " (\($0.display))" } ?? ""
+    }
 
     var body: some View {
         ControlGroup {
             Button { state.goBack() } label: { Label("Retour", systemImage: "chevron.left") }
                 .disabled(!state.canGoBack)
-                .help(state.history.previous.map { "Retour à «\u{00A0}\(Screen($0.module).title)\u{00A0}» (⌘[)" } ?? "Retour (⌘[)")
+                .help((state.history.previous.map { "Retour à «\u{00A0}\(Screen($0.module).title)\u{00A0}»" } ?? "Retour") + shortcutSuffix(ShortcutID.back))
             Button { state.goForward() } label: { Label("Avancer", systemImage: "chevron.right") }
                 .disabled(!state.canGoForward)
-                .help(state.history.next.map { "Avancer vers «\u{00A0}\(Screen($0.module).title)\u{00A0}» (⌘])" } ?? "Avancer (⌘])")
+                .help((state.history.next.map { "Avancer vers «\u{00A0}\(Screen($0.module).title)\u{00A0}»" } ?? "Avancer") + shortcutSuffix(ShortcutID.forward))
         } label: {
             Label("Retour et Avancer", systemImage: "chevron.left")
         }

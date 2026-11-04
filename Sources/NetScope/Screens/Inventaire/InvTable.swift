@@ -178,6 +178,16 @@ struct InvTable: View {
                         .buttonStyle(.secondary)
                 }
                 .frame(minHeight: 160)
+            } else if rows.isEmpty, let navFilter = state.navFilters[.inventaire] {
+                // Filtre transmis (groupe de la Carte, port de switch) : le nommer et pouvoir le retirer.
+                VStack(spacing: 8) {
+                    Text("Aucune fiche du filtre «\u{00A0}\(navFilter.label)\u{00A0}» dans cette vue.")
+                        .font(Theme.body).foregroundStyle(Theme.textSecondary)
+                        .multilineTextAlignment(.center)
+                    Button("Retirer le filtre") { state.navFilters[.inventaire] = nil }
+                        .buttonStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, minHeight: 80)
             } else if rows.isEmpty {
                 Text("Aucun appareil ne correspond à cette vue ou à la recherche.")
                     .font(Theme.body).foregroundStyle(Theme.textSecondary)

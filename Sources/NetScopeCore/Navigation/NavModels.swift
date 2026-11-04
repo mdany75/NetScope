@@ -160,6 +160,12 @@ public enum NavSites: Hashable, Sendable {
     case include(String)
     /// N'affiche que ces sites (ex. double-clic sur un site).
     case only([String])
+
+    /// Site ajouté par `.include`, s'il y en a un.
+    public var includedKey: String? {
+        if case .include(let key) = self { return key }
+        return nil
+    }
 }
 
 /// Où mène une action : un module, ce qui y est montré, un filtre transmis, une recherche et les sites.

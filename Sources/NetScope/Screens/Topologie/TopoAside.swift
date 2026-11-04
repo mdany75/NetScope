@@ -166,14 +166,24 @@ struct TopoAside: View {
                     }
                 }
                 if node.kind != .internet {
-                    Text(node.kind == .groupe ? "Double-clic sur le groupe\u{00A0}: Inventaire filtré sur ses appareils."
-                         : (node.kind == .switch ? "Double-clic sur le switch\u{00A0}: ses ports dans Switchs et ports."
-                            : "Double-clic\u{00A0}: la fiche\u{00A0}; clic droit\u{00A0}: «\u{00A0}Ouvrir dans\u{00A0}» les autres modules."))
+                    Text(doubleClickHelp(node))
                         .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
+    }
+
+    /// Aide du double-clic, d'après ce qu'il ouvre vraiment (TopoNav).
+    private func doubleClickHelp(_ node: TopoNode) -> String {
+        let what: String
+        switch TopoNav.object(node, graph: graph, devices: devices, siteKey: siteKey) {
+        case .group?: what = "Inventaire filtré sur ses appareils"
+        case .switchUnit?: what = "ses ports dans Switchs et ports"
+        case .accessPoint?: what = "la borne dans Wi-Fi › FortiAP"
+        default: what = "la fiche"
+        }
+        return "Double-clic\u{00A0}: \(what)\u{00A0}; clic droit\u{00A0}: «\u{00A0}Ouvrir dans\u{00A0}» les autres modules."
     }
 
     private func statusPill(_ node: TopoNode) -> some View {
