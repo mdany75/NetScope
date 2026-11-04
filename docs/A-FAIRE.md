@@ -846,3 +846,18 @@ n'en prévoyait qu'un mini serveur temporaire, côté Accès distant) :
 - Sécurité : avertissement si le pare-feu macOS bloque le port, serveur jamais lancé tout seul,
   dossier limité au partage choisi (pas de « ../ »), alerte avant d'écraser un fichier ; aucune
   dépendance externe (Network.framework, UDP).
+
+## 52. SSH : entrer le nom d'utilisateur à la connexion — À PLANIFIER (demande de Dany)
+
+« Quand je me connecte en SSH, avoir la possibilité d'entrer le nom d'utilisateur. »
+Aujourd'hui le nom n'existe que dans une connexion enregistrée du carnet (Accès distant) ;
+une connexion rapide (depuis le Scanner, la fiche Appareil ou l'Inventaire) part sans lui.
+
+- Petite fenêtre avant chaque connexion SSH rapide : champ « Utilisateur » prérempli (dernier
+  nom utilisé pour cet appareil, sinon le nom par défaut du site ou des Réglages), port, clé ou
+  mot de passe ; ↩︎ pour se connecter, case « Ne plus demander pour cet appareil ».
+- Liste des noms déjà utilisés (admin, root, manager…) et saisie libre ; forme `user@ip`
+  acceptée dans le champ de connexion d'Accès distant et dans la recherche.
+- Nom retenu par appareil et par site, avec « Enregistrer dans le carnet » ; mot de passe dans
+  le trousseau macOS, jamais en clair.
+- Même champ pour Telnet, SFTP / FTP (note 50), RDP et VNC quand ils demandent un compte.
