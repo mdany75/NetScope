@@ -97,20 +97,57 @@ struct WifiConnectionPanel: View {
         .frame(width: 34, height: 34)
     }
 
+    /// En-tête : sur une ligne quand la place suffit ; sinon la qualité et le bouton passent dessous.
     private func header(_ network: WifiNetwork) -> some View {
-        let quality = WifiQuality(rssi: network.rssi)
-        let colors = WifiText.qualityColor(network.rssi)
-        return HStack(spacing: 10) {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                identity(network)
+                Spacer(minLength: 12)
+                qualityAndAction(network)
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                identity(network)
+                HStack(spacing: 10) {
+                    qualityAndAction(network)
+                    Spacer(minLength: 0)
+                }
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    icon
+                    VStack(alignment: .leading, spacing: 2) {
+                        WifiHeading("Connexion actuelle")
+                        Text(store.label(for: network)).font(.system(size: 16, weight: .bold)).lineLimit(1)
+                    }
+                }
+                SwitchFlowLayout(spacing: 8) { pills(network) }
+                qualityAndAction(network)
+            }
+        }
+    }
+
+    private func identity(_ network: WifiNetwork) -> some View {
+        HStack(spacing: 10) {
             icon
             VStack(alignment: .leading, spacing: 2) {
                 WifiHeading("Connexion actuelle")
                 HStack(spacing: 8) {
-                    Text(store.label(for: network)).font(.system(size: 16, weight: .bold))
-                    WifiPill(text: "Connecté", foreground: Theme.success, background: Theme.successSoft)
-                    if let standard = network.standard { WifiPill(text: WifiConnectionPanel.generation(standard)) }
+                    Text(store.label(for: network)).font(.system(size: 16, weight: .bold)).lineLimit(1).fixedSize()
+                    pills(network)
                 }
             }
-            Spacer()
+        }
+    }
+
+    @ViewBuilder private func pills(_ network: WifiNetwork) -> some View {
+        WifiPill(text: "Connecté", foreground: Theme.success, background: Theme.successSoft)
+        if let standard = network.standard { WifiPill(text: WifiConnectionPanel.generation(standard)) }
+    }
+
+    private func qualityAndAction(_ network: WifiNetwork) -> some View {
+        let quality = WifiQuality(rssi: network.rssi)
+        let colors = WifiText.qualityColor(network.rssi)
+        return HStack(spacing: 10) {
             HStack(spacing: 8) {
                 Text("Qualité").font(Theme.small).foregroundStyle(Theme.textSecondary)
                 WifiSignalBar(rssi: network.rssi, width: 120, height: 8)
@@ -120,6 +157,7 @@ struct WifiConnectionPanel: View {
                 Button("Fiche de ce Mac") { state.showDevice(me.id) }.buttonStyle(.secondary)
             }
         }
+        .fixedSize()
     }
 
     private var myDevice: Device? {
@@ -352,31 +390,23 @@ struct WifiChannelPanel: View {
         let bandNetworks = store.networks.filter { $0.band == store.band }
         Panel(padding: 14) {
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 10) {
-                    WifiHeading("Occupation des canaux")
-                    HStack(spacing: 2) {
-                        ForEach(WifiBand.allCases) { band in
-                            let selected = store.band == band
-                            Button { store.band = band } label: {
-                                HStack(spacing: 6) {
-                                    Text(band.label).font(.system(size: 12, weight: .semibold))
-                                    Text("\(store.networks.filter { $0.band == band }.count)")
-                                        .font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
-                                }
-                                .foregroundStyle(selected ? Theme.accentStrong : Theme.textSecondary)
-                                .padding(.horizontal, 10)
-                                .frame(height: 26)
-                                .background(RoundedRectangle(cornerRadius: 5).fill(selected ? Theme.panel : .clear)
-                                    .shadow(color: selected ? Color(hex: 0x0F172A, opacity: 0.12) : .clear, radius: 1, y: 1))
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                        }
+                // Petite fenêtre : le résumé passe sous le titre et le choix de bande.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 10) {
+                        WifiHeading("Occupation des canaux").fixedSize()
+                        bandPicker
+                        Spacer(minLength: 8)
+                        Text(summary(bandNetworks)).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
                     }
-                    .padding(2)
-                    .background(RoundedRectangle(cornerRadius: 7).fill(Theme.neutralSoft))
-                    Spacer()
-                    Text(summary(bandNetworks)).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 10) {
+                            WifiHeading("Occupation des canaux").fixedSize()
+                            bandPicker
+                            Spacer(minLength: 0)
+                        }
+                        Text(summary(bandNetworks)).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 if bandNetworks.isEmpty {
                     Text(store.networks.isEmpty ? "Cliquez sur «\u{00A0}Analyser\u{00A0}» pour voir l’occupation des canaux." : "Aucun réseau détecté en \(store.band.label).")
@@ -391,6 +421,18 @@ struct WifiChannelPanel: View {
                 }
             }
         }
+    }
+
+    /// Choix de la bande : contrôle segmenté natif (nombre de réseaux de chaque bande).
+    private var bandPicker: some View {
+        Picker("Bande", selection: $store.band) {
+            ForEach(WifiBand.allCases) { band in
+                Text("\(band.label) (\(store.networks.filter { $0.band == band }.count))").tag(band)
+            }
+        }
+        .labelsHidden()
+        .pickerStyle(.segmented)
+        .fixedSize()
     }
 
     private func summary(_ list: [WifiNetwork]) -> String {
@@ -410,13 +452,28 @@ struct WifiChannelPanel: View {
         if overlapping == 0 { pill = WifiPill(text: "Aucun chevauchement", foreground: Theme.success, background: Theme.successSoft) }
         else if overlapping >= 3 { pill = WifiPill(text: "\(overlapping) réseaux en chevauchement", foreground: Theme.warning, background: Theme.warningSoft) }
         else { pill = WifiPill(text: "\(overlapping) réseau\(overlapping > 1 ? "x" : "") en chevauchement") }
-        return HStack(spacing: 8) {
+        let name = HStack(spacing: 8) {
             RoundedRectangle(cornerRadius: 3).fill(WifiText.color(of: network, in: store.networks)).frame(width: 10, height: 10)
-            Text(store.label(for: network)).font(.system(size: 12, weight: .bold))
-            Text("\(network.bssid?.formatted(.upperColon) ?? "BSSID masqué") · \(network.band.label) · canal \(network.channel) · \(network.widthMHz)\u{00A0}MHz · \(WifiQuality.dbm(network.rssi))\(network.standard.map { " · " + $0 } ?? "")")
-                .font(Theme.mono(12)).foregroundStyle(Theme.neutralText).lineLimit(1)
-            Spacer()
-            pill
+            Text(store.label(for: network)).font(.system(size: 12, weight: .bold)).lineLimit(1).fixedSize()
+        }
+        let details = Text("\(network.bssid?.formatted(.upperColon) ?? "BSSID masqué") · \(network.band.label) · canal \(network.channel) · \(network.widthMHz)\u{00A0}MHz · \(WifiQuality.dbm(network.rssi))\(network.standard.map { " · " + $0 } ?? "")")
+            .font(Theme.mono(12)).foregroundStyle(Theme.neutralText).lineLimit(1)
+        // Petite fenêtre : les détails passent sous le nom au lieu d'être coupés.
+        return ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                name
+                details.fixedSize()
+                Spacer(minLength: 8)
+                pill
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    name
+                    Spacer(minLength: 8)
+                    pill
+                }
+                details.truncationMode(.middle).padding(.leading, 18)
+            }
         }
         .padding(.top, 8)
         .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
@@ -516,22 +573,27 @@ struct WifiNetworksTable: View {
         let rows = self.rows
         let all = store.networks
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                WifiHeading("Réseaux visibles").fixedSize()
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-                    TextField("", text: $store.filter, prompt: Text("SSID, BSSID, fabricant…").foregroundStyle(Theme.textTertiary))
-                        .textFieldStyle(.plain).font(Theme.small)
+            // Moins de place : libellés courts du filtre, puis la recherche et le filtre sur deux lignes.
+            ViewThatFits(in: .horizontal) {
+                ForEach([false, true], id: \.self) { short in
+                    HStack(spacing: 8) {
+                        WifiHeading("Réseaux visibles").fixedSize()
+                        searchField
+                        filterPicker(all, short: short)
+                        Spacer(minLength: 4)
+                        // Le nombre de réseaux affichés passe dans le pied pour laisser la place au bouton « Colonnes ».
+                        StandardColumnsMenu(model: table)
+                    }
                 }
-                .padding(.horizontal, 8)
-                .frame(width: 170, height: 28)
-                .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
-                chip(.all, "Toutes les bandes", all.count)
-                chip(.band, "Bande \(store.band.label)", all.filter { $0.band == store.band }.count)
-                chip(.flagged, "Signalés", all.filter(isFlagged).count)
-                Spacer(minLength: 4)
-                // Le nombre de réseaux affichés passe dans le pied pour laisser la place au bouton « Colonnes ».
-                StandardColumnsMenu(model: table)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        WifiHeading("Réseaux visibles").fixedSize()
+                        searchField
+                        Spacer(minLength: 4)
+                        StandardColumnsMenu(model: table)
+                    }
+                    filterPicker(all)
+                }
             }
             .padding(.horizontal, 12).padding(.vertical, 10)
             Rectangle().fill(Theme.border).frame(height: 1)
@@ -718,22 +780,26 @@ struct WifiNetworksTable: View {
         .sorted(using: table.sortOrder + [KeyPathComparator(\WifiNetworkRow.bssidSort)])
     }
 
-    private func chip(_ filter: WifiTableFilter, _ label: String, _ count: Int) -> some View {
-        let on = store.tableFilter == filter
-        return Button { store.tableFilter = filter } label: {
-            HStack(spacing: 6) {
-                Text(label).font(.system(size: 12, weight: .medium))
-                Text("\(count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
-            }
-            .foregroundStyle(on ? Theme.accentStrong : Theme.text)
-            .padding(.horizontal, 10)
-            .frame(height: 28)
-            .background(Capsule().fill(on ? Theme.accentSoft : Theme.panel))
-            .overlay(Capsule().strokeBorder(on ? Theme.accent : Theme.border))
-            .contentShape(Capsule())
-            .fixedSize()
+    /// Champ de recherche natif du tableau.
+    private var searchField: some View {
+        TextField("Filtrer les réseaux", text: $store.filter, prompt: Text("SSID, BSSID, fabricant…"))
+            .labelsHidden()
+            .textFieldStyle(.roundedBorder)
+            .font(Theme.small)
+            .frame(minWidth: 110, idealWidth: 140, maxWidth: 170)
+    }
+
+    /// Filtre des réseaux : contrôle segmenté natif (nombre de réseaux de chaque filtre).
+    /// `short` : « Toutes » et « 2,4 GHz » au lieu de « Toutes les bandes » et « Bande 2,4 GHz ».
+    private func filterPicker(_ all: [WifiNetwork], short: Bool = false) -> some View {
+        Picker("Réseaux affichés", selection: $store.tableFilter) {
+            Text("\(short ? "Toutes" : "Toutes les bandes") (\(all.count))").tag(WifiTableFilter.all)
+            Text("\(short ? "" : "Bande ")\(store.band.label) (\(all.filter { $0.band == store.band }.count))").tag(WifiTableFilter.band)
+            Text("Signalés (\(all.filter(isFlagged).count))").tag(WifiTableFilter.flagged)
         }
-        .buttonStyle(.plain)
+        .labelsHidden()
+        .pickerStyle(.segmented)
+        .fixedSize()
     }
 
     private func tag(_ text: String, _ foreground: Color, _ background: Color) -> some View {
@@ -749,7 +815,8 @@ struct WifiNetworksTable: View {
     private func footer(shown: Int) -> some View {
         let all = store.networks
         let ssids = Set(all.map { store.label(for: $0) }).count
-        return HStack(spacing: 14) {
+        // Petite fenêtre : les totaux passent à la ligne au lieu d'être coupés.
+        return SwitchFlowLayout(spacing: 14, lineSpacing: 4) {
             if shown < all.count {
                 (Text("\(shown)").bold().foregroundStyle(Theme.text) + Text(" affichés sur ")
                     + Text("\(all.count)").bold().foregroundStyle(Theme.text) + Text(" BSSID"))
@@ -762,10 +829,10 @@ struct WifiNetworksTable: View {
                 (Text("\(all.filter(\.isHidden).count)").bold().foregroundStyle(Theme.warning) + Text(" caché(s)"))
             }
             (Text("\(all.filter(store.isSuspicious).count)").bold().foregroundStyle(Theme.critical) + Text(" non autorisé(s) possible(s)"))
-            Spacer()
             Text(store.lastScan.map { "Analyse n°\u{00A0}\(store.scanCount) · \(WifiText.timeSeconds($0)) · \(store.connection?.interfaceName ?? "en0")" } ?? "Aucune analyse")
                 .font(Theme.mono(12))
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .font(Theme.small)
         .foregroundStyle(Theme.textSecondary)
         .padding(.horizontal, 12).padding(.vertical, 9)
@@ -864,7 +931,8 @@ struct WifiRecommendationsPanel: View {
                 Text(reco.detail).font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
                 if reco.networkID != nil || reco.band != nil {
                     Button(reco.networkID != nil ? "Voir le réseau" : "Voir la bande \(reco.band!.label)") { store.focus(reco) }
-                        .buttonStyle(MiniButtonStyle())
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
                         .padding(.top, 3)
                 }
             }
@@ -874,18 +942,7 @@ struct WifiRecommendationsPanel: View {
     }
 }
 
-/// Petit bouton secondaire (« mini » du croquis).
-struct MiniButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(Theme.text)
-            .padding(.horizontal, 8)
-            .frame(height: 24)
-            .background(RoundedRectangle(cornerRadius: 5).fill(configuration.isPressed ? Theme.neutralSoft : Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.border))
-    }
-}
+
 
 struct WifiHistoryPanel: View {
     @ObservedObject var store: WifiStore
@@ -937,13 +994,12 @@ struct WifiSurveyPanel: View {
                             .foregroundStyle(WifiText.qualityColor(network.rssi).foreground))
                             .font(Theme.small)
                         HStack(spacing: 6) {
-                            TextField("", text: $room, prompt: Text("Nom du local (ex. Salle 210)").foregroundStyle(Theme.textTertiary))
-                                .textFieldStyle(.plain).font(Theme.small)
-                                .padding(.horizontal, 8).frame(height: 28)
-                                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
-                                .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+                            TextField("Nom du local", text: $room, prompt: Text("Nom du local (ex. Salle 210)"))
+                                .labelsHidden()
+                                .textFieldStyle(.roundedBorder).font(Theme.small)
                                 .onSubmit(add)
-                            Button("Noter", action: add).buttonStyle(MiniButtonStyle())
+                            Button("Noter", action: add).buttonStyle(.bordered)
+
                         }
                     }
                     .padding(8)
