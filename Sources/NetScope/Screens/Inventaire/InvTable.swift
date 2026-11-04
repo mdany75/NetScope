@@ -270,7 +270,7 @@ struct InvTable: View {
                 .defaultVisibility(.hidden)
 
                 TableColumn("ÉTIQUETTES", sortUsing: table.sort("etiquettes")) { record in
-                    StandardTagList(tags: record.annotations.tags,
+                    StandardTagList(tags: record.annotations.tags, colors: { InvStyle.tag($0) },
                                     help: "Étiquettes\u{00A0}: " + record.annotations.tags.joined(separator: ", "))
                 }
                 .width(min: 70, ideal: 150)

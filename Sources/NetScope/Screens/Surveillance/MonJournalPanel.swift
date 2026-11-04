@@ -55,7 +55,6 @@ struct MonJournalPanel: View {
     /// Ligne de deux lignes de texte (croquis : message sur deux lignes) ; au-delà de `maxRows`
     /// entrées, le tableau défile.
     static let rowHeight: CGFloat = 44
-    static let headerHeight: CGFloat = 36
     static let maxRows = 8
 
     static let columns: [StandardColumn] = [
@@ -99,8 +98,7 @@ struct MonJournalPanel: View {
                 let rows = alerts.enumerated().map { MonJournalLine(alert: $1, order: $0, now: now) }
                     .sorted(using: table.sortOrder)
                 MonJournalTable(rows: rows, table: table)
-                    .frame(height: Self.headerHeight + Self.rowHeight * CGFloat(min(rows.count, Self.maxRows)))
-                    .scrollDisabled(rows.count <= Self.maxRows)
+                    .standardTableHeight(rows: rows.count, rowHeight: Self.rowHeight, maxRows: Self.maxRows)
             }
         }
         .monPanel()
@@ -120,9 +118,7 @@ struct MonJournalPanel: View {
                 .fixedSize()
             Spacer(minLength: 8)
             // Icône seule : l'en-tête du croquis est déjà plein (aussi au clic droit sur l'en-tête).
-            StandardColumnsMenu(model: table)
-                .labelStyle(.iconOnly)
-                .menuIndicator(.hidden)
+            StandardColumnsMenu(model: table, compact: true)
             Button { store.acknowledgeAll() } label: {
                 Label("Tout accuser réception", systemImage: "checkmark.circle")
                     .font(.system(size: 12, weight: .medium))
@@ -147,20 +143,20 @@ private struct MonJournalTable: View {
 
     var body: some View {
         Table(rows, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
-            TableColumn(SuiviTableHeading("HORODATAGE"), sortUsing: table.sort("horodatage")) { line in
+            TableColumn(StandardTableHeading("HORODATAGE"), sortUsing: table.sort("horodatage")) { line in
                 MonCellText(MonJournal.timestamp(line.alert.date, now: store.now), mono: true, size: 11)
                     .frame(height: Self.cellHeight)
             }
             .width(min: 120, ideal: 138)
             .customizationID("horodatage")
 
-            TableColumn(SuiviTableHeading("GRAVITÉ"), sortUsing: table.sort("gravite")) { line in
+            TableColumn(StandardTableHeading("GRAVITÉ"), sortUsing: table.sort("gravite")) { line in
                 RegPill(text: line.alert.severity.label, tone: MonText.tone(line.alert.severity))
             }
             .width(min: 56, ideal: 62)
             .customizationID("gravite")
 
-            TableColumn(SuiviTableHeading("SONDE"), sortUsing: table.sort("sonde")) { line in
+            TableColumn(StandardTableHeading("SONDE"), sortUsing: table.sort("sonde")) { line in
                 Text(line.alert.probeName)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Theme.text)
@@ -171,7 +167,7 @@ private struct MonJournalTable: View {
             .width(min: 80, ideal: 104)
             .customizationID("sonde")
 
-            TableColumn(SuiviTableHeading("ÉVÉNEMENT"), sortUsing: table.sort("evenement")) { line in
+            TableColumn(StandardTableHeading("ÉVÉNEMENT"), sortUsing: table.sort("evenement")) { line in
                 Text(line.alert.fullMessage)
                     .font(Theme.small)
                     .foregroundStyle(Theme.text)
@@ -184,20 +180,20 @@ private struct MonJournalTable: View {
             .customizationID("evenement")
             .disabledCustomizationBehavior(.visibility)
 
-            TableColumn(SuiviTableHeading("SUIVI"), sortUsing: table.sort("suivi")) { line in
+            TableColumn(StandardTableHeading("SUIVI"), sortUsing: table.sort("suivi")) { line in
                 MonJournalFollow(alert: line.alert)
             }
             .width(min: 120, ideal: 206)
             .customizationID("suivi")
 
-            TableColumn(SuiviTableHeading("DURÉE"), sortUsing: table.sort("duree")) { line in
+            TableColumn(StandardTableHeading("DURÉE"), sortUsing: table.sort("duree")) { line in
                 MonCellText(line.durationLabel, mono: true, dimmed: line.duration == nil)
             }
             .width(min: 70, ideal: 110)
             .customizationID("duree")
             .defaultVisibility(.hidden)
 
-            TableColumn(SuiviTableHeading("RÉSOLUE LE"), sortUsing: table.sort("resolueLe")) { line in
+            TableColumn(StandardTableHeading("RÉSOLUE LE"), sortUsing: table.sort("resolueLe")) { line in
                 MonCellText(line.alert.resolvedAt.map { MonJournal.timestamp($0, now: store.now) } ?? "—", mono: true,
                             dimmed: line.alert.resolvedAt == nil)
             }
@@ -205,7 +201,7 @@ private struct MonJournalTable: View {
             .customizationID("resolueLe")
             .defaultVisibility(.hidden)
 
-            TableColumn(SuiviTableHeading("RÉSOLUTION"), sortUsing: table.sort("resolution")) { line in
+            TableColumn(StandardTableHeading("RÉSOLUTION"), sortUsing: table.sort("resolution")) { line in
                 MonCellText(line.alert.resolution ?? "—", dimmed: line.alert.resolution == nil)
                     .help(line.alert.resolution ?? "")
             }
@@ -213,7 +209,7 @@ private struct MonJournalTable: View {
             .customizationID("resolution")
             .defaultVisibility(.hidden)
 
-            TableColumn(SuiviTableHeading("ACCUSÉ PAR"), sortUsing: table.sort("accusePar")) { line in
+            TableColumn(StandardTableHeading("ACCUSÉ PAR"), sortUsing: table.sort("accusePar")) { line in
                 MonCellText(line.alert.acknowledgedBy ?? "—", dimmed: line.alert.acknowledgedBy == nil)
             }
             .width(min: 70, ideal: 110)

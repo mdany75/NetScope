@@ -33,7 +33,6 @@ struct PingJournalPanel: View {
     /// Ligne : étiquette et cible, puis le message sur deux lignes au plus (croquis) ; au-delà
     /// de `visibleRows` événements, le tableau défile.
     static let rowHeight: CGFloat = 62
-    static let headerHeight: CGFloat = 36
     static let visibleRows = 12
 
     /// « Événement » reprend la disposition du croquis (étiquette, cible, message) ; le niveau,
@@ -78,9 +77,7 @@ struct PingJournalPanel: View {
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 Spacer(minLength: 8)
                 // Icône seule : la colonne du journal est étroite (aussi au clic droit sur l'en-tête).
-                StandardColumnsMenu(model: table)
-                    .labelStyle(.iconOnly)
-                    .menuIndicator(.hidden)
+                StandardColumnsMenu(model: table, compact: true)
                 Button("Effacer") { controller.clearEvents() }
                     .buttonStyle(PingSmallButtonStyle())
                     .disabled(events.isEmpty)
@@ -110,8 +107,7 @@ struct PingJournalPanel: View {
                 let rows = events.prefix(maxRows).enumerated().map { PingEventLine(event: $1, order: $0) }
                     .sorted(using: table.sortOrder)
                 PingEventTable(rows: rows, table: table)
-                    .frame(height: Self.headerHeight + Self.rowHeight * CGFloat(min(rows.count, Self.visibleRows)))
-                    .scrollDisabled(rows.count <= Self.visibleRows)
+                    .standardTableHeight(rows: rows.count, rowHeight: Self.rowHeight, maxRows: Self.visibleRows)
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -139,7 +135,7 @@ private struct PingEventTable: View {
 
     var body: some View {
         Table(rows, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
-            TableColumn(SuiviTableHeading("HEURE"), sortUsing: table.sort("heure")) { line in
+            TableColumn(StandardTableHeading("HEURE"), sortUsing: table.sort("heure")) { line in
                 Text(PingJournalPanel.timeFormatter.string(from: line.event.date))
                     .font(Theme.mono(12))
                     .foregroundStyle(Theme.textSecondary)
@@ -149,7 +145,7 @@ private struct PingEventTable: View {
             .width(min: 60, ideal: 64, max: 90)
             .customizationID("heure")
 
-            TableColumn(SuiviTableHeading("ÉVÉNEMENT"), sortUsing: table.sort("evenement")) { line in
+            TableColumn(StandardTableHeading("ÉVÉNEMENT"), sortUsing: table.sort("evenement")) { line in
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         PingLevelTag(level: line.event.level)
@@ -171,21 +167,21 @@ private struct PingEventTable: View {
             .customizationID("evenement")
             .disabledCustomizationBehavior(.visibility)
 
-            TableColumn(SuiviTableHeading("NIVEAU"), sortUsing: table.sort("niveau")) { line in
+            TableColumn(StandardTableHeading("NIVEAU"), sortUsing: table.sort("niveau")) { line in
                 PingLevelTag(level: line.event.level)
             }
             .width(min: 70, ideal: 76)
             .customizationID("niveau")
             .defaultVisibility(.hidden)
 
-            TableColumn(SuiviTableHeading("CIBLE"), sortUsing: table.sort("cible")) { line in
+            TableColumn(StandardTableHeading("CIBLE"), sortUsing: table.sort("cible")) { line in
                 PingCell(line.event.subject, mono: true)
             }
             .width(min: 80, ideal: 104)
             .customizationID("cible")
             .defaultVisibility(.hidden)
 
-            TableColumn(SuiviTableHeading("DATE"), sortUsing: table.sort("date")) { line in
+            TableColumn(StandardTableHeading("DATE"), sortUsing: table.sort("date")) { line in
                 PingCell(PingJournalPanel.dateFormatter.string(from: line.event.date), color: Theme.textSecondary)
             }
             .width(min: 80, ideal: 96)

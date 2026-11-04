@@ -75,21 +75,6 @@ enum RemoteConnectionColumns {
     static func makeModel() -> StandardTableModel<RemoteConnection> {
         StandardTableModel(id: "acces.connexions", columns: columns, sortKeys: sortKeys, defaultSort: "nom")
     }
-
-    /// Colonne du tri en vigueur (nil : tri inconnu).
-    @MainActor
-    static func currentSort(_ table: StandardTableModel<RemoteConnection>) -> (column: String, ascending: Bool)? {
-        guard let first = table.sortOrder.first,
-              let column = sortKeys.first(where: { $0.value.keyPath == first.keyPath })?.key else { return nil }
-        return (column, first.order == .forward)
-    }
-
-    @MainActor
-    static func setSort(_ table: StandardTableModel<RemoteConnection>, column: String, ascending: Bool) {
-        guard var comparator = sortKeys[column] else { return }
-        comparator.order = ascending ? .forward : .reverse
-        table.sortOrder = [comparator]
-    }
 }
 
 /// Menu « Trier » de la liste latérale : même tri que l'en-tête du tableau.
@@ -97,22 +82,22 @@ struct RemoteSortMenu: View {
     @ObservedObject var table: StandardTableModel<RemoteConnection>
 
     var body: some View {
-        let current = RemoteConnectionColumns.currentSort(table)
+        let current = table.currentSort
         Menu {
             Section("Trier chaque groupe par") {
                 ForEach(RemoteConnectionColumns.listSorts, id: \.self) { id in
                     let title = RemoteConnectionColumns.columns.first { $0.id == id }?.title ?? id
                     Toggle(title, isOn: Binding(get: { current?.column == id }, set: { _ in
-                        RemoteConnectionColumns.setSort(table, column: id, ascending: current?.ascending ?? true)
+                        table.setSort(id, ascending: current?.ascending ?? true)
                     }))
                 }
             }
             Section {
                 Toggle("Croissant", isOn: Binding(get: { current?.ascending ?? true }, set: { _ in
-                    RemoteConnectionColumns.setSort(table, column: current?.column ?? "nom", ascending: true)
+                    table.setSort(current?.column ?? "nom", ascending: true)
                 }))
                 Toggle("Décroissant", isOn: Binding(get: { !(current?.ascending ?? true) }, set: { _ in
-                    RemoteConnectionColumns.setSort(table, column: current?.column ?? "nom", ascending: false)
+                    table.setSort(current?.column ?? "nom", ascending: false)
                 }))
             }
         } label: {

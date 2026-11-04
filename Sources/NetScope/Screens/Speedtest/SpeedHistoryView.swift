@@ -160,8 +160,7 @@ struct SpeedHistoryView: View {
                     .frame(maxWidth: .infinity).padding(20)
             } else {
                 SpeedHistoryTable(rows: rows, model: model, table: table)
-                    .frame(height: Self.headerHeight + Self.rowHeight * CGFloat(min(rows.count, Self.visibleRows)))
-                    .scrollDisabled(rows.count <= Self.visibleRows)
+                    .standardTableHeight(rows: rows.count, rowHeight: Self.rowHeight, maxRows: Self.visibleRows)
             }
 
             HStack(spacing: 12) {
@@ -199,7 +198,6 @@ struct SpeedHistoryView: View {
 
     /// Ligne du croquis : 34 ; au-delà de `visibleRows` tests, le tableau défile.
     static let rowHeight: CGFloat = 34
-    static let headerHeight: CGFloat = 36
     static let visibleRows = 12
 
     static let columns: [StandardColumn] = [
@@ -266,7 +264,7 @@ private struct SpeedHistoryTable: View {
     var body: some View {
         Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
             Group {
-                TableColumn(SuiviTableHeading("DATE / HEURE"), sortUsing: table.sort("date")) { line in
+                TableColumn(StandardTableHeading("DATE / HEURE"), sortUsing: table.sort("date")) { line in
                     Text(SpeedFormat.dateTime.string(from: line.record.date))
                         .font(Theme.mono(12))
                         .foregroundStyle(Theme.text)
@@ -277,7 +275,7 @@ private struct SpeedHistoryTable: View {
                 .customizationID("date")
                 .disabledCustomizationBehavior(.visibility)
 
-                TableColumn(SuiviTableHeading("TYPE"), sortUsing: table.sort("type")) { line in
+                TableColumn(StandardTableHeading("TYPE"), sortUsing: table.sort("type")) { line in
                     let isLan = line.record.kind == .lan
                     HStack(spacing: 6) {
                         Text(line.record.kind.label)
@@ -292,20 +290,20 @@ private struct SpeedHistoryTable: View {
                 .width(min: 120, ideal: 150)
                 .customizationID("type")
 
-                TableColumn(SuiviTableHeading("SERVEUR"), sortUsing: table.sort("serveur")) { line in
+                TableColumn(StandardTableHeading("SERVEUR"), sortUsing: table.sort("serveur")) { line in
                     Text(line.record.server).font(Theme.small).foregroundStyle(Theme.neutralText).lineLimit(1)
                         .help(line.record.server)
                 }
                 .width(min: 120, ideal: 200)
                 .customizationID("serveur")
 
-                TableColumn(SuiviTableHeading("INTERFACE"), sortUsing: table.sort("interface")) { line in
+                TableColumn(StandardTableHeading("INTERFACE"), sortUsing: table.sort("interface")) { line in
                     Text(line.record.interfaceLabel).font(Theme.mono(12)).foregroundStyle(Theme.neutralText).lineLimit(1)
                 }
                 .width(min: 100, ideal: 130)
                 .customizationID("interface")
 
-                TableColumn(SuiviTableHeading("DESCENTE"), sortUsing: table.sort("descente")) { line in
+                TableColumn(StandardTableHeading("DESCENTE"), sortUsing: table.sort("descente")) { line in
                     let plan = line.record.kind == .internet ? model.planDown : nil
                     let low = plan.map { line.record.downMbps < $0 * SpeedMath.planThreshold } ?? false
                     SpeedNumberCell("\(SpeedFormat.rate(line.record.downMbps)) Mb/s", bold: true,
@@ -315,19 +313,19 @@ private struct SpeedHistoryTable: View {
                 .width(min: 90, ideal: 104)
                 .customizationID("descente")
 
-                TableColumn(SuiviTableHeading("MONTÉE"), sortUsing: table.sort("montee")) { line in
+                TableColumn(StandardTableHeading("MONTÉE"), sortUsing: table.sort("montee")) { line in
                     SpeedNumberCell(line.record.upMbps.map { "\(SpeedFormat.rate($0)) Mb/s" } ?? "—")
                 }
                 .width(min: 80, ideal: 96)
                 .customizationID("montee")
 
-                TableColumn(SuiviTableHeading("LATENCE"), sortUsing: table.sort("latence")) { line in
+                TableColumn(StandardTableHeading("LATENCE"), sortUsing: table.sort("latence")) { line in
                     SpeedNumberCell(line.record.latencyMs.map { "\(SpeedFormat.latency($0)) ms" } ?? "—")
                 }
                 .width(min: 66, ideal: 80)
                 .customizationID("latence")
 
-                TableColumn(SuiviTableHeading("GIGUE"), sortUsing: table.sort("gigue")) { line in
+                TableColumn(StandardTableHeading("GIGUE"), sortUsing: table.sort("gigue")) { line in
                     SpeedNumberCell(line.record.jitterMs.map { "\(SpeedFormat.number($0, digits: $0 < 1 ? 2 : 1)) ms" } ?? "—")
                 }
                 .width(min: 60, ideal: 80)
@@ -335,7 +333,7 @@ private struct SpeedHistoryTable: View {
             }
 
             Group {
-                TableColumn(SuiviTableHeading("LATENCE EN CHARGE"), sortUsing: table.sort("latenceCharge")) { line in
+                TableColumn(StandardTableHeading("LATENCE EN CHARGE"), sortUsing: table.sort("latenceCharge")) { line in
                     SpeedNumberCell(line.record.loadedLatencyMs.map { "\(SpeedFormat.latency($0)) ms" } ?? "—")
                         .help("Latence mesurée pendant le transfert")
                 }
@@ -343,7 +341,7 @@ private struct SpeedHistoryTable: View {
                 .customizationID("latenceCharge")
                 .defaultVisibility(.hidden)
 
-                TableColumn(SuiviTableHeading("FLUX"), sortUsing: table.sort("flux")) { line in
+                TableColumn(StandardTableHeading("FLUX"), sortUsing: table.sort("flux")) { line in
                     SpeedNumberCell("\(line.record.streams)")
                         .help("Connexions parallèles du test")
                 }
@@ -351,7 +349,7 @@ private struct SpeedHistoryTable: View {
                 .customizationID("flux")
                 .defaultVisibility(.hidden)
 
-                TableColumn(SuiviTableHeading("ORIGINE"), sortUsing: table.sort("origine")) { line in
+                TableColumn(StandardTableHeading("ORIGINE"), sortUsing: table.sort("origine")) { line in
                     Text(line.record.origin.prefix(1).uppercased() + line.record.origin.dropFirst())
                         .font(Theme.small).foregroundStyle(Theme.neutralText).lineLimit(1)
                 }

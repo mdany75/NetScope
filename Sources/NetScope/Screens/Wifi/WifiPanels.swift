@@ -504,11 +504,8 @@ struct WifiNetworksTable: View {
     /// Tri du croquis au premier lancement : RSSI décroissant (signal le plus fort en haut).
     @MainActor
     static func makeModel() -> StandardTableModel<WifiNetworkRow> {
-        let model = StandardTableModel(id: "wifi.reseaux", columns: columns, sortKeys: sortKeys, defaultSort: "rssi")
-        if StandardTableStorage.defaults?.data(forKey: "tableau.wifi.reseaux.tri") == nil {
-            model.sortOrder = [KeyPathComparator(\WifiNetworkRow.rssi, order: .reverse)]
-        }
-        return model
+        StandardTableModel(id: "wifi.reseaux", columns: columns, sortKeys: sortKeys, defaultSort: "rssi",
+                           defaultAscending: false)
     }
 
     /// Hauteur d'une ligne du tableau (contenu de 20 points et marges du tableau).

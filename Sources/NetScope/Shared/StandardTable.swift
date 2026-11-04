@@ -51,6 +51,15 @@ import SwiftUI
 //
 // 5. Une liste dans une cellule (ports, étiquettes, adresses) : `StandardTagList(tags: […])`
 //    affiche autant d'étiquettes que la largeur le permet, puis « +N », liste complète en infobulle.
+//    Couleurs propres à chaque étiquette : `colors: { tag in (texte, fond) }`.
+//
+// 6. Tableau dans une page qui défile déjà : `.standardTableHeight(rows:rowHeight:maxRows:)` donne
+//    la hauteur (en-tête + lignes, plafonnée) et coupe le défilement interne quand tout tient.
+//    Panneau étroit : en-têtes `StandardTableHeading("TITRE")` (11 pt, comme les croquis) et
+//    `StandardColumnsMenu(model:, compact: true)` (icône seule).
+//
+// Tri par défaut décroissant (dates, signal) : `defaultAscending: false`. Menu de tri hors de
+// l'en-tête : `table.currentSort` et `table.setSort(_:ascending:)`.
 //
 // Une nouvelle donnée = une nouvelle colonne facultative (`isDefaultVisible: false`) : elle apparaît
 // dans les deux menus sans rien changer ailleurs.
@@ -89,14 +98,20 @@ final class StandardTableModel<Row: Identifiable>: ObservableObject {
         var ascending: Bool
     }
 
-    /// - `defaultSort` : identifiant de la colonne triée au premier lancement (croissant).
+    /// - `defaultSort` : identifiant de la colonne triée au premier lancement.
+    /// - `defaultAscending` : sens de ce tri (false : décroissant, ex. dates récentes ou signal fort en haut) ;
+    ///   nil garde le sens de la clé dans `sortKeys` (croissant, sauf clé déclarée `order: .reverse`).
     init(id: String, columns: [StandardColumn], sortKeys: [String: KeyPathComparator<Row>], defaultSort: String,
-         defaults: UserDefaults? = StandardTableStorage.defaults) {
+         defaultAscending: Bool? = nil, defaults: UserDefaults? = StandardTableStorage.defaults) {
         self.id = id
         self.columns = columns
         self.sortKeys = sortKeys
         self.defaults = defaults
-        let fallback = sortKeys[defaultSort].map { [$0] } ?? []
+        let fallback = sortKeys[defaultSort].map { comparator -> [KeyPathComparator<Row>] in
+            var comparator = comparator
+            if let defaultAscending { comparator.order = defaultAscending ? .forward : .reverse }
+            return [comparator]
+        } ?? []
         self.defaultSort = fallback
         customization = Self.loadCustomization(defaults, key: "tableau.\(id).colonnes")
         sortOrder = Self.loadSort(defaults, key: "tableau.\(id).tri", keys: sortKeys) ?? fallback
@@ -109,6 +124,25 @@ final class StandardTableModel<Row: Identifiable>: ObservableObject {
             return defaultSort.first ?? KeyPathComparator(\Row.id.hashValue)
         }
         return comparator
+    }
+
+    // MARK: Tri en vigueur
+
+    /// Colonne et sens du tri en vigueur (nil : aucun tri ou clé inconnue).
+    var currentSort: (column: String, ascending: Bool)? {
+        guard let first = sortOrder.first, let column = columnID(of: first) else { return nil }
+        return (column, first.order == .forward)
+    }
+
+    /// Trie par une colonne, dans le sens voulu (même effet qu'un clic sur l'en-tête).
+    func setSort(_ column: String, ascending: Bool) {
+        guard var comparator = sortKeys[column] else { return }
+        comparator.order = ascending ? .forward : .reverse
+        sortOrder = [comparator]
+    }
+
+    private func columnID(of comparator: KeyPathComparator<Row>) -> String? {
+        sortKeys.first(where: { $0.value.keyPath == comparator.keyPath })?.key
     }
 
     // MARK: Colonnes visibles
@@ -164,7 +198,7 @@ final class StandardTableModel<Row: Identifiable>: ObservableObject {
         guard let defaults else { return }
         let key = "tableau.\(id).tri"
         guard let first = sortOrder.first,
-              let column = sortKeys.first(where: { $0.value.keyPath == first.keyPath })?.key,
+              let column = columnID(of: first),
               let data = try? JSONEncoder().encode(SavedSort(column: column, ascending: first.order == .forward)) else {
             defaults.removeObject(forKey: key)
             return
@@ -186,6 +220,36 @@ extension View {
     func standardTableStyle() -> some View {
         tableStyle(.inset(alternatesRowBackgrounds: false))
     }
+
+    /// Hauteur d'un tableau standard placé dans une page qui défile déjà : en-tête plus `rows`
+    /// lignes, au plus `maxRows` (au-delà, le tableau défile seul) ; quand tout tient, le
+    /// défilement interne est coupé pour que la molette fasse défiler la page.
+    /// - `extra` : marge ajoutée (ex. barre de défilement horizontale).
+    func standardTableHeight(rows: Int, rowHeight: CGFloat, maxRows: Int = .max,
+                             headerHeight: CGFloat = StandardTableMetrics.headerHeight,
+                             extra: CGFloat = 0) -> some View {
+        frame(height: StandardTableMetrics.height(rows: rows, rowHeight: rowHeight, maxRows: maxRows,
+                                                  headerHeight: headerHeight, extra: extra))
+            .scrollDisabled(rows <= maxRows)
+    }
+}
+
+/// Mesures communes des tableaux standard.
+enum StandardTableMetrics {
+    /// Hauteur de l'en-tête d'un `Table` (style `.inset`).
+    static let headerHeight: CGFloat = 36
+
+    static func height(rows: Int, rowHeight: CGFloat, maxRows: Int = .max,
+                       headerHeight: CGFloat = headerHeight, extra: CGFloat = 0) -> CGFloat {
+        headerHeight + CGFloat(min(max(rows, 0), maxRows)) * rowHeight + extra
+    }
+}
+
+/// Titre de colonne compact (11 pt demi-gras, à écrire en majuscules), comme les en-têtes des
+/// croquis : pour les tableaux des panneaux étroits, où l'en-tête 13 pt par défaut tronquerait.
+/// S'emploie ainsi : `TableColumn(StandardTableHeading("ACTIF"), sortUsing: …)`.
+func StandardTableHeading(_ title: String) -> Text {
+    Text(title).font(.system(size: 11, weight: .semibold)).kerning(0.3)
 }
 
 // MARK: - Menu « Colonnes »
@@ -195,6 +259,8 @@ extension View {
 struct StandardColumnsMenu<Row: Identifiable>: View {
     @ObservedObject var model: StandardTableModel<Row>
     var title = "Colonnes"
+    /// Icône seule, sans flèche de menu : pour un en-tête de panneau déjà plein.
+    var compact = false
 
     var body: some View {
         Menu {
@@ -208,9 +274,15 @@ struct StandardColumnsMenu<Row: Identifiable>: View {
             Divider()
             Button("Rétablir les colonnes par défaut") { model.reset() }
         } label: {
-            Label(title, systemImage: "tablecells")
+            if compact {
+                Label(title, systemImage: "tablecells").labelStyle(.iconOnly)
+            } else {
+                Label(title, systemImage: "tablecells")
+            }
         }
         .menuStyle(.button)
+        .menuIndicator(compact ? .hidden : .automatic)
+        .accessibilityLabel(title)
         .font(Theme.small)
         .fixedSize()
         .help("Choisir les colonnes du tableau (aussi au clic droit sur l’en-tête)")
@@ -225,6 +297,9 @@ struct StandardTagList: View {
     let tags: [String]
     /// Étiquettes mises en avant (bleu), ex. ports web.
     var highlighted: (String) -> Bool = { _ in false }
+    /// Couleurs propres à une étiquette (texte, fond), ex. « Critique » en rouge ; nil : couleurs
+    /// ordinaires (ou bleu si `highlighted`).
+    var colors: ((String) -> (Color, Color)?)?
     /// Texte de l'infobulle ; par défaut, la liste séparée par des virgules.
     var help: String?
     /// Texte quand la liste est vide.
@@ -260,12 +335,14 @@ struct StandardTagList: View {
 
     private func tagView(_ tag: String) -> some View {
         let strong = highlighted(tag)
+        let (foreground, background) = colors?(tag)
+            ?? (strong ? (Theme.accentStrong, Color(hex: 0xDBEAFE)) : (Theme.neutralText, Theme.neutralSoft))
         return Text(tag)
             .font(Font(Self.font))
-            .foregroundStyle(strong ? Theme.accentStrong : Theme.neutralText)
+            .foregroundStyle(foreground)
             .padding(.horizontal, Self.padding)
             .padding(.vertical, 1)
-            .background(RoundedRectangle(cornerRadius: 4).fill(strong ? Color(hex: 0xDBEAFE) : Theme.neutralSoft))
+            .background(RoundedRectangle(cornerRadius: 4).fill(background))
             .fixedSize()
     }
 

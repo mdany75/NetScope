@@ -172,13 +172,6 @@ struct MonFilterChip: View {
     }
 }
 
-/// Titre de colonne des tableaux standard du groupe Suivi (Surveillance, Ping continu, Speedtest) :
-/// 11 pt demi-gras en majuscules, comme les en-têtes des croquis. Ces tableaux vivent dans des
-/// panneaux étroits où l'en-tête 13 pt par défaut tronquerait « Actif », « Intervalle » ou « Envoyés ».
-func SuiviTableHeading(_ title: String) -> Text {
-    Text(title).font(.system(size: 11, weight: .semibold)).kerning(0.3)
-}
-
 /// Intertitre de panneau (11 pt, majuscules, gris).
 struct MonHeading: View {
     let text: String

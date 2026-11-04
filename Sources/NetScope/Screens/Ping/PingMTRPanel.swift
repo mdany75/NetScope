@@ -36,7 +36,6 @@ struct PingMTRPanel: View {
 
     /// Ligne du croquis : 32 ; au-delà de `maxRows` sauts, le tableau défile.
     static let rowHeight: CGFloat = 32
-    static let headerHeight: CGFloat = 36
     static let maxRows = 15
 
     /// « Envoyés » est masquée par défaut : c'est le nombre de cycles, déjà dans le sous-titre, et
@@ -106,9 +105,7 @@ struct PingMTRPanel: View {
                     .buttonStyle(PingSmallButtonStyle())
                     .disabled(report == nil)
                 // Icône seule : l'en-tête du croquis est déjà plein (aussi au clic droit sur l'en-tête).
-                StandardColumnsMenu(model: table)
-                    .labelStyle(.iconOnly)
-                    .menuIndicator(.hidden)
+                StandardColumnsMenu(model: table, compact: true)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -118,8 +115,7 @@ struct PingMTRPanel: View {
                 let rows = report.hops.map { PingHopLine(hop: $0, host: hostname(for: $0)) }
                     .sorted(using: table.sortOrder)
                 PingHopTable(rows: rows, controller: controller, table: table)
-                    .frame(height: Self.headerHeight + Self.rowHeight * CGFloat(min(rows.count, Self.maxRows)))
-                    .scrollDisabled(rows.count <= Self.maxRows)
+                    .standardTableHeight(rows: rows.count, rowHeight: Self.rowHeight, maxRows: Self.maxRows)
             } else {
                 Text(placeholder)
                     .font(Theme.small)
@@ -194,7 +190,7 @@ private struct PingHopTable: View {
     var body: some View {
         Table(rows, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
             Group {
-                TableColumn(SuiviTableHeading("N°"), sortUsing: table.sort("numero")) { line in
+                TableColumn(StandardTableHeading("N°"), sortUsing: table.sort("numero")) { line in
                     PingCell("\(line.hop.ttl)", color: Theme.textSecondary)
                         .frame(height: Self.cellHeight)
                 }
@@ -202,7 +198,7 @@ private struct PingHopTable: View {
                 .customizationID("numero")
                 .disabledCustomizationBehavior(.visibility)
 
-                TableColumn(SuiviTableHeading("HÔTE"), sortUsing: table.sort("hote")) { line in
+                TableColumn(StandardTableHeading("HÔTE"), sortUsing: table.sort("hote")) { line in
                     let dimmed = line.host.hasPrefix("(") || line.host == "???"
                     Text(line.host)
                         .font(.system(size: 12, weight: line.hop.isDestination ? .semibold : .regular))
@@ -214,51 +210,51 @@ private struct PingHopTable: View {
                 .width(min: 80, ideal: 94)
                 .customizationID("hote")
 
-                TableColumn(SuiviTableHeading("IP"), sortUsing: table.sort("ip")) { line in
+                TableColumn(StandardTableHeading("IP"), sortUsing: table.sort("ip")) { line in
                     PingCell(line.hop.address?.description ?? "—", mono: true, size: 11)
                 }
                 .width(min: 100, ideal: 110)
                 .customizationID("ip")
 
-                TableColumn(SuiviTableHeading("PERTE"), sortUsing: table.sort("perte")) { line in
+                TableColumn(StandardTableHeading("PERTE"), sortUsing: table.sort("perte")) { line in
                     let loss = line.stats.lossPercent
                     PingCell(PingFormat.percent(loss), mono: true, color: pingLossColor(loss), bold: loss > 0, trailing: true)
                 }
                 .width(min: 46, ideal: 52)
                 .customizationID("perte")
 
-                TableColumn(SuiviTableHeading("ENVOYÉS"), sortUsing: table.sort("envoyes")) { line in
+                TableColumn(StandardTableHeading("ENVOYÉS"), sortUsing: table.sort("envoyes")) { line in
                     PingCell("\(line.stats.sent)", mono: true, color: Theme.textSecondary, trailing: true)
                 }
                 .width(min: 56, ideal: 64)
                 .customizationID("envoyes")
                 .defaultVisibility(.hidden)
 
-                TableColumn(SuiviTableHeading("DERNIER"), sortUsing: table.sort("dernier")) { line in
+                TableColumn(StandardTableHeading("DERNIER"), sortUsing: table.sort("dernier")) { line in
                     PingCell(PingFormat.decimal(line.stats.last), mono: true, trailing: true)
                 }
                 .width(min: 54, ideal: 60)
                 .customizationID("dernier")
 
-                TableColumn(SuiviTableHeading("MOY"), sortUsing: table.sort("moyenne")) { line in
+                TableColumn(StandardTableHeading("MOY"), sortUsing: table.sort("moyenne")) { line in
                     PingCell(PingFormat.decimal(line.stats.average), mono: true, bold: true, trailing: true)
                 }
                 .width(min: 38, ideal: 42)
                 .customizationID("moyenne")
 
-                TableColumn(SuiviTableHeading("MEILLEUR"), sortUsing: table.sort("meilleur")) { line in
+                TableColumn(StandardTableHeading("MEILLEUR"), sortUsing: table.sort("meilleur")) { line in
                     PingCell(PingFormat.decimal(line.stats.best), mono: true, trailing: true)
                 }
                 .width(min: 60, ideal: 68)
                 .customizationID("meilleur")
 
-                TableColumn(SuiviTableHeading("PIRE"), sortUsing: table.sort("pire")) { line in
+                TableColumn(StandardTableHeading("PIRE"), sortUsing: table.sort("pire")) { line in
                     PingCell(PingFormat.decimal(line.stats.worst), mono: true, trailing: true)
                 }
                 .width(min: 38, ideal: 42)
                 .customizationID("pire")
 
-                TableColumn(SuiviTableHeading("ÉCART-TYPE"), sortUsing: table.sort("ecartType")) { line in
+                TableColumn(StandardTableHeading("ÉCART-TYPE"), sortUsing: table.sort("ecartType")) { line in
                     PingCell(PingFormat.decimal(line.stats.standardDeviation), mono: true, trailing: true)
                 }
                 .width(min: 70, ideal: 80)
@@ -266,14 +262,14 @@ private struct PingHopTable: View {
             }
 
             Group {
-                TableColumn(SuiviTableHeading("REÇUS"), sortUsing: table.sort("recus")) { line in
+                TableColumn(StandardTableHeading("REÇUS"), sortUsing: table.sort("recus")) { line in
                     PingCell("\(line.stats.received)", mono: true, trailing: true)
                 }
                 .width(min: 48, ideal: 56)
                 .customizationID("recus")
                 .defaultVisibility(.hidden)
 
-                TableColumn(SuiviTableHeading("PERDUS"), sortUsing: table.sort("perdus")) { line in
+                TableColumn(StandardTableHeading("PERDUS"), sortUsing: table.sort("perdus")) { line in
                     PingCell("\(line.stats.lost)", mono: true,
                              color: line.stats.lost > 0 ? pingLossColor(line.stats.lossPercent) : Theme.text, trailing: true)
                 }

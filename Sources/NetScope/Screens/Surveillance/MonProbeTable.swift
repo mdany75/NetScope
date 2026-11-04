@@ -122,7 +122,6 @@ struct MonProbeTable: View {
     /// Hauteur d'une ligne (croquis : 40) et de l'en-tête du tableau ; au-delà de `maxRows`
     /// lignes, le tableau défile.
     static let rowHeight: CGFloat = 40
-    static let headerHeight: CGFloat = 36
     static let maxRows = 14
 
     static let columns: [StandardColumn] = [
@@ -180,8 +179,7 @@ struct MonProbeTable: View {
                     let rows = probes.enumerated().map { MonProbeLine(probe: $1, order: $0, store: store, now: now) }
                         .sorted(using: table.sortOrder)
                     MonProbeGrid(rows: rows, table: table)
-                        .frame(height: Self.headerHeight + Self.rowHeight * CGFloat(min(rows.count, Self.maxRows)))
-                        .scrollDisabled(rows.count <= Self.maxRows)
+                        .standardTableHeight(rows: rows.count, rowHeight: Self.rowHeight, maxRows: Self.maxRows)
                 }
             }
             footer
@@ -287,7 +285,7 @@ private struct MonProbeGrid: View {
     var body: some View {
         Table(rows, selection: selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
             Group {
-                TableColumn(SuiviTableHeading("ACTIF"), sortUsing: table.sort("actif")) { line in
+                TableColumn(StandardTableHeading("ACTIF"), sortUsing: table.sort("actif")) { line in
                     MonSwitch(isOn: Binding(get: { line.probe.isEnabled }, set: { store.setEnabled($0, for: line.id) }),
                               label: "Sonde \(line.probe.name) active")
                         .frame(height: Self.cellHeight)
@@ -295,7 +293,7 @@ private struct MonProbeGrid: View {
                 .width(min: 44, ideal: 44, max: 64)
                 .customizationID("actif")
 
-                TableColumn(SuiviTableHeading("SONDE · CIBLE"), sortUsing: table.sort("sonde")) { line in
+                TableColumn(StandardTableHeading("SONDE · CIBLE"), sortUsing: table.sort("sonde")) { line in
                     VStack(alignment: .leading, spacing: 1) {
                         Text(line.probe.name)
                             .font(Theme.bodySemibold)
@@ -316,7 +314,7 @@ private struct MonProbeGrid: View {
                 .customizationID("sonde")
                 .disabledCustomizationBehavior(.visibility)
 
-                TableColumn(SuiviTableHeading("TYPE"), sortUsing: table.sort("type")) { line in
+                TableColumn(StandardTableHeading("TYPE"), sortUsing: table.sort("type")) { line in
                     Text(line.probe.kind.shortLabel)
                         .font(Theme.captionSemibold)
                         .foregroundStyle(Theme.neutralText)
@@ -330,19 +328,19 @@ private struct MonProbeGrid: View {
                 .width(min: 56, ideal: 64)
                 .customizationID("type")
 
-                TableColumn(SuiviTableHeading("INTERVALLE"), sortUsing: table.sort("intervalle")) { line in
+                TableColumn(StandardTableHeading("INTERVALLE"), sortUsing: table.sort("intervalle")) { line in
                     MonCellText(MonProbe.intervalLabel(line.probe.interval), mono: true).monInactive(line)
                 }
                 .width(min: 60, ideal: 76)
                 .customizationID("intervalle")
 
-                TableColumn(SuiviTableHeading("ÉTAT"), sortUsing: table.sort("etat")) { line in
+                TableColumn(StandardTableHeading("ÉTAT"), sortUsing: table.sort("etat")) { line in
                     RegPill(text: MonText.label(line.state), tone: MonText.tone(line.state)).monInactive(line)
                 }
                 .width(min: 60, ideal: 62)
                 .customizationID("etat")
 
-                TableColumn(SuiviTableHeading("DERNIÈRE VALEUR"), sortUsing: table.sort("valeur")) { line in
+                TableColumn(StandardTableHeading("DERNIÈRE VALEUR"), sortUsing: table.sort("valeur")) { line in
                     let alert = line.state == .down || line.state == .warning
                     Text(line.value)
                         .font(Theme.mono(11, weight: alert ? .semibold : .regular))
@@ -355,7 +353,7 @@ private struct MonProbeGrid: View {
                 .width(min: 90, ideal: 120)
                 .customizationID("valeur")
 
-                TableColumn(SuiviTableHeading("DISPONIBILITÉ 24 H"), sortUsing: table.sort("disponibilite")) { line in
+                TableColumn(StandardTableHeading("DISPONIBILITÉ 24 H"), sortUsing: table.sort("disponibilite")) { line in
                     MonUptimeBar(slots: line.slots, availability: line.availability,
                                  enabled: line.probe.isEnabled, name: line.probe.name)
                         .monInactive(line)
@@ -365,7 +363,7 @@ private struct MonProbeGrid: View {
             }
 
             Group {
-                TableColumn(SuiviTableHeading("CIBLE"), sortUsing: table.sort("cible")) { line in
+                TableColumn(StandardTableHeading("CIBLE"), sortUsing: table.sort("cible")) { line in
                     MonCellText(line.probe.target.isEmpty ? "—" : line.probe.target, mono: true,
                                 dimmed: line.probe.target.isEmpty)
                         .help(line.targetLabel)
@@ -375,7 +373,7 @@ private struct MonProbeGrid: View {
                 .customizationID("cible")
                 .defaultVisibility(.hidden)
 
-                TableColumn(SuiviTableHeading("LATENCE"), sortUsing: table.sort("latence")) { line in
+                TableColumn(StandardTableHeading("LATENCE"), sortUsing: table.sort("latence")) { line in
                     MonCellText(line.latency.map { ToolFormat.decimal($0) + "\u{00A0}ms" } ?? "—", mono: true,
                                 dimmed: line.latency == nil)
                         .frame(maxWidth: .infinity, alignment: .trailing)
@@ -385,7 +383,7 @@ private struct MonProbeGrid: View {
                 .customizationID("latence")
                 .defaultVisibility(.hidden)
 
-                TableColumn(SuiviTableHeading("DERNIER CONTRÔLE"), sortUsing: table.sort("dernierControle")) { line in
+                TableColumn(StandardTableHeading("DERNIER CONTRÔLE"), sortUsing: table.sort("dernierControle")) { line in
                     MonCellText(line.lastCheck.map { MonJournal.timestamp($0, now: store.now) } ?? "—", mono: true,
                                 dimmed: line.lastCheck == nil)
                         .monInactive(line)
@@ -394,7 +392,7 @@ private struct MonProbeGrid: View {
                 .customizationID("dernierControle")
                 .defaultVisibility(.hidden)
 
-                TableColumn(SuiviTableHeading("SEUILS"), sortUsing: table.sort("seuils")) { line in
+                TableColumn(StandardTableHeading("SEUILS"), sortUsing: table.sort("seuils")) { line in
                     MonCellText(line.thresholdsLabel, mono: true)
                         .help("Latence, perte et échecs consécutifs avant la panne")
                         .monInactive(line)
@@ -403,14 +401,14 @@ private struct MonProbeGrid: View {
                 .customizationID("seuils")
                 .defaultVisibility(.hidden)
 
-                TableColumn(SuiviTableHeading("NOTIFICATIONS"), sortUsing: table.sort("notifications")) { line in
+                TableColumn(StandardTableHeading("NOTIFICATIONS"), sortUsing: table.sort("notifications")) { line in
                     MonCellText(line.notifyLabel, dimmed: !line.probe.notify).monInactive(line)
                 }
                 .width(min: 70, ideal: 100)
                 .customizationID("notifications")
                 .defaultVisibility(.hidden)
 
-                TableColumn(SuiviTableHeading("DERNIÈRE PANNE"), sortUsing: table.sort("dernierePanne")) { line in
+                TableColumn(StandardTableHeading("DERNIÈRE PANNE"), sortUsing: table.sort("dernierePanne")) { line in
                     MonCellText(line.lastOutage.map { MonJournal.timestamp($0, now: store.now) } ?? "—", mono: true,
                                 dimmed: line.lastOutage == nil)
                         .monInactive(line)
@@ -419,14 +417,14 @@ private struct MonProbeGrid: View {
                 .customizationID("dernierePanne")
                 .defaultVisibility(.hidden)
 
-                TableColumn(SuiviTableHeading("PLAGE HORAIRE"), sortUsing: table.sort("plage")) { line in
+                TableColumn(StandardTableHeading("PLAGE HORAIRE"), sortUsing: table.sort("plage")) { line in
                     MonCellText(line.probe.schedule.label).help(line.probe.schedule.label).monInactive(line)
                 }
                 .width(min: 90, ideal: 160)
                 .customizationID("plage")
                 .defaultVisibility(.hidden)
 
-                TableColumn(SuiviTableHeading("CONDITION"), sortUsing: table.sort("condition")) { line in
+                TableColumn(StandardTableHeading("CONDITION"), sortUsing: table.sort("condition")) { line in
                     let condition = line.probe.conditionSummary
                     MonCellText(condition.isEmpty ? "—" : condition, dimmed: condition.isEmpty)
                         .help(condition)
