@@ -1,14 +1,71 @@
 import NetScopeCore
 import SwiftUI
 
-/// Journal horodaté des événements : coupures, alertes, retours en ligne.
+/// Une ligne du journal des événements, avec ses clés de tri.
+struct PingEventLine: Identifiable {
+    let event: PingEvent
+    /// Rang dans le journal (le plus récent d'abord) : tri par défaut.
+    let order: Int
+
+    var id: UUID { event.id }
+
+    var sortDate: Date { event.date }
+    var sortLevel: Int {
+        switch event.level {
+        case .coupure: return 0
+        case .alerte: return 1
+        case .retabli: return 2
+        case .info: return 3
+        }
+    }
+    var sortSubject: String { event.subject }
+    var sortMessage: String { event.message }
+}
+
+/// Journal horodaté des événements : coupures, alertes, retours en ligne (tableau standard, note 8).
 struct PingJournalPanel: View {
     @ObservedObject var controller: PingController
     var maxRows = 40
+    @StateObject private var table = StandardTableModel<PingEventLine>(
+        id: "ping.journal", columns: PingJournalPanel.columns, sortKeys: PingJournalPanel.sortKeys,
+        defaultSort: "ordre")
 
-    private static let timeFormatter: DateFormatter = {
+    /// Ligne : étiquette et cible, puis le message sur deux lignes au plus (croquis) ; au-delà
+    /// de `visibleRows` événements, le tableau défile.
+    static let rowHeight: CGFloat = 62
+    static let headerHeight: CGFloat = 36
+    static let visibleRows = 12
+
+    /// « Événement » reprend la disposition du croquis (étiquette, cible, message) ; le niveau,
+    /// la cible et la date seuls sont des colonnes facultatives, pour trier ou comparer.
+    static let columns: [StandardColumn] = [
+        StandardColumn(id: "heure", title: "Heure"),
+        StandardColumn(id: "evenement", title: "Événement", isRequired: true),
+        StandardColumn(id: "niveau", title: "Niveau", isDefaultVisible: false),
+        StandardColumn(id: "cible", title: "Cible", isDefaultVisible: false),
+        StandardColumn(id: "date", title: "Date", isDefaultVisible: false),
+    ]
+
+    /// « ordre » : ordre du journal (le plus récent d'abord), sans colonne.
+    static let sortKeys: [String: KeyPathComparator<PingEventLine>] = [
+        "ordre": KeyPathComparator(\PingEventLine.order),
+        "heure": KeyPathComparator(\PingEventLine.sortDate),
+        "evenement": KeyPathComparator(\PingEventLine.sortMessage),
+        "niveau": KeyPathComparator(\PingEventLine.sortLevel),
+        "cible": KeyPathComparator(\PingEventLine.sortSubject),
+        "date": KeyPathComparator(\PingEventLine.sortDate),
+    ]
+
+    static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
+        return formatter
+    }()
+
+    static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "fr_CA")
+        formatter.dateFormat = "d MMM yyyy"
         return formatter
     }()
 
@@ -16,10 +73,14 @@ struct PingJournalPanel: View {
         let events = controller.events
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                Text("Journal des événements").font(Theme.panelTitle).foregroundStyle(Theme.text)
+                Text("Journal des événements").font(Theme.panelTitle).foregroundStyle(Theme.text).lineLimit(1).fixedSize()
                 Text("\(events.count) \(events.count > 1 ? "événements" : "événement")")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 Spacer(minLength: 8)
+                // Icône seule : la colonne du journal est étroite (aussi au clic droit sur l'en-tête).
+                StandardColumnsMenu(model: table)
+                    .labelStyle(.iconOnly)
+                    .menuIndicator(.hidden)
                 Button("Effacer") { controller.clearEvents() }
                     .buttonStyle(PingSmallButtonStyle())
                     .disabled(events.isEmpty)
@@ -46,15 +107,17 @@ struct PingJournalPanel: View {
                     .padding(.vertical, 20)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                VStack(spacing: 0) {
-                    ForEach(events.prefix(maxRows)) { event in row(event) }
-                }
-                .padding(.vertical, 4)
+                let rows = events.prefix(maxRows).enumerated().map { PingEventLine(event: $1, order: $0) }
+                    .sorted(using: table.sortOrder)
+                PingEventTable(rows: rows, table: table)
+                    .frame(height: Self.headerHeight + Self.rowHeight * CGFloat(min(rows.count, Self.visibleRows)))
+                    .scrollDisabled(rows.count <= Self.visibleRows)
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
     }
 
     private func counter(_ title: String, _ count: Int, _ color: Color) -> some View {
@@ -64,33 +127,81 @@ struct PingJournalPanel: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
+}
 
-    private func row(_ event: PingEvent) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Text(Self.timeFormatter.string(from: event.date))
-                .font(Theme.mono(12))
-                .foregroundStyle(Theme.textSecondary)
-                .frame(width: 64, alignment: .leading)
-                .padding(.top, 1)
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    tag(event.level)
-                    Text(event.subject).font(Theme.mono(12, weight: .semibold)).foregroundStyle(Theme.text)
-                }
-                Text(event.message)
-                    .font(Theme.small)
-                    .foregroundStyle(Theme.text)
-                    .fixedSize(horizontal: false, vertical: true)
+/// Tableau des événements.
+private struct PingEventTable: View {
+    let rows: [PingEventLine]
+    @ObservedObject var table: StandardTableModel<PingEventLine>
+
+    /// Hauteur du contenu d'une cellule : étiquette et cible, puis deux lignes de message.
+    static let cellHeight: CGFloat = 54
+
+    var body: some View {
+        Table(rows, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+            TableColumn(SuiviTableHeading("HEURE"), sortUsing: table.sort("heure")) { line in
+                Text(PingJournalPanel.timeFormatter.string(from: line.event.date))
+                    .font(Theme.mono(12))
+                    .foregroundStyle(Theme.textSecondary)
+                    .frame(height: Self.cellHeight, alignment: .top)
+                    .padding(.top, 2)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .width(min: 60, ideal: 64, max: 90)
+            .customizationID("heure")
+
+            TableColumn(SuiviTableHeading("ÉVÉNEMENT"), sortUsing: table.sort("evenement")) { line in
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        PingLevelTag(level: line.event.level)
+                        Text(line.event.subject)
+                            .font(Theme.mono(12, weight: .semibold))
+                            .foregroundStyle(Theme.text)
+                            .lineLimit(1)
+                    }
+                    Text(line.event.message)
+                        .font(Theme.small)
+                        .foregroundStyle(Theme.text)
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                        .help(line.event.message)
+                }
+                .frame(height: Self.cellHeight, alignment: .top)
+            }
+            .width(min: 160, ideal: 300)
+            .customizationID("evenement")
+            .disabledCustomizationBehavior(.visibility)
+
+            TableColumn(SuiviTableHeading("NIVEAU"), sortUsing: table.sort("niveau")) { line in
+                PingLevelTag(level: line.event.level)
+            }
+            .width(min: 70, ideal: 76)
+            .customizationID("niveau")
+            .defaultVisibility(.hidden)
+
+            TableColumn(SuiviTableHeading("CIBLE"), sortUsing: table.sort("cible")) { line in
+                PingCell(line.event.subject, mono: true)
+            }
+            .width(min: 80, ideal: 104)
+            .customizationID("cible")
+            .defaultVisibility(.hidden)
+
+            TableColumn(SuiviTableHeading("DATE"), sortUsing: table.sort("date")) { line in
+                PingCell(PingJournalPanel.dateFormatter.string(from: line.event.date), color: Theme.textSecondary)
+            }
+            .width(min: 80, ideal: 96)
+            .customizationID("date")
+            .defaultVisibility(.hidden)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.neutralSoft).frame(height: 1) }
+        .standardTableStyle()
         .textSelection(.enabled)
     }
+}
 
-    private func tag(_ level: PingEvent.Level) -> some View {
+/// Étiquette de niveau du croquis (« COUPURE » rouge, « ALERTE » orange, « RÉTABLI » vert).
+struct PingLevelTag: View {
+    let level: PingEvent.Level
+
+    var body: some View {
         let colors: (Color, Color)
         switch level {
         case .coupure: colors = (Theme.criticalSoft, Theme.critical)

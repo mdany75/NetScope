@@ -1,16 +1,74 @@
+import AppKit
 import NetScopeCore
 import SwiftUI
 
-/// Tableau MTR / traceroute vers la cible sélectionnée.
+/// Un saut du tableau MTR, avec le nom affiché et les clés de tri.
+struct PingHopLine: Identifiable {
+    let hop: PingMTRHop
+    /// Nom inverse (PTR), nom de la cible, adresse, « (sans PTR) » ou « ??? ».
+    let host: String
+
+    var id: Int { hop.ttl }
+    var stats: PingHopStats { hop.stats }
+
+    // MARK: Clés de tri (une valeur absente passe après les autres)
+
+    var sortTTL: Int { hop.ttl }
+    var sortHost: String { host }
+    var sortAddress: IPv4Address { hop.address ?? IPv4Address(UInt32.max) }
+    var sortLoss: Double { stats.lossPercent }
+    var sortSent: Int { stats.sent }
+    var sortReceived: Int { stats.received }
+    var sortLost: Int { stats.lost }
+    var sortLast: Double { stats.last ?? .greatestFiniteMagnitude }
+    var sortAverage: Double { stats.average ?? .greatestFiniteMagnitude }
+    var sortBest: Double { stats.best ?? .greatestFiniteMagnitude }
+    var sortWorst: Double { stats.worst ?? .greatestFiniteMagnitude }
+    var sortDeviation: Double { stats.standardDeviation ?? .greatestFiniteMagnitude }
+}
+
+/// Tableau MTR / traceroute vers la cible sélectionnée (tableau standard, note 8).
 struct PingMTRPanel: View {
     @ObservedObject var controller: PingController
     let target: PingTarget
+    @StateObject private var table = StandardTableModel<PingHopLine>(
+        id: "ping.mtr", columns: PingMTRPanel.columns, sortKeys: PingMTRPanel.sortKeys, defaultSort: "numero")
 
-    /// Colonnes du tableau (titre, largeur, alignement) ; l'hôte prend la place restante.
-    private static let columns: [(String, CGFloat?, Alignment)] = [
-        ("N°", 28, .trailing), ("Hôte", nil, .leading), ("IP", 112, .leading), ("Perte", 56, .trailing),
-        ("Envoyés", 64, .trailing), ("Dernier", 60, .trailing), ("Moy", 46, .trailing),
-        ("Meilleur", 66, .trailing), ("Pire", 44, .trailing), ("Écart-type", 78, .trailing),
+    /// Ligne du croquis : 32 ; au-delà de `maxRows` sauts, le tableau défile.
+    static let rowHeight: CGFloat = 32
+    static let headerHeight: CGFloat = 36
+    static let maxRows = 15
+
+    /// « Envoyés » est masquée par défaut : c'est le nombre de cycles, déjà dans le sous-titre, et
+    /// les dix colonnes du croquis ne tiennent pas dans la colonne de gauche.
+    static let columns: [StandardColumn] = [
+        StandardColumn(id: "numero", title: "N°", isRequired: true),
+        StandardColumn(id: "hote", title: "Hôte"),
+        StandardColumn(id: "ip", title: "IP"),
+        StandardColumn(id: "perte", title: "Perte"),
+        StandardColumn(id: "envoyes", title: "Envoyés", isDefaultVisible: false),
+        StandardColumn(id: "dernier", title: "Dernier"),
+        StandardColumn(id: "moyenne", title: "Moy"),
+        StandardColumn(id: "meilleur", title: "Meilleur"),
+        StandardColumn(id: "pire", title: "Pire"),
+        StandardColumn(id: "ecartType", title: "Écart-type"),
+        StandardColumn(id: "recus", title: "Reçus", isDefaultVisible: false),
+        StandardColumn(id: "perdus", title: "Perdus", isDefaultVisible: false),
+    ]
+
+    static let sortKeys: [String: KeyPathComparator<PingHopLine>] = [
+        "numero": KeyPathComparator(\PingHopLine.sortTTL),
+        "hote": KeyPathComparator(\PingHopLine.sortHost),
+        "ip": KeyPathComparator(\PingHopLine.sortAddress),
+        "perte": KeyPathComparator(\PingHopLine.sortLoss),
+        "envoyes": KeyPathComparator(\PingHopLine.sortSent),
+        "dernier": KeyPathComparator(\PingHopLine.sortLast),
+        "moyenne": KeyPathComparator(\PingHopLine.sortAverage),
+        "meilleur": KeyPathComparator(\PingHopLine.sortBest),
+        "pire": KeyPathComparator(\PingHopLine.sortWorst),
+        "ecartType": KeyPathComparator(\PingHopLine.sortDeviation),
+        "recus": KeyPathComparator(\PingHopLine.sortReceived),
+        "perdus": KeyPathComparator(\PingHopLine.sortLost),
     ]
 
     var body: some View {
@@ -39,7 +97,7 @@ struct PingMTRPanel: View {
                     .buttonStyle(PingSmallButtonStyle(prominent: true))
                     .disabled(target.address == nil)
                 }
-                Button("Résolution DNS : \(controller.resolveHopNames ? "oui" : "non")") {
+                Button("Résolution DNS : \(controller.resolveHopNames ? "oui" : "non")") {
                     controller.resolveHopNames.toggle()
                 }
                 .buttonStyle(PingSmallButtonStyle())
@@ -47,14 +105,21 @@ struct PingMTRPanel: View {
                 Button("Copier le rapport") { controller.copyMTRReport() }
                     .buttonStyle(PingSmallButtonStyle())
                     .disabled(report == nil)
+                // Icône seule : l'en-tête du croquis est déjà plein (aussi au clic droit sur l'en-tête).
+                StandardColumnsMenu(model: table)
+                    .labelStyle(.iconOnly)
+                    .menuIndicator(.hidden)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
 
-            header
             if let report, !report.hops.isEmpty {
-                ForEach(report.hops, id: \.ttl) { hop in row(hop) }
+                let rows = report.hops.map { PingHopLine(hop: $0, host: hostname(for: $0)) }
+                    .sorted(using: table.sortOrder)
+                PingHopTable(rows: rows, controller: controller, table: table)
+                    .frame(height: Self.headerHeight + Self.rowHeight * CGFloat(min(rows.count, Self.maxRows)))
+                    .scrollDisabled(rows.count <= Self.maxRows)
             } else {
                 Text(placeholder)
                     .font(Theme.small)
@@ -81,78 +146,6 @@ struct PingMTRPanel: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
     }
 
-    /// En-tête compact (10 pt) pour que les dix colonnes tiennent dans la colonne de gauche.
-    private var header: some View {
-        HStack(spacing: 0) {
-            ForEach(Self.columns, id: \.0) { column in
-                let label = Text(column.0.uppercased())
-                    .font(.system(size: 10, weight: .semibold))
-                    .kerning(0.3)
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
-                    .padding(.horizontal, 4)
-                    .minimumScaleFactor(0.85)
-                if let width = column.1 {
-                    label.frame(width: width, alignment: column.2)
-                } else {
-                    label.frame(minWidth: 120, maxWidth: .infinity, alignment: column.2)
-                }
-            }
-        }
-        .padding(.horizontal, 8)
-        .frame(height: 30)
-        .background(Theme.panelMuted)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
-    }
-
-    private func row(_ hop: PingMTRHop) -> some View {
-        let stats = hop.stats
-        let name = hostname(for: hop)
-        return HStack(spacing: 0) {
-            cell("\(hop.ttl)", width: 28, alignment: .trailing, color: Theme.textSecondary)
-            Text(name)
-                .font(.system(size: 12, weight: hop.isDestination ? .semibold : .regular))
-                .foregroundStyle(name.hasPrefix("(") || name == "???" ? Theme.textSecondary : Theme.text)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .padding(.horizontal, 6)
-                .frame(minWidth: 120, maxWidth: .infinity, alignment: .leading)
-                .help(name)
-            cell(hop.address?.description ?? "—", width: 112, alignment: .leading, mono: true, size: 11)
-            cell(PingFormat.percent(stats.lossPercent), width: 56, alignment: .trailing, mono: true,
-                 color: pingLossColor(stats.lossPercent), bold: stats.lossPercent > 0)
-            cell("\(stats.sent)", width: 64, alignment: .trailing, mono: true)
-            cell(PingFormat.decimal(stats.last), width: 60, alignment: .trailing, mono: true)
-            cell(PingFormat.decimal(stats.average), width: 46, alignment: .trailing, mono: true, bold: true)
-            cell(PingFormat.decimal(stats.best), width: 66, alignment: .trailing, mono: true)
-            cell(PingFormat.decimal(stats.worst), width: 44, alignment: .trailing, mono: true)
-            cell(PingFormat.decimal(stats.standardDeviation), width: 78, alignment: .trailing, mono: true)
-        }
-        .frame(minHeight: 32)
-        .padding(.horizontal, 8)
-        .background(hop.isDestination ? Color(hex: 0xF8FAFF) : Theme.panel)
-        .overlay(alignment: .top) { Rectangle().fill(Theme.neutralSoft).frame(height: 1) }
-        .contextMenu {
-            if let address = hop.address {
-                Button("Copier l’adresse") {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(address.description, forType: .string)
-                }
-                Button("Ajouter au ping continu") { controller.add(address.description) }
-            }
-        }
-    }
-
-    private func cell(_ text: String, width: CGFloat, alignment: Alignment, mono: Bool = false,
-                      color: Color = Theme.text, bold: Bool = false, size: CGFloat = 12) -> some View {
-        Text(text)
-            .font(mono ? Theme.mono(size, weight: bold ? .semibold : .regular) : .system(size: size))
-            .foregroundStyle(color)
-            .lineLimit(1)
-            .padding(.horizontal, 6)
-            .frame(width: width, alignment: alignment)
-    }
-
     private func hostname(for hop: PingMTRHop) -> String {
         guard let address = hop.address else { return "???" }
         if hop.isDestination, controller.resolveHopNames, controller.hostnames[address] == nil,
@@ -172,20 +165,163 @@ struct PingMTRPanel: View {
     private var placeholder: String {
         if let error = controller.mtrError { return error }
         if controller.isMTRRunning { return "Découverte du chemin en cours (TTL 1 à 30)…" }
-        return "Cliquer sur « Lancer MTR » pour suivre chaque saut du chemin vers \(target.addressLabel) : perte, latence et écart-type par routeur."
+        return "Cliquer sur « Lancer MTR » pour suivre chaque saut du chemin vers \(target.addressLabel) : perte, latence et écart-type par routeur."
     }
 
     private func note(_ report: PingMTRReport?) -> String {
         guard let report, !report.hops.isEmpty else {
-            return "Le MTR envoie un Echo Request par saut et par cycle (TTL croissant) ; chaque routeur répond par « Time Exceeded »."
+            return "Le MTR envoie un Echo Request par saut et par cycle (TTL croissant) ; chaque routeur répond par « Time Exceeded »."
         }
         if report.hops.count == 1 {
-            return "Même sous-réseau : 1 seul saut L3. Le chemin L2 (switchs et ports) se lit sur l’écran Switchs et ports."
+            return "Même sous-réseau : 1 seul saut L3. Le chemin L2 (switchs et ports) se lit sur l’écran Switchs et ports."
         }
         if report.hops.count == 2 {
             return "Routage par la passerelle. Une perte sur le dernier saut seulement pointe vers l’appareil ou son port de switch, pas vers le cœur."
         }
         return "Une perte sur un saut intermédiaire qui ne se propage pas aux sauts suivants vient d’une limitation ICMP du routeur, pas d’une vraie perte sur le chemin."
+    }
+}
+
+/// Tableau des sauts : clic droit pour copier l'adresse ou l'ajouter au ping continu.
+private struct PingHopTable: View {
+    let rows: [PingHopLine]
+    @ObservedObject var controller: PingController
+    @ObservedObject var table: StandardTableModel<PingHopLine>
+
+    /// Hauteur du contenu d'une cellule (la ligne fait 32 avec les marges du tableau).
+    static let cellHeight: CGFloat = 24
+
+    var body: some View {
+        Table(rows, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+            Group {
+                TableColumn(SuiviTableHeading("N°"), sortUsing: table.sort("numero")) { line in
+                    PingCell("\(line.hop.ttl)", color: Theme.textSecondary)
+                        .frame(height: Self.cellHeight)
+                }
+                .width(min: 24, ideal: 28, max: 40)
+                .customizationID("numero")
+                .disabledCustomizationBehavior(.visibility)
+
+                TableColumn(SuiviTableHeading("HÔTE"), sortUsing: table.sort("hote")) { line in
+                    let dimmed = line.host.hasPrefix("(") || line.host == "???"
+                    Text(line.host)
+                        .font(.system(size: 12, weight: line.hop.isDestination ? .semibold : .regular))
+                        .foregroundStyle(dimmed ? Theme.textSecondary : Theme.text)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .help(line.hop.isDestination ? "\(line.host) · destination" : line.host)
+                }
+                .width(min: 80, ideal: 94)
+                .customizationID("hote")
+
+                TableColumn(SuiviTableHeading("IP"), sortUsing: table.sort("ip")) { line in
+                    PingCell(line.hop.address?.description ?? "—", mono: true, size: 11)
+                }
+                .width(min: 100, ideal: 110)
+                .customizationID("ip")
+
+                TableColumn(SuiviTableHeading("PERTE"), sortUsing: table.sort("perte")) { line in
+                    let loss = line.stats.lossPercent
+                    PingCell(PingFormat.percent(loss), mono: true, color: pingLossColor(loss), bold: loss > 0, trailing: true)
+                }
+                .width(min: 46, ideal: 52)
+                .customizationID("perte")
+
+                TableColumn(SuiviTableHeading("ENVOYÉS"), sortUsing: table.sort("envoyes")) { line in
+                    PingCell("\(line.stats.sent)", mono: true, color: Theme.textSecondary, trailing: true)
+                }
+                .width(min: 56, ideal: 64)
+                .customizationID("envoyes")
+                .defaultVisibility(.hidden)
+
+                TableColumn(SuiviTableHeading("DERNIER"), sortUsing: table.sort("dernier")) { line in
+                    PingCell(PingFormat.decimal(line.stats.last), mono: true, trailing: true)
+                }
+                .width(min: 54, ideal: 60)
+                .customizationID("dernier")
+
+                TableColumn(SuiviTableHeading("MOY"), sortUsing: table.sort("moyenne")) { line in
+                    PingCell(PingFormat.decimal(line.stats.average), mono: true, bold: true, trailing: true)
+                }
+                .width(min: 38, ideal: 42)
+                .customizationID("moyenne")
+
+                TableColumn(SuiviTableHeading("MEILLEUR"), sortUsing: table.sort("meilleur")) { line in
+                    PingCell(PingFormat.decimal(line.stats.best), mono: true, trailing: true)
+                }
+                .width(min: 60, ideal: 68)
+                .customizationID("meilleur")
+
+                TableColumn(SuiviTableHeading("PIRE"), sortUsing: table.sort("pire")) { line in
+                    PingCell(PingFormat.decimal(line.stats.worst), mono: true, trailing: true)
+                }
+                .width(min: 38, ideal: 42)
+                .customizationID("pire")
+
+                TableColumn(SuiviTableHeading("ÉCART-TYPE"), sortUsing: table.sort("ecartType")) { line in
+                    PingCell(PingFormat.decimal(line.stats.standardDeviation), mono: true, trailing: true)
+                }
+                .width(min: 70, ideal: 80)
+                .customizationID("ecartType")
+            }
+
+            Group {
+                TableColumn(SuiviTableHeading("REÇUS"), sortUsing: table.sort("recus")) { line in
+                    PingCell("\(line.stats.received)", mono: true, trailing: true)
+                }
+                .width(min: 48, ideal: 56)
+                .customizationID("recus")
+                .defaultVisibility(.hidden)
+
+                TableColumn(SuiviTableHeading("PERDUS"), sortUsing: table.sort("perdus")) { line in
+                    PingCell("\(line.stats.lost)", mono: true,
+                             color: line.stats.lost > 0 ? pingLossColor(line.stats.lossPercent) : Theme.text, trailing: true)
+                }
+                .width(min: 50, ideal: 60)
+                .customizationID("perdus")
+                .defaultVisibility(.hidden)
+            }
+        }
+        .standardTableStyle()
+        .contextMenu(forSelectionType: Int.self) { ttls in
+            if let ttl = ttls.first, let address = rows.first(where: { $0.id == ttl })?.hop.address {
+                Button("Copier l’adresse") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(address.description, forType: .string)
+                }
+                Button("Ajouter au ping continu") { controller.add(address.description) }
+            }
+        }
+    }
+}
+
+/// Texte d'une cellule des tableaux du Ping (une ligne ; chiffres alignés à droite en police mono).
+struct PingCell: View {
+    let text: String
+    var mono = false
+    var color: Color = Theme.text
+    var bold = false
+    var size: CGFloat = 12
+    /// Nombre aligné à droite (croquis).
+    var trailing = false
+
+    init(_ text: String, mono: Bool = false, color: Color = Theme.text, bold: Bool = false, size: CGFloat = 12,
+         trailing: Bool = false) {
+        self.text = text
+        self.mono = mono
+        self.color = color
+        self.bold = bold
+        self.size = size
+        self.trailing = trailing
+    }
+
+    var body: some View {
+        Text(text)
+            .font(mono ? Theme.mono(size, weight: bold ? .semibold : .regular) : .system(size: size))
+            .foregroundStyle(color)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .frame(maxWidth: .infinity, alignment: trailing ? .trailing : .leading)
     }
 }
 

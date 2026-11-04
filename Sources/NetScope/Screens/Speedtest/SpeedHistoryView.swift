@@ -6,6 +6,9 @@ import SwiftUI
 struct SpeedHistoryView: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var model: SpeedtestModel
+    @StateObject private var table = StandardTableModel<SpeedHistoryLine>(
+        id: "speedtest.historique", columns: SpeedHistoryView.columns, sortKeys: SpeedHistoryView.sortKeys,
+        defaultSort: "ordre")
 
     var body: some View {
         VStack(spacing: 14) {
@@ -143,18 +146,23 @@ struct SpeedHistoryView: View {
                 }
                 .buttonStyle(.secondary)
                 .speedDisabled(model.filteredHistory.isEmpty)
+                StandardColumnsMenu(model: table)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
 
-            TableHeader(columns: Self.columns)
-            let rows = Array(model.filteredHistory.prefix(200))
+            let rows = Array(model.filteredHistory.prefix(200)).enumerated()
+                .map { SpeedHistoryLine(record: $1, order: $0) }
+                .sorted(using: table.sortOrder)
             if rows.isEmpty {
                 Text("Aucun test enregistré.").font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .frame(maxWidth: .infinity).padding(20)
+            } else {
+                SpeedHistoryTable(rows: rows, model: model, table: table)
+                    .frame(height: Self.headerHeight + Self.rowHeight * CGFloat(min(rows.count, Self.visibleRows)))
+                    .scrollDisabled(rows.count <= Self.visibleRows)
             }
-            ForEach(rows) { record in row(record) }
 
             HStack(spacing: 12) {
                 Toggle("", isOn: .constant(false))
@@ -186,49 +194,195 @@ struct SpeedHistoryView: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
     }
 
-    private static let columns: [TableHeader.Column] = [
-        .init(title: "Date / heure", width: 190),
-        .init(title: "Type", width: 170),
-        .init(title: "Serveur"),
-        .init(title: "Interface", width: 140),
-        .init(title: "Descente", width: 110, alignment: .trailing),
-        .init(title: "Montée", width: 100, alignment: .trailing),
-        .init(title: "Latence", width: 90, alignment: .trailing),
-        .init(title: "Gigue", width: 90, alignment: .trailing),
+
+    // MARK: Colonnes
+
+    /// Ligne du croquis : 34 ; au-delà de `visibleRows` tests, le tableau défile.
+    static let rowHeight: CGFloat = 34
+    static let headerHeight: CGFloat = 36
+    static let visibleRows = 12
+
+    static let columns: [StandardColumn] = [
+        StandardColumn(id: "date", title: "Date / heure", isRequired: true),
+        StandardColumn(id: "type", title: "Type"),
+        StandardColumn(id: "serveur", title: "Serveur"),
+        StandardColumn(id: "interface", title: "Interface"),
+        StandardColumn(id: "descente", title: "Descente"),
+        StandardColumn(id: "montee", title: "Montée"),
+        StandardColumn(id: "latence", title: "Latence"),
+        StandardColumn(id: "gigue", title: "Gigue"),
+        StandardColumn(id: "latenceCharge", title: "Latence en charge", isDefaultVisible: false),
+        StandardColumn(id: "flux", title: "Flux", isDefaultVisible: false),
+        StandardColumn(id: "origine", title: "Origine", isDefaultVisible: false),
     ]
 
-    private func row(_ record: SpeedTestRecord) -> some View {
-        let plan = record.kind == .internet ? model.planDown : nil
-        let low = plan.map { record.downMbps < $0 * SpeedMath.planThreshold } ?? false
-        let isLan = record.kind == .lan
-        return HStack(spacing: 0) {
-            Text(SpeedFormat.dateTime.string(from: record.date)).font(Theme.mono(12))
-                .padding(.horizontal, 8).frame(width: 190, alignment: .leading)
-            HStack(spacing: 6) {
-                Text(record.kind.label)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(isLan ? Theme.neutralText : Theme.accentStrong)
-                    .padding(.horizontal, 7).padding(.vertical, 2)
-                    .background(Capsule().fill(isLan ? Theme.neutralSoft : speedDownSoft))
-                Text(record.origin).font(Theme.caption).foregroundStyle(Theme.textSecondary)
+    /// « ordre » : ordre de l'historique (le plus récent d'abord), sans colonne. Les débits et
+    /// latences se trient en nombres, pas en texte.
+    static let sortKeys: [String: KeyPathComparator<SpeedHistoryLine>] = [
+        "ordre": KeyPathComparator(\SpeedHistoryLine.order),
+        "date": KeyPathComparator(\SpeedHistoryLine.sortDate),
+        "type": KeyPathComparator(\SpeedHistoryLine.sortKind),
+        "serveur": KeyPathComparator(\SpeedHistoryLine.sortServer),
+        "interface": KeyPathComparator(\SpeedHistoryLine.sortInterface),
+        "descente": KeyPathComparator(\SpeedHistoryLine.sortDown),
+        "montee": KeyPathComparator(\SpeedHistoryLine.sortUp),
+        "latence": KeyPathComparator(\SpeedHistoryLine.sortLatency),
+        "gigue": KeyPathComparator(\SpeedHistoryLine.sortJitter),
+        "latenceCharge": KeyPathComparator(\SpeedHistoryLine.sortLoadedLatency),
+        "flux": KeyPathComparator(\SpeedHistoryLine.sortStreams),
+        "origine": KeyPathComparator(\SpeedHistoryLine.sortOrigin),
+    ]
+}
+
+/// Une ligne de l'historique des tests, avec ses clés de tri.
+struct SpeedHistoryLine: Identifiable {
+    let record: SpeedTestRecord
+    /// Rang dans l'historique (le plus récent d'abord) : tri par défaut.
+    let order: Int
+
+    var id: UUID { record.id }
+
+    // Une valeur absente passe après les autres en ordre croissant.
+    var sortDate: Date { record.date }
+    var sortKind: String { record.kind.label }
+    var sortServer: String { record.server }
+    var sortInterface: String { record.interfaceLabel }
+    var sortDown: Double { record.downMbps }
+    var sortUp: Double { record.upMbps ?? -1 }
+    var sortLatency: Double { record.latencyMs ?? .greatestFiniteMagnitude }
+    var sortJitter: Double { record.jitterMs ?? .greatestFiniteMagnitude }
+    var sortLoadedLatency: Double { record.loadedLatencyMs ?? .greatestFiniteMagnitude }
+    var sortStreams: Int { record.streams }
+    var sortOrigin: String { record.origin }
+}
+
+/// Tableau des tests enregistrés : le test qui vient de se terminer est sélectionné.
+private struct SpeedHistoryTable: View {
+    let rows: [SpeedHistoryLine]
+    @ObservedObject var model: SpeedtestModel
+    @ObservedObject var table: StandardTableModel<SpeedHistoryLine>
+    @State private var selection: Set<UUID> = []
+
+    var body: some View {
+        Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+            Group {
+                TableColumn(SuiviTableHeading("DATE / HEURE"), sortUsing: table.sort("date")) { line in
+                    Text(SpeedFormat.dateTime.string(from: line.record.date))
+                        .font(Theme.mono(12))
+                        .foregroundStyle(Theme.text)
+                        .lineLimit(1)
+                        .frame(height: 26)
+                }
+                .width(min: 140, ideal: 150)
+                .customizationID("date")
+                .disabledCustomizationBehavior(.visibility)
+
+                TableColumn(SuiviTableHeading("TYPE"), sortUsing: table.sort("type")) { line in
+                    let isLan = line.record.kind == .lan
+                    HStack(spacing: 6) {
+                        Text(line.record.kind.label)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(isLan ? Theme.neutralText : Theme.accentStrong)
+                            .padding(.horizontal, 7).padding(.vertical, 2)
+                            .background(Capsule().fill(isLan ? Theme.neutralSoft : speedDownSoft))
+                            .fixedSize()
+                        Text(line.record.origin).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                    }
+                }
+                .width(min: 120, ideal: 150)
+                .customizationID("type")
+
+                TableColumn(SuiviTableHeading("SERVEUR"), sortUsing: table.sort("serveur")) { line in
+                    Text(line.record.server).font(Theme.small).foregroundStyle(Theme.neutralText).lineLimit(1)
+                        .help(line.record.server)
+                }
+                .width(min: 120, ideal: 200)
+                .customizationID("serveur")
+
+                TableColumn(SuiviTableHeading("INTERFACE"), sortUsing: table.sort("interface")) { line in
+                    Text(line.record.interfaceLabel).font(Theme.mono(12)).foregroundStyle(Theme.neutralText).lineLimit(1)
+                }
+                .width(min: 100, ideal: 130)
+                .customizationID("interface")
+
+                TableColumn(SuiviTableHeading("DESCENTE"), sortUsing: table.sort("descente")) { line in
+                    let plan = line.record.kind == .internet ? model.planDown : nil
+                    let low = plan.map { line.record.downMbps < $0 * SpeedMath.planThreshold } ?? false
+                    SpeedNumberCell("\(SpeedFormat.rate(line.record.downMbps)) Mb/s", bold: true,
+                                    color: low ? Theme.warning : Theme.text)
+                        .help(low ? "Sous le seuil du forfait" : "")
+                }
+                .width(min: 90, ideal: 104)
+                .customizationID("descente")
+
+                TableColumn(SuiviTableHeading("MONTÉE"), sortUsing: table.sort("montee")) { line in
+                    SpeedNumberCell(line.record.upMbps.map { "\(SpeedFormat.rate($0)) Mb/s" } ?? "—")
+                }
+                .width(min: 80, ideal: 96)
+                .customizationID("montee")
+
+                TableColumn(SuiviTableHeading("LATENCE"), sortUsing: table.sort("latence")) { line in
+                    SpeedNumberCell(line.record.latencyMs.map { "\(SpeedFormat.latency($0)) ms" } ?? "—")
+                }
+                .width(min: 66, ideal: 80)
+                .customizationID("latence")
+
+                TableColumn(SuiviTableHeading("GIGUE"), sortUsing: table.sort("gigue")) { line in
+                    SpeedNumberCell(line.record.jitterMs.map { "\(SpeedFormat.number($0, digits: $0 < 1 ? 2 : 1)) ms" } ?? "—")
+                }
+                .width(min: 60, ideal: 80)
+                .customizationID("gigue")
             }
-            .padding(.horizontal, 8).frame(width: 170, alignment: .leading)
-            Text(record.server).font(Theme.small).foregroundStyle(Theme.neutralText).lineLimit(1)
-                .padding(.horizontal, 8).frame(maxWidth: .infinity, alignment: .leading)
-            Text(record.interfaceLabel).font(Theme.mono(12)).foregroundStyle(Theme.neutralText).lineLimit(1)
-                .padding(.horizontal, 8).frame(width: 140, alignment: .leading)
-            Text("\(SpeedFormat.rate(record.downMbps)) Mb/s").font(Theme.mono(12, weight: .semibold))
-                .foregroundStyle(low ? Theme.warning : Theme.text)
-                .padding(.horizontal, 8).frame(width: 110, alignment: .trailing)
-            Text(record.upMbps.map { "\(SpeedFormat.rate($0)) Mb/s" } ?? "—").font(Theme.mono(12))
-                .padding(.horizontal, 8).frame(width: 100, alignment: .trailing)
-            Text(record.latencyMs.map { "\(SpeedFormat.latency($0)) ms" } ?? "—").font(Theme.mono(12))
-                .padding(.horizontal, 8).frame(width: 90, alignment: .trailing)
-            Text(record.jitterMs.map { "\(SpeedFormat.number($0, digits: $0 < 1 ? 2 : 1)) ms" } ?? "—").font(Theme.mono(12))
-                .padding(.horizontal, 8).frame(width: 90, alignment: .trailing)
+
+            Group {
+                TableColumn(SuiviTableHeading("LATENCE EN CHARGE"), sortUsing: table.sort("latenceCharge")) { line in
+                    SpeedNumberCell(line.record.loadedLatencyMs.map { "\(SpeedFormat.latency($0)) ms" } ?? "—")
+                        .help("Latence mesurée pendant le transfert")
+                }
+                .width(min: 90, ideal: 130)
+                .customizationID("latenceCharge")
+                .defaultVisibility(.hidden)
+
+                TableColumn(SuiviTableHeading("FLUX"), sortUsing: table.sort("flux")) { line in
+                    SpeedNumberCell("\(line.record.streams)")
+                        .help("Connexions parallèles du test")
+                }
+                .width(min: 44, ideal: 56)
+                .customizationID("flux")
+                .defaultVisibility(.hidden)
+
+                TableColumn(SuiviTableHeading("ORIGINE"), sortUsing: table.sort("origine")) { line in
+                    Text(line.record.origin.prefix(1).uppercased() + line.record.origin.dropFirst())
+                        .font(Theme.small).foregroundStyle(Theme.neutralText).lineLimit(1)
+                }
+                .width(min: 70, ideal: 90)
+                .customizationID("origine")
+                .defaultVisibility(.hidden)
+            }
         }
-        .frame(height: 34)
-        .background(record.id == model.freshRecordID ? Theme.accentSoft : Theme.panel)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+        .standardTableStyle()
+        .onAppear { selection = model.freshRecordID.map { [$0] } ?? [] }
+        .onChange(of: model.freshRecordID) { _, id in selection = id.map { [$0] } ?? [] }
+    }
+}
+
+/// Valeur numérique alignée à droite (police mono, 12 pt).
+private struct SpeedNumberCell: View {
+    let text: String
+    var bold = false
+    var color: Color = Theme.text
+
+    init(_ text: String, bold: Bool = false, color: Color = Theme.text) {
+        self.text = text
+        self.bold = bold
+        self.color = color
+    }
+
+    var body: some View {
+        Text(text)
+            .font(Theme.mono(12, weight: bold ? .semibold : .regular))
+            .foregroundStyle(text == "—" ? Theme.textTertiary : color)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
