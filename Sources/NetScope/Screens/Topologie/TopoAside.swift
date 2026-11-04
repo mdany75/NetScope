@@ -73,7 +73,7 @@ struct TopoAside: View {
                                     mono: device.switchLocation != nil, keyWidth: 92)
                             .help(device.switchLocation == nil ? "" : state.locationStatus(device).explanation ?? "")
                         KeyValueRow(key: "Découverte", value: "Scan (ARP, ping)" + (device.openPorts.isEmpty ? "" : ", ports TCP"), keyWidth: 92)
-                        KeyValueRow(key: "Vu", value: device.isOnline ? "Maintenant" : InvFormat.relative(device.lastSeen), keyWidth: 92)
+                        KeyValueRow(key: "Vu", value: InvFormat.seen(device.lastSeen, online: device.isOnline), keyWidth: 92)
                     }
                 } else if node.kind == .internet {
                     Text("Au-delà de la passerelle : le lien vers le fournisseur d’accès n’est pas sondé par le scan local.")

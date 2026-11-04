@@ -11,9 +11,8 @@ enum RapportData {
         let devices = InvModel.shared.withManualTypes(state.devices)
         let ranges = state.ranges.filter(\.isEnabled)
         let parsed = ranges.compactMap { try? $0.parsed() }
-        // L'inventaire est commun à tous les clients : on ne garde que les fiches des plages scannées
-        // qui correspondent aux appareils de ce scan (une fiche d'un autre client sur la même plage
-        // privée n'entre pas dans le rapport).
+        // Note 28 : l'inventaire est propre au site actif ; on n'en garde que les fiches des plages
+        // scannées qui correspondent aux appareils de ce scan.
         let inRanges = InvModel.shared.store.sortedRecords.filter { record in
             parsed.contains { $0.contains(record.ip) }
         }
@@ -34,7 +33,9 @@ enum RapportData {
         if let interface = state.activeInterface {
             input.sourceIP = interface.address.description
             input.sourceName = devices.first { $0.ip == interface.address }?.hostnameLabel
-            if let gateway = interface.gateway {
+            // Passerelle du Mac seulement si elle est dans les plages du site (sinon le Mac est
+            // ailleurs : la passerelle d'un autre site n'a pas sa place dans ce rapport).
+            if let gateway = interface.gateway, parsed.contains(where: { $0.contains(gateway) }) {
                 let name = devices.first { $0.ip == gateway }?.hostnameLabel
                 input.gateway = gateway.description + (name.map { " (\($0))" } ?? "")
             }

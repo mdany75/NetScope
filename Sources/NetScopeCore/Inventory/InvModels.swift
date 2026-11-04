@@ -417,6 +417,17 @@ public enum InvFormat {
         return "\(day(date)) (\(Int((seconds / 86_400).rounded())) j)"
     }
 
+    /// « Maintenant » pour un appareil en ligne vu il y a moins de 10 min, sinon `relative` :
+    /// un appareil en ligne au scan d'un autre jour (autre site) n'est pas « vu maintenant ».
+    public static func seen(_ date: Date, online: Bool, now: Date = Date()) -> String {
+        online && now.timeIntervalSince(date) < 600 ? "Maintenant" : relative(date, now: now)
+    }
+
+    /// Heure seule le jour même, sinon date et heure : « 08:42 », « 2026-11-02 11:43 ».
+    public static func timeOrStamp(_ date: Date, now: Date = Date()) -> String {
+        Calendar.current.isDate(date, inSameDayAs: now) ? time(date) : stamp(date)
+    }
+
     /// Écrit « .87 → .111 » quand les deux adresses partagent leurs trois premiers octets.
     public static func ipChange(_ old: IPv4Address, _ new: IPv4Address) -> String {
         if old.value >> 8 == new.value >> 8 {

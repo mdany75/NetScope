@@ -122,7 +122,7 @@ struct AnaOccupancyPanel: View {
                         row("MAC", record.mac?.formatted(.upperColon) ?? "—", mono: true)
                         row("Port", record.switchLocation ?? "—", mono: true)
                         row("VLAN", record.vlan.map(String.init) ?? "—")
-                        row("Vu", record.isOnline ? "Maintenant" : InvFormat.relative(record.lastSeen, now: now))
+                        row("Vu", InvFormat.seen(record.lastSeen, online: record.isOnline, now: now))
                     }
                 }
             }

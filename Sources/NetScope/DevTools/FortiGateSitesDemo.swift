@@ -149,7 +149,10 @@ enum FortiGateSitesDemo {
         let system = FortiGateSystem(hostname: "FGT-LAVAL", model: "FortiGate-40F", serial: "FGT40FTK23001802", version: "v7.2.8", build: 1639, vdom: "root")
         var detected: [FortiDetectedDevice] = []
         var dhcp: [FortiDHCPLease] = []
-        func mac(_ n: Int) -> MACAddress { MACAddress(bytes: [0x00, 0x07, 0x4D, 0x20, UInt8(n / 256), UInt8(n % 256)]) }
+        // Lecteurs de quai (ports 1 à 6) : Zebra (00:07:4D) ; postes : Dell (B0:7B:25).
+        func mac(_ n: Int) -> MACAddress {
+            MACAddress(bytes: (n <= 6 ? [0x00, 0x07, 0x4D] : [0xB0, 0x7B, 0x25]) + [0x20, UInt8(n / 256), UInt8(n % 256)])
+        }
         var main: [FortiSwitchPort] = []
         for n in 1...28 {
             let up = n <= 14 || n == 25

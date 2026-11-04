@@ -92,7 +92,10 @@ enum SitesDemo {
     /// Appareils de l'entrepôt de Laval (mêmes MAC et noms que la FortiGate de démonstration).
     static func lavalDevices(now: Date = Date()) -> [Device] {
         let seen = now.addingTimeInterval(-2 * 86_400 - 3_600)
-        func mac(_ n: Int) -> MACAddress { MACAddress(bytes: [0x00, 0x07, 0x4D, 0x20, UInt8(n / 256), UInt8(n % 256)]) }
+        // Lecteurs de quai (ports 1 à 6) : Zebra (00:07:4D) ; postes : Dell (B0:7B:25).
+        func mac(_ n: Int) -> MACAddress {
+            MACAddress(bytes: (n <= 6 ? [0x00, 0x07, 0x4D] : [0xB0, 0x7B, 0x25]) + [0x20, UInt8(n / 256), UInt8(n % 256)])
+        }
         var list: [Device] = [
             Device(ip: IPv4Address("10.20.0.1")!, mac: MACAddress("00:09:0F:AA:10:01")!, vendor: "Fortinet", hostname: "FGT-LAVAL",
                    latencyMs: 0.9, openPorts: [22, 443], vlan: 1, firstSeen: seen, lastSeen: seen, rangeLabel: "Bureaux",
@@ -102,7 +105,7 @@ enum SitesDemo {
             list.append(Device(ip: IPv4Address("10.20.10.\(40 + n)")!, mac: mac(n), vendor: "Zebra Technologies",
                                hostname: "LECTEUR-LAV-0\(n)", latencyMs: 3.2 + Double(n) / 10, switchName: "FSW-LAVAL-01",
                                switchPort: "port\(n)", vlan: 10, firstSeen: seen, lastSeen: seen, rangeLabel: "Quais",
-                               deviceType: .inconnu))
+                               deviceType: .iot))
         }
         for n in 7...10 {
             list.append(Device(ip: IPv4Address("10.20.0.\(40 + n)")!, mac: mac(n), vendor: "Dell", hostname: "POSTE-LAV-\(n)",

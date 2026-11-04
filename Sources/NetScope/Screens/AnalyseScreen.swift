@@ -158,9 +158,9 @@ struct AnalyseScreen: View {
             }
             // Petite fenêtre : version courte plutôt qu'une phrase coupée.
             ViewThatFits(in: .horizontal) {
-                Text("\(scans) scan\(scans > 1 ? "s" : "") sur \(period.span)" + (last.map { " · dernier scan \(InvFormat.time($0))" } ?? ""))
+                Text("\(scans) scan\(scans > 1 ? "s" : "") sur \(period.span)" + (last.map { " · dernier scan \(InvFormat.timeOrStamp($0))" } ?? ""))
                     .fixedSize()
-                Text("\(scans) scan\(scans > 1 ? "s" : "")" + (last.map { " · dernier \(InvFormat.time($0))" } ?? ""))
+                Text("\(scans) scan\(scans > 1 ? "s" : "")" + (last.map { " · dernier \(InvFormat.timeOrStamp($0))" } ?? ""))
                     .fixedSize()
                 Text("\(scans) scan\(scans > 1 ? "s" : "")").lineLimit(1)
             }
