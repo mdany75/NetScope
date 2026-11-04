@@ -53,10 +53,13 @@ struct TopoCanvas: View {
     /// Note 34 : objet d'un nœud (double-clic, « Ouvrir dans › ») ; nil : nœud sans suite (Internet).
     var object: (TopoNode) -> NavObject? = { _ in nil }
     var onOpen: (NavObject) -> Void = { _ in }
+    /// Note 32 : résultats de la recherche (nœuds trouvés, branche du résultat courant) ; le reste
+    /// de la carte est atténué.
+    var search: TopoSearchHighlight?
 
     var body: some View {
         let links = graph.links.filter { layout.positions[$0.parent.id] != nil && layout.positions[$0.child.id] != nil }
-        let related = relatedLinks(links)
+        let related = search.map { $0.pathLinks(links) } ?? relatedLinks(links)
 
         ZStack(alignment: .topLeading) {
             Color.clear.contentShape(Rectangle()).onTapGesture { selectedID = nil }
@@ -66,7 +69,7 @@ struct TopoCanvas: View {
                     .stroke(color(link, highlighted: highlighted),
                             style: StrokeStyle(lineWidth: highlighted ? 3 : 2, lineCap: .round, lineJoin: .round,
                                                dash: link.child.isWireless ? [5, 4] : []))
-                    .opacity(selectedID == nil || highlighted ? 1 : 0.35)
+                    .opacity(linkOpacity(link, highlighted: highlighted))
             }
             if showPortLabels {
                 ForEach(links, id: \.child.id) { link in
@@ -79,14 +82,14 @@ struct TopoCanvas: View {
                             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Theme.border))
                             .fixedSize()
                             .position(position)
-                            .opacity(selectedID == nil || related.contains(link.child.id) ? 1 : 0.4)
+                            .opacity(linkOpacity(link, highlighted: related.contains(link.child.id)) < 1 ? 0.4 : 1)
                     }
                 }
             }
             ForEach(graph.nodes) { node in
                 if let center = point(node.id) {
-                    TopoNodeView(node: node, isSelected: node.id == selectedID,
-                                 isDimmed: selectedID != nil && !isRelated(node.id, links))
+                    TopoNodeView(node: node, isSelected: node.id == selectedID, isDimmed: isDimmed(node.id, links),
+                                 searchCount: search?.counts[node.id], isSearchCurrent: search?.current == node.id)
                         .onTapGesture { selectedID = node.id }
                         // Double-clic : suite logique (groupe → Inventaire filtré, switch → ses ports…),
                         // sans retarder le simple clic qui choisit le nœud.
@@ -104,6 +107,18 @@ struct TopoCanvas: View {
                 }
             }
         }
+    }
+
+    /// Nœud atténué : hors de la recherche (ni trouvé, ni sur la branche du résultat, ni choisi), ou
+    /// sans recherche, sans lien avec le nœud choisi.
+    private func isDimmed(_ id: String, _ links: [(parent: TopoNode, child: TopoNode)]) -> Bool {
+        if let search { return id != selectedID && !search.shows(id) }
+        return selectedID != nil && !isRelated(id, links)
+    }
+
+    private func linkOpacity(_ link: (parent: TopoNode, child: TopoNode), highlighted: Bool) -> Double {
+        if let search { return highlighted || (search.shows(link.parent.id) && search.shows(link.child.id)) ? 1 : 0.3 }
+        return selectedID == nil || highlighted ? 1 : 0.35
     }
 
     private func point(_ id: String) -> CGPoint? {
@@ -171,6 +186,10 @@ struct TopoNodeView: View {
     let node: TopoNode
     let isSelected: Bool
     let isDimmed: Bool
+    /// Note 32 : appareils trouvés par la recherche dans ce nœud (pastille « loupe 2 »).
+    var searchCount: Int?
+    /// Nœud du résultat courant de la recherche (halo autour du nœud).
+    var isSearchCurrent = false
 
     /// Nom du nœud : sur une ligne (12 pt, sinon 10,5 pt) quand il tient ; sinon deux lignes coupées
     /// à un espace (traits d'union insécables : jamais « Borne Wi- / Fi accueil »).
@@ -230,14 +249,53 @@ struct TopoNodeView: View {
                     shape.fill(Theme.panel).overlay(shape.strokeBorder(Color(light: 0xCBD5E1, dark: 0x3F556E))).offset(x: 4, y: 4)
                 }
             }
+            .overlay {
+                if isSearchCurrent {
+                    RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.accent.opacity(0.35), lineWidth: 4).padding(-5)
+                } else if searchCount != nil && !isSelected {
+                    shape.strokeBorder(Theme.accent.opacity(0.7), lineWidth: 1.5)
+                }
+            }
             .shadow(color: isSelected ? Theme.accent.opacity(0.28) : Color(hex: 0x0F172A, opacity: 0.06),
                     radius: isSelected ? 3 : 1, y: isSelected ? 0 : 1)
             if node.kind != .internet && !(node.isInferred && node.deviceIDs.isEmpty) {
                 Circle().fill(TopoStyle.statusColor(node.status)).frame(width: 7, height: 7).padding(6)
             }
         }
+        .overlay(alignment: .topLeading) {
+            if let searchCount {
+                HStack(spacing: 2) {
+                    Image(systemName: "magnifyingglass").font(.system(size: 7.5, weight: .bold))
+                    if node.kind == .groupe { Text("\(searchCount)").font(.system(size: 9.5, weight: .bold)).monospacedDigit() }
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 5)
+                .frame(height: 15)
+                .background(Capsule().fill(Theme.accent))
+                .offset(x: -6, y: -7)
+                .help(searchCount > 1 ? "\(searchCount) appareils trouvés dans ce groupe" : "Trouvé par la recherche")
+            }
+        }
         .opacity(isDimmed ? 0.4 : 1)
         .contentShape(Rectangle())
         .help("\(node.title) · \(node.subtitle)")
+    }
+}
+
+/// Note 32 : ce que la recherche montre sur la carte.
+struct TopoSearchHighlight {
+    /// Nœud du résultat courant.
+    var current: String?
+    /// Appareils trouvés par nœud.
+    var counts: [String: Int]
+    /// Branche du résultat courant, d'Internet jusqu'à lui.
+    var path: [String]
+
+    func shows(_ id: String) -> Bool { counts[id] != nil || path.contains(id) }
+
+    /// Liens de la branche du résultat courant (identifiés par l'enfant).
+    func pathLinks(_ links: [(parent: TopoNode, child: TopoNode)]) -> Set<String> {
+        let onPath = Set(path)
+        return Set(links.filter { onPath.contains($0.parent.id) && onPath.contains($0.child.id) }.map(\.child.id))
     }
 }

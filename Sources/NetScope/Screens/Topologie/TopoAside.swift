@@ -17,6 +17,9 @@ struct TopoAside: View {
     var isActiveSite = true
     /// Adresses en conflit dans l'inventaire de ce site.
     var conflictIPs: Set<IPv4Address> = []
+    /// Note 32 : recherche de la carte (fiche du résultat en tête du détail).
+    var search: TopoSearchContext?
+    var searchActions: TopoSearchActions?
 
     private func device(_ id: String) -> Device? { devices.first { $0.id == id } }
 
@@ -34,9 +37,16 @@ struct TopoAside: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                if let search, let searchActions {
+                    TopoSearchPanel(search: search, graph: graph, devices: devices, actions: searchActions,
+                                    open: open, select: { selectedID = $0 }, selectedID: selectedID)
+                }
                 if let node = selectedID.flatMap({ graph.node($0) }) {
-                    detail(node)
-                } else {
+                    // Un appareil seul trouvé par la recherche : sa fiche est déjà en tête.
+                    if !(search?.current?.nodeID == node.id && node.kind == .appareil) {
+                        detail(node)
+                    }
+                } else if search == nil {
                     overview
                 }
                 problems
@@ -106,7 +116,7 @@ struct TopoAside: View {
                 }
 
                 if node.kind == .groupe {
-                    members(devices)
+                    members(devices, highlighted: search?.current.flatMap { $0.nodeID == node.id ? $0.deviceID : nil })
                 }
 
                 let children = graph.children(of: node.id)
@@ -208,7 +218,17 @@ struct TopoAside: View {
         return "Conflit IP. " + text.joined(separator: " · ") + " répondent."
     }
 
-    private func members(_ devices: [Device]) -> some View {
+    /// `highlighted` : appareil désigné par la recherche (note 32), marqué et toujours dans la liste.
+    private func members(_ devices: [Device], highlighted: String? = nil) -> some View {
+        var shown = Array(devices.prefix(10))
+        if let highlighted, !shown.contains(where: { $0.id == highlighted }),
+           let device = devices.first(where: { $0.id == highlighted }) {
+            shown[shown.count - 1] = device
+        }
+        return membersGrid(devices, shown: shown, highlighted: highlighted)
+    }
+
+    private func membersGrid(_ devices: [Device], shown: [Device], highlighted: String?) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionHeader(title: "Membres", subtitle: "\(devices.count) appareil\(devices.count > 1 ? "s" : "")") { EmptyView() }
             Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 0) {
@@ -218,18 +238,26 @@ struct TopoAside: View {
                             .frame(height: 24, alignment: .leading)
                     }
                 }
-                ForEach(devices.prefix(10)) { device in
+                ForEach(shown) { device in
+                    let isFound = device.id == highlighted
                     GridRow {
                         HStack(spacing: 5) {
-                            StatusDot(online: device.isOnline, size: 6)
-                            Text(device.displayName).font(Theme.small).lineLimit(1)
+                            if isFound {
+                                Image(systemName: "magnifyingglass").font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(Theme.accentStrong)
+                            } else {
+                                StatusDot(online: device.isOnline, size: 6)
+                            }
+                            Text(device.displayName).font(isFound ? .system(size: 12, weight: .semibold) : Theme.small).lineLimit(1)
                         }
-                        Text(device.ip.description).font(Theme.mono(11))
+                        Text(device.ip.description).font(Theme.mono(11, weight: isFound ? .semibold : .regular))
                         Text(device.switchPort ?? "—").font(Theme.mono(11)).foregroundStyle(Theme.neutralText)
                     }
+                    .foregroundStyle(isFound ? Theme.accentStrong : Theme.text)
                     .frame(height: 26)
                     .contentShape(Rectangle())
                     .onTapGesture { open(device) }
+                    .help(isFound ? "Appareil trouvé par la recherche\u{00A0}; clic\u{00A0}: ouvrir sa fiche" : "")
                 }
             }
             if devices.count > 10 {
