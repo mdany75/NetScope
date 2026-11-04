@@ -778,3 +778,19 @@ Rapports :
   jamais de mélange entre deux sites qui partagent les mêmes plages.
 - Le site choisi est retenu par module et suit les sauts entre modules (double-clic sur une borne
   ou un port, note 34 ; Retour, note 45) ; message clair si le site n'a ni FortiGate ni switch.
+
+## 49. Choix du site sous le logo NetScope — À PLANIFIER (demande de Dany)
+
+« Pouvoir choisir le site sous le logo NetScope. » Un sélecteur de site unique, toujours visible
+en haut de la barre latérale :
+
+- Juste sous le logo NetScope : menu « Site ▾ » avec le nom du site actif (et son pastille
+  d'état : FortiGate jointe ou non) ; liste des sites avec recherche, « Tous les sites »,
+  « Détecter mon site » et « Gérer les sites… » (Réglages › Sites et plages).
+- Choisir un site ici change le site actif de toute l'app : plages du Scanner, Inventaire,
+  Carte, Analyse, Switchs, Wi-Fi, Surveillance et Rapports (note 28) ; les menus « Site ▾ »
+  propres à un module (note 48) restent des choix ponctuels qui ne touchent pas ce site actif.
+- Raccourci clavier (⌘⇧S) et menu de la barre de menus pour changer de site ; le site actif
+  est rappelé dans le titre de la fenêtre.
+- Changer de site vide l'historique Retour (note 45) et retrouve les résultats laissés sur
+  l'autre site (note 28).
