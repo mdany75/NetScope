@@ -15,28 +15,19 @@ struct DevicePortsTab: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
-                Text(title).font(.system(size: 14, weight: .semibold))
-                Text(subtitle).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                Spacer(minLength: 8)
-                Menu {
-                    ForEach(ToolPortProfile.allCases) { profile in
-                        Button(profile.label) { model.choose(profile) }
-                    }
-                } label: {
-                    Text("Profil\u{00A0}: " + (model.profile?.label ?? "personnalisé")).font(.system(size: 12))
+            // Titre, résumé et commandes sur une ligne ; en petite fenêtre, les commandes passent dessous.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    heading.fixedSize()
+                    Spacer(minLength: 8)
+                    controls
                 }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-                ToolColumnsMenu(model: table)
-                Button("Copier CSV") { ToolActions.copy(csv) }
-                    .buttonStyle(ToolCompactButtonStyle())
-                    .disabled(rows.isEmpty)
-                if model.isRunning {
-                    Button("Arrêter") { model.cancel() }.buttonStyle(.secondary)
-                } else {
-                    Button(model.summary == nil ? "Scanner les ports" : "Relancer le scan") { DevicePortsTab.start(model, device: device, state: state, store: store) }
-                        .buttonStyle(.primary)
+                VStack(alignment: .leading, spacing: 10) {
+                    heading
+                    HStack(spacing: 10) {
+                        Spacer(minLength: 0)
+                        controls
+                    }
                 }
             }
             .padding(.horizontal, 16)
@@ -55,6 +46,41 @@ struct DevicePortsTab: View {
         }
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+    }
+
+    private var heading: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(title).font(.system(size: 14, weight: .semibold)).fixedSize()
+            Text(subtitle).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var controls: some View {
+        HStack(spacing: 10) {
+            Menu {
+                ForEach(ToolPortProfile.allCases) { profile in
+                    Button(profile.label) { model.choose(profile) }
+                }
+            } label: {
+                Text("Profil\u{00A0}: " + (model.profile?.label ?? "personnalisé")).font(.system(size: 12))
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            ToolColumnsMenu(model: table)
+            Button("Copier CSV") { ToolActions.copy(csv) }
+                .buttonStyle(.secondary)
+                .disabled(rows.isEmpty)
+            Group {
+                if model.isRunning {
+                    Button("Arrêter") { model.cancel() }.buttonStyle(.secondary)
+                } else {
+                    Button(model.summary == nil ? "Scanner les ports" : "Relancer le scan") { DevicePortsTab.start(model, device: device, state: state, store: store) }
+                        .buttonStyle(.primary)
+                }
+            }
+        }
+        .fixedSize()
     }
 
     /// Lance le scan et met à jour les ports ouverts de l'appareil dans l'inventaire.
@@ -172,19 +198,15 @@ struct DeviceWebTab: View {
             HStack(spacing: 5) {
                 ForEach(0..<3, id: \.self) { _ in Circle().fill(Theme.borderStrong).frame(width: 10, height: 10) }
             }
-            HStack(spacing: 6) {
-                Image(systemName: model.urlText.hasPrefix("https") ? "lock" : "lock.open")
-                    .font(.system(size: 11))
-                    .foregroundStyle(lockColor)
-                TextField("", text: $model.urlText)
-                    .textFieldStyle(.plain)
-                    .font(Theme.mono(12))
-                    .onSubmit { model.run(store: store) }
-            }
-            .padding(.horizontal, 10)
-            .frame(height: 28)
-            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+            Image(systemName: model.urlText.hasPrefix("https") ? "lock" : "lock.open")
+                .font(.system(size: 11))
+                .foregroundStyle(lockColor)
+            TextField("", text: $model.urlText, prompt: Text("https://…"))
+                .textFieldStyle(.roundedBorder)
+                .font(Theme.mono(12))
+                .autocorrectionDisabled()
+                .onSubmit { model.run(store: store) }
+                .frame(minWidth: 120)
             Menu {
                 ForEach(DeviceSession.webURLs(for: device), id: \.self) { url in
                     Button(url) { model.urlText = url }
@@ -193,6 +215,7 @@ struct DeviceWebTab: View {
                 Image(systemName: "chevron.down")
             }
             .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
             .fixedSize()
             .help("Adresses web d’après les ports ouverts")
             Button(model.isRunning ? "Analyse…" : "Analyser") { model.run(store: store) }
@@ -298,7 +321,8 @@ struct DeviceHistoryTab: View {
                 Button("Copier") {
                     ToolActions.copy(events.map { "\(DeviceFormat.date($0.date))\t\($0.title)\t\($0.detail)" }.joined(separator: "\n"))
                 }
-                .buttonStyle(ToolCompactButtonStyle())
+                .buttonStyle(.secondary)
+                .controlSize(.small)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)

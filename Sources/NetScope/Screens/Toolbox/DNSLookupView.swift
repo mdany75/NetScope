@@ -59,32 +59,41 @@ struct DNSLookupView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .bottom, spacing: 10) {
+            ToolAdaptiveRow {
                 ToolLabeledField(label: "Nom ou adresse") {
                     ToolTextField(placeholder: "WKS346.bureau.local, 10.182.122.111…", text: $model.query) { model.run(store: store) }
+                        .frame(minWidth: 180)
                 }
-                ToolLabeledField(label: "Serveur DNS") {
-                    HStack(spacing: 6) {
-                        serverMenu
-                        if model.useCustom {
-                            ToolTextField(placeholder: "9.9.9.9", text: $model.customServer,
-                                          invalid: !model.customServer.isEmpty && IPv4Address(model.customServer) == nil)
-                                .frame(width: 130)
+                HStack(alignment: .bottom, spacing: 10) {
+                    ToolLabeledField(label: "Serveur DNS") {
+                        HStack(spacing: 6) {
+                            serverMenu
+                            if model.useCustom {
+                                ToolTextField(placeholder: "9.9.9.9", text: $model.customServer,
+                                              invalid: !model.customServer.isEmpty && IPv4Address(model.customServer) == nil)
+                                    .frame(width: 130)
+                            }
                         }
                     }
+                    .fixedSize(horizontal: true, vertical: false)
+                    Button(model.isRunning ? "Résolution…" : "Résoudre") { model.run(store: store) }
+                        .buttonStyle(.primary)
+                        .disabled(model.isRunning)
+                        .fixedSize()
                 }
-                .fixedSize(horizontal: true, vertical: false)
-                Button(model.isRunning ? "Résolution…" : "Résoudre") { model.run(store: store) }
-                    .buttonStyle(.primary)
-                    .disabled(model.isRunning)
             }
-            HStack(spacing: 4) {
-                ForEach(DNSRecordType.queryable) { type in
-                    ToolChoiceChip(label: type.rawValue, isSelected: model.type == type) {
-                        model.type = type
-                        if !model.query.isEmpty { model.run(store: store) }
+            HStack(spacing: 8) {
+                Picker("Type d’enregistrement", selection: Binding(get: { model.type }, set: { type in
+                    model.type = type
+                    if !model.query.isEmpty { model.run(store: store) }
+                })) {
+                    ForEach(DNSRecordType.queryable) { type in
+                        Text(type.rawValue).tag(type)
                     }
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
                 if model.result != nil {
                     Spacer(minLength: 8)
                     ToolColumnsMenu(model: table)
@@ -146,11 +155,9 @@ struct DNSLookupView: View {
         } label: {
             Text(label).font(Theme.mono(12))
         }
-        .menuStyle(.borderlessButton)
-        .padding(.horizontal, 10)
-        .frame(width: 230, height: 34)
-        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
-        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+        .menuStyle(.button)
+        .controlSize(.large)
+        .frame(width: 230)
     }
 
     private func matchingDevice(_ result: DNSLookupResult) -> Device? {

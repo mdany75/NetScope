@@ -20,7 +20,9 @@ struct ToolFieldLabel: View {
     }
 }
 
-/// Champ de saisie aux couleurs des croquis (fond blanc, bordure grise, rouge si invalide).
+/// Champ de saisie du système (bordure arrondie de macOS, suit le mode sombre), cadre rouge si la
+/// saisie est invalide. `height` choisit la taille du contrôle : 28 pt et plus, grande taille (même
+/// hauteur que les boutons `.primary` et `.secondary`) ; en dessous, taille normale.
 struct ToolTextField: View {
     let placeholder: String
     @Binding var text: String
@@ -30,16 +32,20 @@ struct ToolTextField: View {
     var onSubmit: () -> Void = {}
 
     var body: some View {
-        TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(Theme.textTertiary))
-            .textFieldStyle(.plain)
+        TextField("", text: $text, prompt: Text(placeholder))
+            .textFieldStyle(.roundedBorder)
+            .controlSize(height >= 28 ? .large : .regular)
             .font(mono ? Theme.mono(13, weight: .medium) : Theme.body)
-            .foregroundStyle(Theme.text)
             .autocorrectionDisabled()
             .onSubmit(onSubmit)
-            .padding(.horizontal, 10)
-            .frame(height: height)
-            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(invalid ? Color(light: 0xFEF2F2, dark: 0x501B1B) : Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(invalid ? Theme.critical : Theme.border))
+            .overlay {
+                if invalid {
+                    RoundedRectangle(cornerRadius: Theme.buttonRadius)
+                        .strokeBorder(Theme.critical, lineWidth: 1.5)
+                        .allowsHitTesting(false)
+                }
+            }
+            .accessibilityLabel(placeholder)
     }
 }
 
@@ -56,7 +62,8 @@ struct ToolLabeledField<Content: View>: View {
     }
 }
 
-/// Puce de choix (profil, type DNS, préfixe) : SF Mono 12, bordure accent si choisie.
+/// Choix parmi quelques valeurs (profil, plage récente, préfixe) : bouton bascule du système, mis
+/// en évidence par macOS quand il est choisi.
 struct ToolChoiceChip: View {
     let label: String
     let isSelected: Bool
@@ -64,18 +71,31 @@ struct ToolChoiceChip: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        // Un clic sur le choix déjà fait le garde choisi (l'action est idempotente).
+        Toggle(isOn: Binding(get: { isSelected }, set: { _ in action() })) {
             Text(label)
-                .font(mono ? Theme.mono(12, weight: isSelected ? .semibold : .medium) : .system(size: 12, weight: isSelected ? .semibold : .medium))
-                .foregroundStyle(isSelected ? Theme.accentStrong : Theme.text)
-                .padding(.horizontal, 10)
-                .frame(height: 28)
-                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(isSelected ? Theme.accentSoft : Theme.panel))
-                .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(isSelected ? Theme.accent : Theme.border))
-                .contentShape(Rectangle())
+                .font(mono ? Theme.mono(12, weight: isSelected ? .semibold : .medium)
+                           : .system(size: 12, weight: isSelected ? .semibold : .medium))
+                // Le fond « choisi » de macOS est la couleur d'accent : texte blanc pour le contraste.
+                .foregroundStyle(isSelected ? Theme.onAccent : Theme.text)
         }
-        .buttonStyle(.plain)
+        .toggleStyle(.button)
         .fixedSize()
+    }
+}
+
+/// Rangée de champs (étiquette au-dessus) qui passe en colonne quand la largeur manque (petite
+/// fenêtre). Donner aux champs souples une largeur minimale (`frame(minWidth:)`) : c'est elle qui
+/// décide du passage en colonne.
+struct ToolAdaptiveRow<Content: View>: View {
+    var spacing: CGFloat = 10
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .bottom, spacing: spacing) { content() }
+            VStack(alignment: .leading, spacing: spacing) { content() }
+        }
     }
 }
 
@@ -125,15 +145,27 @@ struct ToolCell: Identifiable {
     var detail: String? = nil
 }
 
-/// Grille de cellules séparées par des filets de 1 pt, dans un cadre arrondi.
+/// Grille de cellules séparées par des filets de 1 pt, dans un cadre arrondi. `columns` est le
+/// nombre de colonnes au plus : la grille en retire quand une colonne ferait moins de
+/// `minCellWidth` (petite fenêtre), pour que les valeurs tiennent sur une ligne.
 struct ToolCellGrid: View {
     let cells: [ToolCell]
     var columns = 3
     var valueSize: CGFloat = 14
+    var minCellWidth: CGFloat = 170
 
     var body: some View {
+        ViewThatFits(in: .horizontal) {
+            ForEach(Array(stride(from: max(columns, 1), through: 2, by: -1)), id: \.self) { count in
+                grid(count).frame(minWidth: CGFloat(count) * minCellWidth)
+            }
+            grid(1)
+        }
+    }
+
+    private func grid(_ columns: Int) -> some View {
         let rows = stride(from: 0, to: cells.count, by: columns).map { Array(cells[$0..<min($0 + columns, cells.count)]) }
-        VStack(spacing: 1) {
+        return VStack(spacing: 1) {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 HStack(spacing: 1) {
                     ForEach(0..<columns, id: \.self) { index in
@@ -159,7 +191,9 @@ struct ToolCellGrid: View {
                 .font(Theme.mono(valueSize, weight: .semibold))
                 .foregroundStyle(Theme.text)
                 .textSelection(.enabled)
-                .lineLimit(2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .help(cell.value)
             if let detail = cell.detail {
                 Text(detail).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
             }

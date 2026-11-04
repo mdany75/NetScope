@@ -352,40 +352,57 @@ struct DHCPTestView: View {
 
     // MARK: Contrôles
 
-    /// Champs et bouton sur une ligne s'ils y tiennent, sinon le bouton passe dessous (croquis : flex-wrap).
+    /// Champs et bouton sur une ligne s'ils y tiennent, sinon le bouton passe dessous (croquis :
+    /// flex-wrap) ; en petite fenêtre, les serveurs autorisés passent aussi sur leur propre ligne.
     private var controls: some View {
         ViewThatFits(in: .horizontal) {
             HStack(alignment: .bottom, spacing: 10) {
-                fields
+                pickers
+                allowedField
                 sendButton
             }
             VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .bottom, spacing: 10) { fields }
+                HStack(alignment: .bottom, spacing: 10) {
+                    pickers
+                    allowedField
+                }
+                sendButton
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                pickers
+                allowedField
                 sendButton
             }
         }
     }
 
-    @ViewBuilder private var fields: some View {
-        ToolLabeledField(label: "Interface") {
-            Picker("", selection: $model.interfaceName) {
-                if model.interfaces.isEmpty { Text("aucune interface").tag("") }
-                ForEach(model.interfaces, id: \.name) { iface in
-                    Text(iface.linkSummary).tag(iface.name)
+    private var pickers: some View {
+        HStack(alignment: .bottom, spacing: 10) {
+            ToolLabeledField(label: "Interface") {
+                Picker("", selection: $model.interfaceName) {
+                    if model.interfaces.isEmpty { Text("aucune interface").tag("") }
+                    ForEach(model.interfaces, id: \.name) { iface in
+                        Text(iface.linkSummary).tag(iface.name)
+                    }
                 }
+                .labelsHidden()
+                .controlSize(.large)
+                .frame(minWidth: 140)
             }
-            .labelsHidden()
-            .frame(minWidth: 140, minHeight: 34, maxHeight: 34)
-        }
-        .fixedSize()
-        ToolLabeledField(label: "Attente des offres") {
-            Picker("", selection: $model.wait) {
-                ForEach(ToolDHCPModel.waits, id: \.self) { Text("\($0)\u{00A0}s").tag($0) }
+            .fixedSize()
+            ToolLabeledField(label: "Attente des offres") {
+                Picker("", selection: $model.wait) {
+                    ForEach(ToolDHCPModel.waits, id: \.self) { Text("\($0)\u{00A0}s").tag($0) }
+                }
+                .labelsHidden()
+                .controlSize(.large)
+                .frame(width: 80)
             }
-            .labelsHidden()
-            .frame(width: 80, height: 34)
+            .fixedSize()
         }
-        .fixedSize()
+    }
+
+    private var allowedField: some View {
         ToolLabeledField(label: "Serveurs autorisés") {
             ToolTextField(placeholder: "10.182.122.1", text: $model.allowedText, invalid: !model.policy.invalid.isEmpty)
                 .frame(minWidth: 150)
@@ -502,7 +519,8 @@ struct DHCPTestView: View {
                 Text(message).font(Theme.small).foregroundStyle(Color(light: 0x7C2D12, dark: 0xEFAB94))
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
-                HStack(spacing: 14) {
+                // Liens d'action : passent à la ligne en petite fenêtre au lieu de se replier.
+                ToolFlowLayout(spacing: 14, lineSpacing: 4) {
                     if let mac = offer.sourceMAC {
                         Button("Voir le port de switch →") {
                             SwitchStore.shared.find(mac.formatted(.upperColon), devices: state.devices)
@@ -523,7 +541,7 @@ struct DHCPTestView: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.warningSoft))
-        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Color(hex: 0xFDBA74)))
+        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Color(light: 0xFDBA74, dark: 0x7C4A1F)))
     }
 
     /// Ajoute l'alerte « Serveur DHCP non autorisé » dans Analyse (sans doublon sur 24 h) et y mène.
