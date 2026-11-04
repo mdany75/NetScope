@@ -64,6 +64,8 @@ struct DeviceOverviewTab: View {
     @EnvironmentObject private var state: AppState
     /// Emplacements relevés (note 18) : un ancien relevé est grisé comme dans le Scanner.
     @ObservedObject private var switches = SwitchStore.shared
+    /// Note 27 : client Wi-Fi vu par la FortiGate (borne FortiAP, SSID, bande, signal).
+    @ObservedObject private var fortiAP = FortiAPStore.shared
     let device: Device
     var onScanPorts: () -> Void
 
@@ -72,6 +74,9 @@ struct DeviceOverviewTab: View {
             networkCard
             hardwareCard
             locationCard
+            if let client = fortiAP.client(for: device) {
+                DeviceFortiAPCard(device: device, client: client)
+            }
             availabilityCard
             servicesCard
         }

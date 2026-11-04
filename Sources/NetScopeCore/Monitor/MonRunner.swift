@@ -15,6 +15,8 @@ public struct MonRunContext: Sendable {
     public var onlineServices: [SvcService] = []
     /// Accès Microsoft Graph pour Microsoft 365 (secret lu au Trousseau par l'application).
     public var onlineServiceGraph: SvcGraphCredentials?
+    /// Dernière lecture Wi-Fi des FortiGate (sondes FortiAP) ; nil : aucune lecture.
+    public var fortiWifi: FortiWifiOverview?
 
     public init(pinger: ScanPinging?, snmpCommunity: String?, devices: [Device], inventoryReady: Bool = true,
                 now: Date = Date()) {
@@ -78,6 +80,11 @@ public enum MonRunner {
             return MonRunOutcome(result: await MonResourceChecks.run(probe, target: target, context: context))
         case .onlineService:
             return MonRunOutcome(result: await SvcMonitorCheck.run(probe, target: target, context: context))
+        case .fortiAPOffline:
+            return MonFortiAPChecks.offline(target: target, overview: context.fortiWifi, now: context.now)
+        case .fortiAPOverload:
+            return MonFortiAPChecks.overload(target: target, overview: context.fortiWifi,
+                                             thresholds: probe.wifiThresholds ?? .standard, now: context.now)
         }
     }
 

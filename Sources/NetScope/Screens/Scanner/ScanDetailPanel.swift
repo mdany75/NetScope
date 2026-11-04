@@ -160,6 +160,7 @@ struct ScanDetailLocation: View {
     @EnvironmentObject private var state: AppState
     let device: Device
     @ObservedObject private var switches = SwitchStore.shared
+    @ObservedObject private var fortiAP = FortiAPStore.shared
 
     /// État de l'emplacement : actuel, plage décochée, réseau changé ou non confirmé.
     private var status: LocationStatus {
@@ -180,6 +181,19 @@ struct ScanDetailLocation: View {
                     .font(Theme.small)
                     .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
+                // Note 27 : client Wi-Fi vu par la FortiGate (borne FortiAP, SSID, bande, signal).
+                if let client = fortiAP.client(for: device) {
+                    HStack(spacing: 8) {
+                        box("Borne Wi-Fi", client.apName ?? "—")
+                        box("SSID", client.ssid ?? "—")
+                        box("Signal", [client.band?.label, client.rssi.map(WifiQuality.dbm)].compactMap { $0 }.joined(separator: " · ").ifEmpty("—"))
+                    }
+                    Text("Client Wi-Fi de la FortiGate du site «\u{00A0}\(client.site)\u{00A0}»" + (client.channel.map { " · canal \($0)" } ?? "")
+                         + (client.snr.map { " · SNR \($0)\u{00A0}dB" } ?? "") + (fortiAP.isWeak(client) ? " · signal faible" : ""))
+                        .font(Theme.small)
+                        .foregroundStyle(fortiAP.isWeak(client) ? Theme.warning : Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }
@@ -391,4 +405,8 @@ struct ScanDetailActions: View {
         }
         .buttonStyle(ScanOutlineButtonStyle(height: 34, font: .system(size: 12, weight: .medium), fullWidth: true))
     }
+}
+
+private extension String {
+    func ifEmpty(_ fallback: String) -> String { isEmpty ? fallback : self }
 }

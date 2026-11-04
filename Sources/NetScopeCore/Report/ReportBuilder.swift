@@ -152,6 +152,9 @@ public struct ReportInput: Sendable {
     public var mailHealth: [MailHealthSummary] = []
     /// Derniers tests de vitesse des disques (section facultative « Vitesse des disques »).
     public var diskTests: [DiskTestRecord] = []
+    /// Wi-Fi des FortiGate (section facultative « Wi-Fi FortiAP ») ; nil : aucune lecture.
+    public var fortiWifi: FortiWifiOverview?
+    public var fortiWifiThresholds: FortiWifiThresholds = .standard
     public var now: Date
 
     public init(devices: [Device], records: [InvRecord] = [], ranges: [ReportRange] = [], switches: [ReportSwitch] = [],
@@ -356,6 +359,7 @@ public enum ReportBuilder {
             case .inventaire: blocks = inventory(input, masked: config.maskMAC)
             case .courriel: blocks = mailHealthBlocks(input.mailHealth)
             case .disques: blocks = diskBlocks(input.diskTests)
+            case .fortiap: blocks = fortiAPBlocks(input.fortiWifi, thresholds: input.fortiWifiThresholds, masked: config.maskMAC)
             case .annexe: blocks = annex(input, masked: config.maskMAC)
             }
             sections.append(ReportSection(kind: kind, heading: heading, blocks: blocks))

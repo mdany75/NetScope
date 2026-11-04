@@ -36,6 +36,8 @@ final class RapportModel: ObservableObject {
             if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_COURRIEL"] == "1" { demo.sections.insert(.courriel) }
             // NETSCOPE_RAPPORT_DISQUES=1 coche la section « Vitesse des disques ».
             if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_DISQUES"] == "1" { demo.sections.insert(.disques) }
+            // NETSCOPE_RAPPORT_FORTIAP=1 coche la section « Wi-Fi FortiAP ».
+            if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_FORTIAP"] == "1" { demo.sections.insert(.fortiap) }
             config = demo
             library = ReportLibrary(recents: RapportDemo.recents)
         } else {

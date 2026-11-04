@@ -64,6 +64,13 @@ enum MonDemo {
         Row(name: "Microsoft 365", kind: .onlineService, target: "Microsoft 365", sub: "Outlook · Teams · SharePoint · OneDrive",
             iv: 300, state: .warning, value: "Dégradé · 96\(s)ms", latency: 96, orange: [22, 23], red: [],
             configure: { $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
+        // Wi-Fi géré (note 27) : borne FortiAP hors ligne et borne surchargée, lues par la FortiGate.
+        Row(name: "FortiAP du Siège", kind: .fortiAPOffline, target: "*", sub: "FortiGate · Siège · 6 bornes", iv: 300, state: .down,
+            value: "1 hors ligne sur 6", latency: nil, orange: [], red: [14], dependsOnGateway: false,
+            configure: { $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil, failures: 1) }),
+        Row(name: "Charge AP-SALLE-CONF", kind: .fortiAPOverload, target: "AP-SALLE-CONF", sub: "FAP-431F · grande salle", iv: 300,
+            state: .warning, value: "18 clients · canal 78\(s)%", latency: nil, orange: [10, 11, 14], red: [], dependsOnGateway: false,
+            configure: { $0.wifiThresholds = .standard; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
     ]
 
     static func load(into store: MonStore) {
