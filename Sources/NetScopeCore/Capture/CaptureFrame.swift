@@ -5,6 +5,8 @@ import Foundation
 public struct CapturedFrame: Equatable, Sendable {
     public var bytes: [UInt8]
     public var date: Date?
+    /// Longueur sur le fil, si elle dépasse les octets gardés (BPF tronque à la valeur du filtre).
+    public var originalLength: Int?
 
     public init(bytes: [UInt8], date: Date? = nil) {
         self.bytes = bytes
