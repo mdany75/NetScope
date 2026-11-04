@@ -303,6 +303,7 @@ struct ScanDeviceTable: View {
         "latence": KeyPathComparator(\Device.scanSortLatency),
         "ports": KeyPathComparator(\Device.scanSortPorts),
         "switch": KeyPathComparator(\Device.scanSortSwitch),
+        "poe": KeyPathComparator(\Device.scanSortPoE),
         "vlan": KeyPathComparator(\Device.scanSortVLAN),
         "derniereVue": KeyPathComparator(\Device.lastSeen),
         "premiereVue": KeyPathComparator(\Device.firstSeen),
@@ -386,7 +387,7 @@ struct ScanDeviceTable: View {
                 .width(min: 40, ideal: 44)
                 .customizationID("vlan")
 
-                TableColumn(StandardTableHeading("POE")) { device in
+                TableColumn(StandardTableHeading("POE"), sortUsing: table.sort("poe")) { device in
                     PoECell(status: switches.poeStatus(for: device), dimmed: !state.locationStatus(device).isCurrent)
                 }
                 .width(min: 70, ideal: 140)

@@ -39,9 +39,9 @@ struct SpeedServerComparisonPanel: View {
 
     private func summary(_ stats: [SpeedServerStats]) -> String {
         guard let best = stats.filter({ $0.kind == .internet }).max(by: { $0.averageDown < $1.averageDown }) else {
-            return stats.isEmpty ? "" : "\(stats.count) serveurs"
+            return stats.isEmpty ? "" : MonText.plural(stats.count, "serveur", "serveurs")
         }
-        return "\(stats.count) serveurs · meilleure moyenne : \(best.server) (\(SpeedFormat.rate(best.averageDown)) Mb/s)"
+        return "\(MonText.plural(stats.count, "serveur", "serveurs")) · meilleure moyenne : \(best.server) (\(SpeedFormat.rate(best.averageDown)) Mb/s)"
     }
 
     static let columns: [StandardColumn] = [

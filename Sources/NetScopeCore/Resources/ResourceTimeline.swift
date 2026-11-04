@@ -138,6 +138,17 @@ public enum ResourceInterval {
     public static func label(_ seconds: Double) -> String {
         seconds >= 60 ? "\(Int(seconds / 60))\u{00A0}min" : "\(Int(seconds))\u{00A0}s"
     }
+
+    /// « Chaque seconde », « Chaque minute », « Toutes les 5 s » (`capitalized` faux : « chaque minute »).
+    public static func everyLabel(_ seconds: Double, capitalized: Bool = true) -> String {
+        let text: String
+        switch seconds {
+        case 1: text = "Chaque seconde"
+        case 60: text = "Chaque minute"
+        default: text = "Toutes les \(label(seconds))"
+        }
+        return capitalized ? text : text.prefix(1).lowercased() + text.dropFirst()
+    }
 }
 
 // MARK: - Ports les plus chargés

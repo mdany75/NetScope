@@ -120,11 +120,14 @@ struct MonEditor: View {
         }
         MonFieldset("Seuils") {
             HStack(alignment: .top, spacing: 8) {
-                small("Latence > (ms)") {
-                    MonInput(placeholder: "—", text: optionalNumber(draft.thresholds.latencyMs), mono: true, height: 28)
-                }
-                small("Perte > (%)") {
-                    MonInput(placeholder: "—", text: optionalNumber(draft.thresholds.lossPercent), mono: true, height: 28)
+                // Processeur, mémoire, port saturé : ni latence ni perte mesurées, seuils sans objet.
+                if ![MonProbeKind.cpu, .memory, .portLoad].contains(draft.wrappedValue.kind) {
+                    small("Latence > (ms)") {
+                        MonInput(placeholder: "—", text: optionalNumber(draft.thresholds.latencyMs), mono: true, height: 28)
+                    }
+                    small("Perte > (%)") {
+                        MonInput(placeholder: "—", text: optionalNumber(draft.thresholds.lossPercent), mono: true, height: 28)
+                    }
                 }
                 small("Échecs consécutifs") {
                     MonInput(placeholder: "3", text: failuresText(draft), mono: true, height: 28)

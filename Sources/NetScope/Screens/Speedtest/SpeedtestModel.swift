@@ -195,11 +195,18 @@ final class SpeedtestModel: ObservableObject {
                 guard !Task.isCancelled else { return }
                 self.handle(event, interface: interface)
             }
+            // Flux terminé sans résultat ni erreur (moteur arrêté net) : ne pas rester « en cours ».
+            if !Task.isCancelled, self.runState.isRunning {
+                self.runState = .failed("Test interrompu sans résultat.")
+                self.gaugeValue = 0
+            }
         }
     }
 
     /// Moteur de mesure du serveur choisi.
     private func engine(for server: SpeedServer, streams: Int) -> SpeedTestEngine? {
+        // Démonstration : progression et résultat rejoués, aucun moteur réseau construit.
+        if Launcher.isDemo { return SpeedtestDemoEngine(server: server, streams: streams) }
         switch server.source {
         case .cloudflare:
             return SpeedTester(config: SpeedTestConfig(streams: streams))
@@ -326,14 +333,26 @@ final class SpeedtestModel: ObservableObject {
         }
         let result = await SpeedServerCatalog.load(ooklaPath: includeOokla ? ooklaPath : nil, extra: extra,
                                                    probes: quick ? 1 : 3, timeout: quick ? 1 : 1.5, progress: status)
+        // Chargement interrompu : liste partielle, souvent sans latence ; on garde l'ancienne.
+        if Task.isCancelled {
+            catalogLoading = false
+            catalogStatus = catalog.isEmpty ? "Chargement interrompu" : Self.catalogSummary(catalog)
+            return
+        }
         // Les serveurs Ookla déjà listés restent si on recharge sans eux (test automatique).
         let keptOokla = includeOokla ? [] : catalog.filter { $0.source == .ookla }
         catalog = result.servers + keptOokla.filter { item in !result.servers.contains { $0.id == item.id } }
-        catalogDate = result.date
+        // Sans aucune latence mesurée, la liste n'est pas datée : le choix automatique la remesurera.
+        catalogDate = result.servers.contains { $0.latencyMs != nil } ? result.date : nil
         catalogFailures = result.failures
         catalogLoading = false
-        let measured = result.servers.filter { $0.latencyMs != nil }.count
-        catalogStatus = "\(result.servers.count) serveurs · \(measured) joignables"
+        catalogStatus = Self.catalogSummary(result.servers)
+    }
+
+    /// « 12 serveurs · 9 joignables ».
+    static func catalogSummary(_ servers: [SpeedServer]) -> String {
+        let measured = servers.filter { $0.latencyMs != nil }.count
+        return "\(MonText.plural(servers.count, "serveur", "serveurs")) · \(MonText.plural(measured, "joignable", "joignables"))"
     }
 
     /// Cherche le CLI d'Ookla et vérifie que c'est bien celui d'Ookla (« --version », local).
@@ -369,6 +388,8 @@ final class SpeedtestModel: ObservableObject {
         upMbps = nil
         summary = nil
         freshRecordID = nil
+        server = nil
+        latencyDuration = 0
     }
 
     private func handle(_ event: SpeedEvent, interface: LocalInterface?) {
@@ -408,8 +429,11 @@ final class SpeedtestModel: ObservableObject {
             gaugeValue = result.downMbps
             fraction = 1
             runState = .done
-            if let info = result.server { server = info }
             let tested = testedServer ?? .cloudflare
+            // Toujours le serveur de ce test (jamais celui du précédent), comme dans l'historique.
+            server = result.server ?? SpeedServerInfo(city: tested.city, country: tested.country,
+                                                      source: tested.source.label, serverName: tested.name,
+                                                      serverID: tested.id)
             let record = SpeedTestRecord(
                 kind: .internet, server: result.server?.label ?? tested.historyLabel,
                 interfaceName: interface?.name ?? "—", interfaceKind: interface?.kind.label ?? "",
@@ -462,7 +486,9 @@ final class SpeedtestModel: ObservableObject {
         let generation = lanGeneration
         lanTask = Task { [weak self] in
             do {
-                let result = try await IperfRunner.run(options, executable: path)
+                // Démonstration : résultat rejoué, iperf3 n'est jamais lancé.
+                let result = Launcher.isDemo ? try await Self.demoLanRun(options)
+                                             : try await IperfRunner.run(options, executable: path)
                 guard let self, self.lanGeneration == generation else { return }
                 self.lanResult = result
                 self.lanRunning = false
@@ -479,6 +505,15 @@ final class SpeedtestModel: ObservableObject {
                 if !Task.isCancelled { self.lanError = error.localizedDescription }
             }
         }
+    }
+
+    /// Test iperf3 de démonstration (`--demo`) : attend la durée choisie (3 s au plus), sans réseau.
+    private static func demoLanRun(_ options: IperfOptions) async throws -> IperfResult {
+        try await Task.sleep(nanoseconds: UInt64(min(3, max(1, Double(options.duration)))) * 1_000_000_000)
+        var result = SpeedtestDemo.lanResult()
+        result.remoteHost = options.host
+        result.remotePort = options.port
+        return result
     }
 
     func stopLan() {
@@ -567,7 +602,7 @@ final class SpeedtestModel: ObservableObject {
     func loadDemoServers(_ servers: [SpeedServer], prefs: SpeedServerPrefs, tested: SpeedServer) {
         catalog = servers
         catalogDate = Date()
-        catalogStatus = "\(servers.count) serveurs · \(servers.filter { $0.latencyMs != nil }.count) joignables"
+        catalogStatus = Self.catalogSummary(servers)
         serverPrefs = prefs
         testedServer = tested
     }

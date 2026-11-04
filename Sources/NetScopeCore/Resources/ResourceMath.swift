@@ -108,6 +108,13 @@ public enum ResourceMath {
         if current < previous, let speed = speedMbps, speed > 0, rate > Double(speed) * 1_000_000 * 1.1 {
             return nil
         }
+        // Compteur 32 bits : si le lien a pu faire un tour complet de plus pendant l'intervalle
+        // (1 Gb/s saturé : 2^32 octets en 34 s), la mesure est ambiguë et peut être très
+        // sous-estimée. nil plutôt qu'un débit faux.
+        if width == .bits32, let speed = speedMbps, speed > 0 {
+            let wrapRate = (Double(delta) + Double(width.maximum) + 1) * 8 / seconds
+            if wrapRate <= Double(speed) * 1_000_000 * 1.1 { return nil }
+        }
         return rate
     }
 

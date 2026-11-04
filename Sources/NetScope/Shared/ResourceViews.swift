@@ -298,7 +298,7 @@ struct ResourceIntervalMenu: View {
     var body: some View {
         Picker(selection: $interval) {
             ForEach(choices, id: \.self) { seconds in
-                Text("Toutes les \(ResourceInterval.label(seconds))").tag(seconds)
+                Text(ResourceInterval.everyLabel(seconds)).tag(seconds)
             }
         } label: {
             Text("Intervalle")
@@ -347,5 +347,17 @@ struct ResourcePanelHeader<Accessory: View>: View {
 extension ResourcePanelHeader where Accessory == EmptyView {
     init(title: String, subtitle: String = "") {
         self.init(title: title, subtitle: subtitle) { EmptyView() }
+    }
+}
+
+/// Message d'un export : vert en cas de succès, rouge en cas d'échec.
+struct ResourceToastText: View {
+    let toast: ResourceToast
+
+    var body: some View {
+        Label(toast.text, systemImage: toast.isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+            .font(Theme.small)
+            .foregroundStyle(toast.isError ? Theme.critical : Theme.success)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

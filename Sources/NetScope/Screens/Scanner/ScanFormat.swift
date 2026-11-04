@@ -119,6 +119,21 @@ extension Device {
     var scanSortLatency: Double { latencyMs ?? .infinity }
     var scanSortPorts: Int { openPorts.count }
     var scanSortSwitch: String { switchLocation ?? "" }
+    /// PoE : alimentés d'abord (les plus gourmands en tête), puis ports PoE sans charge, ports sans
+    /// PoE et inconnus. Lu dans le relevé des switchs (fil principal, où le tableau trie).
+    var scanSortPoE: Double {
+        guard Thread.isMainThread else { return 3_000 }
+        let device = self
+        return MainActor.assumeIsolated {
+            guard let status = SwitchStore.shared.poeStatus(for: device) else { return 3_000 }
+            if status.isPowered == true { return -(status.port?.consumptionW ?? status.port?.allocatedW ?? 0) }
+            switch status.isPoEPort {
+            case true?: return 1_000
+            case false?: return 2_000
+            case nil: return 3_000
+            }
+        }
+    }
     var scanSortVLAN: Int { vlan ?? .max }
     var scanSortStatus: Int { isOnline ? 0 : 1 }
     var scanSortType: String { deviceType.label }

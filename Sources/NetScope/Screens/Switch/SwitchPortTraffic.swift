@@ -20,7 +20,7 @@ struct SwitchPortTraffic: View {
                 if monitor.isPolling { ProgressView().controlSize(.small) }
                 Menu {
                     Picker("Intervalle", selection: $monitor.interval) {
-                        ForEach(ResourceInterval.snmp, id: \.self) { Text("Toutes les \(ResourceInterval.label($0))").tag($0) }
+                        ForEach(ResourceInterval.snmp, id: \.self) { Text(ResourceInterval.everyLabel($0)).tag($0) }
                     }
                     .pickerStyle(.inline)
                     Divider()
@@ -36,6 +36,9 @@ struct SwitchPortTraffic: View {
                 .menuStyle(.borderlessButton)
                 .fixedSize()
                 .help("Intervalle des relevés, pause et export CSV")
+            }
+            if let toast = monitor.toast {
+                ResourceToastText(toast: toast)
             }
             if let error = monitor.error {
                 Text(error).font(Theme.small).foregroundStyle(Theme.critical).fixedSize(horizontal: false, vertical: true)
@@ -161,7 +164,7 @@ struct SwitchTopPorts: View {
     private var heading: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text("Ports les plus chargés").font(.system(size: 14, weight: .semibold)).fixedSize()
-            Text("IF-MIB · relevé toutes les \(ResourceInterval.label(monitor.interval))")
+            Text("IF-MIB · relevé \(ResourceInterval.everyLabel(monitor.interval, capitalized: false))")
                 .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
         }
     }

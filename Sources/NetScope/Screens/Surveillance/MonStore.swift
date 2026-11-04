@@ -290,11 +290,22 @@ final class MonStore: ObservableObject {
         // Communauté lue au Trousseau seulement quand la sonde interroge un agent SNMP.
         let resourceKinds: [MonProbeKind] = [.cpu, .memory, .portLoad]
         let needsSNMP = probe.kind == .snmp || (resourceKinds.contains(probe.kind) && !MonResourceChecks.isLocal(probe.target))
-        let community = needsSNMP ? RegSNMPCredentials.load()?.community : nil
+        // Sondes de ressources : même communauté que les écrans (propre à l'hôte dans Switchs et
+        // ports, sinon celle des Identifiants).
+        let perHost = needsSNMP && resourceKinds.contains(probe.kind)
+        var community = needsSNMP && !perHost ? RegSNMPCredentials.load()?.community : nil
         launched[probe.id] = probe
-        let context = MonRunContext(pinger: pinger, snmpCommunity: community, devices: appState?.devices ?? [],
-                                    inventoryReady: !ScanController.shared.isRunning, now: Date())
+        let pinger = self.pinger
+        let devices = appState?.devices ?? []
+        let inventoryReady = !ScanController.shared.isRunning
         Task {
+            if perHost {
+                await SwitchStore.shared.loadVault()
+                let host = SwitchStore.shared.community(for: probe.target)
+                community = host.isEmpty ? RegSNMPCredentials.load()?.community : host
+            }
+            let context = MonRunContext(pinger: pinger, snmpCommunity: community, devices: devices,
+                                        inventoryReady: inventoryReady, now: Date())
             let outcome = await MonRunner.run(probe, context: context)
             MonStore.shared.finish(probe.id, outcome: outcome, manual: manual)
         }

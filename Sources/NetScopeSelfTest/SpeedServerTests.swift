@@ -6,6 +6,33 @@ import NetScopeCore
 // scripts d'installation. Aucun accès réseau, aucun processus lancé.
 
 func registerSpeedServerTests(_ suite: TestSuite) {
+    suite.add("Serveurs : liste LibreSpeed sans autre hôte ni hôte local") {
+        let json = """
+        [
+          {"id":1,"name":"Détour","server":"https://ok.exemple.net/","dlURL":"http://autre.exemple.org/gros.bin",
+           "ulURL":"//192.168.1.1/empty.php","pingURL":"/racine/empty.php","getIpURL":"getIP.php"},
+          {"id":2,"name":"Privé","server":"http://192.168.1.10/"},
+          {"id":3,"name":"Bouclage","server":"https://127.0.0.1/"},
+          {"id":4,"name":"Nom local","server":"https://nas.local/"},
+          {"id":5,"name":"Lien-local","server":"http://[fe80::1]/"}
+        ]
+        """
+        let servers = try LibreSpeedParser.servers(Data(json.utf8))
+        try expectEqual(servers.map(\.id), ["librespeed:1"], "hôtes privés, de bouclage ou locaux écartés")
+        let server = servers[0]
+        try expectEqual(server.downloadPath, LibreSpeedEndpoints.defaultDownload, "URL absolue vers un autre hôte écartée")
+        try expectEqual(server.uploadPath, LibreSpeedEndpoints.defaultUpload, "« //hôte/… » écarté")
+        try expectEqual(server.pingPath, LibreSpeedEndpoints.defaultPing, "chemin absolu écarté")
+        let endpoints = try unwrapValue(LibreSpeedEndpoints(server: server), "points d'accès")
+        try expectEqual(endpoints.downloadURL(bytes: 1).host, "ok.exemple.net", "téléchargement sur le serveur affiché")
+        // Même construits à la main, les points d'accès ne quittent pas l'hôte de base.
+        let forced = LibreSpeedEndpoints(base: URL(string: "https://ok.exemple.net/")!, uploadPath: "https://autre.exemple.org/up.php")
+        try expectEqual(forced.uploadURL().host, "ok.exemple.net", "téléversement ramené sur l'hôte de base")
+        try expect(SpeedHostPolicy.isLocal("10.0.0.5") && SpeedHostPolicy.isLocal("169.254.3.4") && SpeedHostPolicy.isLocal("localhost"),
+                   "adresses locales reconnues")
+        try expect(!SpeedHostPolicy.isLocal("speed.exemple.net") && !SpeedHostPolicy.isLocal("8.8.8.8"), "hôtes publics acceptés")
+    }
+
     suite.add("Serveurs : liste LibreSpeed") {
         let json = """
         [
@@ -300,6 +327,35 @@ func registerSpeedServerTests(_ suite: TestSuite) {
         try expect(!script.contains("sudo"), "aucune élévation de droits")
         try expect(ToolInstaller.homebrewScript().contains(Homebrew.officialInstallCommand), "commande officielle de Homebrew")
         try expectEqual(IperfServerHelp.serverCommand, "iperf3 -s", "commande côté cible")
+    }
+
+    suite.add("Installer : le script zsh affiche son message de fin (succès et échec)") {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("netscope-script-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        for (command, expected) in [("true", "Fin réussie."), ("false", "Échec (code 1).")] {
+            let script = ToolInstaller.confirmScript(title: "Essai", explanation: "Essai", command: command, after: "Fin réussie.")
+            let url = directory.appendingPathComponent("essai-\(command).command")
+            try Data(script.utf8).write(to: url)
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+            process.arguments = [url.path]
+            var environment = ProcessInfo.processInfo.environment
+            environment["TERM"] = "dumb"
+            process.environment = environment
+            let input = Pipe(), output = Pipe()
+            process.standardInput = input
+            process.standardOutput = output
+            process.standardError = FileHandle.nullDevice
+            try process.run()
+            input.fileHandleForWriting.write(Data("\n".utf8))
+            try input.fileHandleForWriting.close()
+            let data = output.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            let text = String(decoding: data, as: UTF8.self)
+            try expect(text.contains(expected), "message de fin pour « \(command) » : \(text.suffix(80))")
+            try expect(!FileManager.default.fileExists(atPath: url.path), "le script s'est effacé")
+        }
     }
 }
 

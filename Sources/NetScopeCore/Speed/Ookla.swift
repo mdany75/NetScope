@@ -168,37 +168,80 @@ public final class OoklaTester: SpeedTestEngine, @unchecked Sendable {
             process.standardError = errors
             process.standardInput = FileHandle.nullDevice
             let reader = OoklaLineReader(continuation: continuation)
+            let state = OoklaRunState()
+            // Fin : à la fois l'EOF de stdout (lu par un seul handler, dans l'ordre) et la fin du processus.
+            let group = DispatchGroup()
+            group.enter()
+            group.enter()
             output.fileHandleForReading.readabilityHandler = { handle in
                 let data = handle.availableData
                 if data.isEmpty {
                     handle.readabilityHandler = nil
+                    group.leave()
                 } else {
                     reader.feed(data)
                 }
             }
-            process.terminationHandler = { process in
-                output.fileHandleForReading.readabilityHandler = nil
-                reader.feed(output.fileHandleForReading.readDataToEndOfFile())
+            // stderr vidé en continu : un CLI bavard ne se bloque pas sur un tuyau plein.
+            errors.fileHandleForReading.readabilityHandler = { handle in
+                let data = handle.availableData
+                if data.isEmpty {
+                    handle.readabilityHandler = nil
+                } else {
+                    state.appendError(data)
+                }
+            }
+            process.terminationHandler = { _ in group.leave() }
+            group.notify(queue: .global(qos: .utility)) {
                 reader.flush()
-                if !reader.didFinish {
-                    let stderr = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-                    let message = stderr.split(separator: "\n").last.map(String.init)?.trimmingCharacters(in: .whitespaces)
+                if !reader.didFinish, !state.stoppedByUser {
+                    let message = state.lastErrorLine
                     if process.terminationReason == .exit {
-                        continuation.yield(.failed("Ookla : " + (message?.isEmpty == false ? message! : "test interrompu (code \(process.terminationStatus))")))
+                        continuation.yield(.failed("Ookla : " + (message ?? "test interrompu (code \(process.terminationStatus))")))
+                    } else {
+                        continuation.yield(.failed("Ookla : le CLI s’est arrêté (signal \(process.terminationStatus))."))
                     }
                 }
                 continuation.finish()
             }
             continuation.onTermination = { _ in
+                state.markStopped()
                 if process.isRunning { process.terminate() }
             }
             do {
                 try process.run()
             } catch {
+                output.fileHandleForReading.readabilityHandler = nil
+                errors.fileHandleForReading.readabilityHandler = nil
                 continuation.yield(.failed("Ookla : lancement impossible (\(error.localizedDescription))."))
                 continuation.finish()
             }
         }
+    }
+}
+
+/// État partagé d'un test Ookla : arrêt demandé, fin de stderr (4 Kio au plus).
+private final class OoklaRunState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stopped = false
+    private var errorTail = Data()
+
+    func markStopped() { lock.lock(); stopped = true; lock.unlock() }
+
+    var stoppedByUser: Bool { lock.lock(); defer { lock.unlock() }; return stopped }
+
+    func appendError(_ data: Data) {
+        lock.lock()
+        errorTail.append(data)
+        if errorTail.count > 4096 { errorTail = errorTail.suffix(4096) }
+        lock.unlock()
+    }
+
+    /// Dernière ligne non vide de stderr.
+    var lastErrorLine: String? {
+        lock.lock(); defer { lock.unlock() }
+        let text = String(decoding: errorTail, as: UTF8.self)
+        return text.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.last { !$0.isEmpty }
     }
 }
 

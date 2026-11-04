@@ -51,7 +51,7 @@ private struct LocalResourcesSection: View {
                        subtitle: "Lecture locale (host_statistics, sysctl) · aucun trafic réseau",
                        updated: monitor.lastSample, interval: $monitor.interval, choices: ResourceInterval.local,
                        isPaused: monitor.isPaused, onPause: monitor.togglePause, onExport: monitor.exportCSV,
-                       canExport: !monitor.timeline.samples.isEmpty, toast: monitor.toast)
+                       canExport: !monitor.timeline.samples.isEmpty, toast: monitor.toast, window: monitor.timeline.window)
     }
 
     private var tiles: some View {
@@ -155,7 +155,7 @@ private struct SNMPResourcesSection: View {
                            updated: monitor.lastPoll, interval: $monitor.interval, choices: ResourceInterval.snmp,
                            isPaused: monitor.isPaused || !monitor.started, onPause: { monitor.started ? monitor.togglePause() : monitor.start() },
                            onExport: { monitor.exportCSV(name: "ressources-\(device.ip)") },
-                           canExport: !monitor.timeline.samples.isEmpty, toast: monitor.toast, isBusy: monitor.isPolling)
+                           canExport: !monitor.timeline.samples.isEmpty, toast: monitor.toast, window: monitor.timeline.window, isBusy: monitor.isPolling)
             if !monitor.started {
                 ToolNotice(tone: .accent, title: "Interrogation SNMP non lancée",
                            message: "\(device.displayName) n’a pas répondu en SNMP lors du dernier scan. NetScope peut tout de même l’interroger (SNMP v2c, lecture seule, communauté des Réglages › Identifiants).") {
@@ -255,7 +255,7 @@ private struct SNMPResourcesSection: View {
         }
         let selected = rows.first { $0.id == selectedPort } ?? rows.max { ($0.peak ?? -1) < ($1.peak ?? -1) }
         return ResourceInterfacesPanel(title: "Trafic par interface",
-                                       subtitle: "IF-MIB · \(rows.count) actives" + (monitor.ports.first?.counters.width == .bits32 ? " · compteurs 32\u{00A0}bits" : ""),
+                                       subtitle: "IF-MIB · " + MonText.plural(rows.count, "active", "actives") + (monitor.ports.first?.counters.width == .bits32 ? " · compteurs 32\u{00A0}bits" : ""),
                                        rows: rows, selection: Binding(get: { selected?.id }, set: { selectedPort = $0 }),
                                        tableID: "appareil.ressources.snmp", timeline: monitor.timeline,
                                        seriesKey: { "if\($0)" }, emptyText: monitor.lastPoll == nil ? "Premier relevé en cours…" : "Aucune interface active.")
@@ -275,7 +275,8 @@ private struct ResourceHeader: View {
     let onPause: () -> Void
     let onExport: () -> Void
     let canExport: Bool
-    let toast: String?
+    let toast: ResourceToast?
+    var window: TimeInterval = 300
     var isBusy = false
 
     var body: some View {
@@ -293,7 +294,7 @@ private struct ResourceHeader: View {
                     }
                 }
                 if let toast {
-                    Text(toast).font(Theme.small).foregroundStyle(Theme.success)
+                    ResourceToastText(toast: toast)
                 }
             }
         }
@@ -334,7 +335,7 @@ private struct ResourceHeader: View {
             }
             .buttonStyle(.secondary)
             .disabled(!canExport)
-            .help("Enregistrer l’historique des 5 dernières minutes (CSV, séparateur «\u{00A0};\u{00A0}»)")
+            .help("Enregistrer l’historique (\(ResourceTime.label(window)) au plus, CSV, séparateur «\u{00A0};\u{00A0}»)")
         }
         .fixedSize()
     }
@@ -589,7 +590,7 @@ private struct ResourceInterfacesPanel: View {
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(row.name).font(Theme.mono(12, weight: .semibold))
-                Text("5 dernières minutes" + (row.speedMbps.map { " · lien \(SNMPFormat.speed(mbps: $0))" } ?? ""))
+                Text("Historique de \(ResourceTime.label(timeline.window))" + (row.speedMbps.map { " · lien \(SNMPFormat.speed(mbps: $0))" } ?? ""))
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 Spacer(minLength: 6)
                 ResourceLegend(items: [("Entrée", ResourceColors.primary), ("Sortie", ResourceColors.secondary)])

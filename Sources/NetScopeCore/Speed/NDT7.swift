@@ -78,7 +78,9 @@ public enum MLabLocate {
             guard let machine = result["machine"] as? String, let urls = result["urls"] as? [String: String],
                   let down = urls["wss:///ndt/v7/download"].flatMap(URL.init(string:)),
                   let up = urls["wss:///ndt/v7/upload"].flatMap(URL.init(string:)),
-                  down.scheme == "wss", up.scheme == "wss" else { return nil }
+                  down.scheme == "wss", up.scheme == "wss",
+                  let downHost = down.host, let upHost = up.host,
+                  !SpeedHostPolicy.isLocal(downHost), !SpeedHostPolicy.isLocal(upHost) else { return nil }
             let location = result["location"] as? [String: Any]
             return NDT7Target(machine: machine, site: site(fromMachine: machine), city: location?["city"] as? String,
                               country: location?["country"] as? String, downloadURL: down, uploadURL: up)
@@ -201,7 +203,10 @@ public final class NDT7Tester: SpeedTestEngine, @unchecked Sendable {
                 out.yield(.failed("M-Lab n’a proposé aucun serveur (code \(http.statusCode)). Réessayez dans un instant."))
                 return
             }
-            guard let first = try MLabLocate.parse(data).first else { return }
+            guard let first = try MLabLocate.parse(data).first else {
+                out.yield(.failed("M-Lab n’a proposé aucun serveur. Réessayez dans un instant."))
+                return
+            }
             target = first
         } catch {
             out.yield(.failed("Service de localisation M-Lab injoignable : \(error.localizedDescription)"))

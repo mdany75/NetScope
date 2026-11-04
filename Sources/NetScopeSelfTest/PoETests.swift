@@ -257,6 +257,13 @@ func registerPoETests(_ suite: TestSuite) {
         let oldPC = try SNMPPoELookup.status(switchName: "SW-CORE-01", portName: "Gi1/0/22", in: [old]).unwrap("ancien poste")
         try expectEqual(oldPC.isPoEPort, nil, "ancien relevé : impossible à dire")
         try expectEqual(oldPC.shortLabel, "Inconnu", "colonne inconnue")
+        // Un port PSE non rattaché à une interface : un port absent de la liste n'est pas « sans PoE ».
+        var partial = snapshot
+        partial.poeDetails?.append(SNMPPoEPort(group: 2, port: 7, ifIndex: nil, adminEnabled: true, detection: .searching))
+        let unknown = try SNMPPoELookup.status(switchName: "SW-CORE-01", portName: "Gi1/0/22", in: [partial]).unwrap("non rattaché")
+        try expectEqual(unknown.isPoEPort, nil, "port non rattaché : impossible à dire")
+        try expectEqual(unknown.shortLabel, "Inconnu", "colonne inconnue (port non rattaché)")
+        try expect(unknown.detailLabel.hasPrefix("Inconnu"), "fiche : inconnu plutôt que « Non »")
     }
 }
 

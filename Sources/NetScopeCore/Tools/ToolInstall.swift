@@ -145,7 +145,7 @@ public enum ToolInstaller {
                       after: "Terminé. Suivez les « Next steps » affichés par Homebrew, puis revenez à NetScope.")
     }
 
-    static func confirmScript(title: String, explanation: String, command: String, after: String) -> String {
+    public static func confirmScript(title: String, explanation: String, command: String, after: String) -> String {
         """
         #!/bin/zsh
         rm -f -- "$0"
@@ -160,9 +160,9 @@ public enum ToolInstaller {
         echo 'Appuyez sur Entrée pour lancer, ou sur Ctrl-C (ou fermez cette fenêtre) pour annuler.'
         read -r reponse || exit 1
         \(command)
-        status=$?
+        code=$?
         echo
-        if [ $status -eq 0 ]; then echo \(RemoteShell.quote(after)); else echo "Échec (code $status)."; fi
+        if [ $code -eq 0 ]; then echo \(RemoteShell.quote(after)); else echo "Échec (code $code)."; fi
         """ + "\n"
     }
 

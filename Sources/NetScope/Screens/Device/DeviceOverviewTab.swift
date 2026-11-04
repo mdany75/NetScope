@@ -169,7 +169,7 @@ struct DeviceOverviewTab: View {
                         if device.switchPort != "Wi-Fi" {
                             // Note 12 : PoE du port, d'après le relevé SNMP du switch.
                             let poe = SwitchStore.shared.poeStatus(for: device)
-                            DeviceKVRow(key: "PoE", value: poe?.detailLabel ?? "Inconnu · switch non relevé par SNMP", mono: false,
+                            DeviceKVRow(key: "PoE", value: poe?.detailLabel ?? "Inconnu · switch non relevé ou port absent du relevé SNMP", mono: false,
                                         valueColor: poe?.isPowered == true ? Theme.success : Theme.text)
                         }
                         DeviceKVRow(key: "Source", value: status.isCurrent ? "Inventaire (dernier relevé des switchs)"

@@ -49,6 +49,14 @@ func registerResourceTests(_ suite: TestSuite) {
         // Passage de 32 à 64 bits : rien à comparer.
         let mixed = ResourceMath.rate(from: before, to: TrafficCounters(inOctets: 9, outOctets: 9, width: .bits64), seconds: 5)
         try expect(mixed.inBitsPerSecond == nil && mixed.outBitsPerSecond == nil, "largeurs différentes")
+        // Counter32 d'un port 1 Gb/s relevé toutes les 60 s : un deuxième tour est possible → nil.
+        let slow = ResourceMath.rate(from: TrafficCounters(inOctets: 1_000, outOctets: 0, width: .bits32, speedMbps: 1000),
+                                     to: TrafficCounters(inOctets: 2_000_000_000, outOctets: 0, width: .bits32, speedMbps: 1000), seconds: 60)
+        try expect(slow.inBitsPerSecond == nil, "Counter32 ambigu sur 60 s à 1 Gb/s")
+        // Même port relevé toutes les 30 s : un seul tour possible, débit fiable.
+        let fast = ResourceMath.rate(from: TrafficCounters(inOctets: 1_000, outOctets: 0, width: .bits32, speedMbps: 1000),
+                                     to: TrafficCounters(inOctets: 1_000_001_000, outOctets: 0, width: .bits32, speedMbps: 1000), seconds: 30)
+        try expect(fast.inBitsPerSecond != nil, "Counter32 fiable sur 30 s à 1 Gb/s")
     }
 
     suite.add("Ressources : erreurs et rejets nouveaux") {
@@ -259,6 +267,7 @@ func registerResourceTests(_ suite: TestSuite) {
 
         try expect(MonResourceChecks.isLocal("Ce Mac") && MonResourceChecks.isLocal(" localhost "), "ce Mac reconnu")
         try expect(!MonResourceChecks.isLocal("10.182.122.2"), "adresse d'un agent")
+        try expect(!MonResourceChecks.isLocal("mac"), "un hôte nommé « mac » n'est pas ce Mac")
         try expectEqual(portProbe.conditionSummary, "Alerte si Gi1/0/48 > 80\u{00A0}% du lien", "résumé de la condition")
     }
 

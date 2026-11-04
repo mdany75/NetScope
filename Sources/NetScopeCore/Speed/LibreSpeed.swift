@@ -42,10 +42,19 @@ public struct LibreSpeedEndpoints: Hashable, Sendable {
     }
 
     func url(_ path: String, query: [URLQueryItem]) -> URL {
-        let resolved = URL(string: path, relativeTo: base)?.absoluteURL ?? base.appendingPathComponent(path)
+        var resolved = URL(string: path, relativeTo: base)?.absoluteURL ?? base.appendingPathComponent(path)
+        // Le test ne quitte jamais le serveur affiché : même schéma, même hôte, même port que la base.
+        if !Self.sameOrigin(resolved, base) {
+            resolved = base.appendingPathComponent((path as NSString).lastPathComponent)
+        }
         guard var components = URLComponents(url: resolved, resolvingAgainstBaseURL: false) else { return resolved }
         components.queryItems = (components.queryItems ?? []) + query
         return components.url ?? resolved
+    }
+
+    static func sameOrigin(_ a: URL, _ b: URL) -> Bool {
+        func port(_ url: URL) -> Int? { url.port ?? (url.scheme?.lowercased() == "https" ? 443 : url.scheme?.lowercased() == "http" ? 80 : nil) }
+        return a.scheme?.lowercased() == b.scheme?.lowercased() && a.host?.lowercased() == b.host?.lowercased() && port(a) == port(b)
     }
 
     /// garbage.php?ckSize=N (N blocs de 1 Mio, au moins 1) ; « r » évite les caches.
@@ -85,15 +94,25 @@ public enum LibreSpeedParser {
               let scheme = components.scheme?.lowercased(), scheme == "https" || scheme == "http" else { return nil }
         if !components.path.hasSuffix("/") { components.path += "/" }
         guard let base = components.url?.absoluteString else { return nil }
+        // Liste tierce : jamais d'hôte du réseau local, de bouclage ou lien-local.
+        guard !SpeedHostPolicy.isLocal(host) else { return nil }
         let id = text(object["id"]) ?? host
         let (city, country, sponsorInName) = splitName(name)
         return SpeedServer(id: "librespeed:\(id)", source: .librespeed, name: name, city: city, country: country,
                            sponsor: text(object["sponsorName"]) ?? sponsorInName, host: host,
                            port: components.port ?? (scheme == "https" ? 443 : 80), baseURL: base,
-                           downloadPath: text(object["dlURL"]) ?? LibreSpeedEndpoints.defaultDownload,
-                           uploadPath: text(object["ulURL"]) ?? LibreSpeedEndpoints.defaultUpload,
-                           pingPath: text(object["pingURL"]) ?? LibreSpeedEndpoints.defaultPing,
-                           ipPath: text(object["getIpURL"]) ?? LibreSpeedEndpoints.defaultIP)
+                           downloadPath: relativePath(object["dlURL"]) ?? LibreSpeedEndpoints.defaultDownload,
+                           uploadPath: relativePath(object["ulURL"]) ?? LibreSpeedEndpoints.defaultUpload,
+                           pingPath: relativePath(object["pingURL"]) ?? LibreSpeedEndpoints.defaultPing,
+                           ipPath: relativePath(object["getIpURL"]) ?? LibreSpeedEndpoints.defaultIP)
+    }
+
+    /// Chemin relatif à la base seulement : « http://autre-hôte/… », « //hôte/… » ou « /… » sont écartés
+    /// (le chemin par défaut est alors utilisé).
+    static func relativePath(_ value: Any?) -> String? {
+        guard let path = text(value) else { return nil }
+        if path.contains("://") || path.hasPrefix("/") || path.hasPrefix("\\") || path.contains(":") { return nil }
+        return path
     }
 
     /// « Montréal, Canada (Fibre Laurentides) » → (Montréal, Canada, Fibre Laurentides).
@@ -172,5 +191,28 @@ public enum SpeedParseError: Error, Equatable, LocalizedError {
         case .invalidFormat(let what): return "Réponse illisible (\(what))."
         case .empty(let what): return "Aucun serveur reçu (\(what))."
         }
+    }
+}
+
+/// Hôtes acceptés dans les listes publiques de serveurs (LibreSpeed, M-Lab) : jamais une adresse
+/// privée, de bouclage, lien-local ou un nom local. Un serveur personnalisé saisi par
+/// l'utilisateur n'est pas concerné.
+public enum SpeedHostPolicy {
+    public static func isLocal(_ host: String) -> Bool {
+        var name = host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        if name.hasSuffix(".") { name.removeLast() }
+        if name.isEmpty || name == "localhost" || name.hasSuffix(".localhost") || name.hasSuffix(".local")
+            || name.hasSuffix(".lan") || name.hasSuffix(".home.arpa") || !name.contains(".") && !name.contains(":") {
+            return true
+        }
+        if name.contains(":") {
+            // IPv6 : bouclage, non spécifiée, lien-local (fe80::/10), unique locale (fc00::/7), IPv4 mappée.
+            return name == "::1" || name == "::" || name.hasPrefix("fe8") || name.hasPrefix("fe9") || name.hasPrefix("fea")
+                || name.hasPrefix("feb") || name.hasPrefix("fc") || name.hasPrefix("fd") || name.hasPrefix("::ffff:")
+        }
+        guard let address = IPv4Address(name) else { return false }
+        let (a, b, _, _) = address.octets
+        return a == 0 || a == 10 || a == 127 || (a == 169 && b == 254) || (a == 172 && (16...31).contains(b))
+            || (a == 192 && b == 168) || (a == 100 && (64...127).contains(b)) || a >= 224
     }
 }

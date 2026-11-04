@@ -6,11 +6,12 @@ public enum MonResourceChecks {
     /// Délai entre les deux relevés d'un compteur (processeur de ce Mac, octets d'un port).
     public static let sampleDelay: TimeInterval = 3
 
-    /// Vrai si la cible désigne ce Mac (« ce Mac », « localhost », 127.0.0.1).
+    /// Vrai si la cible désigne ce Mac (« ce Mac », « localhost », 127.0.0.1). « mac » seul n'en
+    /// fait pas partie : ce peut être le nom d'un autre hôte.
     public static func isLocal(_ target: String) -> Bool {
         let text = target.trimmingCharacters(in: .whitespaces)
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "fr_CA"))
-        return ["ce mac", "localhost", "127.0.0.1", "ce-mac", "mac"].contains(text)
+        return ["ce mac", "localhost", "127.0.0.1", "ce-mac"].contains(text)
     }
 
     public static func run(_ probe: MonProbe, target: String, context: MonRunContext) async -> MonResult {

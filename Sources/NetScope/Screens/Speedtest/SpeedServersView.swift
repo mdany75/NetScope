@@ -218,7 +218,7 @@ struct SpeedServersView: View {
                     .font(Theme.small)
                 } else if ookla.presence.isInstalled {
                     // Un « speedtest » est là, mais ce n'est pas celui d'Ookla (speedtest-cli en Python).
-                    SpeedBanner(text: "L’outil « speedtest » installé n’est pas le CLI d’Ookla (speedtest-cli ?). Installez « \(InstallableTool.ooklaSpeedtest.displayCommand) ».",
+                    SpeedBanner(text: "L’outil « speedtest » installé n’est pas le CLI d’Ookla (speedtest-cli\u{00A0}?). Installez « \(InstallableTool.ooklaSpeedtest.displayCommand) ».",
                                 tone: .neutral, systemImage: "info.circle")
                     Link(destination: OoklaLocator.downloadURL) {
                         Label(InstallableTool.ooklaSpeedtest.officialLabel, systemImage: "arrow.up.right.square")
@@ -261,7 +261,6 @@ struct SpeedServersView: View {
         "operateur": KeyPathComparator(\SpeedServerLine.sortSponsor),
         "source": KeyPathComparator(\SpeedServerLine.sortSource),
         "latence": KeyPathComparator(\SpeedServerLine.sortLatency),
-        "action": KeyPathComparator(\SpeedServerLine.order),
         "hote": KeyPathComparator(\SpeedServerLine.sortHost),
         "protocole": KeyPathComparator(\SpeedServerLine.sortProtocol),
     ]
@@ -322,7 +321,7 @@ private struct SpeedServerTable: View {
                 }
                 .help(line.server.name)
             }
-            .width(min: 160, ideal: 230)
+            .width(min: 120, ideal: 200)
             .customizationID("serveur")
             .disabledCustomizationBehavior(.visibility)
 
@@ -343,13 +342,13 @@ private struct SpeedServerTable: View {
             TableColumn(StandardTableHeading("OPÉRATEUR"), sortUsing: table.sort("operateur")) { line in
                 cell(line.server.sponsor)
             }
-            .width(min: 80, ideal: 130)
+            .width(min: 64, ideal: 110)
             .customizationID("operateur")
 
             TableColumn(StandardTableHeading("SOURCE"), sortUsing: table.sort("source")) { line in
                 SpeedSourceTag(source: line.server.source)
             }
-            .width(min: 80, ideal: 96)
+            .width(min: 70, ideal: 84)
             .customizationID("source")
 
             TableColumn(StandardTableHeading("LATENCE"), sortUsing: table.sort("latence")) { line in
@@ -358,10 +357,11 @@ private struct SpeedServerTable: View {
                     .foregroundStyle(line.server.latencyMs == nil ? Theme.textTertiary : latencyColor(line.server.latencyMs!))
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .width(min: 64, ideal: 90)
+            .width(min: 60, ideal: 80)
             .customizationID("latence")
 
-            TableColumn(StandardTableHeading(""), sortUsing: table.sort("action")) { line in
+            // Colonne non triable : le tri par défaut (ordre de la liste) n'affiche ainsi aucune flèche.
+            TableColumn(StandardTableHeading("")) { line in
                 Button(isChosen(line.server) && !model.isAutomatic ? "Choisi" : "Utiliser") {
                     model.selectServer(line.server)
                 }
@@ -391,9 +391,12 @@ private struct SpeedServerTable: View {
         .contextMenu(forSelectionType: String.self) { ids in
             if let id = ids.first, let line = rows.first(where: { $0.id == id }) {
                 Button("Utiliser ce serveur") { model.selectServer(line.server) }
+                    .disabled(model.runState.isRunning)
                 Button(line.favorite ? "Retirer des favoris" : "Ajouter aux favoris") { model.toggleFavorite(line.server) }
             }
         } primaryAction: { ids in
+            // Pendant un test, le serveur ne change pas (comme le bouton « Utiliser »).
+            guard !model.runState.isRunning else { return }
             if let id = ids.first, let line = rows.first(where: { $0.id == id }) { model.selectServer(line.server) }
         }
     }

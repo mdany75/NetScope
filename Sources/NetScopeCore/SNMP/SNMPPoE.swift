@@ -254,12 +254,16 @@ public struct DevicePoEStatus: Hashable, Sendable {
     public var port: SNMPPoEPort?
     /// Le switch a été relevé et répond à POWER-ETHERNET-MIB.
     public var switchHasPoE: Bool
+    /// Des ports PSE du switch n'ont pas pu être rattachés à une interface : un port absent de la
+    /// liste n'est donc pas forcément sans PoE.
+    public var hasUnmatchedPorts: Bool
 
-    public init(switchName: String, portName: String, port: SNMPPoEPort?, switchHasPoE: Bool) {
+    public init(switchName: String, portName: String, port: SNMPPoEPort?, switchHasPoE: Bool, hasUnmatchedPorts: Bool = false) {
         self.switchName = switchName
         self.portName = portName
         self.port = port
-        self.switchHasPoE = switchHasPoE
+        self.switchHasPoE = switchHasPoE && !hasUnmatchedPorts
+        self.hasUnmatchedPorts = hasUnmatchedPorts
     }
 
     /// Port PoE ? (nil : impossible à dire.)
@@ -283,6 +287,7 @@ public struct DevicePoEStatus: Hashable, Sendable {
     /// Phrase de la fiche : « Alimenté par PoE · classe 4 · 18,4 W (Cisco) ».
     public var detailLabel: String {
         guard let port else {
+            if hasUnmatchedPorts { return "Inconnu · ports PoE de \(switchName) non rattachés aux interfaces" }
             return switchHasPoE ? "Non · le port \(portName) ne fournit pas de PoE"
                 : "Inconnu · \(switchName) ne répond pas à POWER-ETHERNET-MIB"
         }
@@ -317,6 +322,7 @@ public enum SNMPPoELookup {
         guard let snapshot = snapshots.first(where: { key($0.displayName) == key(switchName) }),
               let iface = snapshot.interface(named: portName), iface.isPhysical else { return nil }
         return DevicePoEStatus(switchName: snapshot.displayName, portName: iface.name, port: snapshot.poePort(iface.index),
-                               switchHasPoE: snapshot.poeDetails?.isEmpty == false)
+                               switchHasPoE: snapshot.poeDetails?.isEmpty == false,
+                               hasUnmatchedPorts: snapshot.poeDetails?.contains { $0.ifIndex == nil } == true)
     }
 }

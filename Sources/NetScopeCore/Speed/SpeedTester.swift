@@ -331,7 +331,7 @@ public final class SpeedTester: SpeedTestEngine, @unchecked Sendable {
         let down = await transfer(.download, duration: config.downloadDuration, session: session, out: out)
         if Task.isCancelled { return }
         guard down.bytes > 0 else {
-            out.yield(.failed("Aucune donnée reçue pendant le téléchargement."))
+            out.yield(.failed(Self.httpFailure(down.httpStatus) ?? "Aucune donnée reçue pendant le téléchargement."))
             return
         }
         let downMbps = SpeedMath.steadyRate(down.samples)
@@ -340,7 +340,7 @@ public final class SpeedTester: SpeedTestEngine, @unchecked Sendable {
         let up = await transfer(.upload, duration: config.uploadDuration, session: session, out: out)
         if Task.isCancelled { return }
         guard up.bytes > 0 else {
-            out.yield(.failed("Aucune donnée envoyée pendant le téléversement."))
+            out.yield(.failed(Self.httpFailure(up.httpStatus) ?? "Aucune donnée envoyée pendant le téléversement."))
             return
         }
         let upMbps = SpeedMath.steadyRate(up.samples)
@@ -353,6 +353,12 @@ public final class SpeedTester: SpeedTestEngine, @unchecked Sendable {
             probesSent: config.latencyProbes + down.probesSent + up.probesSent,
             probesLost: lost + down.probesLost + up.probesLost,
             streams: config.streams, server: server, downloadBytes: down.bytes, uploadBytes: up.bytes)))
+    }
+
+    /// Message d'échec d'une phase dont toutes les réponses étaient des erreurs HTTP.
+    static func httpFailure(_ status: Int?) -> String? {
+        guard let status else { return nil }
+        return "Le serveur a répondu HTTP\u{00A0}\(status)\u{00A0}: vérifiez l’adresse et la configuration du serveur de test."
     }
 
     static func global(_ phase: SpeedPhase, _ fraction: Double) -> Double {
@@ -381,6 +387,8 @@ public final class SpeedTester: SpeedTestEngine, @unchecked Sendable {
         var loadedRTTs: [Double]
         var probesSent: Int
         var probesLost: Int
+        /// Dernier code HTTP d'erreur reçu pendant la phase (nil : aucune erreur).
+        var httpStatus: Int?
     }
 
     private func transfer(_ phase: SpeedPhase, duration: TimeInterval, session: URLSession,
@@ -413,12 +421,15 @@ public final class SpeedTester: SpeedTestEngine, @unchecked Sendable {
             out.yield(.update(SpeedLiveUpdate(phase: phase, elapsed: time, mbps: rate,
                                               fraction: SpeedTester.global(phase, time / duration))))
             if time >= duration { break }
+            // Le serveur ne renvoie que des erreurs HTTP : inutile d'attendre la fin de la phase.
+            if time >= 2, engine.totalBytes == 0, engine.httpErrorStatus != nil { break }
         }
         engine.stop()
         probes.cancel()
         let (values, sent, lost) = await probes.value
         return TransferOutcome(samples: samples, bytes: samples.last?.totalBytes ?? 0,
-                               loadedRTTs: values, probesSent: sent, probesLost: lost)
+                               loadedRTTs: values, probesSent: sent, probesLost: lost,
+                               httpStatus: engine.httpErrorStatus)
     }
 }
 
@@ -433,6 +444,9 @@ final class SpeedTransferEngine: NSObject, URLSessionDataDelegate, @unchecked Se
     private var bytes: Int64 = 0
     private var stopped = false
     private var sessions: [URLSession] = []
+    /// Octets envoyés par tâche de téléversement, retirés du total si le serveur refuse l'envoi.
+    private var pendingUpload: [Int: Int64] = [:]
+    private var lastHTTPError: Int?
 
     init(direction: Direction, config: SpeedTestConfig) {
         self.direction = direction
@@ -463,6 +477,13 @@ final class SpeedTransferEngine: NSObject, URLSessionDataDelegate, @unchecked Se
         stopped = true
         lock.unlock()
         for session in sessions { session.invalidateAndCancel() }
+    }
+
+    /// Dernier code HTTP d'erreur (hors 200…299) reçu, nil sinon.
+    var httpErrorStatus: Int? {
+        lock.lock()
+        defer { lock.unlock() }
+        return lastHTTPError
     }
 
     private var isStopped: Bool {
@@ -496,18 +517,44 @@ final class SpeedTransferEngine: NSObject, URLSessionDataDelegate, @unchecked Se
         }
     }
 
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
+                    completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        // Une page d'erreur (404, 413…) n'est pas une mesure : la réponse est refusée.
+        if let status = (response as? HTTPURLResponse)?.statusCode, !(200..<300).contains(status) {
+            completionHandler(.cancel)
+        } else {
+            completionHandler(.allow)
+        }
+    }
+
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         if direction == .download { add(Int64(data.count)) }
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64,
                     totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
-        if direction == .upload { add(bytesSent) }
+        guard direction == .upload else { return }
+        lock.lock()
+        if !stopped {
+            bytes += bytesSent
+            pendingUpload[task.taskIdentifier, default: 0] += bytesSent
+        }
+        lock.unlock()
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        let status = (task.response as? HTTPURLResponse)?.statusCode
+        let refused = status.map { !(200..<300).contains($0) } ?? false
+        lock.lock()
+        let sent = pendingUpload.removeValue(forKey: task.taskIdentifier) ?? 0
+        if refused {
+            lastHTTPError = status
+            // Corps envoyé puis rejeté par le serveur : ces octets ne comptent pas.
+            if !stopped { bytes = max(0, bytes - sent) }
+        }
+        lock.unlock()
         guard !isStopped else { return }
-        if error == nil {
+        if error == nil, !refused {
             launch(on: session)
         } else {
             // Erreur passagère : on réessaie un peu plus tard, sans boucle serrée.

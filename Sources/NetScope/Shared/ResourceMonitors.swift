@@ -8,6 +8,12 @@ import UniformTypeIdentifiers
 // les regarde (`retain` / `release`) ; l'historique reste en mémoire (5 minutes), rien sur le disque
 // sauf l'intervalle choisi. En démonstration, les données viennent de DevTools/ResourceDemo.swift.
 
+/// Retour d'un export : message et ton (succès ou échec), effacé après quelques secondes.
+struct ResourceToast: Equatable {
+    var text: String
+    var isError: Bool
+}
+
 /// Débit d'une interface de ce Mac.
 struct LocalInterfaceLoad: Identifiable, Hashable {
     var id: String { name }
@@ -38,11 +44,12 @@ final class LocalResourceMonitor: ObservableObject {
             restart()
         }
     }
-    @Published var toast: String?
+    @Published private(set) var toast: ResourceToast?
 
     let isDemo: Bool
     private var users = 0
     private var task: Task<Void, Never>?
+    private var toastTask: Task<Void, Never>?
     private var previousTicks: [CPUTicks] = []
     private var previousInterfaces: [String: TrafficCounters] = [:]
     private var previousDate: Date?
@@ -78,7 +85,14 @@ final class LocalResourceMonitor: ObservableObject {
     private func restart() {
         task?.cancel()
         task = nil
-        guard users > 0, !isPaused else { return }
+        guard users > 0, !isPaused else {
+            // Relevés arrêtés : le premier relevé à la reprise sert de nouvelle référence
+            // (pas de moyenne sur toute la pause présentée comme valeur instantanée).
+            previousTicks = []
+            previousInterfaces = [:]
+            previousDate = nil
+            return
+        }
         // Captures : données figées, aucune boucle.
         if isDemo, CommandLine.arguments.contains("--snapshot") { return }
         let seconds = interval
@@ -177,7 +191,17 @@ final class LocalResourceMonitor: ObservableObject {
     }
 
     func exportCSV() {
-        ResourceCSVExport.save(timeline.csv(), suggestedName: "ressources-ce-mac") { self.toast = $0 }
+        ResourceCSVExport.save(timeline.csv(), suggestedName: "ressources-ce-mac") { self.show($0) }
+    }
+
+    private func show(_ toast: ResourceToast) {
+        self.toast = toast
+        toastTask?.cancel()
+        toastTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            guard !Task.isCancelled else { return }
+            self?.toast = nil
+        }
     }
 }
 
@@ -207,11 +231,12 @@ final class SNMPResourceMonitor: ObservableObject {
             restart()
         }
     }
-    @Published var toast: String?
+    @Published private(set) var toast: ResourceToast?
 
     let isDemo: Bool
     private var users = 0
     private var task: Task<Void, Never>?
+    private var toastTask: Task<Void, Never>?
     private var previous: (date: Date, ports: [SNMPPortCounters])?
     private static let intervalKey = "NetScope.ressources.intervalle.snmp"
 
@@ -226,8 +251,10 @@ final class SNMPResourceMonitor: ObservableObject {
     /// Une vue regarde ; `autoStart` : interroger sans attendre un clic (agent SNMP connu).
     func retain(autoStart: Bool) {
         users += 1
+        let wasStarted = started
         if autoStart { started = true }
-        if users == 1 { restart() }
+        // Aussi quand une vue précédente regardait sans lancer les relevés (autoStart faux).
+        if users == 1 || (!wasStarted && started) { restart() }
     }
 
     func release() {
@@ -254,7 +281,11 @@ final class SNMPResourceMonitor: ObservableObject {
     private func restart() {
         task?.cancel()
         task = nil
-        guard users > 0, started, !isPaused else { return }
+        guard users > 0, started, !isPaused else {
+            // Relevés arrêtés : le premier relevé à la reprise sert de nouvelle référence.
+            if !isDemo { previous = nil }
+            return
+        }
         if isDemo, CommandLine.arguments.contains("--snapshot") { return }
         let seconds = interval
         task = Task { [weak self] in
@@ -353,7 +384,17 @@ final class SNMPResourceMonitor: ObservableObject {
     /// Export de l'historique : tout, ou les séries d'un port.
     func exportCSV(port: Int? = nil, name: String) {
         let keys = port.map { ["if\($0).in", "if\($0).out"] }
-        ResourceCSVExport.save(timeline.csv(keys: keys), suggestedName: name) { self.toast = $0 }
+        ResourceCSVExport.save(timeline.csv(keys: keys), suggestedName: name) { self.show($0) }
+    }
+
+    private func show(_ toast: ResourceToast) {
+        self.toast = toast
+        toastTask?.cancel()
+        toastTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            guard !Task.isCancelled else { return }
+            self?.toast = nil
+        }
     }
 }
 
@@ -373,7 +414,7 @@ enum ResourceMonitors {
 /// Enregistrement d'un historique en CSV (fenêtre d'enregistrement, BOM UTF-8 pour Excel).
 @MainActor
 enum ResourceCSVExport {
-    static func save(_ csv: String, suggestedName: String, report: (String) -> Void) {
+    static func save(_ csv: String, suggestedName: String, report: (ResourceToast) -> Void) {
         let panel = NSSavePanel()
         panel.title = "Exporter l’historique des ressources"
         let formatter = DateFormatter()
@@ -383,9 +424,9 @@ enum ResourceCSVExport {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try (Data([0xEF, 0xBB, 0xBF]) + Data(csv.utf8)).write(to: url, options: .atomic)
-            report("Historique exporté\u{00A0}: \(url.lastPathComponent)")
+            report(ResourceToast(text: "Historique exporté\u{00A0}: \(url.lastPathComponent)", isError: false))
         } catch {
-            report("Export impossible\u{00A0}: \(error.localizedDescription)")
+            report(ResourceToast(text: "Export impossible\u{00A0}: \(error.localizedDescription)", isError: true))
         }
     }
 }

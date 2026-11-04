@@ -114,7 +114,7 @@ enum SpeedtestDemo {
         return records
     }
 
-    private static func lanResult() -> IperfResult {
+    static func lanResult() -> IperfResult {
         let rates: [Double] = [918, 941, 942, 940, 941, 939, 942, 941, 940, 941]
         let retransmits = [12, 0, 0, 3, 0, 0, 1, 0, 0, 0]
         let intervals = rates.enumerated().map { index, rate in
