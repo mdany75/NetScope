@@ -523,7 +523,7 @@ struct SwitchPortDetail: View {
                 field("État admin / opér.", "\(iface.adminUp ? "Activé" : "Désactivé") / \(iface.operStatus.label)", mono: false)
                 field("Vitesse", iface.isUp ? SNMPFormat.speed(mbps: iface.speedMbps) : "—")
                 field("VLAN", vlanText(uplinks: uplinks))
-                field("PoE", snapshot.poePorts.contains(iface.index) ? "Délivre du courant" : (iface.isUp ? "Aucune charge PoE" : "—"), mono: false)
+                field("PoE", SwitchText.poeLine(iface, snapshot: snapshot), mono: false)
                 field("Entrée", SNMPFormat.bytes(iface.inOctets))
                 field("Sortie", SNMPFormat.bytes(iface.outOctets))
                 VStack(alignment: .leading, spacing: 2) {
@@ -706,6 +706,7 @@ struct SwitchMacTable: View {
         var oui: String
         var portAlias: String
         var poe: Bool?
+        var poeText: String
         var portStatus: String
         var speed: String
         var speedSort: UInt64
@@ -882,7 +883,7 @@ struct SwitchMacTable: View {
                 .defaultVisibility(.hidden)
 
                 TableColumn("POE", sortUsing: table.sort("poe")) { row in
-                    SwitchCell(row.poe.map { $0 ? "Délivre du courant" : "Aucune charge" } ?? "—", dimmed: row.poe != true)
+                    SwitchCell(row.poeText, dimmed: row.poe != true)
                 }
                 .width(min: 60, ideal: 120)
                 .customizationID("poe")
@@ -972,7 +973,8 @@ struct SwitchMacTable: View {
                           customName: device?.customName, type: device?.deviceType,
                           typeIsManual: device.map { inventory.typeChoice(for: $0).isManual } ?? false,
                           oui: String(macText.prefix(8)), portAlias: iface?.alias ?? "",
-                          poe: iface.map { _ in snapshot.poePorts.contains(i) },
+                          poe: iface.map { _ in snapshot.poePort(i)?.isDelivering == true },
+                          poeText: iface.map { SwitchText.poeLine($0, snapshot: snapshot) } ?? "—",
                           portStatus: iface.map { "\($0.adminUp ? "Activé" : "Désactivé") / \($0.operStatus.label)" } ?? "—",
                           speed: iface.flatMap { $0.isUp ? SNMPFormat.speed(mbps: $0.speedMbps) : nil } ?? "—",
                           speedSort: iface.flatMap { $0.isUp ? $0.speedMbps : nil } ?? 0,

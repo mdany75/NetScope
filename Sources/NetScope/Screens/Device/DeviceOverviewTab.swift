@@ -166,6 +166,12 @@ struct DeviceOverviewTab: View {
                         DeviceKVRow(key: "Switch", value: switchName + (switchDevice.map { " · \($0.vendorLabel)" } ?? ""))
                         DeviceKVRow(key: "Port", value: device.switchPort ?? "Inconnu")
                         DeviceKVRow(key: "VLAN", value: device.vlan.map(String.init) ?? "Inconnu")
+                        if device.switchPort != "Wi-Fi" {
+                            // Note 12 : PoE du port, d'après le relevé SNMP du switch.
+                            let poe = SwitchStore.shared.poeStatus(for: device)
+                            DeviceKVRow(key: "PoE", value: poe?.detailLabel ?? "Inconnu · switch non relevé par SNMP", mono: false,
+                                        valueColor: poe?.isPowered == true ? Theme.success : Theme.text)
+                        }
                         DeviceKVRow(key: "Source", value: status.isCurrent ? "Inventaire (dernier relevé des switchs)"
                                     : "Ancien relevé des switchs (non confirmé)", mono: false)
                     }

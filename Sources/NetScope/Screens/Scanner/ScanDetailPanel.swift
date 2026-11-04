@@ -194,7 +194,12 @@ struct ScanDetailLocation: View {
         if device.switchPort == "Wi-Fi", let name = device.switchName { return "Client sans fil associé à \(name)" }
         if let name = device.switchName {
             let auto = switches.hosts.contains { switches.isAutoDiscovered($0) && switches.snapshots[$0]?.displayName == name }
-            return "\(name) · table MAC SNMP" + (auto ? " · switch découvert automatiquement" : "")
+            // Note 12 : PoE du port quand il alimente l'appareil (croquis : « PoE+ 13,4 W »).
+            var poe = ""
+            if let port = switches.poeStatus(for: device)?.port, port.isDelivering {
+                poe = " · PoE" + (port.consumptionW.map { " \(PoEPowerInfo.watts($0))" } ?? " actif")
+            }
+            return "\(name) · table MAC SNMP" + poe + (auto ? " · switch découvert automatiquement" : "")
         }
         // Bilan d'un scan qui ne couvrait pas cet appareil : il ne dit rien de lui.
         guard let result = switches.autoResult,
