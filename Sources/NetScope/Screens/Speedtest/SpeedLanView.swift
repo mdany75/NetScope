@@ -6,12 +6,15 @@ import SwiftUI
 struct SpeedLanView: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var model: SpeedtestModel
+    /// Présence d'iperf3 : le bouton « Lancer » suit l'installation faite depuis l'encadré.
+    @ObservedObject private var iperf = ToolInstallMonitor.shared(.iperf3)
 
     var body: some View {
-        SidePanelSplit(sideWidth: 360, title: "Comparaison et chemin") {
+        SidePanelSplit(sideWidth: 360, title: "Appareil cible, comparaison et chemin") {
             mainPanel
         } side: {
             VStack(spacing: 12) {
+                targetPanel
                 comparisonPanel
                 pathPanel
             }
@@ -43,10 +46,7 @@ struct SpeedLanView: View {
                     .speedDisabled(!model.lanRunning)
                 }
 
-                if model.iperfPath == nil {
-                    SpeedBanner(text: "\(IperfLocator.missingMessage). Installez-le dans Terminal, puis lancez « iperf3 -s » sur l’appareil cible.",
-                                systemImage: "shippingbox")
-                }
+                InstallToolPanel(tool: .iperf3, note: "Lancez ensuite « iperf3 -s » sur l’appareil cible (colonne de droite).")
                 if let error = model.lanError, model.iperfPath != nil {
                     SpeedBanner(text: error, tone: .critical, systemImage: "xmark.octagon")
                 }
@@ -270,6 +270,43 @@ struct SpeedLanView: View {
     }
 
     // MARK: Colonne de droite
+
+    /// Préparer l'appareil cible : la commande serveur à copier, et où trouver iperf3 ailleurs.
+    private var targetPanel: some View {
+        Panel {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader("Sur l’appareil cible")
+                Text("iperf3 doit tourner en mode serveur sur l’autre appareil (port 5201) :")
+                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                CopyableCommand(command: IperfServerHelp.serverCommand)
+                VStack(alignment: .leading, spacing: 4) {
+                    targetLine("Mac", "brew install iperf3")
+                    targetLine("Linux", IperfServerHelp.linuxCommand)
+                    HStack(spacing: 6) {
+                        Text("Windows").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                            .frame(width: 58, alignment: .leading)
+                        Link(destination: IperfServerHelp.windowsURL) {
+                            Label("Versions officielles (ESnet)", systemImage: "arrow.up.right.square")
+                        }
+                        .font(Theme.small)
+                    }
+                }
+                .padding(.top, 2)
+                Text("Pare-feu : autorisez le port TCP et UDP 5201 sur la cible.")
+                    .font(Theme.caption).foregroundStyle(Theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func targetLine(_ system: String, _ command: String) -> some View {
+        HStack(spacing: 6) {
+            Text(system).font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                .frame(width: 58, alignment: .leading)
+            Text(command).font(Theme.mono(11)).foregroundStyle(Theme.neutralText).textSelection(.enabled).lineLimit(1)
+        }
+    }
 
     /// Derniers tests iperf3 en filaire et en Wi-Fi, vers la même cible si possible.
     private var comparison: (wired: SpeedTestRecord, wifi: SpeedTestRecord)? {

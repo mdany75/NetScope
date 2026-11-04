@@ -28,6 +28,7 @@ registerCaptureTests(suite)
 registerReportTests(suite)
 registerRelevanceTests(suite)
 registerTableTests(suite)
+registerSpeedServerTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

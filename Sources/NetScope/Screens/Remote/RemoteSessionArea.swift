@@ -5,6 +5,8 @@ import SwiftUI
 /// Le terminal intégré n'existe pas encore : les sessions s'ouvrent dans l'app externe.
 struct RemoteSessionArea: View {
     @ObservedObject var model: RemoteModel
+    /// telnet installé depuis l’encadré : la commande affichée (telnet ou nc) se met à jour.
+    @ObservedObject private var telnet = ToolInstallMonitor.shared(.telnet)
 
     var body: some View {
         VStack(spacing: 0) {
@@ -110,9 +112,9 @@ struct RemoteSessionArea: View {
             if connection.proto.isInsecure {
                 SpeedBanner(text: "Telnet n’est pas chiffré : le mot de passe circule en clair. Utilisez SSH si l’appareil le permet.")
             }
-            if connection.proto == .telnet, RemoteLauncher.findTelnet() == nil {
-                SpeedBanner(text: "telnet n’est plus livré avec macOS : NetScope utilisera nc. Pour le vrai client : brew install telnet.",
-                            tone: .neutral, systemImage: "info.circle")
+            if connection.proto == .telnet {
+                // telnet n'est plus livré avec macOS : bouton « Installer » (Homebrew), nc en attendant.
+                InstallToolPanel(tool: .telnet, note: "En attendant, NetScope utilise nc (sans négociation Telnet).")
             }
             if connection.proto == .serie, !model.serialPorts.contains(connection.host) {
                 SpeedBanner(text: "\(connection.host) n’est pas branché. Ports série présents : "

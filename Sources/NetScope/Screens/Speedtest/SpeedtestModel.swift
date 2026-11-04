@@ -5,13 +5,14 @@ import SwiftUI
 
 /// Onglets de l'écran Speedtest.
 enum SpeedTab: String, CaseIterable, Identifiable {
-    case internet, lan, historique
+    case internet, serveurs, lan, historique
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
         case .internet: return "Internet"
+        case .serveurs: return "Serveurs"
         case .lan: return "Réseau local (iperf3)"
         case .historique: return "Historique"
         }
@@ -19,7 +20,8 @@ enum SpeedTab: String, CaseIterable, Identifiable {
 
     var hint: String {
         switch self {
-        case .internet: return "Débit du lien Internet, mesuré avec les serveurs de Cloudflare"
+        case .internet: return "Débit du lien Internet : Cloudflare, M-Lab, LibreSpeed ou Ookla"
+        case .serveurs: return "Serveurs de test : latence mesurée, favoris et serveurs personnalisés"
         case .lan: return "Débit entre ce Mac et un serveur iperf3 du réseau"
         case .historique: return "Résultats conservés 90 jours sur ce Mac"
         }
@@ -91,10 +93,35 @@ final class SpeedtestModel: ObservableObject {
     @Published private(set) var lanStartedAt: Date?
     @Published private(set) var lanResult: IperfResult?
     @Published private(set) var lanError: String?
-    /// Chemin d'iperf3, nil s'il n'est pas installé.
-    @Published private(set) var iperfPath: URL?
+
+    /// Chemin d'iperf3, nil s'il n'est pas installé (détection partagée avec le bouton « Installer »).
+    var iperfPath: URL? { ToolInstallMonitor.shared(.iperf3).path.map { URL(fileURLWithPath: $0) } }
+
+    // MARK: Serveurs de test
+
+    /// Choix (« auto » ou un serveur), favoris et serveurs personnalisés, enregistrés.
+    @Published private(set) var serverPrefs = SpeedServerPrefs()
+    /// Liste chargée (Cloudflare, M-Lab, LibreSpeed, Ookla) avec la latence mesurée.
+    @Published private(set) var catalog: [SpeedServer] = []
+    @Published private(set) var catalogDate: Date?
+    @Published private(set) var catalogLoading = false
+    @Published private(set) var catalogStatus: String?
+    @Published private(set) var catalogFailures: [String] = []
+    @Published var serverQuery = ""
+    @Published var serverSourceFilter: SpeedServerSource?
+    @Published var customAddress = ""
+    @Published var customLabel = ""
+    @Published private(set) var customError: String?
+    /// Serveur du test en cours ou du dernier test.
+    @Published private(set) var testedServer: SpeedServer?
+    /// Vrai pendant le choix automatique du serveur, avant la mesure.
+    @Published private(set) var preparingServer = false
+    /// CLI d'Ookla vérifié (« Speedtest by Ookla »), nil s'il est absent.
+    @Published private(set) var ooklaPath: String?
 
     private var internetTask: Task<Void, Never>?
+    private var catalogTask: Task<Void, Never>?
+    private let serverStore: SpeedServerPrefsStore?
     private var lanTask: Task<Void, Never>?
     /// Numéro du test iperf3 en cours : une tâche arrêtée ne modifie plus l'état.
     private var lanGeneration = 0
@@ -106,7 +133,8 @@ final class SpeedtestModel: ObservableObject {
         let demo = arguments.contains("--demo")
         // Captures et démonstration : rien n'est lu ni écrit sur le disque.
         store = (demo || arguments.contains("--snapshot")) ? nil : SpeedHistoryStore.standard
-        iperfPath = IperfLocator.find()
+        serverStore = (demo || arguments.contains("--snapshot")) ? nil : SpeedServerPrefsStore.standard
+        if let serverStore { serverPrefs = serverStore.load() }
         if demo {
             SpeedtestDemo.apply(to: self)
         } else if let store {
@@ -119,6 +147,7 @@ final class SpeedtestModel: ObservableObject {
             self.tab = tab
         }
         loading = false
+        refreshOokla()
     }
 
     var planDown: Double? { SpeedFormat.parse(planDownText) }
@@ -142,13 +171,51 @@ final class SpeedtestModel: ObservableObject {
         resetResults()
         runState = .running(.latency)
         toast = nil
-        let config = SpeedTestConfig(streams: streams)
-        let tester = SpeedTester(config: config)
+        let streams = self.streams
         internetTask = Task { [weak self] in
-            for await event in tester.run() {
-                guard let self, !Task.isCancelled else { return }
-                self.handle(event, config: config, interface: interface)
+            guard let self else { return }
+            // Automatique : liste des serveurs (si elle date de plus de 30 min), puis le plus proche.
+            var server = self.selectedServer
+            if server == nil {
+                if self.catalogIsStale {
+                    self.preparingServer = true
+                    await self.loadCatalog(includeOokla: false)
+                    self.preparingServer = false
+                    if Task.isCancelled { return }
+                }
+                server = SpeedServerPicker.automatic(self.catalog)
             }
+            guard let server else { return }
+            self.testedServer = server
+            guard let engine = self.engine(for: server, streams: streams) else {
+                self.runState = .failed("Le CLI d’Ookla n’est pas installé : installez-le ou choisissez un autre serveur.")
+                return
+            }
+            for await event in engine.run() {
+                guard !Task.isCancelled else { return }
+                self.handle(event, interface: interface)
+            }
+        }
+    }
+
+    /// Moteur de mesure du serveur choisi.
+    private func engine(for server: SpeedServer, streams: Int) -> SpeedTestEngine? {
+        switch server.source {
+        case .cloudflare:
+            return SpeedTester(config: SpeedTestConfig(streams: streams))
+        case .librespeed, .custom:
+            guard let endpoints = LibreSpeedEndpoints(server: server) else { return nil }
+            let label = server.historyLabel.replacingOccurrences(of: server.source.label + " · ", with: "")
+            let info = SpeedServerInfo(city: server.city, country: server.country, source: server.source.label,
+                                       serverName: label, serverID: server.id)
+            // Blocs de téléversement plus petits : les serveurs PHP limitent souvent la taille des envois.
+            return SpeedTester(config: SpeedTestConfig(streams: streams, uploadChunkBytes: 4_000_000,
+                                                       libreSpeed: endpoints, serverInfo: info))
+        case .mlab:
+            return NDT7Tester(site: server.site)
+        case .ookla:
+            guard let ooklaPath else { return nil }
+            return OoklaTester(executable: ooklaPath, serverID: server.ooklaID)
         }
     }
 
@@ -158,6 +225,135 @@ final class SpeedtestModel: ObservableObject {
         internetTask = nil
         runState = .stopped
         gaugeValue = 0
+        preparingServer = false
+    }
+
+    // MARK: Serveurs de test
+
+    /// Serveur choisi ; nil : automatique (le plus proche).
+    var selectedServer: SpeedServer? {
+        guard serverPrefs.selectedID != SpeedServerPrefs.automaticID else { return nil }
+        return allServers.first { $0.id == serverPrefs.selectedID } ?? serverPrefs.selected
+    }
+
+    var isAutomatic: Bool { serverPrefs.selectedID == SpeedServerPrefs.automaticID }
+
+    /// Serveur que choisirait le mode automatique avec la liste actuelle.
+    var automaticChoice: SpeedServer { SpeedServerPicker.automatic(catalog) }
+
+    /// Serveur qui sera utilisé au prochain test (pour les libellés).
+    var plannedServer: SpeedServer { selectedServer ?? automaticChoice }
+
+    /// Tous les serveurs : liste chargée, personnalisés, favoris absents de la liste, Ookla automatique.
+    var allServers: [SpeedServer] {
+        var list = catalog.isEmpty ? [SpeedServer.cloudflare] : catalog
+        if ooklaPath != nil, !list.contains(where: { $0.id == SpeedServer.ooklaAuto.id }) { list.append(.ooklaAuto) }
+        for server in serverPrefs.custom + serverPrefs.favorites where !list.contains(where: { $0.id == server.id }) {
+            list.append(server)
+        }
+        return list
+    }
+
+    /// Liste filtrée (source, recherche) et triée : favoris, puis latence.
+    var visibleServers: [SpeedServer] {
+        let filtered = allServers.filter { server in
+            (serverSourceFilter == nil || server.source == serverSourceFilter) && SpeedServerPicker.matches(server, query: serverQuery)
+        }
+        return SpeedServerPicker.sorted(filtered, favorites: serverPrefs.favoriteIDs)
+    }
+
+    /// Favoris, avec la latence de la dernière mesure.
+    var favoriteServers: [SpeedServer] {
+        serverPrefs.favorites.map { favorite in allServers.first { $0.id == favorite.id } ?? favorite }
+    }
+
+    func isFavorite(_ server: SpeedServer) -> Bool { serverPrefs.favoriteIDs.contains(server.id) }
+
+    var catalogIsStale: Bool {
+        guard let catalogDate, !catalog.isEmpty else { return true }
+        return Date().timeIntervalSince(catalogDate) > 30 * 60
+    }
+
+    func selectServer(_ server: SpeedServer?) {
+        guard !runState.isRunning else { return }
+        serverPrefs.selectedID = server?.id ?? SpeedServerPrefs.automaticID
+        serverPrefs.selected = server?.stored
+        if let server, !server.source.supportsStreams { streams = 1 } else if streams == 1, server == nil { streams = 4 }
+        saveServers()
+    }
+
+    func toggleFavorite(_ server: SpeedServer) {
+        serverPrefs.toggleFavorite(server)
+        saveServers()
+    }
+
+    /// Ajoute le serveur personnalisé saisi (compatible LibreSpeed) et le choisit.
+    func addCustomServer() {
+        do {
+            let server = try SpeedServer.custom(address: customAddress, label: customLabel)
+            serverPrefs.addCustom(server)
+            customAddress = ""
+            customLabel = ""
+            customError = nil
+            selectServer(server)
+            toast = "Serveur « \(server.name) » ajouté aux favoris"
+        } catch {
+            customError = error.localizedDescription
+        }
+    }
+
+    func removeCustomServer(_ server: SpeedServer) {
+        serverPrefs.removeCustom(id: server.id)
+        saveServers()
+    }
+
+    /// Recharge la liste et mesure les latences (bouton « Actualiser »).
+    func refreshCatalog() {
+        guard !catalogLoading, !Launcher.isDemo else { return }
+        catalogTask?.cancel()
+        catalogTask = Task { [weak self] in
+            await self?.loadCatalog(includeOokla: true)
+        }
+    }
+
+    private func loadCatalog(includeOokla: Bool) async {
+        guard !Launcher.isDemo else { return }
+        catalogLoading = true
+        catalogStatus = "Chargement de la liste des serveurs…"
+        let extra = serverPrefs.custom + serverPrefs.favorites
+        let status: @Sendable (String) -> Void = { text in
+            Task { @MainActor in SpeedtestModel.shared.catalogStatus = text }
+        }
+        let result = await SpeedServerCatalog.load(ooklaPath: includeOokla ? ooklaPath : nil, extra: extra, progress: status)
+        // Les serveurs Ookla déjà listés restent si on recharge sans eux (test automatique).
+        let keptOokla = includeOokla ? [] : catalog.filter { $0.source == .ookla }
+        catalog = result.servers + keptOokla.filter { item in !result.servers.contains { $0.id == item.id } }
+        catalogDate = result.date
+        catalogFailures = result.failures
+        catalogLoading = false
+        let measured = result.servers.filter { $0.latencyMs != nil }.count
+        catalogStatus = "\(result.servers.count) serveurs · \(measured) joignables"
+    }
+
+    /// Cherche le CLI d'Ookla et vérifie que c'est bien celui d'Ookla (« --version », local).
+    func refreshOokla() {
+        if let demo = DemoTools.presence(for: .ooklaSpeedtest) {
+            ooklaPath = demo.path
+            return
+        }
+        Task.detached(priority: .utility) {
+            let path = OoklaLocator.findVerified()
+            await MainActor.run { SpeedtestModel.shared.ooklaPath = path }
+        }
+    }
+
+    private func saveServers() {
+        guard let serverStore else { return }
+        do {
+            try serverStore.save(serverPrefs)
+        } catch {
+            NSLog("NetScope : enregistrement des serveurs Speedtest impossible : %@", error.localizedDescription)
+        }
     }
 
     private func resetResults() {
@@ -174,7 +370,7 @@ final class SpeedtestModel: ObservableObject {
         freshRecordID = nil
     }
 
-    private func handle(_ event: SpeedEvent, config: SpeedTestConfig, interface: LocalInterface?) {
+    private func handle(_ event: SpeedEvent, interface: LocalInterface?) {
         switch event {
         case .update(let update):
             runState = .running(update.phase)
@@ -188,7 +384,7 @@ final class SpeedtestModel: ObservableObject {
                 gaugeValue = update.mbps ?? 0
                 downSeries.append(SpeedPoint(time: update.elapsed, mbps: update.mbps ?? 0))
             case .upload:
-                elapsed = latencyDuration + config.downloadDuration + update.elapsed
+                elapsed = latencyDuration + (downSeries.last?.time ?? 10) + update.elapsed
                 gaugeValue = update.mbps ?? 0
                 upSeries.append(SpeedPoint(time: update.elapsed, mbps: update.mbps ?? 0))
             }
@@ -211,11 +407,14 @@ final class SpeedtestModel: ObservableObject {
             gaugeValue = result.downMbps
             fraction = 1
             runState = .done
+            if let info = result.server { server = info }
+            let tested = testedServer ?? .cloudflare
             let record = SpeedTestRecord(
-                kind: .internet, server: result.server?.label ?? "Cloudflare",
+                kind: .internet, server: result.server?.label ?? tested.historyLabel,
                 interfaceName: interface?.name ?? "—", interfaceKind: interface?.kind.label ?? "",
                 downMbps: result.downMbps, upMbps: result.upMbps, latencyMs: result.idleLatencyMs,
-                loadedLatencyMs: result.loadedLatencyMs, jitterMs: result.jitterMs, streams: result.streams)
+                loadedLatencyMs: result.loadedLatencyMs, jitterMs: result.jitterMs, streams: result.streams,
+                serverSource: tested.source, serverID: Self.recordServerID(result.server, tested: tested))
             addToHistory(record)
             toast = "Test terminé et ajouté à l’historique"
         case .failed(let message):
@@ -226,6 +425,13 @@ final class SpeedtestModel: ObservableObject {
 
     private var latencyDuration: Double = 0
 
+    /// Clé du serveur dans l'historique : Cloudflare par nœud (« cloudflare:YUL »), sinon l'identifiant.
+    static func recordServerID(_ info: SpeedServerInfo?, tested: SpeedServer) -> String {
+        if let id = info?.serverID { return id }
+        if tested.source == .cloudflare, let colo = info?.colo { return "cloudflare:\(colo)" }
+        return tested.id
+    }
+
     // MARK: Test iperf3
 
     var lanOptions: IperfOptions {
@@ -235,7 +441,7 @@ final class SpeedtestModel: ObservableObject {
 
     func startLan(interface: LocalInterface?) {
         guard !lanRunning else { return }
-        iperfPath = IperfLocator.find()
+        ToolInstallMonitor.shared(.iperf3).refresh()
         let options = lanOptions
         lanError = nil
         guard let path = iperfPath else {
@@ -355,6 +561,15 @@ final class SpeedtestModel: ObservableObject {
         planDownText = "1000"
         planUpText = "500"
     }
+
+    /// Serveurs de démonstration (latences mesurées fictives), favoris et choix.
+    func loadDemoServers(_ servers: [SpeedServer], prefs: SpeedServerPrefs, tested: SpeedServer) {
+        catalog = servers
+        catalogDate = Date()
+        catalogStatus = "\(servers.count) serveurs · \(servers.filter { $0.latencyMs != nil }.count) joignables"
+        serverPrefs = prefs
+        testedServer = tested
+    }
 }
 
 /// Mise en forme des nombres à la française (virgule décimale, pas de séparateur de milliers).
@@ -392,6 +607,13 @@ enum SpeedFormat {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "fr_CA")
         formatter.dateFormat = "d MMM yyyy · HH:mm"
+        return formatter
+    }()
+
+    static let time: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "fr_CA")
+        formatter.dateFormat = "HH:mm"
         return formatter
     }()
 

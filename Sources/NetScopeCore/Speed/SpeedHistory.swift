@@ -30,11 +30,18 @@ public struct SpeedTestRecord: Identifiable, Codable, Hashable, Sendable {
     public var loadedLatencyMs: Double?
     public var jitterMs: Double?
     public var streams: Int
+    /// Source du serveur (test Internet) ; nil pour les anciens tests (Cloudflare) et iperf3.
+    public var serverSource: SpeedServerSource?
+    /// Identifiant du serveur (`SpeedServer.id`), pour comparer par serveur.
+    public var serverID: String?
 
     public init(id: UUID = UUID(), date: Date = Date(), kind: SpeedTestKind, origin: String = "manuel",
                 server: String, interfaceName: String, interfaceKind: String, downMbps: Double,
                 upMbps: Double? = nil, latencyMs: Double? = nil, loadedLatencyMs: Double? = nil,
-                jitterMs: Double? = nil, streams: Int = 1) {
+                jitterMs: Double? = nil, streams: Int = 1, serverSource: SpeedServerSource? = nil,
+                serverID: String? = nil) {
+        self.serverSource = serverSource
+        self.serverID = serverID
         self.id = id
         self.date = date
         self.kind = kind
@@ -53,6 +60,44 @@ public struct SpeedTestRecord: Identifiable, Codable, Hashable, Sendable {
     /// « en0 · Wi-Fi »
     public var interfaceLabel: String {
         interfaceKind.isEmpty ? interfaceName : "\(interfaceName) · \(interfaceKind)"
+    }
+
+    /// Source affichée : celle enregistrée, sinon Cloudflare pour un ancien test Internet, iperf3 en local.
+    public var sourceLabel: String {
+        if let serverSource { return serverSource.label }
+        return kind == .lan ? "iperf3" : "Cloudflare"
+    }
+
+    /// Clé de regroupement par serveur : l'identifiant s'il existe, sinon le libellé.
+    public var serverKey: String { serverID ?? "\(kind.rawValue):\(server)" }
+}
+
+/// Moyennes des tests d'un même serveur (comparaison par serveur).
+public struct SpeedServerStats: Identifiable, Hashable, Sendable {
+    public var id: String
+    public var server: String
+    public var source: String
+    public var kind: SpeedTestKind
+    public var count: Int
+    public var averageDown: Double
+    public var averageUp: Double?
+    public var averageLatency: Double?
+    public var bestDown: Double
+    public var lastDate: Date
+
+    /// Regroupe par serveur ; tri par nombre de tests puis par date du dernier test.
+    public static func compute(_ records: [SpeedTestRecord], kind: SpeedTestKind? = .internet) -> [SpeedServerStats] {
+        let filtered = records.filter { kind == nil || $0.kind == kind }
+        let groups = Dictionary(grouping: filtered, by: \.serverKey)
+        func mean(_ values: [Double]) -> Double? { values.isEmpty ? nil : values.reduce(0, +) / Double(values.count) }
+        return groups.compactMap { key, items -> SpeedServerStats? in
+            guard let latest = items.max(by: { $0.date < $1.date }) else { return nil }
+            return SpeedServerStats(id: key, server: latest.server, source: latest.sourceLabel, kind: latest.kind,
+                                    count: items.count, averageDown: mean(items.map(\.downMbps)) ?? 0,
+                                    averageUp: mean(items.compactMap(\.upMbps)), averageLatency: mean(items.compactMap(\.latencyMs)),
+                                    bestDown: items.map(\.downMbps).max() ?? 0, lastDate: latest.date)
+        }
+        .sorted { $0.count != $1.count ? $0.count > $1.count : $0.lastDate > $1.lastDate }
     }
 }
 
@@ -140,12 +185,13 @@ public struct SpeedHistoryStore: Sendable {
             guard text.contains(";") || text.contains("\"") || text.contains("\n") else { return text }
             return "\"" + text.replacingOccurrences(of: "\"", with: "\"\"") + "\""
         }
-        var lines = ["Date;Type;Origine;Serveur;Interface;Descente (Mb/s);Montée (Mb/s);Latence (ms);Latence en charge (ms);Gigue (ms);Flux"]
+        var lines = ["Date;Type;Origine;Serveur;Interface;Descente (Mb/s);Montée (Mb/s);Latence (ms);Latence en charge (ms);Gigue (ms);Flux;Source"]
         for record in records {
             lines.append([
                 formatter.string(from: record.date), record.kind.label, field(record.origin), field(record.server),
                 field(record.interfaceLabel), number(record.downMbps), number(record.upMbps),
                 number(record.latencyMs), number(record.loadedLatencyMs), number(record.jitterMs), String(record.streams),
+                field(record.sourceLabel),
             ].joined(separator: ";"))
         }
         return lines.joined(separator: "\r\n") + "\r\n"

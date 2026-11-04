@@ -74,15 +74,31 @@ struct SpeedInternetView: View {
     }
 
     private var runSummary: String {
+        let planned = model.plannedServer
         switch model.runState {
-        case .idle: return "\(model.streams) flux · HTTP · Cloudflare"
-        case .running(let phase): return "\(phase.label) en cours · \(model.streams) flux"
+        case .idle:
+            let streams = planned.source.supportsStreams ? "\(model.streams) flux · " : ""
+            return streams + planned.historyLabel + (model.isAutomatic ? " (auto)" : "")
+        case .running(let phase):
+            if model.preparingServer { return "Choix du serveur le plus proche…" }
+            let server = model.server?.label ?? model.testedServer?.historyLabel ?? planned.historyLabel
+            return "\(phase.label) en cours · \(server)"
         case .done:
-            let server = model.summary?.server?.colo.map { "nœud \($0)" } ?? "Cloudflare"
+            let server: String
+            if let info = model.summary?.server, info.serverName == nil, let colo = info.colo {
+                server = "Cloudflare · nœud \(colo)"
+            } else {
+                server = model.summary?.server?.label ?? model.testedServer?.historyLabel ?? "Cloudflare"
+            }
             return "Terminé · \(model.summary?.streams ?? model.streams) flux · \(server)"
         case .stopped: return "Test arrêté"
         case .failed: return "Échec du test"
         }
+    }
+
+    /// Source du test affiché (en cours ou terminé), sinon du prochain test.
+    private var currentSource: SpeedServerSource {
+        (model.runState == .idle ? nil : model.testedServer?.source) ?? model.plannedServer.source
     }
 
     // MARK: Jauge et étapes
@@ -217,7 +233,7 @@ struct SpeedInternetView: View {
                      points: model.downSeries, current: model.currentPhase == .download ? model.gaugeValue : model.downMbps)
             liveCard(title: "Montée", systemImage: "arrow.up", color: speedUpColor, soft: speedUpSoft,
                      points: model.upSeries, current: model.currentPhase == .upload ? model.gaugeValue : model.upMbps)
-            Text("Échelle 0–\(SpeedFormat.integer(model.gaugeScale)) Mb/s · \(model.streams) flux · HTTP multi-flux")
+            Text("Échelle 0–\(SpeedFormat.integer(model.gaugeScale)) Mb/s · \(currentSource.supportsStreams ? "\(model.streams) flux · " : "")\(currentSource.protocolLabel)")
                 .font(Theme.caption)
                 .foregroundStyle(Theme.textSecondary)
         }
@@ -316,49 +332,113 @@ struct SpeedInternetView: View {
             SpeedTile(label: "Téléversement", value: model.upMbps.map(SpeedFormat.rate) ?? "—", unit: "Mb/s",
                       detail: planText(model.upMbps, planUp)),
             SpeedTile(label: "Latence au repos", value: model.idleLatency.map(SpeedFormat.latency) ?? "—", unit: "ms",
-                      detail: "médiane de 10 requêtes HTTP"),
+                      detail: latencyDetail),
             SpeedTile(label: "Latence en charge", value: summary?.loadedLatencyMs.map(SpeedFormat.latency) ?? "—", unit: "ms",
                       detail: loadedDetail, badge: grade, badgeTone: gradeTone),
             SpeedTile(label: "Gigue", value: model.jitter.map { SpeedFormat.number($0, digits: 1) } ?? "—", unit: "ms",
                       detail: "écart moyen entre requêtes"),
-            SpeedTile(label: "Requêtes perdues", value: summary?.lossPercent.map { SpeedFormat.number($0, digits: 0) } ?? "—",
-                      unit: "%", detail: summary.map { "\($0.probesLost) sur \($0.probesSent) sondes" } ?? "en attente"),
+            SpeedTile(label: currentSource == .ookla ? "Paquets perdus" : "Requêtes perdues", value: summary?.lossPercent.map { SpeedFormat.number($0, digits: 0) } ?? "—",
+                      unit: "%", detail: lossDetail(summary)),
         ]
+    }
+
+    private var latencyDetail: String {
+        switch currentSource {
+        case .mlab: return "médiane de 10 connexions TCP"
+        case .ookla: return "mesurée par le CLI d’Ookla"
+        default: return "médiane de 10 requêtes HTTP"
+        }
+    }
+
+    private func lossDetail(_ summary: SpeedTestSummary?) -> String {
+        guard let summary else { return "en attente" }
+        if currentSource == .ookla { return summary.probesSent == 0 ? "non mesurés par ce serveur" : "mesurés par Ookla" }
+        return "\(summary.probesLost) sur \(summary.probesSent) sondes"
     }
 
     // MARK: Colonne de droite
 
     private var serverPanel: some View {
-        Panel {
+        let favorites = Array(model.favoriteServers.prefix(4))
+        let selected = model.selectedServer
+        let source = model.plannedServer.source
+        return Panel {
             VStack(alignment: .leading, spacing: 10) {
-                SectionHeader("Serveur de test")
-                HStack(spacing: 10) {
-                    Circle().strokeBorder(Theme.accent, lineWidth: 4).frame(width: 14, height: 14)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Cloudflare · automatique").font(.system(size: 12, weight: .semibold))
-                        Text(model.server.map { "Nœud le plus proche : \($0.colo ?? "?")\($0.city.map { " · \($0)" } ?? "")" }
-                             ?? "Nœud anycast le plus proche, choisi par Cloudflare")
-                            .font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                SectionHeader(title: "Serveur de test") {
+                    Button {
+                        model.tab = .serveurs
+                    } label: {
+                        Label("Tous les serveurs", systemImage: "arrow.right").labelStyle(SpeedTrailingIconLabelStyle())
                     }
-                    Spacer(minLength: 4)
-                    Text(model.idleLatency.map { "\(SpeedFormat.latency($0)) ms" } ?? "")
-                        .font(Theme.mono(11)).foregroundStyle(Theme.neutralText)
+                    .buttonStyle(.ghost)
+                    .padding(.trailing, -8)
                 }
-                .padding(.horizontal, 9)
-                .padding(.vertical, 7)
-                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.accentSoft))
-                .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.accent))
-                Text("Choix d’un autre serveur (Ookla, serveur du fournisseur) : bientôt.")
-                    .font(Theme.caption).foregroundStyle(Theme.textTertiary)
+                VStack(spacing: 4) {
+                    SpeedServerRadio(title: "Automatique (le plus proche)", subtitle: automaticSubtitle,
+                                     latency: model.automaticChoice.latencyMs ?? (model.isAutomatic ? model.idleLatency : nil),
+                                     isOn: model.isAutomatic) {
+                        model.selectServer(nil)
+                    }
+                    ForEach(favorites) { server in
+                        SpeedServerRadio(title: server.title, subtitle: subtitle(server), latency: server.latencyMs,
+                                         trailing: server.latencyMs == nil && server.source == .ookla ? "Ookla" : nil,
+                                         isOn: !model.isAutomatic && selected?.id == server.id) {
+                            model.selectServer(server)
+                        }
+                    }
+                    if let selected, !favorites.contains(where: { $0.id == selected.id }) {
+                        SpeedServerRadio(title: selected.title, subtitle: subtitle(selected), latency: selected.latencyMs, isOn: true) {}
+                    }
+                }
+                .disabled(model.runState.isRunning)
+                if favorites.isEmpty {
+                    Text("Ajoutez des favoris (étoile) dans l’onglet Serveurs pour les retrouver ici.")
+                        .font(Theme.caption).foregroundStyle(Theme.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 SpeedFieldLabel("Flux parallèles").padding(.top, 2)
                 SpeedSegmentRow(options: SpeedTestConfig.streamChoices.map { ($0, String($0)) }, selection: $model.streams, mono: true)
-                    .disabled(model.runState.isRunning)
+                    .disabled(model.runState.isRunning || !source.supportsStreams)
+                    .opacity(source.supportsStreams ? 1 : 0.45)
                 SpeedFieldLabel("Protocole").padding(.top, 2)
-                SpeedSegmentRow(options: [("http", "HTTP multi-flux"), ("tcp", "TCP"), ("udp", "UDP")],
-                                selection: .constant("http"), disabled: ["tcp", "udp"])
+                HStack(spacing: 6) {
+                    Image(systemName: source == .ookla ? "terminal" : "arrow.left.arrow.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.accentStrong)
+                    Text(source.protocolLabel).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.text)
+                    Spacer(minLength: 0)
+                    if !source.supportsStreams {
+                        Text("1 flux imposé").font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                    }
+                }
+                .padding(.horizontal, 9)
+                .frame(height: 30)
+                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
+                .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+                if source == .ookla {
+                    Text(OoklaLocator.licenseNote).font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
+    }
+
+    private var automaticSubtitle: String {
+        let choice = model.automaticChoice
+        if choice.source == .cloudflare, let info = model.server, info.serverName == nil, let colo = info.colo {
+            return "Choisit Cloudflare · nœud \(colo)\(info.city.map { " · \($0)" } ?? "")"
+        }
+        if model.catalogDate == nil && choice.source == .cloudflare {
+            return "Mesure les serveurs au premier test"
+        }
+        return "Choisit \(choice.historyLabel)"
+    }
+
+    private func subtitle(_ server: SpeedServer) -> String {
+        var parts = [server.source.label]
+        if let sponsor = server.sponsor, server.source != .cloudflare, sponsor != server.title { parts.append(sponsor) }
+        return parts.joined(separator: " · ")
     }
 
     private var connectionPanel: some View {

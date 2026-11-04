@@ -123,6 +123,8 @@ final class RemoteModel: ObservableObject {
                 selectedID = connections.first { $0.proto == proto }?.id
                 if raw.hasPrefix("modifier") { startEditing() }
             }
+            // Captures : connexion Telnet choisie (encadré « Installer » de telnet).
+            if raw == "telnet" { selectedID = connections.first { $0.proto == .telnet }?.id }
         }
     }
 
