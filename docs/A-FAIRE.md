@@ -20,7 +20,9 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 5. ~~**0.8.0, réglages et alertes**~~ : livrée le 4 novembre 2026 (notes 13 et 23) ; essais
    réels à faire (vrais serveurs SMTP, Microsoft 365 et Gmail, canaux Teams et Slack, SNMP v3,
    SSH, restauration d’une sauvegarde sur un autre Mac).
-6. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
+6. **0.9.0, FortiGate et FortiSwitch** : note 24 (switchs gérés par la FortiGate, réseau
+   FortiLink 10.255.1.0/24 non joignable).
+7. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
 
@@ -460,3 +462,22 @@ Microsoft 365 et Gmail, canaux Teams et Slack).
 - Surveillance : canaux de chaque sonde dans l’éditeur, exclusion possible, colonne « Alertes
   externes ».
 - Limites : authentification SMTP par mot de passe seulement (pas d’OAuth 2).
+
+## 24. FortiGate et FortiSwitch gérés : lire la FortiGate (demande de Dany)
+
+Réseau de Dany : FortiGate, FortiSwitch gérés par FortiLink (et FortiManager), adresses des
+switchs dans 10.255.1.0/24, réseau FortiLink non routé vers le LAN : NetScope ne les voit pas.
+
+- Choix : interroger la FortiGate par son API REST (HTTPS, jeton d’un administrateur « API
+  REST » en lecture seule, hôtes de confiance limités au Mac), sans router 10.255.1.0/24 ni
+  activer SNMP sur les switchs.
+- Réglages › Switchs : source « Contrôleur FortiGate » (adresse, port HTTPS, jeton au
+  Trousseau, certificat autosigné accepté par empreinte, bouton Tester, rafraîchissement).
+- Données : FortiSwitch gérés (nom, modèle, série, firmware, état, IP FortiLink), ports (lien,
+  vitesse, PoE, VLAN), appareils détectés par port (MAC → switch, port, VLAN), table ARP et
+  baux DHCP de la FortiGate.
+- Effet : l’écran Switchs et ports montre les FortiSwitch ; le Scanner remplit Switch / port et
+  VLAN par la FortiGate, avant SNMP.
+- Limites : noms des champs selon la version de FortiOS (lecture tolérante, réponse brute
+  copiable pour ajuster) ; FortiManager (plusieurs sites) plus tard ; rien d’essayé sur une
+  vraie FortiGate avant l’essai de Dany.
