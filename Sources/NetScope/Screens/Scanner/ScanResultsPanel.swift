@@ -272,8 +272,8 @@ struct ScanDeviceTable: View {
         StandardColumn(id: "ip", title: "IP", isRequired: true),
         StandardColumn(id: "type", title: "Type"),
         StandardColumn(id: "nom", title: "Nom personnalisé"),
-        // Hostname, latence et dernière vue : facultatifs pour que l'essentiel tienne à côté du
-        // panneau de détail à 1440 × 900 ; on les rajoute par « Colonnes ».
+        // Hostname, latence et dernière vue : facultatifs (on les rajoute par « Colonnes ») ; à côté du
+        // panneau de détail, le tableau défile horizontalement plutôt que de rogner Type et Nom.
         StandardColumn(id: "hostname", title: "Hostname", isDefaultVisible: false),
         StandardColumn(id: "fabricant", title: "Fabricant"),
         StandardColumn(id: "mac", title: "MAC"),
@@ -333,7 +333,9 @@ struct ScanDeviceTable: View {
                 TableColumn(StandardTableHeading("TYPE"), sortUsing: table.sort("type")) { device in
                     ScanTypeCell(type: device.deviceType, isManual: inventory.typeChoice(for: device).isManual)
                 }
-                .width(min: 28, ideal: 88)
+                // « Routeur / pare-feu », « Poste de travail » en entier : le tableau défile plutôt
+                // horizontalement pour les dernières colonnes (Switch / port, VLAN).
+                .width(min: 132, ideal: 138)
                 .customizationID("type")
 
                 TableColumn(StandardTableHeading("NOM"), sortUsing: table.sort("nom")) { device in
@@ -345,7 +347,7 @@ struct ScanDeviceTable: View {
                         if scan.newIDs.contains(device.id) { ScanNewBadge() }
                     }
                 }
-                .width(min: 60, ideal: 80)
+                .width(min: 150, ideal: 160)
                 .customizationID("nom")
 
                 TableColumn(StandardTableHeading("HOSTNAME"), sortUsing: table.sort("hostname")) { device in
@@ -359,7 +361,7 @@ struct ScanDeviceTable: View {
                 TableColumn(StandardTableHeading("FABRICANT"), sortUsing: table.sort("fabricant")) { device in
                     ScanCellText(device.vendorLabel, dimmed: device.vendor == nil && device.mac == nil)
                 }
-                .width(min: 50, ideal: 74)
+                .width(min: 70, ideal: 90)
                 .customizationID("fabricant")
 
                 TableColumn(StandardTableHeading("MAC"), sortUsing: table.sort("mac")) { device in
@@ -382,7 +384,7 @@ struct ScanDeviceTable: View {
                 TableColumn(StandardTableHeading("PORTS"), sortUsing: table.sort("ports")) { device in
                     ScanPortTags(ports: device.openPorts)
                 }
-                .width(min: 50, ideal: 58)
+                .width(min: 58, ideal: 66)
                 .customizationID("ports")
 
                 TableColumn(StandardTableHeading("SWITCH / PORT"), sortUsing: table.sort("switch")) { device in
@@ -390,7 +392,7 @@ struct ScanDeviceTable: View {
                     SwitchPortCell(name: device.switchName, port: device.switchPort, dimmed: !status.isCurrent,
                                    note: status.explanation)
                 }
-                .width(min: 80, ideal: 94)
+                .width(min: 94, ideal: 110)
                 .customizationID("switch")
             }
 
@@ -403,7 +405,7 @@ struct ScanDeviceTable: View {
                         ScanCellText("—", dimmed: true)
                     }
                 }
-                .width(min: 34, ideal: 36)
+                .width(min: 40, ideal: 44)
                 .customizationID("vlan")
 
                 TableColumn(StandardTableHeading("VU LA DERNIÈRE FOIS"), sortUsing: table.sort("derniereVue")) { device in

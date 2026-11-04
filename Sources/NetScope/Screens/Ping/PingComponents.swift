@@ -91,17 +91,19 @@ struct PingSegmented<Value: Hashable>: View {
         HStack(spacing: 2) {
             ForEach(options, id: \.value) { option in
                 let active = option.value == selection
-                Button { onSelect(option.value) } label: {
+                // Choix pas encore disponible : texte secondaire, sans l'estompage de `.disabled` qui
+                // le rendait presque illisible en mode sombre ; le clic ne fait rien.
+                Button { if option.enabled { onSelect(option.value) } } label: {
                     Text(option.title)
                         .font(.system(size: 12, weight: active ? .semibold : .medium))
-                        .foregroundStyle(active ? Color.white : option.enabled ? Theme.text : Theme.textTertiary)
+                        .foregroundStyle(active ? Color.white : option.enabled ? Theme.text : Theme.textSecondary)
                         .padding(.horizontal, 10)
                         .frame(height: 26)
                         .background(RoundedRectangle(cornerRadius: 4).fill(active ? Theme.accent : Color.clear))
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .disabled(!option.enabled)
+                .accessibilityHint(option.enabled ? "" : "Pas encore disponible")
                 .help(option.help ?? option.title)
             }
         }
