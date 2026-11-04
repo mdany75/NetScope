@@ -17,7 +17,8 @@ struct RegGeneralSection: View {
 
     private var general: some View {
         RegPanel(title: "Général", subtitle: "Langue, apparence et comportement de l’application au démarrage.") {
-            HStack(alignment: .top, spacing: 14) {
+            // Fenêtre étroite : le thème passe sous la langue au lieu d'élargir la page.
+            AdaptiveStack(breakpoint: 520, spacing: 24, horizontalAlignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
                     RegLabel("Langue de l’interface")
                     Picker("", selection: $language) {
@@ -26,7 +27,7 @@ struct RegGeneralSection: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .frame(width: 260)
+                    .frame(maxWidth: 260)
                     Text("NetScope est entièrement en français ; d’autres langues viendront plus tard.")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 }
@@ -39,8 +40,6 @@ struct RegGeneralSection: View {
                     ])
                     Text("Thème sombre : bientôt.").font(Theme.small).foregroundStyle(Theme.textSecondary)
                 }
-                .padding(.leading, 20)
-                Spacer(minLength: 0)
             }
 
             VStack(spacing: 0) {

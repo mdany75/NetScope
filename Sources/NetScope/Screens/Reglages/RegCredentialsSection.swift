@@ -70,7 +70,7 @@ struct RegCredentialsSection: View {
                 .frame(width: 170)
             Text("Lecture de sysName, sysDescr et sysUpTime (UDP 161, délai 2\u{00A0}s, un renvoi).")
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
     }

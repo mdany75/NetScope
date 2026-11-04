@@ -21,11 +21,13 @@ struct MonAlertChannelsRow: View {
                 Image(systemName: summary.active ? "paperplane.fill" : "paperplane")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(summary.active ? Theme.accentStrong : Theme.textTertiary)
-                Text(summary.text)
-                    .font(Theme.caption)
-                    .foregroundStyle(summary.active ? Theme.text : Theme.textSecondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                // Trop de canaux pour la largeur de l'éditeur : « Courriel + 2 » plutôt qu'un texte
+                // coupé (la liste complète reste dans l'aide au survol).
+                ViewThatFits(in: .horizontal) {
+                    summaryText(summary.text, active: summary.active).fixedSize()
+                    summaryText(Self.compact(summary.text), active: summary.active).fixedSize()
+                    summaryText(summary.text, active: summary.active)
+                }
                 Spacer(minLength: 2)
                 Button {
                     RegNavigation.shared.section = .alertes
@@ -46,6 +48,21 @@ struct MonAlertChannelsRow: View {
         }
         .help(summary.active ? "Les alertes de cette sonde partent aussi\u{00A0}: \(summary.text) (Réglages › Alertes)."
                              : "\(summary.text) (Réglages › Alertes).")
+    }
+
+    private func summaryText(_ text: String, active: Bool) -> some View {
+        Text(text)
+            .font(Theme.caption)
+            .foregroundStyle(active ? Theme.text : Theme.textSecondary)
+            .lineLimit(1)
+            .truncationMode(.tail)
+    }
+
+    /// « Courriel · Teams · JSON » → « Courriel + 2 ».
+    static func compact(_ text: String) -> String {
+        let parts = text.components(separatedBy: " · ")
+        guard parts.count > 1 else { return text }
+        return "\(parts[0]) + \(parts.count - 1)"
     }
 }
 

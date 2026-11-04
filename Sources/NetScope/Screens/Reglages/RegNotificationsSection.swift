@@ -224,8 +224,6 @@ struct RegNotificationsSection: View {
         let label = Label(outcome.text, systemImage: outcome.symbol)
             .font(Theme.small)
             .foregroundStyle(outcome.tone == .neutral ? Theme.textSecondary : outcome.tone.foreground)
-            .lineLimit(1)
-            .fixedSize()
         let texts = VStack(alignment: .leading, spacing: 1) {
             Text(entry.event.title).font(Theme.bodySemibold).foregroundStyle(Theme.text).lineLimit(1)
             Text(entry.event.detail).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.tail)
@@ -239,11 +237,12 @@ struct RegNotificationsSection: View {
             // Fenêtre étroite : la décision passe sous le détail au lieu de pousser la ligne.
             if listWidth >= 620 {
                 texts.frame(maxWidth: .infinity, alignment: .leading)
-                label
+                label.lineLimit(1).fixedSize()
             } else {
+                // La décision peut passer sur deux lignes : elle ne doit jamais élargir la page.
                 VStack(alignment: .leading, spacing: 3) {
                     texts
-                    label
+                    label.lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

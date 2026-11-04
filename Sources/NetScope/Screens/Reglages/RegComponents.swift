@@ -141,7 +141,9 @@ struct RegTile<Value: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).font(Theme.caption).foregroundStyle(Theme.textSecondary)
-            value.font(Theme.bodySemibold).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.middle)
+            // Deux lignes au besoin : une valeur longue (source, emplacement) n'est pas coupée.
+            value.font(Theme.bodySemibold).foregroundStyle(Theme.text).lineLimit(2).truncationMode(.middle)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)

@@ -18,6 +18,7 @@ enum ReglagesDemo {
         BackupKeychainItem(service: "com.danymenard.netscope.wmi", account: "wmi-domaine", usage: "Identifiants WMI"),
     ]
 
+    /// Tailles à la plus récente sauvegarde ; les plus anciennes sont un peu plus petites (inventaire qui grossit).
     private static let files: [(String, Int)] = [
         ("etat.json", 2_184), ("inventaire.json", 182_406), ("surveillance.json", 48_912), ("outils.json", 6_310),
         ("services-en-ligne.json", 3_877), ("notes-appareils.json", 1_942), ("disques.json", 4_506), ("identifiants.json", 1_128),
@@ -31,7 +32,7 @@ enum ReglagesDemo {
         ]
         return plan.map { offset, kind, format, count in
             let date = reference.addingTimeInterval(offset)
-            let manifestFiles = files.prefix(count).map { BackupManifest.File(path: $0.0, bytes: $0.1 - Int(offset / 3600) * 37, crc32: 0) }
+            let manifestFiles = files.prefix(count).map { BackupManifest.File(path: $0.0, bytes: $0.1 + Int(offset / 3600) * 37, crc32: 0) }
             let manifest = BackupManifest(createdAt: date, kind: kind, appVersion: "0.8.0", appBuild: "80", files: Array(manifestFiles),
                                           preferencesFile: BackupEngine.preferencesName, preferenceCount: 46,
                                           excludedPreferenceKeys: [], skippedFiles: ["oui.tsv"], keychain: keychainItems,

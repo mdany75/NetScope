@@ -226,7 +226,8 @@ struct RegAlertWebhooksCard: View {
                     .frame(width: 24, height: 24)
                     .background(Circle().fill(hook.isEnabled ? Theme.accentSoft : Theme.neutralSoft))
                 VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
+                    // Fenêtre étroite : les puces passent sous le nom au lieu de le couper.
+                    FlowLayout(spacing: 6, lineSpacing: 3) {
                         Text(hook.name.isEmpty ? hook.kind.label : hook.name)
                             .font(Theme.bodySemibold).foregroundStyle(Theme.text).lineLimit(1)
                         Chip(text: hook.kind.shortLabel, tone: hook.kind == .teams ? .accent : .neutral)
