@@ -70,7 +70,7 @@ extension ReportBuilder {
             }
             var columns = [ReportColumn("Lien WAN", weight: 1.5)]
             if multi { columns.append(ReportColumn("Site", weight: 0.9)) }
-            columns += [ReportColumn("Adresse", weight: 1.1), ReportColumn("Débit", weight: 1.6), ReportColumn("Latence", weight: 0.7, trailing: true),
+            columns += [ReportColumn("Adresse", weight: 1.1), ReportColumn("Débit", weight: 1.5), ReportColumn("Latence", weight: 0.85, trailing: true),
                         ReportColumn("Gigue", weight: 0.6, trailing: true), ReportColumn("Perte", weight: 0.6, trailing: true),
                         ReportColumn("SLA", weight: 0.5, trailing: true), ReportColumn("État", weight: 0.8)]
             blocks.append(.table(ReportTable(columns: columns, rows: rows, wraps: true)))
@@ -92,7 +92,7 @@ extension ReportBuilder {
             if multi { columns.append(ReportColumn("Site", weight: 0.9)) }
             columns += [ReportColumn("Vers", weight: 1.6), ReportColumn("Phases 2", weight: 0.7, trailing: true),
                         ReportColumn("Entrant", weight: 0.8, trailing: true), ReportColumn("Sortant", weight: 0.8, trailing: true),
-                        ReportColumn("Monté depuis", weight: 0.9), ReportColumn("État", weight: 0.8)]
+                        ReportColumn("Depuis", weight: 0.8), ReportColumn("État", weight: 0.8)]
             blocks.append(.table(ReportTable(columns: columns, rows: rows, wraps: true)))
         }
 

@@ -337,7 +337,7 @@ struct WANStatusView: View {
                             TableColumn("LIEN WAN", sortUsing: linkTable.sort("lien")) { row in
                                 HStack(spacing: 5) {
                                     Text(row.link.interface.shortName).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
-                                    Text(multi ? "\(row.link.interface.name) · \(row.link.site)" : row.link.interface.name)
+                                    Text(multi ? row.link.site : row.link.interface.name)
                                         .font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -378,7 +378,7 @@ struct WANStatusView: View {
                                 ToolTableText(row.link.slaLabel, color: (row.link.slaMet ?? 0) < (row.link.slaTotal ?? 0) ? Theme.warning : Theme.text, alignment: .trailing)
                                     .help("Objectifs SLA respectés sur les sondes SD-WAN de ce lien")
                             }
-                            .width(min: 44, ideal: 110)
+                            .width(min: 36, ideal: 44)
                             .customizationID("sla")
                             TableColumn("ÉTAT", sortUsing: linkTable.sort("etat")) { row in
                                 Chip(text: row.link.state.label, tone: WANTone.tone(row.link.state))
@@ -450,6 +450,37 @@ struct WANStatusView: View {
                 Spacer(minLength: 8)
                 if !isCompact { ToolColumnsMenu(model: memberTable) }
             }
+            if isCompact {
+                // Petite fenêtre : sonde (et membre dessous), latence et perte, état.
+                ToolStandardTableFrame(rowCount: rows.count, rowHeight: ToolTableMetrics.doubleRowHeight, maxRows: 8) {
+                    Table(rows, selection: $memberSelection, sortOrder: $memberTable.sortOrder) {
+                        TableColumn("SONDE", sortUsing: memberTable.sort("sonde")) { row in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(row.member.measure.checkName).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
+                                Text(row.member.measure.interface + (multi ? " · \(row.member.site)" : ""))
+                                    .font(Theme.mono(11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .help(row.member.interfaceLabel)
+                        }
+                        .width(min: 80, ideal: 110)
+                        TableColumn("LATENCE · PERTE", sortUsing: memberTable.sort("perte")) { row in
+                            VStack(alignment: .trailing, spacing: 2) {
+                                ToolTableText(WANFormat.ms(row.member.measure.latencyMs), alignment: .trailing)
+                                ToolTableText("perte " + WANFormat.loss(row.member.measure.lossPercent), size: 11,
+                                              color: (row.member.measure.lossPercent ?? 0) > store.thresholds.lossPercent ? Theme.warning : Theme.textSecondary,
+                                              alignment: .trailing)
+                            }
+                        }
+                        .width(min: 80, ideal: 100)
+                        TableColumn("ÉTAT", sortUsing: memberTable.sort("etat")) { row in
+                            Chip(text: row.member.measure.isUp == nil ? "Hors sonde" : row.member.state.label, tone: WANTone.tone(row.member.state))
+                                .help(row.slaText == "—" ? "" : "SLA\u{00A0}: " + row.slaText.lowercased())
+                        }
+                        .width(min: 70, ideal: 86)
+                    }
+                }
+            } else {
             ToolStandardTableFrame(rowCount: rows.count, maxRows: 10) {
                 Table(rows, selection: $memberSelection, sortOrder: $memberTable.sortOrder, columnCustomization: $memberTable.customization) {
                     TableColumn("SONDE SD-WAN", sortUsing: memberTable.sort("sonde")) { row in
@@ -509,6 +540,7 @@ struct WANStatusView: View {
                     .defaultVisibility(.hidden)
                 }
             }
+            }
         }
     }
 
@@ -559,13 +591,13 @@ struct WANStatusView: View {
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .width(min: 80, ideal: 120)
+                        .width(min: 80, ideal: 150)
                         .customizationID("tunnel")
                         .disabledCustomizationBehavior(.visibility)
                         TableColumn("VERS", sortUsing: tunnelTable.sort("vers")) { row in
                             ToolTableText(row.usage.tunnel.comments ?? "—", mono: false, color: Theme.textSecondary)
                         }
-                        .width(min: 80, ideal: 150)
+                        .width(min: 80, ideal: 124)
                         .customizationID("vers")
                         TableColumn("PASSERELLE", sortUsing: tunnelTable.sort("passerelle")) { row in
                             ToolTableText(row.usage.tunnel.remoteGateway ?? "—", size: 11)
@@ -621,7 +653,7 @@ struct WANStatusView: View {
         let now = overview.readAt ?? Date()
         let cells: [ToolCell] = [
             ToolCell(key: "Vers", value: t.comments ?? "—", detail: t.remoteGateway.map { "passerelle \($0)" }),
-            ToolCell(key: "Phases 2 montées", value: t.phase2.isEmpty ? "—" : "\(t.phase2Up) sur \(t.phase2.count)",
+            ToolCell(key: "Phases 2", value: t.phase2.isEmpty ? "—" : "\(t.phase2Up) montée\(t.phase2Up > 1 ? "s" : "") sur \(t.phase2.count)",
                      detail: WANTunnelRow.typeLabel(t.type)),
             ToolCell(key: "Monté depuis", value: usage.state == .up ? WANFormat.duration(since: t.upSince, now: now) : "—",
                      detail: usage.state == .up ? nil : "tunnel \(usage.state.label.lowercased())"),
