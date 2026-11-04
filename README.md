@@ -8,7 +8,7 @@ surveillance, rapports et accès distant, le tout en français.
 
 ## Fonctions
 
-Version 0.8.1 : les quatorze écrans fonctionnent, au style Mac (mode sombre, petite fenêtre), avec des tableaux à colonnes réglables. La 0.8.1 corrige un plantage de « Vitesse des disques » sur un partage réseau. Nouveau dans la 0.8.0 : des Réglages complets (notifications choisies avec heures « Ne pas déranger », raccourcis modifiables et menus Scan, Appareil et Aller, sauvegarde automatique avec restauration, test SNMP v2c/v3, identifiants SSH et WMI, méthodes de découverte par profil) et des alertes hors du Mac par courriel et webhook Teams, Slack ou JSON. Depuis la 0.7.0 : « Capture de paquets » façon Wireshark (filtres, détail par couche, vue hexadécimale, suivi de flux, statistiques, .pcap) et « Vitesse des disques » (disques internes et externes, partages réseau, dossiers nuage) dans la Boîte à outils. Depuis la 0.6.0 : « État des services » (Microsoft 365, Azure, Apple, AWS, Google, Cloudflare… vus par leur page officielle et testés depuis votre réseau) et un groupe « Courriel » dans la Boîte à outils (santé d’un domaine sur 100, MX, listes noires, SPF/DKIM/DMARC, diagnostic SMTP, analyse d’en-têtes), avec une Recherche DNS plus complète (SOA, SRV, CAA, DNSSEC, comparaison et propagation). La suite prévue est dans
+Version 0.9.0 : les quatorze écrans fonctionnent, au style Mac (mode sombre, petite fenêtre), avec des tableaux à colonnes réglables. Nouveau dans la 0.9.0 : les FortiSwitch gérés par une FortiGate (FortiLink) sont lus par l’API REST de la FortiGate, en lecture seule (jeton au Trousseau), et remplissent Switchs et ports ainsi que les colonnes Switch / Port et VLAN du Scanner, même si le réseau FortiLink n’est pas joignable depuis le Mac. Depuis la 0.8.0 : des Réglages complets (notifications choisies avec heures « Ne pas déranger », raccourcis modifiables et menus Scan, Appareil et Aller, sauvegarde automatique avec restauration, test SNMP v2c/v3, identifiants SSH et WMI, méthodes de découverte par profil) et des alertes hors du Mac par courriel et webhook Teams, Slack ou JSON. Depuis la 0.7.0 : « Capture de paquets » façon Wireshark (filtres, détail par couche, vue hexadécimale, suivi de flux, statistiques, .pcap) et « Vitesse des disques » (disques internes et externes, partages réseau, dossiers nuage) dans la Boîte à outils. Depuis la 0.6.0 : « État des services » (Microsoft 365, Azure, Apple, AWS, Google, Cloudflare… vus par leur page officielle et testés depuis votre réseau) et un groupe « Courriel » dans la Boîte à outils (santé d’un domaine sur 100, MX, listes noires, SPF/DKIM/DMARC, diagnostic SMTP, analyse d’en-têtes), avec une Recherche DNS plus complète (SOA, SRV, CAA, DNSSEC, comparaison et propagation). La suite prévue est dans
 [docs/A-FAIRE.md](docs/A-FAIRE.md).
 
 - **Scanner multi-plages qui se remplit tout seul** : plusieurs plages à la fois, ping ICMP
@@ -45,7 +45,9 @@ Version 0.8.1 : les quatorze écrans fonctionnent, au style Mac (mode sombre, pe
 - **Switchs et ports** : client SNMP v2c intégré (table MAC BRIDGE-MIB / Q-BRIDGE-MIB, LLDP,
   interfaces, PoE) pour savoir **sur quel port de quel switch** chaque appareil est branché ;
   switchs découverts automatiquement ou ajoutés à la main, façade du switch dessinée,
-  recherche par IP ou MAC.
+  recherche par IP ou MAC ; **FortiSwitch gérés par une FortiGate** lus par l’API REST de la
+  FortiGate (Réglages › Switchs › Contrôleur FortiGate, lecture seule, empreinte du certificat
+  acceptée une fois, aide pour créer l’administrateur API).
 - **Wi-Fi** : connexion actuelle (RSSI, bruit, SNR, canal, débit), analyse des réseaux
   voisins, graphe des canaux 2,4 / 5 / 6 GHz, recommandations.
 - **Fiche appareil** : réseau, matériel, emplacement physique, ports et services avec

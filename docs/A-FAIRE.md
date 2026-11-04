@@ -5,7 +5,7 @@
 
 ## Priorités (revues le 4 novembre 2026)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0.
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0.
 
 1. **0.8.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
@@ -20,8 +20,8 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 5. ~~**0.8.0, réglages et alertes**~~ : livrée le 4 novembre 2026 (notes 13 et 23) ; essais
    réels à faire (vrais serveurs SMTP, Microsoft 365 et Gmail, canaux Teams et Slack, SNMP v3,
    SSH, restauration d’une sauvegarde sur un autre Mac).
-6. **0.9.0, FortiGate et FortiSwitch** : note 24 (switchs gérés par la FortiGate, réseau
-   FortiLink 10.255.1.0/24 non joignable).
+6. ~~**0.9.0, FortiGate et FortiSwitch**~~ : livrée le 4 novembre 2026 (note 24) ; essai
+   réel à faire sur la FortiGate de Dany (jeton, empreinte, FortiSwitch, ports, appareils).
 7. **Phases 2 à 4, ordre libre** : notes 6 (RustDesk), 10 (Inventaire), 11 (Ping continu).
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
@@ -464,6 +464,9 @@ Microsoft 365 et Gmail, canaux Teams et Slack).
 - Limites : authentification SMTP par mot de passe seulement (pas d’OAuth 2).
 
 ## 24. FortiGate et FortiSwitch gérés : lire la FortiGate (demande de Dany)
+
+**Livrée dans la 0.9.0** (4 novembre 2026) ; essai réel à faire sur une vraie FortiGate
+(versions de FortiOS, noms des champs, réponses brutes à copier au besoin).
 
 Réseau de Dany : FortiGate, FortiSwitch gérés par FortiLink (et FortiManager), adresses des
 switchs dans 10.255.1.0/24, réseau FortiLink non routé vers le LAN : NetScope ne les voit pas.

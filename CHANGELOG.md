@@ -1,5 +1,49 @@
 # Changements
 
+## 0.9.0 — 2026-11-04
+
+FortiGate et FortiSwitch : les switchs FortiSwitch gérés par une FortiGate (FortiLink) sont lus
+par l’API REST de la FortiGate, en lecture seule, sans jamais interroger les switchs eux-mêmes,
+dont les adresses du réseau FortiLink (10.255.1.x) ne sont pas joignables depuis le Mac.
+
+### Ajouté
+- **Réglages › Switchs › Contrôleur FortiGate** : adresse, port HTTPS, VDOM facultatif, jeton
+  d’API gardé au Trousseau, empreinte du certificat (souvent autosigné) à accepter une fois, et
+  bouton « Tester » qui affiche le modèle, la version de FortiOS, le nombre de FortiSwitch et
+  le nombre d’appareils détectés.
+- **Aide pas à pas** pour créer sur la FortiGate un administrateur « API REST » en lecture
+  seule, limité à l’adresse de ce Mac (hôtes de confiance).
+- **Switchs et ports** : les FortiSwitch apparaissent avec l’étiquette « via FortiGate », leur
+  façade et un tableau de leurs ports (état, vitesse, VLAN natif, PoE, appareil branché) ;
+  bouton « Relire la FortiGate ».
+- **Diagnostic** : bouton « Copier les réponses brutes » (sans le jeton), pour ajuster la
+  lecture à votre version de FortiOS.
+
+### Modifié
+- **Scanner et fiche Appareil** : les colonnes Switch / Port et VLAN sont remplies par la
+  FortiGate, prioritaire sur SNMP ; le nom d’un appareil inconnu est tiré de la FortiGate, et
+  les MAC des autres VLAN sont complétées par la table ARP de la FortiGate. Le bilan des
+  switchs du Scanner cite la FortiGate et ses FortiSwitch.
+- La FortiGate est relue à la fin de chaque scan et avec « Interroger les switchs ».
+- Un FortiSwitch sans PoE affiche « Non · aucun port PoE » au lieu d’un PoE inconnu.
+
+### Corrigé
+- Captures hors écran : la fenêtre n’est plus ramenée à la hauteur de l’écran
+  (`--size 1440x2600` montre toute la page).
+
+### Sécurité
+- Le jeton ne figure jamais dans une adresse, un journal ni les réponses copiées ; il passe
+  seulement dans l’en-tête de la requête HTTPS.
+- Un certificat dont l’empreinte change après avoir été accepté est refusé.
+
+### Limites
+- Rien n’a encore été essayé sur une vraie FortiGate : la lecture est écrite d’après la
+  documentation de FortiOS 6.4 à 7.6 et tolère des noms de champs différents, mais une version
+  peut répondre autrement (les réponses brutes copiables servent à l’ajuster).
+- Une seule FortiGate (et un seul VDOM) à la fois ; FortiManager et les sites multiples
+  viendront plus tard.
+- Lecture seule : NetScope ne change aucun réglage de la FortiGate ni des FortiSwitch.
+
 ## 0.8.1 — 2026-11-04
 
 Correctif : « Vitesse des disques » ne ferme plus l’application à la fin d’un test sur un
