@@ -50,7 +50,7 @@ public enum FortiControllerCSV {
             let number = offset + 1
             let trimmed = raw.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
-            var fields = split(trimmed, separator: separator).map { $0.trimmingCharacters(in: .whitespaces) }
+            var fields = split(trimmed, separator: separator).map { unprotect($0.trimmingCharacters(in: .whitespaces)) }
             if !headerSeen, rows.isEmpty, errors.isEmpty, isHeader(fields) {
                 headerSeen = true
                 continue
@@ -109,6 +109,12 @@ public enum FortiControllerCSV {
         guard fields.count >= 2 else { return false }
         let a = fields[0].lowercased(), b = fields[1].lowercased()
         return ["site", "nom", "name"].contains(a) && ["adresse", "address", "hote", "hôte", "host", "ip"].contains(b)
+    }
+
+    /// Retire l'apostrophe ajoutée à l'export devant « = », « + », « - » ou « @ » (voir `field`).
+    static func unprotect(_ value: String) -> String {
+        guard value.hasPrefix("'"), let next = value.dropFirst().first, "=+-@".contains(next) else { return value }
+        return String(value.dropFirst())
     }
 
     /// Découpe une ligne ; les guillemets protègent un séparateur (« "Siège; bureau" »).

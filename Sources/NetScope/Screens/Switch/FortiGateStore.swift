@@ -74,6 +74,8 @@ final class FortiGateStore: ObservableObject {
     let isDemo: Bool
     private var tokens: [UUID: String] = [:]
     private var tokensLoaded = false
+    /// Lecture du Trousseau en cours : les appels simultanés l'attendent au lieu de repartir à vide.
+    private var tokensTask: Task<Void, Never>?
     private var refreshTask: Task<Void, Never>?
     private var refreshGeneration = 0
     /// Numéro de la lecture la plus récente de chaque contrôleur : seul son résultat compte.
@@ -154,24 +156,49 @@ final class FortiGateStore: ObservableObject {
     }
 
     /// Lit les jetons au Trousseau, hors du fil principal (une seule fois), après avoir déplacé
-    /// celui de la 0.9.0 vers le compte du contrôleur migré.
+    /// celui de la 0.9.0 vers le compte du contrôleur migré. Un appel pendant la lecture attend
+    /// qu'elle finisse : personne ne voit la liste des jetons encore vide.
     func loadTokens() async {
         guard !isDemo, !tokensLoaded else { return }
-        tokensLoaded = true
-        let migrating = UserDefaults.standard.string(forKey: Self.migrationKey).flatMap(UUID.init(uuidString:))
+        if let running = tokensTask {
+            await running.value
+            return
+        }
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.readTokens()
+        }
+        tokensTask = task
+        await task.value
+    }
+
+    private func readTokens() async {
+        let saved = UserDefaults.standard.string(forKey: Self.migrationKey).flatMap(UUID.init(uuidString:))
+        // Contrôleur migré supprimé entre-temps : le jeton de la 0.9.0 est effacé, pas déplacé.
+        let migrating = saved.flatMap { id in controller(id) != nil ? id : nil }
+        let dropLegacy = saved != nil && migrating == nil
         let ids = controllers.map(\.id)
-        let found = await Task.detached(priority: .userInitiated) { () -> [UUID: String] in
+        var found = await Task.detached(priority: .userInitiated) { () -> [UUID: String] in
             if let migrating { FortiControllerMigration.migrateToken(to: migrating, store: FortiGateStore.keychain) }
+            if dropLegacy { try? FortiGateStore.keychain.delete(FortiControllerMigration.legacyTokenAccount) }
             var result: [UUID: String] = [:]
             for id in ids {
                 if let value = FortiGateStore.keychain.string(for: id.uuidString), !value.isEmpty { result[id] = value }
             }
             return result
         }.value
-        if migrating != nil { UserDefaults.standard.removeObject(forKey: Self.migrationKey) }
+        if saved != nil { UserDefaults.standard.removeObject(forKey: Self.migrationKey) }
+        // Contrôleur supprimé pendant la lecture : son compte (jeton migré compris) est effacé.
+        for id in found.keys where controller(id) == nil {
+            found[id] = nil
+            try? Self.keychain.delete(id.uuidString)
+        }
+        if let migrating, controller(migrating) == nil { try? Self.keychain.delete(migrating.uuidString) }
         // Un jeton saisi pendant la lecture du Trousseau l'emporte.
         tokens = found.merging(tokens) { _, typed in typed }
         tokenIDs = Set(tokens.keys)
+        tokensLoaded = true
+        tokensTask = nil
     }
 
     /// Vérifie la forme d'un jeton ; renvoie un message d'erreur.
@@ -179,7 +206,7 @@ final class FortiGateStore: ObservableObject {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "Jeton vide." }
         guard trimmed.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.contains($0) || "-_.".unicodeScalars.contains($0) }) else {
-            return "Le jeton ne doit contenir que des lettres et des chiffres (copiez-le tel que la FortiGate l’a affiché)."
+            return "Le jeton ne doit contenir que des lettres, des chiffres et les signes «\u{00A0}-\u{00A0}», «\u{00A0}_\u{00A0}» ou «\u{00A0}.\u{00A0}» (copiez-le tel que la FortiGate l’a affiché)."
         }
         return nil
     }
@@ -187,7 +214,7 @@ final class FortiGateStore: ObservableObject {
     /// Ajoute ou remplace un contrôleur ; `token` non vide est enregistré au Trousseau. Renvoie un
     /// message d'erreur (rien n'est changé dans ce cas).
     @discardableResult
-    func save(_ draft: FortiGateController, token: String?) -> String? {
+    func save(_ draft: FortiGateController, token: String?, state: AppState) -> String? {
         var next = draft
         next.site = next.site.trimmingCharacters(in: .whitespacesAndNewlines)
         next.host = next.host.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -213,8 +240,14 @@ final class FortiGateStore: ObservableObject {
             tokenIDs.insert(next.id)
         }
         if let index = controllers.firstIndex(where: { $0.id == next.id }) {
-            let changedTarget = !controllers[index].sameTarget(as: next)
+            let previous = controllers[index]
+            let changedTarget = !previous.sameTarget(as: next)
             controllers[index] = next
+            if changedTarget || previous.coveredRanges != next.coveredRanges || (previous.isEnabled && !next.isEnabled) {
+                // Sa lecture ne vaut plus pour « Switchs et ports » : autre appareil, autres plages
+                // ou FortiGate désactivée.
+                dropSite(next.id, state: state)
+            }
             if changedTarget {
                 forgetRead(next.id)
             } else if next.pinnedFingerprint != nil {
@@ -232,22 +265,36 @@ final class FortiGateStore: ObservableObject {
     func remove(_ id: UUID, state: AppState) {
         guard let index = controllers.firstIndex(where: { $0.id == id }) else { return }
         controllers.remove(at: index)
-        if !isDemo { try? Self.keychain.delete(id.uuidString) }
+        if !isDemo {
+            try? Self.keychain.delete(id.uuidString)
+            // Jeton de la 0.9.0 encore à déplacer vers ce contrôleur : effacé avec lui. Pendant une
+            // lecture du Trousseau, readTokens s'en charge à son retour.
+            if tokensTask == nil, UserDefaults.standard.string(forKey: Self.migrationKey) == id.uuidString {
+                try? Self.keychain.delete(FortiControllerMigration.legacyTokenAccount)
+                UserDefaults.standard.removeObject(forKey: Self.migrationKey)
+            }
+        }
         tokens[id] = nil
         tokenIDs.remove(id)
         runtime[id] = nil
+        dropSite(id, state: state)
+        persist()
+    }
+
+    func setEnabled(_ id: UUID, _ value: Bool, state: AppState) {
+        guard let index = controllers.firstIndex(where: { $0.id == id }) else { return }
+        controllers[index].isEnabled = value
+        if !value { dropSite(id, state: state) }
+        persist()
+    }
+
+    /// Retire la lecture d'une FortiGate de « Switchs et ports » (supprimée, désactivée, changée).
+    private func dropSite(_ id: UUID, state: AppState) {
         selection.picks.removeAll { $0.controllerID == id }
         if sites.contains(where: { $0.controllerID == id }) {
             sites.removeAll { $0.controllerID == id }
             applySites(state: state)
         }
-        persist()
-    }
-
-    func setEnabled(_ id: UUID, _ value: Bool) {
-        guard let index = controllers.firstIndex(where: { $0.id == id }) else { return }
-        controllers[index].isEnabled = value
-        persist()
     }
 
     /// Déplace un contrôleur dans la liste (l'ordre départage deux plages de même précision).
@@ -277,10 +324,13 @@ final class FortiGateStore: ObservableObject {
 
     /// Importe un CSV « site;adresse;port;vdom;plages » ; renvoie le bilan (lignes refusées
     /// expliquées, les autres importées).
-    func importCSV(_ text: String) -> (summary: String, errors: [String]) {
+    func importCSV(_ text: String, state: AppState) -> (summary: String, errors: [String], notes: [String]) {
         let parsed = FortiControllerCSV.parse(text)
         let merged = FortiControllerCSV.merge(parsed.rows, into: controllers)
+        let before = controllers
         controllers = merged.controllers
+        // Plages changées par l'import : la lecture de ces FortiGate ne vaut plus.
+        for old in before where controller(old.id)?.coveredRanges != old.coveredRanges { dropSite(old.id, state: state) }
         persist()
         var parts: [String] = []
         parts.append("\(merged.added) FortiGate ajoutée\(merged.added > 1 ? "s" : "")")
@@ -289,7 +339,7 @@ final class FortiGateStore: ObservableObject {
         let missing = controllers.filter { !hasToken($0.id) }.count
         var summary = "Import\u{00A0}: " + parts.joined(separator: ", ") + "."
         if missing > 0 { summary += " Jeton à saisir pour \(missing) FortiGate (jamais importé)." }
-        return (summary, parsed.errors.map(\.text) + parsed.notes)
+        return (summary, parsed.errors.map(\.text), parsed.notes)
     }
 
     func exportCSV() -> String { FortiControllerCSV.export(controllers) }
@@ -408,8 +458,8 @@ final class FortiGateStore: ObservableObject {
             return TestOutcome(error: FortiGateError.missingToken.errorDescription)
         }
         let target = (draft.config.cleanHost.lowercased(), draft.config.effectivePort)
-        runtime[draft.id, default: Runtime()].busy = true
-        defer { runtime[draft.id]?.busy = false }
+        // La feuille montre son propre indicateur : `runtime` n'est pas touché (pas d'entrée
+        // orpheline pour un brouillon, pas de fin prématurée d'une lecture en cours).
         let result = await Self.performRead(config: draft.config, token: token, withInterfaces: true)
         switch result {
         case .success(let report, let interfaces, let calls):
@@ -422,9 +472,10 @@ final class FortiGateStore: ObservableObject {
         }
     }
 
-    /// Note le résultat d'un essai de la feuille sur un contrôleur enregistré.
-    func recordTest(_ outcome: TestOutcome, for id: UUID) {
-        guard controller(id) != nil else { return }
+    /// Note le résultat d'un essai de la feuille sur un contrôleur enregistré, seulement si l'essai
+    /// visait la même FortiGate (adresse et port) que celle enregistrée.
+    func recordTest(_ outcome: TestOutcome, for id: UUID, target: FortiGateController) {
+        guard let saved = controller(id), saved.sameTarget(as: target) else { return }
         var r = runtime[id] ?? Runtime()
         r.lastAttempt = outcome.date
         r.calls = outcome.calls

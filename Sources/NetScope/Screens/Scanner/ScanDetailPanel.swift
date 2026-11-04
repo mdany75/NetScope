@@ -201,7 +201,7 @@ struct ScanDetailLocation: View {
             }
             // Note 24 : FortiSwitch géré, emplacement donné par la FortiGate (prioritaire sur SNMP).
             if let controller = switches.controllerName(forSwitch: name) {
-                return "\(name) · appareils détectés par la FortiGate · \(controller) (FortiLink)" + poe
+                return "\(name) · appareils détectés par la FortiGate du site «\u{00A0}\(controller)\u{00A0}» (FortiLink)" + poe
             }
             return "\(name) · table MAC SNMP" + poe + (auto ? " · switch découvert automatiquement" : "")
         }

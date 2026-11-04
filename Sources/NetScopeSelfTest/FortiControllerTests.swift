@@ -86,6 +86,14 @@ func registerFortiControllerTests(_ suite: TestSuite) {
         s = FortiControllerSelector.select(all, scanned: [range("10.20.8.0/23")], macAddress: nil)
         try expectEqual(s.controllerIDs, [laval.id, quai.id], "plage à cheval : chaque partie à la plus précise")
         try expectEqual(s.pick(for: laval.id)?.scannedRanges, ["10.20.8.0/23"], "plage scannée notée")
+        try expect(s.uncovered.isEmpty, "tout est couvert")
+        // Plage couverte en partie : la partie sans FortiGate est signalée.
+        let small = controller("Petit", "10.0.0.1", ["10.0.0.0/24"])
+        s = FortiControllerSelector.select([small], scanned: [range("10.0.0.0/23")], macAddress: nil)
+        try expectEqual(s.controllerIDs, [small.id], "couverte en partie : choisie")
+        try expectEqual(s.uncovered, ["10.0.1.0/24"], "partie non couverte signalée")
+        s = FortiControllerSelector.select([controller("Milieu", "10.0.0.1", ["10.0.0.10-10.0.0.20"])], scanned: [range("10.0.0.0/24")], macAddress: nil)
+        try expectEqual(s.uncovered, ["10.0.0.0-10.0.0.9", "10.0.0.21-10.0.0.255"], "deux trous non alignés")
         s = FortiControllerSelector.select(all, scanned: [range("10.50.0.0/24")], macAddress: nil)
         try expectEqual(s.controllerIDs, [siege.id], "hors des plages précises : la plus large")
         let conflicts = FortiControllerSelector.conflicts(all)
@@ -123,6 +131,10 @@ func registerFortiControllerTests(_ suite: TestSuite) {
         try expectEqual(decoded.count, 2, "entrée illisible ignorée")
         try expectEqual(decoded[0].port, 10443, "port en texte")
         try expectEqual(decoded[0].ranges, ["10.20.0.0/16", "10.21.0.0/16"], "plages en texte")
+        let masked = FortiControllerList.decode(Data(#"[{"host":"10.1.0.1","ranges":"10.0.0.0 255.255.255.0, 10.9.0.0/16"}]"#.utf8)) ?? []
+        try expectEqual(masked.first?.coveredRanges.map(\.text), ["10.0.0.0/24", "10.9.0.0/16"], "plages en texte avec masque à part")
+        try expectEqual(FortiCoveredRange.parseLenient(FortiCoveredRange.splitBlocks("10.0.0.0 255.255.255.0\n10.1.0.0/24; 10.2.0.5")).ranges.map(\.text),
+                        ["10.0.0.0/24", "10.1.0.0/24", "10.2.0.5"], "blocs : adresse et masque gardés ensemble")
         try expectEqual(decoded[0].isEnabled, true, "booléen illisible : activé")
         try expectEqual(decoded[0].lastStatus?.kind, .untested, "état inconnu : à tester")
         try expect(decoded[1].id != id, "identifiant en double : nouveau compte de jeton")
@@ -240,7 +252,8 @@ func registerFortiControllerTests(_ suite: TestSuite) {
         let list = [FortiGateController(site: "Siège", host: "10.182.122.1", vdom: "root", ranges: ["10.182.0.0/16", "192.168.50.0/24"],
                                         pinnedFingerprint: "3F:A9"),
                     FortiGateController(site: "Dépôt; nord", host: "10.60.0.1", port: 10443, ranges: []),
-                    FortiGateController(site: "=Formule", host: "10.70.0.1")]
+                    FortiGateController(site: "=Formule", host: "10.70.0.1"),
+                    FortiGateController(site: "-Annexe", host: "10.80.0.1")]
         let csv = FortiControllerCSV.export(list)
         try expect(csv.hasPrefix(FortiControllerCSV.header + "\n"), "en-tête")
         try expect(!csv.contains("3F:A9") && !csv.lowercased().contains("jeton") && !csv.contains(FortiFixtures.token), "ni jeton ni empreinte : \(csv)")
@@ -248,7 +261,12 @@ func registerFortiControllerTests(_ suite: TestSuite) {
         try expect(csv.contains("'=Formule"), "formule neutralisée")
         let back = FortiControllerCSV.parse(csv)
         try expect(back.errors.isEmpty, "relu sans erreur : \(back.errors.map(\.text))")
-        try expectEqual(back.rows.map(\.site), ["Siège", "Dépôt; nord", "'=Formule"], "sites relus")
+        try expect(csv.contains("'-Annexe"), "tiret de tête neutralisé")
+        try expectEqual(back.rows.map(\.site), ["Siège", "Dépôt; nord", "=Formule", "-Annexe"], "sites relus sans l'apostrophe ajoutée")
+        // Deuxième aller-retour : le nom ne change plus.
+        let again = FortiControllerCSV.parse(FortiControllerCSV.export(FortiControllerCSV.merge(back.rows, into: []).controllers))
+        try expectEqual(again.rows.map(\.site), back.rows.map(\.site), "noms stables d'un aller-retour à l'autre")
+        try expectEqual(FortiControllerCSV.parse("'Atelier;10.90.0.1").rows.first?.site, "'Atelier", "apostrophe ordinaire gardée")
         try expectEqual(back.rows[1].port, 10443, "port relu")
         try expectEqual(back.rows[0].ranges, list[0].ranges, "plages relues")
     }

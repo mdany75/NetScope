@@ -58,6 +58,13 @@ struct SwitchFortiGatePanel: View {
                                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
+                            if fortigate.isEnabled, !selection.picks.isEmpty, !selection.uncovered.isEmpty {
+                                // Plage scannée couverte en partie : le reste n'est vu qu'en SNMP.
+                                Text("Sans FortiGate (SNMP seulement)\u{00A0}: " + selection.uncovered.prefix(3).joined(separator: ", ")
+                                     + (selection.uncovered.count > 3 ? "…" : ""))
+                                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                             if fortigate.conflicts.contains(where: \.isAmbiguous) {
                                 Label("Conflit de plages entre FortiGate\u{00A0}: voir Réglages › Switchs › Contrôleurs FortiGate.",
                                       systemImage: "exclamationmark.triangle.fill")
@@ -84,7 +91,10 @@ struct SwitchFortiGatePanel: View {
                             }
                         }
                         .buttonStyle(.secondary)
-                        .disabled(fortigate.isBusy || !fortigate.isEnabled || selection.isEmpty || !(fortigate.isReady || fortigate.isDemo))
+                        // « Relire » lit les plages cochées en ce moment : c'est leur choix qui compte, pas
+                        // celui de la dernière lecture.
+                        .disabled(fortigate.isBusy || !fortigate.isEnabled || fortigate.previewSelection(state: state).isEmpty
+                                  || !(fortigate.isReady || fortigate.isDemo))
                         .help("Relit, par leur API REST (HTTPS, lecture seule), les FortiGate qui couvrent les plages cochées du Scanner (sinon l’adresse de ce Mac)\u{00A0}: FortiSwitch, ports et appareils détectés.")
                     }
                     .fixedSize()
@@ -93,9 +103,11 @@ struct SwitchFortiGatePanel: View {
         }
     }
 
-    /// Choix de la dernière lecture ; avant toute lecture, celui des plages cochées.
+    /// Choix de la dernière lecture (pour le détail de chaque lecture) ; avant toute lecture, ou si
+    /// elle n'a choisi aucune FortiGate, celui des plages cochées en ce moment.
     private var currentSelection: FortiControllerSelection {
-        fortigate.lastRefresh != nil ? fortigate.selection : fortigate.previewSelection(state: state)
+        guard fortigate.lastRefresh != nil, !fortigate.selection.isEmpty else { return fortigate.previewSelection(state: state) }
+        return fortigate.selection
     }
 
     private func headline(_ selection: FortiControllerSelection) -> Text {

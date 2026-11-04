@@ -36,9 +36,9 @@ public struct FortiRangeConflict: Hashable, Sendable, Identifiable {
         let b = "«\u{00A0}\(secondSite)\u{00A0}» (\(secondRange))"
         switch kind {
         case .identical:
-            return "Conflit\u{00A0}: \(a) et \(b) couvrent la même plage. \(firstSite) est utilisée (première de la liste)\u{00A0}; retirez la plage de l’une des deux."
+            return "Conflit\u{00A0}: \(a) et \(b) couvrent la même plage. La FortiGate «\u{00A0}\(firstSite)\u{00A0}» est utilisée (première de la liste)\u{00A0}; retirez la plage de l’une des deux."
         case .ambiguous:
-            return "Conflit\u{00A0}: \(a) et \(b) se chevauchent avec la même précision. \(firstSite) est utilisée pour les adresses communes (première de la liste)."
+            return "Conflit\u{00A0}: \(a) et \(b) se chevauchent avec la même précision. La FortiGate «\u{00A0}\(firstSite)\u{00A0}» est utilisée pour les adresses communes (première de la liste)."
         case .nested, .partial:
             return "Chevauchement\u{00A0}: \(a) et \(b). La plage la plus précise l’emporte pour les adresses communes."
         }
@@ -52,7 +52,7 @@ public struct FortiControllerSelection: Hashable, Sendable {
         case scannedRange
         /// Aucune plage scannée couverte : la FortiGate qui couvre l'adresse du Mac.
         case macAddress
-        /// Aucune FortiGate n'a de plage couverte (réglages de la 0.9.0) : toutes celles activées.
+        /// Aucune FortiGate n'a de plage couverte : toutes celles activées sont lues.
         case noRanges
     }
 
@@ -124,7 +124,18 @@ public enum FortiControllerSelector {
             for (start, next) in zip(points, points.dropFirst()) where start < next {
                 let end = next - 1
                 let covering = touching.filter { UInt64($0.range.first.value) <= start && UInt64($0.range.last.value) >= end }
-                guard let best = covering.min(by: { ($0.range.size, $0.index) < ($1.range.size, $1.index) }) else { continue }
+                guard let best = covering.min(by: { ($0.range.size, $0.index) < ($1.range.size, $1.index) }) else {
+                    // Partie de la plage scannée qu'aucune FortiGate ne couvre : SNMP seulement.
+                    // Bornes d'un CIDR scanné : réseau et broadcast comptés, pour lire « 10.0.1.0/24 ».
+                    var from = start, to = end
+                    if case .cidr(let subnet) = segment {
+                        if start == lo { from = UInt64(subnet.network.value) }
+                        if end == hi { to = UInt64(subnet.broadcast.value) }
+                    }
+                    let gap = gapLabel(from, to)
+                    if !uncovered.contains(gap) { uncovered.append(gap) }
+                    continue
+                }
                 note(best.controller.id, covered: best.range.text, scanned: segment.description)
             }
         }
@@ -142,12 +153,22 @@ public enum FortiControllerSelector {
             }
         }
 
-        // Réglages de la 0.9.0 (aucune plage nulle part) : la FortiGate est interrogée comme avant.
+        // Aucune plage nulle part : chaque FortiGate activée est interrogée, quelles que soient les plages.
         if picks.isEmpty, !active.isEmpty, candidates.isEmpty {
             picks = active.map { .init(controllerID: $0.id, site: $0.displayName, reason: .noRanges, coveredRanges: [], scannedRanges: []) }
             uncovered = []
         }
         return FortiControllerSelection(picks: picks, conflicts: conflicts, uncovered: uncovered)
+    }
+
+    /// « 10.0.1.0/24 » quand l'intervalle est un sous-réseau aligné, sinon « début-fin ».
+    static func gapLabel(_ start: UInt64, _ end: UInt64) -> String {
+        let size = end - start + 1
+        if size.nonzeroBitCount == 1, start % size == 0, size <= (UInt64(1) << 32) {
+            let prefix = 32 - (size.trailingZeroBitCount)
+            return Subnet(address: IPv4Address(UInt32(start)), prefix: prefix).description
+        }
+        return FortiCoveredRange(first: IPv4Address(UInt32(start)), last: IPv4Address(UInt32(end))).text
     }
 
     /// Chevauchements entre les plages de contrôleurs différents (activés ou non, selon la liste

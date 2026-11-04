@@ -56,6 +56,8 @@ struct RegFortiControllerEditor: View {
     @State private var testing = false
     @State private var error: String?
     @State private var copied = false
+    /// Empreinte acceptée depuis le dernier essai : invite neutre à tester de nouveau.
+    @State private var acceptedNotice = false
 
     init(draft: RegFortiControllerDraft, inline: Bool = false, dismiss: @escaping () -> Void) {
         self.dismiss = dismiss
@@ -77,8 +79,9 @@ struct RegFortiControllerEditor: View {
     private var portValue: Int? { Int(port.trimmingCharacters(in: .whitespaces)).flatMap { (1...65_535).contains($0) ? $0 : nil } }
     private var hostInvalid: Bool { !host.isEmpty && !FortiGateConfig(host: host).isValid }
     private var parsedRanges: (ranges: [FortiCoveredRange], invalid: [String]) {
-        let tokens = rangesText.components(separatedBy: CharacterSet(charactersIn: ",; \n")).filter { !$0.isEmpty }
-        return FortiCoveredRange.parseLenient(tokens)
+        // Blocs séparés par des virgules, points-virgules ou lignes ; dans un bloc, parseList lit les
+        // espaces et garde « 10.0.0.0 255.255.255.0 » (adresse puis masque) en une seule plage.
+        FortiCoveredRange.parseLenient(FortiCoveredRange.splitBlocks(rangesText))
     }
 
     private var draft: FortiGateController {
@@ -99,10 +102,18 @@ struct RegFortiControllerEditor: View {
         !site.trimmingCharacters(in: .whitespaces).isEmpty && !host.isEmpty && !hostInvalid && portValue != nil && parsedRanges.invalid.isEmpty
     }
 
-    /// Plages couvertes par d'autres FortiGate qui chevauchent celles-ci.
+    /// Plages couvertes par d'autres FortiGate qui chevauchent celles-ci, calculées dans l'ordre réel
+    /// de la liste (le brouillon à la place de l'original, ou à la fin s'il est nouveau) : « première
+    /// de la liste » désigne bien celle que le choix retiendra.
     private var overlaps: [FortiRangeConflict] {
-        let others = fortigate.controllers.filter { $0.id != original.id && $0.isEnabled }
-        return FortiControllerSelector.conflicts([draft] + others).filter { $0.first == original.id }
+        var list = fortigate.controllers
+        if let index = list.firstIndex(where: { $0.id == original.id }) {
+            list[index] = draft
+        } else {
+            list.append(draft)
+        }
+        let active = list.filter { $0.isEnabled || $0.id == original.id }
+        return FortiControllerSelector.conflicts(active).filter { $0.first == original.id || $0.second == original.id }
     }
 
     // MARK: Vue
@@ -237,11 +248,11 @@ struct RegFortiControllerEditor: View {
             HStack(spacing: 8) {
                 Text("Jeton de l’administrateur API REST").font(Theme.bodySemibold)
                 if !token.isEmpty {
-                    Chip(text: "à enregistrer", tone: .accent)
+                    Chip(text: "À enregistrer", tone: .accent)
                 } else if hasStoredToken {
-                    Chip(text: "enregistré", tone: .success, systemImage: "lock.fill")
+                    Chip(text: "Enregistré", tone: .success, systemImage: "lock.fill")
                 } else {
-                    Chip(text: "manquant", tone: .warning, systemImage: "lock.open")
+                    Chip(text: "Manquant", tone: .warning, systemImage: "lock.open")
                 }
                 Spacer()
             }
@@ -292,6 +303,8 @@ struct RegFortiControllerEditor: View {
                     Spacer()
                     Button("Refuser") {
                         outcome?.pending = nil
+                        // L'invite « Premier contact » de l'essai ne vaut plus : seul le refus s'affiche.
+                        outcome?.error = nil
                         error = "Certificat refusé\u{00A0}: aucune connexion à cette FortiGate."
                     }
                     .buttonStyle(.secondary)
@@ -324,12 +337,14 @@ struct RegFortiControllerEditor: View {
     private func acceptPending() {
         guard let pending else { return }
         outcome?.pending = nil
+        outcome?.error = nil
         guard pending.host == target.0, pending.port == target.1 else {
             error = "L’adresse a changé depuis l’essai\u{00A0}: testez de nouveau pour vérifier le certificat."
             return
         }
         pinned = pending.fingerprint
         error = nil
+        acceptedNotice = true
     }
 
     // MARK: Tester
@@ -346,6 +361,9 @@ struct RegFortiControllerEditor: View {
                     testTitle
                     testButtons
                 }
+            }
+            if acceptedNotice, pinned != nil {
+                RegNotice("Empreinte acceptée\u{00A0}: cliquez sur «\u{00A0}Tester\u{00A0}» pour lire la FortiGate.", tone: .neutral)
             }
             if let outcome {
                 if let message = outcome.error, outcome.pending == nil || outcome.pending?.changed == true {
@@ -474,6 +492,7 @@ struct RegFortiControllerEditor: View {
     private func test() {
         testing = true
         error = nil
+        acceptedNotice = false
         let candidate = draft
         let typed = token
         Task { @MainActor in
@@ -484,12 +503,14 @@ struct RegFortiControllerEditor: View {
             if result.ok, parsedRanges.ranges.isEmpty {
                 for item in result.interfaces where item.isSuggested { setChecked(item, true) }
             }
-            if !isNew { fortigate.recordTest(result, for: original.id) }
+            // Seulement si l'essai visait la FortiGate enregistrée (même adresse et port) : un essai
+            // sur une autre adresse, puis « Annuler », ne doit rien écrire sur celle-ci.
+            if !isNew { fortigate.recordTest(result, for: original.id, target: candidate) }
         }
     }
 
     private func save() {
-        if let problem = fortigate.save(draft, token: token) {
+        if let problem = fortigate.save(draft, token: token, state: state) {
             error = problem
             return
         }

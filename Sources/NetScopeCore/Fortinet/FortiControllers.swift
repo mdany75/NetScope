@@ -99,6 +99,14 @@ public struct FortiCoveredRange: Hashable, Sendable, CustomStringConvertible {
         return FortiCoveredRange(first: address, last: address)
     }
 
+    /// Découpe un texte de plages en blocs, aux virgules, points-virgules et fins de ligne (pas aux
+    /// espaces, pour garder « adresse masque » ensemble) ; chaque bloc est lu par parseList.
+    public static func splitBlocks(_ text: String) -> [String] {
+        text.components(separatedBy: CharacterSet(charactersIn: ",;\r\n"))
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+    }
+
     /// Lecture qui garde les portions valides et rend les autres à part.
     public static func parseLenient(_ texts: [String]) -> (ranges: [FortiCoveredRange], invalid: [String]) {
         var ranges: [FortiCoveredRange] = []
@@ -275,7 +283,9 @@ public struct FortiGateController: Codable, Hashable, Sendable, Identifiable {
         if let list = (try? c.decodeIfPresent([String].self, forKey: .ranges)) ?? nil {
             ranges = list
         } else if let text = (try? c.decodeIfPresent(String.self, forKey: .ranges)) ?? nil {
-            ranges = text.components(separatedBy: CharacterSet(charactersIn: ",; \n")).filter { !$0.isEmpty }
+            // Découpe aux virgules, points-virgules et lignes seulement : « 10.0.0.0 255.255.255.0 »
+            // (adresse puis masque) reste une seule portion, lue par parseList.
+            ranges = FortiCoveredRange.splitBlocks(text)
         } else {
             ranges = []
         }

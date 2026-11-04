@@ -140,7 +140,10 @@ struct RegFortiGatePanel: View {
         if importMessage != nil || !pending.isEmpty || !conflicts.isEmpty || !unranged.isEmpty || !invalid.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
                 if let importMessage {
-                    RegNotice(text: ([importMessage.text] + importMessage.details.prefix(6)).joined(separator: "\n"), tone: importMessage.tone) {
+                    let shown = Array(importMessage.details.prefix(6))
+                    let more = importMessage.details.count - shown.count
+                    let lines = [importMessage.text] + shown + (more > 0 ? ["… et \(more) autre\(more > 1 ? "s" : "") ligne\(more > 1 ? "s" : "")."] : [])
+                    RegNotice(text: lines.joined(separator: "\n"), tone: importMessage.tone) {
                         Button("Fermer") { self.importMessage = nil }.buttonStyle(.secondary)
                     }
                 }
@@ -153,7 +156,7 @@ struct RegFortiGatePanel: View {
                               + "\u{00A0}: sans plage, une FortiGate n’est jamais choisie. «\u{00A0}Modifier…\u{00A0}» puis «\u{00A0}Tester\u{00A0}» propose les sous-réseaux de ses interfaces.",
                               tone: .warning)
                 } else if !unranged.isEmpty {
-                    RegNotice("Plages couvertes à renseigner\u{00A0}: tant qu’aucune FortiGate n’en a, celle-ci est lue à chaque scan, comme dans la 0.9.0. «\u{00A0}Modifier…\u{00A0}» puis «\u{00A0}Tester\u{00A0}» propose les sous-réseaux de ses interfaces.",
+                    RegNotice("Plages couvertes à renseigner\u{00A0}: tant qu’aucune FortiGate n’en a, celle-ci est lue à chaque scan, quelles que soient les plages. «\u{00A0}Modifier…\u{00A0}» puis «\u{00A0}Tester\u{00A0}» propose les sous-réseaux de ses interfaces.",
                               tone: .neutral)
                 }
                 ForEach(invalid) { c in
@@ -204,7 +207,7 @@ struct RegFortiGatePanel: View {
                 RegTile("Table ARP · baux DHCP", "\(report.arp.count) · \(report.dhcp.count)")
             }
             if !report.switches.isEmpty {
-                RegFortiSwitchTable(table: switchTable, report: report)
+                RegFortiSwitchTable(table: switchTable, report: report, controllerID: c.id)
                     .regTableFrame()
             }
             RegFortiCallsSummary(calls: fortigate.runtime[c.id]?.calls ?? [])
@@ -272,8 +275,9 @@ struct RegFortiGatePanel: View {
             return
         }
         let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) ?? ""
-        let result = fortigate.importCSV(text)
-        importMessage = (result.summary, result.errors, result.errors.isEmpty ? .success : .warning)
+        let result = fortigate.importCSV(text, state: state)
+        // Le ton suit les lignes refusées seulement ; une simple remarque ne change rien.
+        importMessage = (result.summary, result.errors + result.notes, result.errors.isEmpty ? .success : .warning)
     }
 
     private func exportCSV() {
@@ -305,6 +309,8 @@ struct RegFortiGatePanel: View {
 /// Ligne du tableau des FortiGate.
 struct RegFortiControllerRow: Identifiable {
     let id: UUID
+    /// Position dans la liste (1 = première) : elle départage deux plages de même précision.
+    let order: Int
     let site: String
     let address: String
     let vdom: String
@@ -322,6 +328,8 @@ struct RegFortiControllerRow: Identifiable {
     let switches: Int
     let isEnabled: Bool
     let isUsed: Bool
+    /// Raison du choix pour le scan (nil si elle n'est pas utilisée).
+    let usedReason: FortiControllerSelection.Reason?
     let usedSort: Int
 }
 
@@ -337,19 +345,21 @@ struct RegFortiControllerTable: View {
     static let rowHeight: CGFloat = 30
 
     static let columns: [StandardColumn] = [
+        StandardColumn(id: "ordre", title: "N°"),
         StandardColumn(id: "site", title: "Site", isRequired: true),
         StandardColumn(id: "fortigate", title: "FortiGate"),
         StandardColumn(id: "plages", title: "Plages couvertes"),
         StandardColumn(id: "jeton", title: "Jeton"),
         StandardColumn(id: "etat", title: "État"),
         StandardColumn(id: "test", title: "Dernier test"),
-        StandardColumn(id: "utilisee", title: "Utilisée pour le scan", isDefaultVisible: false),
+        StandardColumn(id: "utilisee", title: "Utilisée", isDefaultVisible: false),
         StandardColumn(id: "vdom", title: "VDOM", isDefaultVisible: false),
         StandardColumn(id: "modele", title: "Modèle", isDefaultVisible: false),
         StandardColumn(id: "switchs", title: "FortiSwitch", isDefaultVisible: false),
     ]
 
     static let sortKeys: [String: KeyPathComparator<RegFortiControllerRow>] = [
+        "ordre": KeyPathComparator(\RegFortiControllerRow.order),
         "site": KeyPathComparator(\RegFortiControllerRow.site),
         "fortigate": KeyPathComparator(\RegFortiControllerRow.address),
         "plages": KeyPathComparator(\RegFortiControllerRow.rangesSort),
@@ -364,24 +374,26 @@ struct RegFortiControllerTable: View {
 
     @MainActor
     static func makeModel() -> StandardTableModel<RegFortiControllerRow> {
-        StandardTableModel(id: "reglages.fortigate.controleurs", columns: columns, sortKeys: sortKeys, defaultSort: "site")
+        StandardTableModel(id: "reglages.fortigate.controleurs", columns: columns, sortKeys: sortKeys, defaultSort: "ordre")
     }
 
     @MainActor
     private func rows() -> [RegFortiControllerRow] {
-        let used = Set((fortigate.lastRefresh != nil ? fortigate.selection : fortigate.previewSelection(state: state)).controllerIDs)
-        return fortigate.controllers.map { c in
+        let selection = fortigate.lastRefresh != nil ? fortigate.selection : fortigate.previewSelection(state: state)
+        let used = Set(selection.controllerIDs)
+        return fortigate.controllers.enumerated().map { index, c in
             let r = fortigate.runtime[c.id]
             let token = fortigate.hasToken(c.id)
             let (text, tone, rank, help) = Self.stateLabel(c, runtime: r, hasToken: token, isDemo: fortigate.isDemo)
             let status = c.lastStatus
-            return RegFortiControllerRow(id: c.id, site: c.displayName, address: c.addressLabel, vdom: c.vdom,
+            return RegFortiControllerRow(id: c.id, order: index + 1, site: c.displayName, address: c.addressLabel, vdom: c.vdom,
                                          ranges: c.ranges, rangesSort: c.ranges.first ?? "~", hasToken: token, tokenSort: token ? 0 : 1,
                                          state: text, stateTone: tone, stateHelp: help, stateRank: rank,
                                          lastTest: status?.date ?? r?.lastAttempt, lastTestSort: status?.date ?? r?.lastAttempt ?? .distantPast,
                                          model: [status?.model, status?.version].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "),
                                          switches: status?.switchCount ?? r?.report?.switches.count ?? 0,
-                                         isEnabled: c.isEnabled, isUsed: used.contains(c.id), usedSort: used.contains(c.id) ? 0 : 1)
+                                         isEnabled: c.isEnabled, isUsed: used.contains(c.id), usedReason: selection.pick(for: c.id)?.reason,
+                                         usedSort: used.contains(c.id) ? 0 : 1)
         }
         .sorted(using: table.sortOrder)
     }
@@ -406,9 +418,28 @@ struct RegFortiControllerTable: View {
         }
     }
 
+    /// Libellé de la raison du choix (colonne « Utilisée »).
+    static func usedLabel(_ reason: FortiControllerSelection.Reason?) -> (String, String) {
+        switch reason {
+        case .macAddress?: return ("Adresse de ce Mac", "Aucune plage scannée n’est couverte\u{00A0}: choisie parce qu’elle couvre l’adresse de ce Mac.")
+        case .noRanges?: return ("Toutes (sans plage)", "Aucune FortiGate n’a de plage couverte\u{00A0}: toutes celles activées sont lues.")
+        default: return ("Plages scannées", "Une de ses plages couvertes contient ou chevauche une plage scannée.")
+        }
+    }
+
+    /// Le tableau suit l'ordre de la liste : « Monter » et « Descendre » ont un effet visible.
+    private var sortedByOrder: Bool { table.currentSort?.column == "ordre" }
+
     var body: some View {
         let rows = rows()
         Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
+            TableColumn("N°", sortUsing: table.sort("ordre")) { row in
+                RegSwitchCell("\(row.order)", mono: true, secondary: true)
+                    .help("Position dans la liste\u{00A0}: à précision égale, la première de la liste l’emporte.")
+            }
+            .width(min: 30, ideal: 38, max: 50)
+            .customizationID("ordre")
+
             TableColumn("SITE", sortUsing: table.sort("site")) { row in
                 HStack(spacing: 8) {
                     Image(systemName: "shield.lefthalf.filled").font(.system(size: 12))
@@ -434,7 +465,7 @@ struct RegFortiControllerTable: View {
             .customizationID("plages")
 
             TableColumn("JETON", sortUsing: table.sort("jeton")) { row in
-                Chip(text: row.hasToken ? "enregistré" : "manquant", tone: row.hasToken ? .success : .warning,
+                Chip(text: row.hasToken ? "Enregistré" : "Manquant", tone: row.hasToken ? .success : .warning,
                      systemImage: row.hasToken ? "lock.fill" : "lock.open")
                     .help(row.hasToken ? "Au Trousseau (service com.danymenard.netscope.fortigate, compte propre à cette FortiGate)." : "Aucun jeton au Trousseau pour cette FortiGate.")
             }
@@ -457,7 +488,8 @@ struct RegFortiControllerTable: View {
 
             TableColumn("UTILISÉE", sortUsing: table.sort("utilisee")) { row in
                 if row.isUsed {
-                    Chip(text: "Plages scannées", tone: .accent)
+                    let (text, help) = Self.usedLabel(row.usedReason)
+                    Chip(text: text, tone: .accent).help(help)
                 } else {
                     RegSwitchCell("")
                 }
@@ -466,37 +498,44 @@ struct RegFortiControllerTable: View {
             .customizationID("utilisee")
             .defaultVisibility(.hidden)
 
-            TableColumn("VDOM", sortUsing: table.sort("vdom")) { row in
-                RegSwitchCell(row.vdom, mono: true)
-            }
-            .width(min: 50, ideal: 70)
-            .customizationID("vdom")
-            .defaultVisibility(.hidden)
+            // Au-delà de dix colonnes, le constructeur de Table demande un groupe.
+            Group {
+                TableColumn("VDOM", sortUsing: table.sort("vdom")) { row in
+                    RegSwitchCell(row.vdom, mono: true)
+                }
+                .width(min: 50, ideal: 70)
+                .customizationID("vdom")
+                .defaultVisibility(.hidden)
 
-            TableColumn("MODÈLE", sortUsing: table.sort("modele")) { row in
-                RegSwitchCell(row.model, secondary: true)
-            }
-            .width(min: 90, ideal: 150)
-            .customizationID("modele")
-            .defaultVisibility(.hidden)
+                TableColumn("MODÈLE", sortUsing: table.sort("modele")) { row in
+                    RegSwitchCell(row.model, secondary: true)
+                }
+                .width(min: 90, ideal: 150)
+                .customizationID("modele")
+                .defaultVisibility(.hidden)
 
-            TableColumn("FORTISWITCH", sortUsing: table.sort("switchs")) { row in
-                RegSwitchCell(row.switches > 0 ? "\(row.switches)" : "", mono: true)
+                TableColumn("FORTISWITCH", sortUsing: table.sort("switchs")) { row in
+                    RegSwitchCell(row.switches > 0 ? "\(row.switches)" : "", mono: true)
+                }
+                .width(min: 60, ideal: 80)
+                .customizationID("switchs")
+                .defaultVisibility(.hidden)
             }
-            .width(min: 60, ideal: 80)
-            .customizationID("switchs")
-            .defaultVisibility(.hidden)
         }
         .standardTableStyle()
         .contextMenu(forSelectionType: UUID.self) { ids in
             if let id = ids.first, let c = fortigate.controller(id) {
                 Button("Modifier…") { edit(c) }
-                Button(c.isEnabled ? "Désactiver" : "Activer") { fortigate.setEnabled(id, !c.isEnabled) }
+                Button(c.isEnabled ? "Désactiver" : "Activer") { fortigate.setEnabled(id, !c.isEnabled, state: state) }
                 Divider()
+                // Sans tri par ordre, déplacer une ligne ne se verrait pas : triez par « N° ».
                 Button("Monter") { fortigate.move(id, by: -1) }
-                    .disabled(fortigate.controllers.first?.id == id)
+                    .disabled(!sortedByOrder || fortigate.controllers.first?.id == id)
                 Button("Descendre") { fortigate.move(id, by: 1) }
-                    .disabled(fortigate.controllers.last?.id == id)
+                    .disabled(!sortedByOrder || fortigate.controllers.last?.id == id)
+                if !sortedByOrder {
+                    Text("Triez par «\u{00A0}N°\u{00A0}» pour changer l’ordre")
+                }
                 Divider()
                 Button("Copier les réponses brutes (diagnostic)") { fortigate.copyDiagnostic(id) }
                     .disabled((fortigate.runtime[id]?.calls ?? []).isEmpty)
@@ -588,6 +627,8 @@ struct RegFortiSwitchTable: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var table: StandardTableModel<RegFortiSwitchRow>
     let report: FortiGateReport
+    /// FortiGate dont viennent ces FortiSwitch : deux sites peuvent avoir un switch du même nom.
+    let controllerID: UUID
 
     static let columns: [StandardColumn] = [
         StandardColumn(id: "nom", title: "Nom", isRequired: true),
@@ -710,10 +751,16 @@ struct RegFortiSwitchTable: View {
         .frame(height: RegSwitchTableMetrics.height(rows: rows.count))
     }
 
-    /// Adresse du relevé affiché pour ce FortiSwitch dans « Switchs et ports ».
+    /// Adresse du relevé affiché pour ce FortiSwitch dans « Switchs et ports » : même nom et même
+    /// site (libellé marqué sur les relevés par FortiMulti), jamais le switch homonyme d'un autre site.
     @MainActor
     private func host(of id: String) -> String? {
         guard let sw = report.switches.first(where: { $0.switchID == id }) else { return nil }
-        return SwitchStore.shared.controllerSnapshots.first { $0.system.name == sw.name }?.host.description
+        let named = SwitchStore.shared.controllerSnapshots.filter { $0.system.name == sw.name }
+        if let label = FortiGateStore.shared.sites.first(where: { $0.controllerID == controllerID })?.label {
+            return named.first { $0.controllerName == label }?.host.description
+        }
+        // Site absent de la dernière lecture : seulement si le nom est sans ambiguïté.
+        return named.count == 1 ? named[0].host.description : nil
     }
 }
