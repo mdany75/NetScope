@@ -135,6 +135,7 @@ final class UpdController: ObservableObject {
                     phase = .ignored
                 } else {
                     phase = .available
+                    if !userInitiated { announce(update) }
                     if prefs.automaticInstall && !userInitiated && installBlocker == nil { download() }
                 }
             } else {
@@ -268,6 +269,19 @@ final class UpdController: ObservableObject {
     }
 
     // MARK: Interne
+
+    /// Mise à jour trouvée par la vérification automatique : événement commun, une seule fois par
+    /// version (retenue dans les préférences).
+    private func announce(_ release: UpdRelease) {
+        let key = "reglages.majs.versionSignalee"
+        let version = release.version?.description ?? release.tagName
+        guard let defaults, defaults.string(forKey: key) != version else { return }
+        defaults.set(version, forKey: key)
+        NetScopeEventCenter.shared.publish(NetScopeEvent(
+            id: "maj-\(version)", kind: .updateAvailable, title: "NetScope \(version) est disponible",
+            detail: "Version installée\u{00A0}: \(UpdController.currentVersionText). Ouvrez Réglages › Mises à jour pour l’installer.",
+            link: .updates, source: "mises-a-jour"))
+    }
 
     private func syncBadge() {
         guard let app else { return }

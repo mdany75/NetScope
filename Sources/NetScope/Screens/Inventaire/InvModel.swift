@@ -69,7 +69,13 @@ final class InvModel: ObservableObject {
         if isEphemeral && store.isEmpty && Launcher.isDemo {
             InvDemo.seed(&store, devices: devices, now: date)
         } else {
-            store.merge(devices, at: date)
+            let produced = store.merge(devices, at: date)
+            // Conflit d'adresse IP relevé par la fusion : événement commun (notification, autres canaux).
+            for event in produced where event.kind == .conflitIP && !event.baseline {
+                NetScopeEventCenter.shared.publish(NetScopeEvent(
+                    id: "conflit-" + event.id.uuidString, kind: .ipConflict, title: event.title, detail: event.detail,
+                    date: event.date, link: .device(event.ip.description), source: "conflit-\(event.ip)"))
+            }
         }
         save()
     }
