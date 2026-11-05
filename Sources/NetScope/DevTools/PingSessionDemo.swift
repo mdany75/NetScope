@@ -21,9 +21,9 @@ enum PingSessionDemo {
     private static let extraProfiles: [PingDemo.Profile] = [
         .init(input: "10.182.122.3", name: "SW-ETG1-01", role: "Catalyst 9200-24P", base: 2.8, jitter: 1.4, loss: 0.003, burst: 0, spike: 0.02, threshold: 15),
         .init(input: "10.182.122.4", name: "SW-ETG2-01", role: "Catalyst 9200-48P", base: 3.1, jitter: 1.7, loss: 0.004, burst: 0, spike: 0.02, threshold: 15),
-        .init(input: "10.182.122.20", name: "FAP-231F-Accueil", role: "Borne Wi-Fi · VLAN 30", base: 4.4, jitter: 2.6, loss: 0.01, burst: 0, spike: 0.05, threshold: 20),
+        .init(input: "10.182.122.22", name: "FAP-231F-Accueil", role: "Borne Wi-Fi · VLAN 30", base: 4.4, jitter: 2.6, loss: 0.01, burst: 0, spike: 0.05, threshold: 20),
         .init(input: "10.182.122.21", name: "FAP-231F-Entrepôt", role: "Borne Wi-Fi · VLAN 30", base: 5.1, jitter: 3.4, loss: 0.02, burst: 0.004, spike: 0.06, threshold: 20),
-        .init(input: "10.182.122.30", name: "SRV-FICHIERS", role: "Serveur · VLAN 10", base: 0.9, jitter: 0.4, loss: 0, burst: 0, spike: 0.01, threshold: 5),
+        .init(input: "10.182.122.30", name: "SRV-SAUVEGARDE", role: "Serveur · VLAN 10", base: 0.9, jitter: 0.4, loss: 0, burst: 0, spike: 0.01, threshold: 5),
         .init(input: "10.182.122.40", name: "Imprimante 2e étage", role: "Imprimante · VLAN 20", base: 3.0, jitter: 1.2, loss: 0.005, burst: 0, spike: 0.02, threshold: 20),
         .init(input: "192.168.50.22", name: "Caméra-Cour", role: "Caméra · VLAN 40", base: 4.2, jitter: 2.1, loss: 0.01, burst: 0, spike: 0.03, threshold: 20),
         .init(input: "9.9.9.9", name: "Quad9", role: "Internet", base: 16.4, jitter: 2.2, loss: 0.004, burst: 0, spike: 0.015, threshold: 40),

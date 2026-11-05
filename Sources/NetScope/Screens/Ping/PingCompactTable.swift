@@ -121,9 +121,9 @@ struct PingCompactTable: View {
                 .disabledCustomizationBehavior(.visibility)
 
                 TableColumn(StandardTableHeading("ADRESSE"), sortUsing: table.sort("adresse")) { row in
-                    PingCell(row.target.addressLabel, mono: true, size: 11)
+                    PingCell(row.target.endpointLabel, mono: true, size: 11)
                 }
-                .width(min: 90, ideal: 110)
+                .width(min: 90, ideal: 140)
                 .customizationID("adresse")
 
                 TableColumn(StandardTableHeading("RÔLE"), sortUsing: table.sort("role")) { row in
