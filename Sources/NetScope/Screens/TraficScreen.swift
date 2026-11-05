@@ -43,6 +43,18 @@ enum TrafficTab: Hashable {
     }
 }
 
+/// Source du trafic de la partie Trafic : FortiView (FortiGate) ou les flux reçus par ce Mac (note 75).
+enum TrafficSourceKind: String, CaseIterable {
+    case fortiView, flows
+
+    var label: String {
+        switch self {
+        case .fortiView: return "FortiView"
+        case .flows: return "Flux (NetFlow, sFlow, IPFIX)"
+        }
+    }
+}
+
 /// État d'affichage de l'écran Trafic (partie, onglet, feuille « Qui sature le lien ? »), gardé
 /// d'une visite à l'autre.
 @MainActor
@@ -52,8 +64,17 @@ final class TrafficScreenState: ObservableObject {
     @Published var part: TrafficPart
     @Published var tab: TrafficTab
     @Published var showSaturation = false
+    /// Note 75 : FortiView ou le collecteur de flux de ce Mac.
+    @Published var source: TrafficSourceKind {
+        didSet { if !RegEnvironment.isSandboxed { UserDefaults.standard.set(source.rawValue, forKey: Self.sourceKey) } }
+    }
+
+    private static let sourceKey = "NetScope.trafic.source"
 
     init() {
+        source = RegEnvironment.isSandboxed
+            ? (FlowDemo.requestedSource ? .flows : .fortiView)
+            : UserDefaults.standard.string(forKey: Self.sourceKey).flatMap(TrafficSourceKind.init(rawValue:)) ?? .fortiView
         let requested = TrafficDemo.requestedView
         part = requested == "analyse" ? .analyse : .trafic
         tab = requested.flatMap(TrafficTab.init(capture:)) ?? .view(.sources)
@@ -78,6 +99,8 @@ struct TraficScreen: View {
     @ObservedObject private var fortigate = FortiGateStore.shared
     /// Observé pour que « Ajouter au rapport » passe tout de suite à « Dans le rapport ».
     @ObservedObject private var rapport = RapportModel.shared
+    /// Note 75 : collecteur de flux (source « Flux »).
+    @ObservedObject private var flows = FlowStore.shared
     @State private var exportDocument: InvCSVDocument?
     @State private var exportName = "trafic.csv"
     @State private var exporting = false
@@ -92,6 +115,8 @@ struct TraficScreen: View {
                     ToolNotice(tone: .critical, title: "Lecture du trafic impossible", message: message)
                 }
                 switch screen.part {
+                case .trafic where screen.source == .flows:
+                    TraficFlowView()
                 case .trafic:
                     // Note 78 : sans FortiView, le trafic des ports relevé sur les switchs.
                     if showsFallback {
@@ -117,13 +142,13 @@ struct TraficScreen: View {
         }
         .screenToolbar { toolbar }
         .sheet(isPresented: $screen.showSaturation) {
-            TrafficSaturationSheet(verdict: TrafficAnalysis.whoSaturates(store.overview, thresholds: store.thresholds))
+            TrafficSaturationSheet(verdict: TrafficAnalysis.whoSaturates(activeOverview, thresholds: store.thresholds), overviewOverride: flowOverview)
                 .environmentObject(state)
         }
         // Captures : la feuille « Qui sature le lien ? » dessinée dans la page.
         .overlay(alignment: .top) {
             if RegEnvironment.isSnapshot, TrafficDemo.requestedView == "saturation" {
-                TrafficSaturationSheet(verdict: TrafficAnalysis.whoSaturates(store.overview, thresholds: store.thresholds))
+                TrafficSaturationSheet(verdict: TrafficAnalysis.whoSaturates(activeOverview, thresholds: store.thresholds), overviewOverride: flowOverview)
                     .environmentObject(state)
                     .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panel).shadow(radius: 18))
                     .padding(.top, 40)
@@ -161,9 +186,18 @@ struct TraficScreen: View {
         Task { await portHistory.preload(siteKeys: keys) }
     }
 
+    /// Note 75 : la source « Flux » est montrée (partie Trafic).
+    private var showsFlows: Bool { screen.part == .trafic && screen.source == .flows }
+
+    /// Trafic de la source montrée (FortiView ou flux).
+    private var activeOverview: TrafficOverview { showsFlows ? flows.overview : store.overview }
+
+    /// Trafic des flux pour la feuille « Qui sature le lien ? » (nil : FortiView).
+    private var flowOverview: TrafficOverview? { showsFlows ? flows.overview : nil }
+
     /// Note 78 : FortiView non lu et historique des ports disponible : le secours SNMP est montré.
     private var showsFallback: Bool {
-        screen.part == .trafic && (TraficSNMPFallback.forced || (store.overview.isEmpty && TraficSNMPFallback.hasData(keys: store.shownKeys)))
+        screen.part == .trafic && screen.source == .fortiView && (TraficSNMPFallback.forced || (store.overview.isEmpty && TraficSNMPFallback.hasData(keys: store.shownKeys)))
     }
 
     // MARK: Barre d'outils
@@ -177,13 +211,14 @@ struct TraficScreen: View {
         .buttonStyle(.secondary)
         .disabled(store.isInReport)
         Button {
-            store.refresh()
+            if showsFlows { flows.refresh() } else { store.refresh() }
         } label: {
             Label("Relire", systemImage: "arrow.clockwise")
         }
         .buttonStyle(.secondary)
-        .disabled(store.isBusy || !store.canRefresh)
-        .help(store.canRefresh ? "Relit FortiView sur les FortiGate des sites affichés (lecture seule, GET)"
+        .disabled(showsFlows ? false : (store.isBusy || !store.canRefresh))
+        .help(showsFlows ? "Recalcule les tableaux d’après les flux reçus (rien n’est envoyé sur le réseau)"
+              : store.canRefresh ? "Relit FortiView sur les FortiGate des sites affichés (lecture seule, GET)"
               : "Aucune FortiGate prête pour ces sites\u{00A0}: Réglages › Switchs › Contrôleurs FortiGate.")
         Button {
             screen.part = .analyse
@@ -199,7 +234,7 @@ struct TraficScreen: View {
             Label("Qui sature le lien\u{00A0}?", systemImage: "gauge.with.dots.needle.100percent")
         }
         .buttonStyle(.primary)
-        .disabled(store.overview.entries(.sources).isEmpty)
+        .disabled(activeOverview.entries(.sources).isEmpty)
     }
 
     // MARK: En-tête
@@ -208,16 +243,18 @@ struct TraficScreen: View {
     private func header(_ overview: TrafficOverview) -> some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 12) {
-                SiteScopeMenu(screen: .trafic)
+                siteMenu
                 partPicker
+                sourcePicker
                 periodPicker
                 source(overview)
                 Spacer(minLength: 0)
             }
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 12) {
-                    SiteScopeMenu(screen: .trafic)
+                    siteMenu
                     partPicker
+                    sourcePicker
                     Spacer(minLength: 0)
                 }
                 HStack(spacing: 12) {
@@ -226,6 +263,38 @@ struct TraficScreen: View {
                     Spacer(minLength: 0)
                 }
             }
+        }
+    }
+
+    /// Le menu « Site ▾ » choisit les FortiGate lues : sans objet pour les flux (par exportateur).
+    @ViewBuilder private var siteMenu: some View {
+        if showsFlows {
+            Picker("Exportateur", selection: $flows.exporterFilter) {
+                Text("Tous les exportateurs").tag(IPv4Address?.none)
+                if !flows.summaries.isEmpty { Divider() }
+                ForEach(flows.summaries) { summary in
+                    Text(flows.name(of: summary.exporter)).tag(IPv4Address?.some(summary.exporter))
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
+            .help("Un exportateur à la fois, ou tous (leurs lignes restent séparées\u{00A0}: deux équipements qui voient le même trafic le compteraient deux fois).")
+        } else {
+            SiteScopeMenu(screen: .trafic)
+        }
+    }
+
+    /// Note 75 : FortiView ou flux reçus par ce Mac.
+    @ViewBuilder private var sourcePicker: some View {
+        if screen.part == .trafic {
+            Picker("Source", selection: $screen.source) {
+                ForEach(TrafficSourceKind.allCases, id: \.self) { Text($0.label).tag($0) }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
+            .help("FortiView\u{00A0}: trafic lu sur la FortiGate de chaque site. Flux\u{00A0}: NetFlow, sFlow ou IPFIX envoyés à ce Mac par les routeurs, pare-feu et switchs de toute marque.")
         }
     }
 
@@ -240,7 +309,10 @@ struct TraficScreen: View {
     }
 
     @ViewBuilder private var periodPicker: some View {
-        if screen.part == .trafic, !showsFallback {
+        if showsFlows {
+            InvSegmented(options: FlowTrafficBridge.periods.map { ($0, FlowTrafficBridge.label($0)) }, selection: $flows.period)
+                .help("Débits et volumes des flux reçus\u{00A0}: dernière minute, 5\u{00A0}minutes, 1\u{00A0}heure ou 24\u{00A0}heures (rien n’est gardé au-delà).")
+        } else if screen.part == .trafic, !showsFallback {
             InvSegmented(options: TrafficPeriod.allCases.map { ($0, $0.label) }, selection: $store.period)
                 .help("Temps réel\u{00A0}: sessions en cours. 5\u{00A0}min à 7\u{00A0}j\u{00A0}: historique de FortiView (journalisation sur disque, FortiAnalyzer ou FortiGate Cloud).")
         }
@@ -260,12 +332,18 @@ struct TraficScreen: View {
     }
 
     private func sourceText(_ overview: TrafficOverview) -> String {
+        if showsFlows {
+            guard !flows.overview.sites.isEmpty else { return "Aucun flux reçu" }
+            let kinds = Set(flows.shownSummaries.flatMap(\.kinds)).sorted().map(\.label)
+            return kinds.joined(separator: ", ") + " · " + flows.overview.sites.joined(separator: ", ")
+        }
         if showsFallback { return "Compteurs des ports des switchs · \(store.sitesLabel)" }
         guard !overview.sites.isEmpty else { return "Aucune FortiGate lue" }
         return "FortiView · \(store.sitesLabel)" + (overview.readAt.map { " · lu \(ToolText.relative($0))" } ?? "")
     }
 
     private func shortSourceText(_ overview: TrafficOverview) -> String {
+        if showsFlows { return "\(flows.overview.sites.count) exportateur\(flows.overview.sites.count > 1 ? "s" : "")" }
         if showsFallback { return "Compteurs des switchs" }
         return overview.readAt.map { "Lu \(ToolText.relative($0))" } ?? ""
     }

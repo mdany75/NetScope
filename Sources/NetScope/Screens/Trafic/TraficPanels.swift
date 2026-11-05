@@ -138,6 +138,10 @@ struct TrafficSaturationSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var store = TrafficStore.shared
     let verdict: TrafficSaturationVerdict
+    /// Note 75 : trafic des flux (source « Flux ») ; nil pour FortiView.
+    var overviewOverride: TrafficOverview? = nil
+
+    private var overview: TrafficOverview { overviewOverride ?? store.overview }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -211,12 +215,12 @@ struct TrafficSaturationSheet: View {
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                ProgressBar(fraction: consumer.sharePercent / 100, color: rank == 1 && TrafficAnalysis.whoSaturates(store.overview, thresholds: store.thresholds).isSaturated ? Theme.critical : Theme.accent)
+                ProgressBar(fraction: consumer.sharePercent / 100, color: rank == 1 && TrafficAnalysis.whoSaturates(overview, thresholds: store.thresholds).isSaturated ? Theme.critical : Theme.accent)
                     .padding(.top, 2)
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 2) {
-                Text(store.overview.period.isRealtime ? TrafficFormat.rate(entry.bandwidth) : TrafficFormat.bytes(entry.bytes))
+                Text(overview.period.isRealtime || overviewOverride != nil ? TrafficFormat.rate(entry.bandwidth) : TrafficFormat.bytes(entry.bytes))
                     .font(Theme.mono(13, weight: .semibold))
                 Text(ResourceFormat.percent(consumer.sharePercent) + " du trafic").font(Theme.caption).foregroundStyle(Theme.textSecondary)
                 if let link = consumer.linkPercent {

@@ -133,6 +133,8 @@ registerSerialFileTransferTests(suite)
 registerWirelessRoamingTests(suite)
 // Note 72 (0.28.0) : partages SMB d'un hôte (sorties de smbutil recopiées, aucun smbutil lancé).
 registerSMBSharesTests(suite)
+// Note 75 (0.28.0) : collecteur NetFlow, sFlow et IPFIX.
+registerFlowTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)
