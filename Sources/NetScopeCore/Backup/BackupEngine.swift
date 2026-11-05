@@ -537,8 +537,14 @@ public enum BackupEngine {
                 throw BackupError.corrupted(error.localizedDescription)
             }
         }
+        return try contents(of: entries, header: header, name: url.lastPathComponent, manifestOnly: manifestOnly)
+    }
+
+    /// Contenu vérifié d'entrées d'archive déjà ouvertes (et déchiffrées) : rien n'est écrit sur le disque.
+    static func contents(of entries: [BackupZip.Entry], header: BackupEncryptedHeader?, name: String,
+                         manifestOnly: Bool = false) throws -> BackupContents {
         guard let manifestData = entries.first(where: { $0.path == manifestName })?.data else {
-            throw BackupError.notABackup(url.lastPathComponent)
+            throw BackupError.notABackup(name)
         }
         let manifest: BackupManifest
         do {
@@ -546,7 +552,7 @@ public enum BackupEngine {
         } catch {
             throw BackupError.corrupted("manifeste illisible")
         }
-        guard manifest.format == BackupManifest.formatName else { throw BackupError.notABackup(url.lastPathComponent) }
+        guard manifest.format == BackupManifest.formatName else { throw BackupError.notABackup(name) }
         guard manifest.version <= BackupManifest.currentVersion else { throw BackupError.newerVersion(manifest.version) }
         if manifestOnly { return BackupContents(manifest: manifest, files: [], preferences: nil) }
         if header != nil, manifest.encrypted != true { throw BackupCryptoError.tampered }

@@ -126,6 +126,18 @@ func registerFileTransferTests(_ suite: TestSuite) {
         try expectEqual(entries[0].modified.map { utc.component(.year, from: $0) }, 2026, "année sur deux chiffres")
     }
 
+    suite.add("Transferts : noms piégés d’une liste distante ignorés (« ../ »)") {
+        try expect(FTPListing.parseMLSDLine("type=file;size=1; ../../Library/LaunchAgents/x.plist", directory: "/") == nil, "MLSD : « ../ » refusé")
+        try expect(FTPListing.parseMLSDLine("type=file;size=1; a/b", directory: "/") == nil, "MLSD : « / » refusé")
+        try expect(FTPListing.parseLISTLine("-rw-r--r--    1 ftp      ftp   1 Nov  4 10:15 ../x.plist", directory: "/") == nil, "LIST : « ../ » refusé")
+        try expect(FTPListing.parseLIST("11-04-26  10:15AM   1 ..\\x.plist\r\n", directory: "/").isEmpty, "DOS : « \\ » refusé")
+        try expect(RemotePath.isSafeEntryName("config; backup.cfg") && !RemotePath.isSafeEntryName(".."), "noms ordinaires gardés")
+        // Un serveur qui contourne les analyseurs (SFTP, faux client) : walk ignore l'entrée.
+        let trapped = TrappedListing()
+        let walked = try await trapped.walk("/pub")
+        try expectEqual(walked.map(\.relative), ["sain", "sain/ok.txt"], "seuls les noms sûrs sont parcourus")
+    }
+
     // MARK: Chemins
 
     suite.add("Transferts : chemins, noms et guillemets sftp") {
@@ -207,7 +219,7 @@ func registerFileTransferTests(_ suite: TestSuite) {
         try expectEqual(SFTPOutput.error(stderr: "admin@10.0.0.2: Permission denied (publickey,password).\r\nConnection closed", status: 255, host: "x"),
                         .loginFailed("le serveur SSH refuse l’identification"), "identification refusée")
         try expectEqual(SFTPOutput.error(stderr: "ssh: connect to host 10.0.0.9 port 22: Connection refused\r\nConnection closed", status: 255, host: "10.0.0.9"),
-                        .connectionFailed("le serveur refuse la connexion (port fermé ?)"), "port fermé")
+                        .connectionFailed("le serveur refuse la connexion (port fermé\u{00A0}?)"), "port fermé")
         try expectEqual(SFTPOutput.error(stderr: "remote open(\"/etc/shadow\"): Permission denied", status: 1, host: "x"),
                         .permissionDenied("/etc/shadow"), "droits")
         try expectEqual(SFTPOutput.error(stderr: "File \"/nope\" not found.", status: 1, host: "x"), .notFound("/nope"), "introuvable")
@@ -410,6 +422,27 @@ func registerFileTransferTests(_ suite: TestSuite) {
             try expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("x.txt").path), "rien d'écrit")
         }
     }
+}
+
+/// Faux serveur dont la liste contient un nom piégé (aucun réseau).
+final class TrappedListing: RemoteFileTransfer, @unchecked Sendable {
+    func connect() async throws -> String { "/" }
+    func list(_ path: String) async throws -> [RemoteFileEntry] {
+        if path == "/pub" {
+            return [RemoteFileEntry(name: "../../Library/LaunchAgents/x.plist", path: "/x.plist", kind: .file, size: 1, modified: nil),
+                    RemoteFileEntry(name: "sain", path: "/pub/sain", kind: .directory, size: nil, modified: nil)]
+        }
+        return [RemoteFileEntry(name: "ok.txt", path: path + "/ok.txt", kind: .file, size: 1, modified: nil),
+                RemoteFileEntry(name: "..", path: "/", kind: .directory, size: nil, modified: nil)]
+    }
+    func size(of path: String) async throws -> Int64? { nil }
+    func download(_ remotePath: String, to localURL: URL, resume: Bool, progress: @escaping FileTransferProgress) async throws {}
+    func upload(_ localURL: URL, to remotePath: String, resume: Bool, progress: @escaping FileTransferProgress) async throws {}
+    func makeDirectory(_ path: String) async throws {}
+    func rename(_ from: String, to: String) async throws {}
+    func deleteFile(_ path: String) async throws {}
+    func removeDirectory(_ path: String) async throws {}
+    func close() async {}
 }
 
 /// Dernière valeur d'avancement reçue (fermetures @Sendable).

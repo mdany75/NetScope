@@ -55,7 +55,8 @@ public enum DiskShareKind: String, Codable, CaseIterable, Sendable, Identifiable
     /// Partage monté par NetFS (SMB, NFS, AFP, WebDAV).
     public var isMountable: Bool { networkProtocol != nil }
 
-    /// Faux pour FTP, FTPS et SFTP : ils passeront par la connexion FTP de la note 50.
+    /// Faux pour FTP, FTPS et SFTP : le test de vitesse ne s'applique pas à ces protocoles (ils
+    /// s'ouvrent dans Accès distant › Transférer des fichiers).
     public var isAvailable: Bool {
         switch self {
         case .ftp, .ftps, .sftp: return false
@@ -64,7 +65,7 @@ public enum DiskShareKind: String, Codable, CaseIterable, Sendable, Identifiable
     }
 
     /// Pourquoi le choix est grisé.
-    public static let ftpPending = "Avec la connexion FTP (note 50)\u{00A0}: FTP, FTPS et SFTP arrivent avec le client FTP de NetScope."
+    public static let ftpPending = "FTP, FTPS et SFTP\u{00A0}: utilisez Accès distant › Transférer des fichiers (le test de vitesse ne s’applique pas à ces protocoles)."
 
     public var networkProtocol: DiskNetworkProtocol? {
         switch self {

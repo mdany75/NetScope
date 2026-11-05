@@ -142,7 +142,7 @@ final class FTPSessionStream: FTPByteStream, @unchecked Sendable {
             case NSURLErrorSecureConnectionFailed, NSURLErrorServerCertificateUntrusted, NSURLErrorServerCertificateHasBadDate,
                  NSURLErrorServerCertificateNotYetValid, NSURLErrorServerCertificateHasUnknownRoot, NSURLErrorClientCertificateRejected:
                 return FileTransferError.tlsUnavailable(nsError.localizedDescription)
-            case NSURLErrorCannotConnectToHost: return FileTransferError.connectionFailed("le serveur refuse la connexion (port fermé ?)")
+            case NSURLErrorCannotConnectToHost: return FileTransferError.connectionFailed("le serveur refuse la connexion (port fermé\u{00A0}?)")
             case NSURLErrorCannotFindHost, NSURLErrorDNSLookupFailed: return FileTransferError.connectionFailed("nom d’hôte introuvable")
             case NSURLErrorNotConnectedToInternet, NSURLErrorNetworkConnectionLost:
                 return FileTransferError.connectionFailed("connexion perdue")
@@ -150,7 +150,7 @@ final class FTPSessionStream: FTPByteStream, @unchecked Sendable {
             }
         }
         if nsError.domain == NSPOSIXErrorDomain, nsError.code == Int(ECONNREFUSED) {
-            return FileTransferError.connectionFailed("le serveur refuse la connexion (port fermé ?)")
+            return FileTransferError.connectionFailed("le serveur refuse la connexion (port fermé\u{00A0}?)")
         }
         return FileTransferError.connectionFailed(nsError.localizedDescription)
     }
@@ -163,6 +163,9 @@ final class FTPActiveListener: @unchecked Sendable {
     private let lock = NSLock()
     private var accepted: NWConnection?
     private var waiter: CheckedContinuation<NWConnection, Error>?
+    /// Seule adresse dont une connexion est acceptée (nil : toutes). Le mini-serveur y met
+    /// l'adresse du client de la connexion de contrôle.
+    var allowedPeer: String?
 
     init(localHost: String) throws {
         let parameters = NWParameters.tcp
@@ -192,6 +195,10 @@ final class FTPActiveListener: @unchecked Sendable {
     }
 
     private func receive(_ connection: NWConnection) {
+        if let allowedPeer, FTPConnectionStream.ipv4(connection.endpoint) != allowedPeer {
+            connection.cancel()
+            return
+        }
         lock.lock()
         guard accepted == nil else {
             lock.unlock()
@@ -253,7 +260,16 @@ final class FTPConnectionStream: FTPByteStream, @unchecked Sendable {
 
     /// Adresse IPv4 locale de la connexion (« ::ffff:10.0.0.5 » ramené à « 10.0.0.5 »).
     func localIPv4() -> String? {
-        guard case .hostPort(let host, _)? = connection.currentPath?.localEndpoint else { return nil }
+        Self.ipv4(connection.currentPath?.localEndpoint)
+    }
+
+    /// Adresse IPv4 de l'homologue (l'autre bout de la connexion).
+    func remoteIPv4() -> String? {
+        Self.ipv4(connection.currentPath?.remoteEndpoint ?? connection.endpoint)
+    }
+
+    static func ipv4(_ endpoint: NWEndpoint?) -> String? {
+        guard case .hostPort(let host, _)? = endpoint else { return nil }
         var text = "\(host)"
         if let percent = text.firstIndex(of: "%") { text = String(text[..<percent]) }
         if text.hasPrefix("::ffff:") { text = String(text.dropFirst(7)) }
@@ -281,29 +297,48 @@ final class FTPConnectionStream: FTPByteStream, @unchecked Sendable {
     }
 
     func read(max: Int, timeout: TimeInterval) async throws -> Data? {
-        try await withCheckedThrowingContinuation { continuation in
-            let once = FTPOnce()
-            connection.receive(minimumIncompleteLength: 1, maximumLength: max) { data, _, isComplete, error in
-                guard once.claim() else { return }
-                if let data, !data.isEmpty { continuation.resume(returning: data); return }
-                if let error { continuation.resume(throwing: FileTransferError.connectionFailed(error.localizedDescription)); return }
-                continuation.resume(returning: isComplete ? nil : Data())
+        let connection = connection
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let once = FTPOnce()
+                connection.receive(minimumIncompleteLength: 1, maximumLength: max) { data, _, isComplete, error in
+                    guard once.claim() else { return }
+                    if let data, !data.isEmpty { continuation.resume(returning: data); return }
+                    if let error { continuation.resume(throwing: FileTransferError.connectionFailed(error.localizedDescription)); return }
+                    continuation.resume(returning: isComplete ? nil : Data())
+                }
+                queue.asyncAfter(deadline: .now() + timeout) {
+                    if once.claim() { continuation.resume(throwing: FileTransferError.timeout) }
+                }
             }
-            queue.asyncAfter(deadline: .now() + timeout) {
-                if once.claim() { continuation.resume(throwing: FileTransferError.timeout) }
-            }
+        } onCancel: {
+            connection.cancel()
         }
     }
 
+    /// Envoi borné par `timeout` : un serveur qui cesse de lire ne bloque pas la session.
     func write(_ data: Data, timeout: TimeInterval) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            connection.send(content: data, completion: .contentProcessed { error in
-                if let error {
-                    continuation.resume(throwing: FileTransferError.connectionFailed(error.localizedDescription))
-                } else {
-                    continuation.resume()
+        let connection = connection
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                let once = FTPOnce()
+                connection.send(content: data, completion: .contentProcessed { error in
+                    guard once.claim() else { return }
+                    if let error {
+                        continuation.resume(throwing: FileTransferError.connectionFailed(error.localizedDescription))
+                    } else {
+                        continuation.resume()
+                    }
+                })
+                queue.asyncAfter(deadline: .now() + timeout) {
+                    if once.claim() {
+                        connection.cancel()
+                        continuation.resume(throwing: FileTransferError.timeout)
+                    }
                 }
-            })
+            }
+        } onCancel: {
+            connection.cancel()
         }
     }
 

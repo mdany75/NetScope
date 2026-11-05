@@ -595,6 +595,7 @@ private struct TFTPFilesPanel: View {
                 ToolFieldLabel("Fichiers servis")
                 Text("· \(rows.count) dans «\u{00A0}\(model.rootName)\u{00A0}»").font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 Spacer(minLength: 8)
+                ToolColumnsMenu(model: table)
                 Button { model.refreshFiles() } label: { Image(systemName: "arrow.clockwise") }
                     .buttonStyle(.secondary)
                     .controlSize(.small)

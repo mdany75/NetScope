@@ -73,6 +73,13 @@ public enum RemotePath {
         return trimmed
     }
 
+    /// Nom d'élément d'une liste distante acceptable : un seul élément de chemin (ni « / » ni « \\ »,
+    /// ni « . » ni « .. », ni caractère nul). Un serveur qui renvoie « ../../x » est ignoré.
+    public static func isSafeEntryName(_ name: String) -> Bool {
+        !name.isEmpty && name != "." && name != ".." && !name.contains("/") && !name.contains("\\")
+            && !name.unicodeScalars.contains("\0")
+    }
+
     /// Nom local sûr pour un fichier reçu : le dernier élément seulement (jamais « ../ »).
     public static func safeLocalName(_ remoteName: String) -> String {
         let last = remoteName.split(separator: "/").last.map(String.init) ?? remoteName

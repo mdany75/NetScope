@@ -98,7 +98,7 @@ public struct ConfigPart: Identifiable, Hashable, Sendable {
                    files: ["sites/*", "inventory*.json", "inventaire*.json", "notes-appareils*.json", "surveillance*.json",
                            "disques.json", "speedtest.json", "diagnostics-wifi.json", "wifi-signal.json", "Rapports/*"]),
         ConfigPart(id: "reglages", title: "Réglages",
-                   detail: "Tous les autres réglages : général, interface, notifications, colonnes, Boîte à outils, services en ligne, mises à jour.",
+                   detail: "Tous les autres réglages\u{00A0}: général, interface, notifications, colonnes, Boîte à outils, services en ligne, mises à jour.",
                    systemImage: "gearshape",
                    secrets: ["*"],
                    catchAll: true),

@@ -68,7 +68,12 @@ struct FileTransferJobRow: View {
                 .help(job.direction == .upload ? "Envoi vers le serveur" : "Réception sur le Mac")
             VStack(alignment: .leading, spacing: 1) {
                 Text(job.name).font(.system(size: 12, weight: .medium)).lineLimit(1).truncationMode(.middle)
-                Text(destination).font(Theme.caption).foregroundStyle(Theme.textTertiary).lineLimit(1).truncationMode(.middle)
+                if let failureText {
+                    // La cause de l'échec, visible sans survol (texte complet dans l'infobulle).
+                    Text(failureText).font(Theme.caption).foregroundStyle(Theme.critical).lineLimit(1).truncationMode(.tail)
+                } else {
+                    Text(destination).font(Theme.caption).foregroundStyle(Theme.textTertiary).lineLimit(1).truncationMode(.middle)
+                }
             }
             .frame(minWidth: 120, maxWidth: .infinity, alignment: .leading)
             VStack(alignment: .leading, spacing: 3) {

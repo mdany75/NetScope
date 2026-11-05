@@ -70,6 +70,7 @@ struct FileTransferBrowser: View {
     @ObservedObject var model: RemoteModel
     /// Petite fenêtre : la liste des connexions est masquée ; bouton pour la rouvrir.
     var compact = false
+    @State private var showLog = false
     var onShowConnections: () -> Void = {}
 
     var body: some View {
@@ -130,19 +131,27 @@ struct FileTransferBrowser: View {
             Chip(text: session.isEncrypted ? "Chiffré" : "Non chiffré", tone: session.isEncrypted ? .success : .warning)
             Spacer(minLength: 6)
             Button {
+                showLog.toggle()
+            } label: {
+                Label("Journal", systemImage: "list.bullet.rectangle").labelStyle(RemoteCompactLabelStyle())
+            }
+            .buttonStyle(.ghost)
+            .help("Journal de la session (connexion, certificat, transferts, erreurs)")
+            .popover(isPresented: $showLog, arrowEdge: .bottom) { FileTransferLogView(session: session) }
+            Button {
                 session.isVisible = false
             } label: {
                 Label("Masquer", systemImage: "rectangle.portrait.and.arrow.right").labelStyle(RemoteCompactLabelStyle())
             }
             .buttonStyle(.ghost)
-            .help("Revenir à l’aperçu ; les transferts continuent en arrière-plan")
+            .help("Revenir à l’aperçu\u{00A0}; les transferts continuent en arrière-plan")
             Button {
                 FileTransferStore.shared.close()
             } label: {
                 Label("Déconnecter", systemImage: "xmark.circle").labelStyle(RemoteCompactLabelStyle())
             }
             .buttonStyle(.ghost)
-            .help(session.activeCount > 0 ? "Ferme la session et annule \(session.activeCount) transfert(s)" : "Ferme la session")
+            .help(session.activeCount > 0 ? "Ferme la session et annule " + MonText.plural(session.activeCount, "transfert", "transferts") : "Ferme la session")
         }
         .padding(.horizontal, 12)
         .frame(height: 38)
@@ -245,9 +254,9 @@ struct FileTransferBrowser: View {
     private var deletionTitle: String {
         let entries = session.pendingDeletion
         if entries.count == 1, let entry = entries.first {
-            return entry.isDirectory ? "Supprimer le dossier « \(entry.name) » et tout son contenu ?" : "Supprimer « \(entry.name) » du serveur ?"
+            return entry.isDirectory ? "Supprimer le dossier «\u{00A0}\(entry.name)\u{00A0}» et tout son contenu\u{00A0}?" : "Supprimer «\u{00A0}\(entry.name)\u{00A0}» du serveur\u{00A0}?"
         }
-        return "Supprimer \(entries.count) éléments du serveur ?"
+        return "Supprimer \(entries.count) éléments du serveur\u{00A0}?"
     }
 
     private var deletionMessage: String {
@@ -329,6 +338,7 @@ struct FileTransferPane: View {
             iconButton("arrow.clockwise", help: "Relire le dossier") {
                 if side == .local { session.refreshLocal() } else { session.refreshRemote() }
             }
+            StandardColumnsMenu(model: table, compact: true)
             if side == .remote {
                 iconButton("folder.badge.plus", help: "Nouveau dossier sur le serveur") {
                     session.newFolderName = "Nouveau dossier"
@@ -584,6 +594,42 @@ final class FileTransferDropCollector: @unchecked Sendable {
 }
 
 /// Bandeau de message refermable.
+/// Journal de la session : ce que le protocole et NetScope ont noté, le plus récent en bas.
+struct FileTransferLogView: View {
+    @ObservedObject var session: FileTransferSession
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Journal de la session").font(Theme.panelTitle)
+                Spacer()
+                Button("Copier") { ToolActions.copy(session.log.joined(separator: "\n")) }
+                    .buttonStyle(.secondary).controlSize(.small)
+                    .disabled(session.log.isEmpty)
+            }
+            if session.log.isEmpty {
+                Text("Rien pour l’instant.").font(Theme.small).foregroundStyle(Theme.textTertiary)
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 2) {
+                            ForEach(session.log.indices, id: \.self) { index in
+                                Text(session.log[index]).font(Theme.mono(11)).foregroundStyle(Theme.text)
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .id(index)
+                            }
+                        }
+                    }
+                    .onAppear { proxy.scrollTo(session.log.count - 1, anchor: .bottom) }
+                }
+            }
+        }
+        .padding(14)
+        .frame(width: 460, height: 280, alignment: .topLeading)
+    }
+}
+
 struct FileTransferMessageBar: View {
     let text: String
     var tone: Tone = .success
@@ -649,8 +695,11 @@ struct FileTransferCredentialsCard: View {
                     .keyboardShortcut(.defaultAction)
                 Button("Annuler") { FileTransferStore.shared.close() }.buttonStyle(.ghost)
             }
-            Text(FileTransferTexts.keychainNote).font(Theme.caption).foregroundStyle(Theme.textTertiary)
-                .fixedSize(horizontal: false, vertical: true)
+            if needsPassword {
+                Text(session.rememberPassword ? FileTransferTexts.keychainNote : "Mot de passe utilisé pour cette session seulement, jamais enregistré.")
+                    .font(Theme.caption).foregroundStyle(Theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(maxWidth: 440, alignment: .leading)
         .frame(maxWidth: .infinity)

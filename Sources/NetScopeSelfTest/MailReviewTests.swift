@@ -84,6 +84,13 @@ func registerMailReviewTests(_ suite: TestSuite) {
         let unfiltered = SvcService(id: "x", name: "X", category: "", format: .statuspage, feedURL: nil, pageURL: "", endpoints: [])
         try expectEqual(SvcChecker.filtered(SvcFeedReport(health: .outage, description: "", incidents: [other]), for: unfiltered).health,
                         .outage, "sans parties suivies : rien de filtré")
+        // Aucun incident, mais un composant non suivi dégradé : les parties suivies vont bien.
+        let calm = SvcFeedReport(health: .degraded, description: "", incidents: [],
+                                 components: [SvcComponent(name: "Google Calendar", health: .degraded), SvcComponent(name: "Gmail", health: .operational)])
+        try expectEqual(SvcChecker.filtered(calm, for: service).health, .operational, "composant non suivi dégradé : écarté")
+        let gmailDown = SvcFeedReport(health: .degraded, description: "", incidents: [],
+                                      components: [SvcComponent(name: "Gmail", health: .degraded)])
+        try expectEqual(SvcChecker.filtered(gmailDown, for: service).health, .degraded, "composant suivi dégradé : gardé")
     }
 
     suite.add("Services : catalogue enregistré, définition intégrée à jour") {

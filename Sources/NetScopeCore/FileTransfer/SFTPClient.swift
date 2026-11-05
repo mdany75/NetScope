@@ -363,7 +363,7 @@ public enum SFTPOutput {
             return .loginFailed("le serveur SSH refuse l’identification")
         }
         if lower.contains("could not resolve hostname") { return .connectionFailed("nom d’hôte introuvable (\(host))") }
-        if lower.contains("connection refused") { return .connectionFailed("le serveur refuse la connexion (port fermé ?)") }
+        if lower.contains("connection refused") { return .connectionFailed("le serveur refuse la connexion (port fermé\u{00A0}?)") }
         if lower.contains("operation timed out") || lower.contains("connection timed out") { return .timeout }
         if lower.contains("no route to host") || lower.contains("network is unreachable") { return .connectionFailed("aucune route vers \(host)") }
         if lower.contains("connection closed") || lower.contains("broken pipe") || lower.contains("connection reset") {

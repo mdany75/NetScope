@@ -72,7 +72,7 @@ public enum FTPListing {
         guard let space = line.firstIndex(of: " ") else { return nil }
         let factsText = line[..<space]
         let name = String(line[line.index(after: space)...])
-        guard !name.isEmpty, name != ".", name != ".." else { return nil }
+        guard RemotePath.isSafeEntryName(name) else { return nil }
         var facts: [String: String] = [:]
         for fact in factsText.split(separator: ";") {
             let parts = fact.split(separator: "=", maxSplits: 1)
@@ -167,7 +167,7 @@ public enum FTPListing {
             }
         default: kind = .file
         }
-        guard name != ".", name != ".." else { return nil }
+        guard RemotePath.isSafeEntryName(name) else { return nil }
         let size = Int64(words[monthIndex - 1].text)
         let month = months.firstIndex(of: words[monthIndex].text.prefix(3).lowercased())! + 1
         let day = Int(words[monthIndex + 1].text) ?? 1
@@ -221,7 +221,7 @@ public enum FTPListing {
         let date = dosDate(String(parts[0]), String(parts[1]))
         let isDirectory = parts[2].uppercased() == "<DIR>"
         let name = String(parts[3]).trimmingCharacters(in: .whitespaces)
-        guard !name.isEmpty, name != ".", name != ".." else { return nil }
+        guard RemotePath.isSafeEntryName(name) else { return nil }
         return RemoteFileEntry(name: name, path: RemotePath.join(directory, name),
                                kind: isDirectory ? .directory : .file,
                                size: isDirectory ? nil : Int64(parts[2]), modified: date)

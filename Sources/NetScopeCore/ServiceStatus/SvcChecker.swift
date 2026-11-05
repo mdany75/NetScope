@@ -74,7 +74,9 @@ public struct SvcChecker: Sendable {
             return incident.affected.contains(where: concerns) || concerns(incident.title)
         }
         let incidents = feed.incidents.filter(keep)
-        guard incidents.count != feed.incidents.count else { return feed }
+        // Recalculé aussi sans incident retiré : une page « dégradée » à cause d'une partie non suivie
+        // (composant dégradé sans incident, fréquent sur Statuspage) ne doit pas compter.
+        guard incidents.count != feed.incidents.count || !feed.components.isEmpty else { return feed }
         let components = feed.components.filter { concerns($0.name) }
         let worst = (incidents.filter { !$0.isResolved }.map(\.impact) + components.map(\.health)).max() ?? .operational
         let health = feed.health.isProblem || feed.health == .maintenance ? worst : feed.health

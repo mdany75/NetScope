@@ -323,6 +323,10 @@ final class DiskSpeedModel: ObservableObject {
 
     func start(state: AppState, store toolStore: ToolStore) {
         guard !isRunning, let location = selected, blockingProblem == nil else { return }
+        // Le test précédent démonte peut-être encore (en détaché) le partage qu'il avait monté :
+        // le nouveau montage l'attend, sinon il trouverait le partage « déjà monté » et le
+        // démontage en retard le lui retirerait en plein test.
+        let previous = task
         task?.cancel()
         networkTask?.cancel()
         generation += 1
@@ -360,6 +364,7 @@ final class DiskSpeedModel: ObservableObject {
             return
         }
         task = Task { [weak self] in
+            await previous?.value
             let outcome = await Task.detached(priority: .userInitiated) { DiskShareMounter.mount(share) }.value
             guard let self, self.generation == run, self.isRunning else {
                 // Arrêté pendant le montage : on ne laisse pas monté ce que NetScope vient de monter.

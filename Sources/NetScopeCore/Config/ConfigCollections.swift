@@ -43,7 +43,7 @@ public struct ConfigCollection: Sendable, Hashable {
     public static let sites = ConfigCollection(kind: .fichier, key: SiteFiles.listName, arrayKey: "sites",
                                                volatileFields: ["lastScan", "inventoryCount"], elementLabel: "Site",
                                                uniqueNames: true, similarField: "ranges",
-                                               similarNote: "mêmes plages : sites gardés séparés (reconnus par leur identifiant)")
+                                               similarNote: "mêmes plages\u{00A0}: sites gardés séparés (reconnus par leur identifiant)")
     public static let fortiGates = ConfigCollection(kind: .preference, key: "NetScope.fortigate.controleurs", nameField: "site",
                                                     volatileFields: ["lastStatus"], elementLabel: "FortiGate")
 

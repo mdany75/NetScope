@@ -178,13 +178,27 @@ final class RemoteModel: ObservableObject {
 
     /// Note 50 : connexion de fichiers mise à jour depuis le navigateur (utilisateur saisi,
     /// certificat accepté, dossier du Mac) ; ajoutée au carnet si elle n'y est pas encore.
-    func updateTransferConnection(_ connection: RemoteConnection) {
-        if let index = connections.firstIndex(where: { $0.id == connection.id }) {
-            connections[index].username = connection.username
-            connections[index].transfer = connection.transfer
-        } else if (try? connection.validated()) != nil {
-            connections.append(connection)
-        }
+    /// Une session de fichiers ne renvoie que le champ qu'elle change, sur l'élément courant du
+    /// carnet : les modifications faites entre-temps dans le panneau de détail sont gardées, et une
+    /// connexion supprimée du carnet n'y revient jamais.
+    func setTransferLocalDirectory(_ path: String, for id: UUID) {
+        updateExisting(id) { $0.transfer.localDirectory = path }
+    }
+
+    func setTrustedCertificate(_ sha256: String, for id: UUID) {
+        updateExisting(id) { $0.transfer.trustedCertificateSHA256 = sha256 }
+    }
+
+    func setTransferUsername(_ user: String, for id: UUID) {
+        updateExisting(id) { $0.username = user }
+    }
+
+    private func updateExisting(_ id: UUID, _ change: (inout RemoteConnection) -> Void) {
+        guard let index = connections.firstIndex(where: { $0.id == id }) else { return }
+        var updated = connections[index]
+        change(&updated)
+        guard updated != connections[index] else { return }
+        connections[index] = updated
         save()
     }
 

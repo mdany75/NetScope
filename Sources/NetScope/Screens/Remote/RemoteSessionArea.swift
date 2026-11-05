@@ -201,7 +201,7 @@ struct RemoteSessionArea: View {
             Image(systemName: "clock").font(.system(size: 12)).foregroundStyle(Theme.textTertiary).padding(.top, 1)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Terminal intégré : bientôt").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.neutralText)
-                Text("Les onglets de session (SSH, Telnet, console série, RDP et VNC dans NetScope) arriveront dans une prochaine version. Pour l’instant, « Connecter » ouvre l’application externe.")
+                Text("Les onglets de session (SSH, Telnet, console série, RDP et VNC dans NetScope) arriveront dans une prochaine version. Pour l’instant, « Connecter » ouvre l’application externe (FTP, FTPS et SFTP s’ouvrent dans le navigateur de fichiers de NetScope).")
                     .font(Theme.caption).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

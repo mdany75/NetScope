@@ -110,7 +110,14 @@ public enum TFTPClient {
             machine = TFTPClientMachine(get: remoteName, options: requested, settings: settings, write: { try file.write($0) })
         }
         defer { source?.close() }
-        let (fd, _) = try TFTPSocket.bind(address: nil, port: 0)
+        let fd: Int32
+        do {
+            (fd, _) = try TFTPSocket.bind(address: nil, port: 0)
+        } catch {
+            // Le fichier partiel déjà créé ne doit pas rester dans le dossier de l'utilisateur.
+            sink?.discard()
+            throw error
+        }
         defer { close(fd) }
         let started = Date()
         // TID de l'appareil : port source de sa première réponse, verrouillé dès le transfert lancé.

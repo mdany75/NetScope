@@ -68,7 +68,7 @@ enum ConfigSyncDemo {
         let now = Date()
         var list = baseList()
         if let index = list.index(of: SitesDemo.siegeID) { list.sites[index].notes = "Bureaux, entrepôt, salle des serveurs et nouvel étage." }
-        if let index = list.index(of: SitesDemo.cliniqueID) { list.sites[index].notes = "Client fictif ; deux nouveaux postes." }
+        if let index = list.index(of: SitesDemo.cliniqueID) { list.sites[index].notes = "Client fictif\u{00A0}; deux nouveaux postes." }
         // Même nom et mêmes plages que la clinique, autre identifiant : jamais fusionnée.
         list.sites.append(Site(id: levisID, name: "Clinique Exemple", notes: "Succursale de Lévis.",
                                ranges: list.site(SitesDemo.cliniqueID)?.ranges ?? [], created: now.addingTimeInterval(-20 * 86_400)))

@@ -313,6 +313,41 @@ func registerConfigSyncTests(_ suite: TestSuite) {
         try expectEqual(restore?.files.first?.data, Data("{\"fiches\":8}".utf8), "version écartée rétablie")
     }
 
+    suite.add("Synchronisation : rétablir une version garde les changements reçus en attente") {
+        let root = try F.temporaryFolder("synchro-restaurer")
+        let folder = try F.temporaryFolder("synchro-restaurer-donnees")
+        defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: folder) }
+        var stateA = ConfigSyncState(), stateB = ConfigSyncState()
+        let a = F.engine(root, device: "A"), b = F.engine(root, device: "B")
+        let t0 = F.exportDate
+        let base = F.snapshot(modified: t0)
+        for file in base.files {
+            let url = folder.appendingPathComponent(file.path)
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try file.data.write(to: url)
+        }
+        _ = try a.sync(sites: [F.siegeID], snapshot: base, state: &stateA, now: t0)
+        _ = try b.sync(sites: [F.siegeID], snapshot: base, state: &stateB, now: t0.addingTimeInterval(10))
+        // B reçoit l'inventaire modifié par A : il attend le redémarrage.
+        let changedA = F.snapshot(modified: t0.addingTimeInterval(100), inventory: "{\"fiches\":7}")
+        _ = try a.sync(sites: [F.siegeID], snapshot: changedA, state: &stateA, now: t0.addingTimeInterval(110))
+        let received = try b.sync(sites: [F.siegeID], snapshot: base, state: &stateB, now: t0.addingTimeInterval(120)).plan.withoutSecrets
+        try expect(received.files.contains { $0.path.hasSuffix("inventory.json") }, "inventaire reçu, en attente")
+        // Puis l'utilisateur rétablit une autre version (outils.json) : elle s'ajoute au plan en attente.
+        let conflict = ConfigSyncConflict(date: t0, siteID: F.siegeID, siteName: "Siège", key: "fichier:outils.json", label: "Outils",
+                                          keptDevice: "Mac B", keptModified: t0, otherDevice: "Mac A", otherModified: t0,
+                                          otherData: Data("{\"favoris\":[\"ping\"]}".utf8), keptRemote: false)
+        guard let restore = ConfigSyncEngine.restorePlan(conflict, snapshot: base) else { throw TestFailure(message: "plan de restauration absent", file: #fileID, line: #line) }
+        let merged = received.merging(restore)
+        try expectEqual(merged.operationCount, received.operationCount + 1, "rien de reçu n’est perdu")
+        try expectEqual(received.merging(restore).merging(restore).operationCount, merged.operationCount, "même clé : remplacée, pas doublée")
+        let outcome = ConfigImporter.apply(merged, to: folder, preferences: [:])
+        try expect(outcome.failed.isEmpty, "aucun échec")
+        let inventory = try Data(contentsOf: folder.appendingPathComponent("sites/\(F.siegeID.uuidString)/inventory.json"))
+        try expectEqual(inventory, Data("{\"fiches\":7}".utf8), "l’élément reçu est appliqué")
+        try expectEqual(try Data(contentsOf: folder.appendingPathComponent("outils.json")), Data("{\"favoris\":[\"ping\"]}".utf8), "la version rétablie aussi")
+    }
+
     suite.add("Synchronisation : identifiants des sites, suppression signalée, rien hors du dossier") {
         let root = try F.temporaryFolder("synchro-sites")
         defer { try? FileManager.default.removeItem(at: root) }

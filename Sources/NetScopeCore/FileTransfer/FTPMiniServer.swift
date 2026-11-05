@@ -243,14 +243,30 @@ final class FTPMiniSession: @unchecked Sendable {
             let host = local.replacingOccurrences(of: ".", with: ",")
             try await reply(227, "Entering Passive Mode (\(host),\(port / 256),\(port % 256)).")
         case "PORT":
-            let numbers = argument.split(separator: ",").compactMap { Int($0) }
-            guard numbers.count == 6 else { try await reply(501, "PORT illisible."); return true }
-            activeTarget = (numbers[0...3].map(String.init).joined(separator: "."), numbers[4] * 256 + numbers[5])
+            let parts = argument.split(separator: ",", omittingEmptySubsequences: false)
+            let numbers = parts.compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+            guard parts.count == 6, numbers.count == 6, numbers.allSatisfy({ (0...255).contains($0) }) else {
+                try await reply(501, "PORT illisible.")
+                return true
+            }
+            let host = numbers[0...3].map(String.init).joined(separator: ".")
+            guard acceptsActiveTarget(host: host, port: numbers[4] * 256 + numbers[5]) else {
+                try await reply(504, "PORT refusé\u{00A0}: adresse différente de celle du client, ou port réservé.")
+                return true
+            }
+            activeTarget = (host, numbers[4] * 256 + numbers[5])
             try await reply(200, "PORT OK")
         case "EPRT":
             guard let delimiter = argument.first else { try await reply(501, "EPRT illisible."); return true }
             let fields = argument.split(separator: delimiter, omittingEmptySubsequences: false)
-            guard fields.count >= 4, let port = Int(fields[3]) else { try await reply(501, "EPRT illisible."); return true }
+            guard fields.count >= 4, let port = Int(fields[3]), (1...65535).contains(port) else {
+                try await reply(501, "EPRT illisible.")
+                return true
+            }
+            guard acceptsActiveTarget(host: String(fields[2]), port: port) else {
+                try await reply(504, "EPRT refusé\u{00A0}: adresse différente de celle du client, ou port réservé.")
+                return true
+            }
             activeTarget = (String(fields[2]), port)
             try await reply(200, "EPRT OK")
         case "LIST", "NLST", "MLSD":
@@ -416,9 +432,17 @@ final class FTPMiniSession: @unchecked Sendable {
 
     // MARK: Données
 
+    /// Contre le « rebond FTP » : le mode actif ne joint que le client lui-même, sur un port non réservé.
+    private func acceptsActiveTarget(host: String, port: Int) -> Bool {
+        guard (1024...65535).contains(port), let peer = control.remoteIPv4() else { return false }
+        return host == peer
+    }
+
     private func openPassive() async throws -> Int {
         passive?.cancel()
         let listener = try FTPActiveListener(localHost: configuration.bindHost ?? "0.0.0.0")
+        // Seul le client de la connexion de contrôle peut ouvrir la connexion de données.
+        listener.allowedPeer = control.remoteIPv4()
         passive = listener
         activeTarget = nil
         return try await listener.start(timeout: 10)
@@ -429,7 +453,7 @@ final class FTPMiniSession: @unchecked Sendable {
             self.passive = nil
             return try await passive.accept(timeout: 20)
         }
-        guard let target = activeTarget, let port = NWEndpoint.Port(rawValue: UInt16(target.port)) else {
+        guard let target = activeTarget, let raw = UInt16(exactly: target.port), let port = NWEndpoint.Port(rawValue: raw) else {
             throw FileTransferError.protocolViolation("Aucune connexion de données préparée")
         }
         activeTarget = nil

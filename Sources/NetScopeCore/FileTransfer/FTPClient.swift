@@ -125,8 +125,13 @@ public final class FTPClient: RemoteFileTransfer, @unchecked Sendable {
                 defer { try? handle.close() }
                 var offset: Int64 = 0
                 if resume, let remote = FTPResponse.size(try await command("SIZE " + path)), remote > 0 {
-                    offset = remote
-                    try handle.seek(toOffset: UInt64(offset))
+                    let localSize = (try? localURL.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
+                    // Fichier distant aussi long ou plus long que le local : ce n'est pas une reprise
+                    // (autre fichier du même nom, ou déjà complet) ; il est renvoyé en entier.
+                    if remote < localSize {
+                        offset = remote
+                        try handle.seek(toOffset: UInt64(offset))
+                    }
                 }
                 progress(offset)
                 try await sendData(command: (offset > 0 ? "APPE " : "STOR ") + path, source: handle) { sent in
@@ -350,16 +355,25 @@ public final class FTPClient: RemoteFileTransfer, @unchecked Sendable {
         var collected = Data()
         var received: Int64 = 0
         var lastReport = Date.distantPast
-        while true {
-            if Task.isCancelled { throw FileTransferError.cancelled }
-            guard let chunk = try await data.read(max: Self.chunk, timeout: max(timeout, 60)) else { break }
-            if chunk.isEmpty { continue }
-            received += Int64(chunk.count)
-            if let sink { try sink(chunk) } else { collected.append(chunk) }
-            if let progress, Date().timeIntervalSince(lastReport) > 0.2 {
-                progress(received)
-                lastReport = Date()
+        do {
+            while true {
+                if Task.isCancelled { throw FileTransferError.cancelled }
+                guard let chunk = try await data.read(max: Self.chunk, timeout: max(timeout, 60)) else { break }
+                if chunk.isEmpty { continue }
+                received += Int64(chunk.count)
+                if let sink { try sink(chunk) } else { collected.append(chunk) }
+                if let progress, Date().timeIntervalSince(lastReport) > 0.2 {
+                    progress(received)
+                    lastReport = Date()
+                }
             }
+        } catch {
+            // Transfert interrompu après le 1xx : la réponse finale (226/426) reste en attente sur la
+            // connexion de contrôle et décalerait toutes les suivantes. La session est abandonnée.
+            data.close()
+            stream = nil
+            dropSession()
+            throw error
         }
         data.close()
         stream = nil
@@ -385,21 +399,31 @@ public final class FTPClient: RemoteFileTransfer, @unchecked Sendable {
         guard let data = stream else { throw FileTransferError.connectionFailed("connexion de données absente") }
         var sent: Int64 = 0
         var lastReport = Date.distantPast
-        while true {
-            if Task.isCancelled { throw FileTransferError.cancelled }
-            let chunk: Data
-            do {
-                chunk = try source.read(upToCount: Self.chunk) ?? Data()
-            } catch {
-                throw FileTransferError.localFile(error.localizedDescription)
+        do {
+            while true {
+                if Task.isCancelled { throw FileTransferError.cancelled }
+                let chunk: Data
+                do {
+                    chunk = try source.read(upToCount: Self.chunk) ?? Data()
+                } catch {
+                    throw FileTransferError.localFile(error.localizedDescription)
+                }
+                if chunk.isEmpty { break }
+                try await data.write(chunk, timeout: max(timeout, 60))
+                sent += Int64(chunk.count)
+                if Date().timeIntervalSince(lastReport) > 0.2 {
+                    progress(sent)
+                    lastReport = Date()
+                }
             }
-            if chunk.isEmpty { break }
-            try await data.write(chunk, timeout: max(timeout, 60))
-            sent += Int64(chunk.count)
-            if Date().timeIntervalSince(lastReport) > 0.2 {
-                progress(sent)
-                lastReport = Date()
-            }
+        } catch {
+            // Envoi interrompu : la session est abandonnée d'abord (sans QUIT ni réponse finale lue),
+            // pour ne pas décaler les réponses suivantes ; la fermeture de la connexion de données
+            // ne doit pas passer pour une fin de fichier normale aux yeux de l'appelant.
+            dropSession()
+            data.close()
+            stream = nil
+            throw error
         }
         // Fin de l'envoi : la fermeture de la connexion de données marque la fin du fichier.
         data.close()

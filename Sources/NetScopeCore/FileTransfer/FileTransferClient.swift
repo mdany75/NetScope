@@ -220,6 +220,8 @@ public extension RemoteFileTransfer {
         guard depth < 32 else { return [] }
         var result: [(RemoteFileEntry, String)] = []
         for child in try await list(directory).sorted(by: RemoteFileEntry.browserOrder) {
+            // Le nom sert de chemin local : un nom piégé (« ../x ») n'est jamais suivi.
+            guard RemotePath.isSafeEntryName(child.name) else { continue }
             let relative = prefix.isEmpty ? child.name : prefix + "/" + child.name
             switch child.kind {
             case .directory:

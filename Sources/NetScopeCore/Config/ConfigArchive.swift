@@ -382,11 +382,8 @@ public enum ConfigArchive {
 
     /// Entrées d'une sauvegarde (archive déjà ouverte) → contenu vérifié par BackupEngine.
     private static func backupContents(_ entries: [BackupZip.Entry], header: BackupEncryptedHeader?, name: String) throws -> BackupContents {
-        // BackupEngine lit un fichier : l'archive (déjà déchiffrée) passe par un fichier temporaire.
-        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("netscope-config-\(UUID().uuidString).zip")
-        defer { try? FileManager.default.removeItem(at: temporary) }
-        try BackupZip.archive(entries).write(to: temporary, options: .atomic)
-        var contents = try BackupEngine.read(temporary)
+        // Lue en mémoire : l'archive déchiffrée (secrets compris) ne passe jamais par le disque.
+        var contents = try BackupEngine.contents(of: entries, header: nil, name: name)
         if header != nil, let data = entries.first(where: { $0.path == BackupEngine.secretsName })?.data {
             guard let decoded = try? BackupEngine.decoder().decode([BackupSecret].self, from: data) else { throw BackupCryptoError.tampered }
             guard decoded.map(\.item) == (contents.manifest.secrets ?? []) else { throw BackupCryptoError.tampered }

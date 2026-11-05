@@ -111,7 +111,7 @@ struct DiskShareSheet: View {
                 addressPreview
                 testBox
             } else {
-                ToolNotice(tone: .accent, title: "Bientôt", message: DiskShareKind.ftpPending)
+                ToolNotice(tone: .accent, message: DiskShareKind.ftpPending)
             }
             if let error {
                 ToolNotice(tone: .critical, message: error)
@@ -138,7 +138,7 @@ struct DiskShareSheet: View {
             Text(hint(for: draft.kind))
                 .font(Theme.caption).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("FTP, FTPS et SFTP\u{00A0}: avec la connexion FTP (note 50).")
+            Text(DiskShareKind.ftpPending)
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
         }
     }
@@ -305,7 +305,7 @@ struct DiskShareSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             ToolAdaptiveRow(spacing: 10) {
                 ToolLabeledField(label: "Utilisateur") {
-                    ToolTextField(placeholder: draft.kind == .smb ? "technicien ou BUREAU;technicien (vide : invité)" : "technicien",
+                    ToolTextField(placeholder: draft.kind == .smb ? "technicien ou BUREAU;technicien (vide\u{00A0}: invité)" : "technicien",
                                   text: $draft.user, height: 28)
                 }
                 .frame(minWidth: 220)

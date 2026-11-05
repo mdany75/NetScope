@@ -112,6 +112,30 @@ public struct ConfigApplyPlan: Codable, Sendable, Equatable {
     public var isEmpty: Bool { files.isEmpty && preferences.isEmpty && elements.isEmpty && secrets.isEmpty }
     public var operationCount: Int { files.count + preferences.count + elements.count + secrets.count }
 
+    /// Ajoute les opérations de `other` à ce plan ; une opération de même clé (chemin, préférence
+    /// ou élément d'une liste) est remplacée par celle de `other`. Sert à ajouter une restauration
+    /// à des changements reçus qui attendent déjà le redémarrage, sans les perdre.
+    public func merging(_ other: ConfigApplyPlan) -> ConfigApplyPlan {
+        var merged = self
+        for op in other.files {
+            merged.files.removeAll { $0.path == op.path }
+            merged.files.append(op)
+        }
+        for op in other.preferences {
+            merged.preferences.removeAll { $0.key == op.key }
+            merged.preferences.append(op)
+        }
+        for op in other.elements {
+            merged.elements.removeAll { $0.collection == op.collection && $0.id == op.id }
+            merged.elements.append(op)
+        }
+        for secret in other.secrets {
+            merged.secrets.removeAll { $0.service == secret.service && $0.account == secret.account }
+            merged.secrets.append(secret)
+        }
+        return merged
+    }
+
     /// Le plan sans secret (ce qui attend le redémarrage sur le disque).
     public var withoutSecrets: ConfigApplyPlan {
         var copy = self

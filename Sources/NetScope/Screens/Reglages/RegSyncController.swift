@@ -342,7 +342,19 @@ final class RegSyncController: ObservableObject {
                 return
             }
             do {
-                try RegConfigController.savePending(plan, secretsRestored: 0, to: Self.pendingURL)
+                // Des changements reçus attendent peut-être déjà le redémarrage : la restauration s'y
+                // ajoute (etat.json les croit appliqués ; les perdre ferait republier l'ancienne version).
+                var merged = plan
+                var secretsRestored = 0
+                if let data = try? Data(contentsOf: Self.pendingURL) {
+                    guard let waiting = try? BackupEngine.decoder().decode(RegConfigController.Pending.self, from: data) else {
+                        message = ("Des changements reçus attendent le redémarrage\u{00A0}: redémarrez d’abord NetScope pour les appliquer.", .warning)
+                        return
+                    }
+                    merged = waiting.plan.merging(plan)
+                    secretsRestored = waiting.secretsRestored
+                }
+                try RegConfigController.savePending(merged, secretsRestored: secretsRestored, to: Self.pendingURL)
                 dismiss(conflict)
                 pendingCount = Self.pendingOperationCount()
                 message = ("Version de «\u{00A0}\(conflict.otherDevice)\u{00A0}» prête\u{00A0}: redémarrez NetScope pour la rétablir.", .accent)

@@ -191,7 +191,10 @@ final class FileTransferSession: ObservableObject, Identifiable {
         let needsSecret: Bool
         switch connection.proto {
         case .sftp: needsSecret = connection.transfer.sftpAuth == .password
-        default: needsSecret = !connection.username.trimmingCharacters(in: .whitespaces).isEmpty
+        default:
+            // « anonymous » n'a pas de mot de passe (le client envoie « netscope@ ») : jamais demandé.
+            let user = connection.username.trimmingCharacters(in: .whitespaces)
+            needsSecret = !user.isEmpty && user.lowercased() != "anonymous"
         }
         let secret = store?.password(for: connection.id)
         if connection.proto == .sftp, connection.username.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -258,16 +261,30 @@ final class FileTransferSession: ObservableObject, Identifiable {
             return
         }
         connection.username = user
-        if !credentialPassword.isEmpty {
+        RemoteModel.shared.setTransferUsername(user, for: connection.id)
+        var keychainFailure: String?
+        if !credentialPassword.isEmpty, rememberPassword {
             do {
-                if rememberPassword {
-                    try store?.setPassword(credentialPassword, for: connection.id)
-                }
+                try store?.setPassword(credentialPassword, for: connection.id)
             } catch {
-                appendLog("Trousseau : \(error.localizedDescription)")
+                keychainFailure = "Mot de passe non enregistré au Trousseau\u{00A0}: \(error.localizedDescription)"
+                appendLog(keychainFailure!)
             }
         }
-        RemoteModel.shared.updateTransferConnection(connection)
+        if let keychainFailure {
+            // Le mot de passe sert quand même à cette session ; l'échec est montré à l'écran.
+            let endpoint = FileTransferEndpoint(connection: connection, secret: credentialPassword, acceptNewHostKey: acceptHostKey)
+            credentialPassword = ""
+            connectWith(endpoint, notice: keychainFailure)
+            return
+        }
+        let agentAuth = connection.proto == .sftp && connection.transfer.sftpAuth != .password
+        if credentialPassword.isEmpty, !agentAuth, store?.password(for: connection.id) == nil {
+            // Aucun mot de passe (serveur qui accepte l'utilisateur sans mot de passe) : tenté tel
+            // quel, au lieu de redemander l'identification en boucle.
+            connectWith(FileTransferEndpoint(connection: connection, secret: "", acceptNewHostKey: acceptHostKey))
+            return
+        }
         if !rememberPassword, !credentialPassword.isEmpty {
             // Mot de passe pour cette session seulement : jamais au Trousseau.
             let endpoint = FileTransferEndpoint(connection: connection, secret: credentialPassword, acceptNewHostKey: acceptHostKey)
@@ -279,16 +296,20 @@ final class FileTransferSession: ObservableObject, Identifiable {
         connect()
     }
 
-    private func connectWith(_ endpoint: FileTransferEndpoint) {
+    private func connectWith(_ endpoint: FileTransferEndpoint, notice: String? = nil) {
         phase = .connecting
         Task {
+            await browser?.close()
+            await transfer?.close()
             do {
                 let browser = try makeClient(endpoint)
                 let start = try await browser.connect()
                 self.browser = browser
                 self.transfer = try makeClient(endpoint)
                 phase = .connected
-                navigateRemote(start)
+                let configured = connection.transfer.remoteDirectory.trimmingCharacters(in: .whitespaces)
+                navigateRemote(configured.isEmpty ? start : configured)
+                if let notice { remoteError = notice }
                 startRunner()
             } catch let error as FileTransferError {
                 handleConnectError(error)
@@ -301,8 +322,8 @@ final class FileTransferSession: ObservableObject, Identifiable {
     /// FTPS : faire confiance au certificat présenté (empreinte enregistrée avec la connexion).
     func trustCertificate(_ sha256: String) {
         connection.transfer.trustedCertificateSHA256 = sha256
-        RemoteModel.shared.updateTransferConnection(connection)
-        appendLog("Certificat accepté : \(sha256)")
+        RemoteModel.shared.setTrustedCertificate(sha256, for: connection.id)
+        appendLog("Certificat accepté\u{00A0}: \(sha256)")
         connect()
     }
 
@@ -445,7 +466,7 @@ final class FileTransferSession: ObservableObject, Identifiable {
         refreshLocal()
         if !isDemo {
             connection.transfer.localDirectory = url.path
-            RemoteModel.shared.updateTransferConnection(connection)
+            RemoteModel.shared.setTransferLocalDirectory(url.path, for: connection.id)
         }
     }
 
@@ -551,8 +572,13 @@ final class FileTransferSession: ObservableObject, Identifiable {
                 Task {
                     do {
                         try FileManager.default.createDirectory(at: localURL, withIntermediateDirectories: true)
+                        let root = localURL.standardizedFileURL.path + "/"
                         for (child, relative) in try await browser.walk(entry.path) {
-                            let target = localURL.appendingPathComponent(relative)
+                            // Chaque élément passe par le nom local sûr, et la cible doit rester
+                            // dans le dossier reçu (un serveur ne choisit jamais où écrire sur le Mac).
+                            let safe = relative.split(separator: "/").map { RemotePath.safeLocalName(String($0)) }.joined(separator: "/")
+                            let target = localURL.appendingPathComponent(safe)
+                            guard target.standardizedFileURL.path.hasPrefix(root) else { continue }
                             if child.isDirectory {
                                 try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
                             } else {
@@ -636,7 +662,16 @@ final class FileTransferSession: ObservableObject, Identifiable {
                     update(id) { $0.state = .retrying(attempt: attempt); $0.attempts = attempt; $0.bytesPerSecond = nil }
                     appendLog("Coupure pendant \(job.name)\u{00A0}: reprise dans \(Int(TransferRetryPolicy.delay(forAttempt: attempt)))\u{00A0}s.")
                     try? await Task.sleep(nanoseconds: UInt64(TransferRetryPolicy.delay(forAttempt: attempt) * 1_000_000_000))
-                    if Task.isCancelled { continue }
+                    if Task.isCancelled {
+                        // Pause ou annulation pendant l'attente : le transfert n'est pas relancé.
+                        if pauseRequested.remove(id) != nil {
+                            update(id) { $0.state = .paused; $0.bytesPerSecond = nil }
+                        } else {
+                            update(id) { $0.state = .cancelled; $0.bytesPerSecond = nil; $0.finishedAt = Date() }
+                            if job.direction == .download { try? FileManager.default.removeItem(at: job.localURL) }
+                        }
+                        return
+                    }
                     resume = true
                     update(id) { $0.state = .running }
                     continue

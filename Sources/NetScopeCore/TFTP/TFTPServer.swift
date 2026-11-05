@@ -166,6 +166,8 @@ public final class TFTPServer: @unchecked Sendable {
     private var listener: Int32 = -1
     private var running = false
     private var active: [String: UUID] = [:]
+    /// Signalé par le fil d'écoute quand il a fermé son socket (voir `stop()`).
+    private var listenFinished: DispatchSemaphore?
 
     public init(configuration: Configuration, events: @escaping @Sendable (Event) -> Void) {
         self.configuration = configuration
@@ -187,13 +189,18 @@ public final class TFTPServer: @unchecked Sendable {
         }
         let bindAddress = Self.bindAddress(port: configuration.port, listen: configuration.listenAddress)
         let (fd, port) = try TFTPSocket.bind(address: bindAddress, port: configuration.port, receiveDestination: true)
+        let finished = DispatchSemaphore(value: 0)
         lock.lock()
         listener = fd
         boundPort = port
         running = true
+        listenFinished = finished
         lock.unlock()
         events(.listening(port: port))
-        let thread = Thread { [self] in listen(fd) }
+        let thread = Thread { [self] in
+            listen(fd)
+            finished.signal()
+        }
         thread.name = "TFTP écoute \(port)"
         thread.qualityOfService = .userInitiated
         thread.start()
@@ -205,11 +212,18 @@ public final class TFTPServer: @unchecked Sendable {
     }
 
     /// Arrête l'écoute et annule les transferts en cours (un ERROR est envoyé aux appareils).
+    /// Attend que le socket d'écoute soit fermé (au plus un tour de `poll`, 200 ms) : un redémarrage
+    /// immédiat sur le même port ne doit pas échouer avec « port déjà utilisé ».
     public func stop() {
         lock.lock()
         let wasRunning = running
         running = false
+        let finished = listenFinished
+        listenFinished = nil
         lock.unlock()
+        if wasRunning, let finished, Thread.current.name?.hasPrefix("TFTP écoute") != true {
+            _ = finished.wait(timeout: .now() + 1)
+        }
         if wasRunning { events(.stopped(nil)) }
     }
 

@@ -305,10 +305,18 @@ struct RegConfigExportSheet: View {
             .buttonStyle(.primary)
             .keyboardShortcut(.defaultAction)
             .regDisabled(!canExport)
-            .help(canExport ? "Choisir l’emplacement du fichier" : (selected.isEmpty ? "Cochez au moins une partie" : "Saisissez deux fois le même mot de passe"))
+            .help(exportHelp)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
+    }
+
+    /// Pourquoi « Exporter… » est grisé (ou ce qu'il fait).
+    private var exportHelp: String {
+        if canExport { return "Choisir l’emplacement du fichier" }
+        if selected.isEmpty { return "Cochez au moins une partie" }
+        if !strength.isAcceptable { return "Mot de passe trop faible (au moins \(BackupPasswordStrength.minimumLength) caractères, variés)" }
+        return "Saisissez deux fois le même mot de passe"
     }
 
     private func close() {
