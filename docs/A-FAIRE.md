@@ -5,9 +5,9 @@
 
 ## Priorités (revues le 4 novembre 2026, réorganisées avec les notes 45 à 53)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0.
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0.
 
-1. **0.13.x à 0.16.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP) : essais réels de la 0.3.x (localisation, DHCP, capture,
+1. **0.13.x à 0.17.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP ; 0.17.0 : relecture automatique, WAN et VPN, Trafic FortiView et analyse complète à essayer sur de vraies FortiGate) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
    des 0.5.0 à 0.8.0 (voir ci-dessous) ; 0.13.1 au besoin.
 2. ~~**0.5.0, diagnostic du poste et du réseau local**~~ : livrée le 4 novembre 2026
@@ -46,7 +46,13 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
     Appareil ; 47 : diagnostic Wi-Fi d'un client, d'une borne ou d'un SSID, avec suivi et
     rapport ; correctif iCloud de Vitesse des disques) ; essai réel à faire sur les FortiGate
     et bornes FortiAP de Dany (champs renvoyés par FortiOS, diagnostic sur un vrai client).
-14. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany ;
+14. ~~**0.17.0, suivi automatique et trafic**~~ : livrée le 4 novembre 2026 (notes 29 :
+    relecture automatique du site actif, intervalle par site, pauses et essais espacés ; 39 :
+    outil « WAN et VPN », vue de tous les sites, sondes et rapport ; 54 : écran « Trafic »
+    FortiView, « Qui sature le lien ? », analyse complète du réseau, sondes et rapport) ; essai
+    réel à faire sur les FortiGate de Dany (droits FortiView et Log & Report, champs SD-WAN,
+    IPsec et VPN SSL, historique selon la journalisation).
+15. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany ;
     réorganisé le même jour pour placer les notes 45 à 53, ordre accepté par Dany) :
     - **0.13.1** : essais réels (sites, FortiGate, FortiAP, navigation) et correctifs ; note 35
       (journal et diagnostic).
@@ -57,8 +63,8 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       historique vidé au changement de site), 52 (nom d'utilisateur SSH).
     - ~~**0.16.0, Wi-Fi des clients**~~ (livrée) : notes 46 (clients par borne et par SSID,
       fiche complète), 47 (diagnostic Wi-Fi d'un client, avec solutions).
-    - **0.17.0, suivi automatique et trafic** : notes 29 (relire en automatique), 39 (WAN des
-      FortiGate), 54 (FortiView : trafic et analyse complète du réseau).
+    - ~~**0.17.0, suivi automatique et trafic**~~ (livrée) : notes 29 (relire en automatique),
+      39 (WAN des FortiGate), 54 (FortiView : trafic et analyse complète du réseau).
     - **0.18.0, transferts et services** : notes 50 (FTP, FTPS, SFTP), 51 (TFTP), 53 (réseaux
       sociaux et assistants IA dans les services en ligne).
     - **0.19.0, parc Fortinet** : notes 40 (sauvegarde des configurations), 41 (firmware et
@@ -76,7 +82,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 | --- | --- | --- |
 | Scanner et sites | 18, 19, 20, 26, 28, 48, 49 | — |
 | Navigation entre les modules | 31, 33, 34, 36, 45 | — |
-| Switchs et ports, Fortinet | 12, 24, 25 | 29, 39 et 54 (0.17.0), 40 et 41 (0.19.0) |
+| Switchs et ports, Fortinet | 12, 24, 25, 29, 39, 54 | 40 et 41 (0.19.0) |
 | Wi-Fi | 1, 27, 46, 47 | — |
 | Carte du réseau | 32 | — |
 | Inventaire | 8, 30 | 10 (0.20.0) |
@@ -634,6 +640,8 @@ site. Il est possible d'avoir plusieurs sites sous la même plage IP. »
 
 ## 29. Relire en automatique — 0.17.0 (demande de Dany)
 
+**Livrée dans la 0.17.0** (4 novembre 2026) ; essai réel à faire sur les FortiGate de Dany (intervalles, pauses, essais espacés après une erreur).
+
 - Relecture périodique, sans relancer de scan, de la FortiGate (FortiSwitch, FortiAP), des
   switchs SNMP et des emplacements des appareils (aujourd'hui : boutons « Relire la FortiGate »,
   « Relire les bornes », « Interroger les switchs » ou fin de scan).
@@ -730,6 +738,8 @@ entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 3
   aujourd’hui, jamais de secret.
 
 ## 39. État du WAN de chaque FortiGate — 0.17.0 (analyse, retenue par Dany)
+
+**Livrée dans la 0.17.0** (4 novembre 2026) ; essai réel à faire sur les FortiGate de Dany (champs SD-WAN, IPsec et VPN SSL renvoyés par FortiOS).
 
 - Liens WAN et SD-WAN (état, latence, perte, gigue), tunnels VPN IPsec (montés ou tombés),
   par site ; sondes « tunnel tombé » et « lien WAN dégradé » ; vue de tous les sites.
@@ -948,6 +958,8 @@ Ajouter au catalogue de la note 15 (`SvcCatalog.swift`, livré dans la 0.6.0) un
   site (ex. réseaux sociaux masqués là où ils sont bloqués exprès).
 
 ## 54. FortiView : trafic et analyse complète du réseau — 0.17.0 (demande de Dany)
+
+**Livrée dans la 0.17.0** (4 novembre 2026) ; essai réel à faire sur les FortiGate de Dany (droits « Log & Report » et « FortiView », historique selon la journalisation).
 
 « Ajouter FortiView, le trafic, une analyse complète du réseau. » Nouvel écran « Trafic »
 (groupe SUIVI), lu sur la FortiGate de chaque site par l'API REST de FortiOS (moniteurs

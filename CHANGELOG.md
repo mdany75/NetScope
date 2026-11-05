@@ -1,5 +1,72 @@
 # Changements
 
+## 0.17.0 — 2026-11-04
+
+Le suivi automatique et le trafic : NetScope relit tout seul la FortiGate, les bornes et les
+switchs du site actif, montre l’état du WAN et des VPN de chaque FortiGate, et un nouvel écran
+« Trafic » dit qui consomme le lien, avec une analyse complète du réseau notée sur 100.
+
+### Ajouté
+- **Relecture automatique** : sans relancer de scan, NetScope relit à intervalle régulier la
+  FortiGate du site actif (FortiSwitch, emplacement des appareils, table ARP et baux DHCP), ses
+  bornes FortiAP et ses switchs SNMP.
+- Intervalle réglable par site dans Réglages › Switchs › Relecture automatique : désactivée,
+  1, 2, 5, 10, 15 ou 30 min (5 min par défaut).
+- Indication « Relu il y a 2 min · prochaine dans 3 min » dans Switchs et ports et dans
+  Wi-Fi › FortiAP, avec un menu pour changer l’intervalle du site actif.
+- **Outil « WAN et VPN »** (Boîte à outils › Internet) : liens WAN de chaque FortiGate avec
+  leur état, débit, latence, gigue, perte et SLA du SD-WAN ; tunnels VPN IPsec montés, partiels
+  ou tombés, avec le détail des phases 2 ; utilisateurs VPN SSL connectés. Lecture seule par
+  l’API REST.
+- Vue de tous les sites dans « WAN et VPN » : le menu « Site ▾ » montre un, plusieurs ou tous
+  les sites, avec un tableau qui résume chaque FortiGate (liens actifs, tunnels montés, état).
+- Seuils réglables d’un lien dégradé (latence, gigue, perte) ; un SLA non respecté sur la
+  FortiGate compte aussi. Conseils en clair pour un lien ou un tunnel en panne.
+- **Nouvel écran « Trafic »** (groupe Suivi) : trafic de la FortiGate de chaque site lu par
+  FortiView (sources, destinations, applications, catégories web, interfaces, politiques,
+  sessions et menaces), en temps réel ou sur 5 min, 1 h, 24 h ou 7 jours, trié par débit,
+  octets ou sessions. Menu « Site ▾ » avec « Tous les sites ».
+- **« Qui sature le lien ? »** en un clic : charge de chaque lien WAN et appareils qui
+  consomment le plus, avec leur application, leur destination et un conseil (par exemple, une
+  sauvegarde nuage à déplacer hors des heures ouvrables).
+- Chaque source du trafic est reliée à NetScope : son nom, son port de switch et sa borne
+  Wi-Fi ; double-clic vers sa fiche Appareil, « Ouvrir dans › » vers les autres modules.
+- **« Analyse complète du réseau »** : un bilan qui réunit trafic, sécurité, santé (WAN, ports
+  de switch en erreur, Wi-Fi, étendues DHCP) et inventaire (appareils inconnus), avec une note
+  sur 100 et des points classés par gravité, chacun expliqué, avec l’action conseillée et un
+  bouton « Voir ».
+- **Surveillance** : nouvelles sondes « Tunnel VPN tombé » et « Lien WAN dégradé » (un tunnel,
+  un lien, « * » ou « Site / * », avec leurs propres seuils), « Lien saturé », « Appareil qui
+  consomme trop » et « Nouvelle menace ».
+- **Rapports** : nouvelles sections facultatives « WAN et VPN » (liens, tunnels, constats et
+  conseils) et « Trafic et analyse » (liens WAN, plus gros consommateurs, applications, menaces
+  et points de l’analyse complète).
+
+### Modifié
+- La relecture se met en pause pour tout site qui n’est pas le site actif, pendant un scan,
+  quand le Mac est en veille ou hors réseau, et quand le jeton ou le certificat de la FortiGate
+  est à régler.
+- Une lecture faite au bouton, en fin de scan ou par la Surveillance repousse la relecture
+  suivante : jamais deux lectures à la fois vers la même FortiGate.
+- Réglages › Switchs : l’aide indique les droits « Log & Report » et « FortiView » en lecture
+  à ajouter au profil de l’administrateur API.
+- Diagnostic FortiGate : les réponses brutes du WAN, des VPN et de FortiView sont ajoutées au
+  texte copié, sans le jeton.
+
+### Corrigé
+- Après une erreur de lecture, les essais s’espacent (le double à chaque échec, jusqu’à 1 h)
+  et la dernière lecture réussie reste affichée, au lieu d’être effacée.
+- Jamais de relecture SNMP d’un switch d’un autre site : la communauté ne part pas vers
+  l’appareil qui porte la même adresse chez un autre client.
+
+### Limites
+- Tout est en lecture seule et n’a pas encore été essayé sur une vraie FortiGate : les champs
+  renvoyés par FortiOS (SD-WAN, IPsec, VPN SSL, FortiView) peuvent varier selon la version.
+- L’écran « Trafic » demande les droits « Log & Report » et « FortiView » en lecture sur le
+  profil de l’administrateur API ; sans eux, il l’indique et reste vide. L’historique sur
+  24 h ou 7 jours dépend de la journalisation (disque ou FortiAnalyzer) de la FortiGate.
+- La relecture automatique ne touche que le site actif, et seulement quand NetScope est ouvert.
+
 ## 0.16.0 — 2026-11-04
 
 Les clients Wi-Fi des bornes FortiAP en détail : par borne, par radio et par SSID, une fiche
