@@ -101,11 +101,12 @@ struct SwitchTabBar: View {
         }
     }
 
-    /// Compteur affiché sur l'onglet : ports en erreur du switch choisi, switchs, voisins.
+    /// Compteur affiché sur l'onglet : ports en erreur de tout le site (même chiffre que la tuile
+    /// « Ports en erreur »), switchs, voisins.
     private func badge(_ tab: SwitchPageTab) -> Int? {
         switch tab {
         case .switchs: return snapshots.count
-        case .ports: return shown.map { store.recentErrors($0.id).alerts.count }
+        case .ports: return summary.errorPorts.count
         case .voisins: return summary.neighbors
         case .trafic, .appareils: return nil
         }

@@ -62,7 +62,7 @@ final class RapportScheduleStore: ObservableObject {
     }
 
     private func tick() {
-        guard !isDemo, producing == nil, state != nil else { return }
+        guard !isDemo, producing == nil, sending == nil, state != nil else { return }
         // Pendant un scan, les appareils du site actif sont incomplets : on attend la fin.
         guard !ScanController.shared.isRunning else { return }
         let now = Date()
@@ -75,12 +75,14 @@ final class RapportScheduleStore: ObservableObject {
 
     /// Produit le rapport planifié pour l'échéance donnée (ou « maintenant »), un fichier par site.
     /// Note 78 : `testMail` (« Envoyer un essai ») envoie le résultat même si l'envoi automatique
-    /// n'est pas activé ; sinon il ne part que si « Envoyer par courriel » est choisi.
+    /// n'est pas activé ; sinon il ne part que si « Envoyer par courriel » est choisi. L'essai ne
+    /// touche pas à l'état du rapport planifié (dernière production, fichiers, statut, écart
+    /// minimal), ne publie pas « Rapport planifié prêt » et n'ouvre pas de brouillon dans Mail.
     private func produce(_ id: UUID, slot: Date?, now: Date, testMail: Bool = false) {
         guard let index = book.schedules.firstIndex(where: { $0.id == id }), let state else { return }
         let schedule = book.schedules[index]
         producing = id
-        lastProduction = now
+        if !testMail { lastProduction = now }
         defer { producing = nil }
 
         var files: [URL] = []
@@ -97,6 +99,13 @@ final class RapportScheduleStore: ObservableObject {
         // Note 78 : envoi par le serveur SMTP des Alertes, seulement s'il a été choisi (ou pour l'essai).
         if (schedule.email == .send || testMail), !produced.isEmpty {
             mail(schedule, files: produced, isTest: testMail, now: now)
+        }
+        if testMail {
+            if produced.isEmpty {
+                show("Essai\u{00A0}: aucun rapport produit" + (errors.isEmpty ? "." : ". Échec\u{00A0}: " + errors.joined(separator: "\u{00A0}; ") + "."),
+                     tone: .warning)
+            }
+            return
         }
         var updated = schedule
         if let slot { updated.lastSlot = slot }
@@ -120,7 +129,8 @@ final class RapportScheduleStore: ObservableObject {
                 + files.map(\.lastPathComponent).joined(separator: ", ") + ".",
             link: .screen(Screen.rapports.rawValue), source: "rapport-planifie-" + schedule.id.uuidString))
 
-        // Courriel : jamais envoyé ; au mieux un brouillon à relire dans Mail.
+        // Brouillon à relire dans Mail (choix « Brouillon ») ; l'envoi automatique par SMTP
+        // (« Envoyer par courriel ») est fait plus haut par mail(_:files:isTest:now:).
         if schedule.email == .draft, !files.isEmpty {
             let day = ReportText.longDate(ReportText.isoDay(now)) ?? ReportText.isoDay(now)
             let subject = schedule.name + " — " + day
@@ -168,7 +178,8 @@ final class RapportScheduleStore: ObservableObject {
             }
             sending = nil
             let text = (isTest ? "Essai\u{00A0}: " : "") + notes.joined(separator: "\u{00A0}; ")
-            if let index = book.schedules.firstIndex(where: { $0.id == schedule.id }) {
+            // L'essai ne modifie pas l'état du rapport planifié : son résultat est dans le message affiché.
+            if !isTest, let index = book.schedules.firstIndex(where: { $0.id == schedule.id }) {
                 let base = book.schedules[index].lastMessage ?? ""
                 book.schedules[index].lastMessage = (base.hasSuffix(".") ? String(base.dropLast()) : base) + ". " + text + "."
                 if failed, book.schedules[index].lastStatus == .ok { book.schedules[index].lastStatus = .partial }
@@ -216,7 +227,7 @@ final class RapportScheduleStore: ObservableObject {
             show("Démonstration\u{00A0}: aucun rapport n’est produit.", tone: .neutral)
             return
         }
-        guard producing == nil else { return }
+        guard producing == nil, sending == nil else { return }
         if ScanController.shared.isRunning {
             show("Un scan est en cours\u{00A0}: le rapport sera possible à la fin du scan.", tone: .warning)
             return

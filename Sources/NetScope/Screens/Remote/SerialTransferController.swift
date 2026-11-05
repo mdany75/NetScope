@@ -138,7 +138,9 @@ final class SerialTransferController: ObservableObject, Identifiable {
         guard state.isOver else { return }
         finishedAt = Date()
         timer?.cancel()
-        if state == .finished, direction == .receive, let receiver = machine as? XModemReceiver {
+        // Fichiers complets et vérifiés gardés même si le lot échoue ou est annulé ensuite
+        // (YMODEM : le 3e fichier peut échouer après deux fichiers reçus).
+        if direction == .receive, let receiver = machine as? XModemReceiver {
             store(receiver.receivedFiles)
         }
         onFinish?(summary)
@@ -220,6 +222,11 @@ final class SerialTransferController: ObservableObject, Identifiable {
             }
             return "\(proto.shortLabel)\u{00A0}: \(files.map(\.name).joined(separator: ", ")) envoyé en \(FileTransferFormat.remaining(elapsed)), \(progress.retries) reprise\(progress.retries > 1 ? "s" : "")."
         default:
+            if direction == .receive, !saved.isEmpty {
+                let names = saved.map(\.lastPathComponent).joined(separator: ", ")
+                let plural = saved.count > 1 ? "s" : ""
+                return "\(proto.shortLabel)\u{00A0}: \(state.label). \(saved.count) fichier\(plural) reçu\(plural) avant l’arrêt (\(names)) dans \(destination?.lastPathComponent ?? "—")."
+            }
             return "\(proto.shortLabel)\u{00A0}: \(state.label)."
         }
     }

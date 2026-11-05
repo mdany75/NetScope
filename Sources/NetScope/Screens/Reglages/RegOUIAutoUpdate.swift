@@ -106,13 +106,20 @@ final class OUIAutoController: ObservableObject {
         lastSkip = nil
         AppLog.shared.info("Base des fabricants", "Vérification automatique du registre IEEE.")
         let updater = OUIUpdater()
-        let result = await Task.detached(priority: .utility) { [settings] in
+        let run = Task.detached(priority: .utility) { [settings] in
             await OUIAutoUpdateRun.perform(settings: settings, updater: updater, database: .builtIn) {
                 try await updater.download()
             }
-        }.value
+        }
+        // Option décochée pendant la vérification (setEnabled annule `task`) : la tâche détachée
+        // est annulée aussi, et rien n'est installé après le téléchargement.
+        let result = await withTaskCancellationHandler { await run.value } onCancel: { run.cancel() }
         guard let result else { return }
-        settings = result.settings
+        // Seuls la date et le résultat de la vérification sont repris : `isEnabled` reste celui de
+        // l'utilisateur, qui a pu changer pendant l'attente.
+        settings.lastCheck = result.settings.lastCheck
+        settings.lastUpdate = result.settings.lastUpdate
+        settings.lastOutcome = result.settings.lastOutcome
         save()
         OUIController.shared.refresh()
         MonWindow.appState?.objectWillChange.send()

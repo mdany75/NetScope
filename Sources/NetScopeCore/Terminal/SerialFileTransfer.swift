@@ -233,13 +233,15 @@ public enum XModem {
         return (name, size, modified)
     }
 
-    /// Nom sûr pour un fichier reçu : dernier élément, sans « .. » ni caractère de contrôle.
+    /// Nom sûr pour un fichier reçu : dernier élément, sans « .. », point de tête ni caractère de contrôle.
     public static func safeName(_ name: String, fallback: String = "fichier-recu.bin") -> String {
         let last = name.split(separator: "/").last.map(String.init) ?? ""
         let cleaned = String(last.unicodeScalars.filter { $0.value >= 0x20 && $0 != "\\" && $0 != ":" }.map(Character.init))
             .trimmingCharacters(in: .whitespaces)
-        if cleaned.isEmpty || cleaned == "." || cleaned == ".." { return fallback }
-        return String(cleaned.prefix(200))
+        // Pas de fichier caché (« .zshrc ») : l'appareil distant choisit le nom en YMODEM.
+        let visible = String(cleaned.drop(while: { $0 == "." })).trimmingCharacters(in: .whitespaces)
+        if visible.isEmpty { return fallback }
+        return String(visible.prefix(200))
     }
 
     /// Séquence d'annulation : huit CAN, puis huit retours arrière (effacent les CAN à l'écran).
@@ -361,7 +363,10 @@ public final class XModemSender: SerialTransferMachine {
                 blockNumber &+= 1
                 return sendNextBlock(now: now)
             }
-            if byte == XModemByte.nak || (byte == XModemByte.crcRequest && blockNumber == 1 && progress.blocks == 0) {
+            // Un « C » reçu ici est un « C » de démarrage en retard (déjà en route ou en mémoire
+            // tampon) : le renvoi ne se fait que sur NAK ou à l'échéance, comme lrzsz. Renvoyer le
+            // bloc 1 sur un « C » le ferait acquitter deux fois et décalerait tous les ACK suivants.
+            if byte == XModemByte.nak {
                 return resend(now: now)
             }
             return []

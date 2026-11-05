@@ -369,11 +369,11 @@ struct TopologieScreen: View {
 
         return HStack(alignment: .top, spacing: 12) {
             InvTile(title: "Appareils agrégés", value: "\(devices.count)", subtitle: "\(online) vus récemment", valueSize: 19)
-            InvTile(title: "Équipements réseau", value: "\((gatewayFound ? 1 : 0) + switches + aps)",
+            InvTile(title: "Équipements réseau", value: "\((gatewayFound ? 1 : 0) + switches + inferred + aps)",
                     // Insécables dans chaque élément et avant « · » : la coupure tombe entre deux éléments.
                     subtitle: equipment.map { $0.replacingOccurrences(of: " ", with: "\u{00A0}") }.joined(separator: "\u{00A0}· "),
                     valueSize: 19)
-            InvTile(title: "Liens affichés", value: "\(links.count + graph.redundantLinks.count)",
+            InvTile(title: "Liens affichés", value: "\(graph.drawnLinkCount)",
                     subtitle: linksSubtitle(graph, wired: links.count - wireless + graph.redundantLinks.count, wireless: wireless), valueSize: 19)
             InvTile(title: "Ports de switch connus", value: "\(placed)/\(devices.count)",
                     subtitle: placed == devices.count ? "Tous les appareils sont placés" : "\(devices.count - placed) sans port connu",
@@ -384,11 +384,12 @@ struct TopologieScreen: View {
         }
     }
 
-    /// « 16 filaires · 2 Wi-Fi », et les liens vus par LLDP ou la FortiGate (note 78).
+    /// « 18 filaires (dont 7 LLDP) · 2 Wi-Fi » : les liens vus par LLDP ou la FortiGate (note 78)
+    /// sont déjà comptés parmi les filaires.
     private func linksSubtitle(_ graph: TopoGraph, wired: Int, wireless: Int) -> String {
-        var parts = ["\(wired) filaire\(wired > 1 ? "s" : "")", "\(wireless) Wi-Fi"]
         let verified = graph.infraLinks.count
-        if verified > 0 { parts.append("\(verified) LLDP") }
+        let wiredText = "\(wired) filaire\(wired > 1 ? "s" : "")" + (verified > 0 ? " (dont \(verified) LLDP)" : "")
+        let parts = [wiredText, "\(wireless) Wi-Fi"]
         // Insécables (espaces et trait d'union de « Wi-Fi ») : la coupure tombe entre deux éléments.
         return parts.map { $0.replacingOccurrences(of: " ", with: "\u{00A0}").replacingOccurrences(of: "-", with: "\u{2011}") }
             .joined(separator: "\u{00A0}· ")

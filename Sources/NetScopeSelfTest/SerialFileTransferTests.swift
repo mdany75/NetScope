@@ -32,6 +32,8 @@ func registerSerialFileTransferTests(_ suite: TestSuite) {
         try expectEqual(XModem.safeName("../../etc/passwd"), "passwd", "pas de remontée de dossier")
         try expectEqual(XModem.safeName(".."), "fichier-recu.bin", "nom vide remplacé")
         try expectEqual(XModem.safeName("a\u{07}b:c.bin"), "abc.bin", "caractères de contrôle retirés")
+        try expectEqual(XModem.safeName(".zshrc"), "zshrc", "pas de fichier caché")
+        try expectEqual(XModem.safeName("..."), "fichier-recu.bin", "que des points : nom de repli")
         try expectEqual(XModem.cancelSequence.prefix(8).allSatisfy { $0 == 0x18 }, true, "huit CAN")
     }
 
@@ -56,6 +58,16 @@ func registerSerialFileTransferTests(_ suite: TestSuite) {
         try SerialLink(sender: sender, receiver: receiver).run()
         try expectEqual(receiver.receivedFiles.first?.data, file.data, "1 Kio replié en 128 octets avec somme")
         try expectEqual(sender.progress.blockSize, 128, "blocs de 128 octets")
+    }
+
+    suite.add("XMODEM-CRC : un « C » de démarrage en retard ne fait pas renvoyer le bloc 1") {
+        let file = SerialFile(name: "config.txt", data: pattern(300))
+        let sender = XModemSender(proto: .xmodemCRC, files: [file])
+        let first = sender.receive([XModemByte.crcRequest], now: 0)
+        try expect(!first.isEmpty, "bloc 1 envoyé sur le premier « C »")
+        try expectEqual(sender.receive([XModemByte.crcRequest], now: 0.1), [], "second « C » ignoré en attente de l’ACK")
+        let second = sender.receive([XModemByte.ack], now: 0.2)
+        try expect(!second.isEmpty && second[1] == 2, "l’ACK fait partir le bloc 2")
     }
 
     suite.add("XMODEM : blocs abîmés, perdus, coupés, ACK perdus et bruit — reprises jusqu’au fichier exact") {

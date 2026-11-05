@@ -6,7 +6,7 @@ import SwiftUI
 // double-clic ou ↩︎ : la carte d'occupation montre ce sous-réseau.
 
 /// Une ligne : un sous-réseau et ses adresses libres pour une IP fixe.
-struct AnaNextFreeRow: Identifiable {
+struct AnaNextFreeRow: Identifiable, Sendable {
     let item: AddressPlanSubnet
     let next: IPv4Address?
     let following: [IPv4Address]
@@ -25,22 +25,35 @@ struct AnaNextFreeRow: Identifiable {
     var usage: Double { hosts == 0 ? 0 : Double(used) / Double(hosts) }
     var sortUsage: Double { usage }
 
-    /// Calcul d'un sous-réseau (un /25 ou plus petit se lit dans son /24).
-    @MainActor
+    /// Calcul d'un sous-réseau (un /25 ou plus petit se lit dans son /24). Fonction pure, appelée
+    /// hors du MainActor (AnaPlanCache.swift) : un seul passage sur le bloc (celui du plan), puis
+    /// les quatre premières adresses libres seulement.
     static func make(_ item: AddressPlanSubnet, records: [InvRecord], dhcp: AddressPlanDHCP, exclusions: AddressExclusions,
                      subnets: [Subnet], now: Date, recentWindow: TimeInterval) -> AnaNextFreeRow {
         let plan = AddressPlan(block: item.subnet, records: records, dhcp: dhcp, exclusions: exclusions, subnets: subnets,
                                now: now, recentWindow: recentWindow)
-        let free = plan.freeAddresses(in: item.subnet)
+        let first = plan.freeAddresses(in: item.subnet, limit: 4)
         var used = plan.used
         var hosts = plan.hosts
+        let free: Int
         if item.subnet.prefix > 24 {
-            // Sous-réseau plus petit qu'une page : ses seules adresses.
+            // Sous-réseau plus petit qu'une page : ses seules adresses (256 au plus).
             let states = (item.subnet.network.value...item.subnet.broadcast.value).map { plan.cell(IPv4Address($0)).state }
             used = states.filter(\.isUsed).count
             hosts = states.filter { $0 != .reseau }.count
+            free = plan.freeAddresses(in: item.subnet).count
+        } else {
+            // Bloc du plan (le sous-réseau, ou son premier /16) : adresses libres comptées par les
+            // pages, moins les .0 et .255 libres, jamais proposées pour une IP fixe.
+            var count = plan.count(.libre)
+            for page in plan.pages {
+                for last in [UInt32(0), 255] where plan.cell(IPv4Address(page.base.value | last)).state == .libre {
+                    count -= 1
+                }
+            }
+            free = count
         }
-        return AnaNextFreeRow(item: item, next: free.first, following: Array(free.dropFirst().prefix(3)), free: free.count,
+        return AnaNextFreeRow(item: item, next: first.first, following: Array(first.dropFirst()), free: free,
                               used: used, hosts: hosts, dhcpPool: item.dhcpRanges.reduce(0) { $0 + $1.count })
     }
 }

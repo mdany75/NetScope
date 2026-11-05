@@ -55,6 +55,9 @@ public struct TopoGraph: Sendable {
 
     /// Liens redondants : vus par LLDP mais hors de la hiérarchie (deuxième chemin, anneau).
     public var redundantLinks: [TopoInfraLink] { infraLinks.filter { !$0.isTree } }
+    /// Liens dessinés sur la carte : ceux de l'arbre et les liens redondants (LLDP hors arbre).
+    /// Même chiffre pour la tuile « Liens affichés » et la Vue d'ensemble.
+    public var drawnLinkCount: Int { links.count + redundantLinks.count }
 
     /// Lien LLDP entre deux nœuds, dans un sens ou dans l'autre (celui de la hiérarchie d'abord).
     public func infraLink(_ a: String, _ b: String) -> TopoInfraLink? {

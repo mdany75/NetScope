@@ -49,6 +49,10 @@ final class IperfServerModel: ObservableObject {
     @Published var notice: String?
 
     private var server: IperfServer?
+    /// Jeton du serveur en cours (événements des anciens serveurs ignorés).
+    private var serverToken: UUID?
+    /// Arrêt de l'ancien serveur en cours (hors du fil principal) : il libère encore le port.
+    private var stopping: Task<Void, Never>?
     private var timer: Task<Void, Never>?
     private let demo = Launcher.isDemo || CommandLine.arguments.contains("--snapshot")
 
@@ -72,6 +76,16 @@ final class IperfServerModel: ObservableObject {
 
     func start() {
         guard !isListening else { return }
+        if let pending = stopping {
+            // « Arrêter » puis « Démarrer » rapprochés : on attend que l'ancien serveur ait libéré le port.
+            Task { [weak self] in
+                await pending.value
+                guard let self else { return }
+                if self.stopping == pending { self.stopping = nil }
+                self.start()
+            }
+            return
+        }
         guard let port else {
             runState = .failed("Port invalide\u{00A0}: indiquez un nombre de 1 à 65\u{00A0}535.")
             return
@@ -83,12 +97,16 @@ final class IperfServerModel: ObservableObject {
             scheduleAutoStop()
             return
         }
+        // Chaque serveur a son jeton : les derniers événements d'un serveur arrêté (« Arrêter » puis
+        // « Démarrer » rapprochés) sont ignorés au lieu d'être pris pour ceux du nouveau.
+        let token = UUID()
         let server = IperfServer(configuration: IperfServerConfiguration(port: port)) { event in
-            Task { @MainActor in IperfServerModel.shared.handle(event) }
+            Task { @MainActor in IperfServerModel.shared.handle(event, from: token) }
         }
         do {
             let real = try server.start()
             self.server = server
+            serverToken = token
             runState = .listening(port: real)
             scheduleAutoStop()
             ToolStore.shared.record(command: "iperf3 -s -p \(real)  (serveur intégré de NetScope)")
@@ -100,8 +118,17 @@ final class IperfServerModel: ObservableObject {
 
     /// Arrêt (bouton, délai écoulé, fermeture de l'app).
     func stop(automatic: Bool = false) {
-        server?.stop()
+        // L'arrêt attend jusqu'à 1 s la fin de l'écoute : hors du fil principal.
+        if let old = server {
+            let pending = Task.detached(priority: .userInitiated) { old.stop() }
+            stopping = pending
+            Task { [weak self] in
+                await pending.value
+                if self?.stopping == pending { self?.stopping = nil }
+            }
+        }
         server = nil
+        serverToken = nil
         timer?.cancel()
         timer = nil
         stopAt = nil
@@ -129,8 +156,8 @@ final class IperfServerModel: ObservableObject {
         }
     }
 
-    private func handle(_ event: IperfServerEvent) {
-        guard isListening else { return }
+    private func handle(_ event: IperfServerEvent, from token: UUID) {
+        guard isListening, token == serverToken else { return }
         switch event {
         case .testStarted(let test):
             current = test

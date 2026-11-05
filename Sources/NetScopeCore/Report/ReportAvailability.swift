@@ -84,10 +84,15 @@ public struct ReportAvailability: Hashable, Sendable {
         }
         let windows = (planning?.windows ?? []).filter { window in
             guard window.siteID == nil || window.siteID == site else { return false }
-            // Fenêtre qui a eu au moins une occurrence dans la période, ou qui vise une sonde du rapport.
+            // Fenêtre qui a eu au moins une occurrence dans la période et qui vise une sonde du rapport (ou toutes).
             let ids = Set(probes.map(\.id))
             if !window.probeIDs.isEmpty && ids.isDisjoint(with: window.probeIDs) { return false }
-            return window.start <= now && (window.until.map { $0 >= start } ?? true)
+            // Une occurrence (de la fenêtre activée) chevauche vraiment la période : elle finit après
+            // son début et commence avant sa fin.
+            guard window.isEnabled,
+                  let next = window.nextOccurrence(after: start.addingTimeInterval(-Double(window.durationMinutes * 60)), calendar: calendar)
+            else { return false }
+            return next.start <= now
         }
         return ReportAvailability(start: start, end: end, probes: items,
                                   hoursSummary: planning.map { $0.hours(for: site).summary },
@@ -124,7 +129,7 @@ extension ReportBuilder {
             ReportKPI(overall.map(percentLabel) ?? "—", "disponibilité moyenne", tone: ReportUptimeRow.tone(overall) == .critical ? .critical : .normal),
             ReportKPI("\(incidents)", incidents > 1 ? "pannes déclarées" : "panne déclarée", tone: incidents > 0 ? .warning : .normal),
             ReportKPI(durationLabel(down), "hors ligne (cumul estimé)", tone: down > 0 ? .warning : .normal),
-            ReportKPI("\(below)", below > 1 ? "sondes sous 99 %" : "sonde sous 99 %", tone: below > 0 ? .critical : .normal),
+            ReportKPI("\(below)", below > 1 ? "sondes sous 99\u{00A0}%" : "sonde sous 99\u{00A0}%", tone: below > 0 ? .critical : .normal),
         ]))
 
         // Graphes : une case par jour, au plus 14 sondes par graphe.

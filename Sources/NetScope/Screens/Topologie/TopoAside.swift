@@ -340,7 +340,7 @@ struct TopoAside: View {
                     .font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
                 VStack(spacing: 0) {
                     KeyValueRow(key: "Nœuds affichés", value: "\(graph.nodes.count)", keyWidth: 110)
-                    KeyValueRow(key: "Liens affichés", value: "\(graph.links.count)", keyWidth: 110)
+                    KeyValueRow(key: "Liens affichés", value: "\(graph.drawnLinkCount)", keyWidth: 110)
                     KeyValueRow(key: "Sous-réseaux", value: networks.isEmpty ? "—" : networks.joined(separator: "\n"), mono: true, keyWidth: 110)
                     KeyValueRow(key: "VLAN", value: vlans.isEmpty ? "—" : vlans.joined(separator: " · "), keyWidth: 110)
                     if case .vlan(let vlan) = vlanFilter {

@@ -98,6 +98,9 @@ struct AnalyseScreen: View {
     @State private var exportDocument: InvCSVDocument?
     @State private var exportName = "analyse.csv"
     @State private var exporting = false
+    /// Note 78 : plan et « Prochaine IP libre » calculés hors de `body` (voir AnaPlanCache.swift).
+    @StateObject private var planCache = AnaAsyncCache<AnaPlanIdentity, AddressPlan>()
+    @StateObject private var freeCache = AnaAsyncCache<String, [AnaNextFreeRow]>()
 
     var body: some View {
         let now = Date()
@@ -120,10 +123,15 @@ struct AnalyseScreen: View {
             ?? inventories.flatMap { Array($0.store.records.values) }
         let focusAddressing = addressing[focus.key]
         let recentWindow = max(period.seconds, 7 * 86_400)
+        let planInputs = focusAddressing.map { AnaPlanInputs(addressing: $0, records: focusRecords, recentWindow: recentWindow, now: now) }
         let plan = chosen.flatMap { network in
-            focusAddressing.map { info in
-                AddressPlan(block: network.subnet, records: focusRecords, dhcp: info.dhcp, exclusions: info.exclusions,
-                            subnets: info.subnets.map(\.subnet), now: now, recentWindow: recentWindow)
+            focusAddressing.flatMap { info in
+                planInputs.map { inputs in
+                    planCache.value(identity: AnaPlanIdentity(site: focus.key, block: network.subnet), inputs: inputs) {
+                        AddressPlan(block: network.subnet, records: focusRecords, dhcp: info.dhcp, exclusions: info.exclusions,
+                                    subnets: info.subnets.map(\.subnet), now: now, recentWindow: recentWindow)
+                    }
+                }
             }
         }
         let alerts = SiteScope.alerts(inventories, since: since)
@@ -166,10 +174,12 @@ struct AnalyseScreen: View {
                     }
                 }
                 // Note 78 : prochaine IP libre hors étendue DHCP, par sous-réseau du site.
-                if let info = focusAddressing {
-                    AnaNextFreePanel(rows: info.subnets.map {
-                        AnaNextFreeRow.make($0, records: focusRecords, dhcp: info.dhcp, exclusions: info.exclusions,
-                                            subnets: info.subnets.map(\.subnet), now: now, recentWindow: recentWindow)
+                if let info = focusAddressing, let planInputs {
+                    AnaNextFreePanel(rows: freeCache.value(identity: focus.key, inputs: planInputs) {
+                        info.subnets.map {
+                            AnaNextFreeRow.make($0, records: focusRecords, dhcp: info.dhcp, exclusions: info.exclusions,
+                                                subnets: info.subnets.map(\.subnet), now: now, recentWindow: recentWindow)
+                        }
                     }, siteName: multiple ? focus.name : nil, dhcpReadAt: info.dhcpReadAt,
                     canReadDHCP: DHCPScopeStore.shared.canRefresh(state: state),
                     onReadDHCP: { DHCPScopeStore.shared.refreshNow(state: state) },

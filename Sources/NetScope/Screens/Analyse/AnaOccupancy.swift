@@ -223,7 +223,7 @@ struct AnaOccupancyPanel: View {
             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(isFocus ? Theme.text : Color.clear, lineWidth: 2).padding(-2))
             .frame(width: Self.cell, height: Self.cell)
             .contentShape(Rectangle())
-            .help("\(cell.ip.description) : \(cell.state.label)")
+            .help("\(cell.ip.description)\u{00A0}: \(cell.state.label)")
             .onHover { inside in
                 if inside { hovered = cell.ip } else if hovered == cell.ip { hovered = nil }
             }
@@ -325,10 +325,10 @@ struct AnaOccupancyPanel: View {
         case .bail: return "Bail DHCP actif, mais l’appareil n’a pas été vu au dernier scan (éteint, pare-feu, ou plage non scannée)."
         case .reservee: return cell.isGateway ? "Adresse de la passerelle\u{00A0}: jamais distribuée." : "Gardée par une réservation DHCP, même sans bail en cours."
         case .exclue: return "Dans les plages exclues du site\u{00A0}: jamais sondée, état inconnu. Ne pas l’attribuer sans vérifier."
-        case .conflit: return "Plusieurs MAC répondent à cette adresse : IP fixe en double probable."
-        case .horsLigne: return "Ne répond plus, mais l’adresse a servi récemment : à éviter pour une IP fixe."
+        case .conflit: return "Plusieurs MAC répondent à cette adresse\u{00A0}: IP fixe en double probable."
+        case .horsLigne: return "Ne répond plus, mais l’adresse a servi récemment\u{00A0}: à éviter pour une IP fixe."
         case .enLigne: return record?.openPorts.isEmpty == false
-            ? "Ports ouverts : " + (record?.openPorts.map(String.init).joined(separator: ", ") ?? "") + "."
+            ? "Ports ouverts\u{00A0}: " + (record?.openPorts.map(String.init).joined(separator: ", ") ?? "") + "."
             : "Répond au scan."
         }
     }
