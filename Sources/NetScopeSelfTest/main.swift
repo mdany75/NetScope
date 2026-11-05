@@ -76,6 +76,7 @@ registerFileTransferTests(suite)
 registerTFTPTests(suite)
 registerLogTests(suite)
 registerTerminalTests(suite)
+registerVNCTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

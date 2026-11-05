@@ -86,7 +86,7 @@ struct RemoteDetailPanel: View {
     private var securityChip: (text: String, tone: Tone) {
         switch connection.proto {
         case .ssh, .sftp, .ftps: return ("Chiffré", .success)
-        case .telnet, .ftp: return ("Non chiffré", .warning)
+        case .telnet, .ftp, .vnc: return ("Non chiffré", .warning)
         case .serie: return ("Local", .neutral)
         default: return ("Application externe", .neutral)
         }
@@ -100,6 +100,9 @@ struct RemoteDetailPanel: View {
         if connection.proto == .ssh || connection.proto == .telnet {
             return "Mot de passe au Trousseau macOS (service \(RemoteSessionStore.keychainService)), jamais dans le carnet"
                 + (connection.proto == .ssh ? ", remis à ssh par SSH_ASKPASS (ni sur le disque ni dans la ligne de commande)." : ".")
+        }
+        if connection.proto == .vnc {
+            return "Mot de passe au Trousseau macOS (service com.danymenard.netscope.vnc). VNC ne chiffre pas l’image\u{00A0}: réseau local, VPN ou tunnel SSH."
         }
         if connection.proto == .serie { return "Port ouvert seulement quand vous ouvrez la session, en accès exclusif." }
         return "Identifiants demandés par l’application externe, jamais enregistrés par NetScope."
@@ -116,7 +119,11 @@ struct RemoteDetailPanel: View {
                 ? "Identifiant et mot de passe demandés par l’appareil, en clair\u{00A0}; mot de passe du Trousseau tapé sur demande (menu de l’onglet)."
                 : "Identifiant et mot de passe demandés par l’appareil, en clair."
         case .rdp: return "Identifiants demandés par Windows App à l’ouverture (NLA)."
-        case .vnc: return "Mot de passe demandé par Partage d’écran (compte macOS ou mot de passe VNC)."
+        case .vnc:
+            let saved = VNCPasswordStore.hasPassword(connection.id) ? "au Trousseau" : "demandé à la connexion"
+            return connection.username.isEmpty
+                ? "Mot de passe VNC \(saved) (chiffré par DES au défi du serveur)."
+                : "Compte macOS « \(connection.username) » (ARD\u{00A0}: Diffie-Hellman + AES-128) ou mot de passe VNC, \(saved)."
         case .ftp, .ftps:
             let password = FileTransferStore.shared.hasPassword(connection.id) ? "mot de passe au Trousseau" : "mot de passe demandé à la connexion"
             if connection.username.isEmpty { return "Anonyme (utilisateur « anonymous »)." }

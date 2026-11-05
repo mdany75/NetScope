@@ -9,6 +9,8 @@ struct RemoteScreen: View {
     @ObservedObject private var files = FileTransferStore.shared
     @ObservedObject private var ftpServer = FTPTemporaryServerModel.shared
     @ObservedObject private var sessions = RemoteSessionStore.shared
+    /// Note 57 : sessions VNC intégrées.
+    @ObservedObject private var vnc = VNCSessionStore.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -42,11 +44,19 @@ struct RemoteScreen: View {
                 // Note 57 : petite fenêtre et onglet de session affiché : le terminal prend toute la
                 // largeur (l'onglet « Sessions » ramène la liste des connexions).
                 let sessionShown = sessions.activeTab != nil && model.draft == nil
-                if !model.compactLayout || (browsing == nil && !sessionShown) {
+                let vncSession = browsing == nil ? vnc.displayed(for: model.selectedID) : nil
+                if !model.compactLayout || (browsing == nil && vncSession == nil && !sessionShown) {
                     RemoteConnectionList(model: model)
                         .frame(width: 272)
                 }
-                if let session = browsing {
+                if let vncSession {
+                    // Note 57 : session VNC intégrée ; en petite fenêtre, elle prend toute la largeur.
+                    VNCSessionView(session: vncSession, compact: model.compactLayout,
+                                   onShowConnections: { vncSession.isVisible = false },
+                                   // Petite fenêtre : le bouton des connexions masque déjà la session.
+                                   onHide: model.compactLayout ? nil : { vncSession.isVisible = false })
+                        .frame(minWidth: 300)
+                } else if let session = browsing {
                     // Petite fenêtre : « Connexions » masque le navigateur (la session continue).
                     FileTransferBrowser(session: session, model: model, compact: model.compactLayout) {
                         session.isVisible = false

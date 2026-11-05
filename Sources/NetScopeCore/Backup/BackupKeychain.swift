@@ -45,6 +45,7 @@ public enum BackupKeychainScan {
         case "sauvegarde": return "Mot de passe des sauvegardes chiffrées"
         case "ftp": return "Mots de passe FTP, FTPS et SFTP (Accès distant)"
         case "acces": return "Mots de passe SSH et Telnet (Accès distant)"
+        case "vnc": return "Mots de passe VNC (Accès distant)"
         case "synchro": return "Mot de passe de synchronisation (iCloud Drive)"
         default: return suffix
         }

@@ -77,7 +77,7 @@ struct RemoteDisplayForm: View {
                 .font(Theme.caption).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             if proto == .vnc, draft.display.mode == .fullScreen {
-                SpeedBanner(text: "Partage d’écran n’a pas d’option de plein écran\u{00A0}: après l’identification, NetScope bascule sa fenêtre en plein écran. Il faut autoriser NetScope dans Réglages Système › Confidentialité et sécurité › Accessibilité\u{00A0}; sans cette autorisation, la session s’ouvre en fenêtre.",
+                SpeedBanner(text: "Session intégrée\u{00A0}: fenêtre plein écran de NetScope. Dans Partage d’écran (menu du bouton « Connecter »), NetScope bascule sa fenêtre en plein écran après l’identification, avec l’autorisation Réglages Système › Confidentialité et sécurité › Accessibilité\u{00A0}; sans elle, la session s’ouvre en fenêtre.",
                             tone: .neutral, systemImage: "info.circle")
             }
         }
@@ -101,6 +101,18 @@ struct RemoteDisplayForm: View {
                 return "Fenêtre de \(RemoteDisplaySettings.sizeLabel(size.width, size.height))\u{00A0}; réduite à l’échelle si la fenêtre est plus petite (smart sizing)."
             }
             return "La résolution de Windows suit la taille de la fenêtre (dynamic resolution)."
+        case .vnc:
+            // Note 57 : la session intégrée suit aussi ce réglage (« Taille réelle » : 100 %).
+            let integrated = d.vncScale == .actual ? "Session intégrée\u{00A0}: 100\u{00A0}%, défilement aux bords. " : "Session intégrée\u{00A0}: ajustée à la fenêtre. "
+            return integrated + partageEcranExplanation(d)
+        default:
+            return ""
+        }
+    }
+
+    /// Effet du réglage sur Partage d'écran (ouverture par le menu du bouton « Connecter »).
+    private func partageEcranExplanation(_ d: RemoteDisplaySettings) -> String {
+        switch draft.proto {
         case .vnc:
             switch d.vncScale {
             case .automatic: return "Partage d’écran garde son propre réglage d’échelle."
@@ -155,6 +167,11 @@ struct RemoteConnectButton: View {
                                 }
                             }
                         }
+                    }
+                    // Note 57 : VNC s'ouvre dans NetScope ; Partage d'écran reste possible.
+                    if connection.proto == .vnc {
+                        Divider()
+                        Button("Ouvrir dans Partage d’écran") { model.connect(connection, external: true) }
                     }
                 } label: {
                     Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
