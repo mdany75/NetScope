@@ -93,7 +93,7 @@ struct SwitchThisMacBanner: View {
 
     @ViewBuilder private func buttons(_ neighbor: NetworkNeighbor, stale: Bool) -> some View {
         if !stale, switches.match(neighbor) != nil {
-            Button("Voir le port sur la façade") { switches.showNeighbor(neighbor) }
+            Button("Voir le port") { switches.showNeighbor(neighbor) }
                 .buttonStyle(.secondary)
         }
         Button("Nouvelle capture") { ToolStore.shared.open(.lldp, in: state) }
@@ -136,5 +136,7 @@ extension SwitchStore {
     func showNeighbor(_ neighbor: NetworkNeighbor) {
         guard let found = match(neighbor) else { return }
         select(host: found.host, port: found.port)
+        // Note 83 : le port de ce Mac s'ouvre dans l'onglet Ports.
+        SwitchTabState.shared.tab = found.port == nil ? .switchs : .ports
     }
 }

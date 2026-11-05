@@ -1509,3 +1509,59 @@ Outils inutiles ou redondants dans NetScope, et ce qu’il vaut mieux ne pas fai
   exclusion qui couvre toute une plage est signalée.
 - Tests sans réseau : calcul des adresses à sonder (plages moins exclusions, chevauchements,
   adresses de réseau et de diffusion), import et export.
+
+## 83. Switchs et ports : page divisée en onglets — 0.27.0 (demande de Dany, 5 novembre 2026)
+
+- Constat de Dany : « faire la même chose que la note 80 (FortiAP en onglets) à Switchs
+  Fortinet ». L’écran Switchs et ports empilait tout sur une seule longue page (sources de la
+  localisation, FortiGate, ce Mac, cartes, façade, ports, ports chargés, table MAC, détail du
+  port, trafic, historique, topologie) ; la façade et les ports n’étaient visibles qu’en
+  descendant. Fait :
+- En haut, toujours : le bandeau du site (menu « Site ▾ », relecture automatique) et six tuiles
+  de résumé sur une ligne, chacune ouvre l’onglet qui la détaille : Switchs en ligne, Ports
+  actifs (Ports filtré « Actifs »), Ports en erreur (Ports du premier switch touché, filtré
+  « Erreurs »), PoE utilisé sur le budget (Ports filtré « PoE »), Appareils et VLAN, Voisins LLDP
+  et liens entre switchs.
+- Puis des onglets natifs (contrôle segmenté, menu en petite fenêtre), avec leur compteur :
+  - **Switchs (5)** : cartes des switchs, switchs trouvés par le scan, façade du switch choisi
+    avec « Trouver un appareil », sources de la localisation et interrogation SNMP, FortiGate du
+    site ; un clic sur un port de la façade l’ouvre dans l’onglet Ports ;
+  - **Ports (1 en erreur)** : nouveau tableau standard de tous les ports (« switchs.ports »), le
+    même pour les switchs SNMP et les FortiSwitch (il remplace l’ancien tableau des ports d’un
+    FortiSwitch) : état, vitesse, VLAN, PoE, appareil branché, erreurs récentes, et en colonnes
+    facultatives description, voisin LLDP, adresse IP, nombre de MAC, dernier changement ;
+    filtres « Tous, Actifs, Inactifs, PoE, Uplinks, Erreurs » avec leurs nombres et champ
+    « Filtrer » ; bandeau « Erreurs récentes » (ports dont les erreurs augmentent) ; détail du
+    port à droite avec ses appareils, son voisin et les actions sur le port (note 73) ;
+  - **Trafic** : ports les plus chargés (en direct ou 1 h à 30 j, jusqu’à 16 lignes), trafic en
+    direct et historique du port choisi (note 74) ; un FortiSwitch n’a que l’historique ;
+  - **Appareils** : table MAC du switch choisi, plus haute, et « Appareils par VLAN » (appareils,
+    ports d’accès et trunks de chaque VLAN ; un clic filtre la table MAC sur le VLAN) ;
+  - **Voisins et liens (19)** : « Ce Mac est branché sur… », nouveau tableau des voisins LLDP de
+    tous les switchs du site (« switchs.voisins » : port local, voisin, port distant, nature —
+    lien entre switchs, FortiLink, routeur, point d’accès, téléphone… —, vitesse, capacités,
+    plateforme ; case « Liens d’infrastructure seulement ») et la topologie déduite par LLDP.
+- Ports, Trafic et Appareils montrent un seul switch : le choix du switch est à droite des
+  onglets (les cartes restent dans Switchs).
+- Liens entre onglets : façade → Ports ; « Voir le port » de la table MAC et du tableau des
+  voisins → Ports ; « Voir le trafic du port » et « Voir les appareils du port » (table MAC
+  filtrée « port: ») depuis le tableau des ports ; « … et N autres : voir la table MAC » du
+  détail du port → Appareils ; « Voir … dans l’onglet Ports » sous le trafic du port ; « Ouvrir
+  le switch voisin ». Ces sauts passent par l’historique : Retour (⌘[) ramène à l’onglet quitté.
+- Navigation : l’historique Retour / Avancer garde l’onglet (NavLocation.tab) ; un appareil, une
+  fiche ou « Ouvrir dans › » qui montre un port ouvre l’onglet Ports sur ce port, un switch seul
+  l’onglet Switchs ; « Trouver un appareil » et « Voir le port de switch » (DHCP) montrent la
+  façade ; « Voir le port » de ce Mac ouvre Ports ; la recherche de la barre d’outils (table MAC)
+  ouvre Appareils. La vue de plusieurs sites (note 48) ne change pas.
+- Rien ne disparaît : tous les panneaux d’avant sont dans un onglet. Onglet retenu d’une visite et
+  d’un lancement à l’autre. Les relevés de trafic du switch SNMP affiché tournent quel que soit
+  l’onglet (l’historique des ports continue de se remplir).
+- Moteur dans NetScopeCore/SwitchPages (onglets, lignes et filtres des ports, VLAN, voisins,
+  tuiles), testé sans réseau (« Switchs en onglets », 7 scénarios).
+- Captures : NETSCOPE_SWITCH_ONGLET=switchs | ports | trafic | appareils | voisins ;
+  NETSCOPE_SWITCH_PORTS=tous | actifs | inactifs | poe | uplinks | erreurs. Sans onglet demandé,
+  NETSCOPE_PORT (et les actions sur le port) ouvre Ports, NETSCOPE_SWITCH_HISTORIQUE ouvre Trafic.
+  Vérifié en clair, en sombre et en 1000 × 650.
+- À vérifier sur un vrai réseau : compteurs et filtres sur un gros switch (48 ports et plus,
+  empilés), voisins LLDP d’autres marques (noms avec domaine, capacités absentes), FortiSwitch
+  réels lus par la FortiGate (liens ISL et FortiLink).

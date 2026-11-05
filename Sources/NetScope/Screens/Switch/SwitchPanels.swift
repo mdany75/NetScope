@@ -455,6 +455,9 @@ struct SwitchFaceplatePanel: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var store: SwitchStore
     let snapshot: SNMPSwitchSnapshot
+    /// Note 83 : clic sur un port (onglet Switchs : il s'ouvre dans l'onglet Ports) ; nil : le port
+    /// est seulement choisi.
+    var onSelect: ((Int) -> Void)? = nil
     /// Largeur de la zone de la façade : le cadre sombre la remplit jusqu'au bord de la carte.
     @State private var faceplateWidth: CGFloat = 0
 
@@ -486,7 +489,7 @@ struct SwitchFaceplatePanel: View {
                                         store.select(host: snapshot.id, port: index)
                                         state.perform(.port(NavPortRef(host: snapshot.id, ifIndex: index)))
                                     }) { index in
-                        store.select(host: snapshot.id, port: index)
+                        if let onSelect { onSelect(index) } else { store.select(host: snapshot.id, port: index) }
                     }
                 }
                 .background {
@@ -668,8 +671,13 @@ struct SwitchPortDetail: View {
                         deviceRow(entry, neighbor: neighbor)
                     }
                     if entries.count > 8 || (uplinks.contains(iface.index) && entries.count > 4) {
-                        Text("… et \(entries.count - (uplinks.contains(iface.index) ? 4 : 8)) autres (voir la table MAC)")
-                            .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        // Note 83 : la table MAC est dans l'onglet Appareils, filtrée sur ce port.
+                        Button("… et \(entries.count - (uplinks.contains(iface.index) ? 4 : 8)) autres\u{00A0}: voir la table MAC") {
+                            store.tableFilter = "port:\(iface.name)"
+                            SwitchTabState.shared.jump(.appareils, host: snapshot.id, port: iface.index, in: state)
+                        }
+                        .buttonStyle(.link)
+                        .font(Theme.small)
                     }
                 }
             }
@@ -801,6 +809,8 @@ struct SwitchMacTable: View {
     @ObservedObject var store: SwitchStore
     @ObservedObject private var inventory = InvModel.shared
     let snapshot: SNMPSwitchSnapshot
+    /// Hauteur du panneau (note 83 : plus haut, seul dans l'onglet Appareils).
+    var height: CGFloat = 390
     @StateObject private var table = StandardTableModel<Row>(id: "switchs.mac", columns: Self.columns,
                                                              sortKeys: Self.sortKeys, defaultSort: "port")
     @State private var selection: Row.ID?
@@ -925,7 +935,7 @@ struct SwitchMacTable: View {
                 tableView(rows)
             }
         }
-        .frame(height: 390)
+        .frame(height: height)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
         .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
@@ -1044,7 +1054,7 @@ struct SwitchMacTable: View {
                 Button("Copier la MAC") { copy(row.mac) }
                 Button("Copier l’IP") { copy(row.ip) }.disabled(row.ip == "—")
                 Divider()
-                Button("Voir le port sur la façade") { store.select(host: snapshot.id, port: row.ifIndex) }
+                Button("Voir le port") { SwitchTabState.shared.jump(.ports, host: snapshot.id, port: row.ifIndex, in: state) }
                 Button("Voir la fiche complète") { if let id = row.deviceID { state.showDevice(id) } }
                     .disabled(row.deviceID == nil)
             }

@@ -160,6 +160,8 @@ struct SwitchBusiestPorts: View {
     @ObservedObject var store: SwitchStore
     /// Relevés en direct ; nil pour un FortiSwitch lu par la FortiGate.
     var monitor: SNMPResourceMonitor?
+    /// Lignes montrées sans défiler (note 83 : plus dans l'onglet Trafic, où le tableau est seul).
+    var maxRows = 8
     let snapshot: SNMPSwitchSnapshot
     @ObservedObject private var history = PortHistoryStore.shared
     @ObservedObject private var periods = SwitchHistoryState.shared
@@ -209,7 +211,7 @@ struct SwitchBusiestPorts: View {
                         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
                 }
             } else {
-                PortHistoryTable(id: "switchs.ports.historique", rows: rows, showsSwitch: false, selection: $selection, maxRows: 8) { columns in
+                PortHistoryTable(id: "switchs.ports.historique", rows: rows, showsSwitch: false, selection: $selection, maxRows: maxRows) { columns in
                     VStack(spacing: 0) {
                         bar(range, count: rows.count, columns: AnyView(columns))
                         Rectangle().fill(Theme.border).frame(height: 1)
