@@ -298,6 +298,7 @@ struct SwitchSitesBrowser: View {
                     }
                     ScrollView(.horizontal, showsIndicators: false) {
                         SwitchFaceplate(snapshot: snapshot, selected: port?.index, found: nil,
+                                        recent: store.recentErrors(snapshot.id),
                                         onOpen: { index in
                                             selectedPort = index
                                             openInventory(entry, port: snapshot.interface(index)?.name)

@@ -18,7 +18,16 @@ final class SwitchStore: ObservableObject {
         didSet { if !isDemo { UserDefaults.standard.set(hosts, forKey: Self.hostsKey) } }
     }
     @Published var community = ""
-    @Published private(set) var snapshots: [String: SNMPSwitchSnapshot] = [:]
+    @Published private(set) var snapshots: [String: SNMPSwitchSnapshot] = [:] {
+        // Chaque nouveau relevé (SNMP ou FortiGate) alimente le suivi des erreurs récentes ; un
+        // relevé déjà vu (même heure) est ignoré par le suivi.
+        didSet { for snapshot in snapshots.values { errorTracker.record(snapshot) } }
+    }
+    /// Compteurs d'erreurs des ports des 30 dernières minutes, par switch (en mémoire seulement).
+    private var errorTracker = PortErrorTracker()
+
+    /// Erreurs récentes des ports d'un switch (seules les erreurs qui augmentent sont signalées).
+    func recentErrors(_ host: String) -> SwitchRecentErrors { errorTracker.recent(host) }
     /// FortiSwitch lus par la FortiGate (note 24) : adresses FortiLink, jamais interrogées en SNMP.
     @Published private(set) var controllerHosts: [String] = []
     /// Noms connus de la FortiGate (inventaire, baux DHCP), pour les appareils absents du scan.
@@ -150,6 +159,25 @@ final class SwitchStore: ObservableObject {
         forgetCommunities()
     }
 
+    /// Démonstration : un relevé fabriqué 10 min plus tôt sert de base, pour que SW-CORE-01 et
+    /// FSW-QUAI montrent des erreurs qui augmentent et que SW-ETG2-01 garde un vieux total sans
+    /// hausse (aucun réseau).
+    private func seedDemoErrorHistory() {
+        var tracker = PortErrorTracker()
+        let rising: [String: UInt64] = ["SW-CORE-01": 37, "FSW-QUAI": 12]
+        for snapshot in snapshots.values {
+            var counters: [Int: UInt64] = [:]
+            for port in snapshot.physicalPorts where port.isUp {
+                guard var value = port.inErrors else { continue }
+                if let delta = rising[snapshot.displayName], value >= 100 { value -= min(delta, value) }
+                counters[port.index] = value
+            }
+            tracker.record(host: snapshot.host.description, at: snapshot.polledAt.addingTimeInterval(-600), counters: counters)
+            tracker.record(snapshot)
+        }
+        errorTracker = tracker
+    }
+
     private func loadDemo() {
         let demo = SwitchDemo.make()
         hosts = demo.snapshots.map(\.host.description)
@@ -171,6 +199,7 @@ final class SwitchStore: ObservableObject {
         for host in hosts { readingSites[host] = SitesDemo.siegeKey }
         selectedHost = Self.demoSelection.flatMap { wanted in allHosts.first { snapshots[$0]?.displayName == wanted } } ?? hosts.first
         selectedPort = 12
+        seedDemoErrorHistory()
         let devices = DemoData.devices()
         let locatedHosts = devices.filter { $0.switchName != nil && $0.switchPort != "Wi-Fi" }.map(\.ip)
         let ranges = DemoData.ranges.compactMap { try? $0.parsed() }
@@ -315,6 +344,7 @@ final class SwitchStore: ObservableObject {
         ignoredHosts.insert(host)
         if hostCommunities.removeValue(forKey: host) != nil { saveHostCommunities() }
         snapshots[host] = nil
+        errorTracker.forget(host)
         readingSites[host] = nil
         errors[host] = nil
         if selectedHost == host { selectedHost = hosts.first }
@@ -370,6 +400,7 @@ final class SwitchStore: ObservableObject {
             snapshots[extra.host.description] = extra
             controllerHosts = []
             setControllerSnapshots(FortiMulti.snapshots(FortiGateSitesDemo.selectedSites()))
+            seedDemoErrorHistory()
             lastPoll = Date()
             applyLocations(to: state)
             return

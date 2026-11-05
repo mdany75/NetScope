@@ -6,21 +6,40 @@ import NetScopeCore
 // 127.0.0.1) et de l'analyse Wi-Fi. Aucun autre accès réseau.
 
 func registerSNMPTests(_ suite: TestSuite) {
-    suite.add("Switch : ports en erreur pour l'indicateur de la carte (seuil, ports inactifs, tri)") {
-        let ports = [
-            SNMPInterface(index: 1, name: "port1", operStatus: .up, inErrors: 0),
-            SNMPInterface(index: 2, name: "port2", operStatus: .up, inErrors: 99),
-            SNMPInterface(index: 3, name: "port3", operStatus: .up, inErrors: 100),
-            SNMPInterface(index: 4, name: "port4", operStatus: .up, inErrors: 1_284),
-            SNMPInterface(index: 5, name: "port5", operStatus: .down, inErrors: 5_000),
-            SNMPInterface(index: 6, name: "port6", adminUp: false, operStatus: .down, inErrors: 9_000),
-            SNMPInterface(index: 7, name: "port7", operStatus: .up),
-            SNMPInterface(index: 100, name: "Vlan1", operStatus: .up, inErrors: 7_000),
-        ]
-        let snapshot = SNMPSwitchSnapshot(host: IPv4Address("10.0.0.2")!, system: SNMPSystemInfo(name: "SW", descr: "x"), interfaces: ports)
-        try expectEqual(snapshot.erroredPorts.map(\.name), ["port4", "port3"], "actifs, physiques, au moins 100 erreurs, le plus touché d'abord")
-        let clean = SNMPSwitchSnapshot(host: IPv4Address("10.0.0.3")!, system: SNMPSystemInfo(name: "SW2", descr: "x"), interfaces: Array(ports.prefix(2)))
-        try expectEqual(clean.erroredPorts.count, 0, "aucun port en erreur sous le seuil")
+    suite.add("Switch : erreurs récentes des ports (seuil, base, remise à zéro, fenêtre de 30 min)") {
+        let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+        var tracker = PortErrorTracker()
+        // Premier relevé : aucune base, rien de signalé même avec un gros total.
+        tracker.record(host: "sw", at: t0, counters: [1: 5_000, 2: 100, 3: 40, 4: 7])
+        try expect(!tracker.recent("sw").hasBaseline, "premier relevé : mesure en cours")
+        try expectEqual(tracker.recent("sw").alerts.count, 0, "premier relevé : aucune alerte")
+        // Deuxième relevé 5 min plus tard.
+        tracker.record(host: "sw", at: t0.addingTimeInterval(300), counters: [1: 5_000, 2: 137, 3: 49, 4: 2])
+        var recent = tracker.recent("sw")
+        try expect(recent.hasBaseline, "deuxième relevé : base disponible")
+        try expectEqual(recent.ports[1]?.newErrors, 0, "gros total qui n'augmente pas : rien")
+        try expectEqual(recent.alerts.map(\.ifIndex), [2], "seul le port qui gagne au moins 10 erreurs est signalé")
+        try expectEqual(recent.ports[2]?.newErrors, 37, "37 nouvelles erreurs")
+        try expectEqual(recent.ports[3]?.newErrors, 9, "9 nouvelles erreurs : sous le seuil")
+        try expectEqual(recent.ports[4]?.newErrors, 0, "compteur remis à zéro : aucune hausse comptée")
+        try expectEqual(recent.ports[2]?.durationLabel, "5\u{00A0}min", "durée couverte")
+        // Après la remise à zéro, la hausse suivante compte depuis la nouvelle valeur.
+        tracker.record(host: "sw", at: t0.addingTimeInterval(600), counters: [2: 137, 3: 49, 4: 20])
+        recent = tracker.recent("sw")
+        try expectEqual(recent.ports[4]?.newErrors, 18, "hausse après remise à zéro : 2 → 20")
+        try expect(recent.ports[1] == nil, "port disparu (inactif) : plus suivi")
+        try expectEqual(recent.ports[2]?.newErrors, 37, "hausses cumulées sur la fenêtre")
+        // Relevé identique ou plus ancien : ignoré.
+        tracker.record(host: "sw", at: t0.addingTimeInterval(600), counters: [2: 999])
+        try expectEqual(tracker.recent("sw").ports[2]?.newErrors, 37, "relevé de même heure ignoré")
+        // 40 min plus tard : les relevés de plus de 30 min sont retirés.
+        tracker.record(host: "sw", at: t0.addingTimeInterval(2_400), counters: [2: 140, 3: 49, 4: 20])
+        recent = tracker.recent("sw")
+        try expectEqual(recent.ports[2]?.newErrors, 3, "fenêtre de 30 min : base au relevé de t0 + 10 min")
+        try expectEqual(recent.ports[2]?.durationLabel, "30\u{00A0}min", "durée couverte après purge")
+        tracker.forget("sw")
+        try expect(!tracker.recent("sw").hasBaseline, "switch oublié")
+        try expectEqual(PortErrorTracker.durationLabel(3_900), "1\u{00A0}h\u{00A0}05", "durée en heures")
     }
     suite.add("SNMP BER : aller-retour de chaque type") {
         let values: [SNMPValue] = [

@@ -193,21 +193,23 @@ struct SwitchSourcesPanel: View {
 
 // MARK: - Cartes des switchs
 
-/// Icône de la carte d'un switch ; avec des ports en erreur, elle passe en rouge avec une pastille
-/// du nombre de ports touchés (détail en infobulle).
+/// Icône de la carte d'un switch ; quand des ports gagnent des erreurs (erreurs récentes, pas le
+/// total depuis le démarrage), elle passe en rouge avec une pastille du nombre de ports touchés.
 struct SwitchCardIcon: View {
-    let errored: [SNMPInterface]
+    let snapshot: SNMPSwitchSnapshot?
+    let recent: SwitchRecentErrors
 
     var body: some View {
+        let alerts = recent.alerts
         ZStack {
-            RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(errored.isEmpty ? Theme.neutralSoft : Theme.criticalSoft)
+            RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(alerts.isEmpty ? Theme.neutralSoft : Theme.criticalSoft)
             Image(systemName: "rectangle.connected.to.line.below").font(.system(size: 15))
-                .foregroundStyle(errored.isEmpty ? Theme.text : Theme.critical)
+                .foregroundStyle(alerts.isEmpty ? Theme.text : Theme.critical)
         }
         .frame(width: 34, height: 34)
         .overlay(alignment: .topTrailing) {
-            if !errored.isEmpty {
-                Text("\(errored.count)")
+            if !alerts.isEmpty {
+                Text("\(alerts.count)")
                     .font(.system(size: 10, weight: .bold).monospacedDigit())
                     .foregroundStyle(.white)
                     .padding(.horizontal, 4)
@@ -217,16 +219,24 @@ struct SwitchCardIcon: View {
                     .offset(x: 6, y: -6)
             }
         }
-        .help(helpText)
-        .accessibilityLabel(errored.isEmpty ? "Switch" : "Switch, \(errored.count) port\(errored.count > 1 ? "s" : "") en erreur")
+        .help(helpText(alerts))
+        .accessibilityLabel(alerts.isEmpty ? "Switch" : "Switch, \(alerts.count) port\(alerts.count > 1 ? "s" : "") dont les erreurs augmentent")
     }
 
-    private var helpText: String {
-        guard !errored.isEmpty else { return "" }
-        let count = errored.count
-        let list = errored.prefix(6).map { "\($0.name) (\(SwitchText.grouped($0.inErrors ?? 0)))" }.joined(separator: ", ")
-        let more = count > 6 ? ", et \(count - 6) autre\(count - 6 > 1 ? "s" : "")" : ""
-        return "\(count) port\(count > 1 ? "s" : "") en erreur (au moins \(SNMPSwitchSnapshot.portErrorThreshold) erreurs en entrée depuis le démarrage)\u{00A0}: \(list)\(more). Cliquez pour voir la façade."
+    private func helpText(_ alerts: [PortErrorDelta]) -> String {
+        guard snapshot != nil else { return "" }
+        guard recent.hasBaseline else {
+            return "Erreurs des ports\u{00A0}: mesure en cours, en attente du prochain relevé pour voir si elles augmentent."
+        }
+        let window = PortErrorTracker.durationLabel(recent.seconds)
+        guard !alerts.isEmpty else { return "Aucun port ne gagne d’erreurs depuis \(window)." }
+        let count = alerts.count
+        let list = alerts.prefix(6).map { delta in
+            let name = snapshot?.interface(delta.ifIndex)?.name ?? "port \(delta.ifIndex)"
+            return "\(name)\u{00A0}: +\(SwitchText.grouped(delta.newErrors)) erreurs en \(delta.durationLabel)"
+        }.joined(separator: " ; ")
+        let more = count > 6 ? " ; et \(count - 6) autre\(count - 6 > 1 ? "s" : "")" : ""
+        return "\(count) port\(count > 1 ? "s" : "") dont les erreurs en entrée augmentent (au moins \(PortErrorTracker.threshold) nouvelles)\u{00A0}: \(list)\(more). Cliquez pour voir la façade."
     }
 }
 
@@ -241,7 +251,7 @@ struct SwitchCard: View {
         Button { store.select(host: host) } label: {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
-                    SwitchCardIcon(errored: snapshot?.erroredPorts ?? [])
+                    SwitchCardIcon(snapshot: snapshot, recent: store.recentErrors(host))
                     VStack(alignment: .leading, spacing: 2) {
                         // Petite fenêtre : la puce d'origine disparaît avant que le nom ne se coupe.
                         ViewThatFits(in: .horizontal) {
@@ -443,7 +453,8 @@ struct SwitchFaceplatePanel: View {
     var body: some View {
         let uplinks = snapshot.locatedUplinks
         let ports = snapshot.physicalPorts
-        let states = ports.map { SwitchPortState($0, snapshot: snapshot, uplinks: uplinks) }
+        let recent = store.recentErrors(snapshot.id)
+        let states = ports.map { SwitchPortState($0, snapshot: snapshot, uplinks: uplinks, recent: recent) }
         Panel(padding: 14) {
             VStack(alignment: .leading, spacing: 12) {
                 // Petite fenêtre : les compteurs passent sous le titre au lieu de déborder.
@@ -461,6 +472,7 @@ struct SwitchFaceplatePanel: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     SwitchFaceplate(snapshot: snapshot, selected: store.selectedPort,
                                     found: store.findResult?.host == snapshot.id ? store.findResult?.ifIndex : nil,
+                                    recent: store.recentErrors(snapshot.id),
                                     minWidth: faceplateWidth,
                                     onOpen: { index in
                                         store.select(host: snapshot.id, port: index)
@@ -491,11 +503,11 @@ struct SwitchFaceplatePanel: View {
     }
 
     @ViewBuilder private func stats(_ states: [SwitchPortState]) -> some View {
-        // Erreurs : même compte que l'indicateur de la carte (un uplink en erreur compte aussi).
+        // Erreurs : ports dont les erreurs augmentent, comme l'indicateur de la carte (uplinks compris).
         stat("Actifs", states.filter { $0 != .down && $0 != .disabled }.count, Theme.successSoft, Color(light: 0x14532D, dark: 0x9CE7BA))
         stat("PoE", states.filter { $0 == .poe }.count, Color(light: 0xDBEAFE, dark: 0x1B3250), Color(light: 0x1E40AF, dark: 0x97ABED))
         stat("Trunk", states.filter { $0 == .trunk }.count, Color(light: 0xE2E8F0, dark: 0x253347), Color(light: 0x0F172A, dark: 0xA5B6DF))
-        stat("Erreurs", snapshot.erroredPorts.count, Theme.criticalSoft, Theme.critical)
+        stat("Erreurs", states.filter { $0 == .err }.count, Theme.criticalSoft, Theme.critical)
         stat("Inactifs", states.filter { $0 == .down || $0 == .disabled }.count, Theme.neutralSoft, Theme.neutralText)
     }
 
@@ -582,7 +594,8 @@ struct SwitchPortDetail: View {
 
     var body: some View {
         let uplinks = snapshot.locatedUplinks
-        let portState = SwitchPortState(iface, snapshot: snapshot, uplinks: uplinks)
+        let recent = store.recentErrors(snapshot.id)
+        let portState = SwitchPortState(iface, snapshot: snapshot, uplinks: uplinks, recent: recent)
         let entries = snapshot.entries(on: iface.index)
         let neighbor = snapshot.neighbor(on: iface.index)
         VStack(alignment: .leading, spacing: 0) {
@@ -612,10 +625,22 @@ struct SwitchPortDetail: View {
                 field("Sortie", SNMPFormat.bytes(iface.outOctets))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("ERREURS EN ENTRÉE").font(Theme.caption).foregroundStyle(Theme.textSecondary)
-                    let errors = iface.inErrors ?? 0
+                    let delta = recent.ports[iface.index]
                     Text(iface.inErrors.map { SwitchText.grouped($0) } ?? "—")
-                        .font(Theme.mono(12, weight: errors > 0 ? .semibold : .regular))
-                        .foregroundStyle(errors >= 100 ? Theme.critical : Theme.text)
+                        .font(Theme.mono(12, weight: (delta?.isAlert ?? false) ? .semibold : .regular))
+                        .foregroundStyle(Theme.text)
+                        .help("Total depuis le démarrage du switch.")
+                    // Erreurs récentes : seules celles qui augmentent signalent un problème actuel.
+                    Group {
+                        if let delta {
+                            Text(delta.newErrors == 0 ? "aucune nouvelle en \(delta.durationLabel)"
+                                 : "+\(SwitchText.grouped(delta.newErrors)) en \(delta.durationLabel)")
+                                .foregroundStyle(delta.isAlert ? Theme.critical : Theme.textSecondary)
+                        } else if iface.inErrors != nil, iface.isUp {
+                            Text("mesure en cours").foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    .font(Theme.small)
                 }
                 field("Dernier changement", SwitchText.lastChange(iface, uptime: snapshot.system.uptimeTicks), mono: false)
             }

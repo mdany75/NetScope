@@ -5,11 +5,13 @@ import SwiftUI
 enum SwitchPortState {
     case up1g, up100, poe, down, disabled, err, trunk
 
-    init(_ iface: SNMPInterface, snapshot: SNMPSwitchSnapshot, uplinks: Set<Int>) {
+    /// `recent` : erreurs récentes du switch ; un port n'est en erreur que si ses erreurs augmentent
+    /// (uplink compris), jamais pour un vieux total accumulé depuis le démarrage.
+    init(_ iface: SNMPInterface, snapshot: SNMPSwitchSnapshot, uplinks: Set<Int>, recent: SwitchRecentErrors = .none) {
         if !iface.adminUp { self = .disabled }
         else if iface.operStatus != .up { self = .down }
+        else if recent.isAlert(iface.index) { self = .err }
         else if uplinks.contains(iface.index) { self = .trunk }
-        else if (iface.inErrors ?? 0) >= 100 { self = .err }
         else if snapshot.poePort(iface.index)?.isDelivering == true { self = .poe }
         else if (iface.speedMbps ?? 0) >= 1000 { self = .up1g }
         else { self = .up100 }
@@ -77,6 +79,8 @@ struct SwitchFaceplate: View {
     let snapshot: SNMPSwitchSnapshot
     let selected: Int?
     let found: Int?
+    /// Erreurs récentes du switch (couleur « erreurs » des ports dont les erreurs augmentent).
+    var recent: SwitchRecentErrors = .none
     /// Largeur minimale du cadre (largeur de la carte) : le cadre va jusqu'au bord droit.
     var minWidth: CGFloat = 0
     /// Note 33 : double-clic sur un port → l'appareil branché (ou une liste, ou un message).
@@ -150,7 +154,7 @@ struct SwitchFaceplate: View {
     }
 
     private func port(_ iface: SNMPInterface, uplinks: Set<Int>, width: CGFloat) -> some View {
-        let state = SwitchPortState(iface, snapshot: snapshot, uplinks: uplinks)
+        let state = SwitchPortState(iface, snapshot: snapshot, uplinks: uplinks, recent: recent)
         let isFound = found == iface.index
         let isSelected = selected == iface.index
         return Button { onSelect(iface.index) } label: {
