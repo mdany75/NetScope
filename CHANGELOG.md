@@ -1,5 +1,31 @@
 # Changements
 
+## 0.23.1 — 2026-11-05
+
+Les cartes des switchs signalent les ports dont les erreurs augmentent, et Réglages › Mises à
+jour montre toutes les versions publiées avec le résumé de leurs notes.
+
+### Ajouté
+- **Ports en erreur sur la carte du switch** (Switchs et ports) : l'icône passe en rouge avec
+  une pastille du nombre de ports touchés, et l'infobulle les liste (« port4 : +37 erreurs en
+  10 min »). Seuls comptent les ports qui gagnent au moins 10 erreurs en entrée en
+  30 minutes, uplinks compris, pour les switchs SNMP comme pour les FortiSwitch lus par la
+  FortiGate ; un ancien problème réglé ne reste plus affiché.
+- **Historique complet des versions** (Réglages › Mises à jour) : toutes les versions publiées,
+  avec leur date, la date d'installation sur ce Mac et leur résumé ; un clic déroule les points
+  par rubrique (Ajouté, Modifié, Corrigé, Limites connues). Filtre « Installées sur ce Mac ».
+  Les notes sont livrées avec l'app : aucun réseau n'est nécessaire.
+
+### Modifié
+- **Façade du switch** : la couleur « Erreurs » des ports, le compteur « Erreurs » et le détail
+  du port (« +N en X min », en plus du total) suivent la même règle des erreurs récentes.
+- **Historique d'installation** : gardé jusqu'à 200 versions au lieu de 20.
+
+### Limites connues
+- Les erreurs récentes demandent au moins deux relevés : juste après l'ouverture de NetScope,
+  l'infobulle indique « mesure en cours ». Le suivi n'est pas gardé d'un lancement à l'autre.
+- Vérifié en démonstration seulement, pas encore sur ton réseau.
+
 ## 0.23.0 — 2026-11-05
 
 Une version de fiabilité : NetScope tient maintenant un journal de ses erreurs, prépare un
