@@ -64,6 +64,8 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   (min, moyenne, max, gigue, perte, P95), journal des coupures, vue façon Terminal, traceroute et MTR.
 - **Fiche Appareil** : réseau, matériel, emplacement physique, ports et bannières, sonde web,
   notes, et onglet **Ressources** (processeur, mémoire, disques et trafic par SNMP).
+  Sans appareil choisi, une fiche s’ouvre par IP, nom ou MAC, et un appareil absent du
+  Scanner se saisit à la main.
 - Capture **LLDP/CDP** : le switch, le port, le VLAN et le PoE où ce Mac est branché.
 - **Test DHCP** sans prendre de bail, avec alerte si un serveur n’est pas autorisé.
 - **Journal de l’app** (Réglages › Journal et diagnostic) : erreurs et avertissements de chaque

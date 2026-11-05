@@ -3,8 +3,9 @@
 ## 0.26.2 — 2026-11-05
 
 Tableau de bord de votre serveur RustDesk, lu par SSH en lecture seule : sessions relayées,
-demandes de connexion, postes enregistrés, état de hbbs et hbbr, et espace disque. Les clients
-Wi-Fi des FortiGate en FortiOS 7.4.13 s’affichent de nouveau.
+demandes de connexion, postes enregistrés, état de hbbs et hbbr, et espace disque. L’écran
+Appareil ouvre une fiche par IP, nom ou MAC, et un appareil absent du Scanner se saisit à la
+main. Les clients Wi-Fi des FortiGate en FortiOS 7.4.13 s’affichent de nouveau.
 
 ### Ajouté
 - **Accès distant › Serveur RustDesk** : nouvel onglet, un tableau de bord de votre serveur
@@ -21,6 +22,23 @@ Wi-Fi des FortiGate en FortiOS 7.4.13 s’affichent de nouveau.
   utilisateur@hôte avec un mot de passe facultatif gardé au Trousseau), rafraîchissement de
   15 s à 5 min (30 s par défaut) et bouton « Ouvrir le tableau de bord ».
 - Démonstration : serveur RustDesk avec sessions, demandes et graphe réalistes.
+- **Appareil › Ouvrir une fiche** : sans appareil choisi, l’écran propose un champ où taper une
+  adresse IP, un nom ou une adresse MAC (deux-points, tirets, points Cisco ou sans
+  séparateur). Les suggestions viennent en direct du Scanner, de l’Inventaire et des saisies
+  du site actif ; ↑ ↓ choisissent, Entrée ouvre la fiche.
+  - Les fiches consultées récemment sont listées sous le champ, avec leur état.
+  - Une fiche d’inventaire ou un appareil d’un autre site absent du Scanner s’ouvre aussi.
+- **Appareil › Saisir un appareil à la main** : IP, nom, MAC (avec son fabricant), type et
+  notes, pour un appareil que le Scanner n’a pas vu. Un nom DNS n’est résolu que sur clic
+  « Résoudre ».
+  - La fiche porte la mention « Saisi à la main · pas encore vu par un scan ». « Vérifier
+    maintenant » envoie un seul ping ; les outils de la fiche (ping continu, ports, web, SSH,
+    fichiers, TFTP, Wake-on-LAN) travaillent sur son adresse, seulement sur clic.
+  - « Ajouter à l’inventaire » ouvre la feuille d’ajout déjà remplie ; « Oublier cette
+    saisie » la retire.
+  - Quand un scan du même site voit ensuite la même MAC (ou la même IP), la saisie est
+    rattachée à l’appareil trouvé, avec son nom, son type et ses notes.
+  - Les saisies restent à part des résultats du Scanner et sont rangées par site.
 
 ### Modifié
 - Sécurité : NetScope n’envoie au serveur que des commandes de lecture, d’une liste blanche
