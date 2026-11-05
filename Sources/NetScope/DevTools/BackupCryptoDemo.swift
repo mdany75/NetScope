@@ -15,7 +15,7 @@ extension ReglagesDemo {
         let fortigate = "com.danymenard.netscope.fortigate"
         return [
             BackupSecret(service: "com.danymenard.netscope.alertes", account: AlertSecretKey.smtpPassword, value: fictive,
-                         usage: "Alertes (mot de passe SMTP, webhooks)"),
+                         usage: "Alertes (mot de passe SMTP, webhooks, ntfy, Pushover)"),
             BackupSecret(service: fortigate, account: "0B9C1D3E-1A11-4F0A-9C10-5EE3A0000001", value: fictive, usage: "Jeton de l’API REST de la FortiGate · Siège"),
             BackupSecret(service: fortigate, account: "0B9C1D3E-1A11-4F0A-9C10-5EE3A0000002", value: fictive, usage: "Jeton de l’API REST de la FortiGate · Laval"),
             BackupSecret(service: fortigate, account: "0B9C1D3E-1A11-4F0A-9C10-5EE3A0000003", value: fictive, usage: "Jeton de l’API REST de la FortiGate · Québec"),

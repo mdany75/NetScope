@@ -58,7 +58,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .identifiants: return "snmp v2c v3 communauté utilisateur authentification trousseau mot de passe tester ssh wmi clé winrm"
         case .switchs: return "switch snmp lldp cdp port vlan découverte automatique communauté public"
         case .notifications: return "alerte notification surveillance courriel son silence ne pas déranger regroupement dhcp conflit test"
-        case .alertes: return "alerte courriel smtp starttls webhook teams slack json anti-rafale silence trousseau envoyer un test"
+        case .alertes: return "alerte courriel smtp starttls webhook teams slack json ntfy pushover téléphone telephone notification push anti-rafale silence trousseau envoyer un test"
         case .interface: return "en0 wi-fi ethernet masque passerelle getifaddrs"
         case .rustdesk: return "rustdesk assistance à distance hbbs hbbr serveur id relais clé publique client portable usager vip fortigate 21115 21116 21117"
         case .export: return "export sauvegarde csv json pdf restauration zip manifeste rotation icloud dossier chiffrement chiffrée mot de passe jetons secrets trousseau configuration importer exporter synchronisation synchroniser mac"

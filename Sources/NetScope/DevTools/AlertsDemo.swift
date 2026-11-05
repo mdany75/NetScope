@@ -2,7 +2,7 @@ import Foundation
 import NetScopeCore
 
 /// Démonstration de Réglages › Alertes (--demo, --snapshot) : canaux fictifs (smtp.exemple.ca,
-/// webhook Teams masqué…) et journal crédible. Rien n'est lu au Trousseau ni envoyé : le
+/// webhook Teams masqué, ntfy et Pushover de la note 76…) et journal crédible. Rien n'est lu au Trousseau ni envoyé : le
 /// répartiteur ne fait aucun envoi réel en démonstration, quel que soit l'interrupteur.
 /// NETSCOPE_REGLAGES_SECTION=alertes ouvre directement cette section (captures).
 @MainActor
@@ -12,6 +12,9 @@ enum AlertsDemo {
         var journal: [AlertLogEntry]
         var maskedURLs: [UUID: String]
         var authHeaders: Set<UUID>
+        /// Note 76 : secrets fictifs « présents au Trousseau » (rien n'y est lu).
+        var hasNtfyToken: Bool
+        var hasPushoverKeys: Bool
     }
 
     static let teamsID = UUID(uuidString: "5B0D3C1E-7A62-4F0B-9D3E-1C2A6E8F4B01")!
@@ -35,10 +38,21 @@ enum AlertsDemo {
             AlertWebhook(id: genericID, kind: .generic, name: "Supervision (n8n)", authHeaderName: "Authorization"),
         ]
         settings.rules.quietHours = AlertQuietHours(isEnabled: true, startMinute: 22 * 60, endMinute: 7 * 60)
+        // Note 76 : ntfy sur ntfy.sh (sujet difficile à deviner), alerte et critique seulement ;
+        // Pushover pour le critique des sites Siège et Entrepôt Laval, sirène sur l'iPhone.
+        settings.ntfy.isEnabled = true
+        settings.ntfy.topic = "netscope-siege-k7m2q9xh4tr3"
+        settings.ntfy.tags = ["siege", "reseau"]
+        settings.ntfy.filter = AlertChannelFilter(minimumSeverity: .warning)
+        settings.pushover.isEnabled = true
+        settings.pushover.sound = "siren"
+        settings.pushover.device = "iphone-dany"
+        settings.pushover.priorities = AlertPriorityMap(info: -1, warning: 0, critical: 2)
+        settings.pushover.filter = AlertChannelFilter(minimumSeverity: .critical, siteIDs: [SitesDemo.siegeID, SitesDemo.lavalID])
         return Content(settings: settings, journal: journal(),
                        maskedURLs: [teamsID: "prod-27.westus.logic.azure.com/…k3Qa", slackID: "hooks.slack.com/…Xz9P",
                                     genericID: "n8n.exemple.ca/…erte"],
-                       authHeaders: [genericID])
+                       authHeaders: [genericID], hasNtfyToken: false, hasPushoverKeys: true)
     }
 
     /// Heure de référence : 14 h 32 aujourd'hui en capture (images stables), maintenant sinon.
@@ -55,7 +69,15 @@ enum AlertsDemo {
         let teams = "Teams · Exploitation TI"
         let json = "JSON · Supervision (n8n)"
         let slack = "Slack · #reseau-alertes"
+        let ntfy = "ntfy · netscope-siege-k7m2q9xh4tr3"
+        let pushover = "Pushover"
         return [
+            AlertLogEntry(date: ago(6), channelKind: "pushover", channelName: pushover, outcome: .sent, title: "Caméra-Quai hors ligne",
+                          eventCount: 1, severity: .critical, isTest: false,
+                          detail: "HTTP 200 · priorité 2 · demande 5042853c-402d-4a18-abcb-168734a801de", durationMs: 318),
+            AlertLogEntry(date: ago(6), channelKind: "ntfy", channelName: ntfy, outcome: .sent, title: "Caméra-Quai hors ligne",
+                          eventCount: 1, severity: .critical, isTest: false, detail: "HTTP 200 · message sPs71M8A2T · priorité 5",
+                          durationMs: 204),
             AlertLogEntry(date: ago(6), channelKind: "teams", channelName: teams, outcome: .sent, title: "Caméra-Quai hors ligne",
                           eventCount: 1, severity: .critical, isTest: false, detail: "HTTP 202", durationMs: 412),
             AlertLogEntry(date: ago(6), channelKind: "courriel", channelName: mail, outcome: .sent, title: "Caméra-Quai hors ligne",
@@ -70,6 +92,13 @@ enum AlertsDemo {
             AlertLogEntry(date: ago(19), channelKind: "courriel", channelName: mail, outcome: .sent, title: "WAN en panne · Siège / wan2",
                           eventCount: 1, severity: .critical, isTest: false,
                           detail: "250 2.0.0 Ok: queued as 7E30A9C412 · 2 destinataires · chiffré", durationMs: 1_710),
+            AlertLogEntry(date: ago(19), channelKind: "ntfy", channelName: ntfy, outcome: .failed, title: "WAN en panne · Siège / wan2",
+                          eventCount: 1, severity: .critical, isTest: false,
+                          detail: "Trop de messages (429)\u{00A0}: ntfy limite les envois, réessayez plus tard. Réponse\u{00A0}: «\u{00A0}limit reached: too many requests\u{00A0}».",
+                          durationMs: 186),
+            AlertLogEntry(date: ago(31), channelKind: "ntfy", channelName: ntfy, outcome: .sent,
+                          title: "Licence à renouveler · FortiGuard IPS (FGT-SIEGE)", eventCount: 1, severity: .warning, isTest: false,
+                          detail: "HTTP 200 · message Hc4fT0aZ1q · priorité 4", durationMs: 221),
             AlertLogEntry(date: ago(31), channelKind: "courriel", channelName: mail, outcome: .sent,
                           title: "Licence à renouveler · FortiGuard IPS (FGT-SIEGE)", eventCount: 1, severity: .warning, isTest: false,
                           detail: "250 2.0.0 Ok: queued as 5B82D0E6F1 · 2 destinataires · chiffré", durationMs: 1_588),
@@ -78,6 +107,13 @@ enum AlertsDemo {
             AlertLogEntry(date: ago(48), channelKind: "courriel", channelName: mail, outcome: .sent, title: "3 alertes NetScope",
                           eventCount: 3, severity: .warning, isTest: false,
                           detail: "250 2.0.0 Ok: queued as 9A7E21B4C0 · 2 destinataires · chiffré", durationMs: 1_652),
+            AlertLogEntry(date: ago(60 * 21), channelKind: "pushover", channelName: pushover, outcome: .sent,
+                          title: "Message d’essai de NetScope", eventCount: 1, severity: .info, isTest: true,
+                          detail: "HTTP 200 · priorité 0 · demande 9b1f2c7e-5d3a-4e8f-a0b1-6c2d3e4f5a6b", durationMs: 296),
+            AlertLogEntry(date: ago(60 * 21 + 2), channelKind: "pushover", channelName: pushover, outcome: .failed,
+                          title: "Message d’essai de NetScope", eventCount: 1, severity: .info, isTest: true,
+                          detail: "Message refusé par Pushover (400). Réponse\u{00A0}: «\u{00A0}user identifier is not a valid user, group, or subscribed user key\u{00A0}».",
+                          durationMs: 274),
             AlertLogEntry(date: ago(60 * 22 + 10), channelKind: "courriel", channelName: mail, outcome: .sent,
                           title: "Message d’essai de NetScope", eventCount: 1, severity: .info, isTest: true,
                           detail: "250 2.0.0 Ok: queued as 1D0B5F7731 · 2 destinataires · chiffré", durationMs: 1_903),

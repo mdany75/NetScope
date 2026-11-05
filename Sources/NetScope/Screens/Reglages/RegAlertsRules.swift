@@ -198,7 +198,7 @@ struct RegAlertJournalPanel: View {
     var body: some View {
         RegPanel(title: "Journal des envois",
                  subtitle: "\(alerts.journal.count) envoi\(alerts.journal.count > 1 ? "s" : "")" + (failures > 0 ? " · \(failures) échec\(failures > 1 ? "s" : "")" : "")
-                    + " · sans aucun secret (mots de passe et adresses de webhook masqués).",
+                    + " · sans aucun secret (mots de passe, jetons et adresses de webhook masqués).",
                  accessory: {
                      HStack(spacing: 8) {
                          StandardColumnsMenu(model: table, compact: true)
@@ -280,6 +280,8 @@ struct RegAlertJournalPanel: View {
 
     private func symbol(_ kind: String) -> String {
         if kind == "courriel" { return "envelope" }
+        if kind == "ntfy" { return "bell.badge" }
+        if kind == "pushover" { return "iphone.radiowaves.left.and.right" }
         return AlertWebhookKind(rawValue: kind)?.symbol ?? "link"
     }
 
