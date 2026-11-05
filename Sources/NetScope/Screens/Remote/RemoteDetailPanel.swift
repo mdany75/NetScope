@@ -84,6 +84,10 @@ struct RemoteDetailPanel: View {
                     }
                     .buttonStyle(.ghost)
                     .help("Replier le panneau de détails")
+                    // Servi avant le texte (priorité 1) : le bouton garde sa taille et reste
+                    // visible même si la colonne coupe un contenu trop large.
+                    .fixedSize()
+                    .layoutPriority(2)
                 }
                 if connection.proto.isInsecure {
                     SpeedBanner(text: "Protocole non chiffré : le mot de passe circule en clair.")

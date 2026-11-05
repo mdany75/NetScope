@@ -63,6 +63,13 @@ enum RemoteDemo {
         name: "10.182.122.32", proto: .ssh, host: "10.182.122.32", username: "administrator",
         folder: "St-Georges GM / St-Georges Toyota", lastConnected: Date().addingTimeInterval(-2 * 3_600))
 
+    /// Connexions du carnet de démonstration affiché : la seule connexion du site neuf en vue
+    /// « ssh-seul », sinon la liste complète. Les modèles s'en servent pour leurs mots de passe
+    /// enregistrés, afin de ne pas garder d'entrées pour des connexions absentes.
+    static var activeConnections: [RemoteConnection] {
+        isSoloView ? [soloConnection] : connections
+    }
+
     static func reachability(for connections: [RemoteConnection]) -> [UUID: RemoteReachability] {
         var result: [UUID: RemoteReachability] = [:]
         for connection in connections {

@@ -24,7 +24,7 @@ final class FileTransferStore: ObservableObject {
 
     private init() {
         if isSandboxed {
-            savedPasswords = Set(RemoteDemo.connections.filter(\.proto.isFileTransfer).map(\.id))
+            savedPasswords = Set(RemoteDemo.activeConnections.filter(\.proto.isFileTransfer).map(\.id))
             if let raw = ProcessInfo.processInfo.environment["NETSCOPE_REMOTE_VIEW"], raw == "fichiers" || raw == "fichiers-ftp" {
                 let proto: RemoteProtocol = raw == "fichiers" ? .sftp : .ftp
                 if let connection = RemoteDemo.connections.first(where: { $0.proto == proto }) {

@@ -121,6 +121,10 @@ struct RemoteScreen: View {
     /// Largeur fixe de la colonne des détails.
     static let detailWidth: CGFloat = 300
 
+    /// Longueur du texte vertical de la languette repliée (« DÉTAILS · … »). Elle ne dépend pas de
+    /// `detailWidth` : c'est la hauteur réservée au libellé tourné, pas une largeur de colonne.
+    private static let collapsedLabelLength: CGFloat = 300
+
     private func updateLayout(width: CGFloat) {
         let compact = width < Self.threeColumnWidth
         if model.compactLayout != compact { model.compactLayout = compact }
@@ -135,9 +139,10 @@ struct RemoteScreen: View {
         if dashboardShown {
             EmptyView()
         } else if model.detailsVisible, let connection = model.selected {
-            // Correctif 0.27.2 : colonne fixe à droite. Le contenu est calé à gauche et coupé au
-            // bord de la colonne : même si une ligne réclamait plus de 300 points, le panneau ne
-            // déborde plus, centré, sur la session et hors de la fenêtre.
+            // Correctif 0.27.2 : colonne fixe à droite. Chaque ligne du panneau tient dans sa
+            // largeur (passage à la ligne ou troncature) ; le `.clipped()` n'est qu'un filet de
+            // sécurité : si une ligne réclamait encore plus de 300 points, le panneau ne déborderait
+            // pas sur la session, et le bouton de repli, servi en premier, resterait visible.
             RemoteDetailPanel(model: model, connection: connection)
                 .frame(width: Self.detailWidth, alignment: .topLeading)
                 .clipped()
@@ -154,10 +159,10 @@ struct RemoteScreen: View {
                         // déborder sur le chevron.
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .frame(width: 300, alignment: .leading)
+                        .frame(width: Self.collapsedLabelLength, alignment: .leading)
                         .fixedSize()
                         .rotationEffect(.degrees(90))
-                        .frame(width: 20, height: 300)
+                        .frame(width: 20, height: Self.collapsedLabelLength)
                     Spacer()
                 }
                 .foregroundStyle(Theme.textSecondary)

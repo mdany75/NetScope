@@ -1,5 +1,17 @@
 # Changements
 
+## 0.27.2 — 2026-11-05
+
+Deux corrections dans l’Accès distant.
+
+### Corrigé
+- **Accès distant, panneau de détails** : avec un nom de dossier long (« St-Georges GM /
+  St-Georges Toyota »), le panneau débordait de sa colonne, recouvrait la session et sortait de
+  la fenêtre. La puce du dossier passe maintenant sous la pastille d’état et s’abrège au besoin ;
+  la colonne garde sa largeur et le bouton de repli reste visible.
+- **Accès distant, enregistrement** : NetScope ne se ferme plus en enregistrant une connexion ou
+  un tunnel SSH.
+
 ## 0.27.1 — 2026-11-05
 
 Moins de fausses alertes pour le Wi-Fi : un appareil qui passe d’une borne FortiAP à une autre

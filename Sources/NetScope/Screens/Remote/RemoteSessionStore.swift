@@ -75,7 +75,7 @@ final class RemoteSessionStore: ObservableObject {
 
     private init() {
         if isSandboxed {
-            savedPasswords = Set(RemoteDemo.connections.filter { $0.proto == .ssh && $0.name.hasPrefix("FortiGate") }.map(\.id))
+            savedPasswords = Set(RemoteDemo.activeConnections.filter { $0.proto == .ssh && $0.name.hasPrefix("FortiGate") }.map(\.id))
         }
         if RegEnvironment.isDemo, !RemoteDemo.isSoloView {
             TerminalDemo.openDemoTabs(in: self)

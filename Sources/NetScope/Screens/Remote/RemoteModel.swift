@@ -181,6 +181,8 @@ final class RemoteModel: ObservableObject {
             if RemoteDemo.isSoloView {
                 connections = [RemoteDemo.soloConnection]
                 reachability = [:]
+                // Connexion jamais vérifiée : pas d'heure de vérification affichée.
+                lastCheck = nil
                 selectedID = RemoteDemo.soloConnection.id
             }
         } else {
