@@ -119,15 +119,15 @@ final class InvHardwareFeed: ObservableObject {
         }
     }
 
-    /// Ressources SNMP d'un appareil (v2c) : une lecture de la fiche matériel par heure au plus.
-    func resourcesPolled(host: IPv4Address, community: String) {
-        guard !isDemo, !community.isEmpty else { return }
+    /// Ressources SNMP d'un appareil (v2c ou v3) : une lecture de la fiche matériel par heure au plus.
+    func resourcesPolled(host: IPv4Address, target: SNMPTarget) {
+        guard !isDemo, target.hasCredentials else { return }
         let now = Date()
         if let last = resourceReads[host.description], now.timeIntervalSince(last) < 3600 { return }
         resourceReads[host.description] = now
         let site = SiteModel.shared.activeKey
         Task {
-            let client = SNMPClient(target: SNMPTarget(host: host, community: community, timeout: 2, retries: 1))
+            let client = SNMPClient(target: target)
             guard let info = try? await SNMPHardwareReader.read(client: client), SiteModel.shared.activeKey == site else { return }
             applySNMP([Reading(host: host, sysName: "", info: info, date: Date())], site: site)
         }
@@ -170,8 +170,8 @@ final class InvHardwareFeed: ObservableObject {
     // MARK: « Lire la fiche matériel »
 
     /// Lit la fiche d'un appareil du site actif : FortiGate d'abord pour un appareil Fortinet (si une
-    /// FortiGate est associée au site), sinon SNMP v2c (communauté du switch ou des Identifiants),
-    /// sinon SNMP v3 (Identifiants). Le résultat va dans cette fiche seulement.
+    /// FortiGate est associée au site), sinon SNMP (utilisateur v3 du site ou de tous les sites, communauté
+    /// du switch ou des Identifiants en repli). Le résultat va dans cette fiche seulement.
     func read(_ record: InvRecord, site: String, state: AppState) {
         let model = InvModel.shared
         guard site == model.siteKey else {
@@ -218,19 +218,12 @@ final class InvHardwareFeed: ObservableObject {
 
         let switches = SwitchStore.shared
         await switches.loadVault()
-        let community = switches.community(for: ip.description)
+        guard let target = switches.snmpTarget(for: ip.description) else {
+            return "Aucun identifiant SNMP\u{00A0}: saisissez une communauté ou un utilisateur v3 dans Réglages › Identifiants"
+        }
         do {
-            let info: SNMPHardwareInfo?
-            if !community.isEmpty {
-                let client = SNMPClient(target: SNMPTarget(host: ip, community: community, timeout: 2, retries: 1))
-                info = try await SNMPHardwareReader.read(client: client)
-            } else {
-                let saved = await Task.detached(priority: .userInitiated) { RegSNMPCredentials.load() }.value
-                guard let saved, !saved.v3User.isEmpty else {
-                    return "Aucun identifiant SNMP\u{00A0}: saisissez une communauté ou un utilisateur v3 dans Réglages › Identifiants"
-                }
-                info = try await SNMPHardwareReader.read(v3: SNMPv3Client(host: ip, credentials: saved.v3Credentials, timeout: 2, retries: 1))
-            }
+            // Note 59 : même parcours d'ENTITY-MIB en v2c et en v3 (plus d'index devinés).
+            let info = try await SNMPHardwareReader.read(client: SNMPClient(target: target))
             guard SiteModel.shared.activeKey == site else { return "Site changé pendant la lecture\u{00A0}: rien n’est enregistré" }
             guard let info else { return "\(ip) a répondu, mais sans modèle, numéro de série ni version" }
             return save(InvDetectedHardware(snmp: info, readAt: Date()), on: record, site: site)

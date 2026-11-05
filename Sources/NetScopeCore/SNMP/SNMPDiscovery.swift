@@ -2,8 +2,9 @@ import Darwin
 import Foundation
 
 // Découverte automatique des équipements SNMP (switchs, routeurs, imprimantes) parmi les hôtes
-// en ligne d'un scan : un GET v2c par hôte, en parallèle, avec un délai court. Un hôte qui ne
-// répond pas ne produit rien (ni erreur, ni message).
+// en ligne d'un scan : un GET v2c par hôte, en parallèle, avec un délai court ; puis (note 59) un
+// GET v3 vers les hôtes restés muets, quand un utilisateur v3 est enregistré pour leur site. Un
+// hôte qui ne répond pas ne produit rien (ni erreur, ni message).
 
 /// Nature d'un équipement SNMP découvert.
 public enum SNMPDeviceKind: String, Hashable, Sendable, Codable, CaseIterable {
@@ -27,8 +28,10 @@ public enum SNMPDeviceKind: String, Hashable, Sendable, Codable, CaseIterable {
 public struct SNMPDiscovered: Hashable, Sendable, Identifiable {
     public var id: IPv4Address { host }
     public var host: IPv4Address
-    /// Première communauté de la liste qui a obtenu une réponse.
+    /// Première communauté de la liste qui a obtenu une réponse ; vide si l'agent a répondu en v3.
     public var community: String
+    /// Identifiant v3 qui a obtenu une réponse (nil : découvert en v2c).
+    public var v3: SNMPv3Credentials?
     public var sysName: String
     public var sysDescr: String
     public var sysObjectID: String?
@@ -39,9 +42,10 @@ public struct SNMPDiscovered: Hashable, Sendable, Identifiable {
     public var kind: SNMPDeviceKind
 
     public init(host: IPv4Address, community: String, sysName: String, sysDescr: String, sysObjectID: String?,
-                bridgePorts: Int?, hasPrinterMIB: Bool = false, kind: SNMPDeviceKind? = nil) {
+                bridgePorts: Int?, hasPrinterMIB: Bool = false, kind: SNMPDeviceKind? = nil, v3: SNMPv3Credentials? = nil) {
         self.host = host
         self.community = community
+        self.v3 = v3
         self.sysName = sysName
         self.sysDescr = sysDescr
         self.sysObjectID = sysObjectID
@@ -56,10 +60,13 @@ public struct SNMPDiscovered: Hashable, Sendable, Identifiable {
     public var brand: String? { system.brand }
     public var displayName: String { sysName.isEmpty ? host.description : sysName }
 
-    /// Cible prête pour un relevé complet (SNMPSwitchPoller) avec la communauté retenue.
+    /// Cible prête pour un relevé complet (SNMPSwitchPoller) avec la communauté ou l'utilisateur v3 retenu.
     public func target(port: UInt16 = 161, timeout: TimeInterval = 2, retries: Int = 1) -> SNMPTarget {
-        SNMPTarget(host: host, port: port, community: community, timeout: timeout, retries: retries)
+        SNMPTarget(host: host, port: port, community: community, v3: v3, timeout: timeout, retries: retries)
     }
+
+    /// « v2c » ou « v3 ».
+    public var versionLabel: String { v3 == nil ? "v2c" : "v3" }
 }
 
 /// Événements du flux de découverte.
@@ -87,9 +94,13 @@ public struct SNMPDiscovery: Sendable {
     /// Hôtes interrogés en même temps (une socket UDP chacun).
     public var concurrency: Int
     public var endpoint: Endpoint?
+    /// Utilisateur v3 à essayer pour chaque hôte resté muet en v2c (nil : pas de passage v3).
+    public var v3: SNMPv3Lookup?
+    /// Hôtes interrogés en même temps pendant le passage v3 (deux échanges chacun : découverte puis GET).
+    public var v3Concurrency: Int
 
     public init(communities: [String], port: UInt16 = 161, timeout: TimeInterval = 0.7, retries: Int = 1,
-                concurrency: Int = 96, endpoint: Endpoint? = nil) {
+                concurrency: Int = 96, endpoint: Endpoint? = nil, v3: SNMPv3Lookup? = nil, v3Concurrency: Int = 32) {
         var seen: Set<String> = []
         self.communities = communities.filter { !$0.isEmpty && seen.insert($0).inserted }
         self.port = port
@@ -97,6 +108,8 @@ public struct SNMPDiscovery: Sendable {
         self.retries = retries
         self.concurrency = concurrency
         self.endpoint = endpoint
+        self.v3 = v3
+        self.v3Concurrency = min(max(v3Concurrency, 1), 96)
     }
 
     /// OID demandés à chaque hôte, en un seul GET.
@@ -112,20 +125,48 @@ public struct SNMPDiscovery: Sendable {
         let list = Array(hosts.filter { unique.insert($0).inserted }.prefix(Self.maxHosts))
         let engine = SNMPDiscoveryEngine(hosts: list, communities: communities, timeout: timeout, retries: retries,
                                          concurrency: concurrency, endpoint: endpoint ?? { [port] in ($0, port) })
+        let lookup = v3
+        let v3Pass = SNMPDiscoveryV3Pass(timeout: timeout, retries: retries, concurrency: v3Concurrency,
+                                         endpoint: endpoint ?? { [port] in ($0, port) })
+        let communities = self.communities
         return AsyncStream { continuation in
-            continuation.onTermination = { _ in engine.cancel() }
-            guard !list.isEmpty, !communities.isEmpty else {
+            guard !list.isEmpty, !communities.isEmpty || lookup != nil else {
                 continuation.yield(.progress(done: list.count, total: list.count))
                 continuation.finish()
                 return
             }
-            let thread = Thread {
-                engine.run { continuation.yield($0) }
+            let answered = SNMPDiscoveryAnswered()
+            let task = Task.detached(priority: .userInitiated) {
+                if communities.isEmpty {
+                    continuation.yield(.progress(done: list.count, total: list.count))
+                } else {
+                    await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
+                        let thread = Thread {
+                            engine.run { event in
+                                if case .found(let item) = event { answered.insert(item.host) }
+                                continuation.yield(event)
+                            }
+                            done.resume()
+                        }
+                        thread.name = "NetScope.SNMPDiscovery"
+                        thread.qualityOfService = .userInitiated
+                        thread.start()
+                    }
+                }
+                // Passage v3 : hôtes muets en v2c qui ont un utilisateur v3 (celui de leur site).
+                if let lookup, !Task.isCancelled {
+                    let pending = list.compactMap { host -> (IPv4Address, SNMPv3Credentials)? in
+                        guard !answered.contains(host), let credentials = lookup(host), (try? credentials.validate()) != nil else { return nil }
+                        return (host, credentials)
+                    }
+                    await v3Pass.run(pending) { continuation.yield(.found($0)) }
+                }
                 continuation.finish()
             }
-            thread.name = "NetScope.SNMPDiscovery"
-            thread.qualityOfService = .userInitiated
-            thread.start()
+            continuation.onTermination = { _ in
+                engine.cancel()
+                task.cancel()
+            }
         }
     }
 
@@ -196,10 +237,11 @@ public struct SNMPDiscovery: Sendable {
 
     /// Table ARP (IP → MAC) d'un routeur, d'un pare-feu ou d'un switch de niveau 3 : la seule façon de
     /// connaître la MAC des appareils des autres sous-réseaux et VLAN. Vide si l'hôte ne répond pas.
-    public static func routerARP(host: IPv4Address, community: String, port: UInt16 = 161,
+    public static func routerARP(host: IPv4Address, community: String, v3: SNMPv3Credentials? = nil, port: UInt16 = 161,
                                  timeout: TimeInterval = 2, retries: Int = 1) async -> [IPv4Address: MACAddress] {
-        guard !community.isEmpty else { return [:] }
-        let poller = SNMPSwitchPoller(target: SNMPTarget(host: host, port: port, community: community, timeout: timeout, retries: retries))
+        let target = SNMPTarget(host: host, port: port, community: community, v3: v3, timeout: timeout, retries: retries)
+        guard target.hasCredentials else { return [:] }
+        let poller = SNMPSwitchPoller(target: target)
         return (try? await poller.arpTable()) ?? [:]
     }
 }
@@ -417,13 +459,78 @@ final class SNMPDiscoveryEngine: @unchecked Sendable {
         }
     }
 
-    static func discovered(host: IPv4Address, community: String, binds: [SNMPVarBind]) -> SNMPDiscovered {
+    static func discovered(host: IPv4Address, community: String, binds: [SNMPVarBind], v3: SNMPv3Credentials? = nil) -> SNMPDiscovered {
         func value(_ oid: SNMPOID) -> SNMPValue? { binds.first { $0.oid == oid && !$0.value.isException }?.value }
         let ports = value(SNMPOIDs.dot1dBaseNumPorts)?.intValue.map { Int(clamping: $0) }
         return SNMPDiscovered(host: host, community: community,
                               sysName: value(SNMPOIDs.sysName)?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
                               sysDescr: value(SNMPOIDs.sysDescr)?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
                               sysObjectID: value(SNMPOIDs.sysObjectID)?.stringValue,
-                              bridgePorts: ports, hasPrinterMIB: value(SNMPOIDs.prtGeneralConfigChanges) != nil)
+                              bridgePorts: ports, hasPrinterMIB: value(SNMPOIDs.prtGeneralConfigChanges) != nil, v3: v3)
+    }
+}
+
+// MARK: - Passage SNMP v3
+
+/// Hôtes qui ont répondu en v2c (écrits par le fil de la découverte, lus ensuite).
+final class SNMPDiscoveryAnswered: @unchecked Sendable {
+    private let lock = NSLock()
+    private var hosts = Set<IPv4Address>()
+
+    func insert(_ host: IPv4Address) {
+        lock.lock(); hosts.insert(host); lock.unlock()
+    }
+
+    func contains(_ host: IPv4Address) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return hosts.contains(host)
+    }
+}
+
+/// Un GET v3 (sysObjectID, sysDescr, sysName, BRIDGE-MIB, Printer-MIB) par hôte, quelques hôtes à
+/// la fois ; un agent strict qui refuse le GET groupé est relu variable par variable.
+struct SNMPDiscoveryV3Pass: Sendable {
+    var timeout: TimeInterval
+    var retries: Int
+    var concurrency: Int
+    var endpoint: SNMPDiscovery.Endpoint
+
+    func run(_ pending: [(IPv4Address, SNMPv3Credentials)], found: @escaping @Sendable (SNMPDiscovered) -> Void) async {
+        guard !pending.isEmpty else { return }
+        await withTaskGroup(of: SNMPDiscovered?.self) { group in
+            var next = 0
+            func launch() {
+                guard next < pending.count else { return }
+                let (host, credentials) = pending[next]
+                next += 1
+                group.addTask { await probe(host, credentials) }
+            }
+            for _ in 0..<min(concurrency, pending.count) { launch() }
+            for await item in group {
+                if let item { found(item) }
+                if !Task.isCancelled { launch() }
+            }
+        }
+    }
+
+    func probe(_ host: IPv4Address, _ credentials: SNMPv3Credentials) async -> SNMPDiscovered? {
+        let ep = endpoint(host)
+        let client = SNMPClient(target: SNMPTarget(host: ep.host, port: ep.port, community: "", v3: credentials,
+                                                   timeout: timeout, retries: retries))
+        do {
+            let response = try await client.request(SNMPPDU(type: .getRequest, requestID: SNMPClient.newRequestID(),
+                                                            varbinds: SNMPDiscovery.probeOIDs.map { SNMPVarBind(oid: $0) }),
+                                                    checkStatus: false)
+            var binds = response.varbinds
+            if response.errorStatus != 0 {
+                binds = []
+                for oid in SNMPDiscovery.probeOIDs {
+                    if let more = try? await client.get([oid]) { binds += more }
+                }
+            }
+            return SNMPDiscoveryEngine.discovered(host: host, community: "", binds: binds, v3: credentials)
+        } catch {
+            return nil
+        }
     }
 }

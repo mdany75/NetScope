@@ -774,7 +774,8 @@ public struct SNMPSwitchPoller: Sendable {
         return result.sorted()
     }
 
-    /// Cisco : la table BRIDGE-MIB de chaque VLAN se lit avec la communauté « communauté@vlan ».
+    /// Cisco : la table BRIDGE-MIB de chaque VLAN se lit avec la communauté « communauté@vlan »
+    /// (en SNMP v3, avec le contexte « vlan-N »).
     /// Un VLAN qui ne répond pas est simplement ignoré.
     func perVLANBridgeFdb(limit: Int = 256) async throws -> [SNMPFDBEntry] {
         let vlans = try await vtpVLANs()
@@ -784,9 +785,8 @@ public struct SNMPSwitchPoller: Sendable {
         var silent = 0
         for vlan in vlans.prefix(limit) {
             try Task.checkCancellation()
-            var target = client.target
-            target.community = "\(target.community)@\(vlan)"
-            let context = SNMPClient(target: target)
+            // v2c : « communauté@vlan » ; v3 : contexte « vlan-N » (même convention chez Cisco).
+            let context = SNMPClient(target: client.target.withContext(vlan: vlan))
             do {
                 var ports: [Int: Int] = [:]
                 for bind in try await context.walk(SNMPOIDs.dot1dBasePortIfIndex) {

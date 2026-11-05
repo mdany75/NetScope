@@ -78,13 +78,16 @@ public enum MonResourceChecks {
 
     private static func withAgent(_ probe: MonProbe, host: String, context: MonRunContext,
                                   _ body: (SNMPResourcePoller) async throws -> MonResult) async -> MonResult {
-        guard let community = context.snmpCommunity, !community.isEmpty else {
-            return .failure(context.now, error: "aucune communauté SNMP (Réglages › Identifiants)")
+        guard !(context.snmpCommunity ?? "").isEmpty || context.snmpV3 != nil else {
+            return .failure(context.now, error: MonRunContext.missingSNMPCredentials)
         }
         guard let address = try? await PingResolver.resolveAsync(host) else {
             return .failure(context.now, error: "Nom introuvable\u{00A0}: \(host)")
         }
-        let poller = SNMPResourcePoller(target: SNMPTarget(host: address, community: community, timeout: 2, retries: 1))
+        guard let target = context.snmpTarget(address) else {
+            return .failure(context.now, error: MonRunContext.missingSNMPCredentials)
+        }
+        let poller = SNMPResourcePoller(target: target)
         do {
             return try await body(poller)
         } catch {

@@ -336,13 +336,15 @@ final class SNMPResourceMonitor: ObservableObject {
         }
         await SwitchStore.shared.loadVault()
         let community = SwitchStore.shared.community(for: host)
-        guard !community.isEmpty else {
-            error = "Saisissez la communauté SNMP (lecture seule) dans Réglages › Identifiants ou dans Switchs et ports."
+        // Note 59 : utilisateur v3 du site d'abord, communauté en repli.
+        let target = SNMPAccessVault.shared.target(host: address, community: community)
+        guard target.hasCredentials else {
+            error = "Saisissez la communauté SNMP (lecture seule) ou un utilisateur SNMP v3 dans Réglages › Identifiants, ou la communauté dans Switchs et ports."
             return
         }
         isPolling = true
         defer { isPolling = false }
-        let poller = SNMPResourcePoller(target: SNMPTarget(host: address, community: community, timeout: 2, retries: 1))
+        let poller = SNMPResourcePoller(target: target)
         do {
             // Ports d'abord : sans réponse, inutile d'insister sur le reste.
             let ports = try await poller.ports()
@@ -352,7 +354,7 @@ final class SNMPResourceMonitor: ObservableObject {
             apply(ports: ports, processor: processor, memory: memory, at: now)
             error = nil
             // Note 60 : l'agent répond, sa fiche matériel est lue aussi (une fois par heure au plus).
-            InvHardwareFeed.shared.resourcesPolled(host: address, community: community)
+            InvHardwareFeed.shared.resourcesPolled(host: address, target: target)
         } catch is CancellationError {
             return
         } catch {
