@@ -73,6 +73,9 @@ public struct WifiChannelAdvice: Hashable, Sendable, Identifiable {
 
     public var id: String { band.rawValue }
 
+    /// Canal à montrer : l'actuel quand il convient, sinon le conseillé.
+    public var shown: WifiChannelOption? { verdict == .keep ? (current ?? best) : best }
+
     /// Phrase de conseil (« Canal 149 (80 MHz) libre ; votre canal 44 en a 3. »).
     public var summary: String {
         guard let best else { return "Lancez une analyse pour obtenir un canal conseillé." }
@@ -81,19 +84,24 @@ public struct WifiChannelAdvice: Hashable, Sendable, Identifiable {
         case .noScan:
             return "Lancez une analyse pour obtenir un canal conseillé."
         case .keep:
-            text = "Votre canal \(current?.label ?? best.label) convient (\(current?.overlapLabel ?? best.overlapLabel))."
+            text = "Votre canal \(current?.label ?? best.label) convient\u{00A0}: \(current?.overlapLabel ?? best.overlapLabel)."
+            if let current, current.channel != best.channel, best.load < current.load {
+                text += " Le canal \(best.label) est \(best.overlapping == 0 ? "libre" : "un peu moins chargé")"
+                    + (best.isDFS ? ", mais DFS." : ".")
+            }
+            return text
         case .change:
-            text = "Canal \(best.label) conseillé (\(best.overlapLabel))\u{00A0}; votre canal \(current?.label ?? "?") en compte \(current?.overlapping ?? 0)."
+            text = "Canal \(best.label) conseillé\u{00A0}: \(best.overlapLabel)\u{00A0}; votre canal \(current?.label ?? "?")\u{00A0}: \(current?.overlapLabel ?? "?")."
         case .suggest:
             text = networkCount == 0
                 ? "Aucun réseau vu dans cette bande\u{00A0}: canal \(best.label) conseillé."
-                : "Canal \(best.label) conseillé (\(best.overlapLabel))."
+                : "Canal \(best.label) conseillé\u{00A0}: \(best.overlapLabel)."
         }
         if best.isDFS { text += " Canal DFS\u{00A0}: la borne peut changer de canal si un radar est détecté." }
         if let alternative {
             text += best.isDFS && !alternative.isDFS
-                ? " Hors DFS\u{00A0}: canal \(alternative.label) (\(alternative.overlapLabel))."
-                : " Ou canal \(alternative.label) (\(alternative.overlapLabel))."
+                ? " Hors DFS\u{00A0}: canal \(alternative.label), \(alternative.overlapLabel)."
+                : " Ou canal \(alternative.label), \(alternative.overlapLabel)."
         }
         return text
     }
@@ -215,8 +223,8 @@ public enum WifiChannelAdvisor {
             .min { isBetter($0, than: $1) }
     }
 
-    /// Écart de charge sous lequel le canal actuel est jugé aussi bon que le meilleur.
-    public static let keepMargin = 0.5
+    /// Écart de charge (un voisin fort) sous lequel le canal actuel est jugé aussi bon que le meilleur.
+    public static let keepMargin = 1.0
 
     /// Conseil d'une bande. `scanned` : une analyse a eu lieu (sinon, rien à conseiller).
     public static func advice(_ band: WifiBand, networks: [WifiNetwork], connected: WifiNetwork?, scanned: Bool) -> WifiChannelAdvice {

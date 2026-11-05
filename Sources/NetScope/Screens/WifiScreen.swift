@@ -52,15 +52,19 @@ struct WifiScreen: View {
 
                 SidePanelSplit(sideWidth: 300, collapse: .below) {
                     VStack(spacing: 14) {
+                        // Note 78 : en mode relevé, le relevé par pièce passe en tête.
+                        if store.surveyActive { WifiRoomSurveyPanel(wifi: store) }
                         WifiChannelPanel(store: store)
                         WifiNetworksTable(store: store)
+                        if !store.surveyActive { WifiRoomSurveyPanel(wifi: store) }
                         WifiBeaconPanel(store: store)
                     }
                 } side: {
                     VStack(spacing: 14) {
+                        // Note 78 : meilleur canal par bande et historique du signal jusqu'à 1 h.
+                        WifiChannelAdvicePanel(store: store)
+                        WifiSignalHistoryPanel(store: store)
                         WifiRecommendationsPanel(store: store)
-                        WifiHistoryPanel(store: store)
-                        WifiSurveyPanel(store: store)
                     }
                 }
                 }

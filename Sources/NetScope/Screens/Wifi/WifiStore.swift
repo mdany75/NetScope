@@ -30,14 +30,6 @@ final class WifiStore: NSObject, ObservableObject {
         var rssiAfter: Int
     }
 
-    struct SurveyPoint: Identifiable, Equatable {
-        let id = UUID()
-        var room: String
-        var rssi: Int
-        var bssid: String
-        var time: Date
-    }
-
     @Published private(set) var connection: Connection?
     /// Aucune interface Wi-Fi sur ce Mac.
     @Published private(set) var noInterface = false
@@ -53,10 +45,10 @@ final class WifiStore: NSObject, ObservableObject {
     @Published private(set) var locationRequestPending = false
     /// La demande est restée sans réponse après le délai : la fenêtre n'a peut-être pas paru.
     @Published private(set) var locationRequestUnanswered = false
-    /// RSSI de la connexion, toutes les 2 s, sur 2 minutes (nil : déconnecté).
-    @Published private(set) var history: [Int?] = []
+    /// Note 78 : signal de la connexion sur une heure au plus (toutes les 2 s écran ouvert, 10 s sinon).
+    @Published private(set) var timeline = WifiSignalTimeline()
     @Published private(set) var roams: [Roam] = []
-    @Published var surveyPoints: [SurveyPoint] = []
+    /// Mode relevé (bouton « Relevé ») : formulaire de mesure du relevé par pièce (WifiSurveyStore).
     @Published var surveyActive = false
     @Published var band: WifiBand = .ghz5
     @Published var selectedID: String?
@@ -71,7 +63,11 @@ final class WifiStore: NSObject, ObservableObject {
     private var pendingTimeout: Task<Void, Never>?
     private var timer: Timer?
     private var lastBSSID: String?
-    static let historyLength = 60
+    /// Relevé toutes les 2 s quand l'écran Wi-Fi est ouvert ; toutes les 10 s ensuite, pour garder
+    /// l'historique d'une heure (lecture locale par CoreWLAN, aucun trafic).
+    static let visibleInterval: TimeInterval = 2
+    static let backgroundInterval: TimeInterval = 10
+    private var timerInterval: TimeInterval = 0
 
     init(demo: Bool = Launcher.isDemo) {
         isDemo = demo
@@ -87,12 +83,11 @@ final class WifiStore: NSObject, ObservableObject {
 
     // MARK: Démonstration
 
-    func loadDemo(connection: Connection, networks: [WifiNetwork], history: [Int?], roams: [Roam], points: [SurveyPoint]) {
+    func loadDemo(connection: Connection, networks: [WifiNetwork], timeline: WifiSignalTimeline, roams: [Roam]) {
         self.connection = connection
         self.networks = networks
-        self.history = history
+        self.timeline = timeline
         self.roams = roams
-        surveyPoints = points
         authorization = .authorizedAlways
         lastScan = Date().addingTimeInterval(-12)
         scanCount = 128
@@ -205,18 +200,29 @@ final class WifiStore: NSObject, ObservableObject {
 
     // MARK: Connexion actuelle (lecture locale)
 
-    /// Commence à relire la connexion toutes les 2 s (écran visible seulement).
+    /// Relit la connexion toutes les 2 s (écran visible).
     func start() {
-        guard !isDemo, timer == nil else { return }
+        guard !isDemo else { return }
         refresh()
-        timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
-        }
+        schedule(Self.visibleInterval)
     }
 
+    /// Écran caché : relevé toutes les 10 s seulement, pour l'historique d'une heure (note 78).
     func stop() {
+        guard !isDemo else { return }
+        schedule(Self.backgroundInterval)
+    }
+
+    private func schedule(_ interval: TimeInterval) {
+        guard timer == nil || timerInterval != interval else { return }
         timer?.invalidate()
-        timer = nil
+        timerInterval = interval
+        let next = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.refresh() }
+        }
+        next.tolerance = interval / 5
+        RunLoop.main.add(next, forMode: .common)
+        timer = next
     }
 
     func refresh() {
@@ -243,8 +249,8 @@ final class WifiStore: NSObject, ObservableObject {
                                  countryCode: iface.countryCode(), hardwareAddress: iface.hardwareAddress(), powerOn: powerOn)
         trackRoaming(old: connection?.network, new: network)
         connection = updated
-        history.append(network?.rssi)
-        if history.count > Self.historyLength { history.removeFirst(history.count - Self.historyLength) }
+        timeline.append(WifiSignalSample(time: Date(), rssi: network?.rssi, noise: network?.noise, channel: network?.channel,
+                                         bssid: network?.bssid?.formatted(.upperColon)))
     }
 
     private func trackRoaming(old: WifiNetwork?, new: WifiNetwork?) {
@@ -312,7 +318,14 @@ final class WifiStore: NSObject, ObservableObject {
         var list = WifiAdvisor.recommendations(networks: networks.isEmpty ? connection?.network.map { [$0] } ?? [] : networks,
                                                connected: connected)
         if namesRedacted { list.removeAll { $0.id == "cache" || $0.id.hasPrefix("jumeau-") } }
-        return list.filter { !dismissed.contains($0.id) }
+        // Note 78 : meilleur canal en 5 et 6 GHz quand la connexion est sur un canal nettement plus chargé.
+        list += WifiChannelAdvisor.recommendations(channelAdvice)
+        return list.filter { !dismissed.contains($0.id) }.sorted { $0.severity < $1.severity }
+    }
+
+    /// Note 78 : meilleur canal de chaque bande d'après la dernière analyse.
+    var channelAdvice: [WifiChannelAdvice] {
+        WifiChannelAdvisor.advice(networks: networks, connected: connected, scanned: lastScan != nil && !networks.isEmpty)
     }
 
     func label(for network: WifiNetwork) -> String {
@@ -327,15 +340,6 @@ final class WifiStore: NSObject, ObservableObject {
     func focus(_ recommendation: WifiRecommendation) {
         if let band = recommendation.band { self.band = band }
         if let id = recommendation.networkID { selectedID = id }
-    }
-
-    // MARK: Relevé de couverture
-
-    func addSurveyPoint(room: String) {
-        guard let network = connection?.network else { return }
-        let name = room.trimmingCharacters(in: .whitespaces)
-        surveyPoints.append(SurveyPoint(room: name.isEmpty ? "Point \(surveyPoints.count + 1)" : name, rssi: network.rssi,
-                                        bssid: network.bssid?.formatted(.upperColon) ?? "—", time: Date()))
     }
 
     // MARK: Export
@@ -358,13 +362,6 @@ final class WifiStore: NSObject, ObservableObject {
                           network.noise.map(String.init) ?? "", network.security.label, network.standard ?? "",
                           network.isConnected ? "oui" : "non"] + beaconFields(network)
             lines.append(fields.map(CSVText.field).joined(separator: ";"))
-        }
-        if !surveyPoints.isEmpty {
-            lines.append("")
-            lines.append("Relevé de couverture;RSSI (dBm);BSSID;Heure")
-            for point in surveyPoints {
-                lines.append([point.room, String(point.rssi), point.bssid, WifiText.time(point.time)].map(CSVText.field).joined(separator: ";"))
-            }
         }
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "wifi-analyse.csv"
