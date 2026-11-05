@@ -27,6 +27,9 @@ struct RemoteDraft: Equatable {
     var transfer = FileTransferSettings()
     /// Mot de passe saisi (jamais enregistré ailleurs qu'au Trousseau) ; nil : inchangé.
     var password: String?
+    /// Note 66 : hôtes de rebond (ProxyJump) et clé privée (IdentityFile), SSH seulement.
+    var proxyJump = ""
+    var identityFile = ""
 
     init() {}
 
@@ -54,6 +57,8 @@ struct RemoteDraft: Equatable {
         customWidth = String(connection.display.customWidth)
         customHeight = String(connection.display.customHeight)
         transfer = connection.transfer
+        proxyJump = connection.proxyJump
+        identityFile = connection.identityFile
     }
 
     /// Connexion validée, ou erreur à afficher.
@@ -95,6 +100,9 @@ struct RemoteDraft: Equatable {
             }
             connection.transfer = transfer
         }
+        // Note 66 : rebond et clé (validés avec la connexion ; retirés des autres protocoles).
+        connection.proxyJump = proxyJump.trimmingCharacters(in: .whitespaces)
+        connection.identityFile = identityFile.trimmingCharacters(in: .whitespaces)
         return try connection.validated()
     }
 }
@@ -123,7 +131,12 @@ final class RemoteModel: ObservableObject {
     @Published private(set) var lastCheck: Date?
     @Published var draft: RemoteDraft?
     @Published var draftError: String?
+    /// Note 66 : formulaire d'un tunnel SSH (onglet « Sessions »).
+    @Published var tunnelDraft: SSHTunnelDraft?
+    @Published var tunnelDraftError: String?
     @Published var showImport = false
+    /// Note 78 : source de l'import (scan ou ~/.ssh/config).
+    @Published var importSource: RemoteImportSource = .scan
     /// Panneau de détails ouvert en grande fenêtre (ouvert par défaut).
     @Published var showDetails = true
     /// Panneau de détails ouvert en petite fenêtre : replié par défaut, car il prend alors la place
@@ -160,6 +173,17 @@ final class RemoteModel: ObservableObject {
         if let raw = ProcessInfo.processInfo.environment["NETSCOPE_REMOTE_VIEW"] {
             if raw == "nouveau" { draft = RemoteDraft() }
             if raw == "import" { showImport = true }
+            // Note 78 : import de ~/.ssh/config (fichier fictif de la démonstration).
+            if raw == "import-ssh" {
+                showImport = true
+                importSource = .sshConfig
+            }
+            // Note 66 : formulaire d'un tunnel, ou détails d'une connexion avec ses tunnels.
+            if raw == "tunnel-nouveau", let bastion = connections.first(where: { $0.name.hasPrefix("Bastion") }) {
+                selectedID = bastion.id
+                tunnelDraft = SSHTunnelDemo.draft(connectionID: bastion.id)
+            }
+            if raw == "tunnels" { selectedID = connections.first { $0.name.hasPrefix("Bastion") }?.id ?? selectedID }
             // Note 57 : session VNC intégrée ouverte (bureau Windows dessiné, aucun réseau) ;
             // « vnc-mac » : celle du Mac mini du croquis ; « vnc-mdp » : demande du mot de passe.
             if ["vnc", "vnc-mac", "vnc-mdp"].contains(raw) {
@@ -232,6 +256,8 @@ final class RemoteModel: ObservableObject {
                                                       folder: SiteModel.shared.activeSite?.displayName ?? RemoteImport.folder)
         if existing == nil {
             if proto == .ftps, port == nil || port == 990 { connection.transfer.tlsMode = .implicit }
+            // Note 78 : SFTP : nom retenu pour l'appareil, son site ou son compte SSH.
+            if proto == .sftp { connection.username = QuickLoginModel.shared.suggestedUser(proto: .sftp, host: host) }
             guard (try? connection.validated()) != nil else { return }
             connections.append(connection)
             save()
@@ -323,17 +349,21 @@ final class RemoteModel: ObservableObject {
         if proto == .serie { draft.host = serialPorts.first ?? "" }
         self.draft = draft
         draftError = nil
+        tunnelDraft = nil
     }
 
     func startEditing() {
         guard let selected else { return }
         draft = RemoteDraft(selected)
         draftError = nil
+        tunnelDraft = nil
     }
 
     func cancelDraft() {
         draft = nil
         draftError = nil
+        tunnelDraft = nil
+        tunnelDraftError = nil
     }
 
     /// Enregistre le formulaire ; renvoie la connexion enregistrée.
@@ -454,7 +484,15 @@ final class RemoteModel: ObservableObject {
     /// Sonde TCP de toutes les connexions (ou d'une seule), à la demande de l'utilisateur.
     func checkReachability(only id: UUID? = nil) {
         serialPorts = RemoteSerialPorts.list()
-        let targets = connections.filter { id == nil || $0.id == id }
+        // Note 78 : un alias de ~/.ssh/config est sondé à son HostName.
+        let config = SSHConfigCache.config
+        let targets = connections.filter { id == nil || $0.id == id }.map { connection -> RemoteConnection in
+            guard connection.proto == .ssh, let hostName = config.resolve(connection.host).hostName,
+                  let valid = try? RemoteValidator.validateHost(hostName) else { return connection }
+            var probe = connection
+            probe.host = valid
+            return probe
+        }
         for connection in targets { reachability[connection.id] = .checking }
         Task {
             await withTaskGroup(of: (UUID, Bool).self) { group in
@@ -474,7 +512,8 @@ final class RemoteModel: ObservableObject {
     // MARK: Connexion
 
     func plan(for connection: RemoteConnection) -> Result<RemoteLaunchPlan, Error> {
-        Result { try RemoteLauncher.plan(for: connection) }
+        // Captures et démonstration : dossier personnel fixe (rien du Mac qui les produit).
+        Result { try RemoteLauncher.plan(for: connection, home: RegEnvironment.isSandboxed ? "/Users/dany" : NSHomeDirectory()) }
     }
 
     /// Ouvre la connexion ; `mode` : choix rapide du bouton « Connecter » (fenêtre ou plein
@@ -482,16 +521,23 @@ final class RemoteModel: ObservableObject {
     /// Note 57 : SSH, Telnet et série s'ouvrent dans un onglet de NetScope (`newTab` : un onglet
     /// de plus même si la session est déjà ouverte) ; `inTerminalApp` : l'ancien comportement.
     /// `external` : VNC dans Partage d'écran plutôt que dans la session intégrée.
-    func connect(_ connection: RemoteConnection, mode: RemoteDisplayMode? = nil, newTab: Bool = false, inTerminalApp: Bool = false, external: Bool = false) {
+    func connect(_ connection: RemoteConnection, mode: RemoteDisplayMode? = nil, newTab: Bool = false, inTerminalApp: Bool = false, external: Bool = false,
+                 askUser: Bool = true) {
         // Note 57 : VNC s'ouvre dans la session intégrée de NetScope.
         if connection.proto == .vnc, !external {
             openVNC(connection, fullScreen: (mode ?? connection.display.mode) == .fullScreen)
             return
         }
         // Note 52 : connexion SSH ou Telnet du carnet sans utilisateur : le nom est demandé.
-        if [.ssh, .telnet].contains(connection.proto), connection.username.trimmingCharacters(in: .whitespaces).isEmpty {
+        // Note 78 : le nom peut venir de ~/.ssh/config (User) : ssh le prend, rien n'est demandé.
+        // RDP sans utilisateur : demandé aussi, puis retenu par appareil et par site.
+        if askUser, [.ssh, .telnet, .rdp].contains(connection.proto), connection.username.trimmingCharacters(in: .whitespaces).isEmpty,
+           !(connection.proto == .ssh && SSHConfigCache.config.resolve(connection.host).user != nil) {
             QuickLoginModel.shared.ask(QuickLoginTarget(connection: connection, inTerminalApp: inTerminalApp))
             return
+        }
+        if connection.proto == .rdp, !connection.username.isEmpty {
+            QuickLoginModel.shared.rememberUse(proto: .rdp, host: connection.host, user: connection.username, port: connection.port)
         }
         if !inTerminalApp, mode == nil || connection.proto != .vnc, RemoteSessionStore.opensInTab(connection.proto) {
             guard let valid = try? connection.validated() else {
@@ -585,6 +631,168 @@ final class RemoteModel: ObservableObject {
 
     func refreshSerialPorts() {
         serialPorts = RemoteSerialPorts.list()
+    }
+
+    // MARK: Tunnels SSH (note 66)
+
+    /// « Nouveau tunnel » pour cette connexion SSH (formulaire dans l'onglet « Sessions »).
+    func startTunnel(for connection: RemoteConnection) {
+        draft = nil
+        draftError = nil
+        tunnelDraft = SSHTunnelDraft(connectionID: connection.id)
+        tunnelDraftError = nil
+        selectedID = connection.id
+        RemoteSessionStore.shared.select(nil)
+    }
+
+    func editTunnel(_ tunnel: SSHTunnelSpec, of connection: RemoteConnection) {
+        draft = nil
+        draftError = nil
+        tunnelDraft = SSHTunnelDraft(tunnel, connectionID: connection.id)
+        tunnelDraftError = nil
+        selectedID = connection.id
+        RemoteSessionStore.shared.select(nil)
+    }
+
+    /// Enregistre le tunnel dans sa connexion ; `open` : le démarre dans un onglet.
+    func commitTunnelDraft(open: Bool) {
+        guard let tunnelDraft, let index = connections.firstIndex(where: { $0.id == tunnelDraft.connectionID }) else { return }
+        do {
+            let spec = try tunnelDraft.tunnel().validated()
+            var updated = connections[index]
+            if let position = updated.tunnels.firstIndex(where: { $0.id == spec.id }) {
+                updated.tunnels[position] = spec
+            } else {
+                updated.tunnels.append(spec)
+            }
+            updated = try updated.validated()
+            connections[index] = updated
+            save()
+            self.tunnelDraft = nil
+            tunnelDraftError = nil
+            toast = "Tunnel « \(spec.title) » enregistré dans \(updated.name)."
+            SSHTunnelStore.shared.session(for: spec.id)?.update(tunnel: spec, connection: updated)
+            if open { openTunnel(spec, of: updated) }
+        } catch {
+            tunnelDraftError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func deleteTunnel(_ id: UUID, from connectionID: UUID) {
+        if let tab = RemoteSessionStore.shared.tunnelTab(id) { RemoteSessionStore.shared.close(tab.id) }
+        SSHTunnelStore.shared.discard(id)
+        let removed = connections.first { $0.id == connectionID }?.tunnels.first { $0.id == id }
+        updateExisting(connectionID) { $0.tunnels.removeAll { $0.id == id } }
+        if let removed { toast = "Redirection « \(removed.title) » supprimée." }
+    }
+
+    /// Démarre le tunnel et montre son onglet de session.
+    func openTunnel(_ tunnel: SSHTunnelSpec, of connection: RemoteConnection) {
+        let current = connections.first { $0.id == connection.id } ?? connection
+        guard let valid = try? current.validated() else {
+            toast = "Connexion « \(current.name) » à corriger avant d’ouvrir un tunnel."
+            return
+        }
+        let spec = valid.tunnels.first { $0.id == tunnel.id } ?? tunnel
+        let session = SSHTunnelStore.shared.start(spec, via: valid)
+        RemoteSessionStore.shared.openTunnel(session)
+        selectedID = connection.id
+        draft = nil
+        tunnelDraft = nil
+        if let index = connections.firstIndex(where: { $0.id == connection.id }) {
+            connections[index].lastConnected = Date()
+            save()
+        }
+    }
+
+    func stopTunnel(_ id: UUID) {
+        SSHTunnelStore.shared.stop(id)
+    }
+
+    /// Hôte de rebond choisi dans le panneau de détails (croquis : liste des connexions SSH).
+    func setProxyJump(_ jump: String, for id: UUID) {
+        guard let normalized = try? SSHJumpChain.normalized(jump) else {
+            toast = SSHTunnelError.invalidJump(jump).errorDescription
+            return
+        }
+        updateExisting(id) { $0.proxyJump = normalized }
+    }
+
+    struct JumpCandidate: Equatable {
+        let spec: String
+        let label: String
+    }
+
+    /// Connexions SSH du carnet utilisables comme rebond (avec leur propre rebond, en chaîne).
+    func jumpCandidates(excluding id: UUID) -> [JumpCandidate] {
+        connections.filter { $0.proto == .ssh && $0.id != id }.compactMap { connection in
+            let hop = SSHJumpHost(user: connection.username, host: connection.host, port: connection.port).formatted
+            let chain = connection.proxyJump.isEmpty ? hop : connection.proxyJump + "," + hop
+            guard let spec = try? SSHJumpChain.normalized(chain), !spec.isEmpty else { return nil }
+            return JumpCandidate(spec: spec, label: "\(connection.name) · \(connection.host):\(connection.port)")
+        }
+    }
+
+    /// RDP, VNC ou navigateur à travers un tunnel ouvert (127.0.0.1:port).
+    func openThroughTunnel(_ session: SSHTunnelSession, use: SSHTunnelUse) {
+        guard session.phase == .open, let port = session.localPort else { return }
+        switch use {
+        case .rdp, .vnc:
+            let proto: RemoteProtocol = use == .rdp ? .rdp : .vnc
+            let base = connections.first { $0.proto == proto && $0.host == session.tunnel.remoteHost }
+            guard var through = SSHTunnelCommand.throughTunnel(use, port: port, name: (base?.name ?? session.title) + " (tunnel)", base: base) else { return }
+            // Une session VNC par tunnel (mot de passe VNC propre à cette entrée).
+            through.id = session.id
+            if use == .vnc {
+                RemoteSessionStore.shared.open(through)
+                return
+            }
+            if RegEnvironment.isSandboxed {
+                toast = "Démonstration\u{00A0}: Windows App non lancée (\(through.name), 127.0.0.1:\(port))."
+                return
+            }
+            do {
+                let plan = try RemoteLauncher.plan(for: through)
+                try RemoteExecutor.execute(plan, title: through.name)
+                toast = "Ouverture dans Windows App\u{00A0}: \(through.name), par le tunnel."
+            } catch {
+                toast = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
+        case .http, .https:
+            guard let url = SSHTunnelCommand.webURL(use: use, port: port) else { return }
+            if RegEnvironment.isSandboxed {
+                toast = "Démonstration\u{00A0}: \(url.absoluteString) non ouvert."
+                return
+            }
+            NSWorkspace.shared.open(url)
+            toast = "Ouverture de \(url.absoluteString) dans le navigateur."
+        case .none:
+            session.copyLocalAddress()
+        }
+    }
+
+    // MARK: Import de ~/.ssh/config (note 78)
+
+    func sshConfigCandidates() -> [SSHConfigCandidate] {
+        SSHConfigImport.candidates(from: SSHConfigCache.config, existing: connections)
+    }
+
+    func addFromSSHConfig(_ candidate: SSHConfigCandidate) {
+        guard !candidate.alreadySaved, let connection = candidate.connection,
+              !connections.contains(where: { $0.proto == .ssh && $0.host == connection.host && $0.port == connection.port }) else { return }
+        connections.append(connection)
+        save()
+    }
+
+    func addAllFromSSHConfig(_ candidates: [SSHConfigCandidate]) -> Int {
+        var added = 0
+        for candidate in candidates where !candidate.alreadySaved && candidate.connection != nil {
+            let before = connections.count
+            addFromSSHConfig(candidate)
+            if connections.count > before { added += 1 }
+        }
+        if added > 0 { toast = "\(added) hôte\(added > 1 ? "s" : "") importé\(added > 1 ? "s" : "") de ~/.ssh/config." }
+        return added
     }
 
     private func save() {

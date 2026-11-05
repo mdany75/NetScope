@@ -11,12 +11,29 @@ struct RemoteDetailPanel: View {
             VStack(spacing: 12) {
                 identityCard
                 securityCard
+                // Note 66 : hôte de rebond et tunnels (croquis : « Tunnels / redirections »).
+                if connection.proto == .ssh {
+                    SSHTunnelDetailSection(model: model, connection: connection)
+                }
                 actionsCard
             }
         }
     }
 
     private var reach: RemoteReachability { model.state(of: connection.id) }
+
+    /// Note 78 : nom pris dans ~/.ssh/config quand la connexion n'en a pas.
+    private var userLabel: String {
+        if !connection.username.isEmpty { return connection.username }
+        if connection.proto == .ssh, let user = SSHConfigCache.config.resolve(connection.host).user { return "\(user) (~/.ssh/config)" }
+        return "—"
+    }
+
+    /// Note 78 : adresse réelle d'un alias de ~/.ssh/config.
+    private var sshConfigHostName: String? {
+        guard let hostName = SSHConfigCache.config.resolve(connection.host).hostName, hostName != connection.host else { return nil }
+        return hostName
+    }
 
     private var identityCard: some View {
         Panel {
@@ -53,7 +70,13 @@ struct RemoteDetailPanel: View {
                     KeyValueRow(key: connection.proto == .serie ? "Paramètres" : "Port",
                                 value: connection.proto == .serie ? "\(connection.port) bauds · 8N1" : String(connection.port),
                                 mono: true, keyWidth: 92)
-                    KeyValueRow(key: "Utilisateur", value: connection.username.isEmpty ? "—" : connection.username, mono: true, keyWidth: 92)
+                    KeyValueRow(key: "Utilisateur", value: userLabel, mono: !connection.username.isEmpty, keyWidth: 92)
+                    if connection.proto == .ssh, let hostName = sshConfigHostName {
+                        KeyValueRow(key: "HostName", value: hostName + " (~/.ssh/config)", mono: true, keyWidth: 92)
+                    }
+                    if connection.proto == .ssh, !connection.identityFile.isEmpty {
+                        KeyValueRow(key: "Clé", value: connection.identityFile, mono: true, keyWidth: 92)
+                    }
                     if connection.proto == .rdp || connection.proto == .vnc {
                         KeyValueRow(key: "Affichage", value: connection.display.summary(for: connection.proto), keyWidth: 92)
                     }
@@ -211,10 +234,19 @@ struct RemoteImportOverlay: View {
             VStack(spacing: 0) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Importer depuis le scan").font(Theme.panelTitle)
-                        Text(subtitle).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        Text(model.importSource == .scan ? "Importer depuis le scan" : "Importer depuis ~/.ssh/config").font(Theme.panelTitle)
+                        Text(model.importSource == .scan ? subtitle : SSHConfigImportList.subtitle)
+                            .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     }
                     Spacer()
+                    // Note 78 : deuxième source, les hôtes de ~/.ssh/config (lecture seule).
+                    Picker("", selection: $model.importSource) {
+                        ForEach(RemoteImportSource.allCases) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    .help("Source de l’import")
                     Button {
                         model.showImport = false
                     } label: {
@@ -227,40 +259,44 @@ struct RemoteImportOverlay: View {
                 .padding(.vertical, 14)
                 .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
 
-                TableHeader(columns: [
-                    .init(title: "Appareil"),
-                    .init(title: "IP", width: 130),
-                    .init(title: "Ports détectés", width: 150),
-                    .init(title: "Proposé", width: 110),
-                    .init(title: "Action", width: 130, alignment: .trailing),
-                ])
-                ScrollView {
-                    VStack(spacing: 0) {
-                        if candidates.isEmpty {
-                            EmptyState(systemImage: "dot.radiowaves.left.and.right", title: "Aucun appareil à importer",
-                                       message: "Lancez un scan avec le profil « Ports courants » : les appareils avec 22, 23, 3389 ou 5900 ouverts apparaîtront ici.")
-                                .frame(height: 180)
+                if model.importSource == .sshConfig {
+                    SSHConfigImportList(model: model)
+                } else {
+                    TableHeader(columns: [
+                        .init(title: "Appareil"),
+                        .init(title: "IP", width: 130),
+                        .init(title: "Ports détectés", width: 150),
+                        .init(title: "Proposé", width: 110),
+                        .init(title: "Action", width: 130, alignment: .trailing),
+                    ])
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            if candidates.isEmpty {
+                                EmptyState(systemImage: "dot.radiowaves.left.and.right", title: "Aucun appareil à importer",
+                                           message: "Lancez un scan avec le profil « Ports courants » : les appareils avec 22, 23, 3389 ou 5900 ouverts apparaîtront ici.")
+                                    .frame(height: 180)
+                            }
+                            ForEach(candidates) { candidate in row(candidate) }
                         }
-                        ForEach(candidates) { candidate in row(candidate) }
                     }
-                }
-                .frame(height: candidates.isEmpty ? 180 : min(CGFloat(candidates.count) * 38, 420))
+                    .frame(height: candidates.isEmpty ? 180 : min(CGFloat(candidates.count) * 38, 420))
 
-                HStack(spacing: 10) {
-                    let fresh = candidates.filter { !$0.alreadySaved }.count
-                    Text("\(candidates.count) appareil\(candidates.count > 1 ? "s" : "") · \(fresh) nouveau\(fresh > 1 ? "x" : "")")
-                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                    Spacer()
-                    Button("Ajouter toutes les nouvelles") { _ = model.addAll(candidates) }
-                        .buttonStyle(.secondary)
-                        .speedDisabled(fresh == 0)
-                    Button("Terminé") { model.showImport = false }
-                        .buttonStyle(.primary)
+                    HStack(spacing: 10) {
+                        let fresh = candidates.filter { !$0.alreadySaved }.count
+                        Text("\(candidates.count) appareil\(candidates.count > 1 ? "s" : "") · \(fresh) nouveau\(fresh > 1 ? "x" : "")")
+                            .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        Spacer()
+                        Button("Ajouter toutes les nouvelles") { _ = model.addAll(candidates) }
+                            .buttonStyle(.secondary)
+                            .speedDisabled(fresh == 0)
+                        Button("Terminé") { model.showImport = false }
+                            .buttonStyle(.primary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Theme.panelMuted)
+                    .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Theme.panelMuted)
-                .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
             }
             .frame(maxWidth: 760)
             .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))

@@ -22,6 +22,8 @@ final class RemoteSessionStore: ObservableObject {
         case terminal(TerminalSession)
         /// Session VNC intégrée (une par connexion, gardée par `VNCSessionStore`).
         case vnc(VNCSession)
+        /// Note 66 : tunnel SSH (une session par redirection, gardée par `SSHTunnelStore`).
+        case tunnel(SSHTunnelSession)
     }
 
     @MainActor
@@ -33,6 +35,7 @@ final class RemoteSessionStore: ObservableObject {
             switch content {
             case .terminal(let session): return session.connection
             case .vnc(let session): return session.connection
+            case .tunnel(let session): return session.connection
             }
         }
 
@@ -46,11 +49,17 @@ final class RemoteSessionStore: ObservableObject {
             return nil
         }
 
+        var tunnelSession: SSHTunnelSession? {
+            if case .tunnel(let session) = content { return session }
+            return nil
+        }
+
         /// Session encore ouverte (terminal connecté, VNC connecté ou en cours de connexion).
         var isActive: Bool {
             switch content {
             case .terminal(let session): return session.isActive
             case .vnc(let session): return session.isActive
+            case .tunnel(let session): return session.isActive
             }
         }
     }
@@ -68,7 +77,11 @@ final class RemoteSessionStore: ObservableObject {
         if isSandboxed {
             savedPasswords = Set(RemoteDemo.connections.filter { $0.proto == .ssh && $0.name.hasPrefix("FortiGate") }.map(\.id))
         }
-        if RegEnvironment.isDemo { TerminalDemo.openDemoTabs(in: self) }
+        if RegEnvironment.isDemo {
+            TerminalDemo.openDemoTabs(in: self)
+            // Note 66 : tunnels ouverts de la démonstration (rien n'est lancé).
+            SSHTunnelDemo.openDemoTunnels(in: self)
+        }
     }
 
     var activeTab: Tab? {
@@ -101,7 +114,7 @@ final class RemoteSessionStore: ObservableObject {
             activeID = tab.id
             return tab
         }
-        if !newTab, let existing = tabs.first(where: { $0.connection.id == connection.id && $0.isActive }) {
+        if !newTab, let existing = tabs.first(where: { $0.connection.id == connection.id && $0.session != nil && $0.isActive }) {
             activeID = existing.id
             return existing
         }
@@ -115,6 +128,24 @@ final class RemoteSessionStore: ObservableObject {
         tabs.append(tab)
         activeID = tab.id
         return tab
+    }
+
+    /// Note 66 : onglet du tunnel (créé au besoin) ; `activate` : l'onglet est affiché.
+    @discardableResult
+    func openTunnel(_ session: SSHTunnelSession, activate: Bool = true) -> Tab {
+        if let existing = tabs.first(where: { $0.tunnelSession === session }) {
+            if activate { activeID = existing.id }
+            return existing
+        }
+        let tab = Tab(id: UUID(), content: .tunnel(session))
+        tabs.append(tab)
+        if activate { activeID = tab.id }
+        return tab
+    }
+
+    /// Onglet d'un tunnel, s'il y en a un.
+    func tunnelTab(_ tunnelID: UUID) -> Tab? {
+        tabs.first { $0.tunnelSession?.id == tunnelID }
     }
 
     /// Ajoute un onglet déjà préparé (démonstration).
@@ -137,6 +168,8 @@ final class RemoteSessionStore: ObservableObject {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
         tabs[index].session?.shutdown()
         if let vnc = tabs[index].vncSession { VNCSessionStore.shared.close(vnc.id) }
+        // Note 66 : fermer l'onglet d'un tunnel l'arrête.
+        if let tunnel = tabs[index].tunnelSession { SSHTunnelStore.shared.discard(tunnel.id) }
         tabs.remove(at: index)
         if pendingClose?.id == id { pendingClose = nil }
         if activeID == id {
@@ -149,13 +182,14 @@ final class RemoteSessionStore: ObservableObject {
     func forget(_ connectionID: UUID) {
         for tab in tabs where tab.connection.id == connectionID { close(tab.id) }
         VNCSessionStore.shared.close(connectionID)
+        SSHTunnelStore.shared.discardAll(for: connectionID)
         try? setPassword("", for: connectionID)
         try? VNCPasswordStore.setPassword(nil, for: connectionID)
     }
 
-    /// Onglet de la connexion, s'il y en a un.
+    /// Onglet de la connexion (terminal ou VNC), s'il y en a un.
     func tab(for connectionID: UUID) -> Tab? {
-        tabs.first { $0.connection.id == connectionID }
+        tabs.first { $0.connection.id == connectionID && $0.tunnelSession == nil }
     }
 
     func select(_ id: UUID?) {

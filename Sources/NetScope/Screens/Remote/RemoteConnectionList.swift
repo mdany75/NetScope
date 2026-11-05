@@ -6,6 +6,7 @@ import SwiftUI
 struct RemoteConnectionList: View {
     @ObservedObject var model: RemoteModel
     @StateObject private var table = RemoteConnectionColumns.makeModel()
+    @ObservedObject private var tunnels = SSHTunnelStore.shared
     @State private var showTable = false
 
     var body: some View {
@@ -88,7 +89,7 @@ struct RemoteConnectionList: View {
             Text("Importer du scan").frame(maxWidth: .infinity)
         }
         .buttonStyle(RemoteSmallButtonStyle(fixed: false))
-        .help("Ajouter les appareils du scan qui ont 22, 23, 3389 ou 5900 ouverts")
+        .help("Ajouter les appareils du scan (22, 23, 3389 ou 5900 ouverts) ou les hôtes de ~/.ssh/config")
     }
 
     private func groupView(_ group: RemoteModel.RemoteGroup) -> some View {
@@ -150,6 +151,20 @@ struct RemoteConnectionList: View {
                         HStack(spacing: 6) {
                             Text(connection.name).font(.system(size: 12.5, weight: .semibold)).lineLimit(1)
                             RemoteProtoBadge(proto: connection.proto)
+                            // Note 66 : tunnels de la connexion (en couleur s'il y en a un d'ouvert).
+                            if !connection.tunnels.isEmpty {
+                                let open = connection.tunnels.filter { tunnels.isActive($0.id) }.count
+                                Image(systemName: "arrow.left.arrow.right")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(open > 0 ? Theme.success : Theme.textTertiary)
+                                    .help(open > 0 ? "\(open) tunnel\(open > 1 ? "s" : "") ouvert\(open > 1 ? "s" : "") sur \(connection.tunnels.count)"
+                                          : "\(connection.tunnels.count) tunnel\(connection.tunnels.count > 1 ? "s" : "") enregistré\(connection.tunnels.count > 1 ? "s" : "")")
+                            } else if !connection.proxyJump.isEmpty {
+                                Image(systemName: "arrow.turn.down.right")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(Theme.textTertiary)
+                                    .help("Par l’hôte de rebond \(connection.proxyJump)")
+                            }
                         }
                         // « NON SÉCURISÉ » en toutes lettres s'il tient, sinon un triangle : l'adresse reste entière.
                         ViewThatFits(in: .horizontal) {

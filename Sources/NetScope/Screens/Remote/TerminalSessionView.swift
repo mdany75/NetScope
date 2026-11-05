@@ -175,6 +175,11 @@ struct TerminalSessionView: View {
                     .truncationMode(.tail)
                     .layoutPriority(-1)
                 Spacer(minLength: 8)
+                Toggle("Horodater", isOn: $session.timestamps)
+                    .toggleStyle(.checkbox)
+                    .font(Theme.small)
+                    .fixedSize()
+                    .help("Ajoute l’heure (à la milliseconde) devant chaque ligne reçue, aussi dans le journal")
                 Button("9600 8N1") {
                     session.applySerial(path: session.serialPath, settings: .ciscoConsole)
                     model.setSerialBaud(9600, for: session.connection.id)

@@ -355,6 +355,11 @@ public struct QuickLoginMemory: Codable, Equatable, Sendable {
             choice.host = device.host
             return QuickLoginSuggestion(choice: choice, source: .device, skipPrompt: entry.skipPrompt)
         }
+        // Note 78 : SFTP reprend le compte SSH retenu pour l'appareil (même serveur sshd).
+        if proto == .sftp, let ssh = entry(for: device, proto: .ssh), !ssh.user.isEmpty {
+            let choice = QuickLoginChoice(proto: .sftp, host: device.host, user: ssh.user, port: ssh.port)
+            return QuickLoginSuggestion(choice: choice, source: .device, skipPrompt: false)
+        }
         if let siteID = device.siteID,
            let recent = entries.filter({ $0.siteID == siteID && $0.proto == proto && !$0.user.isEmpty }).max(by: { $0.lastUsed < $1.lastUsed }) {
             // Même nom et même méthode que sur le site ; port par défaut (propre à chaque appareil).
@@ -363,8 +368,12 @@ public struct QuickLoginMemory: Codable, Equatable, Sendable {
             return QuickLoginSuggestion(choice: choice, source: .site, skipPrompt: false)
         }
         let ssh = credentials.filter { $0.kind == .ssh && !$0.user.isEmpty }
-        if proto == .ssh, let credential = ssh.first(where: { $0.lastHost == device.host }) ?? ssh.first {
-            return QuickLoginSuggestion(choice: Self.choice(from: credential, host: device.host), source: .credential(credential.name), skipPrompt: false)
+        if proto == .ssh || proto == .sftp, let credential = ssh.first(where: { $0.lastHost == device.host }) ?? ssh.first {
+            var choice = Self.choice(from: credential, host: device.host)
+            if proto == .sftp {
+                choice = QuickLoginChoice(proto: .sftp, host: device.host, user: credential.user, port: choice.port)
+            }
+            return QuickLoginSuggestion(choice: choice, source: .credential(credential.name), skipPrompt: false)
         }
         return QuickLoginSuggestion(choice: QuickLoginChoice(proto: proto, host: device.host), source: .none, skipPrompt: false)
     }

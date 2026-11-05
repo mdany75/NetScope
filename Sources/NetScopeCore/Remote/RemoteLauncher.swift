@@ -42,11 +42,13 @@ public enum RemoteLauncher {
     }
 
     /// Plan de lancement. `telnetPath` nil : nc sert de client Telnet minimal.
-    public static func plan(for connection: RemoteConnection, telnetPath: String? = findTelnet()) throws -> RemoteLaunchPlan {
+    /// `home` remplace « ~ » d'une clé de ~/.ssh/config (note 66).
+    public static func plan(for connection: RemoteConnection, telnetPath: String? = findTelnet(),
+                            home: String = NSHomeDirectory()) throws -> RemoteLaunchPlan {
         let c = try connection.validated()
         switch c.proto {
         case .ssh:
-            return .terminal(command: sshCommand(c))
+            return .terminal(command: sshCommand(c, home: home))
         case .telnet:
             return .terminal(command: telnetCommand(c, telnetPath: telnetPath))
         case .serie:
@@ -72,8 +74,12 @@ public enum RemoteLauncher {
 
     /// « ssh -- netadmin@10.182.122.2 », « ssh -p 2222 -- netadmin@10.182.122.2 » (note 52 :
     /// forme user@ip ; « -- » : la destination ne peut pas être lue comme une option).
-    public static func sshCommand(_ c: RemoteConnection) -> String {
-        QuickLogin.sshCommand(user: c.username, host: c.host, port: c.port)
+    /// Note 66 : rebond (« -J ») et clé de ~/.ssh/config (« -i ») repris de la connexion.
+    public static func sshCommand(_ c: RemoteConnection, home: String = NSHomeDirectory()) -> String {
+        guard !c.proxyJump.isEmpty || !c.identityFile.isEmpty, let target = try? SSHTarget(connection: c).validated() else {
+            return QuickLogin.sshCommand(user: c.username, host: c.host, port: c.port)
+        }
+        return RemoteShell.command(["ssh"] + target.trailingArguments(home: home))
     }
 
     /// « telnet -l manager 10.182.122.3 23 », ou « nc 10.182.122.3 23 » sans telnet installé.

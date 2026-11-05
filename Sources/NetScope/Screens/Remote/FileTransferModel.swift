@@ -156,7 +156,12 @@ final class FileTransferSession: ObservableObject, Identifiable {
         self.connection = connection
         self.store = store
         isDemo = demo
-        credentialUser = connection.username
+        // Note 78 : SFTP sans utilisateur : nom retenu pour l'appareil (ou son compte SSH).
+        if connection.proto == .sftp, connection.username.trimmingCharacters(in: .whitespaces).isEmpty, !demo {
+            credentialUser = QuickLoginModel.shared.suggestedUser(proto: .sftp, host: connection.host)
+        } else {
+            credentialUser = connection.username
+        }
         let configured = connection.transfer.localDirectory
         if demo {
             localURL = FileTransferDemo.localHome
@@ -262,6 +267,10 @@ final class FileTransferSession: ObservableObject, Identifiable {
         }
         connection.username = user
         RemoteModel.shared.setTransferUsername(user, for: connection.id)
+        // Note 78 : nom retenu pour l'appareil et le site (connexions SFTP suivantes).
+        if connection.proto == .sftp {
+            QuickLoginModel.shared.rememberUse(proto: .sftp, host: connection.host, user: user, port: connection.port)
+        }
         var keychainFailure: String?
         if !credentialPassword.isEmpty, rememberPassword {
             do {

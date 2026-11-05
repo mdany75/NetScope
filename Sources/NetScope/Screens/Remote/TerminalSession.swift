@@ -89,6 +89,13 @@ final class TerminalSession: ObservableObject, Identifiable {
         didSet { logEnabled ? openLog() : closeLog() }
     }
     // Console série
+    /// Note 78 : horodatage des lignes reçues (« [10:41:07.123] »), retenu entre les sessions.
+    @Published var timestamps: Bool {
+        didSet {
+            stamper.reset()
+            if kind == .serial { TerminalPreferences.shared.serialTimestamps = timestamps }
+        }
+    }
     @Published var serialPath: String
     @Published var serialSettings: SerialSettings
     // Recherche (⌘F)
@@ -115,6 +122,9 @@ final class TerminalSession: ObservableObject, Identifiable {
     private var recentText = ""
     private var logHandle: FileHandle?
     private var askpassFlag: URL?
+    private var stamper = TerminalLineTimestamper()
+    /// Horloge de l'horodatage (fixe en démonstration).
+    private var clock: () -> Date = Date.init
     private var secretChannel: SSHSecretChannel?
     private let demo: Bool
     /// Liaison de démonstration (captures, --demo).
@@ -130,6 +140,16 @@ final class TerminalSession: ObservableObject, Identifiable {
         logEnabled = TerminalPreferences.shared.logSessions
         serialPath = connection.host
         serialSettings = TerminalSerialMemory.settings(for: connection)
+        timestamps = kind == .serial && TerminalPreferences.shared.serialTimestamps
+        if demo {
+            // Démonstration : heures fixes, 0,137 s entre deux lignes (démarrage d'un switch).
+            var tick = 0.0
+            let base = Calendar.current.date(bySettingHour: 10, minute: 29, second: 14, of: Date()) ?? Date()
+            clock = {
+                defer { tick += 0.137 }
+                return base.addingTimeInterval(tick)
+            }
+        }
     }
 
     // MARK: État
@@ -196,12 +216,18 @@ final class TerminalSession: ObservableObject, Identifiable {
             // Secret par un tube à usage unique, jamais dans l'environnement de ssh.
             let channel = try secret.flatMap { $0.isEmpty ? nil : try SSHSecretChannel(directory: SSHTerminalCommand.controlDirectory, secret: $0) }
             secretChannel = channel
+            // Note 78 (défaut corrigé) : l'invite que ssh nommera tient compte de User et HostName de
+            // ~/.ssh/config ; sans cela, le mot de passe du Trousseau n'était pas remis quand le nom
+            // venait du fichier.
+            let expect = SSHConfigCache.config.expectedPrompt(user: connection.username, host: connection.host)
             let environment = SSHTerminalCommand.environment(base: ProcessInfo.processInfo.environment, askpass: askpass.path,
-                                                              secretPipe: channel?.path,
-                                                              expect: SSHTerminalCommand.expectedPrompt(user: connection.username, host: connection.host),
-                                                              flag: flag.path)
-            let arguments = SSHTerminalCommand.arguments(user: connection.username, host: connection.host, port: connection.port)
-            info("NetScope › " + SSHTerminalCommand.displayCommand(user: connection.username, host: connection.host, port: connection.port)
+                                                              secretPipe: channel?.path, expect: expect, flag: flag.path)
+            // Note 66 : saut par bastion (-J) et clé (-i) de la connexion.
+            let arguments = SSHTerminalCommand.arguments(user: connection.username, host: connection.host, port: connection.port,
+                                                         keyPath: connection.identityFile.isEmpty ? nil : connection.identityFile,
+                                                         jump: connection.proxyJump)
+            info("NetScope › " + SSHTerminalCommand.displayCommand(user: connection.username, host: connection.host, port: connection.port,
+                                                                    jump: connection.proxyJump, keyPath: connection.identityFile)
                  + (secret == nil ? "" : "  (mot de passe du Trousseau)"))
             return PTYProcess(executable: SSHTerminalCommand.sshPath, arguments: arguments, environment: environment,
                               columns: columns, rows: rows)
@@ -269,7 +295,9 @@ final class TerminalSession: ObservableObject, Identifiable {
         onOutput?()
     }
 
-    private func receive(_ bytes: [UInt8]) {
+    private func receive(_ incoming: [UInt8]) {
+        // Note 78 : horodatage des lignes de la console série (option de l'onglet).
+        let bytes = kind == .serial && timestamps ? stamper.feed(incoming, now: clock) : incoming
         emulator.feed(bytes)
         let responses = emulator.takeResponses()
         if !responses.isEmpty { transport?.send(responses) }

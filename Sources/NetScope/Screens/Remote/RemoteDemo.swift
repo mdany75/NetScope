@@ -41,6 +41,13 @@ enum RemoteDemo {
                              folder: "Siège › Réseau", note: "Aruba 2930F · images et configuration", lastConnected: ago(30),
                              transfer: FileTransferSettings(dataMode: .passive)),
         ]
+        // Note 66 : tunnels du croquis (SW-CORE-01, NAS-SYNO), proxy SOCKS de la FortiGate, bastion
+        // de Laval et switch joint par lui (DevTools/SSHTunnelDemo.swift).
+        .map { connection -> RemoteConnection in
+            var copy = connection
+            copy.tunnels = SSHTunnelDemo.tunnels(for: connection.name)
+            return copy
+        } + SSHTunnelDemo.connections(now: now)
     }()
 
     static func reachability(for connections: [RemoteConnection]) -> [UUID: RemoteReachability] {
