@@ -167,6 +167,26 @@ struct RemoteConnectButton: View {
                 .overlay(alignment: .leading) { Rectangle().fill(Color.white.opacity(0.35)).frame(width: 1, height: 16) }
                 .help("Connecter en fenêtre ou en plein écran")
             }
+            // Note 57 : onglet intégré par défaut ; Terminal garde l'ancien comportement.
+            if [.ssh, .telnet, .serie].contains(connection.proto) {
+                Menu {
+                    Button("Ouvrir dans un onglet de NetScope") { model.connect(connection) }
+                    if connection.proto != .serie {
+                        Button("Ouvrir dans un nouvel onglet") { model.connect(connection, newTab: true) }
+                    }
+                    Divider()
+                    Button("Ouvrir dans Terminal") { model.connect(connection, inTerminalApp: true) }
+                } label: {
+                    Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .tint(.white)
+                .foregroundStyle(Color.white)
+                .frame(width: large ? 28 : 24, height: large ? 32 : 30)
+                .overlay(alignment: .leading) { Rectangle().fill(Color.white.opacity(0.35)).frame(width: 1, height: 16) }
+                .help("Ouvrir dans un onglet de NetScope ou dans Terminal")
+            }
         }
         .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(tint))
         .fixedSize()

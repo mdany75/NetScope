@@ -193,6 +193,12 @@ final class RemoteModel: ObservableObject {
         updateExisting(id) { $0.username = user }
     }
 
+    /// Note 57 : débit choisi dans l'onglet de la console série (débits du carnet seulement).
+    func setSerialBaud(_ baud: Int, for id: UUID) {
+        guard RemoteValidator.baudRates.contains(baud) else { return }
+        updateExisting(id) { $0.port = baud }
+    }
+
     private func updateExisting(_ id: UUID, _ change: (inout RemoteConnection) -> Void) {
         guard let index = connections.firstIndex(where: { $0.id == id }) else { return }
         var updated = connections[index]
@@ -325,6 +331,10 @@ final class RemoteModel: ObservableObject {
             if connection.proto.isFileTransfer, let password = draft.password {
                 try FileTransferStore.shared.setPassword(password, for: connection.id)
             }
+            // Note 57 : mot de passe SSH ou Telnet au Trousseau seulement (vide : oublié).
+            if [.ssh, .telnet].contains(connection.proto), let password = draft.password {
+                try RemoteSessionStore.shared.setPassword(password, for: connection.id)
+            }
             if let index = connections.firstIndex(where: { $0.id == connection.id }) {
                 connections[index] = connection
                 toast = "Connexion « \(connection.name) » enregistrée."
@@ -357,6 +367,8 @@ final class RemoteModel: ObservableObject {
             if FileTransferStore.shared.session?.connection.id == connection.id { FileTransferStore.shared.close() }
             try? FileTransferStore.shared.setPassword("", for: connection.id)
         }
+        // Note 57 : onglets de la connexion fermés, mot de passe SSH ou Telnet oublié.
+        RemoteSessionStore.shared.forget(connection.id)
         connections.removeAll { $0.id == connection.id }
         reachability[connection.id] = nil
         if selectedID == connection.id { selectedID = connections.first?.id }
@@ -450,10 +462,28 @@ final class RemoteModel: ObservableObject {
 
     /// Ouvre la connexion ; `mode` : choix rapide du bouton « Connecter » (fenêtre ou plein
     /// écran pour cette fois seulement, sans changer la connexion enregistrée).
-    func connect(_ connection: RemoteConnection, mode: RemoteDisplayMode? = nil) {
+    /// Note 57 : SSH, Telnet et série s'ouvrent dans un onglet de NetScope (`newTab` : un onglet
+    /// de plus même si la session est déjà ouverte) ; `inTerminalApp` : l'ancien comportement.
+    func connect(_ connection: RemoteConnection, mode: RemoteDisplayMode? = nil, newTab: Bool = false, inTerminalApp: Bool = false) {
         // Note 52 : connexion SSH ou Telnet du carnet sans utilisateur : le nom est demandé.
         if [.ssh, .telnet].contains(connection.proto), connection.username.trimmingCharacters(in: .whitespaces).isEmpty {
-            QuickLoginModel.shared.ask(QuickLoginTarget(connection: connection))
+            QuickLoginModel.shared.ask(QuickLoginTarget(connection: connection, inTerminalApp: inTerminalApp))
+            return
+        }
+        if !inTerminalApp, mode == nil || connection.proto != .vnc, RemoteSessionStore.opensInTab(connection.proto) {
+            guard let valid = try? connection.validated() else {
+                toast = "Connexion « \(connection.name) » à corriger avant de l’ouvrir."
+                return
+            }
+            selectedID = connection.id
+            draft = nil
+            if let index = connections.firstIndex(where: { $0.id == connection.id }) {
+                connections[index].lastConnected = Date()
+                save()
+            }
+            RemoteSessionStore.shared.open(valid, newTab: newTab)
+            // Grande fenêtre : le panneau de détails se replie pour laisser la largeur au terminal.
+            if !compactLayout { showDetails = false }
             return
         }
         // Note 50 : FTP, FTPS et SFTP s'ouvrent dans le navigateur de fichiers de NetScope.

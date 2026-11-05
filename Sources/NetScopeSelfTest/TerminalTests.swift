@@ -485,6 +485,8 @@ func registerTerminalTests(_ suite: TestSuite) {
         try expect(!args.joined().contains("s3cr3t") && !SSHTerminalCommand.askpassScript.contains("s3cr3t"), "jamais dans les arguments ni le script")
         try expectEqual(SSHTerminalCommand.environment(base: [:], askpass: "a", secret: nil, flag: "f")["NETSCOPE_SSH_SECRET"], nil, "sans secret")
         try expectEqual(SSHTerminalCommand.displayCommand(user: "admin", host: "10.0.0.2", port: 2222), "ssh -p 2222 -- admin@10.0.0.2", "commande affichée")
+        try expectEqual(BackupKeychainScan.usage(for: "com.danymenard.netscope.acces"), "Mots de passe SSH et Telnet (Accès distant)",
+                        "service du Trousseau nommé dans les sauvegardes")
     }
 
     suite.add("SSH intégré : le script SSH_ASKPASS donne le secret une seule fois") {

@@ -41,7 +41,7 @@ public final class TelnetTransport: TerminalTransport, @unchecked Sendable {
         connection.start(queue: queue)
         queue.asyncAfter(deadline: .now() + timeout + 1) { [weak self] in
             guard let self, !self.ready else { return }
-            self.finish("Délai dépassé : \(self.host) ne répond pas sur le port \(self.port).")
+            self.finish("Délai dépassé : \(self.host) ne répond pas sur le port \(self.port).")
         }
     }
 
@@ -129,7 +129,7 @@ public final class TelnetTransport: TerminalTransport, @unchecked Sendable {
         case .posix(let code):
             switch code {
             case .ECONNREFUSED: return "\(host) refuse la connexion sur le port \(port) (Telnet désactivé\u{00A0}?)."
-            case .ETIMEDOUT: return "Délai dépassé : \(host) ne répond pas sur le port \(port)."
+            case .ETIMEDOUT: return "Délai dépassé : \(host) ne répond pas sur le port \(port)."
             case .EHOSTUNREACH, .ENETUNREACH: return "Aucune route vers \(host)."
             case .ECONNRESET: return "Connexion interrompue par \(host)."
             default: return "Connexion impossible à \(host)\u{00A0}: \(error.localizedDescription)"
