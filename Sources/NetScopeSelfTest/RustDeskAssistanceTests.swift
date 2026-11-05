@@ -43,6 +43,15 @@ func registerRustDeskAssistanceTests(_ suite: TestSuite) {
         try expectEqual(RustDeskAssistance.filter(history, query: "siège compta").map(\.name), ["PORT-COMPTA-07"], "tous les mots requis")
         try expectEqual(RustDeskAssistance.filter(history, query: "10.182.122").map(\.name), ["SALLE-CONF-TV"], "adresse IP directe")
         try expect(RustDeskAssistance.filter(history, query: "Laval").isEmpty, "aucun résultat")
+        // Chiffres seuls : l'ID par groupes OU les mots (nom du poste, adresse telle quelle).
+        let more = [
+            RustDeskLaunch(date: now, name: "LAVAL-POSTE-11", target: "552907384"),
+            RustDeskLaunch(date: now, name: "SALLE-B", target: "10.182.122.177"),
+        ]
+        try expectEqual(RustDeskAssistance.filter(more, query: "11").map(\.name), ["LAVAL-POSTE-11"], "chiffres du nom du poste")
+        try expect(RustDeskAssistance.filter(more, query: "1821").isEmpty, "les points d'une adresse comptent")
+        try expectEqual(RustDeskAssistance.filter(more, query: "122 177").map(\.name), ["SALLE-B"], "mots dans l'adresse")
+        try expectEqual(RustDeskAssistance.filter(more, query: "552 907").map(\.name), ["LAVAL-POSTE-11"], "ID par groupes")
     }
 
     suite.add("Assistance RustDesk : présence au carnet") {

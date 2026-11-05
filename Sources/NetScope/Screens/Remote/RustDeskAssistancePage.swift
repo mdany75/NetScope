@@ -42,7 +42,10 @@ struct RustDeskAssistancePage: View {
             Button("Effacer", role: .destructive) { rustdesk.clearHistory() }
             Button("Annuler", role: .cancel) {}
         } message: {
-            Text("Les \(rustdesk.history.count) lancements notés sur ce Mac sont oubliés. Le carnet des postes n’est pas touché.")
+            Text((rustdesk.history.count == 1
+                  ? "Le lancement noté sur ce Mac est oublié."
+                  : "Les \(rustdesk.history.count) lancements notés sur ce Mac sont oubliés.")
+                 + " Le carnet des postes n’est pas touché.")
         }
     }
 
@@ -144,7 +147,8 @@ struct RustDeskAssistancePage: View {
                     }
                     .buttonStyle(RemoteSmallButtonStyle(primary: true, tint: RemoteProtocol.rustdesk.tint))
                     .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .keyboardShortcut(.defaultAction)
+                    // Pas de .keyboardShortcut(.defaultAction) : ↩︎ dans la recherche ou le tableau
+                    // lancerait l'ID saisi ; le .onSubmit du champ d'ID suffit.
                     .help("Ouvre RustDesk sur ce Mac vers ce poste\u{00A0}; RustDesk demande ensuite le mot de passe à usage unique de l’usager")
                 }
                 Group {
@@ -247,21 +251,9 @@ struct RustDeskAssistancePage: View {
         let all = rustdesk.history
         let rows = RustDeskAssistanceRow.rows(RustDeskAssistance.filter(all, query: query), connections: model.connections)
         return VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Sessions récentes", subtitle: historySubtitle(all)) {
-                if !all.isEmpty {
-                    SearchField(text: $query, placeholder: "Poste, ID, usager…")
-                        .frame(width: 210)
-                    Menu {
-                        Button("Effacer l’historique…", role: .destructive) { confirmClear = true }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                    .menuStyle(.borderlessButton)
-                    .menuIndicator(.hidden)
-                    .fixedSize()
-                    .help("Autres actions sur l’historique")
-                    StandardColumnsMenu(model: table, compact: true)
-                }
+            // Recalculé chaque minute : « N aujourd’hui » se remet à zéro après minuit.
+            TimelineView(.periodic(from: .now, by: 60)) { context in
+                historyHeader(all, now: context.date)
             }
             if all.isEmpty {
                 EmptyState(systemImage: "clock.arrow.circlepath", title: "Aucune session lancée",
@@ -280,9 +272,28 @@ struct RustDeskAssistancePage: View {
         }
     }
 
-    private func historySubtitle(_ all: [RustDeskLaunch]) -> String? {
+    private func historyHeader(_ all: [RustDeskLaunch], now: Date) -> some View {
+        SectionHeader(title: "Sessions récentes", subtitle: historySubtitle(all, now: now)) {
+            if !all.isEmpty {
+                SearchField(text: $query, placeholder: "Poste, ID, usager…")
+                    .frame(width: 210)
+                Menu {
+                    Button("Effacer l’historique…", role: .destructive) { confirmClear = true }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help("Autres actions sur l’historique")
+                StandardColumnsMenu(model: table, compact: true)
+            }
+        }
+    }
+
+    private func historySubtitle(_ all: [RustDeskLaunch], now: Date) -> String? {
         guard !all.isEmpty else { return nil }
-        let today = rustdesk.todayCount
+        let today = RustDeskAssistance.todayCount(all, now: now)
         let postes = RustDeskAssistance.distinctTargets(all)
         return "\(all.count) lancement\(all.count > 1 ? "s" : "") · \(today) aujourd’hui · \(postes) poste\(postes > 1 ? "s" : "")"
     }
@@ -291,7 +302,9 @@ struct RustDeskAssistancePage: View {
 
     private func connect() {
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-        error = model.quickRustDesk(text, name: saveToBook ? name : "", endUser: saveToBook ? endUser : "", saveToBook: saveToBook)
+        // Dossier vide : la connexion choisie dans la liste n'est pas visible sur cette page.
+        error = model.quickRustDesk(text, name: saveToBook ? name : "", endUser: saveToBook ? endUser : "", folder: "",
+                                    saveToBook: saveToBook)
         if error == nil {
             text = ""
             name = ""
@@ -323,7 +336,7 @@ struct RustDeskAssistancePage: View {
     private func addToBook(_ row: RustDeskAssistanceRow) {
         let launch = row.launch
         if let message = model.quickRustDesk(launch.target, name: RustDeskAssistance.suggestedName(launch), endUser: launch.endUser,
-                                             saveToBook: true, launch: false) {
+                                             folder: launch.site, saveToBook: true, launch: false) {
             model.toast = message
         }
     }
@@ -401,7 +414,7 @@ enum RustDeskAssistanceColumns {
         "site": KeyPathComparator(\RustDeskAssistanceRow.siteSort),
         "carnet": KeyPathComparator(\RustDeskAssistanceRow.bookSort),
     ]
-    static let widths: [String: CGFloat] = ["date": 142, "poste": 150, "id": 110, "usager": 160, "site": 120, "carnet": 84, "actions": 96]
+    static let widths: [String: CGFloat] = ["date": 136, "poste": 136, "id": 110, "usager": 190, "site": 120, "carnet": 80, "actions": 96]
 }
 
 struct RustDeskAssistanceTable: View {
@@ -422,7 +435,11 @@ struct RustDeskAssistanceTable: View {
                                       height: StandardTableMetrics.height(rows: rows.count, rowHeight: Self.rowHeight, maxRows: Self.maxRows)) {
             Table(sorted, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
                 TableColumn(StandardTableHeading("LANCÉE"), sortUsing: table.sort("date")) { row in
-                    Text(RemoteFormat.relative(row.date)).font(Theme.mono(12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                    // Recalculée chaque minute (« Aujourd’hui » devient « Hier » après minuit).
+                    TimelineView(.periodic(from: .now, by: 60)) { context in
+                        Text(RemoteFormat.relative(row.date, now: context.date)).font(Theme.mono(12)).foregroundStyle(Theme.textSecondary)
+                            .lineLimit(1)
+                    }
                 }
                 .width(min: 132, ideal: RustDeskAssistanceColumns.widths["date"])
                 .customizationID("date").disabledCustomizationBehavior(.visibility)
@@ -457,8 +474,10 @@ struct RustDeskAssistanceTable: View {
                     if row.inBook {
                         Chip(text: "Au carnet", tone: .success)
                     } else {
-                        Chip(text: "ID collé", tone: .neutral)
-                            .help("Lancé sans l’enregistrer dans le carnet")
+                        Chip(text: "Hors carnet", tone: .neutral)
+                            .help(row.launch.connectionID != nil
+                                  ? "Lancé depuis le carnet, puis retiré du carnet"
+                                  : "Ce poste n’est pas, ou plus, dans le carnet")
                     }
                 }
                 .width(min: 70, ideal: RustDeskAssistanceColumns.widths["carnet"])

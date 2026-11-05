@@ -156,9 +156,6 @@ final class RustDeskModel: ObservableObject {
         return "Ouverture dans RustDesk\u{00A0}: \(name) (\(target.label))" + (secret == nil ? ", mot de passe demandé par RustDesk." : ".")
     }
 
-    /// Lancements d'aujourd'hui (pastille de l'onglet « Assistance RustDesk »).
-    var todayCount: Int { RustDeskAssistance.todayCount(history) }
-
     /// Ouvre l'onglet « Assistance RustDesk » d'Accès distant ; `id` : placé dans le champ.
     func openAssistance(in state: AppState, id: String? = nil) {
         showAssistance(id: id)
@@ -166,10 +163,14 @@ final class RustDeskModel: ObservableObject {
     }
 
     /// Même chose depuis l'écran Accès distant lui-même (panneau de détails, page « Sessions »).
+    /// Un formulaire ouvert (connexion ou tunnel) n'est jamais jeté sans qu'on le voie : il reste
+    /// affiché, et l'onglet d'assistance paraît une fois le formulaire fermé.
     func showAssistance(id: String? = nil) {
         RemoteSessionStore.shared.select(nil)
-        RemoteModel.shared.draft = nil
-        RemoteModel.shared.tunnelDraft = nil
+        let remote = RemoteModel.shared
+        if remote.draft != nil || remote.tunnelDraft != nil {
+            remote.toast = "Formulaire en cours gardé\u{00A0}: l’onglet «\u{00A0}Assistance RustDesk\u{00A0}» s’affichera une fois le formulaire fermé."
+        }
         if let id { assistancePrefill = RustDeskID.parse(id).map { RustDeskID.grouped($0, separator: " ") } ?? id }
         isAssistanceShown = true
     }

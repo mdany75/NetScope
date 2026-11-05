@@ -208,9 +208,9 @@ struct RemoteSessionArea: View {
             // Correctif 0.27.3 : l'assistance par ID et l'historique complet ont leur onglet.
             if connection.proto == .rustdesk {
                 Button {
-                    rustdesk.isAssistanceShown = true
+                    rustdesk.showAssistance()
                 } label: {
-                    Label("Historique et autre poste\u{00A0}: onglet Assistance RustDesk", systemImage: RemoteProtocol.rustdesk.symbol)
+                    Label("Toutes les sessions RustDesk", systemImage: RemoteProtocol.rustdesk.symbol)
                 }
                 .buttonStyle(.ghost)
                 .help("Ouvrir l’onglet «\u{00A0}Assistance RustDesk\u{00A0}»\u{00A0}: ID de l’usager, sessions récentes, reconnexion")

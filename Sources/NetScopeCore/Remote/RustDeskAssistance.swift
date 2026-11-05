@@ -16,20 +16,19 @@ public enum RustDeskAssistance {
 
     /// Recherche dans l'historique : chaque mot doit se trouver dans le nom du poste, l'usager, le
     /// site ou la destination (casse et accents ignorés). Une recherche faite seulement de chiffres
-    /// (espaces, tirets et espaces insécables permis, comme un ID dicté « 263 418 ») cherche dans
-    /// l'ID sans tenir compte des groupes. Recherche vide : tout l'historique, dans le même ordre.
+    /// (espaces, tirets et espaces insécables permis, comme un ID dicté « 263 418 ») cherche aussi
+    /// dans l'ID RustDesk sans tenir compte des groupes ; elle garde la recherche par mots (« 11 »
+    /// trouve LAVAL-POSTE-11). Une adresse IP se compare telle quelle, points compris : « 1821 » ne
+    /// trouve pas 10.182.122.177. Recherche vide : tout l'historique, dans le même ordre.
     public static func filter(_ history: [RustDeskLaunch], query: String) -> [RustDeskLaunch] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return history }
         let separators: Set<Character> = [" ", "-", "\u{00A0}", "\u{202F}", "\t"]
         let compact = String(trimmed.filter { !separators.contains($0) })
-        if !compact.isEmpty, compact.allSatisfy({ $0.isASCII && $0.isNumber }) {
-            return history.filter { launch in
-                launch.target.filter { $0.isASCII && $0.isNumber }.contains(compact)
-            }
-        }
+        let digitsOnly = !compact.isEmpty && compact.allSatisfy { $0.isASCII && $0.isNumber }
         let words = trimmed.split(whereSeparator: { $0.isWhitespace }).map { fold(String($0)) }
         return history.filter { launch in
+            if digitsOnly, let id = RustDeskID.parse(launch.target), id.contains(compact) { return true }
             let haystack = fold([launch.name, launch.endUser, launch.site, launch.target, launch.targetLabel].joined(separator: " "))
             return words.allSatisfy { haystack.contains($0) }
         }

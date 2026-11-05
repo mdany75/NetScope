@@ -689,14 +689,49 @@ final class RemoteModel: ObservableObject {
 
     /// « Nouvelle connexion RustDesk » : ID collé (espaces acceptés) ou IP directe. `saveToBook` :
     /// ajoutée au carnet (ou celle du carnet qui a déjà cet ID est reprise), sinon seulement lancée.
-    /// Renvoie l'erreur à afficher, nil si tout va bien.
+    /// `folder` : dossier du carnet ; nil : celui de la connexion RustDesk choisie dans la liste.
+    /// ID déjà au carnet avec `saveToBook` : le nom (s'il n'était que le nom automatique) et
+    /// l'usager (s'il était vide) saisis complètent la fiche ; ce qui n'a pas pu être repris est
+    /// signalé. Renvoie l'erreur à afficher, nil si tout va bien.
     @discardableResult
-    func quickRustDesk(_ text: String, name: String = "", endUser: String = "", saveToBook: Bool, launch: Bool = true) -> String? {
+    func quickRustDesk(_ text: String, name: String = "", endUser: String = "", folder: String? = nil, saveToBook: Bool,
+                       launch: Bool = true) -> String? {
         do {
-            let folder = selected?.proto == .rustdesk ? (selected?.folder ?? "") : ""
+            let folder = folder ?? (selected?.proto == .rustdesk ? (selected?.folder ?? "") : "")
             let fresh = try RemoteConnection.rustDesk(text, name: name, folder: folder, endUser: endUser)
-            if let existing = connections.first(where: { $0.proto == .rustdesk && $0.host == fresh.host }) {
+            if var existing = connections.first(where: { $0.proto == .rustdesk && $0.host == fresh.host }) {
+                var dropped = false
+                if saveToBook, let index = connections.firstIndex(where: { $0.id == existing.id }) {
+                    let typedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let typedUser = endUser.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let automatic = (try? RemoteConnection.rustDesk(text))?.name
+                    var changed = false
+                    if !typedName.isEmpty, typedName != existing.name {
+                        if existing.name == automatic || existing.name == existing.host {
+                            existing.name = typedName
+                            changed = true
+                        } else {
+                            dropped = true
+                        }
+                    }
+                    if !typedUser.isEmpty, typedUser != existing.endUser {
+                        if existing.endUser.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            existing.endUser = typedUser
+                            changed = true
+                        } else {
+                            dropped = true
+                        }
+                    }
+                    if changed {
+                        connections[index] = existing
+                        save()
+                    }
+                }
                 if launch { connectRustDesk(existing) } else { selectedID = existing.id }
+                if dropped {
+                    let note = "Poste déjà au carnet sous «\u{00A0}\(existing.name)\u{00A0}»\u{00A0}: nom ou usager saisi non repris."
+                    toast = launch ? [toast, note].compactMap { $0 }.joined(separator: " ") : note
+                }
                 return nil
             }
             if saveToBook {

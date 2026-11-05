@@ -84,7 +84,6 @@ struct RemoteSessionTabBar: View {
     /// Toujours présent (comme l'était la section de la page « Sessions »), jamais fermé.
     private var assistanceTab: some View {
         let selected = assistanceShown
-        let today = rustdesk.todayCount
         return Button {
             model.draft = nil
             model.tunnelDraft = nil
@@ -94,9 +93,21 @@ struct RemoteSessionTabBar: View {
             HStack(spacing: 6) {
                 Image(systemName: RemoteProtocol.rustdesk.symbol).font(.system(size: 12))
                 Text("Assistance RustDesk").font(.system(size: 12, weight: selected ? .semibold : .medium)).lineLimit(1)
-                if today > 0 {
-                    CountBadge(count: today, color: RemoteProtocol.rustdesk.tint)
-                        .help(today == 1 ? "1 session RustDesk lancée aujourd’hui" : "\(today) sessions RustDesk lancées aujourd’hui")
+                // Recalculée chaque minute : la pastille se vide après minuit, app ouverte. Pastille
+                // neutre, pour ne pas la confondre avec les sessions en cours du « Serveur RustDesk ».
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    let today = RustDeskAssistance.todayCount(rustdesk.history, now: context.date)
+                    if today > 0 {
+                        Text("\(today)")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Theme.neutralText)
+                            .padding(.horizontal, 5)
+                            .frame(minWidth: 18, minHeight: 18)
+                            .background(Capsule().fill(Theme.neutralSoft))
+                            .overlay(Capsule().strokeBorder(Theme.border))
+                            .fixedSize()
+                            .help(today == 1 ? "1 session RustDesk lancée aujourd’hui" : "\(today) sessions RustDesk lancées aujourd’hui")
+                    }
                 }
             }
             .foregroundStyle(selected ? Theme.text : Theme.textSecondary)
