@@ -446,9 +446,10 @@ public struct FlowAggregator: Sendable {
         for item in state.hours + state.minutes where item.end > from && item.start <= now {
             Self.merge(item, into: &merged, limits: unlimited)
         }
-        // Débits sur la durée réellement couverte (collecteur démarré depuis peu, exportateur nouveau).
-        let covered = now.timeIntervalSince(max(from, state.firstSeen))
-        let span = min(window, max(covered, 10))
+        // Débits sur la durée réellement couverte : des fenêtres entières (une minute ou une heure
+        // commencée avant `from` compte en entier), mais pas avant le premier datagramme reçu.
+        let earliest = (state.hours + state.minutes).filter { $0.end > from && $0.start <= now }.map(\.start).min() ?? from
+        let span = max(now.timeIntervalSince(max(earliest, state.firstSeen)), 10)
         let wan = wanOverride ?? merged.wanVotes.max { $0.value == $1.value ? $0.key > $1.key : $0.value < $1.value }?.key
         func hosts(_ map: [IPv4Address: FlowVolume]) -> [FlowHostTotal] {
             map.map { FlowHostTotal(ip: $0.key, volume: $0.value) }

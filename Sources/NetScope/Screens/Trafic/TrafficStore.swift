@@ -141,7 +141,7 @@ final class TrafficStore: ObservableObject {
 
     /// Sources et appareils visés nommés comme dans NetScope (nom saisi, nom du Scanner ou de
     /// l'inventaire) plutôt que par le nom d'hôte vu par FortiView.
-    private func named(_ overview: TrafficOverview) -> TrafficOverview {
+    func named(_ overview: TrafficOverview) -> TrafficOverview {
         guard let state = appState else { return overview }
         var copy = overview
         copy.entries = overview.entries.map { entry in
