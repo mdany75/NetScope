@@ -3,11 +3,11 @@
 > Les phases 2, 3 et 4 (notes 6, 10 et 11) peuvent se faire dans n'importe quel ordre
 > (décision de Dany).
 
-## Priorités (revues le 4 novembre 2026, réorganisées avec les notes 45 à 53)
+## Priorités (revues le 4 novembre 2026, réorganisées avec les notes 45 à 56)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0.
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0.
 
-1. **0.13.x à 0.17.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP ; 0.17.0 : relecture automatique, WAN et VPN, Trafic FortiView et analyse complète à essayer sur de vraies FortiGate) : essais réels de la 0.3.x (localisation, DHCP, capture,
+1. **0.13.x à 0.17.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP ; 0.17.0 : relecture automatique, WAN et VPN, Trafic FortiView et analyse complète à essayer sur de vraies FortiGate ; 0.18.0 : FTP, FTPS, SFTP, TFTP, « Bloqué ici », NAS dans Vitesse des disques, export, import et synchronisation à essayer sur de vrais appareils et deux Mac) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
    des 0.5.0 à 0.8.0 (voir ci-dessous) ; 0.13.1 au besoin.
 2. ~~**0.5.0, diagnostic du poste et du réseau local**~~ : livrée le 4 novembre 2026
@@ -52,7 +52,13 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
     FortiView, « Qui sature le lien ? », analyse complète du réseau, sondes et rapport) ; essai
     réel à faire sur les FortiGate de Dany (droits FortiView et Log & Report, champs SD-WAN,
     IPsec et VPN SSL, historique selon la journalisation).
-15. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany ;
+15. ~~**0.18.0, transferts, services et configuration**~~ : livrée le 4 novembre 2026 (notes 50 :
+    FTP, FTPS et SFTP dans Accès distant, navigateur en deux volets, file des transferts, serveur
+    FTP temporaire ; 51 : outil TFTP, serveur et client ; 53 : réseaux sociaux, assistants IA et
+    état « Bloqué ici » ; 55 : NAS et partages dans Vitesse des disques ; 56 : export, import et
+    synchronisation de la configuration par iCloud Drive) ; essai réel à faire sur de vrais
+    serveurs, switchs, téléphones IP, le NAS et deux Mac de Dany.
+16. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany ;
     réorganisé le même jour pour placer les notes 45 à 53, ordre accepté par Dany) :
     - **0.13.1** : essais réels (sites, FortiGate, FortiAP, navigation) et correctifs ; note 35
       (journal et diagnostic).
@@ -65,15 +71,16 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       fiche complète), 47 (diagnostic Wi-Fi d'un client, avec solutions).
     - ~~**0.17.0, suivi automatique et trafic**~~ (livrée) : notes 29 (relire en automatique),
       39 (WAN des FortiGate), 54 (FortiView : trafic et analyse complète du réseau).
-    - **0.18.0, transferts et services** : notes 50 (FTP, FTPS, SFTP), 51 (TFTP), 53 (réseaux
-      sociaux et assistants IA dans les services en ligne).
+    - ~~**0.18.0, transferts et services**~~ (livrée) : notes 50 (FTP, FTPS, SFTP), 51 (TFTP),
+      53 (réseaux sociaux et assistants IA dans les services en ligne), 55 (NAS dans Vitesse des
+      disques), 56 (export, import et synchronisation de la configuration).
     - **0.19.0, parc Fortinet** : notes 40 (sauvegarde des configurations), 41 (firmware et
       licences).
     - **0.20.0, rapports et Inventaire** : notes 42 (rapport de suivi), 10 (Inventaire phase 3).
     - **0.21.0, journaux et aide** : notes 43 (Syslog et traps), 44 (aide et accueil).
     - **Plus tard** : notes 11 (Ping continu), 6 (RustDesk), anglais ; idées d’un cran en dessous :
       navigateur SNMP, toner des imprimantes, test de câble, qualité VoIP (MOS), scan d’un VLAN
-      tagué, relevé Wi-Fi sur plan, synchronisation entre deux Mac, retour à la version
+      tagué, relevé Wi-Fi sur plan, retour à la version
       précédente, contrôle IPv6.
 
 ## Index par module
@@ -87,11 +94,11 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 | Carte du réseau | 32 | — |
 | Inventaire | 8, 30 | 10 (0.20.0) |
 | Ping continu | — | 11 (plus tard) |
-| Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22, 37 | 51, 53 et 55 (0.18.0) |
-| Accès distant | 5, 52 | 50 (0.18.0), 6 (plus tard) |
+| Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22, 37, 51, 53, 55 | — |
+| Accès distant | 5, 50, 52 | 6 (plus tard) |
 | Surveillance et alertes | 3, 23 | 43 (0.21.0) |
 | Rapports | 4 | 42 (0.20.0) |
-| Réglages, sauvegarde, aide | 9, 13, 38 | 35 (0.13.1), 56 (0.18.0), 44 (0.21.0) |
+| Réglages, sauvegarde, aide | 9, 13, 38, 56 | 35 (0.13.1), 44 (0.21.0) |
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
 
@@ -883,6 +890,8 @@ en haut de la barre latérale :
 
 ## 50. Connexion FTP, FTPS et SFTP — 0.18.0 (demande de Dany)
 
+**Livrée dans la 0.18.0** (4 novembre 2026) ; essai réel à faire sur de vrais serveurs FTP, FTPS (certificat autosigné d'un NAS) et SFTP, et le serveur FTP temporaire avec un vrai appareil.
+
 « Pouvoir se connecter à un FTP. » Nouveau type de connexion dans Accès distant, à côté de
 Terminal, SSH, Telnet, RDP et VNC :
 
@@ -903,6 +912,8 @@ Terminal, SSH, Telnet, RDP et VNC :
   chiffré ; aucune dépendance externe (Network.framework et le SSH déjà présent).
 
 ## 51. Serveur et client TFTP dans la Boîte à outils — 0.18.0 (demande de Dany)
+
+**Livrée dans la 0.18.0** (4 novembre 2026) ; essai réel à faire sur un switch Cisco ou Aruba, une FortiGate et un téléphone IP (port 69, coupe-feu de macOS, gros firmware).
 
 « Une application TFTP dans Outils. » Nouvel outil « TFTP » dans la Boîte à outils (la note 50
 n'en prévoyait qu'un mini serveur temporaire, côté Accès distant) :
@@ -942,7 +953,7 @@ une connexion rapide (depuis le Scanner, la fiche Appareil ou l'Inventaire) part
 
 ## 53. Services en ligne : réseaux sociaux et assistants IA — 0.18.0 (demande de Dany)
 
-**Livrée dans la 0.18.0** ; formats vérifiés le 4 novembre 2026 : Claude = Statuspage
+**Livrée dans la 0.18.0** (4 novembre 2026) ; formats vérifiés le 4 novembre 2026 : Claude = Statuspage
 (status.claude.com, status.anthropic.com y redirige), ChatGPT = incident.io (summary.json
 compatible Statuspage), Copilot = page Microsoft 365 filtrée sur « Copilot » ; metastatus.com
 (Meta), status.x.ai (Grok), TikTok et Snapchat : aucun flux lisible, test depuis ce réseau
@@ -989,6 +1000,8 @@ FortiView), en lecture seule comme les notes 24 et 25 :
 
 ## 55. Vitesse des disques : ajouter un NAS, un partage SMB ou un autre emplacement — 0.18.0 (demande de Dany)
 
+**Livrée dans la 0.18.0** (4 novembre 2026), sauf FTP, FTPS et SFTP comme emplacements (à brancher sur la connexion de la note 50) ; essai réel à faire sur le NAS de Dany (SMB, NFS, montage et démontage, erreurs).
+
 « Dans speeddisk, je veux avoir la possibilité d'ajouter un NAS, SMB, autre. » Dans Outils ›
 Vitesse des disques, bouton « Ajouter un emplacement… » à côté des disques détectés :
 
@@ -1004,6 +1017,8 @@ Vitesse des disques, bouton « Ajouter un emplacement… » à côté des disque
 - Bilan habituel (lien réseau du Mac, limite réseau ou disque) et historique par emplacement.
 
 ## 56. Configuration : exporter, importer et synchroniser entre Mac — 0.18.0 (demande de Dany)
+
+**Livrée dans la 0.18.0** (4 novembre 2026) ; essai réel à faire entre deux Mac de Dany (export et import chiffrés, synchronisation iCloud Drive, conflits).
 
 « Je veux importer et exporter la configuration de NetScope… et iCloud sync aussi, comme dans
 mon cas plusieurs Mac. » Puis : « je veux tout inclure, pour une facilité de configuration. »

@@ -1,5 +1,134 @@
 # Changements
 
+## 0.18.0 — 2026-11-04
+
+Les transferts de fichiers et la configuration partagée : NetScope ouvre maintenant des
+connexions FTP, FTPS et SFTP, sert ou récupère des fichiers en TFTP, mesure la vitesse d’un NAS
+ou d’un partage, distingue un service bloqué par le pare-feu d’une vraie panne, et exporte,
+importe ou synchronise sa configuration entre vos Mac.
+
+### Ajouté
+- **Accès distant, transferts de fichiers** : nouvelles connexions FTP (mode passif ou actif),
+  FTPS (TLS explicite ou implicite) et SFTP (par SSH, avec un mot de passe, une clé ou les clés
+  de `~/.ssh`).
+- Navigateur de fichiers en deux volets, Ce Mac ↔ serveur : parcourir, glisser-déposer pour
+  envoyer ou recevoir, créer un dossier, renommer, supprimer avec confirmation, voir les droits
+  et les dates.
+- File des transferts : progression, débit et temps restant, reprise automatique après une
+  coupure, pause, reprise et annulation ; dossiers entiers envoyés ou reçus.
+- « Transférer des fichiers › Ouvrir en FTP, FTPS ou SFTP » depuis le Scanner, l’Inventaire et
+  la fiche Appareil, actif seulement si le port était ouvert au dernier scan, avec « Vérifier
+  le port » pour le tester tout de suite.
+- FTPS : un certificat autosigné (NAS, imprimante, switch) peut être accepté par son empreinte
+  SHA-256 ; une empreinte qui change ensuite est refusée. SFTP : la clé d’un nouveau serveur
+  est montrée avant d’être acceptée.
+- Serveur FTP temporaire sur le Mac pour les appareils qui viennent chercher leur fichier
+  (firmware, configuration) : dossier partagé, mot de passe tiré au hasard, lecture seule par
+  défaut, arrêt automatique et journal.
+- **Nouvel outil « TFTP »** (Boîte à outils) : serveur TFTP temporaire sur le Mac, avec
+  l’adresse à donner à l’appareil affichée en grand, le dossier partagé, l’interface et le port
+  au choix, la lecture seule ou la lecture et écriture, et un arrêt automatique après un délai
+  sans transfert.
+- Port 69 sans droits administrateur : NetScope écoute sur toutes les interfaces et ne répond
+  qu’à celle choisie ; le port 6969 est proposé si le 69 est déjà pris.
+- Client TFTP : récupérer ou envoyer un fichier vers un switch, une borne ou un téléphone IP,
+  depuis l’outil, le menu du Scanner (« Transfert TFTP… ») ou la fiche Appareil.
+- Options blksize, tsize, timeout et windowsize pour les gros firmwares, mode binaire par
+  défaut ; retour automatique en TFTP de base pour les vieux appareils.
+- Journal en direct des transferts TFTP, gardé par site : qui demande quel fichier,
+  progression, débit, et réussite ou erreur en clair (fichier introuvable, accès refusé, délai
+  dépassé).
+- Cas d’usage prêts à copier, avec l’adresse du Mac : sauvegarde de la configuration d’un
+  switch Cisco, mise à jour d’un switch Aruba, configuration et firmware d’une FortiGate,
+  option DHCP 66 des téléphones IP.
+- **État des services** : nouvelles catégories « Réseaux sociaux » (Facebook, Instagram,
+  TikTok, Snapchat) et « Assistants IA » (Claude, ChatGPT, Microsoft Copilot, Grok), avec la
+  page d’état officielle quand il y en a une (Claude, ChatGPT, Copilot) et le test depuis ce
+  réseau pour tous.
+- Nouvel état « Bloqué ici » : une page de blocage FortiGuard, le filtrage DNS de la FortiGate
+  ou de Cisco Umbrella, un certificat de remplacement du pare-feu ou son portail
+  d’authentification ne passent plus pour une panne ; la catégorie FortiGuard bloquée et quoi
+  vérifier sur la FortiGate sont affichés.
+- Catégories ou services masqués site par site (ex. réseaux sociaux bloqués exprès à un site) :
+  cases « Catégories suivies au site », case « Ici » dans « Modifier la liste… » et boutons
+  « Masquer ici ». Un service masqué n’est plus vérifié sur ce site.
+- **Surveillance et historique des services** : un service bloqué par le filtrage est signalé
+  comme « Bloqué ici », avec une notification quand le blocage apparaît et un événement quand
+  il est levé.
+- **Vitesse des disques** : bouton « Ajouter un emplacement… » pour mesurer un NAS ou un
+  partage SMB, NFS, AFP ou WebDAV, ou n’importe quel dossier choisi dans le Finder.
+- Le serveur se tape (nom ou IP) ou se choisit dans le Scanner ou l’Inventaire, et le type est
+  proposé d’après ses ports ouverts ; on peut aussi coller une adresse (`smb://…`,
+  `\\serveur\partage`, `serveur:/export`).
+- Le partage est monté automatiquement au lancement du test s’il ne l’est pas déjà, puis
+  démonté à la fin seulement si NetScope l’a monté.
+- « Tester le serveur » : ping et ports 445, 139, 2049, 548, 80 et 443 avec un bilan en clair,
+  et le bon type proposé si un autre service répond.
+- Bilan et historique propres à chaque emplacement ajouté, y compris les tests faits avant son
+  ajout ; emplacements enregistrés par site.
+- **Réglages › Export et sauvegarde** : « Exporter la configuration… » enregistre toute la
+  configuration de NetScope dans un seul fichier `.netscope-config` : sites et préréglages,
+  FortiGate et leurs jetons, switchs et communautés SNMP, identifiants SSH et WMI, SMTP et
+  webhooks, réglages, raccourcis, profils de scan, inventaires et historiques. Tout est coché
+  par défaut et chaque partie se décoche.
+- « Importer la configuration… » montre d’abord un aperçu de ce qui sera ajouté, remplacé ou
+  en conflit, partie par partie ; les conflits ne sont jamais cochés d’office. Une sauvegarde
+  de sécurité est faite avant l’import, les secrets vont au Trousseau de ce Mac et NetScope
+  redémarre pour appliquer le reste. Une sauvegarde de NetScope peut aussi être importée.
+- **Synchronisation entre vos Mac** par iCloud Drive (dossier NetScope › Sync), désactivée par
+  défaut et choisie site par site : fiche du site, inventaire, notes des appareils, FortiGate
+  et leurs jetons. État « Synchronisé il y a… » et bouton « Synchroniser maintenant », en plus
+  d’une synchronisation au lancement et toutes les 15 min.
+- Les sites présents sur vos autres Mac s’ajoutent en un clic (« Ajouter à ce Mac »).
+
+### Modifié
+- Mots de passe FTP, FTPS, SFTP et des partages rangés au Trousseau macOS, jamais en clair ;
+  avertissement chaque fois qu’une connexion FTP n’est pas chiffrée.
+- État des services : lecture des pages d’état incident.io (nouveau format de
+  status.openai.com) ; Claude est lu sur status.claude.com.
+- Vitesse des disques : erreurs expliquées en clair (mauvais mot de passe, partage
+  introuvable, serveur qui ne parle que SMB1, droit d’écriture refusé, partage plein ou
+  injoignable).
+- L’export est obligatoirement chiffré par mot de passe dès qu’un jeton ou un secret est inclus
+  (même chiffrement que les sauvegardes chiffrées).
+- Les sites et les FortiGate importés ou synchronisés sont reconnus par leur identifiant,
+  jamais par leur nom ni leurs plages IP : deux sites ne sont jamais fusionnés, et un site
+  importé au même nom est ajouté à part.
+- Synchronisation : fusion par date de modification ; un conflit est signalé, la version la
+  plus récente est gardée et l’autre peut être rétablie. Les jetons sont chiffrés par un mot de
+  passe de synchronisation gardé au Trousseau. Une suppression faite sur un autre Mac est
+  signalée, jamais appliquée d’office.
+
+### Corrigé
+- Sécurité des transferts : jamais d’accès hors du dossier partagé (noms piégés comme « ../ »
+  refusés, en FTP, SFTP et TFTP), aucun fichier existant écrasé sans confirmation, aucun
+  fichier partiel laissé après une coupure, avertissement si le coupe-feu de macOS bloque le
+  serveur.
+- Serveur FTP temporaire : les commandes PORT et EPRT sont bornées et le « rebond FTP » vers un
+  autre appareil est refusé ; les données passives ne sont acceptées que du client connecté.
+- Client FTP : une reprise d’envoi n’a lieu que si le fichier distant est plus court ; un
+  envoi en mode actif respecte le délai et s’annule ; la connexion anonyme ne boucle plus.
+- Import d’une sauvegarde chiffrée : lue en mémoire, plus aucun secret en clair dans le
+  dossier temporaire.
+- Petite fenêtre : noms longs abrégés dans Accès distant au lieu de déborder, colonne
+  « Progression » du TFTP assez large, feuilles de Vitesse des disques et d’État des services
+  sans débordement horizontal.
+
+### Limites
+- Rien de tout cela n’a encore été essayé sur de vrais appareils : FTP, FTPS et SFTP, TFTP
+  (switchs Cisco et Aruba, FortiGate, téléphones IP), NAS et partages, synchronisation entre
+  deux Mac et détection « Bloqué ici » derrière une vraie FortiGate qui filtre.
+- SFTP passe par l’outil `sftp` de macOS ; les clés et `known_hosts` sont ceux de `~/.ssh`.
+- FTP, FTPS et SFTP ne sont pas encore proposés comme emplacements dans Vitesse des disques :
+  ils y arriveront avec la connexion FTP.
+- Meta (Facebook, Instagram), TikTok, Snapchat et Grok n’ont pas de page d’état lisible : ils
+  sont seulement testés depuis ce réseau.
+- La synchronisation demande iCloud Drive activé sur chaque Mac ; elle ne couvre que les sites
+  choisis (fiche, inventaire, notes, FortiGate et jetons), pas les réglages ni les autres
+  identifiants : pour eux, utiliser l’export et l’import de la configuration.
+- Le serveur TFTP et le serveur FTP temporaire peuvent être bloqués par le coupe-feu de macOS ;
+  NetScope l’indique mais ne le change pas.
+
 ## 0.17.0 — 2026-11-04
 
 Le suivi automatique et le trafic : NetScope relit tout seul la FortiGate, les bornes et les
