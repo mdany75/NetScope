@@ -82,7 +82,11 @@ struct SvcServiceDetail: View {
     private func verdict(_ snapshot: SvcSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
-                if snapshot.verdict.side != .none {
+                if snapshot.verdict.health == .blocked {
+                    Text("FILTRAGE")
+                        .font(.system(size: 10, weight: .bold)).kerning(0.4)
+                        .foregroundStyle(Theme.warning)
+                } else if snapshot.verdict.side != .none {
                     Text(snapshot.verdict.side == .ours ? "CHEZ NOUS" : "CHEZ EUX")
                         .font(.system(size: 10, weight: .bold)).kerning(0.4)
                         .foregroundStyle(snapshot.verdict.side == .ours ? Theme.critical : Theme.warning)
@@ -95,7 +99,27 @@ struct SvcServiceDetail: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
             }
+            if snapshot.verdict.health == .blocked {
+                // Note 53 : blocage voulu ? Le service ou sa catégorie se masquent pour ce site seulement.
+                ToolFlowLayout(spacing: 6, lineSpacing: 6) {
+                    Button("Masquer ce service ici") { svc.setVisibleHere(false, for: service.id) }
+                        .buttonStyle(.secondary)
+                    Button("Masquer «\u{00A0}\(service.category)\u{00A0}» ici") { svc.setCategory(service.category, visible: false) }
+                        .buttonStyle(.secondary)
+                }
+                .padding(.top, 4)
+                .help("Seulement pour le site «\u{00A0}\(svc.siteName)\u{00A0}»\u{00A0}; les autres sites continuent de le suivre.")
+            } else if let vendor = inspection(snapshot) {
+                Text("Inspection SSL par \(vendor)\u{00A0}: le pare-feu remplace les certificats (autorité approuvée sur ce Mac).")
+                    .font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
+    }
+
+    /// Éditeur du pare-feu qui inspecte le TLS de ce service, quand la connexion réussit quand même.
+    private func inspection(_ snapshot: SvcSnapshot) -> String? {
+        snapshot.endpoints.lazy.filter(\.isReachable).compactMap { SvcFilterDetector.inspectionVendor(issuer: $0.certificateIssuer) }.first
     }
 
     @ViewBuilder private func endpoints(_ snapshot: SvcSnapshot) -> some View {
@@ -136,7 +160,8 @@ struct SvcServiceDetail: View {
 
     private func hostLabel(_ endpoint: SvcEndpointResult) -> some View {
         HStack(spacing: 8) {
-            Circle().fill(endpoint.isReachable ? Theme.successDot : Theme.criticalBadge).frame(width: 7, height: 7)
+            Circle().fill(endpoint.isReachable ? Theme.successDot : endpoint.block != nil ? Tone.warning.dot : Theme.criticalBadge)
+                .frame(width: 7, height: 7)
             Text(endpoint.host).font(Theme.mono(12, weight: .medium)).foregroundStyle(Theme.text)
                 .lineLimit(1).truncationMode(.middle)
                 .help(endpoint.addresses.joined(separator: ", "))
@@ -146,6 +171,12 @@ struct SvcServiceDetail: View {
     @ViewBuilder private func outcome(_ endpoint: SvcEndpointResult) -> some View {
         if endpoint.isReachable {
             measures(endpoint)
+        } else if let block = endpoint.block {
+            Text("\(block.kindLabel) · \(block.summary)")
+                .font(Theme.small).foregroundStyle(Theme.warning)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .help(block.evidence + (endpoint.certificateIssuer.map { "\nÉmetteur du certificat\u{00A0}: \($0)" } ?? ""))
         } else {
             Text(endpoint.failure.map { $0.shortLabel + " · " + $0.cause } ?? "Échec")
                 .font(Theme.small).foregroundStyle(Theme.critical)
@@ -339,6 +370,7 @@ struct SvcHistoryList: View {
         switch event.kind {
         case .incident: return SvcTone.tone(event.health)
         case .unreachable: return .critical
+        case .blocked: return .warning
         case .resolved, .reachable: return .success
         }
     }

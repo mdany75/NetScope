@@ -164,12 +164,32 @@ public enum SvcVerdictRules {
         }
         let cause = failed.first.map { "\($0.host) — \($0.failure?.cause ?? "échec")" }
 
+        // Note 53 : bloqué ici par le filtrage (page de blocage, portail DNS, certificat de
+        // remplacement) : ce n'est pas une panne, même si la page d'état en publie une.
+        let blocked = endpoints.filter { $0.block != nil }
+        if let block = blocked.first?.block {
+            var headline = "Bloqué ici · " + block.source
+            if let category = block.category { headline += " · catégorie «\u{00A0}\(category)\u{00A0}»" }
+            var parts = ["Ce n’est pas une panne\u{00A0}: \(blocked.first?.host ?? "") — \(block.evidence)."]
+            if blocked.count < endpoints.count {
+                parts.append("\(blocked.count) adresse\(blocked.count > 1 ? "s" : "") sur \(endpoints.count) bloquée\(blocked.count > 1 ? "s" : "") ici.")
+            }
+            if let feed, feed.health == .outage || feed.health == .degraded {
+                parts.append("La page d’état signale aussi un problème\u{00A0}: \(incidentLine ?? feed.description).")
+            } else if feed?.health == .operational {
+                parts.append("La page d’état est normale.")
+            }
+            parts.append(block.advice)
+            parts.append("Si le blocage est voulu, masquer ce service ou sa catégorie pour ce site.")
+            return SvcVerdict(health: .blocked, side: .ours, headline: headline, detail: parts.joined(separator: " "))
+        }
+
         if let feed, feed.health == .outage {
             return SvcVerdict(health: .outage, side: .theirs, headline: incidentLine ?? "Panne publiée sur la page d’état",
                               detail: allFailed ? "Injoignable d’ici aussi, ce qui concorde avec la panne publiée." : nil)
         }
         if allFailed {
-            let detail: String
+            var detail: String
             if let feed, feed.health == .operational {
                 detail = "La page d’état est normale\u{00A0}: le problème est probablement de notre côté (DNS, pare-feu, proxy ou lien Internet)."
             } else if let feed, feed.health.isProblem || feed.health == .maintenance {
@@ -179,6 +199,7 @@ public enum SvcVerdictRules {
             } else {
                 detail = "Aucune page d’état lisible pour ce service\u{00A0}: consulter la page officielle, puis vérifier le DNS, le pare-feu et le proxy."
             }
+            if let hint = SvcFilterDetector.silentBlockHint(endpoints) { detail += " " + hint }
             return SvcVerdict(health: .unreachable, side: .ours, headline: "Injoignable d’ici\u{00A0}: " + (failed.first?.failure?.cause ?? "échec"),
                               detail: detail)
         }

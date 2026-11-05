@@ -7,11 +7,19 @@ import SwiftUI
 struct ServiceStatusView: View {
     @ObservedObject var store: ToolStore
     @ObservedObject private var svc = SvcStore.shared
+    /// Site actif : les services suivis en dépendent (note 53).
+    @ObservedObject private var sites = SiteModel.shared
     @StateObject private var table = SvcServiceTable.makeModel()
     @State private var showCatalog = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            if Self.snapshotCatalog {
+                // Captures : NETSCOPE_SERVICES_FEUILLE=1 dessine la feuille « Modifier la liste… » dans la page.
+                ServiceCatalogSheet()
+                    .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+            }
             controls
             tiles
             notices
@@ -20,6 +28,7 @@ struct ServiceStatusView: View {
                 Spacer()
                 ToolColumnsMenu(model: table)
             }
+            categoryBar
             SvcServiceTable(table: table)
             if let service = svc.service(svc.selectedServiceID) ?? svc.problemServices.first ?? svc.enabledServices.first {
                 SvcServiceDetail(service: service)
@@ -31,9 +40,14 @@ struct ServiceStatusView: View {
             svc.activate()
             if svc.selectedServiceID == nil { svc.selectedServiceID = svc.problemServices.first?.id }
         }
+        .onChange(of: sites.activeID) { _, _ in svc.siteChanged() }
         .sheet(isPresented: $showCatalog) {
             ServiceCatalogSheet()
         }
+    }
+
+    static var snapshotCatalog: Bool {
+        CommandLine.arguments.contains("--snapshot") && ProcessInfo.processInfo.environment["NETSCOPE_SERVICES_FEUILLE"] == "1"
     }
 
     // MARK: Commandes
@@ -149,15 +163,19 @@ private var refreshButton: some View {
                      valueColor: svc.count(.degraded) > 0 ? Theme.warning : Theme.text)
         ToolStatTile(label: "Panne chez eux", value: "\(svc.count(.outage))", detail: "page d’état en panne",
                      valueColor: svc.count(.outage) > 0 ? Theme.critical : Theme.text)
-        ToolStatTile(label: "Injoignables d’ici", value: "\(svc.count(.unreachable))", detail: "problème chez nous",
-                     valueColor: svc.count(.unreachable) > 0 ? Theme.critical : Theme.text)
+        let blocked = svc.count(.blocked)
+        ToolStatTile(label: "Chez nous", value: "\(svc.count(.unreachable) + blocked)",
+                     detail: blocked > 0 ? "dont \(blocked) bloqué\(blocked > 1 ? "s" : "") ici" : "injoignables d’ici",
+                     valueColor: svc.count(.unreachable) > 0 ? Theme.critical : blocked > 0 ? Theme.warning : Theme.text)
     }
 
     @ViewBuilder private var notices: some View {
         if let global = svc.globalProblem {
             ToolNotice(tone: .critical, title: "Problème de notre côté", message: global + proxyNote)
         } else {
-            let ours = svc.enabledServices.filter { svc.snapshot($0.id)?.verdict.side == .ours }
+            let ours = svc.enabledServices.filter {
+                svc.snapshot($0.id)?.verdict.side == .ours && svc.snapshot($0.id)?.verdict.health != .blocked
+            }
             if !ours.isEmpty {
                 ToolNotice(tone: .warning, title: "Probablement un problème chez nous",
                            message: ours.map { service in
@@ -173,8 +191,61 @@ private var refreshButton: some View {
                 }
             }
         }
+        blockedNotice
         if svc.enabledServices.isEmpty {
-            ToolNotice(tone: .accent, message: "Aucun service suivi. «\u{00A0}Modifier la liste…\u{00A0}» en ajoute.")
+            ToolNotice(tone: .accent, message: svc.catalogEnabledServices.isEmpty
+                       ? "Aucun service suivi. «\u{00A0}Modifier la liste…\u{00A0}» en ajoute."
+                       : "Tous les services sont masqués pour le site «\u{00A0}\(svc.siteName)\u{00A0}». Cocher une catégorie ci-dessous pour en suivre.")
+        }
+    }
+
+    /// Note 53 : services bloqués par le filtrage de ce site, distingués d'une panne.
+    @ViewBuilder private var blockedNotice: some View {
+        let blocked = svc.blockedServices
+        if !blocked.isEmpty {
+            ToolNotice(tone: .warning, title: "Bloqué par le filtrage au site «\u{00A0}\(svc.siteName)\u{00A0}», pas une panne",
+                       message: blocked.map { service in
+                           let snapshot = svc.snapshot(service.id)
+                           let block = snapshot?.endpoints.compactMap(\.block).first
+                           return "\(service.name) — " + (block.map { "\($0.summary) (\($0.evidence))" } ?? (snapshot?.verdict.headline ?? ""))
+                       }.joined(separator: "\n") + "\nSi c’est voulu, masquer ces services pour ce site\u{00A0}; sinon, vérifier le filtrage web de la FortiGate.") {
+                VStack(alignment: .trailing, spacing: 6) {
+                    Button("Voir") { svc.selectedServiceID = blocked.first?.id }
+                        .buttonStyle(.secondary)
+                        .fixedSize()
+                    Button("Masquer ici") {
+                        for service in blocked { svc.setVisibleHere(false, for: service.id) }
+                    }
+                    .buttonStyle(.secondary)
+                    .fixedSize()
+                    .help("Ne plus suivre ces services au site «\u{00A0}\(svc.siteName)\u{00A0}» (ils restent suivis ailleurs)")
+                }
+            }
+        }
+    }
+
+    // MARK: Catégories du site (note 53)
+
+    private var categoryBar: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Catégories suivies au site «\u{00A0}\(svc.siteName)\u{00A0}»")
+                .font(Theme.small).foregroundStyle(Theme.textSecondary)
+            ToolFlowLayout(spacing: 12, lineSpacing: 6) {
+                ForEach(svc.categories, id: \.self) { category in
+                    let state = svc.categoryState(category)
+                    let members = svc.services.filter { $0.category == category && $0.isEnabled }
+                    let shown = members.filter { svc.isVisibleHere($0) }.count
+                    Toggle(isOn: Binding(get: { state != .hidden },
+                                         set: { svc.setCategory(category, visible: $0) })) {
+                        Text(state == .partial ? "\(category) (\(shown)/\(members.count))" : category)
+                            .font(Theme.small)
+                    }
+                    .toggleStyle(.checkbox)
+                    .disabled(members.isEmpty)
+                    .help(state == .hidden ? "Masquée pour ce site\u{00A0}: cliquer pour la suivre ici"
+                                           : "Suivie pour ce site\u{00A0}: cliquer pour la masquer ici (elle reste suivie sur les autres sites)")
+                }
+            }
         }
     }
 
@@ -205,7 +276,7 @@ struct SvcRow: Identifiable {
     /// « 3/3 joignables », ou la première adresse en échec.
     var network: String {
         guard let endpoints = snapshot?.endpoints, !endpoints.isEmpty else { return "—" }
-        if let failed = endpoints.first(where: { !$0.isReachable }) {
+        if let failed = endpoints.first(where: { $0.block != nil }) ?? endpoints.first(where: { !$0.isReachable }) {
             // Colonne étroite : la cause seulement ; l'adresse en échec est dans l'aide de la cellule.
             return failed.failure?.shortLabel ?? "Échec"
         }
@@ -224,7 +295,7 @@ enum SvcTone {
         switch health {
         case .operational: return .success
         case .maintenance: return .accent
-        case .degraded: return .warning
+        case .degraded, .blocked: return .warning
         case .outage, .unreachable: return .critical
         default: return .neutral
         }
@@ -300,7 +371,8 @@ struct SvcServiceTable: View {
                 // En-tête court (« depuis ce réseau ») : le détail des adresses testées est dans l'aide.
                 TableColumn("D’ICI", sortUsing: table.sort("reseau")) { row in
                     let failed = row.snapshot?.endpoints.contains { !$0.isReachable } == true
-                    ToolTableText(row.network, color: failed ? Theme.critical : Theme.textSecondary)
+                    let blocked = row.health == .blocked
+                    ToolTableText(row.network, color: blocked ? Theme.warning : failed ? Theme.critical : Theme.textSecondary)
                         .help(row.snapshot?.endpoints.map { "\($0.host)\u{00A0}: \($0.summary)" }.joined(separator: "\n") ?? "")
                 }
                 .width(min: 52, ideal: 70)

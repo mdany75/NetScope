@@ -57,40 +57,81 @@ struct ServiceCatalogSheet: View {
 
     // MARK: Liste
 
+    /// Catalogue regroupé par catégorie. Première case : suivi dans le catalogue (tous les sites) ;
+    /// case « Ici » : suivi au site actif (note 53, ex. réseaux sociaux bloqués exprès à un site).
     private var serviceList: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ToolFieldLabel("Catalogue (\(svc.enabledServices.count) sur \(svc.services.count) suivis)")
+            HStack(alignment: .firstTextBaseline) {
+                ToolFieldLabel("Catalogue (\(svc.catalogEnabledServices.count) sur \(svc.services.count) suivis)")
+                Spacer()
+                Text("Ici\u{00A0}= site «\u{00A0}\(svc.siteName)\u{00A0}»")
+                    .font(Theme.caption).foregroundStyle(Theme.textSecondary)
+            }
             VStack(spacing: 0) {
-                ForEach(Array(svc.services.enumerated()), id: \.element.id) { index, service in
-                    HStack(spacing: 10) {
-                        Toggle("", isOn: Binding(get: { service.isEnabled }, set: { svc.setEnabled($0, for: service.id) }))
-                            .toggleStyle(.checkbox)
-                            .labelsHidden()
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(service.name).font(Theme.bodyMedium).foregroundStyle(Theme.text)
-                            Text("\(service.category) · \(service.format.label) · \(service.endpointHosts.joined(separator: ", "))")
-                                .font(Theme.caption).foregroundStyle(Theme.textSecondary)
-                                .lineLimit(1).truncationMode(.tail)
-                        }
-                        Spacer(minLength: 4)
-                        if service.isCustom {
-                            Button(role: .destructive) { svc.remove(service.id) } label: {
-                                Image(systemName: "trash")
-                            }
-                            .buttonStyle(.borderless)
-                            .help("Retirer ce service")
-                        }
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .overlay(alignment: .top) {
-                        if index > 0 { Rectangle().fill(Theme.border).frame(height: 1) }
+                ForEach(svc.categories, id: \.self) { category in
+                    categoryHeader(category)
+                    ForEach(svc.services.filter { $0.category == category }) { service in
+                        serviceRow(service)
+                            .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
                     }
                 }
             }
             .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
             .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.buttonRadius))
         }
+    }
+
+    private func categoryHeader(_ category: String) -> some View {
+        let state = svc.categoryState(category)
+        return HStack(spacing: 8) {
+            Text(category.uppercased())
+                .font(.system(size: 10, weight: .bold)).kerning(0.4)
+                .foregroundStyle(Theme.textSecondary)
+            if state == .partial {
+                Text("en partie ici").font(Theme.caption).foregroundStyle(Theme.textTertiary)
+            }
+            Spacer()
+            Toggle(isOn: Binding(get: { state != .hidden }, set: { svc.setCategory(category, visible: $0) })) {
+                Text("Ici").font(Theme.caption)
+            }
+            .toggleStyle(.checkbox)
+            .help("Suivre ou masquer toute la catégorie au site «\u{00A0}\(svc.siteName)\u{00A0}»")
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 26)
+        .background(Theme.panelMuted)
+    }
+
+    private func serviceRow(_ service: SvcService) -> some View {
+        HStack(spacing: 10) {
+            Toggle("", isOn: Binding(get: { service.isEnabled }, set: { svc.setEnabled($0, for: service.id) }))
+                .toggleStyle(.checkbox)
+                .labelsHidden()
+                .help("Suivi dans le catalogue (tous les sites)")
+            VStack(alignment: .leading, spacing: 1) {
+                Text(service.name).font(Theme.bodyMedium).foregroundStyle(Theme.text)
+                Text("\(service.format.label) · \(service.endpointHosts.joined(separator: ", "))")
+                    .font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1).truncationMode(.tail)
+            }
+            Spacer(minLength: 4)
+            if service.isCustom {
+                Button(role: .destructive) { svc.remove(service.id) } label: {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.borderless)
+                .help("Retirer ce service")
+            }
+            Toggle(isOn: Binding(get: { svc.isVisibleHere(service) }, set: { svc.setVisibleHere($0, for: service.id) })) {
+                Text("Ici").font(Theme.caption)
+            }
+            .toggleStyle(.checkbox)
+            .disabled(!service.isEnabled)
+            .help("Suivi au site «\u{00A0}\(svc.siteName)\u{00A0}»")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
     }
 
     // MARK: Ajout

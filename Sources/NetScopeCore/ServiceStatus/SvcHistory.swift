@@ -4,6 +4,8 @@ import Foundation
 public struct SvcHistoryEvent: Codable, Hashable, Identifiable, Sendable {
     public enum Kind: String, Codable, Sendable {
         case incident, resolved, unreachable, reachable
+        /// Bloqué ici par le filtrage (note 53).
+        case blocked
     }
 
     public var id: UUID
@@ -33,6 +35,7 @@ public struct SvcHistoryEvent: Codable, Hashable, Identifiable, Sendable {
         case .resolved: return "Résolu"
         case .unreachable: return "Injoignable d’ici"
         case .reachable: return "De nouveau joignable"
+        case .blocked: return "Bloqué ici"
         }
     }
 }
@@ -79,9 +82,13 @@ public struct SvcHistory: Codable, Equatable, Sendable {
         if current == .unreachable, previous != nil, previous != .unreachable {
             events.insert(SvcHistoryEvent(date: date, serviceID: service.id, serviceName: service.name, kind: .unreachable,
                                           health: .unreachable, title: snapshot.verdict.headline), at: 0)
-        } else if previous == .unreachable, current != .unreachable {
+        } else if current == .blocked, previous != nil, previous != .blocked {
+            events.insert(SvcHistoryEvent(date: date, serviceID: service.id, serviceName: service.name, kind: .blocked,
+                                          health: .blocked, title: snapshot.verdict.headline), at: 0)
+        } else if previous == .unreachable || previous == .blocked, current != previous {
             events.insert(SvcHistoryEvent(date: date, serviceID: service.id, serviceName: service.name, kind: .reachable,
-                                          health: current, title: "Joignable de nouveau depuis ce réseau"), at: 0)
+                                          health: current, title: previous == .blocked ? "Plus bloqué depuis ce réseau"
+                                                                                       : "Joignable de nouveau depuis ce réseau"), at: 0)
         }
         lastHealth[service.id] = current
         events.sort { $0.date > $1.date }
@@ -128,6 +135,10 @@ public enum SvcMonitorCheck {
                              error: "panne chez eux\u{00A0}: \(verdict.headline)")
         case .unreachable:
             return MonResult(date: snapshot.date, reachable: false, value: "Injoignable d’ici",
+                             error: verdict.headline.prefix(1).lowercased() + verdict.headline.dropFirst())
+        case .blocked:
+            // Bloqué par le filtrage de ce réseau : un échec pour la sonde, mais expliqué comme tel.
+            return MonResult(date: snapshot.date, reachable: false, value: "Bloqué ici",
                              error: verdict.headline.prefix(1).lowercased() + verdict.headline.dropFirst())
         case .degraded:
             return MonResult(date: snapshot.date, reachable: true, latencyMs: latency, value: "Dégradé" + suffix,
