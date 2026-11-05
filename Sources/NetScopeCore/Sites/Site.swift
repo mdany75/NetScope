@@ -85,6 +85,8 @@ public struct Site: Codable, Hashable, Sendable, Identifiable {
     /// Switchs SNMP (non Fortinet) associés, par adresse IP de gestion.
     public var switchHosts: [String]
     public var hints: SiteHints
+    /// Note 82 : plages exclues, jamais sondées (même si elles sont dans une plage du site).
+    public var exclusions: [ExcludedRange]
     /// Fin du dernier scan fait dans ce site.
     public var lastScan: Date?
     /// Fiches de son inventaire, à la dernière écriture (pour la liste des sites).
@@ -93,7 +95,7 @@ public struct Site: Codable, Hashable, Sendable, Identifiable {
 
     public init(id: UUID = UUID(), name: String, notes: String = "", ranges: [ScanRangeConfig] = [],
                 fortiGateIDs: [UUID] = [], switchHosts: [String] = [], hints: SiteHints = SiteHints(),
-                lastScan: Date? = nil, inventoryCount: Int? = nil, created: Date = Date()) {
+                lastScan: Date? = nil, inventoryCount: Int? = nil, created: Date = Date(), exclusions: [ExcludedRange] = []) {
         self.id = id
         self.name = name
         self.notes = notes
@@ -101,6 +103,7 @@ public struct Site: Codable, Hashable, Sendable, Identifiable {
         self.fortiGateIDs = fortiGateIDs
         self.switchHosts = switchHosts
         self.hints = hints
+        self.exclusions = exclusions
         self.lastScan = lastScan
         self.inventoryCount = inventoryCount
         self.created = created
@@ -127,6 +130,14 @@ public struct Site: Codable, Hashable, Sendable, Identifiable {
         ScanRelevance.contains(parsedRanges, address)
     }
 
+    /// Adresses exclues du site, prêtes pour le scan (note 82).
+    public var excludedAddresses: AddressExclusions { AddressExclusions(exclusions) }
+
+    /// Vrai si l'adresse est dans une plage exclue du site.
+    public func isExcluded(_ address: IPv4Address) -> Bool {
+        !exclusions.isEmpty && excludedAddresses.contains(address)
+    }
+
     /// Mêmes plages (texte, libellé, VLAN et, si `checks`, case cochée), quels que soient les
     /// identifiants. Sans `checks` : une plage décochée pour un scan n'est pas une modification à
     /// enregistrer.
@@ -146,7 +157,7 @@ public struct Site: Codable, Hashable, Sendable, Identifiable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, notes, ranges, fortiGateIDs, switchHosts, hints, lastScan, inventoryCount, created
+        case id, name, notes, ranges, fortiGateIDs, switchHosts, hints, exclusions, lastScan, inventoryCount, created
     }
 
     /// Lecture tolérante : champ absent ou mal typé → valeur par défaut ; plage illisible ignorée.
@@ -161,6 +172,7 @@ public struct Site: Codable, Hashable, Sendable, Identifiable {
         fortiGateIDs = fortiTexts.compactMap(UUID.init(uuidString:))
         switchHosts = (((try? c.decodeIfPresent([String].self, forKey: .switchHosts)) ?? nil) ?? []).compactMap { IPv4Address($0)?.description }
         hints = ((try? c.decodeIfPresent(SiteHints.self, forKey: .hints)) ?? nil) ?? SiteHints()
+        exclusions = ((try? c.decodeIfPresent([SiteLenient<ExcludedRange>].self, forKey: .exclusions)) ?? nil)?.compactMap(\.value) ?? []
         lastScan = (try? c.decodeIfPresent(Date.self, forKey: .lastScan)) ?? nil
         inventoryCount = (try? c.decodeIfPresent(Int.self, forKey: .inventoryCount)) ?? nil
         created = ((try? c.decodeIfPresent(Date.self, forKey: .created)) ?? nil) ?? Date(timeIntervalSince1970: 0)
@@ -175,6 +187,8 @@ public struct Site: Codable, Hashable, Sendable, Identifiable {
         try c.encode(fortiGateIDs.map(\.uuidString), forKey: .fortiGateIDs)
         try c.encode(switchHosts, forKey: .switchHosts)
         try c.encode(hints, forKey: .hints)
+        // Écrite seulement si le site en a : un sites.json sans exclusion reste identique (synchronisation).
+        if !exclusions.isEmpty { try c.encode(exclusions, forKey: .exclusions) }
         try c.encodeIfPresent(lastScan, forKey: .lastScan)
         try c.encodeIfPresent(inventoryCount, forKey: .inventoryCount)
         try c.encode(created, forKey: .created)
@@ -240,14 +254,15 @@ public struct SiteList: Codable, Hashable, Sendable {
         sites[index].name = uniqueName(name, excluding: id)
     }
 
-    /// Copie du site (plages, FortiGate, switchs, notes) sous un nouveau nom ; ni l'inventaire, ni
+    /// Copie du site (plages, plages exclues, FortiGate, switchs, notes) sous un nouveau nom ; ni l'inventaire, ni
     /// les résultats, ni les indices de détection (une MAC de passerelle ne désigne qu'un site).
     @discardableResult
     public mutating func duplicate(_ id: UUID, newID: UUID = UUID(), now: Date = Date()) -> Site? {
         guard let source = site(id) else { return nil }
         let copy = Site(id: newID, name: uniqueName("\(source.displayName) (copie)"), notes: source.notes,
                         ranges: source.ranges.map { ScanRangeConfig(text: $0.text, label: $0.label, vlan: $0.vlan, isEnabled: $0.isEnabled) },
-                        fortiGateIDs: source.fortiGateIDs, switchHosts: source.switchHosts, created: now)
+                        fortiGateIDs: source.fortiGateIDs, switchHosts: source.switchHosts, created: now,
+                        exclusions: source.exclusions.map { ExcludedRange(text: $0.text, note: $0.note) })
         sites.append(copy)
         return copy
     }

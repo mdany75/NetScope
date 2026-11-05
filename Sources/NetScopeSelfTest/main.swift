@@ -112,6 +112,10 @@ registerSwitchPageTests(suite)
 registerOUIAutoUpdateTests(suite)
 // Note 78 (0.27.0) : débit Internet planifié par site.
 registerSpeedScheduleTests(suite)
+// Note 82 (0.27.0) : plages exclues d'un site.
+registerSiteExclusionTests(suite)
+// Note 78 (0.27.0) : Historique et adressage, plan d'adressage.
+registerAddressPlanTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

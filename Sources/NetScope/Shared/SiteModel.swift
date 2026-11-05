@@ -18,7 +18,11 @@ import SwiftUI
 final class SiteModel: ObservableObject {
     static let shared = SiteModel()
 
-    @Published private(set) var list: SiteList
+    @Published private(set) var list: SiteList {
+        didSet { exclusionCache = [:] }
+    }
+    /// Note 82 : adresses exclues de chaque site, par clé de site (recalculées quand la liste change).
+    private var exclusionCache: [String: AddressExclusions] = [:]
     /// « Afficher tous les switchs » de Switchs et ports (le temps de la session).
     @Published var showAllSwitches = false
     /// Question en attente pour le Scanner (choix du site détecté, enregistrement des plages).
@@ -158,6 +162,25 @@ final class SiteModel: ObservableObject {
     }
 
     func site(forKey key: String) -> Site? { sites.first { SiteFiles.key(for: $0.id) == key } }
+
+    // MARK: Plages exclues (note 82)
+
+    /// Adresses exclues du site (aucune pour les plages libres ou un site inconnu).
+    func exclusions(forKey key: String) -> AddressExclusions {
+        if let cached = exclusionCache[key] { return cached }
+        let value = site(forKey: key)?.excludedAddresses ?? .none
+        exclusionCache[key] = value
+        return value
+    }
+
+    /// Adresses exclues du site actif : jamais sondées par le scan, le Scan de ports ou le Ping continu.
+    var activeExclusions: AddressExclusions { exclusions(forKey: activeKey) }
+
+    /// « 10.93.226.254 est exclue du scan dans « Siège » (automates). » ; nil si l'adresse est sondable.
+    func exclusionReason(_ address: IPv4Address) -> String? {
+        guard let entry = activeExclusions.reason(for: address) else { return nil }
+        return "\(address) est dans les plages exclues de «\u{00A0}\(activeName)\u{00A0}» (\(entry.label))"
+    }
 
     /// Les plages du Scanner ne sont plus celles du site actif (case cochée mise à part).
     func hasUnsavedRanges(_ state: AppState) -> Bool {

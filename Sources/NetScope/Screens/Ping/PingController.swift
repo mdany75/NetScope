@@ -154,7 +154,13 @@ final class PingController: ObservableObject {
         let tokens = text.split(whereSeparator: { $0 == "," || $0 == ";" || $0 == " " }).map(String.init)
         for token in tokens {
             if (token.contains("/") || token.contains("-")), let range = try? IPRange(parsing: token), range.count > 1 {
-                for address in range.addresses().prefix(Self.maxTargets) where !contains(address.description, mode: probeMode) {
+                // Note 82 : les adresses des plages exclues du site actif ne sont jamais ajoutées.
+                let exclusions = SiteModel.shared.activeExclusions
+                let skipped = exclusions.excludedCount(in: [range])
+                if skipped > 0 {
+                    log(.info, token, "\(skipped) adresse\(skipped > 1 ? "s" : "") exclue\(skipped > 1 ? "s" : "") du site «\u{00A0}\(SiteModel.shared.activeName)\u{00A0}» ignorée\(skipped > 1 ? "s" : "")")
+                }
+                for address in exclusions.addresses(in: range).prefix(Self.maxTargets) where !contains(address.description, mode: probeMode) {
                     guard add(address.description, mode: probeMode) else { break }
                 }
             } else if !contains(token, mode: probeMode) {

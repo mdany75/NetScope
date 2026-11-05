@@ -30,10 +30,55 @@ enum AnaPeriod: String, CaseIterable, Hashable {
     }
 }
 
-/// Un /24 d'un site (le même /24 sur deux sites donne deux choix distincts).
+/// Un /24, ou un bloc de /23 à /16 (note 78), d'un site (le même réseau sur deux sites donne deux
+/// choix distincts).
 struct AnaNetwork: Hashable {
     let site: String
     let base: IPv4Address
+    var prefix: Int = 24
+
+    var subnet: Subnet { Subnet(address: base, prefix: prefix) }
+
+    /// Réseau du choix pour un sous-réseau connu (un /25 ou plus petit : son /24 ; plus grand qu'un /16 : son /16).
+    init(site: String, subnet: Subnet) {
+        let prefix = min(24, max(AddressPlan.minPrefix, subnet.prefix))
+        self.site = site
+        self.prefix = prefix
+        base = Subnet(address: subnet.network, prefix: prefix).network
+    }
+
+    init(site: String, base: IPv4Address, prefix: Int = 24) {
+        self.site = site
+        self.prefix = prefix
+        self.base = Subnet(address: base, prefix: prefix).network
+    }
+}
+
+/// Note 78 : sous-réseaux, DHCP et plages exclues d'un site, pour le plan d'adressage.
+@MainActor
+struct AnaAddressing {
+    let subnets: [AddressPlanSubnet]
+    let dhcp: AddressPlanDHCP
+    let dhcpReadAt: Date?
+    let exclusions: AddressExclusions
+
+    /// Étendues DHCP des FortiGate du site (toutes celles lues pour les plages libres).
+    init(siteKey: String, records: [InvRecord], state: AppState, now: Date) {
+        let sites = SiteModel.shared
+        let site = sites.site(forKey: siteKey)
+        let reports = DHCPScopeStore.shared.sites.filter { site == nil || site?.fortiGateIDs.contains($0.controllerID) == true }.map(\.report)
+        let ranges = siteKey == sites.activeKey ? state.ranges : (site?.ranges ?? [])
+        subnets = AddressPlanSubnet.list(ranges: ranges, dhcp: reports, records: records)
+        dhcp = AddressPlanDHCP(reports: reports, now: now)
+        dhcpReadAt = reports.map(\.readAt).max()
+        exclusions = sites.exclusions(forKey: siteKey)
+    }
+
+    /// Choix du menu « Plage / VLAN » : chaque sous-réseau connu (bloc de /16 à /24).
+    func networks(site: String) -> [AnaNetwork] {
+        var seen = Set<AnaNetwork>()
+        return subnets.map { AnaNetwork(site: site, subnet: $0.subnet) }.filter { seen.insert($0).inserted }
+    }
 }
 
 /// Écran `Screen.analyse` (« Historique et adressage », note 79 ; ancien nom « Analyse ») : bilan de santé en tête s’il existe, indicateurs, occupation d'un /24, répartitions, alertes issues de l'inventaire
@@ -59,28 +104,40 @@ struct AnalyseScreen: View {
         let since = now.addingTimeInterval(-period.seconds)
         let inventories = scope.inventories(for: .analyse)
         let multiple = inventories.count > 1
-        let networks = inventories.flatMap { inventory in
-            InvOccupancy.networks(of: Array(inventory.store.records.values)).map { AnaNetwork(site: inventory.key, base: $0) }
-        }
+        // Note 78 : sous-réseaux connus de chaque site (plages, étendues DHCP de la FortiGate, /24 des
+        // fiches), son DHCP lu et ses plages exclues.
+        let addressing = Dictionary(inventories.map { inventory in
+            (inventory.key, AnaAddressing(siteKey: inventory.key, records: Array(inventory.store.records.values), state: state, now: now))
+        }, uniquingKeysWith: { first, _ in first })
+        let networks = inventories.flatMap { addressing[$0.key]?.networks(site: $0.key) ?? [] }
         let wanted = networkChosen ? network : defaultNetwork(networks)
-        let chosen = wanted.flatMap { networks.contains($0) ? $0 : nil }
+        // Un bloc élargi ou réduit depuis la carte (« Bloc /22 ») reste choisi même s'il n'est pas un sous-réseau connu.
+        let chosen = wanted.flatMap { item in inventories.contains { $0.key == item.site } ? item : nil }
         // Site de la carte d'occupation, de la courbe et de la comparaison : celui de la plage choisie.
         let focus = inventories.first { $0.key == chosen?.site } ?? inventories[0]
         let focusRecords = Array(focus.store.records.values)
-        let records = chosen.map { network in focusRecords.filter { $0.ip.value & 0xFFFF_FF00 == network.base.value } }
+        let records = chosen.map { network in focusRecords.filter { network.subnet.contains($0.ip) } }
             ?? inventories.flatMap { Array($0.store.records.values) }
+        let focusAddressing = addressing[focus.key]
+        let recentWindow = max(period.seconds, 7 * 86_400)
+        let plan = chosen.flatMap { network in
+            focusAddressing.map { info in
+                AddressPlan(block: network.subnet, records: focusRecords, dhcp: info.dhcp, exclusions: info.exclusions,
+                            subnets: info.subnets.map(\.subnet), now: now, recentWindow: recentWindow)
+            }
+        }
         let alerts = SiteScope.alerts(inventories, since: since)
         let siteName = multiple ? focus.name : nil
         // Plusieurs sites : tuiles et répartitions portent sur le même périmètre, écrit en clair —
         // le /24 choisi d'un site (alertes de ce site), ou tous les sites réunis.
         let tileAlerts = multiple && chosen != nil ? alerts.filter { $0.siteKey == focus.key } : alerts
         let scopeLabel: String? = !multiple ? nil
-            : chosen.map { "\(focus.name) · \(Subnet(address: $0.base, prefix: 24).description)" }
+            : chosen.map { "\(focus.name) · \($0.subnet.description)" }
             ?? "\(inventories.count) sites réunis\u{00A0}: " + inventories.map(\.name).joined(separator: ", ")
 
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                filters(networks: networks, chosen: chosen, inventories: inventories, now: now, since: since)
+                filters(networks: networks, chosen: chosen, inventories: inventories, addressing: addressing, now: now, since: since)
                 // Note 79 : le bilan de santé (Trafic) en tête, quand il existe.
                 AnaHealthBanner(siteKeys: inventories.map(\.key))
                 if let scopeLabel {
@@ -90,21 +147,37 @@ struct AnalyseScreen: View {
                         .help("Tuiles et répartitions\u{00A0}: " + scopeLabel
                               + (chosen == nil ? "" : ". La courbe, la carte d’occupation et la comparaison portent sur ce site."))
                 }
-                tiles(records: records, chosen: chosen, alerts: tileAlerts.map(\.event), now: now, since: since)
+                tiles(records: records, plan: plan, alerts: tileAlerts.map(\.event), now: now, since: since)
                 // Petite fenêtre : courbe et répartitions passent sous la carte d'occupation, qui prend
                 // alors toute la largeur (pas de vide à sa droite).
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .top, spacing: 14) {
-                        occupancy(chosen: chosen, allRecords: focusRecords, siteName: siteName, now: now)
+                        occupancy(chosen: chosen, plan: plan, allRecords: focusRecords, siteName: siteName,
+                                  dhcpReadAt: focusAddressing?.dhcpReadAt, now: now)
                             .frame(width: 680)
                         charts(records: records, snapshots: focus.store.snapshots, siteName: siteName, scope: scopeLabel, since: since)
                             .frame(minWidth: 300, idealWidth: 300, maxWidth: .infinity)
                     }
                     VStack(alignment: .leading, spacing: 14) {
-                        occupancy(chosen: chosen, allRecords: focusRecords, siteName: siteName, now: now)
+                        occupancy(chosen: chosen, plan: plan, allRecords: focusRecords, siteName: siteName,
+                                  dhcpReadAt: focusAddressing?.dhcpReadAt, now: now)
                             .frame(maxWidth: .infinity)
                         charts(records: records, snapshots: focus.store.snapshots, siteName: siteName, scope: scopeLabel, since: since)
                     }
+                }
+                // Note 78 : prochaine IP libre hors étendue DHCP, par sous-réseau du site.
+                if let info = focusAddressing {
+                    AnaNextFreePanel(rows: info.subnets.map {
+                        AnaNextFreeRow.make($0, records: focusRecords, dhcp: info.dhcp, exclusions: info.exclusions,
+                                            subnets: info.subnets.map(\.subnet), now: now, recentWindow: recentWindow)
+                    }, siteName: multiple ? focus.name : nil, dhcpReadAt: info.dhcpReadAt,
+                    canReadDHCP: DHCPScopeStore.shared.canRefresh(state: state),
+                    onReadDHCP: { DHCPScopeStore.shared.refreshNow(state: state) },
+                    onShow: { subnet in
+                        network = AnaNetwork(site: focus.key, subnet: subnet)
+                        networkChosen = true
+                    })
+                    .frame(maxWidth: .infinity)
                 }
                 // Alertes, puis comparaison, sur toute la largeur : leurs tableaux (note 8) ne tiennent
                 // pas côte à côte ; le croquis passe aussi à une colonne quand la place manque.
@@ -141,15 +214,19 @@ struct AnalyseScreen: View {
     // MARK: Occupation et graphiques
 
     @ViewBuilder
-    private func occupancy(chosen: AnaNetwork?, allRecords: [InvRecord], siteName: String?, now: Date) -> some View {
-        if let chosen {
-            AnaOccupancyPanel(network: chosen.base, records: allRecords, now: now, recentWindow: max(period.seconds, 7 * 86_400),
-                              siteKey: chosen.site, siteName: siteName)
+    private func occupancy(chosen: AnaNetwork?, plan: AddressPlan?, allRecords: [InvRecord], siteName: String?, dhcpReadAt: Date?,
+                           now: Date) -> some View {
+        if let chosen, let plan {
+            AnaOccupancyPanel(plan: plan, records: allRecords, now: now, siteKey: chosen.site, siteName: siteName,
+                              preferredPage: macAddress(in: chosen), dhcpReadAt: dhcpReadAt) { prefix, page in
+                network = AnaNetwork(site: chosen.site, base: page, prefix: prefix)
+                networkChosen = true
+            }
         } else {
             Panel(padding: 16) {
                 VStack(alignment: .leading, spacing: 8) {
                     InvPanelTitle("Carte d’occupation")
-                    Text("Choisissez un /24 dans « Plage / VLAN » pour afficher la carte de ses 256 adresses.")
+                    Text("Choisissez un réseau dans « Plage / VLAN » pour afficher la carte de ses adresses (un /24, ou un bloc de /23 à /16 par pages de /24).")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -165,18 +242,36 @@ struct AnalyseScreen: View {
         }
     }
 
-    /// Par défaut : le /24 du Mac dans le site actif, sinon la première plage.
+    /// Par défaut : le réseau du Mac dans le site actif (le plus précis), sinon le premier.
+    /// Captures : NETSCOPE_ANA_PLAGE=10.182.140.0/22 choisit le réseau, NETSCOPE_ANA_BLOC=16 la taille du bloc.
     private func defaultNetwork(_ networks: [AnaNetwork]) -> AnaNetwork? {
-        if let address = state.activeInterface?.address {
-            let mine = AnaNetwork(site: sites.activeKey, base: IPv4Address(address.value & 0xFFFF_FF00))
-            if networks.contains(mine) { return mine }
+        let environment = ProcessInfo.processInfo.environment
+        if Launcher.isDemo, let text = environment["NETSCOPE_ANA_PLAGE"], let subnet = try? Subnet(parsing: text) {
+            return AnaNetwork(site: sites.activeKey, subnet: subnet)
         }
-        return networks.first
+        var found: AnaNetwork?
+        if let address = state.activeInterface?.address {
+            found = networks.filter { $0.site == sites.activeKey && $0.subnet.contains(address) }.max { $0.prefix < $1.prefix }
+        }
+        if Launcher.isDemo, let base = found ?? networks.first, let text = environment["NETSCOPE_ANA_BLOC"],
+           let prefix = Int(text), (AddressPlan.minPrefix...24).contains(prefix) {
+            return AnaNetwork(site: base.site, base: base.base, prefix: prefix)
+        }
+        return found ?? networks.first
+    }
+
+    /// Adresse du Mac si elle est dans ce réseau (page montrée d'abord dans un bloc).
+    private func macAddress(in network: AnaNetwork) -> IPv4Address? {
+        guard network.site == sites.activeKey, let address = state.activeInterface?.address, network.subnet.contains(address) else { return nil }
+        return address
     }
 
     // MARK: Filtres
 
-    private func filters(networks: [AnaNetwork], chosen: AnaNetwork?, inventories: [SiteInventory], now: Date, since: Date) -> some View {
+    private func filters(networks known: [AnaNetwork], chosen: AnaNetwork?, inventories: [SiteInventory], addressing: [String: AnaAddressing],
+                         now: Date, since: Date) -> some View {
+        // Un bloc choisi depuis la carte (« Bloc /16 ») figure aussi dans le menu.
+        let networks = known + (chosen.map { known.contains($0) ? [] : [$0] } ?? [])
         let scans = inventories.reduce(0) { $0 + $1.store.snapshots.filter { $0.date >= since }.count }
         let last = inventories.compactMap(\.store.lastMerge).max()
         let multiple = inventories.count > 1
@@ -192,13 +287,13 @@ struct AnalyseScreen: View {
                             Section(inventory.name) {
                                 ForEach(networks.filter { $0.site == inventory.key }, id: \.self) { item in
                                     // Le site est dans le libellé : le bouton fermé le montre aussi.
-                                    Text(inventory.name + " · " + networkLabel(item, store: inventory.store)).tag(Optional(item))
+                                    Text(inventory.name + " · " + networkLabel(item, store: inventory.store, addressing: addressing[inventory.key])).tag(Optional(item))
                                 }
                             }
                         }
                     } else {
                         ForEach(networks, id: \.self) { item in
-                            Text(networkLabel(item, store: inventories[0].store)).tag(Optional(item))
+                            Text(networkLabel(item, store: inventories[0].store, addressing: addressing[inventories[0].key])).tag(Optional(item))
                         }
                     }
                     Text(multiple ? "Toutes les plages des \(inventories.count) sites (\(networks.count))" : "Toutes les plages (\(networks.count))")
@@ -225,33 +320,44 @@ struct AnalyseScreen: View {
         }
     }
 
-    private func networkLabel(_ network: AnaNetwork, store: InventoryStore) -> String {
+    private func networkLabel(_ network: AnaNetwork, store: InventoryStore, addressing: AnaAddressing?) -> String {
         let base = network.base
-        let subnet = Subnet(address: base, prefix: 24)
+        let subnet = network.subnet
         var label = subnet.description
-        // Libellé de plage du site du /24 (le Scanner n'a que les plages du site actif).
-        let ranges = network.site == sites.activeKey ? state.ranges : (sites.site(forKey: network.site)?.ranges ?? [])
-        if let range = ranges.first(where: { (try? $0.parsed())?.contains(base.next ?? base) == true }) {
-            label += " · " + range.label
+        // Libellé du sous-réseau connu (plage du site, étendue DHCP), sinon de la plage qui le contient
+        // (le Scanner n'a que les plages du site actif).
+        let known = addressing?.subnets.first { AnaNetwork(site: network.site, subnet: $0.subnet) == network }
+        let names = known?.labels ?? []
+        if !names.isEmpty {
+            label += " · " + names.joined(separator: " · ")
+        } else {
+            let ranges = network.site == sites.activeKey ? state.ranges : (sites.site(forKey: network.site)?.ranges ?? [])
+            if let range = ranges.first(where: { (try? $0.parsed())?.contains(base.next ?? base) == true }) {
+                label += " · " + range.label
+            } else if let dhcp = known?.dhcpName {
+                label += " · " + dhcp
+            }
         }
-        let vlans = Set(store.records.values.filter { subnet.contains($0.ip) }.compactMap(\.vlan)).sorted()
-        if !vlans.isEmpty { label += " · VLAN " + vlans.map(String.init).joined(separator: ", ") }
+        var vlans = Set(store.records.values.filter { subnet.contains($0.ip) }.compactMap(\.vlan))
+        if let vlan = known?.vlan { vlans.insert(vlan) }
+        // VLAN déjà nommés par le libellé (« VLAN 60 · Invités ») : pas répétés.
+        let unnamed = vlans.filter { !label.contains("VLAN \($0)") }
+        if !unnamed.isEmpty { label += " · VLAN " + unnamed.sorted().map(String.init).joined(separator: ", ") }
+        if network.prefix < 24 { label += " · \(1 << (24 - network.prefix)) pages" }
         return label
     }
 
     // MARK: Tuiles
 
-    private func tiles(records: [InvRecord], chosen: AnaNetwork?, alerts: [InvEvent], now: Date, since: Date) -> some View {
+    private func tiles(records: [InvRecord], plan: AddressPlan?, alerts: [InvEvent], now: Date, since: Date) -> some View {
         let added = records.filter { $0.firstSeen >= since && !$0.isImported }.count
         let lost = records.filter { !$0.isOnline && ($0.offlineSince ?? .distantPast) >= since }.count
         let online = records.filter(\.isOnline).count
         let recentOffline = records.filter { !$0.isOnline && now.timeIntervalSince($0.lastSeen) <= 7 * 86_400 }.count
         let conflicts = Set(records.filter(\.hasConflict).map(\.ip)).sorted()
         let pending = alerts.filter { $0.status == .aTraiter && $0.severity != .info }.count
-        // Même fenêtre « vu récemment » que la carte d'occupation affichée dessous.
-        let occupancy = chosen.map {
-            InvOccupancy(network: $0.base, records: records, now: now, recentWindow: max(period.seconds, 7 * 86_400))
-        }
+        // Même plan que la carte d'occupation affichée dessous (fiches, baux et réservations DHCP).
+        let occupancy = plan
 
         // Une rangée en grande fenêtre ; plusieurs lignes en petite fenêtre plutôt que des tuiles coupées.
         return LazyVGrid(columns: [GridItem(.adaptive(minimum: 175), spacing: 12, alignment: .top)], alignment: .leading, spacing: 12) {
@@ -273,12 +379,13 @@ struct AnalyseScreen: View {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text("\(percent) %").font(.system(size: 26, weight: .bold))
                                 .foregroundStyle(percent >= 75 ? Theme.warning : Theme.text)
-                            Text("\(occupancy.usedCount)/254").font(Theme.mono(12)).foregroundStyle(Theme.textSecondary)
+                            Text("\(occupancy.used)/\(RegFormat.count(occupancy.hosts))").font(Theme.mono(12)).foregroundStyle(Theme.textSecondary)
+                                .lineLimit(1)
                         }
                         ProgressBar(fraction: occupancy.usage, color: percent >= 75 ? Theme.warning : Theme.accent)
                     }
                 } else {
-                    Text("Choisissez un /24").font(Theme.small).foregroundStyle(Theme.textSecondary).padding(.top, 6)
+                    Text("Choisissez un réseau").font(Theme.small).foregroundStyle(Theme.textSecondary).padding(.top, 6)
                 }
             }
         }

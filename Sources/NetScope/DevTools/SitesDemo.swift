@@ -28,13 +28,26 @@ enum SitesDemo {
     /// MAC de la passerelle du Siège (celle de DemoData) : « Détecter mon site » reconnaît le Siège.
     static let observedGatewayMAC = MACAddress("04:D5:90:3A:7B:11")!
 
+    /// Note 82 : plages exclues du Siège (18 adresses retirées des plages du Scanner ; la caméra
+    /// 192.168.50.31, déjà connue, reste dans l'inventaire, marquée « Exclu du scan »).
+    static let siegeExclusions = [
+        ExcludedRange(id: UUID(uuidString: "5A7E0082-0001-4C1E-9A11-00000000E001")!, text: "10.182.122.200-210",
+                      note: "Automates de la ligne d’emballage"),
+        ExcludedRange(id: UUID(uuidString: "5A7E0082-0002-4C1E-9A11-00000000E002")!, text: "192.168.50.31",
+                      note: "Caméra fragile (micrologiciel 2017)"),
+        ExcludedRange(id: UUID(uuidString: "5A7E0082-0003-4C1E-9A11-00000000E003")!, text: "10.10.0.45-50",
+                      note: "iDRAC des serveurs, scans proscrits"),
+        ExcludedRange(id: UUID(uuidString: "5A7E0082-0004-4C1E-9A11-00000000E004")!, text: "10.255.1.0/24", note: "FortiLink"),
+    ]
+
     static func list(now: Date = Date()) -> SiteList {
         let created = now.addingTimeInterval(-120 * 86_400)
         let siege = Site(id: siegeID, name: "Siège", notes: "Bureaux, entrepôt et salle des serveurs.",
                          ranges: DemoData.ranges, fortiGateIDs: [FortiGateSitesDemo.siegeID], switchHosts: ["10.182.122.2"],
                          hints: SiteHints(gatewayMACs: [observedGatewayMAC], fortiGateSerials: ["FGT60FTK22004711"],
                                           fortiGateHostnames: ["FGT-SIEGE"], ssid: "Bureau-Corp"),
-                         lastScan: now.addingTimeInterval(-60), inventoryCount: nil, created: created)
+                         lastScan: now.addingTimeInterval(-60), inventoryCount: nil, created: created,
+                         exclusions: siegeExclusions)
         let laval = Site(id: lavalID, name: "Entrepôt Laval", notes: "Quais de chargement\u{00A0}; caméras sur le VLAN 40.",
                          ranges: [ScanRangeConfig(text: "10.20.0.0/24", label: "Bureaux", vlan: 1),
                                   ScanRangeConfig(text: "10.20.10.0/24", label: "Quais", vlan: 10),
@@ -51,7 +64,8 @@ enum SitesDemo {
         let drummond = Site(id: drummondID, name: "Usine Drummondville",
                             ranges: [ScanRangeConfig(text: "10.40.0.0/24", label: "Production", vlan: 1),
                                      ScanRangeConfig(text: "10.40.12.0/24", label: "Automates", vlan: 12)],
-                            fortiGateIDs: [FortiGateSitesDemo.drummondID], created: created.addingTimeInterval(3 * 86_400))
+                            fortiGateIDs: [FortiGateSitesDemo.drummondID], created: created.addingTimeInterval(3 * 86_400),
+                            exclusions: [ExcludedRange(text: "10.40.12.10-40", note: "Automates de la ligne 2 (plantent au scan)")])
         let clinique = Site(id: cliniqueID, name: "Clinique Exemple", notes: "Client fictif de démonstration.",
                             ranges: [ScanRangeConfig(text: "192.168.1.0/24", label: "Postes", vlan: 1),
                                      ScanRangeConfig(text: "192.168.20.0/24", label: "Imagerie", vlan: 20)],

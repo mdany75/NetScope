@@ -66,7 +66,7 @@ struct RegSitesSection: View {
                          }
                          .menuStyle(.button)
                          .fixedSize()
-                         .help("Créer les sites depuis les FortiGate, importer ou exporter le CSV «\u{00A0}site;plages;fortigate\u{00A0}» (aucun secret)")
+                         .help("Créer les sites depuis les FortiGate, importer ou exporter le CSV «\u{00A0}site;plages;fortigate\u{00A0}», avec la colonne «\u{00A0}exclusions\u{00A0}» si un site a des plages exclues (aucun secret)")
                      }
                  }, content: {
                      if let message {
@@ -161,8 +161,8 @@ struct RegSitesSection: View {
                             // Note 10 : ajout automatique et liste d'exclusion de l'inventaire du site.
                             RegSiteInventoryBox(site: site)
                                 .padding(.top, 12)
-                            soonBox(title: "Plages exclues",
-                                    text: "Jamais sondées, même si elles font partie d’une plage du site (passerelle, contrôleur de domaine…).")
+                            // Note 82 : plages exclues du site, jamais sondées.
+                            RegSiteExclusionsBox(site: site)
                                 .padding(.top, 12)
                         })
         .id(site.id)
@@ -170,12 +170,17 @@ struct RegSitesSection: View {
 
     private func tiles(_ site: Site) -> some View {
         let active = site.ranges.filter(\.isEnabled)
-        let total = active.reduce(0) { $0 + ((try? $1.parsed().count) ?? 0) }
+        // Note 82 : sans les adresses des plages exclues.
+        let parsed = active.compactMap { try? $0.parsed() }
+        let exclusions = site.excludedAddresses
+        let excluded = exclusions.excludedCount(in: parsed)
+        let total = excluded == 0 ? parsed.reduce(0) { $0 + $1.count } : exclusions.probeCount(in: parsed)
         let gateways = site.hints.gatewayMACs.map { $0.formatted(.upperColon) }
         let count = sites.inventoryCount(site)
         return RegTileRow {
             // Insécables : la valeur passe à la ligne après « · », jamais au milieu de « 3 plages actives ».
-            RegTile("Total à scanner", "\(RegFormat.count(total))\u{00A0}adresses\u{00A0}· \(active.count)\u{00A0}plage\(active.count > 1 ? "s" : "")\u{00A0}active\(active.count > 1 ? "s" : "")")
+            RegTile("Total à scanner", "\(RegFormat.count(total))\u{00A0}adresses\u{00A0}· \(active.count)\u{00A0}plage\(active.count > 1 ? "s" : "")\u{00A0}active\(active.count > 1 ? "s" : "")"
+                    + (excluded > 0 ? "\u{00A0}· \(RegFormat.count(excluded))\u{00A0}exclue\(excluded > 1 ? "s" : "")" : ""))
             RegTile("FortiGate", site.fortiGateIDs.compactMap { fortigate.controller($0)?.displayName }.joined(separator: ", ").nonEmpty ?? "Aucune (SNMP seulement)")
             RegTile("Passerelle connue", gateways.first.map { gateways.count > 1 ? "\($0) +\(gateways.count - 1)" : $0 } ?? "Pas encore relevée", mono: true)
             RegTile("Inventaire", "\(RegFormat.count(count)) fiche\(count > 1 ? "s" : "")" + (site.lastScan.map { " · scan \(ScanFormat.relative($0).lowercased())" } ?? " · jamais scanné"))
@@ -397,19 +402,6 @@ struct RegSitesSection: View {
 
     private func show(_ text: String, _ tone: Tone) {
         message = (text, tone)
-    }
-
-    private func soonBox(title: String, text: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                Text(title.uppercased()).font(Theme.captionSemibold).kerning(0.55).foregroundStyle(Theme.textSecondary)
-                Chip(text: "Bientôt")
-            }
-            Text(text).font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
     }
 }
 

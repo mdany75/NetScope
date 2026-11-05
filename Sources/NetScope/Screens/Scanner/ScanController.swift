@@ -168,7 +168,14 @@ final class ScanController: ObservableObject {
             show("Plage ignorée (invalide)\u{00A0}: \(invalid.joined(separator: ", "))", tone: .warning)
         }
 
+        // Note 82 : plages exclues du site actif, jamais sondées.
+        let exclusions = SiteModel.shared.activeExclusions
+        guard exclusions.probeCount(in: targets.map(\.range)) > 0 else {
+            show("Toutes les adresses cochées sont dans les plages exclues de «\u{00A0}\(SiteModel.shared.activeName)\u{00A0}»\u{00A0}: rien à scanner (Réglages › Sites et plages).", tone: .warning)
+            return
+        }
         var options = ScanOptions(profile: state.scanProfile, customPorts: prefs.tuning.ports)
+        options.exclusions = exclusions
         options.portOverride = portPreset.ports
         // Méthodes de découverte du profil (Réglages › Profils de scan).
         options.methods = prefs.methods(for: state.scanProfile)
@@ -199,7 +206,8 @@ final class ScanController: ObservableObject {
         newIDs = []
         let begin = Date()
         status = Dictionary(uniqueKeysWithValues: targets.map {
-            ($0.id, RangeStatus(progress: ScanRangeProgress(rangeID: $0.id, total: $0.range.count), startedAt: begin))
+            ($0.id, RangeStatus(progress: ScanRangeProgress(rangeID: $0.id, total: exclusions.addresses(in: $0.range).count),
+                                startedAt: begin))
         })
         startedAt = begin
         finishedAt = nil
@@ -268,7 +276,8 @@ final class ScanController: ObservableObject {
                 await fortigate.refreshAfterScan(state: state, ranges: targets.map(\.range))
             }
             switches.scanEnded(interrupted: Task.isCancelled, planned: discoversSwitches)
-            self.finish(state, targets: targets, found: foundIDs, engineCancelled: engineCancelled, snmpCancelled: Task.isCancelled)
+            self.finish(state, targets: targets, exclusions: exclusions, found: foundIDs, engineCancelled: engineCancelled,
+                        snmpCancelled: Task.isCancelled)
         }
     }
 
@@ -422,13 +431,15 @@ final class ScanController: ObservableObject {
         Array(Set(open).union(known.filter { !probed.contains($0) })).sorted()
     }
 
-    private func finish(_ state: AppState, targets: [ScanTarget], found: Set<Device.ID>, engineCancelled: Bool,
-                        snmpCancelled: Bool) {
+    private func finish(_ state: AppState, targets: [ScanTarget], exclusions: AddressExclusions, found: Set<Device.ID>,
+                        engineCancelled: Bool, snmpCancelled: Bool) {
         let end = Date()
-        // Appareils connus des plages scannées qui n'ont pas répondu : hors ligne.
+        // Appareils connus des plages scannées qui n'ont pas répondu : hors ligne. Ceux des plages
+        // exclues (note 82) n'ont pas été sondés : leur dernier état connu reste.
         if !engineCancelled {
             let missing = state.devices.filter { device in
                 device.isOnline && !found.contains(device.id) && targets.contains { $0.range.contains(device.ip) }
+                    && !exclusions.contains(device.ip)
             }
             state.merge(missing.map { device in
                 var copy = device
@@ -502,7 +513,16 @@ final class ScanController: ObservableObject {
     /// fois, avec avancement et arrêt possible ; confirmation au-delà d'un gros volume. En
     /// démonstration, rien ne part sur le réseau.
     func probePorts(of devices: [Device], preset: PortPreset, state: AppState) {
-        let targets = devices.filter { !probing.contains($0.id) }
+        // Note 82 : jamais les appareils des plages exclues du site actif.
+        let exclusions = SiteModel.shared.activeExclusions
+        let skipped = devices.filter { exclusions.contains($0.ip) }
+        if !skipped.isEmpty {
+            let reason = skipped.count == 1 ? SiteModel.shared.exclusionReason(skipped[0].ip).map { $0 + "\u{00A0}: ports non sondés." }
+                : nil
+            show(reason ?? "\(Self.count(skipped.count)) dans les plages exclues de «\u{00A0}\(SiteModel.shared.activeName)\u{00A0}»\u{00A0}: ports non sondés.",
+                 tone: .warning, place: .actions)
+        }
+        let targets = devices.filter { !probing.contains($0.id) && !exclusions.contains($0.ip) }
         guard !targets.isEmpty else { return }
         guard !Launcher.isDemo else {
             show("Démonstration\u{00A0}: aucun port n’est sondé (\(preset.label), \(Self.count(targets.count))).",

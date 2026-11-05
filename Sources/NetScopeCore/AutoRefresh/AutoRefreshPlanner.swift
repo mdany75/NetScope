@@ -95,14 +95,17 @@ public enum AutoRefreshTargets {
     /// partirait en clair vers l'appareil qui porte la même adresse ici. Avec un site actif : ses
     /// switchs associés, et ceux sans site déjà relevés pour ce site. Sans site actif : ceux sans
     /// site, relevés sans site, dans les plages du dernier scan. Jamais un FortiSwitch (lu par la
-    /// FortiGate).
+    /// FortiGate), ni un switch d'une plage exclue du site actif (note 82).
     /// - Parameter readingSites: site actif au moment du dernier relevé réussi de chaque switch.
     public static func snmpHosts(_ hosts: [String], controllerHosts: Set<String>, activeSite: Site?, sites: [Site],
                                  readingSites: [String: String], scanRanges: [IPRange]) -> [String] {
         let activeKey = SiteFiles.key(for: activeSite?.id)
+        // Note 82 : un switch dans une plage exclue du site actif n'est jamais interrogé.
+        let excluded = activeSite?.excludedAddresses ?? .none
         var seen = Set<String>()
         return hosts.filter { host in
-            guard seen.insert(host).inserted, !controllerHosts.contains(host), IPv4Address(host) != nil else { return false }
+            guard seen.insert(host).inserted, !controllerHosts.contains(host), let address = IPv4Address(host),
+                  !excluded.contains(address) else { return false }
             let owners = sites.filter { $0.switchHosts.contains(host) }
             if let site = activeSite {
                 if owners.contains(where: { $0.id == site.id }) { return true }

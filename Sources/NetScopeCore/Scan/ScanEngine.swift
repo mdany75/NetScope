@@ -39,6 +39,9 @@ public struct ScanOptions: Sendable {
     public var methods = ScanMethods()
     /// Délai de chaque sonde de présence TCP ou UDP (adresses muettes au ping).
     public var presenceTimeout: Duration = .milliseconds(500)
+    /// Note 82 : adresses exclues du site, jamais sondées (ni ping, ni TCP/UDP, ni noms, ni ports) ;
+    /// une entrée de la table ARP à une adresse exclue est ignorée.
+    public var exclusions = AddressExclusions.none
 
     public init(profile: ScanProfile = .rapide, customPorts: [UInt16] = [], concurrency: Int = 128,
                 pingTimeout: Duration = .milliseconds(1000), portTimeout: Duration? = nil,
@@ -185,7 +188,7 @@ public actor ScanEngine {
         for target in list {
             targets[target.id] = target
             var jobs: [Job] = []
-            for ip in target.range.addresses() where rangeOf[ip] == nil {
+            for ip in options.exclusions.addresses(in: target.range) where rangeOf[ip] == nil {
                 rangeOf[ip] = target.id
                 jobs.append(Job(ip: ip, rangeID: target.id))
             }

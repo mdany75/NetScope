@@ -12,7 +12,10 @@ struct ScanRangesPanel: View {
     private var checkedRanges: [ScanRangeConfig] { state.ranges.filter(\.isEnabled) }
 
     private var summary: String {
-        let total = checkedRanges.reduce(0) { $0 + ((try? $1.parsed().count) ?? 0) }
+        // Adresses vraiment sondées : plages cochées moins les plages exclues du site (note 82).
+        let parsed = checkedRanges.compactMap { try? $0.parsed() }
+        let exclusions = SiteModel.shared.activeExclusions
+        let total = exclusions.isEmpty ? parsed.reduce(0) { $0 + $1.count } : exclusions.probeCount(in: parsed)
         let count = checkedRanges.count
         return "\(count) \(count > 1 ? "plages actives" : "plage active") · \(total) adresses"
     }
@@ -25,6 +28,7 @@ struct ScanRangesPanel: View {
                 HStack(spacing: 10) {
                     ScanCardTitle(text: "Plages à scanner")
                     Text(summary).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    ScanExcludedLabel()
                     if scan.isRunning { runningLabel }
                     Spacer(minLength: 8)
                     if let toast = scan.toast, toast.place == .ranges {
@@ -290,7 +294,8 @@ struct ScanRangeCard: View {
     }
 
     @ViewBuilder private var progressBlock: some View {
-        let total = status?.progress.total ?? range?.count ?? 0
+        // Avant le scan : adresses vraiment sondées (sans les plages exclues du site, note 82).
+        let total = status?.progress.total ?? range.map { SiteModel.shared.activeExclusions.probeCount(in: [$0]) } ?? 0
         let done = status?.progress.done ?? 0
         let fraction = total == 0 ? 0 : Double(done) / Double(total)
         let complete = status != nil && done >= total
