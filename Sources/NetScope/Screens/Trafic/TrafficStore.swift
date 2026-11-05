@@ -414,7 +414,10 @@ final class TrafficStore: ObservableObject {
         if shownKeys.contains(active) {
             let snapshots = SwitchStore.shared.orderedSnapshots
             if !snapshots.isEmpty {
-                input.ports = NetworkAnalysis.portIssues(snapshots, site: SiteModel.shared.activeName)
+                // Note 78 : erreurs jugées par heure et charge de la dernière heure (historique des ports).
+                let signals = PortHistoryStore.shared.analysisSignals(snapshots)
+                input.ports = NetworkAnalysis.portIssues(snapshots, site: SiteModel.shared.activeName,
+                                                         errorRates: signals.errorRates, loads: signals.loads)
             }
             let wifi = FortiAPStore.shared
             if !wifi.overview.aps.isEmpty { input.wifi = wifi.diagnosis }

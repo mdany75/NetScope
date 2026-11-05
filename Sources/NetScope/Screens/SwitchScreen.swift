@@ -73,12 +73,14 @@ struct SwitchScreen: View {
                             SwitchFaceplatePanel(store: store, snapshot: snapshot)
                             SwitchFortiPortTable(store: store, snapshot: snapshot)
                                 .id(snapshot.id)
+                            SwitchBusiestPorts(store: store, snapshot: snapshot)   // note 74
                             SwitchMacTable(store: store, snapshot: snapshot)
                         }
                     } side: {
                         VStack(spacing: 16) {
                             if let iface = store.selectedInterface {
                                 SwitchPortDetail(store: store, snapshot: snapshot, iface: iface)
+                                SwitchPortHistoryPanel(store: store, snapshot: snapshot, iface: iface)   // note 74
                             } else {
                                 Panel { Text("Choisissez un port sur la façade.").font(Theme.small).foregroundStyle(Theme.textSecondary) }
                             }
@@ -92,7 +94,7 @@ struct SwitchScreen: View {
                     SidePanelSplit(sideWidth: 330, collapse: .below, spacing: 16) {
                         VStack(spacing: 16) {
                             SwitchFaceplatePanel(store: store, snapshot: snapshot)
-                            SwitchTopPorts(store: store, monitor: traffic, snapshot: snapshot)
+                            SwitchBusiestPorts(store: store, monitor: traffic, snapshot: snapshot)
                             SwitchMacTable(store: store, snapshot: snapshot)
                         }
                     } side: {
@@ -100,6 +102,7 @@ struct SwitchScreen: View {
                             if let iface = store.selectedInterface {
                                 SwitchPortDetail(store: store, snapshot: snapshot, iface: iface)
                                 SwitchPortTraffic(monitor: traffic, snapshot: snapshot, iface: iface)
+                                SwitchPortHistoryPanel(store: store, snapshot: snapshot, iface: iface)   // note 74
                             } else {
                                 Panel { Text("Choisissez un port sur la façade.").font(Theme.small).foregroundStyle(Theme.textSecondary) }
                             }

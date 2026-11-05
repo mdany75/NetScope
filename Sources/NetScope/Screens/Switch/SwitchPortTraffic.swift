@@ -127,6 +127,8 @@ struct SwitchTopPorts: View {
     @ObservedObject var store: SwitchStore
     @ObservedObject var monitor: SNMPResourceMonitor
     let snapshot: SNMPSwitchSnapshot
+    /// Choix de la période (note 74 : en direct ou historique), à droite du titre.
+    var accessory: AnyView? = nil
 
     var body: some View {
         let top = monitor.topPorts(limit: 5)
@@ -136,10 +138,15 @@ struct SwitchTopPorts: View {
                     heading
                     Spacer(minLength: 8)
                     system
+                    accessory
                 }
                 VStack(alignment: .leading, spacing: 6) {
                     heading
-                    system
+                    HStack(spacing: 8) {
+                        system
+                        Spacer(minLength: 0)
+                        accessory
+                    }
                 }
             }
             .padding(.horizontal, 16)

@@ -28,6 +28,17 @@ final class SwitchStore: ObservableObject {
 
     /// Erreurs récentes des ports d'un switch (seules les erreurs qui augmentent sont signalées).
     func recentErrors(_ host: String) -> SwitchRecentErrors { errorTracker.recent(host) }
+
+    /// Note 74 : site dont l'historique du trafic reçoit les relevés d'un switch : celui du relevé
+    /// SNMP, sinon celui de la FortiGate du FortiSwitch, sinon le site actif.
+    func historySiteKey(for host: String) -> String {
+        if let key = readingSites[host] { return key }
+        if let controller = controllerOwners[host],
+           let site = SiteModel.shared.sites.first(where: { $0.fortiGateIDs.contains(controller) }) {
+            return SiteFiles.key(for: site.id)
+        }
+        return SiteModel.shared.activeKey
+    }
     /// FortiSwitch lus par la FortiGate (note 24) : adresses FortiLink, jamais interrogées en SNMP.
     @Published private(set) var controllerHosts: [String] = []
     /// Noms connus de la FortiGate (inventaire, baux DHCP), pour les appareils absents du scan.
@@ -300,6 +311,8 @@ final class SwitchStore: ObservableObject {
         setControllerSnapshots(FortiMulti.snapshots(sites))
         controllerNames = FortiMulti.names(sites)
         controllerOwners = SiteSwitchFilter.controllerOwners(sites)
+        // Note 74 : compteurs des FortiSwitch dans l'historique de leur site.
+        for snapshot in controllerSnapshots { PortHistoryStore.shared.record(snapshot, siteKey: historySiteKey(for: snapshot.id)) }
         controllerNetwork = state.currentNetwork
         controllerReadAt = Date()
         if !isDemo {
@@ -467,6 +480,8 @@ final class SwitchStore: ObservableObject {
                 case .success(let snapshot):
                     snapshots[host] = snapshot
                     readingSites[host] = siteKey
+                    // Note 74 : compteurs des ports dans l'historique du site.
+                    PortHistoryStore.shared.record(snapshot, siteKey: siteKey)
                     errors[host] = nil
                     fresh.insert(host)
                     if readsHardware.contains(host) { hardwareReadAt[host] = snapshot.polledAt }
