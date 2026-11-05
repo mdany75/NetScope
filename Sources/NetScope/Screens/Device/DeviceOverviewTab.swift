@@ -211,6 +211,8 @@ struct DeviceOverviewTab: View {
                     Button("Voir le port dans Switchs et ports →") { state.showSwitchPort(switchName: device.switchName, port: device.switchPort) }
                         .buttonStyle(.ghost)
                         .padding(.leading, -8)
+                    // Note 73 : cycle PoE et redémarrage du port de l'appareil (si autorisés).
+                    if status.isCurrent { PortActionDeviceRow(device: device) }
                 }
             } else {
                 VStack(alignment: .leading, spacing: 10) {

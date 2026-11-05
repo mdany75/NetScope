@@ -25,6 +25,8 @@ struct RegSwitchesSection: View {
             // Note 24 : FortiSwitch gérés, lus par la FortiGate (prioritaire sur SNMP).
             RegFortiGatePanel()
             snmpPanel
+            // Note 73 : cycle PoE et redémarrage d'un port (désactivés par défaut).
+            RegPortActionsPanel()
         }
     }
 

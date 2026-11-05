@@ -696,6 +696,11 @@ struct SwitchPortDetail: View {
                     .buttonStyle(.secondary)
             }
             .padding(.horizontal, 16).padding(.vertical, 12)
+            // Note 73 : cycle PoE et redémarrage du port (avec confirmation).
+            if iface.isPhysical {
+                divider
+                PortActionsSection(snapshot: snapshot, iface: iface)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))

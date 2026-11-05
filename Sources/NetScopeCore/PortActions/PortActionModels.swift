@@ -222,7 +222,7 @@ public enum PortActionRefusal: Equatable, Sendable {
         case .uplink:
             return "Ce port est un uplink (trunk, FortiLink ou ISL)\u{00A0}: le couper isolerait tous les appareils situés derrière."
         case .thisMac:
-            return "Ce Mac est branché sur ce port\u{00A0}: NetScope perdrait sa propre connexion pendant l’action."
+            return "Ce Mac passe par ce port (sa MAC y est apprise, directement ou par une borne Wi-Fi)\u{00A0}: NetScope perdrait sa propre connexion pendant l’action."
         case .noPoE:
             return "Ce port ne fournit pas de PoE d’après le dernier relevé du switch."
         case .poeAdminDisabled:

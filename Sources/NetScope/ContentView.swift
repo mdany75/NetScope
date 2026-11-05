@@ -38,6 +38,8 @@ struct ContentView: View {
             .background(Theme.appBackground)
             // Note 52 : feuille « Se connecter en SSH » des boutons SSH de tous les écrans.
             .quickLoginPrompt()
+            // Note 73 : confirmation des actions sur un port (cycle PoE, redémarrage).
+            .portActionPrompt()
             .id(state.screen)
                 .navigationTitle(state.screen.pageTitle)
                 .navigationSubtitle(SitePicker.windowSubtitle(activeName: sites.activeSite?.displayName))

@@ -69,6 +69,7 @@ public enum PortActionFormat {
     public static func seconds(_ value: Int) -> String {
         let v = max(0, value)
         if v < 60 { return "\(v)\u{00A0}s" }
+        if v % 60 == 0 { return "\(v / 60)\u{00A0}min" }
         return "\(v / 60)\u{00A0}min\u{00A0}" + String(format: "%02d", v % 60) + "\u{00A0}s"
     }
 }

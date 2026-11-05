@@ -35,6 +35,8 @@ enum DemoData {
         // Notes 31, 33 et 34 : NETSCOPE_NAV="carte:imprimantes>inventaire" capture un écran ouvert
         // par la navigation (étiquette du filtre transmis, bouton Retour actif).
         NavDemo.apply(to: state)
+        // Note 73 : NETSCOPE_PORT choisit le port affiché dans Switchs et ports (actions sur le port).
+        PortActionDemo.apply(to: state)
     }
 
     /// Interface active fictive (Wi-Fi du bureau).
