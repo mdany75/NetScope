@@ -15,6 +15,8 @@ struct TerminalSessionView: View {
         VStack(spacing: 0) {
             header
             if session.kind == .serial { serialControls }
+            // Note 78 : transfert XMODEM/YMODEM en cours ou terminé.
+            if let transfer = session.transfer { SerialTransferBar(controller: transfer, session: session) }
             banners
             if session.searchVisible { searchBar }
             terminalBox
@@ -22,6 +24,20 @@ struct TerminalSessionView: View {
             statusBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .sheet(isPresented: $session.transferSheetVisible) {
+            SerialTransferSheet(session: session) { session.transferSheetVisible = false }
+        }
+        .overlay {
+            // Captures (NETSCOPE_REMOTE_VIEW=terminal-serie-fichier) : la feuille dessinée dans la page.
+            if session.kind == .serial, TerminalDemo.showsTransferSheet {
+                ZStack {
+                    Color.black.opacity(0.18)
+                    SerialTransferSheet(session: session, inline: true, files: TerminalDemo.firmwareFiles) {}
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .shadow(color: Color.black.opacity(0.25), radius: 16, y: 6)
+                }
+            }
+        }
     }
 
     // MARK: Barre de l'onglet
@@ -164,39 +180,72 @@ struct TerminalSessionView: View {
                     }
                 }
             }
-            HStack(spacing: 8) {
-                Chip(text: session.isActive ? "Port ouvert" : "Port fermé", tone: session.isActive ? .success : .neutral)
-                Text("\(session.serialSettings.summary) · flux \(session.serialSettings.flowControl.shortLabel)")
-                    .font(Theme.mono(12)).foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
-                    .fixedSize()
-                Text(SerialPortInfo(path: session.serialPath).adapter).font(Theme.small).foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .layoutPriority(-1)
-                Spacer(minLength: 8)
-                Toggle("Horodater", isOn: $session.timestamps)
-                    .toggleStyle(.checkbox)
-                    .font(Theme.small)
-                    .fixedSize()
-                    .help("Ajoute l’heure (à la milliseconde) devant chaque ligne reçue, aussi dans le journal")
-                Button("9600 8N1") {
-                    session.applySerial(path: session.serialPath, settings: .ciscoConsole)
-                    model.setSerialBaud(9600, for: session.connection.id)
+            // Une rangée si la place suffit ; sinon l'état, puis les boutons dessous (petite fenêtre).
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    serialStatus(showAdapter: false)
+                    Spacer(minLength: 8)
+                    serialActions
                 }
-                .buttonStyle(RemoteSmallButtonStyle())
-                .help("Préréglage des consoles Cisco, Fortinet, Aruba et HPE\u{00A0}: 9600 bauds, 8 bits, sans parité, 1 bit d’arrêt, sans contrôle de flux")
-                Button(session.isActive ? "Fermer le port" : "Ouvrir le port") { session.toggleSerialPort() }
-                    .buttonStyle(RemoteSmallButtonStyle(primary: true, tint: session.isActive ? Theme.critical : Theme.accent))
-                Button("Envoyer Break") { session.sendBreak() }
-                    .buttonStyle(RemoteSmallButtonStyle())
-                    .disabled(!session.isActive)
-                    .help("Signal « break »\u{00A0}: interrompt le démarrage (ROMMON, récupération du mot de passe)")
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        serialStatus(showAdapter: true)
+                        Spacer(minLength: 0)
+                    }
+                    HStack(spacing: 8) {
+                        serialActions
+                        Spacer(minLength: 0)
+                    }
+                }
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+    }
+
+    @ViewBuilder private func serialStatus(showAdapter: Bool) -> some View {
+        Chip(text: session.isActive ? "Port ouvert" : "Port fermé", tone: session.isActive ? .success : .neutral)
+            .help(SerialPortInfo(path: session.serialPath).adapter)
+        Text("\(session.serialSettings.summary) · flux \(session.serialSettings.flowControl.shortLabel)")
+            .font(Theme.mono(12)).foregroundStyle(Theme.textSecondary)
+            .lineLimit(1)
+            .fixedSize()
+        if showAdapter {
+            Text(SerialPortInfo(path: session.serialPath).adapter).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .layoutPriority(-1)
+        }
+    }
+
+    @ViewBuilder private var serialActions: some View {
+        Toggle("Horodater", isOn: $session.timestamps)
+            .toggleStyle(.checkbox)
+            .font(Theme.small)
+            .fixedSize()
+            .help("Ajoute l’heure (à la milliseconde) devant chaque ligne reçue, aussi dans le journal")
+        Button("9600 8N1") {
+            session.applySerial(path: session.serialPath, settings: .ciscoConsole)
+            model.setSerialBaud(9600, for: session.connection.id)
+        }
+        .buttonStyle(RemoteSmallButtonStyle())
+        .help("Préréglage des consoles Cisco, Fortinet, Aruba et HPE\u{00A0}: 9600 bauds, 8 bits, sans parité, 1 bit d’arrêt, sans contrôle de flux")
+        Button(session.isActive ? "Fermer le port" : "Ouvrir le port") { session.toggleSerialPort() }
+            .buttonStyle(RemoteSmallButtonStyle(primary: true, tint: session.isActive ? Theme.critical : Theme.accent))
+        // Note 78 : envoi et réception XMODEM/YMODEM.
+        Button {
+            session.transferSheetVisible = true
+        } label: {
+            Label("Fichier…", systemImage: "arrow.up.arrow.down.square")
+        }
+        .buttonStyle(RemoteSmallButtonStyle())
+        .disabled(!session.isActive || session.transfer?.isActive == true)
+        .help("Envoyer ou recevoir un fichier par XMODEM ou YMODEM (mise à jour de firmware par la console)")
+        Button("Envoyer Break") { session.sendBreak() }
+            .buttonStyle(RemoteSmallButtonStyle())
+            .disabled(!session.isActive)
+            .help("Signal « break »\u{00A0}: interrompt le démarrage (ROMMON, récupération du mot de passe)")
     }
 
     private var portField: some View {

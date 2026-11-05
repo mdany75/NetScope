@@ -79,6 +79,7 @@ struct IperfServerView: View {
             IperfRolePicker(model: model)
             statusChip
             Text(summary).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                .layoutPriority(-1)
             Spacer(minLength: 8)
             if model.isListening {
                 Button {
@@ -87,6 +88,7 @@ struct IperfServerView: View {
                     Label("Arrêter le serveur", systemImage: "stop.fill")
                 }
                 .buttonStyle(.secondary)
+                .fixedSize()
             } else {
                 Button {
                     model.start()
@@ -94,6 +96,7 @@ struct IperfServerView: View {
                     Label("Démarrer le serveur", systemImage: "play.fill")
                 }
                 .buttonStyle(.primary)
+                .fixedSize()
             }
         }
     }
@@ -150,7 +153,7 @@ struct IperfServerView: View {
         return VStack(alignment: .leading, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
                 if model.isListening {
-                    Text("NetScope › serveur iperf3 à l’écoute sur le port \(String(port)) (TCP, toutes les interfaces)")
+                    Text("NetScope › serveur iperf3 à l’écoute, port \(String(port)) (TCP)")
                         .foregroundStyle(Theme.consoleText)
                     if let stopAt = model.stopAt {
                         TimelineView(.periodic(from: .now, by: 15)) { context in

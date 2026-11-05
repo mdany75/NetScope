@@ -105,6 +105,7 @@ registerRustDeskServerTests(suite)
 // Note 78 (0.27.0) : serveur et client iperf3 intégrés, Vitesse des disques en FTP et SFTP, XMODEM et YMODEM.
 registerIperfServerTests(suite)
 registerDiskTransferTests(suite)
+registerSerialFileTransferTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)
