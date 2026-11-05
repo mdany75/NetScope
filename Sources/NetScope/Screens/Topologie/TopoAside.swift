@@ -20,6 +20,9 @@ struct TopoAside: View {
     /// Note 32 : recherche de la carte (fiche du résultat en tête du détail).
     var search: TopoSearchContext?
     var searchActions: TopoSearchActions?
+    /// Note 78 : filtre VLAN de la carte (rappelé dans la vue d'ensemble) et nom des VLAN du site.
+    var vlanFilter: TopoVLANFilter = .all
+    var vlanName: (Int) -> String? = { _ in nil }
 
     private func device(_ id: String) -> Device? { devices.first { $0.id == id } }
 
@@ -111,12 +114,17 @@ struct TopoAside: View {
                 } else if node.isInferred {
                     Text(node.id == "sw:?"
                          ? "Regroupe les appareils dont le port de switch n’a pas été relevé. Interrogez les switchs par SNMP pour les placer."
-                         : "Switch connu seulement par son nom, relevé sur les appareils qui y sont branchés ; son adresse n’a pas été vue par le scan.")
+                         : node.note ?? "Switch connu seulement par son nom, relevé sur les appareils qui y sont branchés ; son adresse n’a pas été vue par le scan.")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
                 }
 
+                let lldp = graph.infraLinks(of: node.id)
+                if !lldp.isEmpty {
+                    lldpLinks(node, lldp)
+                }
+
                 if node.kind == .groupe {
-                    members(devices, highlighted: search?.current.flatMap { $0.nodeID == node.id ? $0.deviceID : nil })
+                    members(devices,highlighted: search?.current.flatMap { $0.nodeID == node.id ? $0.deviceID : nil })
                 }
 
                 let children = graph.children(of: node.id)
@@ -266,6 +274,59 @@ struct TopoAside: View {
         }
     }
 
+    // MARK: Liens LLDP (note 78)
+
+    /// Liens de l'équipement vus par LLDP ou la FortiGate : port local, voisin, port distant ; un
+    /// clic choisit le voisin sur la carte.
+    private func lldpLinks(_ node: TopoNode, _ links: [TopoInfraLink]) -> some View {
+        let sorted = links.sorted { lhs, rhs in
+            if lhs.isTree != rhs.isTree { return lhs.isTree }
+            return (lhs.port(at: node.id) ?? "") .localizedStandardCompare(rhs.port(at: node.id) ?? "") == .orderedAscending
+        }
+        return VStack(alignment: .leading, spacing: 6) {
+            SectionHeader(title: "Liens LLDP", subtitle: "\(links.count) lien\(links.count > 1 ? "s" : "")") { EmptyView() }
+            Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 0) {
+                GridRow {
+                    ForEach(["Port", "Voisin", "Port distant"], id: \.self) { title in
+                        Text(title.uppercased()).font(Theme.captionSemibold).foregroundStyle(Theme.textSecondary)
+                            .frame(height: 22, alignment: .leading)
+                    }
+                }
+                ForEach(sorted) { link in
+                    let other = link.other(node.id)
+                    let neighbor = graph.node(other)
+                    GridRow {
+                        Text(link.port(at: node.id) ?? "—").font(Theme.mono(11))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(neighbor?.title ?? other).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                            Text(lldpDetail(link)).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(3)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Text(link.port(at: other) ?? "—").font(Theme.mono(11)).foregroundStyle(Theme.neutralText)
+                    }
+                    .padding(.vertical, 4)
+                    .contentShape(Rectangle())
+                    .onTapGesture { if neighbor != nil { selectedID = other } }
+                    .help(link.isTree ? "Clic\u{00A0}: choisir \(neighbor?.title ?? "ce voisin") sur la carte"
+                          : "Lien redondant\u{00A0}: deuxième chemin vers \(neighbor?.title ?? "ce voisin"), hors de la hiérarchie de la carte")
+                }
+            }
+        }
+    }
+
+    /// « ISL · 10 Gb/s · VLAN 1, 20, 30 · FortiGate », « Redondant · … ».
+    private func lldpDetail(_ link: TopoInfraLink) -> String {
+        var parts = [link.isTree ? link.kind.shortLabel : "Redondant"]
+        if let speed = link.speedLabel { parts.append(speed) }
+        if !link.vlans.isEmpty {
+            let shown = link.vlans.prefix(5).map(String.init).joined(separator: ", ")
+            parts.append("VLAN " + shown + (link.vlans.count > 5 ? "…" : ""))
+        }
+        if !link.isUp { parts.append("hors service") }
+        parts.append(link.sourceLabel)
+        return parts.joined(separator: " · ")
+    }
+
     // MARK: Vue d'ensemble
 
     private var overview: some View {
@@ -282,6 +343,17 @@ struct TopoAside: View {
                     KeyValueRow(key: "Liens affichés", value: "\(graph.links.count)", keyWidth: 110)
                     KeyValueRow(key: "Sous-réseaux", value: networks.isEmpty ? "—" : networks.joined(separator: "\n"), mono: true, keyWidth: 110)
                     KeyValueRow(key: "VLAN", value: vlans.isEmpty ? "—" : vlans.joined(separator: " · "), keyWidth: 110)
+                    if case .vlan(let vlan) = vlanFilter {
+                        KeyValueRow(key: "Filtre", value: "VLAN \(vlan)" + (vlanName(vlan).map { " · \($0)" } ?? ""), keyWidth: 110)
+                    } else if vlanFilter == .unknown {
+                        KeyValueRow(key: "Filtre", value: "VLAN inconnu", keyWidth: 110)
+                    }
+                    let lldp = graph.infraLinks
+                    if !lldp.isEmpty {
+                        let redundant = lldp.filter { !$0.isTree }.count
+                        KeyValueRow(key: "Liens LLDP", value: "\(lldp.count)" + (redundant > 0 ? " (\(redundant) redondant\(redundant > 1 ? "s" : ""))" : ""),
+                                    keyWidth: 110)
+                    }
                 }
             }
         }
