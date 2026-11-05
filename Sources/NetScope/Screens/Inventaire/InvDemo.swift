@@ -137,5 +137,7 @@ enum InvDemo {
         InvManualDemo.seed(&store, now: now)
         // Note 60 : modèle, numéro de série et firmware lus par SNMP et par la FortiGate.
         HardwareDetectDemo.seed(&store, now: now)
+        // Note 78 : MAC aléatoires à rapprocher (proposé, jamais fusionné d’office).
+        InventoryRandomMACDemo.seed(&store, now: now)
     }
 }

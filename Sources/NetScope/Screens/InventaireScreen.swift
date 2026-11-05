@@ -107,6 +107,8 @@ struct InventaireScreen: View {
     @State private var importing = false
     @State private var exportDocument: InvCSVDocument?
     @State private var exporting = false
+    /// Note 78 : format du dernier export (NetScope, NetBox, GLPI, Snipe-IT).
+    @State private var exportFormat = InvExportFormat.netscope
     /// Note 10 : filtres, feuille d'ajout à la main, MAC vues sur plusieurs sites (clés des sites).
     @State private var filter = InvFilter()
     @State private var manualMode: InvManualMode?
@@ -225,11 +227,24 @@ struct InventaireScreen: View {
             Button { importing = true } label: { Label("Importer CSV", systemImage: "square.and.arrow.down") }
                 .buttonStyle(.secondary)
                 .help("Importer un CSV dans l’inventaire du site actif «\u{00A0}\(sites.activeName)\u{00A0}»")
-            Button {
-                exportDocument = InvCSVDocument(text: InvCSV.export(rows.map(\.record), sites: multiple ? rows.map(\.siteName) : nil))
-                exporting = true
+            // Note 78 : un choix de format (NetScope, NetBox, GLPI, Snipe-IT) pour les fiches affichées.
+            Menu {
+                ForEach(InvExportFormat.allCases) { format in
+                    Button(format.label) {
+                        exportFormat = format
+                        let text = format == .netscope
+                            ? InvCSV.export(rows.map(\.record), sites: multiple ? rows.map(\.siteName) : nil)
+                            : InvExternalCSV.export(rows.map(\.record), format: format, sites: rows.map(\.siteName))
+                        exportDocument = InvCSVDocument(text: text)
+                        exporting = true
+                    }
+                    .help(format.help)
+                    if format == .netscope { Divider() }
+                }
             } label: { Label("Exporter", systemImage: "square.and.arrow.up") }
-                .buttonStyle(.secondary)
+                .fixedSize()
+                .disabled(rows.isEmpty)
+                .help("Exporter les \(rows.count) fiches affichées en CSV\u{00A0}: format NetScope, ou pour NetBox, GLPI et Snipe-IT")
             Button { mergeOpen.toggle() } label: {
                 HStack(spacing: 6) {
                     Label("Fusionner les doublons", systemImage: "arrow.triangle.merge")
@@ -294,9 +309,10 @@ struct InventaireScreen: View {
             }
         }
         .fileExporter(isPresented: $exporting, document: exportDocument, contentType: .commaSeparatedText,
-                      defaultFilename: "inventaire-\(InvFormat.day(Date())).csv") { result in
+                      defaultFilename: "inventaire\(exportFormat.fileSuffix)-\(InvFormat.day(Date())).csv") { result in
             if case .success(let url) = result {
-                model.show("Export CSV : \(url.lastPathComponent) (\(rows.count) lignes)")
+                let target = exportFormat == .netscope ? "" : " pour " + exportFormat.label.replacingOccurrences(of: "CSV pour ", with: "")
+                model.show("Export CSV\(target) : \(url.lastPathComponent) (\(rows.count) lignes)")
             }
         }
     }
@@ -435,6 +451,10 @@ struct InventaireScreen: View {
                             duplicateCard("Fiche conservée", keep)
                             duplicateCard("Fiche à rattacher", other)
                             VStack(alignment: .leading, spacing: 10) {
+                                // Note 78 : rapprochement d'une MAC aléatoire, proposé et jamais fait d'office.
+                                if let criterion = pair.randomMAC {
+                                    Chip(text: criterion == .serial ? "MAC aléatoire · n° de série" : "MAC aléatoire · nom d’hôte", tone: .accent)
+                                }
                                 Text("Critères : " + pair.reason)
                                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -711,6 +731,9 @@ struct InventaireScreen: View {
             }
         case "garanties":
             filter.warranty = true
+        case "doublons":
+            // Note 78 : doublons probables, dont les MAC aléatoires rapprochées.
+            mergeOpen = true
         case "materiel":
             // Note 60 : colonnes Modèle et Firmware, fiche du switch d'étage (numéro qui diffère) ou
             // de l'appareil NETSCOPE_INV_IP (ex. 10.182.122.102 : numéro à reprendre).

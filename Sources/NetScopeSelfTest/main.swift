@@ -86,6 +86,8 @@ registerLighteningTests(suite)
 // Note 78 (0.26.0) : Ping continu, Inventaire, Wake-on-LAN et Alertes.
 registerAlertDedicatedTests(suite)
 registerPingSessionTests(suite)
+registerInventoryExportTests(suite)
+registerWakePlanTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)
