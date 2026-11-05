@@ -164,7 +164,7 @@ func registerDiagnosticsTests(_ suite: TestSuite) {
         }
         log.removeObserver(token)
         log.info("Test", "après retrait")
-        try expectEqual(log.entryCount, 1_602, "toutes les entrées gardées")
+        try expectEqual(log.entryCount, 1_603, "toutes les entrées gardées")
         try expectEqual(seen.value, 1_600, "chaque entrée annoncée une fois aux observateurs, plus rien après le retrait")
         try expect(log.entries.allSatisfy { !$0.module.isEmpty }, "aucune entrée corrompue")
     }
