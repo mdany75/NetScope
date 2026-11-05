@@ -8,6 +8,8 @@ public enum RemoteLaunchPlan: Equatable, Sendable {
     case rdpFile(contents: String, fileName: String)
     /// Ouvrir une URL (vnc:// : Partage d'écran).
     case url(URL)
+    /// Note 50 : navigateur de fichiers intégré (FTP, FTPS, SFTP), adresse affichée.
+    case fileBrowser(address: String)
 
     /// Application qui s'ouvre.
     public var appName: String {
@@ -15,6 +17,7 @@ public enum RemoteLaunchPlan: Equatable, Sendable {
         case .terminal: return "Terminal"
         case .rdpFile: return "Windows App (Microsoft Remote Desktop)"
         case .url: return "Partage d’écran"
+        case .fileBrowser: return "le navigateur de fichiers de NetScope"
         }
     }
 
@@ -24,6 +27,7 @@ public enum RemoteLaunchPlan: Equatable, Sendable {
         case .terminal(let command): return command
         case .rdpFile(_, let fileName): return fileName
         case .url(let url): return url.absoluteString
+        case .fileBrowser(let address): return address
         }
     }
 }
@@ -51,7 +55,19 @@ public enum RemoteLauncher {
             return .rdpFile(contents: rdpFile(for: c), fileName: rdpFileName(for: c))
         case .vnc:
             return .url(try vncURL(for: c))
+        case .ftp, .ftps, .sftp:
+            return .fileBrowser(address: fileTransferURL(for: c))
         }
+    }
+
+    /// « ftp://admin@10.0.0.5:2121/ », « sftp://admin@10.0.0.5/ » (affiché, jamais de mot de passe).
+    public static func fileTransferURL(for c: RemoteConnection) -> String {
+        let scheme = c.proto == .ftps ? (c.transfer.tlsMode == .implicit ? "ftps" : "ftpes") : c.proto.rawValue
+        let host = c.host.contains(":") ? "[\(c.host)]" : c.host
+        let user = c.username.isEmpty ? "" : c.username + "@"
+        let expected = c.proto == .ftps ? c.transfer.tlsMode.defaultPort : c.proto.defaultPort
+        let port = c.port == expected ? "" : ":\(c.port)"
+        return "\(scheme)://\(user)\(host)\(port)/"
     }
 
     /// « ssh -- netadmin@10.182.122.2 », « ssh -p 2222 -- netadmin@10.182.122.2 » (note 52 :

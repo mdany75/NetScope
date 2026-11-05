@@ -6,6 +6,8 @@ import SwiftUI
 struct RemoteScreen: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var model = RemoteModel.shared
+    @ObservedObject private var files = FileTransferStore.shared
+    @ObservedObject private var ftpServer = FTPTemporaryServerModel.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,9 +36,19 @@ struct RemoteScreen: View {
                 .padding(.top, 10)
             }
             HStack(alignment: .top, spacing: 12) {
-                RemoteConnectionList(model: model)
-                    .frame(width: 272)
-                if model.compactLayout, model.detailsVisible, let connection = model.selected {
+                // Note 50 : navigateur de fichiers ouvert ; en petite fenêtre, il prend toute la largeur.
+                let browsing = files.session.flatMap { files.isShowing(model.selectedID) ? $0 : nil }
+                if browsing == nil || !model.compactLayout {
+                    RemoteConnectionList(model: model)
+                        .frame(width: 272)
+                }
+                if let session = browsing {
+                    // Petite fenêtre : « Connexions » masque le navigateur (la session continue).
+                    FileTransferBrowser(session: session, model: model, compact: model.compactLayout) {
+                        session.isVisible = false
+                    }
+                    .frame(minWidth: 300)
+                } else if model.compactLayout, model.detailsVisible, let connection = model.selected {
                     // Petite fenêtre : trois colonnes ne tiennent pas. Le détail, ouvert à la demande
                     // (bouton de la barre d'outils), prend la place des sessions au lieu de les recouvrir.
                     RemoteDetailPanel(model: model, connection: connection)
@@ -61,6 +73,7 @@ struct RemoteScreen: View {
         }
         .overlay {
             if model.showImport { RemoteImportOverlay(model: model) }
+            if ftpServer.isPresented { FTPServerOverlay() }
         }
         .screenToolbar {
             Button {

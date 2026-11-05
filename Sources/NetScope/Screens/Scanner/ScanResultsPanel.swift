@@ -571,6 +571,8 @@ struct ScanDeviceMenu: View {
             Button("Ping continu") { state.sendToPing(device.ip.description) }
             // Note 52 : utilisateur demandé (ou retenu) avant ssh user@ip.
             Button("Se connecter en SSH…") { QuickLoginModel.shared.ask(QuickLoginTarget(device: device)) }
+            // Note 50 : FTP, FTPS ou SFTP si le port est ouvert au dernier scan.
+            FileTransferOpenMenu(host: device.ip.description, name: device.displayName, openPorts: device.openPorts, deviceID: device.id)
             Button("Ouvrir dans le navigateur (http)") { ScanFormat.open(URL(string: "http://\(device.ip)")!) }
             Button("Ouvrir dans le navigateur (https)") { ScanFormat.open(URL(string: "https://\(device.ip)")!) }
         } else {

@@ -17,6 +17,19 @@ extension RemoteConnection {
         case .rdp: return "Chiffré (TLS)"
         case .vnc: return "Selon le serveur"
         case .serie: return "Liaison locale"
+        case .ftp: return "Non sécurisé"
+        case .ftps: return "Chiffré (TLS)"
+        case .sftp: return "Chiffré (SSH)"
+        }
+    }
+
+    /// Note 50 : « Passif », « Passif · TLS explicite », « Mot de passe » (SFTP).
+    var fileTransferModeLabel: String {
+        switch proto {
+        case .ftp: return transfer.dataMode.label
+        case .ftps: return transfer.dataMode.label + " · " + transfer.tlsMode.label
+        case .sftp: return transfer.sftpAuth.label
+        default: return ""
         }
     }
 
@@ -31,6 +44,8 @@ extension RemoteConnection {
             return "Fenêtre · ajustée"
         case .vnc:
             return display.mode.label + " · " + display.vncScale.label
+        case .ftp, .ftps, .sftp:
+            return fileTransferModeLabel
         case .ssh, .telnet, .serie:
             return ""
         }

@@ -3,6 +3,8 @@ import Foundation
 /// Protocole d'accès distant.
 public enum RemoteProtocol: String, Codable, CaseIterable, Identifiable, Sendable {
     case ssh, telnet, rdp, vnc, serie
+    /// Note 50 : transfert de fichiers (navigateur intégré à NetScope).
+    case ftp, ftps, sftp
 
     public var id: String { rawValue }
 
@@ -14,6 +16,9 @@ public enum RemoteProtocol: String, Codable, CaseIterable, Identifiable, Sendabl
         case .rdp: return "RDP"
         case .vnc: return "VNC"
         case .serie: return "Série"
+        case .ftp: return "FTP"
+        case .ftps: return "FTPS"
+        case .sftp: return "SFTP"
         }
     }
 
@@ -28,22 +33,34 @@ public enum RemoteProtocol: String, Codable, CaseIterable, Identifiable, Sendabl
         case .rdp: return "RDP (Bureau à distance)"
         case .vnc: return "VNC (Partage d’écran)"
         case .serie: return "Console série"
+        case .ftp: return "FTP (non chiffré)"
+        case .ftps: return "FTPS (FTP sur TLS)"
+        case .sftp: return "SFTP (fichiers par SSH)"
         }
     }
 
     /// Port par défaut (débit en bauds pour la série).
     public var defaultPort: Int {
         switch self {
-        case .ssh: return 22
+        case .ssh, .sftp: return 22
         case .telnet: return 23
         case .rdp: return 3389
         case .vnc: return 5900
         case .serie: return 9600
+        case .ftp: return 21
+        case .ftps: return 990
         }
     }
 
     /// Le mot de passe circule en clair.
-    public var isInsecure: Bool { self == .telnet }
+    public var isInsecure: Bool { self == .telnet || self == .ftp }
+
+    /// Transfert de fichiers (FTP, FTPS, SFTP) : ouvert dans le navigateur de NetScope.
+    public var isFileTransfer: Bool { self == .ftp || self == .ftps || self == .sftp }
+
+    /// Protocoles proposés en premier (sessions), puis les transferts de fichiers.
+    public static let sessionProtocols: [RemoteProtocol] = [.ssh, .telnet, .rdp, .vnc, .serie]
+    public static let transferProtocols: [RemoteProtocol] = [.ftp, .ftps, .sftp]
 
     /// Application externe utilisée par « Connecter ».
     public var externalApp: String {
@@ -51,6 +68,7 @@ public enum RemoteProtocol: String, Codable, CaseIterable, Identifiable, Sendabl
         case .ssh, .telnet, .serie: return "Terminal"
         case .rdp: return "Windows App"
         case .vnc: return "Partage d’écran"
+        case .ftp, .ftps, .sftp: return "NetScope"
         }
     }
 
@@ -61,6 +79,8 @@ public enum RemoteProtocol: String, Codable, CaseIterable, Identifiable, Sendabl
         case 23: return .telnet
         case 3389: return .rdp
         case 5900: return .vnc
+        case 21: return .ftp
+        case 990: return .ftps
         default: return nil
         }
     }
@@ -85,10 +105,13 @@ public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
     public var createdAt: Date
     /// Fenêtre ou plein écran, taille, échelle (RDP et VNC).
     public var display: RemoteDisplaySettings
+    /// Note 50 : mode passif ou actif, TLS, identification SFTP, dossiers de départ (FTP, FTPS, SFTP).
+    public var transfer: FileTransferSettings
 
     public init(id: UUID = UUID(), name: String, proto: RemoteProtocol, host: String, port: Int? = nil,
                 username: String = "", folder: String = "", isFavorite: Bool = false, note: String = "",
-                lastConnected: Date? = nil, createdAt: Date = Date(), display: RemoteDisplaySettings? = nil) {
+                lastConnected: Date? = nil, createdAt: Date = Date(), display: RemoteDisplaySettings? = nil,
+                transfer: FileTransferSettings = FileTransferSettings()) {
         self.id = id
         self.name = name
         self.proto = proto
@@ -101,10 +124,11 @@ public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
         self.lastConnected = lastConnected
         self.createdAt = createdAt
         self.display = display ?? .defaults(for: proto)
+        self.transfer = transfer
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, proto, host, port, username, folder, isFavorite, note, lastConnected, createdAt, display
+        case id, name, proto, host, port, username, folder, isFavorite, note, lastConnected, createdAt, display, transfer
     }
 
     /// Les connexions enregistrées avant les réglages d'affichage (sans « display ») se lisent
@@ -123,6 +147,7 @@ public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
         lastConnected = try c.decodeIfPresent(Date.self, forKey: .lastConnected)
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         display = try c.decodeIfPresent(RemoteDisplaySettings.self, forKey: .display) ?? .defaults(for: proto)
+        transfer = try c.decodeIfPresent(FileTransferSettings.self, forKey: .transfer) ?? FileTransferSettings()
     }
 
     /// « 10.182.122.2:22 » ou « cu.usbserial-A10K · 9600 8N1 ».

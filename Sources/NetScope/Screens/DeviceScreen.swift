@@ -227,6 +227,20 @@ private struct DeviceDetailView: View {
             Label(QuickLoginFormat.buttonTitle(entry), systemImage: "terminal")
         }
         .buttonStyle(.secondary)
+        // Note 50 : FTP, FTPS ou SFTP, actifs seulement si le port était ouvert au dernier scan.
+        Menu {
+            FileTransferOpenMenuItems(host: device.ip.description, name: device.displayName,
+                                      openPorts: device.openPorts, deviceID: device.id)
+        } label: {
+            Label("Fichiers", systemImage: "folder").font(Theme.bodyMedium)
+        }
+        .menuStyle(.borderlessButton)
+        .padding(.horizontal, 12)
+        .frame(height: Theme.controlHeight)
+        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+        .fixedSize()
+        .help("Ouvrir l’appareil en FTP, FTPS ou SFTP dans Accès distant")
         Menu {
             Button("Adresse IP") { copy(device.ip.description, label: "IP copiée") }
             if let mac = device.mac {

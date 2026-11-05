@@ -43,6 +43,7 @@ public enum BackupKeychainScan {
         case "fortigate": return "Jeton de l’API REST de la FortiGate"
         case "alertes": return "Alertes (mot de passe SMTP, webhooks)"
         case "sauvegarde": return "Mot de passe des sauvegardes chiffrées"
+        case "ftp": return "Mots de passe FTP, FTPS et SFTP (Accès distant)"
         default: return suffix
         }
     }
