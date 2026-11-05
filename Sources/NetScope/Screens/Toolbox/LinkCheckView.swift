@@ -111,7 +111,7 @@ struct LinkCheckView: View {
     private var vlanField: some View {
         ToolLabeledField(label: "VLAN attendu") {
             ToolTextField(placeholder: "facultatif", text: $model.expectedVLANText, invalid: model.vlanInvalid)
-                .frame(width: 96)
+                .frame(width: 118)
         }
         .disabled(model.isRunning)
     }

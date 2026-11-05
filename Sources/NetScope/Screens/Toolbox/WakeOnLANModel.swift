@@ -43,8 +43,20 @@ final class ToolWakeModel: ObservableObject {
     private var monitors: [UUID: PingMonitor] = [:]
     private var followUps: [UUID: WakeFollowUp] = [:]
 
-    var command: String {
-        "wol \(macText.trimmingCharacters(in: .whitespaces).uppercased()) -b \(broadcastText) -p " + port.ports.map(String.init).joined(separator: ",")
+    /// Commande équivalente. En mode automatique, l'adresse de diffusion est celle que le plan
+    /// choisit vraiment pour la MAC saisie (broadcast dirigé pour un poste d'un autre sous-réseau).
+    func command(state: AppState) -> String {
+        var broadcast = broadcastText
+        if broadcastMode == .automatic, let mac = MACAddress(macText) {
+            let device = state.devices.first { $0.mac == mac }
+            let target = WakeTarget(mac: mac, ip: device?.ip, name: "")
+            if let send = WakeOnLAN.plan([target], mode: .automatic, local: state.activeInterface?.subnet,
+                                         knownSubnets: Self.knownSubnets(state)).first {
+                broadcast = send.broadcast.description
+            }
+        }
+        return "wol \(macText.trimmingCharacters(in: .whitespaces).uppercased()) -b \(broadcast) -p "
+            + port.ports.map(String.init).joined(separator: ",")
     }
 
     /// Postes visés : la sélection du tableau (2 et plus), sinon la MAC saisie.
@@ -80,7 +92,7 @@ final class ToolWakeModel: ObservableObject {
         let plan = WakeOnLAN.plan(targets, mode: broadcastMode, local: state.activeInterface?.subnet,
                                   knownSubnets: Self.knownSubnets(state), manual: manual)
         let ports = port.ports.map(String.init).joined(separator: ",")
-        if plan.count == 1 { store.record(command: command) }
+        if plan.count == 1 { store.record(command: command(state: state)) }
         var failures = 0
         for send in plan {
             let mac = send.target.mac.formatted(.upperColon)

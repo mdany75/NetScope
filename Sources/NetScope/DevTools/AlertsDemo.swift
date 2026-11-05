@@ -27,7 +27,7 @@ enum AlertsDemo {
         settings.smtp.security = .startTLS
         settings.smtp.username = "alertes@exemple.ca"
         settings.smtp.from = "alertes@exemple.ca"
-        settings.smtp.fromName = "NetScope · Entrepôt"
+        settings.smtp.fromName = "NetScope · Siège"
         settings.smtp.recipients = ["dany.menard@exemple.ca", "soutien-ti@exemple.ca"]
         settings.webhooks = [
             AlertWebhook(id: teamsID, kind: .teams, name: "Exploitation TI"),

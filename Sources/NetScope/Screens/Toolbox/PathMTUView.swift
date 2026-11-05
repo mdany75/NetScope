@@ -300,14 +300,14 @@ struct PathMTUStepsTable: View {
                     ToolTableText("\(step.size)", weight: .semibold, alignment: .trailing)
                         .help("Taille IP totale\u{00A0}: en-têtes IP et ICMP compris")
                 }
-                .width(min: 56, ideal: 64)
+                .width(min: 52, ideal: 60)
                 .customizationID("taille")
 
                 TableColumn("DONNÉES", sortUsing: table.sort("donnees")) { step in
                     ToolTableText("\(step.payload)", color: Theme.textSecondary, alignment: .trailing)
                         .help("Données ICMP (ping -s)\u{00A0}: taille − 28\u{00A0}octets d’en-têtes")
                 }
-                .width(min: 70, ideal: 78)
+                .width(min: 64, ideal: 70)
                 .customizationID("donnees")
 
                 TableColumn("RÉSULTAT", sortUsing: table.sort("resultat")) { step in
@@ -318,7 +318,7 @@ struct PathMTUStepsTable: View {
                     }
                     .help(step.outcome.label)
                 }
-                .width(min: 120, ideal: 160)
+                .width(min: 120, ideal: 170)
                 .customizationID("resultat")
 
                 TableColumn("TEMPS", sortUsing: table.sort("temps")) { step in
@@ -354,9 +354,10 @@ extension PathMTUStep {
     var shortLabel: String {
         switch outcome {
         case .reply: return ""
-        case let .tooBig(reported, from, local):
+        case let .tooBig(reported, _, local):
             if local { return "trop grand pour l’interface" }
-            return (reported.map { "MTU \($0) annoncé" } ?? "fragmentation nécessaire") + (from.map { " par \($0)" } ?? "")
+            // Le routeur qui limite est dans l'infobulle et la carte « Sondes » : la colonne reste courte.
+            return reported.map { "MTU \($0) annoncé" } ?? "fragmentation nécessaire"
         case .lost: return attempts > 1 ? "aucune réponse ×\(attempts)" : "aucune réponse"
         case let .unreachable(code, _): return "inaccessible (code \(code))"
         case let .failed(message): return message

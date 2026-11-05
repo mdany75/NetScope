@@ -325,7 +325,7 @@ private struct ToolMainPanel: View {
         case .mtu: return mtu.command
         case .iperf: return "iperf3 -c <serveur> -P 4 -t 10"
         case .speedtest: return "speedtest"
-        case .wol: return wol.command
+        case .wol: return wol.command(state: state)
         case .dhcp: return dhcp.command
         case .dhcpScopes: return "GET /api/v2/cmdb/system.dhcp/server · monitor/system/dhcp"
         case .lldp: return neighbors.command

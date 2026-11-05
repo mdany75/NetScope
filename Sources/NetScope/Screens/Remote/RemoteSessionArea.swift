@@ -314,7 +314,7 @@ struct RemoteSessionArea: View {
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 8)], alignment: .leading, spacing: 8) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 340), spacing: 8)], alignment: .leading, spacing: 8) {
                 ForEach(connection.tunnels) { tunnel in
                     Button {
                         if let tab = sessions.tunnelTab(tunnel.id), SSHTunnelStore.shared.isActive(tunnel.id) {

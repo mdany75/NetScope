@@ -6,11 +6,11 @@ import NetScopeCore
 /// web de l'entreprise en HTTPS), mesures simulées, aucun paquet envoyé.
 @MainActor
 enum PingProtocolsDemo {
-    static let rdpInput = "tcp://10.182.122.20:3389"
+    static let rdpInput = "tcp://10.10.0.12:3389"
     static let webInput = "https://portail.exemple.ca/"
 
     static let profiles: [PingDemo.Profile] = [
-        PingDemo.Profile(input: rdpInput, name: "SRV-FICHIERS", role: "RDP · ICMP bloqué", base: 1.6, jitter: 0.9,
+        PingDemo.Profile(input: rdpInput, name: "SRV-FICHIERS", role: "ICMP bloqué", base: 1.6, jitter: 0.9,
                          loss: 0.002, burst: 0, spike: 0.01, threshold: 15),
         PingDemo.Profile(input: webInput, name: "Portail web", role: "Internet", base: 46.5, jitter: 6.5, loss: 0.003,
                          burst: 0, spike: 0.03, threshold: 150),
