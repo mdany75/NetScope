@@ -63,8 +63,8 @@ enum ReglagesDemo {
 
     /// Résultats affichés sous les identifiants SNMP en démonstration.
     static let snmpV2Result = SNMPCredentialTest.Outcome(
-        success: SNMPCredentialTest.Success(sysName: "SW-ETG2-01", sysDescr: "Aruba JL259A 2930F-24G-4SFP Switch, revision WC.16.11.0012",
-                                            uptimeTicks: 120_864_000, milliseconds: 38),
+        success: SNMPCredentialTest.Success(sysName: "SW-CORE-01", sysDescr: "Cisco IOS XE Software, Catalyst 9300-48P, Version 17.9.4a",
+                                            uptimeTicks: 361_511_900, milliseconds: 38),
         failure: nil, message: "")
     static let snmpV3Result = SNMPCredentialTest.Outcome(
         success: SNMPCredentialTest.Success(sysName: "SW-CORE-01", sysDescr: "Cisco IOS XE Software, Catalyst 9300-48P, Version 17.9.4a",

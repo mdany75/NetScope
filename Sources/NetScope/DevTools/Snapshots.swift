@@ -108,6 +108,9 @@ enum Snapshots {
         let only = ProcessInfo.processInfo.environment["NETSCOPE_ECRANS"].map {
             Set($0.lowercased().split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
         }
+        // Capture d'un seul écran (galerie du README) : les démonstrations asynchrones (outils
+        // courriel, SPF/DKIM…) n'ont pas le temps de finir en 450 ms ; on leur laisse un délai.
+        if only != nil { try? await Task.sleep(nanoseconds: 1_500_000_000) }
         for (number, screen) in Screen.allCases.enumerated() {
             if let only, !only.contains(screen.rawValue) { continue }
             state.screen = screen

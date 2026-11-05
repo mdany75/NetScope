@@ -236,7 +236,8 @@ final class LocalResourceMonitor: ObservableObject {
 
 // MARK: - Agent SNMP
 
-/// Ressources d'un appareil par SNMP v2c : processeur, mémoire, trafic par port.
+/// Ressources d'un appareil par SNMP (v3 du site d'abord, v2c en repli) : processeur, mémoire,
+/// trafic par port.
 @MainActor
 final class SNMPResourceMonitor: ObservableObject {
     let host: String
@@ -251,6 +252,8 @@ final class SNMPResourceMonitor: ObservableObject {
     @Published private(set) var isPolling = false
     @Published private(set) var isPaused = false
     @Published private(set) var lastPoll: Date?
+    /// Utilisateur SNMP v3 du dernier relevé (nil : communauté v2c).
+    @Published private(set) var v3User: String?
     /// Vrai une fois qu'un relevé a été demandé (automatiquement ou par « Interroger »).
     @Published private(set) var started = false
     @Published var interval: Double {
@@ -338,6 +341,7 @@ final class SNMPResourceMonitor: ObservableObject {
         let community = SwitchStore.shared.community(for: host)
         // Note 59 : utilisateur v3 du site d'abord, communauté en repli.
         let target = SNMPAccessVault.shared.target(host: address, community: community)
+        v3User = target.v3?.user
         guard target.hasCredentials else {
             error = "Saisissez la communauté SNMP (lecture seule) ou un utilisateur SNMP v3 dans Réglages › Identifiants, ou la communauté dans Switchs et ports."
             return
@@ -398,7 +402,8 @@ final class SNMPResourceMonitor: ObservableObject {
 
     /// Démonstration : état complet d'un coup.
     func setDemo(processor: SNMPProcessorReading?, memory: SNMPMemoryReading?, ports: [SNMPPortCounters], loads: [PortLoad],
-                 timeline: ResourceTimeline, lastPoll: Date) {
+                 timeline: ResourceTimeline, lastPoll: Date, v3User: String?) {
+        self.v3User = v3User
         self.processor = processor
         self.memory = memory
         self.ports = ports

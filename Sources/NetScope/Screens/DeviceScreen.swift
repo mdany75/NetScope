@@ -92,7 +92,9 @@ private struct DeviceDetailView: View {
                             .focused($nameFocused)
                             .onSubmit(commitName)
                             .onChange(of: nameFocused) { _, focused in if !focused { commitName() } }
-                            .fixedSize()
+                            // Hauteur fixée : sans elle, un nom avec « œ » (« Switch cœur ») était coupé en bas.
+                            .fixedSize(horizontal: true, vertical: false)
+                            .frame(minHeight: 28)
                             .help("Nom personnalisé (vide\u{00A0}: nom d’hôte)")
                         Image(systemName: "pencil").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
                         statusChip

@@ -160,16 +160,21 @@ private struct SNMPResourcesSection: View {
     @ObservedObject var monitor: SNMPResourceMonitor
     @State private var selectedPort: String?
 
+    /// Version réellement utilisée par le dernier relevé (v3 du site, sinon v2c).
+    private var snmpTitle: String {
+        monitor.v3User.map { "SNMP v3 (\($0)) · \(device.ip)" } ?? "SNMP v2c · \(device.ip)"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            ResourceHeader(symbol: device.deviceType.toolSymbol, title: "SNMP v2c · \(device.ip)", subtitle: sources,
+            ResourceHeader(symbol: device.deviceType.toolSymbol, title: snmpTitle, subtitle: sources,
                            updated: monitor.lastPoll, interval: $monitor.interval, choices: ResourceInterval.snmp,
                            isPaused: monitor.isPaused || !monitor.started, onPause: { monitor.started ? monitor.togglePause() : monitor.start() },
                            onExport: { monitor.exportCSV(name: "ressources-\(device.ip)") },
                            canExport: !monitor.timeline.samples.isEmpty, toast: monitor.toast, window: monitor.timeline.window, isBusy: monitor.isPolling)
             if !monitor.started {
                 ToolNotice(tone: .accent, title: "Interrogation SNMP non lancée",
-                           message: "\(device.displayName) n’a pas répondu en SNMP lors du dernier scan. NetScope peut tout de même l’interroger (SNMP v2c, lecture seule, communauté des Réglages › Identifiants).") {
+                           message: "\(device.displayName) n’a pas répondu en SNMP lors du dernier scan. NetScope peut tout de même l’interroger (lecture seule : utilisateur SNMP v3 du site, sinon communauté v2c, de Réglages › Identifiants).") {
                     Button("Interroger en SNMP") { monitor.start() }.buttonStyle(.primary).fixedSize()
                 }
             }

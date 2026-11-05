@@ -282,9 +282,12 @@ enum ResourceDemo {
         guard let last else { return false }
         snmpStepIndex[monitor.host] = count
         monitor.setDemo(processor: last.processor, memory: last.memory, ports: last.ports, loads: loads(last, seconds: snmpStep),
-                        timeline: timeline, lastPoll: now)
+                        timeline: timeline, lastPoll: now, v3User: demoV3User)
         return true
     }
+
+    /// Les agents de démonstration sont au Siège : son utilisateur SNMP v3 propre (SNMPAccessDemo).
+    static var demoV3User: String? { SNMPAccessDemo.perSite[SitesDemo.siegeID]?.user }
 
     static func advanceSNMP(_ monitor: SNMPResourceMonitor) {
         let step = (snmpStepIndex[monitor.host] ?? 0) + 1
@@ -294,6 +297,6 @@ enum ResourceDemo {
         let v = values(agent)
         timeline.append(ResourceSample(date: Date(), values: v.values), titles: v.titles)
         monitor.setDemo(processor: agent.processor, memory: agent.memory, ports: agent.ports, loads: loads(agent, seconds: snmpStep),
-                        timeline: timeline, lastPoll: Date())
+                        timeline: timeline, lastPoll: Date(), v3User: demoV3User)
     }
 }

@@ -371,7 +371,7 @@ private struct MonConditionFields: View {
                     MonInput(placeholder: "unité", text: text($probe.snmpUnit))
                         .frame(width: 64)
                 }
-                Text("Communauté SNMP v2c lue dans Réglages › Identifiants.")
+                Text("Identifiants de Réglages › Identifiants : utilisateur SNMP v3 du site d’abord, communauté v2c en repli.")
                     .font(Theme.caption).foregroundStyle(Theme.textSecondary)
             }
         case .switchPort:
