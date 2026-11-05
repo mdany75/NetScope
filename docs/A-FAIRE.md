@@ -175,7 +175,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 
 | Module | Livrées | À venir |
 | --- | --- | --- |
-| Scanner et sites | 18, 19, 20, 26, 28, 48, 49 | 63 (0.28.0), IPv6 (0.29.0), 68, 69, 72 (plus tard) |
+| Scanner et sites | 18, 19, 20, 26, 28, 48, 49 | 63 et 81 : base IEEE automatique (0.28.0), IPv6 (0.29.0), 68, 69, 72 (plus tard) |
 | Navigation entre les modules | 31, 33, 34, 36, 45 | — |
 | Switchs et ports, Fortinet | 12, 24, 25, 29, 39, 41, 54, 59, 73, 74, navigateur SNMP / MIB walk (0.25.0) | 40 (0.24.0), 75, 77 (plus tard) |
 | Wi-Fi | 1, 27, 46, 47, 71 (0.26.0) | 78 : meilleur canal, relevé ; 80 : FortiAP en onglets (0.30.0) |
@@ -1478,3 +1478,19 @@ Outils inutiles ou redondants dans NetScope, et ce qu’il vaut mieux ne pas fai
   marcher ; la fiche d’un appareil ouvre directement le bon onglet.
 - Onglet choisi retenu ; une variable de capture par onglet ; vérifier en clair, en sombre et en
   1000 × 650.
+
+## 81. Mise à jour automatique de la base des fabricants (IEEE) — 0.28.0 (demande de Dany, 5 novembre 2026)
+
+- Aujourd’hui : Réglages › Base des fabricants met à jour le registre IEEE (oui.csv, mam.csv,
+  oui36.csv) seulement à la demande, avec « Revenir à la base intégrée ».
+- Ajouter une option « Mettre à jour automatiquement » (activée par défaut ou proposée au premier
+  lancement, à décider) : vérification au plus une fois par mois, au lancement ou en arrière-plan,
+  quand la base date de plus de 30 jours ; téléchargement discret, mêmes vérifications que la mise
+  à jour manuelle (taille, nombre de préfixes, conversion), écriture atomique, ancienne base gardée
+  si quelque chose échoue.
+- Afficher la date de la base et de la dernière vérification, le nombre de préfixes ajoutés depuis
+  la précédente, et une notification discrète (« Base des fabricants mise à jour : +312 préfixes »).
+- Ne jamais télécharger pendant un scan ni sur une connexion limitée (partage de connexion du
+  téléphone, NWPath « expensive » ou « constrained »).
+- Tests sans réseau : décision « faut-il vérifier ? » (date, intervalle, connexion limitée),
+  échec sans perte de la base en place.
