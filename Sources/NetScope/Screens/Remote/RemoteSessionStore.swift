@@ -94,8 +94,9 @@ final class RemoteSessionStore: ObservableObject {
             let session = TerminalSession(connection: connection)
             if isSandboxed { session.demoTransport = TerminalDemo.transportFactory(for: connection) }
             tab = Tab(id: UUID(), content: .terminal(session))
-            // Console série : le port n'est ouvert que par « Ouvrir le port » (réglages à vérifier d'abord).
-            if session.kind != .serial { session.start() }
+            // « Connecter » est la demande de l'utilisateur : la liaison (ou le port série) s'ouvre
+            // maintenant, jamais avant ; « Fermer le port » la referme sans fermer l'onglet.
+            session.start()
         }
         tabs.append(tab)
         activeID = tab.id

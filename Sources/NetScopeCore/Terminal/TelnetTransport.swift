@@ -23,6 +23,10 @@ public final class TelnetTransport: TerminalTransport, @unchecked Sendable {
         negotiator = TelnetNegotiator(columns: columns, rows: rows)
     }
 
+    deinit {
+        connection?.cancel()
+    }
+
     /// Le serveur ne fait pas l'écho (pas de « WILL ECHO ») : saisie affichée par l'onglet.
     public var wantsLocalEcho: Bool { lock.run { !negotiator.remoteEcho } }
 

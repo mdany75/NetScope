@@ -214,6 +214,14 @@ public final class SerialTransport: TerminalTransport, @unchecked Sendable {
         self.settings = settings
     }
 
+    deinit {
+        readSource?.cancel()
+        if fd >= 0 {
+            _ = ioctl(fd, Self.TIOCNXCL)
+            Darwin.close(fd)
+        }
+    }
+
     public var wantsLocalEcho: Bool { settings.localEcho }
 
     public func start(_ handler: @escaping @Sendable (TerminalTransportEvent) -> Void) {

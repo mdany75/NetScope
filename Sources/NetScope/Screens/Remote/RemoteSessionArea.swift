@@ -246,7 +246,7 @@ struct RemoteSessionArea: View {
         switch connection.proto {
         case .ssh: return "Onglet xterm-256color\u{00A0}: clés et known_hosts de ~/.ssh, mot de passe du Trousseau. Terminal\u{00A0}: menu de « Connecter »."
         case .telnet: return "Onglet intégré avec négociation Telnet (écho, taille, type de terminal)\u{00A0}; non chiffré."
-        case .serie: return "Console intégrée\u{00A0}: port ouvert seulement par « Ouvrir le port »\u{00A0}; débit, bits, parité, arrêt et flux réglables."
+        case .serie: return "Console intégrée\u{00A0}: le port s’ouvre par « Connecter » et se referme avec l’onglet\u{00A0}; débit, bits, parité, arrêt et flux réglables."
         default: return ""
         }
     }

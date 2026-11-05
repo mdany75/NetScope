@@ -534,6 +534,30 @@ func registerTerminalTests(_ suite: TestSuite) {
         try expectEqual(SSHPromptDetector.scan("ssh: Could not resolve hostname nas: nodename nor servname provided"), .hostNotFound, "nom inconnu")
     }
 
+    suite.add("SSH intégré : vrai /usr/bin/ssh vers un port fermé de 127.0.0.1") {
+        guard FileManager.default.isExecutableFile(atPath: SSHTerminalCommand.sshPath) else {
+            throw TestSkipped(reason: "ssh absent")
+        }
+        let port = try LocalTCPServer.unusedPort()
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("netscope-ssh-pty-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let askpass = try SSHTerminalCommand.writeAskpass(in: folder)
+        // -F /dev/null : la configuration de l'utilisateur (ProxyCommand…) n'intervient pas.
+        let arguments = ["-F", "/dev/null"] + SSHTerminalCommand.arguments(user: "essai", host: "127.0.0.1", port: Int(port))
+        let environment = SSHTerminalCommand.environment(base: ["PATH": "/usr/bin:/bin", "HOME": NSHomeDirectory()],
+                                                         askpass: askpass.path, secret: "secret-essai",
+                                                         flag: folder.appendingPathComponent("drapeau").path)
+        let recorder = TerminalRecorder()
+        let ssh = PTYProcess(executable: SSHTerminalCommand.sshPath, arguments: arguments, environment: environment)
+        ssh.start { recorder.handle($0) }
+        try await expectWait({ recorder.closure != nil }, "ssh terminé", timeout: 10)
+        try expectEqual(recorder.closure ?? nil, "Session terminée (code 255).", "code 255 de ssh expliqué")
+        var filter = TerminalLogFilter()
+        let text = filter.feed(recorder.data) + filter.pendingLine
+        try expectEqual(SSHPromptDetector.scan(text), .connectionRefused, "message de ssh reconnu : \(text)")
+        try expect(!text.contains("secret-essai"), "le secret n'apparaît jamais dans la sortie")
+    }
+
     // MARK: Pseudo-terminal
 
     suite.add("Pseudo-terminal : /bin/echo, terminal de contrôle et taille") {

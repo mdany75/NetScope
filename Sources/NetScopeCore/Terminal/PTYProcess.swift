@@ -49,6 +49,8 @@ public final class PTYProcess: TerminalTransport, @unchecked Sendable {
     }
 
     deinit {
+        readSource?.cancel()
+        exitSource?.cancel()
         if master >= 0 { Darwin.close(master) }
     }
 
@@ -117,7 +119,8 @@ public final class PTYProcess: TerminalTransport, @unchecked Sendable {
         read.resume()
 
         let exit = DispatchSource.makeProcessSource(identifier: child, eventMask: .exit, queue: queue)
-        exit.setEventHandler { [weak self] in self?.childExited() }
+        // Référence forte jusqu’à la fin du processus : waitpid est toujours appelé (pas de zombie).
+        exit.setEventHandler { self.childExited() }
         exitSource = exit
         exit.resume()
     }

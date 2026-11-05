@@ -107,7 +107,7 @@ final class TerminalSession: ObservableObject, Identifiable {
     var onReveal: ((TerminalMatch) -> Void)?
 
     private var transport: TerminalTransport?
-    private let inbox = TerminalInbox()
+    private var inbox = TerminalInbox()
     private var logFilter = TerminalLogFilter()
     private var detectFilter = TerminalLogFilter()
     private var recentText = ""
@@ -165,10 +165,13 @@ final class TerminalSession: ObservableObject, Identifiable {
             return
         }
         self.transport = transport
-        let inbox = self.inbox
+        // Une boîte par liaison : les derniers événements d'une liaison remplacée (reconnexion,
+        // port rouvert avec d'autres réglages) sont ignorés.
+        let inbox = TerminalInbox()
+        self.inbox = inbox
         transport.start { [weak self] event in
             guard inbox.push(event) else { return }
-            DispatchQueue.main.async { self?.drainInbox() }
+            DispatchQueue.main.async { self?.drainInbox(inbox) }
         }
     }
 
@@ -224,8 +227,10 @@ final class TerminalSession: ObservableObject, Identifiable {
         onReveal = nil
     }
 
-    private func drainInbox() {
-        for event in inbox.take() {
+    private func drainInbox(_ source: TerminalInbox) {
+        let events = source.take()
+        guard source === inbox else { return }
+        for event in events {
             switch event {
             case .connected:
                 phase = .connected
@@ -241,7 +246,8 @@ final class TerminalSession: ObservableObject, Identifiable {
                 removeFlag()
                 phase = .ended(message)
                 let text = message ?? (kind == .serial ? "Port \(serialPath) fermé." : "Session terminée.")
-                info("[\(text) Entrée ou « Reconnecter » pour rouvrir.]", tone: message == nil ? .muted : .warning)
+                let action = kind == .serial ? "« Ouvrir le port »" : "« Reconnecter »"
+                info("[\(text) Entrée ou \(action) pour rouvrir.]", tone: message == nil ? .muted : .warning)
                 // Session finie : une question d'empreinte restée sans réponse n'a plus d'objet.
                 if kind == .ssh {
                     let found = SSHPromptDetector.scan(recentText)
