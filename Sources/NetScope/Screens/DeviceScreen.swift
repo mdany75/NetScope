@@ -404,7 +404,9 @@ private struct DeviceDetailView: View {
             return count > 0 ? count : nil
         case .historique:
             let keys = [device.ip.description, device.mac?.formatted(.upperColon) ?? "", device.hostname ?? ""]
-            return 1 + store.recents(matching: keys).count + (device.lastSeen.timeIntervalSince(device.firstSeen) > 60 ? 1 : 0)
+            // Mêmes événements que la chronologie (DeviceHistoryTab), réveils Wake-on-LAN compris.
+            let wakes = device.mac.map { mac in store.wakeLog.filter { $0.mac == mac.formatted(.upperColon) }.count } ?? 0
+            return 1 + store.recents(matching: keys).count + wakes + (device.lastSeen.timeIntervalSince(device.firstSeen) > 60 ? 1 : 0)
         default:
             return nil
         }
