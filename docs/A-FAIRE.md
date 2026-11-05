@@ -1060,3 +1060,20 @@ mon cas plusieurs Mac. » Puis : « je veux tout inclure, pour une facilité de 
   chiffrés par un mot de passe de synchronisation gardé au trousseau ; état « Synchronisé il
   y a… » et bouton « Synchroniser maintenant ».
 - Jamais de fusion entre sites ; un même site reconnu par son identifiant, pas par ses plages IP.
+
+## 57. Accès distant : sessions intégrées à NetScope — 0.22.0 (demande de Dany)
+
+« Terminal intégré : bientôt… à faire aussi. » Aujourd'hui, « Connecter » ouvre Terminal,
+Windows App ou Partage d'écran. À la place, des onglets de session dans Accès distant :
+
+- **Terminal intégré** (SSH, Telnet) : émulateur de terminal dans NetScope (xterm-256color :
+  couleurs, curseur, défilement, copier-coller, redimensionnement, recherche), session lancée
+  par un pseudo-terminal avec `/usr/bin/ssh` (clés de ~/.ssh, known_hosts, mots de passe au
+  Trousseau) ; plusieurs onglets, journal de session enregistrable.
+- **Console série** : ports `/dev/cu.*` (adaptateurs USB-série, câbles console Cisco/Fortinet),
+  vitesse, parité, bits, contrôle de flux ; même terminal intégré.
+- **VNC intégré** : client RFB dans NetScope (authentification VNC et macOS, encodages
+  courants), plein écran, mise à l'échelle.
+- **RDP** : le protocole est trop vaste pour être écrit sans bibliothèque externe (règle du
+  projet) ; il reste ouvert dans Windows App, avec la session préparée par NetScope.
+- Aucune dépendance externe ; aucun mot de passe en clair.
