@@ -70,6 +70,9 @@ final class UpdController: ObservableObject {
     // MARK: Infos
 
     static var currentVersionText: String { AppInfo.version }
+
+    /// Notes de toutes les versions publiées, lues une fois dans le CHANGELOG livré avec l’app.
+    static let changelog: [ChangelogVersion] = ChangelogNotes.bundled()
     static var currentVersion: UpdVersion { UpdVersion(AppInfo.version) ?? UpdVersion(major: 0, minor: 1) }
 
     /// Raison pour laquelle l'installation automatique est impossible (swift run…), ou nil.
@@ -328,10 +331,18 @@ final class UpdController: ObservableObject {
         func day(_ y: Int, _ m: Int, _ d: Int) -> Date {
             Calendar(identifier: .gregorian).date(from: DateComponents(year: y, month: m, day: d, hour: 9, minute: 2)) ?? Date()
         }
+        // Historique réaliste : les versions installées sur ce Mac au fil des mises à jour.
         history.history = [
-            UpdHistoryEntry(version: UpdController.currentVersionText, channel: .stable, date: day(2026, 10, 14)),
-            UpdHistoryEntry(version: "0.0.9-beta.2", channel: .beta, date: day(2026, 9, 30)),
-            UpdHistoryEntry(version: "0.0.9-beta.1", channel: .beta, date: day(2026, 9, 12)),
+            UpdHistoryEntry(version: UpdController.currentVersionText, channel: .stable, date: day(2026, 11, 5)),
+            UpdHistoryEntry(version: "0.22.0", channel: .stable, date: day(2026, 11, 5)),
+            UpdHistoryEntry(version: "0.21.0", channel: .stable, date: day(2026, 11, 4)),
+            UpdHistoryEntry(version: "0.20.3", channel: .stable, date: day(2026, 11, 4)),
+            UpdHistoryEntry(version: "0.20.1", channel: .stable, date: day(2026, 11, 4)),
+            UpdHistoryEntry(version: "0.18.0", channel: .stable, date: day(2026, 11, 4)),
+            UpdHistoryEntry(version: "0.17.0", channel: .stable, date: day(2026, 11, 3)),
+            UpdHistoryEntry(version: "0.15.0", channel: .stable, date: day(2026, 11, 3)),
+            UpdHistoryEntry(version: "0.12.0", channel: .stable, date: day(2026, 11, 3)),
+            UpdHistoryEntry(version: "0.9.0", channel: .stable, date: day(2026, 11, 3)),
         ]
         history.lastCheck = Calendar.current.date(bySettingHour: 9, minute: 2, second: 0, of: Date())
         prefs = history

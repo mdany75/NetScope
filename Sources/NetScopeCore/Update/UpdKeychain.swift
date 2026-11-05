@@ -91,12 +91,12 @@ public struct UpdPreferences: Codable, Hashable, Sendable {
         automaticCheck && frequency.isDue(lastCheck: lastCheck, now: now, atLaunch: atLaunch)
     }
 
-    /// Note la version en cours si elle diffère de la dernière de l'historique (20 entrées au plus).
+    /// Note la version en cours si elle diffère de la dernière de l'historique (200 entrées au plus).
     public mutating func recordRunning(version: String, now: Date = Date()) {
         guard history.first?.version != version else { return }
         let isBeta = UpdVersion(version)?.isPrerelease ?? false
         history.insert(UpdHistoryEntry(version: version, channel: isBeta ? .beta : .stable, date: now), at: 0)
-        if history.count > 20 { history.removeLast(history.count - 20) }
+        if history.count > 200 { history.removeLast(history.count - 200) }
     }
 
     /// Vrai si `release` est la version ignorée.
