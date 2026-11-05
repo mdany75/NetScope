@@ -711,6 +711,14 @@ struct InventaireScreen: View {
             }
         case "garanties":
             filter.warranty = true
+        case "materiel":
+            // Note 60 : colonnes Modèle et Firmware, fiche du switch d'étage (numéro qui diffère) ou
+            // de l'appareil NETSCOPE_INV_IP (ex. 10.182.122.102 : numéro à reprendre).
+            for id in ["modele", "firmware", "serie"] { table.setAutomaticVisibility(true, id) }
+            let ip = ProcessInfo.processInfo.environment["NETSCOPE_INV_IP"].flatMap(IPv4Address.init) ?? IPv4Address("10.182.122.3")!
+            if let record = model.store.record(forIP: ip) {
+                DispatchQueue.main.async { selection = [SiteScope.id(site: model.siteKey, key: record.key)] }
+            }
         case "manuel":
             // Filtre « Ajoutés à la main » : la ligne choisie reste visible (jamais scannée, elle
             // serait tout en bas du tri par dernière vue, hors de la partie visible du tableau).

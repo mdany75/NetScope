@@ -196,6 +196,8 @@ final class InvModel: ObservableObject {
             }
         }
         if saving { save() }
+        // Note 60 : lectures SNMP d'appareils qui n'avaient pas encore de fiche.
+        InvHardwareFeed.shared.inventoryMerged(site: site)
     }
 
     /// Empreinte des champs observés (un nom personnalisé changé ailleurs ne relance pas de fusion).

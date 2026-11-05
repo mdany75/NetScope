@@ -66,7 +66,8 @@ public enum InvCSVError: Error, Equatable, LocalizedError {
 public enum InvCSV {
     public static let columns = ["IP", "MAC", "Nom", "Hostname", "Type", "Fabricant", "Étiquettes", "Local",
                                  "Prise murale", "Responsable", "N° d’actif", "Notes", "Switch", "Port", "VLAN",
-                                 "Première détection", "Dernière détection", "Statut", "Favori"]
+                                 "Première détection", "Dernière détection", "Statut", "Favori", "Modèle", "N° de série",
+                                 "Firmware"]
 
     // MARK: Export
 
@@ -82,6 +83,9 @@ public enum InvCSV {
                 a.location, a.wallJack, a.owner, a.assetNumber, a.notes, record.switchName ?? "",
                 record.switchPort ?? "", record.vlan.map(String.init) ?? "", InvFormat.stamp(record.firstSeen),
                 InvFormat.stamp(record.lastSeen), record.status(now: now).label, a.isFavorite ? "oui" : "",
+                // Note 60 : modèle et firmware détectés ; numéro saisi, sinon le détecté.
+                record.detectedModelLabel, record.enteredSerial.isEmpty ? (record.detectedHardware?.serialNumber ?? "") : record.enteredSerial,
+                record.detectedFirmwareLabel,
             ]
             let row = withSites ? [sites?[index] ?? ""] + fields : fields
             lines.append(row.map { quote($0, separator) }.joined(separator: String(separator)))

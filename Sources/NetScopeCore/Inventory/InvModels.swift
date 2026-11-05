@@ -157,6 +157,9 @@ public struct InvRecord: Codable, Hashable, Identifiable, Sendable {
     /// Dossier des pièces jointes, choisi à la première pièce et gardé ensuite (la clé de la fiche
     /// change quand une MAC apparaît, le dossier non).
     public var attachmentFolder: String?
+    /// Note 60 : modèle, numéro de série et firmware lus par SNMP ou par la FortiGate, à part des
+    /// champs saisis (jamais écrasés). Optionnel : fichiers d'avant la 0.23.0.
+    public var detectedHardware: InvDetectedHardware?
 
     public init(key: String, mac: MACAddress?, ip: IPv4Address, hostname: String? = nil, vendor: String? = nil,
                 detectedType: DeviceType = .inconnu, isOnline: Bool = true, latencyMs: Double? = nil,

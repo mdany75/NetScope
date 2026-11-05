@@ -86,8 +86,10 @@ enum FirmwareDemo {
                            connected: true, state: "Authorized")
     }
 
-    private static func ap(_ name: String, _ serial: String, _ model: String, _ firmware: String, connected: Bool = true) -> FortiManagedAP {
-        FortiManagedAP(name: name, wtpID: serial, serial: serial, model: model, firmware: firmware, connected: connected)
+    private static func ap(_ name: String, _ serial: String, _ model: String, _ firmware: String, connected: Bool = true,
+                           ip: String? = nil) -> FortiManagedAP {
+        FortiManagedAP(name: name, wtpID: serial, serial: serial, model: model, firmware: firmware, ip: ip.flatMap(IPv4Address.init),
+                       connected: connected)
     }
 
     // MARK: Siège
@@ -110,7 +112,7 @@ enum FirmwareDemo {
             upgradeEdges: edges,
             switches: [sw("FSW-ENTREPOT", "S248EPTF21000123", "FS-248E-POE", "S248EP"), sw("FSW-QUAI", "S124FPTF22000456", "FS-124F-POE", "S124FP"),
                        sw("FSW-SERVEURS", "S108FFTV21000789", "FS-108F", "S108FF")],
-            accessPoints: [ap("AP-ACCUEIL", "FP231FTF22004101", "FAP-231F", "FP231F-v7.2.8-build0436"),
+            accessPoints: [ap("AP-ACCUEIL", "FP231FTF22004101", "FAP-231F", "FP231F-v7.2.8-build0436", ip: "10.182.122.102"),
                            ap("AP-ETG2", "FP231FTF22004187", "FAP-231F", "FP231F-v7.2.8-build0436"),
                            ap("AP-SALLE-CONF", "FP431FTF21000912", "FAP-431F", "FP431F-v7.2.8-build0436"),
                            ap("AP-ENTREPOT", "FP231FTF22004233", "FAP-231F", "FP231F-v7.2.4-build0412"),

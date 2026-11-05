@@ -41,16 +41,19 @@ public struct ReportSwitch: Codable, Hashable, Sendable {
         self.uplink = uplink
     }
 
-    /// Résumé d'un relevé SNMP : modèle et version tirés de sysDescr, ports physiques actifs, uplink.
+    /// Résumé d'un relevé SNMP : modèle et version de la fiche matériel (note 60), sinon tirés de
+    /// sysDescr ; ports physiques actifs, uplink.
     public init(snapshot: SNMPSwitchSnapshot, firmwareOutdated: Bool = false) {
         let descr = snapshot.system.summary
-        let model = descr.split(separator: ",").first.map { String($0).trimmingCharacters(in: .whitespaces) } ?? descr
+        let model = snapshot.hardware?.model
+            ?? descr.split(separator: ",").first.map { String($0).trimmingCharacters(in: .whitespaces) } ?? descr
         let ports = snapshot.physicalPorts
         let uplinks = snapshot.uplinkInterfaces()
         let uplink = ports.first { uplinks.contains($0.index) && $0.isModular } ?? ports.first { uplinks.contains($0.index) }
         self.init(name: snapshot.displayName, model: model.isEmpty ? ReportText.missing : model,
                   ip: snapshot.host.description, activePorts: ports.filter(\.isUp).count, totalPorts: ports.count,
-                  firmware: ReportSwitch.firmware(in: snapshot.system.descr), firmwareOutdated: firmwareOutdated,
+                  firmware: snapshot.hardware?.firmware ?? ReportSwitch.firmware(in: snapshot.system.descr),
+                  firmwareOutdated: firmwareOutdated,
                   uplink: uplink?.name)
     }
 

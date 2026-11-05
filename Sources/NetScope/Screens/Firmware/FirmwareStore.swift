@@ -98,6 +98,13 @@ final class FirmwareStore: ObservableObject {
         Task { await perform(wanted) }
     }
 
+    /// Note 60 (« Lire la fiche matériel ») : relit ces FortiGate et attend la fin de la lecture.
+    func refresh(_ ids: [UUID]) async {
+        let wanted = ids.filter { !reading.contains($0) }
+        guard !wanted.isEmpty else { return }
+        await perform(wanted)
+    }
+
     private func perform(_ ids: [UUID]) async {
         var mine: [UUID: Int] = [:]
         for id in ids {
@@ -135,9 +142,12 @@ final class FirmwareStore: ObservableObject {
         for (job, result) in zip(jobs, results) where generation[job.id] == mine[job.id] {
             switch result {
             case .success(let report):
-                reports[job.id] = FirmwareSiteReport(controllerID: job.id, site: job.site, report: report)
+                let siteReport = FirmwareSiteReport(controllerID: job.id, site: job.site, report: report)
+                reports[job.id] = siteReport
                 errors[job.id] = nil
                 calls[job.id] = report.calls
+                // Note 60 : modèle, numéro de série et version dans l'inventaire du site de cette FortiGate.
+                InvHardwareFeed.shared.recordFirmware(siteReport)
             case .failure(let message, let records):
                 errors[job.id] = message
                 reports[job.id] = nil
