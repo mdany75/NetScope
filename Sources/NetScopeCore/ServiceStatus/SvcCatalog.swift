@@ -62,7 +62,31 @@ public enum SvcCatalog {
                    feedURL: "https://status.dropbox.com/api/v2/summary.json",
                    pageURL: "https://status.dropbox.com",
                    endpoints: ["https://www.dropbox.com/"]),
-    ] + socialNetworks + aiAssistants
+    ] + (socialNetworks + aiAssistants).map(withConsumerDefault)
+
+    /// Note 79 : services en ligne grand public (réseaux sociaux de la note 53 et Grok), peu utiles
+    /// dans une entreprise : présents dans le catalogue mais non suivis par défaut, réactivables
+    /// dans « Modifier la liste ».
+    public static let consumerServiceIDs: Set<String> = ["facebook", "instagram", "tiktok", "snapchat", "grok"]
+
+    /// Service intégré avec son choix par défaut : un service grand public n'est pas suivi.
+    static func withConsumerDefault(_ service: SvcService) -> SvcService {
+        var copy = service
+        if consumerServiceIDs.contains(service.id) { copy.isEnabled = false }
+        return copy
+    }
+
+    /// Catalogue enregistré avant la 0.25.0 : les services grand public, ajoutés actifs par la
+    /// fusion, passent une seule fois à « non suivi » (l'application garde ensuite le choix de
+    /// l'utilisateur). Les autres services et les services personnalisés ne changent pas.
+    public static func hidingConsumerServices(_ services: [SvcService]) -> [SvcService] {
+        services.map { service in
+            guard !service.isCustom, consumerServiceIDs.contains(service.id) else { return service }
+            var copy = service
+            copy.isEnabled = false
+            return copy
+        }
+    }
 
     /// Catégorie « Réseaux sociaux » (note 53).
     public static let socialCategory = "Réseaux sociaux"

@@ -486,7 +486,7 @@ final class TrafficStore: ObservableObject {
 
     func addToReport() {
         RapportModel.shared.config.sections.insert(.trafic)
-        toast = "Section «\u{00A0}Trafic et analyse\u{00A0}» ajoutée au rapport."
+        toast = "Section «\u{00A0}Trafic et bilan de santé\u{00A0}» ajoutée au rapport."
     }
 
     var isInReport: Bool { RapportModel.shared.config.sections.contains(.trafic) }

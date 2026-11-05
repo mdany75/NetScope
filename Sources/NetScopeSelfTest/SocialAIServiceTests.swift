@@ -85,7 +85,9 @@ func registerSocialAIServiceTests(_ suite: TestSuite) {
         let saved = SvcCatalog.builtIn.filter { $0.category != SvcCatalog.socialCategory && $0.category != SvcCatalog.aiCategory }
         let merged = SvcCatalog.merged(saved: saved)
         try expectEqual(merged.count, SvcCatalog.builtIn.count, "fusion")
-        try expect(merged.filter { $0.category == SvcCatalog.aiCategory }.allSatisfy(\.isEnabled), "nouveaux services suivis")
+        // Note 79 : sauf les services grand public (Grok, réseaux sociaux), ajoutés non suivis.
+        try expect(merged.filter { $0.category == SvcCatalog.aiCategory }.allSatisfy { $0.isEnabled != SvcCatalog.consumerServiceIDs.contains($0.id) },
+                   "nouveaux services suivis, sauf grand public")
         try expectEqual(SvcFeedFormat.incidentIO.label, "incident.io (JSON)", "libellé du format")
     }
 
@@ -311,7 +313,8 @@ func registerSocialAIServiceTests(_ suite: TestSuite) {
     // MARK: Sites
 
     suite.add("Services : catégories et services masqués par site") {
-        let services = SvcCatalog.builtIn
+        // Tous suivis dans le catalogue (note 79 : les services grand public le sont une fois réactivés).
+        let services = SvcCatalog.builtIn.map { service -> SvcService in var copy = service; copy.isEnabled = true; return copy }
         var preferences = SvcSitePreferences()
         let laval = "site-laval"
         let siege = "site-siege"

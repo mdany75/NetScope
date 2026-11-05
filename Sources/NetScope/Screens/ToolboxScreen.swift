@@ -84,15 +84,15 @@ private struct ToolCompactMenu: View {
                     Section(group.rawValue) {
                         ForEach(group.tools) { tool in
                             Button {
-                                store.selectedTool = tool
+                                store.selectedTool = tool.mailTab != nil ? store.lastMailTool : tool
                             } label: {
-                                Label(tool.label, systemImage: tool.symbol)
+                                Label(tool.listLabel, systemImage: tool.listSymbol)
                             }
                         }
                     }
                 }
             } label: {
-                Label(store.selectedTool.label, systemImage: store.selectedTool.symbol)
+                Label(store.selectedTool.listLabel, systemImage: store.selectedTool.listSymbol)
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
@@ -141,21 +141,22 @@ private struct ToolListPanel: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
-        .searchResults(ToolKind.allCases.filter { SearchQuery(store.toolFilter, schema: .outilsListe).matches($0.searchItem)
+        .searchResults(ToolKind.listed.filter { SearchQuery(store.toolFilter, schema: .outilsListe).matches($0.searchItem)
             && state.searchQuery(for: .outils).restricted(to: .outilsListe).matches($0.searchItem) }.count, "outil", "outils")
     }
 
     private func row(_ tool: ToolKind) -> some View {
-        let selected = store.selectedTool == tool
+        // Note 79 : l'entrée « Courriel » reste choisie sur chacun de ses onglets.
+        let selected = store.selectedTool.listEntry == tool
         return Button {
-            store.selectedTool = tool
+            store.selectedTool = tool.mailTab != nil && !selected ? store.lastMailTool : (selected ? store.selectedTool : tool)
         } label: {
             HStack(spacing: 9) {
-                Image(systemName: tool.symbol)
+                Image(systemName: tool.listSymbol)
                     .font(.system(size: 12, weight: .medium))
                     .frame(width: 16)
                     .foregroundStyle(selected ? Theme.accentStrong : Theme.textSecondary)
-                Text(tool.label)
+                Text(tool.listLabel)
                     .font(.system(size: 13, weight: selected ? .semibold : .medium))
                     .foregroundStyle(selected ? Theme.accentStrong : Theme.text)
                     .lineLimit(1)
@@ -170,7 +171,7 @@ private struct ToolListPanel: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(tool.summary)
+        .help(tool.listSummary)
     }
 }
 
@@ -203,6 +204,14 @@ private struct ToolMainPanel: View {
         let tool = store.selectedTool
         VStack(alignment: .leading, spacing: 0) {
             header(tool)
+            // Note 79 : un seul outil « Courriel », ses anciens outils en onglets.
+            if tool.mailTab != nil {
+                MailToolTabs(store: store)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+            }
             VStack(alignment: .leading, spacing: 16) {
                 content(tool)
             }
@@ -239,7 +248,10 @@ private struct ToolMainPanel: View {
     private func titleBlock(_ tool: ToolKind) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             ToolFieldLabel(tool.group.rawValue)
-            Text(tool.label).font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.text)
+            // « Courriel · Diagnostic SMTP » : l'outil, puis l'onglet ouvert.
+            (Text(tool.listLabel).foregroundColor(Theme.text)
+             + Text(tool.mailTab != nil ? " · " + tool.label : "").foregroundColor(Theme.textSecondary))
+                .font(.system(size: 16, weight: .bold))
                 .fixedSize(horizontal: false, vertical: true)
             Text(tool.summary).font(Theme.small).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -344,7 +356,7 @@ private struct ToolSidePanel: View {
                         Button { store.selectedTool = tool } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "star.fill").font(.system(size: 10)).foregroundStyle(Color(hex: 0xF59E0B))
-                                Text(tool.label).font(Theme.bodyMedium).foregroundStyle(Theme.text)
+                                Text(tool.listLabel).font(Theme.bodyMedium).foregroundStyle(Theme.text)
                                 Spacer()
                             }
                             .padding(.horizontal, 6)

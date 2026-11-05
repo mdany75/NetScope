@@ -129,7 +129,7 @@ extension ReportBuilder {
 
     /// Points de l'analyse complète, classés par gravité.
     static func analysisBlocks(_ analysis: NetworkAnalysisResult, clean: (String) -> String) -> [ReportBlock] {
-        var blocks: [ReportBlock] = [.paragraph("Analyse complète du réseau\u{00A0}: \(analysis.grade.lowercased()) (note \(analysis.score)/100) — \(analysis.summary)")]
+        var blocks: [ReportBlock] = [.paragraph("Bilan de santé du réseau\u{00A0}: \(analysis.grade.lowercased()) (note \(analysis.score)/100) — \(analysis.summary)")]
         let rows = analysis.findings.filter { $0.severity != .ok }.map { f in
             ReportRow([ReportCell(f.severity.label, badge: f.severity.reportTone), ReportCell(f.area.label, tone: .muted),
                        ReportCell(clean(f.title), bold: true), ReportCell(clean(f.explanation)), ReportCell(f.action)])

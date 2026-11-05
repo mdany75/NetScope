@@ -126,7 +126,14 @@ enum ServiceStatusDemo {
         preferences.update(SitesDemo.lavalKey) { $0.hiddenCategories = [SvcCatalog.socialCategory] }
         preferences.update(SiteFiles.key(for: SitesDemo.quebecID)) { $0.hiddenServices = ["grok"] }
 
-        store.loadDemo(services: SvcCatalog.builtIn, snapshots: snapshots, history: history, now: now,
+        // Note 79 : services grand public masqués par défaut ; au Siège, le technicien a réactivé
+        // Instagram pour suivre son blocage par la FortiGate (les autres restent masqués).
+        let services = SvcCatalog.builtIn.map { service -> SvcService in
+            var copy = service
+            if service.id == "instagram" { copy.isEnabled = true }
+            return copy
+        }
+        store.loadDemo(services: services, snapshots: snapshots, history: history, now: now,
                        selected: ProcessInfo.processInfo.environment["NETSCOPE_SERVICE"] ?? "microsoft365", proxy: nil,
                        sitePreferences: preferences)
     }

@@ -363,7 +363,7 @@ func registerTrafficTests(_ suite: TestSuite) {
         try expectEqual(MonProbeKind.linkSaturated.label, "Lien saturé", "libellé")
     }
 
-    suite.add("Rapport : section « Trafic et analyse »") {
+    suite.add("Rapport : section « Trafic et bilan de santé »") {
         let traffic = TrafficAnalysis.merge([try await siege()], period: .realtime)
         let analysis = NetworkAnalysis.analyze(NetworkAnalysisInput(traffic: traffic, now: now))
         let config = ReportConfig(template: .audit, sections: [.trafic])
@@ -372,7 +372,7 @@ func registerTrafficTests(_ suite: TestSuite) {
         input.networkAnalysis = analysis
         let document = ReportBuilder.build(config: config, input: input)
         let section = try trafficRequire(document.sections.first { $0.kind == .trafic }, "section présente")
-        try expectEqual(section.heading, "1. Trafic et analyse", "titre")
+        try expectEqual(section.heading, "1. Trafic et bilan de santé", "titre")
         try expect(section.tables.count >= 4, "liens, consommateurs, menaces, analyse : \(section.tables.count)")
         try expect(section.tables.contains { $0.columns.first?.title == "Gravité" }, "tableau de l’analyse")
         var empty = ReportInput(devices: [], now: now)

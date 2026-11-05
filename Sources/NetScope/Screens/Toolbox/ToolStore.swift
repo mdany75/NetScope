@@ -30,10 +30,10 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     enum Group: String, CaseIterable {
         case adressage = "Adressage", diagnostic = "Diagnostic", performance = "Performance", services = "Services"
         case internet = "Internet"
-        case courriel = "Courriel"
         /// Parc Fortinet (note 41) : firmware et licences de chaque site.
         case parc = "Parc Fortinet"
-        var tools: [ToolKind] { ToolKind.allCases.filter { $0.group == self } }
+        /// Entrées de la liste (note 79 : les onglets de courriel n'en font qu'une, « Courriel »).
+        var tools: [ToolKind] { ToolKind.listed.filter { $0.group == self } }
     }
 
     var group: Group {
@@ -46,8 +46,9 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .tftp: return .services
         case .cloud, .wan: return .internet
         case .firmware: return .parc
-        case .mailSuper, .mailHealth, .mx, .blacklist, .mailRecords: return .courriel
-        case .smtp, .headers: return .courriel
+        // Note 79 : l'outil « Courriel » (sept onglets) rejoint le groupe Internet.
+        case .mailSuper, .mailHealth, .mx, .blacklist, .mailRecords: return .internet
+        case .smtp, .headers: return .internet
         }
     }
 
@@ -161,7 +162,39 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     }
 
     var searchItem: SearchDocument {
-        SearchDocument(["nom": [label, rawValue], "groupe": [group.rawValue]], freeText: [label, rawValue, summary])
+        // L'entrée « Courriel » se retrouve par le nom, l'ancien nom et le résumé de chacun de ses onglets.
+        if mailTab != nil {
+            let tabs = ToolKind.mailTabs
+            let names = ["Courriel", rawValue] + tabs.flatMap { [$0.label, $0.rawValue, $0.mailTab?.tabLabel ?? ""] }
+            return SearchDocument(["nom": names, "groupe": [group.rawValue, "Courriel"]],
+                                  freeText: names + tabs.map(\.summary))
+        }
+        return SearchDocument(["nom": [label, rawValue], "groupe": [group.rawValue]], freeText: [label, rawValue, summary])
+    }
+
+    // MARK: Note 79 : un seul outil « Courriel » à onglets
+
+    /// Onglet de l'outil « Courriel » (nil pour les autres outils).
+    var mailTab: MailToolTab? { MailToolTab(rawValue: rawValue) }
+
+    /// Onglets de l'outil « Courriel », dans l'ordre affiché.
+    static let mailTabs: [ToolKind] = MailToolTab.allCases.compactMap { ToolKind(rawValue: $0.rawValue) }
+
+    /// Entrée de la liste qui porte cet outil (le Super outil porte l'entrée « Courriel »).
+    var listEntry: ToolKind { mailTab != nil ? .mailSuper : self }
+
+    /// Entrées de la liste des outils, dans l'ordre, sans doublon (`ToolRouting.listedEntries`).
+    static let listed: [ToolKind] = ToolRouting.listedEntries(ToolKind.allCases.map(\.rawValue))
+        .compactMap { ToolKind.resolve($0) }
+
+    /// Outil d'un identifiant, alias et anciens liens compris (« courriel », « headers », « tftpd »).
+    static func resolve(_ raw: String) -> ToolKind? { ToolKind(rawValue: ToolRouting.canonical(raw)) }
+
+    /// Libellé de l'entrée dans la liste (« Courriel » pour les onglets de courriel).
+    var listLabel: String { mailTab != nil ? "Courriel" : label }
+    var listSymbol: String { mailTab != nil ? "envelope" : symbol }
+    var listSummary: String {
+        mailTab != nil ? "Super outil, diagnostic SMTP, analyse d’en-têtes, santé, SPF/DKIM/DMARC, MX et listes noires, en onglets." : summary
     }
 }
 
@@ -245,7 +278,11 @@ struct ToolWakeEntry: Codable, Identifiable, Hashable {
 final class ToolStore: ObservableObject {
     static let shared = ToolStore()
 
-    @Published var selectedTool: ToolKind = .subnet
+    @Published var selectedTool: ToolKind = .subnet {
+        didSet { if selectedTool.mailTab != nil { lastMailTool = selectedTool } }
+    }
+    /// Note 79 : dernier onglet ouvert de l'outil « Courriel » (son entrée dans la liste y ramène).
+    private(set) var lastMailTool: ToolKind = .mailSuper
     @Published var toolFilter = ""
     @Published private(set) var commands: [String] = []
     @Published private(set) var recents: [ToolRecent] = []
@@ -290,7 +327,7 @@ final class ToolStore: ObservableObject {
             ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
         url = base.appendingPathComponent("NetScope", isDirectory: true).appendingPathComponent("outils.json")
         // Captures de développement (--snapshot, --demo) : NETSCOPE_OUTIL_DEMO=dhcp (ou lldp…) ouvre cet outil.
-        if isEphemeral, let raw = ProcessInfo.processInfo.environment["NETSCOPE_OUTIL_DEMO"], let tool = ToolKind(rawValue: raw) {
+        if isEphemeral, let raw = ProcessInfo.processInfo.environment["NETSCOPE_OUTIL_DEMO"], let tool = ToolKind.resolve(raw) {
             selectedTool = tool
         }
         if isDemo {

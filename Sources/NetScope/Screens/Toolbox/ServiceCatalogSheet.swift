@@ -112,7 +112,14 @@ struct ServiceCatalogSheet: View {
                 .labelsHidden()
                 .help("Suivi dans le catalogue (tous les sites)")
             VStack(alignment: .leading, spacing: 1) {
-                Text(service.name).font(Theme.bodyMedium).foregroundStyle(Theme.text)
+                HStack(spacing: 6) {
+                    Text(service.name).font(Theme.bodyMedium).foregroundStyle(Theme.text)
+                    // Note 79 : grand public, non suivi par défaut ; cocher la case le réactive.
+                    if SvcCatalog.consumerServiceIDs.contains(service.id) {
+                        Chip(text: "Grand public", tone: .neutral)
+                            .help("Service grand public, non suivi par défaut. Cochez la case pour le suivre.")
+                    }
+                }
                 Text("\(service.format.label) · \(service.endpointHosts.joined(separator: ", "))")
                     .font(Theme.caption).foregroundStyle(Theme.textSecondary)
                     .lineLimit(1).truncationMode(.tail)

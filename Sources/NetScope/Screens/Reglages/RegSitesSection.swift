@@ -352,7 +352,7 @@ struct RegSitesSection: View {
         let count = sites.inventoryCount(site)
         let alert = NSAlert()
         alert.messageText = "Supprimer le site «\u{00A0}\(site.displayName)\u{00A0}»\u{00A0}?"
-        alert.informativeText = "L’inventaire du site sera supprimé\u{00A0}: \(count) fiche\(count > 1 ? "s" : ""), leur historique, leurs événements (Analyse), l’archive, les notes et les types choisis à la main, ainsi que ses derniers résultats de scan. Les FortiGate et les switchs restent dans les Réglages. Une sauvegarde (Réglages › Export et sauvegarde) permet de le retrouver."
+        alert.informativeText = "L’inventaire du site sera supprimé\u{00A0}: \(count) fiche\(count > 1 ? "s" : ""), leur historique, leurs événements (Historique et adressage), l’archive, les notes et les types choisis à la main, ainsi que ses derniers résultats de scan. Les FortiGate et les switchs restent dans les Réglages. Une sauvegarde (Réglages › Export et sauvegarde) permet de le retrouver."
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Supprimer le site et son inventaire")
         alert.addButton(withTitle: "Annuler")

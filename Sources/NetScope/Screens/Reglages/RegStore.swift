@@ -59,7 +59,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .alertes: return "alerte courriel smtp starttls webhook teams slack json anti-rafale silence trousseau envoyer un test"
         case .interface: return "en0 wi-fi ethernet masque passerelle getifaddrs"
         case .export: return "export sauvegarde csv json pdf restauration zip manifeste rotation icloud dossier chiffrement chiffrée mot de passe jetons secrets trousseau configuration importer exporter synchronisation synchroniser mac"
-        case .raccourcis: return "raccourcis clavier touches commande menu conflit"
+        case .raccourcis: return "raccourcis clavier touches commande menu conflit écran " + Screen.searchNames
         case .majs: return "version github release bêta stable signature télécharger installer jeton"
         case .diagnostic: return "journal log erreurs avertissements modules diagnostic exporter zip plantage crash rapport secrets masqués signalement"
         case .apropos: return "version licence oui journaux"
