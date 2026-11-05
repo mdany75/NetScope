@@ -77,14 +77,18 @@ public struct IPRange: Hashable, Sendable, CustomStringConvertible {
     /// Lit une ou plusieurs plages ; lève `IPRangeError` (message en français) si une portion est invalide
     /// ou si le total dépasse `maxAddresses`.
     public init(parsing text: String) throws {
-        let separators = CharacterSet(charactersIn: ",; \t\r\n")
-        let tokens = text.components(separatedBy: separators).filter { !$0.isEmpty }
-        guard !tokens.isEmpty else { throw IPRangeError.empty }
-        let segments = try tokens.map(IPRange.parseSegment)
-        let range = IPRange(segments: segments)
+        let range = IPRange(segments: try IPRange.segments(parsing: text))
         let total = range.segmentsTotal
         guard total <= IPRange.maxAddresses else { throw IPRangeError.tooLarge(count: total) }
         self = range
+    }
+
+    /// Portions lues sans limite de taille (plages exclues de la note 82 : « 10.0.0.0/8 » est permis).
+    public static func segments(parsing text: String) throws -> [Segment] {
+        let separators = CharacterSet(charactersIn: ",; \t\r\n")
+        let tokens = text.components(separatedBy: separators).filter { !$0.isEmpty }
+        guard !tokens.isEmpty else { throw IPRangeError.empty }
+        return try tokens.map(IPRange.parseSegment)
     }
 
     private static func parseSegment(_ token: String) throws -> Segment {

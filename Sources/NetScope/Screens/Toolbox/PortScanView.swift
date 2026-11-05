@@ -77,6 +77,11 @@ final class ToolPortScanModel: ObservableObject {
             error = "« \(host) » n’est pas une adresse ou un nom d’hôte valide."
             return
         }
+        // Note 82 : une adresse des plages exclues du site actif n'est jamais sondée.
+        if let address = IPv4Address(host), let reason = SiteModel.shared.exclusionReason(address) {
+            error = reason + "\u{00A0}: retirez-la des plages exclues (Réglages › Sites et plages) pour la sonder."
+            return
+        }
         guard let ports = parsedPorts, !ports.isEmpty else {
             error = "Liste de ports invalide (exemple\u{00A0}: 22, 80, 8000-8100)."
             return

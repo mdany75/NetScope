@@ -18,11 +18,12 @@ enum InvView: String, CaseIterable, Hashable {
         }
     }
 
-    func includes(_ record: InvRecord, now: Date) -> Bool {
+    /// `excluded` : fiche d'une plage exclue du site (note 82), jamais « disparue ».
+    func includes(_ record: InvRecord, now: Date, excluded: Bool = false) -> Bool {
         switch self {
         case .tous: return true
         case .nonIdentifies: return record.isUnidentified
-        case .disparus: return record.isGone(now: now)
+        case .disparus: return record.isGone(now: now, excluded: excluded)
         case .favoris: return record.annotations.isFavorite
         case .archives: return true
         }
@@ -161,7 +162,7 @@ struct InventaireScreen: View {
         // Notes 31 et 33 : filtre transmis (groupe de la Carte, port de switch), ensemble exact d'appareils.
         let navFilter = state.navFilters[.inventaire]
         let rows = InvTable.sorted((archiveMode ? archived : all).filter {
-            view.includes($0.record, now: now) && query.matches($0)
+            view.includes($0.record, now: now, excluded: sites.exclusions(forKey: $0.siteKey).contains($0.record.ip)) && query.matches($0)
                 && (archiveMode || (navFilter?.matches($0.record, site: $0.siteKey) ?? true))
                 && filter.matches($0, now: now, shared: shared)
         }, by: table.sortOrder)
@@ -364,7 +365,11 @@ struct InventaireScreen: View {
         let manual = records.filter(\.isManual).count
         let online = records.filter(\.isOnline).count
         let unidentified = records.filter(\.isUnidentified).count
-        let gone = records.filter { $0.isGone(now: now) }.count
+        // Note 82 : les fiches des plages exclues ne sont plus sondées, donc jamais « disparues ».
+        let gone = inventories.reduce(0) { total, inventory in
+            let excluded = sites.exclusions(forKey: inventory.key)
+            return total + inventory.store.records.values.filter { $0.isGone(now: now, excluded: excluded.contains($0.ip)) }.count
+        }
         // Conflits de chaque site (jamais une IP d'un site comparée à celle d'un autre).
         let conflicts = inventories.flatMap { inventory in inventory.store.conflictIPs.sorted().map { InvSiteConflict(site: inventory.key, siteName: inventory.name, ip: $0, key: inventory.store.record(forIP: $0)?.key) } }
         let multiple = inventories.count > 1

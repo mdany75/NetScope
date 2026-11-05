@@ -8,10 +8,15 @@ import Foundation
 //
 // - plages : séparées par « | » ; chacune « texte » ou « texte (libellé, VLAN n) » ; « décochée »
 //   dans la parenthèse importe la plage sans la cocher ;
-// - fortigate : site ou adresse d'une FortiGate des Réglages (plusieurs séparées par « | »).
+// - fortigate : site ou adresse d'une FortiGate des Réglages (plusieurs séparées par « | ») ;
+// - exclusions (note 82, colonne facultative, écrite seulement si un site en a) : plages exclues
+//   séparées par « | », chacune « texte » ou « texte (note) ». Sans cette colonne, l'import ne
+//   touche pas aux exclusions d'un site existant.
 
 public enum SiteCSV {
     public static let header = "site;plages;fortigate"
+    /// En-tête avec la colonne des plages exclues (note 82).
+    public static let headerWithExclusions = "site;plages;fortigate;exclusions"
 
     public struct Row: Hashable, Sendable {
         public var line: Int
@@ -19,6 +24,8 @@ public enum SiteCSV {
         public var ranges: [ScanRangeConfig]
         /// Noms ou adresses de FortiGate tels qu'écrits.
         public var fortiGates: [String]
+        /// Plages exclues (nil : colonne absente, les exclusions existantes sont gardées).
+        public var exclusions: [ExcludedRange]? = nil
     }
 
     public struct LineError: Hashable, Sendable {
@@ -59,7 +66,17 @@ public enum SiteCSV {
                 errors.append(LineError(line: number, message: message))
             case .success(let ranges):
                 let fortiGates = fields[2].split(separator: "|").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-                rows.append(Row(line: number, name: name, ranges: ranges, fortiGates: fortiGates))
+                var exclusions: [ExcludedRange]?
+                if fields.count >= 4 {
+                    switch parseExclusions(fields[3]) {
+                    case .failure(let message):
+                        errors.append(LineError(line: number, message: message))
+                        continue
+                    case .success(let list):
+                        exclusions = list
+                    }
+                }
+                rows.append(Row(line: number, name: name, ranges: ranges, fortiGates: fortiGates, exclusions: exclusions))
             }
         }
         return Result(rows: rows, errors: errors)
@@ -101,6 +118,29 @@ public enum SiteCSV {
         return .success(result)
     }
 
+    enum ExclusionsResult { case success([ExcludedRange]), failure(String) }
+
+    /// « 10.93.226.254 (automates) | 10.255.1.0/24 (FortiLink) ».
+    static func parseExclusions(_ text: String) -> ExclusionsResult {
+        var result: [ExcludedRange] = []
+        for item in text.split(separator: "|").map({ $0.trimmingCharacters(in: .whitespaces) }) where !item.isEmpty {
+            var rangeText = item
+            var note = ""
+            if item.hasSuffix(")"), let open = item.range(of: " (", options: .backwards) {
+                rangeText = String(item[..<open.lowerBound]).trimmingCharacters(in: .whitespaces)
+                note = String(item[open.upperBound..<item.index(before: item.endIndex)]).trimmingCharacters(in: .whitespaces)
+            }
+            let entry = ExcludedRange(text: rangeText, note: note)
+            do {
+                _ = try entry.intervals()
+            } catch {
+                return .failure("plage exclue illisible «\u{00A0}\(rangeText)\u{00A0}» (\((error as? LocalizedError)?.errorDescription ?? "format inconnu")).")
+            }
+            result.append(entry)
+        }
+        return .success(result)
+    }
+
     // MARK: Fusion
 
     public struct MergeResult: Hashable, Sendable {
@@ -130,11 +170,12 @@ public enum SiteCSV {
             }
             if let index = result.sites.firstIndex(where: { $0.displayName.caseInsensitiveCompare(row.name) == .orderedSame }) {
                 result.sites[index].ranges = row.ranges
+                if let exclusions = row.exclusions { result.sites[index].exclusions = exclusions }
                 if !row.fortiGates.isEmpty { result.sites[index].fortiGateIDs = ids }
                 SiteFortiGate.refreshHints(&result.sites[index], controllers: controllers)
                 updated += 1
             } else {
-                var site = Site(name: row.name, ranges: row.ranges, fortiGateIDs: ids, created: now)
+                var site = Site(name: row.name, ranges: row.ranges, fortiGateIDs: ids, created: now, exclusions: row.exclusions ?? [])
                 SiteFortiGate.refreshHints(&site, controllers: controllers)
                 result.add(site)
                 added += 1
@@ -145,15 +186,25 @@ public enum SiteCSV {
 
     // MARK: Écriture
 
-    /// CSV des sites, en-tête compris. Ni jeton, ni communauté, ni inventaire.
+    /// CSV des sites, en-tête compris. Ni jeton, ni communauté, ni inventaire. Colonne
+    /// « exclusions » seulement si un site a des plages exclues.
     public static func export(_ sites: [Site], controllers: [FortiGateController]) -> String {
-        var lines = [header]
+        let withExclusions = sites.contains { !$0.exclusions.isEmpty }
+        var lines = [withExclusions ? headerWithExclusions : header]
         for site in sites {
             let ranges = site.ranges.map(rangeField).joined(separator: " | ")
             let fortiGates = site.fortiGateIDs.compactMap { id in controllers.first { $0.id == id }?.displayName }.joined(separator: " | ")
-            lines.append([site.displayName, ranges, fortiGates].map(FortiControllerCSV.field).joined(separator: ";"))
+            var fields = [site.displayName, ranges, fortiGates]
+            if withExclusions { fields.append(site.exclusions.map(exclusionField).joined(separator: " | ")) }
+            lines.append(fields.map(FortiControllerCSV.field).joined(separator: ";"))
         }
         return lines.joined(separator: "\n") + "\n"
+    }
+
+    static func exclusionField(_ entry: ExcludedRange) -> String {
+        let note = entry.note.replacingOccurrences(of: "|", with: " ").replacingOccurrences(of: "(", with: "")
+            .replacingOccurrences(of: ")", with: "").trimmingCharacters(in: .whitespaces)
+        return note.isEmpty ? entry.text : "\(entry.text) (\(note))"
     }
 
     static func rangeField(_ range: ScanRangeConfig) -> String {

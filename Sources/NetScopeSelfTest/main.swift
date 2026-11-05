@@ -102,6 +102,8 @@ registerRustDeskTests(suite)
 registerRustDeskPortTests(suite)
 // Note 6 (0.26.2) : tableau de bord du serveur RustDesk.
 registerRustDeskServerTests(suite)
+// Note 82 (0.27.0) : plages exclues d'un site.
+registerSiteExclusionTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

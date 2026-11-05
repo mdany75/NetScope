@@ -607,6 +607,11 @@ struct InvTable: View {
             // Libellé court dans le tableau ; « Jamais scanné » dans l'infobulle et la fiche.
             InvPill(text: "Non scanné", foreground: Theme.textSecondary, background: Theme.neutralSoft)
                 .help("Jamais scanné. Ajouté à la main\u{00A0}: rapproché dès qu’un scan de ce site le verra (même MAC, sinon même IP)")
+        } else if let entry = SiteModel.shared.exclusions(forKey: row.siteKey).reason(for: record.ip) {
+            // Note 82 : plus jamais sondé ; la fiche reste, sans être déclarée disparue.
+            let last = record.status(now: now, excluded: true)
+            InvPill(text: "Exclu du scan", foreground: Theme.neutralText, background: Theme.neutralSoft)
+                .help("Dans les plages exclues du site (\(entry.label))\u{00A0}: jamais sondé, jamais déclaré disparu. Dernier état connu\u{00A0}: \(last.label.lowercased()), vu le \(InvFormat.stamp(record.lastSeen)).")
         } else {
             let status = record.status(now: now)
             let colors = InvStyle.status(status)
