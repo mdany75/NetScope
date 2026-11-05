@@ -75,6 +75,7 @@ registerAutoRefreshTests(suite)
 registerFileTransferTests(suite)
 registerTFTPTests(suite)
 registerLogTests(suite)
+registerDiagnosticsTests(suite)
 registerTerminalTests(suite)
 registerVNCTests(suite)
 
