@@ -133,6 +133,7 @@ enum InvStyle {
         case .changementPort: return (Theme.warning, Theme.warning, Theme.warningSoft)
         case .horsLigne, .conflitIP, .dhcpNonAutorise: return (Theme.critical, Theme.critical, Theme.criticalSoft)
         case .retour: return (Theme.success, Theme.success, Theme.successSoft)
+        case .actionPort: return (Theme.accent, Theme.accentStrong, infoSoft)
         case .fiche, .fusion, .importCSV: return (Theme.textSecondary, Theme.neutralText, Theme.neutralSoft)
         }
     }

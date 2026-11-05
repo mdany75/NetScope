@@ -270,6 +270,8 @@ public enum InvEventKind: String, Codable, Sendable, CaseIterable {
     case nouveau, changementIP, changementPort, horsLigne, retour, conflitIP, fiche, fusion, importCSV
     /// Serveur DHCP non autorisé signalé depuis le Test DHCP de la Boîte à outils.
     case dhcpNonAutorise
+    /// Note 73 : action sur le port de l'appareil (cycle PoE, redémarrage du port).
+    case actionPort
 
     /// Libellé court de la chronologie.
     public var label: String {
@@ -282,13 +284,14 @@ public enum InvEventKind: String, Codable, Sendable, CaseIterable {
         case .fiche, .fusion: return "Fiche"
         case .importCSV: return "Import"
         case .dhcpNonAutorise: return "Serveur DHCP"
+        case .actionPort: return "Action sur le port"
         }
     }
 
     /// Événement à présenter comme une alerte (les modifications de fiche n'en sont pas).
     public var isAlert: Bool {
         switch self {
-        case .fiche, .fusion, .importCSV: return false
+        case .fiche, .fusion, .importCSV, .actionPort: return false
         default: return true
         }
     }
