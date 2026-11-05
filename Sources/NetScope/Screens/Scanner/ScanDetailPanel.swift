@@ -8,7 +8,7 @@ struct ScanDetailPanel: View {
     @ObservedObject var scan: ScanController
 
     var body: some View {
-        if let device = state.selectedDevice {
+        if let device = state.selectedScannedDevice {
             ScrollView {
                 VStack(spacing: 12) {
                     ScanDetailIdentity(device: device).id(device.id)

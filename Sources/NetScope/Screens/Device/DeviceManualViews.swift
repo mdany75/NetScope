@@ -6,7 +6,8 @@ import SwiftUI
 struct DeviceManualForm: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var model: DeviceLookupModel
-    @FocusState private var ipFocused: Bool
+    private enum Field: Hashable { case ip, name }
+    @FocusState private var focused: Field?
 
     private var form: DeviceManualDraft { model.form }
 
@@ -40,6 +41,7 @@ struct DeviceManualForm: View {
                         labeled("Nom") {
                             TextField("Nom", text: $model.form.name, prompt: Text("Ex. Mini PC salle de conférence (facultatif)"))
                                 .labelsHidden().textFieldStyle(.roundedBorder)
+                                .focused($focused, equals: .name)
                                 .onSubmit(submit)
                         }
                     }
@@ -86,14 +88,26 @@ struct DeviceManualForm: View {
                         .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 8)
-                    Button("Annuler") { model.formShown = false }.buttonStyle(.secondary)
+                    Button("Annuler") { model.formShown = false }
+                        .buttonStyle(.secondary)
+                        .keyboardShortcut(.cancelAction)
+                        .help("Fermer le formulaire (Échap)")
+                    // ⌘↩ : fonctionne aussi depuis les notes et le type (↩ seul y est pris).
                     Button { submit() } label: { Label("Ouvrir la fiche", systemImage: Screen.appareil.symbol) }
                         .buttonStyle(.primary)
+                        .keyboardShortcut(.return, modifiers: .command)
                         .disabled(!canOpen)
+                        .help("Ouvrir la fiche (↩ dans un champ, ⌘↩ partout)")
                 }
             }
         }
-        .onAppear { if form.ip.isEmpty { ipFocused = true } }
+        .onAppear(perform: focusFirstField)
+        .onChange(of: form.draftID) { _, _ in focusFirstField() }
+    }
+
+    /// Focus sur l'IP si elle manque, sinon sur le nom (formulaire prérempli).
+    private func focusFirstField() {
+        focused = form.ip.isEmpty ? .ip : .name
     }
 
     private func submit() {
@@ -110,7 +124,7 @@ struct DeviceManualForm: View {
                     TextField("Adresse IP", text: $model.form.ip, prompt: Text("Ex. 10.182.122.160, ou un nom DNS"))
                         .labelsHidden().textFieldStyle(.roundedBorder)
                         .font(Theme.mono(12))
-                        .focused($ipFocused)
+                        .focused($focused, equals: .ip)
                         .onSubmit(submit)
                     if case .hostname = form.ipEntry {
                         Button {
@@ -282,7 +296,7 @@ struct DeviceManualBanner: View {
 
     /// « Jamais vérifié », « Répond en 3,4 ms · vérifié il y a 2 min »…
     private var checkSummary: String {
-        let created = "Ouvert \(ToolText.relative(entry.created))"
+        let created = "\(entry.createdVerb) \(ToolText.relative(entry.created))"
         guard let check = entry.lastCheck else {
             return "\(created) · pas encore vérifié\u{00A0}: «\u{00A0}Vérifier maintenant\u{00A0}» envoie un ping à \(entry.ip)."
         }
@@ -295,6 +309,10 @@ struct DeviceManualBanner: View {
 
     /// Ping unique vers l'IP de la fiche, seulement sur clic.
     private func check() {
+        guard !Launcher.isDemo else {
+            checkError = "Démonstration\u{00A0}: aucun ping n’est envoyé."
+            return
+        }
         isChecking = true
         checkError = nil
         let ip = entry.ip

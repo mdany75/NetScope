@@ -14,7 +14,9 @@ struct DeviceResourcesTab: View {
         if Self.isThisMac(device, state: state) {
             LocalResourcesSection()
         } else {
-            SNMPResourcesSection(device: device, monitor: ResourceMonitors.snmp(device.ip.description))
+            // Fiche hors Scanner (saisie, reprise) : l'interrogation SNMP ne part que sur clic.
+            SNMPResourcesSection(device: device, monitor: ResourceMonitors.snmp(device.ip.description),
+                                 autoStart: state.manualEntry(forID: device.id) == nil)
         }
     }
 
@@ -158,6 +160,8 @@ private struct LocalResourcesSection: View {
 private struct SNMPResourcesSection: View {
     let device: Device
     @ObservedObject var monitor: SNMPResourceMonitor
+    /// Interroge de lui-même un appareil SNMP connu (faux : seulement sur clic).
+    var autoStart = true
     @State private var selectedPort: String?
 
     /// Version réellement utilisée par le dernier relevé (v3 du site, sinon v2c).
@@ -191,7 +195,7 @@ private struct SNMPResourcesSection: View {
                 interfacesPanel
             }
         }
-        .onAppear { monitor.retain(autoStart: device.snmpKind != nil) }
+        .onAppear { monitor.retain(autoStart: autoStart && device.snmpKind != nil) }
         .onDisappear { monitor.release() }
     }
 

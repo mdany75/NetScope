@@ -172,4 +172,45 @@ func registerDeviceLookupTests(_ suite: TestSuite) {
         try expectEqual(recents.map(\.ip.description), ["10.182.122.160", "10.182.122.150"], "même MAC : une seule ligne")
         try expectEqual(DeviceRecents.record(manual, in: recents, limit: 1).count, 1, "limite")
     }
+
+    suite.add("Saisie à la main : chaque site garde ses saisies et ses récents") {
+        let siteA = ManualDeviceEntry(ip: IPv4Address("10.0.0.5")!, name: "Saisie du site A", created: now, siteKey: "a")
+        let siteB = ManualDeviceEntry(ip: IPv4Address("10.0.0.5")!, name: "Saisie du site B", created: now, siteKey: "b")
+        let old = ManualDeviceEntry(ip: IPv4Address("10.0.0.9")!, name: "Sans site", created: now)
+        let list = ManualDevices.upsert(siteB, into: ManualDevices.upsert(siteA, into: [old]))
+        try expectEqual(list.map(\.name), ["Saisie du site B", "Saisie du site A", "Sans site"],
+                        "même IP dans deux sites : deux saisies")
+        try expectEqual(ManualDevices.visible(list, site: "a").map(\.name), ["Saisie du site A", "Sans site"], "site A")
+        // Un scan du site B ne rattache que les saisies du site B (AppState filtre par `visible`).
+        let scannedB = [Device(ip: IPv4Address("10.0.0.5")!, mac: MACAddress("00:11:22:33:44:66"))]
+        let result = ManualDevices.attach(ManualDevices.visible(list, site: "b"), to: scannedB)
+        try expectEqual(result.attached.map(\.entry.name), ["Saisie du site B"], "la saisie du site A n'est pas rattachée")
+
+        let viewA = DeviceRecentView(ip: IPv4Address("10.0.0.5")!, name: "A", type: .poste, viewed: now, siteKey: "a")
+        let viewB = DeviceRecentView(ip: IPv4Address("10.0.0.5")!, name: "B", type: .poste, viewed: now, siteKey: "b")
+        try expectEqual(DeviceRecents.record(viewB, in: [viewA]).count, 2, "même IP dans deux sites : deux visites")
+
+        // Fichier d'avant les sites : la saisie se lit (sans site, visible partout).
+        let legacy = String(decoding: try JSONEncoder().encode(old), as: UTF8.self)
+        try expect(!legacy.contains("siteKey") && !legacy.contains("openPorts"), "champs absents de l'ancien format")
+        let decoded = try JSONDecoder().decode(ManualDeviceEntry.self, from: Data(legacy.utf8))
+        try expectEqual(decoded.siteKey, nil, "sans site")
+        try expect(decoded.belongs(to: "a") && decoded.belongs(to: "b"), "visible dans tous les sites")
+    }
+
+    suite.add("Fiche reprise : jamais présentée en ligne sans vérification, ports de la fiche") {
+        var base = Device(ip: IPv4Address("192.168.1.1")!, mac: MACAddress("00:09:0F:AA:BB:CC"), isOnline: true,
+                          latencyMs: 3, openPorts: [443], firstSeen: now, lastSeen: now)
+        base.snmpKind = nil
+        var entry = ManualDeviceEntry(reference: base, source: .otherSite("Laval"), created: now)
+        try expect(!entry.device.isOnline && entry.device.latencyMs == nil, "état d'un autre site : pas en ligne ici")
+        try expectEqual(entry.device.lastSeen, now, "dernière détection ailleurs gardée")
+        try expectEqual(entry.createdVerb, "Ouvert", "fiche reprise : « Ouvert »")
+        try expectEqual(ManualDeviceEntry(ip: base.ip, created: now).createdVerb, "Saisi", "saisie : « Saisi »")
+        try expectEqual(entry.device.openPorts, [443], "ports de la fiche reprise")
+        entry.openPorts = [22, 443]
+        try expectEqual(entry.device.openPorts, [22, 443], "ports trouvés par un outil de la fiche")
+        entry.lastCheck = ManualDeviceEntry.Check(date: now, latencyMs: 2)
+        try expect(entry.device.isOnline, "vérifiée : en ligne")
+    }
 }

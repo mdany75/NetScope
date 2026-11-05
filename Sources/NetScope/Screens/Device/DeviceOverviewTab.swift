@@ -243,8 +243,8 @@ struct DeviceOverviewTab: View {
 
     private var availabilityCard: some View {
         DeviceCard(title: "Disponibilité") {
-            if let typed = state.manualEntry(forID: device.id), typed.isTyped {
-                typedAvailability(typed)
+            if let manual = state.manualEntry(forID: device.id) {
+                manualAvailability(manual)
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
@@ -265,8 +265,9 @@ struct DeviceOverviewTab: View {
         }
     }
 
-    /// Appareil saisi à la main : jamais détecté par un scan, seulement vérifié par ping sur demande.
-    private func typedAvailability(_ entry: ManualDeviceEntry) -> some View {
+    /// Appareil hors Scanner (saisi à la main, ou fiche reprise) : son état ici ne vient que de
+    /// « Vérifier maintenant » (un ping, sur demande) ; une fiche reprise donne son dernier état connu.
+    private func manualAvailability(_ entry: ManualDeviceEntry) -> some View {
         let check = entry.lastCheck
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
@@ -276,9 +277,13 @@ struct DeviceOverviewTab: View {
                 ToolStatTile(label: "Vérifié", value: check.map { ToolText.relative($0.date) } ?? "jamais")
             }
             VStack(spacing: 0) {
-                DeviceKVRow(key: "Saisi le", value: DeviceFormat.date(entry.created))
+                DeviceKVRow(key: "\(entry.createdVerb) le", value: DeviceFormat.date(entry.created))
                 DeviceKVRow(key: "Dernière vérification", value: check.map { DeviceFormat.date($0.date) } ?? "—")
-                DeviceKVRow(key: "Vu par un scan", value: "pas encore", mono: false)
+                if let base = entry.base {
+                    DeviceKVRow(key: "Dernière détection (ailleurs)", value: DeviceFormat.date(base.lastSeen))
+                } else {
+                    DeviceKVRow(key: "Vu par un scan", value: "pas encore", mono: false)
+                }
             }
             Text("«\u{00A0}Vérifier maintenant\u{00A0}» envoie un seul ping\u{00A0}; un scan qui voit cet appareil le rattache.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)

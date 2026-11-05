@@ -6,6 +6,9 @@ import SwiftUI
 struct DeviceLookupPanel: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var model = DeviceLookupModel.shared
+    // Observés pour relire les suggestions quand le site actif ou l'inventaire change.
+    @ObservedObject private var sites = SiteModel.shared
+    @ObservedObject private var inventory = InvModel.shared
     @FocusState private var fieldFocused: Bool
 
     var body: some View {
@@ -28,8 +31,8 @@ struct DeviceLookupPanel: View {
             model.refreshCandidates(state)
             if !model.formShown { fieldFocused = true }
         }
-        .onChange(of: state.devices.count) { _, _ in model.refreshCandidates(state) }
-        .onChange(of: state.manualDevices) { _, _ in model.refreshCandidates(state) }
+        .onChange(of: DeviceLookupModel.signature(state)) { _, _ in model.refreshCandidates(state) }
+        .onChange(of: model.searchFocusRequest) { _, _ in fieldFocused = true }
     }
 
     // MARK: En-tête
@@ -57,20 +60,28 @@ struct DeviceLookupPanel: View {
 
     private var searchPanel: some View {
         let found = model.suggestions
+        let current = model.highlightIndex(found)
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
                 field(found)
                 entryLine(found)
+                if let notice = model.notice {
+                    Label(notice, systemImage: "exclamationmark.triangle")
+                        .font(Theme.small).foregroundStyle(Theme.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .padding(14)
             if !found.isEmpty {
                 VStack(spacing: 0) {
                     ForEach(Array(found.enumerated()), id: \.element.id) { index, match in
-                        DeviceSuggestionRow(match: match, highlighted: index == model.highlighted)
-                            .contentShape(Rectangle())
-                            .onTapGesture { model.open(match.candidate, state: state) }
-                            .onHover { inside in if inside { model.highlighted = index } }
-                            .help("Ouvrir la fiche de \(match.candidate.displayName)")
+                        Button { model.open(match.candidate, state: state) } label: {
+                            DeviceSuggestionRow(match: match, highlighted: index == current)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .onHover { inside in if inside, current >= 0 { model.highlighted = index } }
+                        .help("Ouvrir la fiche de \(match.candidate.displayName)")
                     }
                 }
                 .padding(.horizontal, 6)
@@ -163,13 +174,17 @@ struct DeviceLookupPanel: View {
         let exact = found.first?.isExact == true
         // Sans suggestion, ou avec une saisie qu'on peut ouvrir à la main (IP, MAC, nom d'hôte).
         if !model.query.trimmingCharacters(in: .whitespaces).isEmpty, !exact, found.isEmpty || entry.isUsable {
+            let formFirst = found.isEmpty || model.prefersForm(found)
             HStack(spacing: 10) {
-                Text(found.isEmpty ? "Aucun appareil connu ne correspond." : "Pas dans la liste\u{00A0}?")
+                Text(found.isEmpty ? "Aucun appareil connu ne correspond."
+                     : formFirst ? "Aucun appareil connu à cette adresse\u{00A0}: Entrée pour la saisir, ↓ pour les suggestions."
+                     : "Pas dans la liste\u{00A0}?")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 8)
                 if entry.isUsable {
                     let label = "Saisir «\u{00A0}\(model.query.trimmingCharacters(in: .whitespaces))\u{00A0}» à la main…"
-                    if found.isEmpty {
+                    if formFirst {
                         Button(label) { model.showForm(prefilledFrom: entry) }.buttonStyle(.primary)
                     } else {
                         Button(label) { model.showForm(prefilledFrom: entry) }.buttonStyle(.secondary)
@@ -197,16 +212,19 @@ struct DeviceLookupPanel: View {
                             .buttonStyle(.secondary)
                     }
                 }
-                if state.recentDeviceViews.isEmpty {
+                let recents = state.siteRecentDeviceViews
+                if recents.isEmpty {
                     Text("Les fiches que vous ouvrez apparaîtront ici.")
                         .font(Theme.small).foregroundStyle(Theme.textTertiary)
                 } else {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 8)], alignment: .leading, spacing: 8) {
-                        ForEach(state.recentDeviceViews) { recent in
-                            DeviceRecentRow(recent: recent)
-                                .contentShape(Rectangle())
-                                .onTapGesture { model.open(recent, state: state) }
-                                .help("Ouvrir la fiche de \(recent.name)")
+                        ForEach(recents) { recent in
+                            Button { model.open(recent, state: state) } label: {
+                                DeviceRecentRow(recent: recent)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .help("Ouvrir la fiche de \(recent.name)")
                         }
                     }
                 }

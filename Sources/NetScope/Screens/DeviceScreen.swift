@@ -188,11 +188,13 @@ private struct DeviceDetailView: View {
     }
 
     @ViewBuilder private var statusChip: some View {
-        if let manual, manual.lastCheck == nil, manual.base == nil {
-            // Saisi à la main, jamais vérifié : ni en ligne, ni hors ligne.
+        if let manual, manual.lastCheck == nil {
+            // Hors Scanner, jamais vérifié : ni en ligne, ni hors ligne (l'état d'une fiche reprise
+            // est celui d'un autre scan ou de l'inventaire, pas du réseau actuel).
             HStack(spacing: 6) {
                 StatusDot(online: false, size: 7)
-                Text("Pas encore vérifié").font(.system(size: 12, weight: .semibold))
+                Text(manual.base.map { "Hors Scanner · vu \(ToolText.relative($0.lastSeen))" } ?? "Pas encore vérifié")
+                    .font(.system(size: 12, weight: .semibold))
             }
             .foregroundStyle(Theme.neutralText)
             .padding(.horizontal, 8)

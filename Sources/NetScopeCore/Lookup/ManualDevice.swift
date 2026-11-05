@@ -45,10 +45,15 @@ public struct ManualDeviceEntry: Codable, Hashable, Identifiable, Sendable {
     /// Appareil repris tel quel (fiche d'inventaire, autre site) : emplacement, ports, dates.
     public var base: Device?
     public var lastCheck: Check?
+    /// Site actif quand la fiche a été ouverte (clé de SiteFiles) ; nil : visible dans tous les sites.
+    /// Les saisies vont avec le site, comme les résultats, les noms et les notes.
+    public var siteKey: String?
+    /// Ports ouverts trouvés par un outil de la fiche (scan de ports) ; nil : ceux de `base`.
+    public var openPorts: [UInt16]?
 
     public init(id: UUID = UUID(), ip: IPv4Address, mac: MACAddress? = nil, name: String = "", hostname: String? = nil,
                 type: DeviceType = .inconnu, created: Date = Date(), source: Source = .typed, base: Device? = nil,
-                lastCheck: Check? = nil) {
+                lastCheck: Check? = nil, siteKey: String? = nil) {
         self.id = id
         self.ip = ip
         self.mac = mac
@@ -59,20 +64,28 @@ public struct ManualDeviceEntry: Codable, Hashable, Identifiable, Sendable {
         self.source = source
         self.base = base
         self.lastCheck = lastCheck
+        self.siteKey = siteKey
     }
 
     /// Fiche reprise d'un appareil connu ailleurs (inventaire, autre site).
-    public init(reference device: Device, source: Source, created: Date = Date()) {
+    public init(reference device: Device, source: Source, created: Date = Date(), siteKey: String? = nil) {
+        var base = device
+        // Repris d'ailleurs : la cible SNMP de l'autre site n'est pas interrogée d'elle-même ici.
+        if case .otherSite = source { base.snmpKind = nil }
         self.init(ip: device.ip, mac: device.mac, name: device.customName ?? "", hostname: device.hostname,
-                  type: device.deviceType, created: created, source: source, base: device)
+                  type: device.deviceType, created: created, source: source, base: base, siteKey: siteKey)
     }
+
+    /// Visible dans ce site (saisie de ce site, ou sans site).
+    public func belongs(to site: String?) -> Bool { siteKey == nil || siteKey == site }
 
     /// Identifiant de la fiche dans l'écran Appareil (le même que celui d'un appareil scanné : l'IP).
     public var deviceID: String { ip.description }
 
     public var isTyped: Bool { source == .typed }
 
-    /// L'appareil affiché par la fiche. Jamais vérifié : hors ligne, « vu » à la date de la saisie.
+    /// L'appareil affiché par la fiche. Jamais vérifié : hors ligne (même une reprise : son état est
+    /// celui d'un autre scan ou de l'inventaire, pas du réseau actuel), « vu » à la date de la saisie.
     public var device: Device {
         var device = base ?? Device(ip: ip, isOnline: false, firstSeen: created, lastSeen: created)
         device.ip = ip
@@ -80,16 +93,20 @@ public struct ManualDeviceEntry: Codable, Hashable, Identifiable, Sendable {
         if let hostname { device.hostname = hostname }
         if !name.isEmpty { device.customName = name }
         device.deviceType = type
+        if let openPorts { device.openPorts = openPorts }
         if let lastCheck {
             device.isOnline = lastCheck.isOnline
             device.latencyMs = lastCheck.latencyMs
             if lastCheck.isOnline { device.lastSeen = max(device.lastSeen, lastCheck.date) }
-        } else if base == nil {
+        } else {
             device.isOnline = false
             device.latencyMs = nil
         }
         return device
     }
+
+    /// Verbe de la date de création : « Saisi » pour une saisie, « Ouvert » pour une fiche reprise.
+    public var createdVerb: String { isTyped ? "Saisi" : "Ouvert" }
 
     /// Ligne d'origine affichée sur la fiche.
     public var originLabel: String {
@@ -153,10 +170,15 @@ public enum ManualDevices {
         return (attached, remaining)
     }
 
-    /// Ajoute ou remplace une saisie (même IP : la nouvelle remplace l'ancienne), la plus récente
+    /// Saisies visibles dans ce site.
+    public static func visible(_ entries: [ManualDeviceEntry], site: String?) -> [ManualDeviceEntry] {
+        entries.filter { $0.belongs(to: site) }
+    }
+
+    /// Ajoute ou remplace une saisie (même site et même IP : la nouvelle remplace l'ancienne), la plus récente
     /// d'abord, au plus `keptCount`.
     public static func upsert(_ entry: ManualDeviceEntry, into entries: [ManualDeviceEntry]) -> [ManualDeviceEntry] {
-        var list = entries.filter { $0.ip != entry.ip && $0.id != entry.id }
+        var list = entries.filter { !($0.ip == entry.ip && $0.siteKey == entry.siteKey) && $0.id != entry.id }
         list.insert(entry, at: 0)
         return Array(list.prefix(keptCount))
     }
@@ -186,19 +208,23 @@ public struct DeviceRecentView: Codable, Hashable, Identifiable, Sendable {
     public var viewed: Date
     /// Fiche saisie à la main ou reprise (pas dans les résultats du Scanner) au moment de la visite.
     public var isManual: Bool
+    /// Site actif lors de la visite ; nil : visible dans tous les sites.
+    public var siteKey: String?
 
-    public init(ip: IPv4Address, mac: MACAddress? = nil, name: String, type: DeviceType, viewed: Date, isManual: Bool = false) {
+    public init(ip: IPv4Address, mac: MACAddress? = nil, name: String, type: DeviceType, viewed: Date, isManual: Bool = false,
+                siteKey: String? = nil) {
         self.ip = ip
         self.mac = mac
         self.name = name
         self.type = type
         self.viewed = viewed
         self.isManual = isManual
+        self.siteKey = siteKey
     }
 
-    public init(device: Device, viewed: Date, isManual: Bool = false) {
+    public init(device: Device, viewed: Date, isManual: Bool = false, siteKey: String? = nil) {
         self.init(ip: device.ip, mac: device.mac, name: device.displayName, type: device.deviceType,
-                  viewed: viewed, isManual: isManual)
+                  viewed: viewed, isManual: isManual, siteKey: siteKey)
     }
 
     public var id: String { mac.map { "mac|\($0)" } ?? "ip|\(ip)" }
@@ -211,6 +237,7 @@ public enum DeviceRecents {
     public static func record(_ view: DeviceRecentView, in list: [DeviceRecentView],
                               limit: Int = keptCount) -> [DeviceRecentView] {
         var kept = list.filter { other in
+            if other.siteKey != view.siteKey { return true }
             if let mac = view.mac, let otherMAC = other.mac { return mac != otherMAC }
             return other.ip != view.ip
         }

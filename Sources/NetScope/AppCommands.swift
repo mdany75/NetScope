@@ -47,7 +47,7 @@ struct AppCommands: Commands {
             Divider()
             Button("Rescanner les ports de la sélection") { AppActions.rescanSelection(state) }
                 .regShortcut(ShortcutID.rescanSelection, shortcuts)
-                .disabled(state.selectedDevice == nil || scan.isBusy)
+                .disabled(state.selectedScannedDevice == nil || scan.isBusy)
             Button("Changer de profil (\(state.scanProfile.label))") { AppActions.nextProfile(state) }
                 .regShortcut(ShortcutID.nextProfile, shortcuts)
         }
@@ -135,7 +135,7 @@ enum AppActions {
 
     static func rescanSelection(_ state: AppState) {
         let scan = ScanController.shared
-        guard let device = state.selectedDevice, !scan.isBusy else { return }
+        guard let device = state.selectedScannedDevice, !scan.isBusy else { return }
         state.open(.scanner)
         scan.probePorts(of: [device], preset: scan.portPreset, state: state)
     }
