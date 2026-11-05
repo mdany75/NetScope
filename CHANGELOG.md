@@ -1,5 +1,21 @@
 # Changements
 
+## 0.20.3 — 2026-11-04
+
+L'onglet Ressources mesure l'activité des disques, et le réseau et les disques se lisent côte à côte.
+
+### Modifié
+- **Disques de ce Mac** : la jauge « Disque » et le panneau Disques montrent l'activité (lecture,
+  écriture en Mo/s et part du temps occupé, comme le Moniteur d'activité) au lieu de l'espace
+  libre. Un disque physique par ligne (SSD interne, disque externe), avec la courbe de lecture et
+  d'écriture des 5 dernières minutes. Lecture locale des compteurs du système, sans trafic réseau.
+- **Réseau par interface et Disques côte à côte**, de la même hauteur ; les disques passent
+  dessous quand la fenêtre est étroite.
+
+### Corrigé
+- Les partages réseau montés n'apparaissent plus à « 100 % · 0 o libres » : la liste des volumes
+  est remplacée par l'activité des disques physiques.
+
 ## 0.20.2 — 2026-11-04
 
 Un Ping continu repensé avec Dany et un onglet Ressources plus lisible.

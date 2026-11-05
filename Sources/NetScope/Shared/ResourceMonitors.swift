@@ -32,8 +32,8 @@ final class LocalResourceMonitor: ObservableObject {
     @Published private(set) var cpu: CPULoad?
     @Published private(set) var memory: MemoryStats?
     @Published private(set) var interfaces: [LocalInterfaceLoad] = []
-    /// Volumes montés (disque de démarrage d'abord), relus à chaque relevé.
-    @Published private(set) var volumes: [LocalVolume] = []
+    /// Disques physiques et leur activité (lecture, écriture, occupation).
+    @Published private(set) var disks: [LocalDiskLoad] = []
     @Published private(set) var timeline = ResourceTimeline(window: 300)
     @Published private(set) var isPaused = false
     @Published private(set) var lastSample: Date?
@@ -54,6 +54,7 @@ final class LocalResourceMonitor: ObservableObject {
     private var toastTask: Task<Void, Never>?
     private var previousTicks: [CPUTicks] = []
     private var previousInterfaces: [String: TrafficCounters] = [:]
+    private var previousDisks: [String: DiskIOCounters] = [:]
     private var previousDate: Date?
     private var kinds: [String: String] = [:]
     private static let intervalKey = "NetScope.ressources.intervalle.local"
@@ -116,9 +117,8 @@ final class LocalResourceMonitor: ObservableObject {
             coreKinds = LocalResources.coreKinds()
         }
         let reading = await Task.detached(priority: .utility) {
-            (LocalResources.cpuTicks(), LocalResources.memory(), LocalResources.interfaces(), LocalVolumes.list())
+            (LocalResources.cpuTicks(), LocalResources.memory(), LocalResources.interfaces(), DiskActivityReader.read())
         }.value
-        if reading.3 != volumes { volumes = reading.3 }
         let now = Date()
         let seconds = previousDate.map { now.timeIntervalSince($0) } ?? 0
         var values: [String: Double] = [:]
@@ -146,6 +146,27 @@ final class LocalResourceMonitor: ObservableObject {
             }
             loads.append(LocalInterfaceLoad(name: item.name, kind: kind, counters: item.counters, rate: rate))
         }
+        var diskLoads: [LocalDiskLoad] = []
+        var totalRead = 0.0, totalWrite = 0.0, busiest: Double?
+        for disk in reading.3 {
+            var rate: DiskIORate?
+            if let old = previousDisks[disk.bsdName], seconds > 0 {
+                rate = DiskIOMath.rate(from: old, to: disk.counters, seconds: seconds)
+            }
+            if let rate {
+                totalRead += rate.readBytesPerSecond
+                totalWrite += rate.writeBytesPerSecond
+                busiest = max(busiest ?? 0, rate.busyPercent)
+            }
+            diskLoads.append(LocalDiskLoad(snapshot: disk, rate: rate))
+        }
+        if busiest != nil {
+            values["disque"] = busiest
+            values["disque.lecture"] = totalRead
+            values["disque.ecriture"] = totalWrite
+        }
+        previousDisks = Dictionary(reading.3.map { ($0.bsdName, $0.counters) }, uniquingKeysWith: { a, _ in a })
+        disks = diskLoads
         previousInterfaces = Dictionary(reading.2.map { ($0.name, $0.counters) }, uniquingKeysWith: { a, _ in a })
         previousDate = now
         interfaces = Self.ordered(loads)
@@ -167,7 +188,10 @@ final class LocalResourceMonitor: ObservableObject {
         if timeline.columns.isEmpty {
             timeline.declare([ResourceColumn(id: "cpu", title: "Processeur (%)"),
                               ResourceColumn(id: "mem", title: "Mémoire utilisée (%)"),
-                              ResourceColumn(id: "pression", title: "Pression mémoire (%)")])
+                              ResourceColumn(id: "pression", title: "Pression mémoire (%)"),
+                              ResourceColumn(id: "disque", title: "Disque le plus occupé (%)"),
+                              ResourceColumn(id: "disque.lecture", title: "Disques, lecture (o/s)"),
+                              ResourceColumn(id: "disque.ecriture", title: "Disques, écriture (o/s)")])
         }
         timeline.window = max(300, interval * 60)
         timeline.append(sample, titles: titles)
@@ -175,8 +199,8 @@ final class LocalResourceMonitor: ObservableObject {
     }
 
     func set(cpu: CPULoad?, memory: MemoryStats?, interfaces: [LocalInterfaceLoad], coreKinds: (Int, Int)?,
-             volumes: [LocalVolume]? = nil) {
-        if let volumes { self.volumes = volumes }
+             disks: [LocalDiskLoad]? = nil) {
+        if let disks { self.disks = disks }
         self.cpu = cpu
         self.memory = memory
         self.interfaces = interfaces

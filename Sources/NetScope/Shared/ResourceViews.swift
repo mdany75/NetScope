@@ -363,40 +363,48 @@ struct ResourceRingRow<Content: View>: View {
     }
 }
 
-/// Disques de ce Mac : un volume par ligne, place utilisée en barre, espace libre.
-struct ResourceVolumesPanel: View {
-    let volumes: [LocalVolume]
+/// Activité des disques de ce Mac : un disque physique par ligne (lecture, écriture, occupation),
+/// puis la courbe de lecture et d'écriture des 5 dernières minutes, tous disques confondus.
+struct ResourceDisksPanel: View {
+    let disks: [LocalDiskLoad]
+    let timeline: ResourceTimeline
 
     var body: some View {
         Panel {
             VStack(alignment: .leading, spacing: 12) {
-                ResourcePanelHeader(title: "Disques", subtitle: volumes.isEmpty ? "" : "\(volumes.count) volume\(volumes.count > 1 ? "s" : "") monté\(volumes.count > 1 ? "s" : "")")
-                if volumes.isEmpty {
-                    Text("Aucun volume lu.").font(Theme.small).foregroundStyle(Theme.textSecondary)
+                ResourcePanelHeader(title: "Disques", subtitle: "activité · lecture locale du système")
+                if disks.isEmpty {
+                    Text("Aucun disque lu.").font(Theme.small).foregroundStyle(Theme.textSecondary)
                 }
-                ForEach(volumes) { volume in
-                    HStack(spacing: 12) {
-                        Image(systemName: volume.kind == .reseau ? "server.rack" : volume.kind == .externe ? "externaldrive" : "internaldrive")
-                            .font(.system(size: 14))
-                            .foregroundStyle(Theme.textSecondary)
-                            .frame(width: 18)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(volume.name).font(Theme.bodySemibold).foregroundStyle(Theme.text).lineLimit(1)
-                            Text("\(volume.kindLabel) · \(volume.path)").font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                ForEach(disks) { disk in
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack(spacing: 10) {
+                            Image(systemName: disk.snapshot.isInternal ? "internaldrive" : "externaldrive")
+                                .font(.system(size: 14)).foregroundStyle(Theme.textSecondary).frame(width: 18)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(disk.snapshot.name).font(Theme.bodySemibold).foregroundStyle(Theme.text).lineLimit(1)
+                                Text("\(disk.snapshot.isInternal ? "Interne" : "Externe") · \(disk.snapshot.bsdName)")
+                                    .font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                            }
+                            Spacer(minLength: 8)
+                            Text("↓\u{00A0}\(DiskIOMath.throughput(disk.rate?.readBytesPerSecond))  ↑\u{00A0}\(DiskIOMath.throughput(disk.rate?.writeBytesPerSecond))")
+                                .font(Theme.mono(11)).foregroundStyle(Theme.text).lineLimit(1)
                         }
-                        .frame(width: 220, alignment: .leading)
-                        ResourceBar(percent: volume.usedPercent)
-                        Text(ResourceFormat.percent(volume.usedPercent))
-                            .font(Theme.mono(12)).foregroundStyle(Theme.text)
-                            .frame(width: 52, alignment: .trailing)
-                        Text("\(ResourceFormat.volume(volume.availableBytes)) libres sur \(ResourceFormat.volume(volume.totalBytes))")
-                            .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                            .frame(width: 190, alignment: .trailing)
-                            .lineLimit(1)
+                        HStack(spacing: 8) {
+                            ResourceBar(percent: disk.rate?.busyPercent, color: ResourceColors.disk)
+                            Text(ResourceFormat.percent(disk.rate?.busyPercent) + " occupé")
+                                .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                                .frame(width: 90, alignment: .trailing)
+                        }
+                        .padding(.leading, 28)
                     }
-                    .help(volume.path)
                 }
+                ResourceChart(series: [ResourceChartSeries(label: "Lecture", color: ResourceColors.primary, values: timeline.series("disque.lecture")),
+                                       ResourceChartSeries(label: "Écriture", color: ResourceColors.secondary, values: timeline.series("disque.ecriture"))],
+                              axisLabel: { DiskIOMath.throughput($0) }, span: timeline.window, height: 90, filled: false)
+                ResourceLegend(items: [("Lecture", ResourceColors.primary), ("Écriture", ResourceColors.secondary)])
             }
+            .frame(maxHeight: .infinity, alignment: .topLeading)
         }
     }
 }

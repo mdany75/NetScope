@@ -9,7 +9,7 @@ let package = Package(
         .target(name: "NetScopeCore", linkerSettings: [.linkedLibrary("resolv")]),
         // Application SwiftUI.
         .executableTarget(name: "NetScope", dependencies: ["NetScopeCore"],
-                         linkerSettings: [.linkedFramework("CoreWLAN"), .linkedFramework("CoreLocation")]),
+                         linkerSettings: [.linkedFramework("CoreWLAN"), .linkedFramework("CoreLocation"), .linkedFramework("IOKit")]),
         // Tests du moteur (exécutable, car XCTest n'est pas disponible sans Xcode).
         .executableTarget(name: "NetScopeSelfTest", dependencies: ["NetScopeCore"]),
     ],

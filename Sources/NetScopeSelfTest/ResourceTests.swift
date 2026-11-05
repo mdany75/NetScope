@@ -6,15 +6,21 @@ import NetScopeCore
 // sondes de Surveillance. Aucun trafic réseau : seule la lecture locale de ce Mac est essayée.
 
 func registerResourceTests(_ suite: TestSuite) {
-    suite.add("Ressources : volumes de ce Mac (lecture locale)") {
-        let volumes = LocalVolumes.list()
-        try expect(!volumes.isEmpty, "au moins le disque de démarrage")
-        guard let startup = LocalVolumes.startup(in: volumes) else { throw TestFailure(message: "disque de démarrage introuvable", file: #fileID, line: #line) }
-        try expect(startup.totalBytes > 0 && startup.availableBytes <= startup.totalBytes, "capacité cohérente")
-        let percent = startup.usedPercent ?? -1
-        try expect(percent >= 0 && percent <= 100, "pourcentage entre 0 et 100")
-        let odd = LocalVolume(name: "Vide", path: "/x", kind: .externe, totalBytes: 0, availableBytes: 5)
-        try expect(odd.usedPercent == nil && odd.availableBytes == 0, "volume de taille nulle")
+    suite.add("Ressources : activité d'un disque entre deux relevés") {
+        let old = DiskIOCounters(bytesRead: 1_000_000, bytesWritten: 0, readNanoseconds: 0, writeNanoseconds: 0)
+        let new = DiskIOCounters(bytesRead: 21_000_000, bytesWritten: 4_000_000, readNanoseconds: 300_000_000, writeNanoseconds: 100_000_000)
+        guard let rate = DiskIOMath.rate(from: old, to: new, seconds: 2) else {
+            throw TestFailure(message: "débit attendu", file: #fileID, line: #line)
+        }
+        try expectEqual(rate.readBytesPerSecond, 10_000_000, "20 Mo lus en 2 s")
+        try expectEqual(rate.writeBytesPerSecond, 2_000_000, "4 Mo écrits en 2 s")
+        try expectEqual(rate.busyPercent, 20, "0,4 s de travail sur 2 s")
+        try expect(DiskIOMath.rate(from: new, to: old, seconds: 2) == nil, "compteurs remis à zéro")
+        try expect(DiskIOMath.rate(from: old, to: new, seconds: 0) == nil, "intervalle nul")
+        let saturated = DiskIOCounters(bytesRead: 0, bytesWritten: 0, readNanoseconds: 9_000_000_000, writeNanoseconds: 0)
+        try expectEqual(DiskIOMath.rate(from: DiskIOCounters(bytesRead: 0, bytesWritten: 0, readNanoseconds: 0, writeNanoseconds: 0),
+                                        to: saturated, seconds: 2)?.busyPercent, 100, "occupation bornée à 100 %")
+        try expectEqual(DiskIOMath.throughput(85_200_000), "85,2\u{00A0}Mo/s", "libellé")
     }
 
     suite.add("Ressources : compteur 32 bits revenu à zéro") {

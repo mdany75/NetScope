@@ -43,8 +43,20 @@ private struct LocalResourcesSection: View {
                 memoryPanel
             }
             .fixedSize(horizontal: false, vertical: true)
-            interfacesPanel
-            ResourceVolumesPanel(volumes: monitor.volumes)
+            // Réseau par interface et Disques côte à côte, de la même hauteur.
+            // Le tableau du réseau garde toutes ses colonnes : les disques prennent une largeur fixe,
+            // et passent dessous quand la fenêtre est trop étroite.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 14) {
+                    interfacesPanel.frame(minWidth: 640, maxWidth: .infinity)
+                    ResourceDisksPanel(disks: monitor.disks, timeline: monitor.timeline).frame(width: 400)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 14) {
+                    interfacesPanel
+                    ResourceDisksPanel(disks: monitor.disks, timeline: monitor.timeline)
+                }
+            }
         }
         .onAppear { monitor.retain() }
         .onDisappear { monitor.release() }
@@ -59,14 +71,14 @@ private struct LocalResourcesSection: View {
     }
 
     private var rings: some View {
-        let startup = LocalVolumes.startup(in: monitor.volumes)
+        let busiest = monitor.disks.max { ($0.rate?.busyPercent ?? -1) < ($1.rate?.busyPercent ?? -1) }
         let main = monitor.mainInterface.map(ResourceInterfaceRow.init(local:))
         return ResourceRingRow {
             ResourceRing(percent: monitor.cpu?.total, title: "Processeur", color: ResourceColors.primary)
             ResourceRing(percent: monitor.memory?.usedPercent, title: "Mémoire",
                          detail: monitor.memory?.pressure?.label.lowercased() ?? "", color: ResourceColors.secondary)
-            ResourceRing(percent: startup?.usedPercent, title: "Disque",
-                         detail: startup.map { "\(ResourceFormat.volume($0.availableBytes)) libres" } ?? "", color: ResourceColors.disk)
+            ResourceRing(percent: busiest?.rate?.busyPercent, title: "Disque",
+                         detail: busiest?.rate.map { "↓\u{00A0}\(DiskIOMath.throughput($0.readBytesPerSecond))" } ?? "", color: ResourceColors.disk)
             ResourceRing(percent: main?.peak, title: "Réseau",
                          detail: main.map { "↓\u{00A0}\(ResourceFormat.bitsPerSecond($0.inBps))" } ?? "", color: ResourceColors.primary)
         }
@@ -490,6 +502,7 @@ private struct ResourceInterfacesPanel: View {
                 }
             }
         }
+        .frame(maxHeight: .infinity, alignment: .top)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
         .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))

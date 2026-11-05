@@ -89,6 +89,13 @@ enum ResourceDemo {
             sample["\(name).in"] = rate.0
             sample["\(name).out"] = rate.1
         }
+        // Disques : lecture qui monte avec la pointe du processeur (compilation), écriture régulière.
+        let wave = sin(Double(step) / 9)
+        let read = 40_000_000 + 30_000_000 * max(0, wave) + (values.cpu.total > 40 ? 180_000_000 : 0)
+        let write = 18_000_000 + 8_000_000 * cos(Double(step) / 7)
+        sample["disque.lecture"] = read
+        sample["disque.ecriture"] = write
+        sample["disque"] = min(100, 6 + read / 4_000_000)
         return (ResourceSample(date: date, values: sample), values.cpu, values.memory, localInterfaces(values.rates, seconds: localStep))
     }
 
@@ -111,7 +118,7 @@ enum ResourceDemo {
             last = sample
         }
         localStepIndex = count
-        if let last { monitor.set(cpu: last.1, memory: last.2, interfaces: last.3, coreKinds: (6, 4), volumes: demoVolumes) }
+        if let last { monitor.set(cpu: last.1, memory: last.2, interfaces: last.3, coreKinds: (6, 4), disks: demoDisks) }
     }
 
     static func advanceLocal(_ monitor: LocalResourceMonitor) {
@@ -121,12 +128,13 @@ enum ResourceDemo {
         monitor.set(cpu: sample.1, memory: sample.2, interfaces: sample.3, coreKinds: (6, 4))
     }
 
-    /// Volumes de démonstration : le disque de démarrage à 62 %, un disque externe, un partage du NAS.
-    static let demoVolumes: [LocalVolume] = {
-        let go: UInt64 = 1_000_000_000
-        return [LocalVolume(name: "Macintosh HD", path: "/", kind: .interne, totalBytes: 994 * go, availableBytes: 378 * go),
-                LocalVolume(name: "Sauvegardes", path: "/Volumes/Sauvegardes", kind: .externe, totalBytes: 2_000 * go, availableBytes: 1_140 * go),
-                LocalVolume(name: "partage (NAS-SIEGE)", path: "/Volumes/partage", kind: .reseau, totalBytes: 8_000 * go, availableBytes: 3_200 * go)]
+    /// Disques de démonstration : le SSD interne au travail, un disque externe presque au repos.
+    static let demoDisks: [LocalDiskLoad] = {
+        let zero = DiskIOCounters(bytesRead: 0, bytesWritten: 0, readNanoseconds: 0, writeNanoseconds: 0)
+        return [LocalDiskLoad(snapshot: DiskIOSnapshot(bsdName: "disk0", name: "APPLE SSD AP1024Z", isInternal: true, counters: zero),
+                              rate: DiskIORate(readBytesPerSecond: 85_200_000, writeBytesPerSecond: 22_400_000, busyPercent: 27)),
+                LocalDiskLoad(snapshot: DiskIOSnapshot(bsdName: "disk4", name: "LaCie Rugged (Photos)", isInternal: false, counters: zero),
+                              rate: DiskIORate(readBytesPerSecond: 1_300_000, writeBytesPerSecond: 0, busyPercent: 2))]
     }()
 
     /// Heure des captures : 14 h 32, comme la barre de menus du croquis ; sinon l'heure réelle.
