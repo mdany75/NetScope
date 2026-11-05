@@ -23,6 +23,10 @@ struct RemoteDraft: Equatable {
     /// Taille personnalisée saisie (texte du champ).
     var customWidth = "1600"
     var customHeight = "1000"
+    /// Note 50 : réglages FTP, FTPS et SFTP.
+    var transfer = FileTransferSettings()
+    /// Mot de passe saisi (jamais enregistré ailleurs qu'au Trousseau) ; nil : inchangé.
+    var password: String?
 
     init() {}
 
@@ -32,6 +36,9 @@ struct RemoteDraft: Equatable {
         if display == .defaults(for: proto) { display = .defaults(for: option) }
         proto = option
     }
+
+    /// Port par défaut du protocole (FTPS : selon le TLS explicite ou implicite).
+    var defaultPort: Int { proto == .ftps ? transfer.tlsMode.defaultPort : proto.defaultPort }
 
     init(_ connection: RemoteConnection) {
         editingID = connection.id
@@ -46,6 +53,7 @@ struct RemoteDraft: Equatable {
         display = connection.display
         customWidth = String(connection.display.customWidth)
         customHeight = String(connection.display.customHeight)
+        transfer = connection.transfer
     }
 
     /// Connexion validée, ou erreur à afficher.
@@ -75,6 +83,18 @@ struct RemoteDraft: Equatable {
         // Taille personnalisée lue seulement si ses champs sont affichés (RDP, fenêtre, personnalisée).
         let display = try display.applyingCustomSize(width: customWidth, height: customHeight, for: proto)
         connection.display = display
+        if proto.isFileTransfer {
+            var transfer = self.transfer
+            transfer.remoteDirectory = transfer.remoteDirectory.trimmingCharacters(in: .whitespaces)
+            if !transfer.remoteDirectory.isEmpty {
+                transfer.remoteDirectory = RemotePath.normalize(try RemotePath.validate(transfer.remoteDirectory))
+                if !transfer.remoteDirectory.hasPrefix("/") { transfer.remoteDirectory = "/" + transfer.remoteDirectory }
+            }
+            if proto == .sftp, transfer.sftpAuth == .key {
+                _ = try QuickLogin.validateKeyPath(transfer.keyPath)
+            }
+            connection.transfer = transfer
+        }
         return try connection.validated()
     }
 }
@@ -145,7 +165,46 @@ final class RemoteModel: ObservableObject {
             }
             // Captures : connexion Telnet choisie (encadré « Installer » de telnet).
             if raw == "telnet" { selectedID = connections.first { $0.proto == .telnet }?.id }
+            // Note 50 : connexion FTP (avertissement), navigateur de fichiers ouvert, formulaire SFTP.
+            if raw == "ftp" { selectedID = connections.first { $0.proto == .ftp }?.id }
+            if raw == "fichiers" { selectedID = connections.first { $0.proto == .sftp }?.id }
+            if raw == "fichiers-ftp" { selectedID = connections.first { $0.proto == .ftp }?.id }
+            if raw == "modifier-sftp" {
+                selectedID = connections.first { $0.proto == .sftp }?.id
+                startEditing()
+            }
         }
+    }
+
+    /// Note 50 : connexion de fichiers mise à jour depuis le navigateur (utilisateur saisi,
+    /// certificat accepté, dossier du Mac) ; ajoutée au carnet si elle n'y est pas encore.
+    func updateTransferConnection(_ connection: RemoteConnection) {
+        if let index = connections.firstIndex(where: { $0.id == connection.id }) {
+            connections[index].username = connection.username
+            connections[index].transfer = connection.transfer
+        } else if (try? connection.validated()) != nil {
+            connections.append(connection)
+        }
+        save()
+    }
+
+    /// Note 50 : ouvre (ou crée dans le carnet) la connexion de fichiers d'un appareil, puis le
+    /// navigateur dans Accès distant.
+    func openFileTransfer(host: String, name: String, proto: RemoteProtocol, port: Int? = nil, state: AppState) {
+        let existing = connections.first { $0.host == host && $0.proto == proto && (port == nil || $0.port == port) }
+        var connection = existing ?? RemoteConnection(name: "\(name) · \(proto.label)", proto: proto, host: host, port: port,
+                                                      folder: SiteModel.shared.activeSite?.displayName ?? RemoteImport.folder)
+        if existing == nil {
+            if proto == .ftps, port == nil || port == 990 { connection.transfer.tlsMode = .implicit }
+            guard (try? connection.validated()) != nil else { return }
+            connections.append(connection)
+            save()
+            toast = "Connexion « \(connection.name) » ajoutée au carnet."
+        }
+        selectedID = connection.id
+        draft = nil
+        state.open(.acces)
+        connect(connection)
     }
 
     /// Panneau de détails visible, selon la taille de la fenêtre.
@@ -223,7 +282,7 @@ final class RemoteModel: ObservableObject {
     func startNew(proto: RemoteProtocol = .ssh) {
         var draft = RemoteDraft()
         draft.switchProtocol(to: proto)
-        draft.port = String(proto.defaultPort)
+        draft.port = String(draft.defaultPort)
         draft.folder = selected?.folder ?? ""
         if proto == .serie { draft.host = serialPorts.first ?? "" }
         self.draft = draft
@@ -248,6 +307,10 @@ final class RemoteModel: ObservableObject {
         let existing = draft.editingID.flatMap { id in connections.first { $0.id == id } }
         do {
             let connection = try draft.connection(existing: existing)
+            // Note 50 : mot de passe FTP, FTPS ou SFTP au Trousseau seulement.
+            if connection.proto.isFileTransfer, let password = draft.password {
+                try FileTransferStore.shared.setPassword(password, for: connection.id)
+            }
             if let index = connections.firstIndex(where: { $0.id == connection.id }) {
                 connections[index] = connection
                 toast = "Connexion « \(connection.name) » enregistrée."
@@ -276,6 +339,10 @@ final class RemoteModel: ObservableObject {
     }
 
     func delete(_ connection: RemoteConnection) {
+        if connection.proto.isFileTransfer {
+            if FileTransferStore.shared.session?.connection.id == connection.id { FileTransferStore.shared.close() }
+            try? FileTransferStore.shared.setPassword("", for: connection.id)
+        }
         connections.removeAll { $0.id == connection.id }
         reachability[connection.id] = nil
         if selectedID == connection.id { selectedID = connections.first?.id }
@@ -375,6 +442,17 @@ final class RemoteModel: ObservableObject {
             QuickLoginModel.shared.ask(QuickLoginTarget(connection: connection))
             return
         }
+        // Note 50 : FTP, FTPS et SFTP s'ouvrent dans le navigateur de fichiers de NetScope.
+        if connection.proto.isFileTransfer {
+            selectedID = connection.id
+            draft = nil
+            if let index = connections.firstIndex(where: { $0.id == connection.id }) {
+                connections[index].lastConnected = Date()
+                save()
+            }
+            FileTransferStore.shared.open(connections.first { $0.id == connection.id } ?? connection)
+            return
+        }
         var target = connection
         if let mode { target.display = connection.display.with(mode: mode) }
         do {
@@ -468,6 +546,9 @@ enum RemoteExecutor {
         case .url(let url):
             guard workspace.urlForApplication(toOpen: url) != nil else { throw Failure.noApplication(url.scheme.map { "les adresses \($0)://" } ?? "cette adresse") }
             workspace.open(url)
+        case .fileBrowser:
+            // Ouvert dans NetScope par RemoteModel.connect (jamais d'application externe).
+            break
         }
     }
 }

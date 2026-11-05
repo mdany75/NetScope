@@ -23,7 +23,7 @@ public struct QuickLoginAddress: Equatable, Sendable {
     /// séparé au DERNIER « @ » (« admin@corp@10.0.0.2 » : utilisateur « admin@corp »), comme ssh.
     public static func parse(_ text: String) throws -> QuickLoginAddress {
         var rest = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        for scheme in ["ssh://", "telnet://", "vnc://", "rdp://"] where rest.lowercased().hasPrefix(scheme) {
+        for scheme in ["ssh://", "telnet://", "vnc://", "rdp://", "sftp://", "ftps://", "ftpes://", "ftp://"] where rest.lowercased().hasPrefix(scheme) {
             rest = String(rest.dropFirst(scheme.count))
         }
         if rest.hasSuffix("/") { rest.removeLast() }
@@ -219,8 +219,8 @@ public enum QuickLogin {
             return .terminal(command: sshCommand(user: c.user, host: c.host, port: c.port, auth: c.auth, keyPath: c.keyPath, home: home))
         case .telnet, .rdp, .vnc:
             return try RemoteLauncher.plan(for: connection(for: c, name: name), telnetPath: telnetPath)
-        case .serie:
-            throw QuickLoginError.unsupportedProtocol(.serie)
+        case .serie, .ftp, .ftps, .sftp:
+            throw QuickLoginError.unsupportedProtocol(c.proto)
         }
     }
 }

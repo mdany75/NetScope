@@ -11,6 +11,9 @@ extension RemoteProtocol {
         case .rdp: return Color(light: 0x4338CA, dark: 0xA49EE5)
         case .vnc: return Color(light: 0x374151, dark: 0xB6BFCE)
         case .serie: return Color(light: 0x15803D, dark: 0x96EEB7)
+        case .ftp: return Color(light: 0xA16207, dark: 0xF5CE6B)
+        case .ftps: return Color(light: 0x0F766E, dark: 0x7FD8CC)
+        case .sftp: return Color(light: 0x0369A1, dark: 0x8CCBF0)
         }
     }
 
@@ -21,6 +24,9 @@ extension RemoteProtocol {
         case .rdp: return Color(light: 0xEEF2FF, dark: 0x1B2750)
         case .vnc: return Color(light: 0xF3F4F6, dark: 0x2E333D)
         case .serie: return Color(light: 0xDCFCE7, dark: 0x1B502D)
+        case .ftp: return Color(light: 0xFEF9C3, dark: 0x4A3F14)
+        case .ftps: return Color(light: 0xCCFBF1, dark: 0x163F3A)
+        case .sftp: return Color(light: 0xE0F2FE, dark: 0x16354A)
         }
     }
 
@@ -31,6 +37,9 @@ extension RemoteProtocol {
         case .rdp: return "display"
         case .vnc: return "rectangle.on.rectangle"
         case .serie: return "cable.connector"
+        case .ftp: return "folder"
+        case .ftps: return "lock.doc"
+        case .sftp: return "folder.badge.gearshape"
         }
     }
 }

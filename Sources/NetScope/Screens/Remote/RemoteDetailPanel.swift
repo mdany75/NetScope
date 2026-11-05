@@ -57,6 +57,11 @@ struct RemoteDetailPanel: View {
                     if connection.proto == .rdp || connection.proto == .vnc {
                         KeyValueRow(key: "Affichage", value: connection.display.summary(for: connection.proto), keyWidth: 92)
                     }
+                    if connection.proto.isFileTransfer {
+                        KeyValueRow(key: "Mode", value: connection.fileTransferModeLabel, keyWidth: 92)
+                        KeyValueRow(key: "Dossier", value: connection.transfer.remoteDirectory.isEmpty ? "Accueil" : connection.transfer.remoteDirectory,
+                                    mono: !connection.transfer.remoteDirectory.isEmpty, keyWidth: 92)
+                    }
                     KeyValueRow(key: "Dernière", value: RemoteFormat.relative(connection.lastConnected), keyWidth: 92)
                 }
             }
@@ -67,15 +72,27 @@ struct RemoteDetailPanel: View {
         Panel {
             VStack(alignment: .leading, spacing: 8) {
                 SectionHeader(title: "Authentification") {
-                    Chip(text: "Bientôt", tone: .neutral)
+                    Chip(text: securityChip.text, tone: securityChip.tone)
                 }
                 Text(authText).font(Theme.small).foregroundStyle(Theme.neutralText)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("Clés, Trousseau, hôte de rebond, tunnels et vérification d’empreinte dans NetScope : prochaine version.")
+                Text(securityFootnote)
                     .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private var securityChip: (text: String, tone: Tone) {
+        guard connection.proto.isFileTransfer else { return ("Bientôt", .neutral) }
+        return connection.proto == .ftp ? ("Non chiffré", .warning) : ("Chiffré", .success)
+    }
+
+    private var securityFootnote: String {
+        if connection.proto.isFileTransfer {
+            return "Mots de passe au Trousseau macOS (service com.danymenard.netscope.ftp), jamais dans le carnet."
+        }
+        return "Clés, Trousseau, hôte de rebond, tunnels et vérification d’empreinte dans NetScope\u{00A0}: prochaine version."
     }
 
     private var authText: String {
@@ -84,6 +101,20 @@ struct RemoteDetailPanel: View {
         case .telnet: return "Identifiant et mot de passe demandés par l’appareil, en clair."
         case .rdp: return "Identifiants demandés par Windows App à l’ouverture (NLA)."
         case .vnc: return "Mot de passe demandé par Partage d’écran (compte macOS ou mot de passe VNC)."
+        case .ftp, .ftps:
+            let password = FileTransferStore.shared.hasPassword(connection.id) ? "mot de passe au Trousseau" : "mot de passe demandé à la connexion"
+            if connection.username.isEmpty { return "Anonyme (utilisateur « anonymous »)." }
+            return connection.proto == .ftp
+                ? "Utilisateur et \(password), envoyés EN CLAIR sur le réseau."
+                : "Utilisateur et \(password), chiffrés par TLS (\(connection.transfer.tlsMode.label.lowercased()))\u{00A0}; certificat vérifié par macOS ou par son empreinte."
+        case .sftp:
+            switch connection.transfer.sftpAuth {
+            case .password:
+                return "Mot de passe " + (FileTransferStore.shared.hasPassword(connection.id) ? "au Trousseau" : "demandé à la connexion")
+                    + "\u{00A0}; clé du serveur comparée à ~/.ssh/known_hosts."
+            case .key: return "Clé \(connection.transfer.keyPath)\u{00A0}; clé du serveur comparée à ~/.ssh/known_hosts."
+            case .agent: return "Clés de ~/.ssh et agent SSH, comme dans Terminal\u{00A0}; clé du serveur comparée à ~/.ssh/known_hosts."
+            }
         case .serie: return "Aucune : accès physique par le port console."
         }
     }
@@ -115,10 +146,10 @@ struct RemoteDetailPanel: View {
                     .buttonStyle(GhostButtonStyle(color: Theme.critical))
                 }
                 VStack(alignment: .leading, spacing: 6) {
-                    SpeedFieldLabel("Ouvrir dans l’app externe")
+                    SpeedFieldLabel(connection.proto.isFileTransfer ? "Ouvrir dans NetScope" : "Ouvrir dans l’app externe")
                     switch plan {
                     case .success(let plan):
-                        Text(plan.appName).font(.system(size: 12, weight: .semibold))
+                        Text(connection.proto.isFileTransfer ? "Navigateur de fichiers (Ce Mac ↔ serveur)" : plan.appName).font(.system(size: 12, weight: .semibold))
                         Text(plan.preview)
                             .font(Theme.mono(11))
                             .foregroundStyle(Theme.neutralText)

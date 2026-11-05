@@ -28,6 +28,14 @@ enum RemoteDemo {
                              display: RemoteDisplaySettings(mode: .window, vncScale: .fit)),
             RemoteConnection(name: "USB-série", proto: .serie, host: "/dev/cu.usbserial-A10K", port: 9600,
                              folder: "Console", note: "Adaptateur FTDI FT232R → câble console RJ45", lastConnected: ago(0.3)),
+            // Note 50 : transferts de fichiers (navigateur intégré, DevTools/FileTransferDemo.swift).
+            RemoteConnection(name: "NAS-SYNO · sauvegardes", proto: .sftp, host: "10.10.0.20", username: "admin-nas",
+                             folder: "Siège › Serveurs", isFavorite: true, note: "Synology DS920+ · sauvegardes et firmwares",
+                             lastConnected: ago(0.15),
+                             transfer: FileTransferSettings(sftpAuth: .password, remoteDirectory: "/volume1/sauvegardes")),
+            RemoteConnection(name: "SW-ETG2-01 · FTP", proto: .ftp, host: "10.182.122.3", username: "manager",
+                             folder: "Siège › Réseau", note: "Aruba 2930F · images et configuration", lastConnected: ago(30),
+                             transfer: FileTransferSettings(dataMode: .passive)),
         ]
     }()
 

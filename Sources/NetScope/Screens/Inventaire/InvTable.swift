@@ -512,6 +512,11 @@ struct InvTable: View {
                                                                                      siteID: SiteModel.shared.list.activeID)))
             }
             .disabled(!isActive(row))
+            // Note 50 : ports du dernier relevé de cet appareil ; autre site : grisé (autre réseau).
+            FileTransferOpenMenu(host: record.ip.description, name: record.displayName,
+                                 openPorts: isActive(row) ? record.openPorts : [],
+                                 deviceID: state.device(withID: record.ip.description)?.id)
+                .disabled(!isActive(row))
         } else {
             Text("\(chosen.count) appareils sélectionnés")
             Button("Copier les IP") {

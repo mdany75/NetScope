@@ -7,6 +7,7 @@ struct RemoteSessionArea: View {
     @ObservedObject var model: RemoteModel
     /// telnet installé depuis l’encadré : la commande affichée (telnet ou nc) se met à jour.
     @ObservedObject private var telnet = ToolInstallMonitor.shared(.telnet)
+    @ObservedObject private var files = FileTransferStore.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -14,7 +15,7 @@ struct RemoteSessionArea: View {
                 Image(systemName: "rectangle.stack").font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
                 Text(model.draft == nil ? "Sessions" : (model.draft?.editingID == nil ? "Nouvelle connexion" : "Modifier la connexion"))
                     .font(.system(size: 12, weight: .semibold))
-                Text("SSH · Telnet · Console série · RDP · VNC").font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                Text("SSH · Telnet · Console série · RDP · VNC · FTP · SFTP").font(Theme.caption).foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
                 Spacer()
             }
@@ -54,7 +55,12 @@ struct RemoteSessionArea: View {
                 }
                 .frame(height: 220)
             }
+            // Note 50 : session de fichiers ouverte pour une autre connexion (transferts en arrière-plan).
+            if let session = files.session, session.connection.id != model.selected?.id {
+                FileTransferBackgroundBanner(session: session, model: model)
+            }
             soonBox
+            FTPServerCard()
 
             SectionHeader("Ouvrir une connexion enregistrée").padding(.top, 6)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 8)], alignment: .leading, spacing: 8) {
@@ -109,8 +115,19 @@ struct RemoteSessionArea: View {
                                     isEnabled: (try? plan.get()) != nil)
             }
             terminalPreview(connection, plan: plan)
-            if connection.proto.isInsecure {
+            if connection.proto == .telnet {
                 SpeedBanner(text: "Telnet n’est pas chiffré : le mot de passe circule en clair. Utilisez SSH si l’appareil le permet.")
+            }
+            if connection.proto == .ftp {
+                SpeedBanner(text: FileTransferTexts.ftpWarning)
+            }
+            if connection.proto.isFileTransfer, files.session?.connection.id == connection.id, files.session?.isVisible == false {
+                Button {
+                    files.session?.isVisible = true
+                } label: {
+                    Label("Revenir au navigateur de fichiers", systemImage: "folder")
+                }
+                .buttonStyle(.secondary)
             }
             if connection.proto == .telnet {
                 // telnet n'est plus livré avec macOS : bouton « Installer » (Homebrew), nc en attendant.
@@ -149,6 +166,13 @@ struct RemoteSessionArea: View {
                 Text("Partage d’écran demande le mot de passe du compte distant.").foregroundStyle(Theme.consoleMuted)
                 Text("Affichage\u{00A0}: \(connection.display.summary(for: .vnc).lowercased())"
                      + (connection.display.mode == .fullScreen ? " (après l’identification, avec l’autorisation Accessibilité)" : ""))
+                    .foregroundStyle(Theme.consoleMuted)
+            case .success(.fileBrowser(let address)):
+                Text("NetScope › ").foregroundColor(Color(hex: 0x4ADE80)) + Text(address)
+                Text("Navigateur de fichiers intégré\u{00A0}: Ce Mac ↔ serveur, glisser-déposer, file des transferts avec reprise.")
+                    .foregroundStyle(Theme.consoleMuted)
+                Text("Mode\u{00A0}: \(connection.fileTransferModeLabel.lowercased())"
+                     + (connection.transfer.remoteDirectory.isEmpty ? "" : " · dossier \(connection.transfer.remoteDirectory)"))
                     .foregroundStyle(Theme.consoleMuted)
             case .failure(let error):
                 Text((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
@@ -213,7 +237,7 @@ struct RemoteForm: View {
                             let on = proto == option
                             Button {
                                 draft.wrappedValue.switchProtocol(to: option)
-                                draft.wrappedValue.port = String(option.defaultPort)
+                                draft.wrappedValue.port = String(draft.wrappedValue.defaultPort)
                                 if option == .serie, !draft.wrappedValue.host.hasPrefix("/dev/") {
                                     draft.wrappedValue.host = model.serialPorts.first ?? ""
                                 } else if option != .serie, draft.wrappedValue.host.hasPrefix("/dev/") {
@@ -222,8 +246,10 @@ struct RemoteForm: View {
                             } label: {
                                 Text(option.label)
                                     .font(.system(size: 12, weight: .medium))
+                                    .lineLimit(1)
+                                    .fixedSize()
                                     .foregroundStyle(on ? Theme.accentStrong : Theme.neutralText)
-                                    .padding(.horizontal, 12)
+                                    .padding(.horizontal, 9)
                                     .frame(height: 26)
                                     .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(on ? Theme.panel : .clear))
                                     .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(on ? Theme.accent : .clear))
@@ -258,7 +284,7 @@ struct RemoteForm: View {
                             .labelsHidden()
                             .frame(height: 32)
                         } else {
-                            RemoteInput(placeholder: String(proto.defaultPort), text: draft.port)
+                            RemoteInput(placeholder: String(draft.wrappedValue.defaultPort), text: draft.port)
                         }
                     }
                     .frame(width: 120)
@@ -295,8 +321,11 @@ struct RemoteForm: View {
                     RemoteDisplayForm(draft: draft)
                 }
                 Toggle("Favori", isOn: draft.isFavorite).toggleStyle(.checkbox).font(Theme.small)
-                if proto.isInsecure {
+                if proto == .telnet {
                     SpeedBanner(text: "Telnet n’est pas chiffré. Utilisez SSH si l’appareil le permet.")
+                }
+                if proto.isFileTransfer {
+                    FileTransferFormSection(draft: draft)
                 }
                 if let error = model.draftError {
                     SpeedBanner(text: error, tone: .critical, systemImage: "xmark.octagon")
@@ -327,6 +356,9 @@ struct RemoteForm: View {
             helpLine("Telnet", "Terminal ; client Homebrew (brew install telnet), sinon nc.")
             helpLine("RDP", "Windows App, en fenêtre ou en plein écran (fichier .rdp) ; identifiants demandés à l’ouverture.")
             helpLine("VNC", "Partage d’écran de macOS (vnc://)\u{00A0}; plein écran par l’accessibilité.")
+            helpLine("FTP", "Navigateur de fichiers de NetScope (Ce Mac ↔ serveur)\u{00A0}; non chiffré, à réserver au réseau local.")
+            helpLine("FTPS", "Même navigateur, chiffré par TLS (explicite sur 21, implicite sur 990).")
+            helpLine("SFTP", "Même navigateur, par SSH (/usr/bin/sftp)\u{00A0}; clés et known_hosts de ~/.ssh.")
             helpLine("Série", "screen dans Terminal ; quitter avec Ctrl-A puis K.")
             Text("Hôte : lettres, chiffres, point, tiret et deux-points seulement.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
