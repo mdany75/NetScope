@@ -63,10 +63,13 @@ struct PingScreen: View {
                 Text(controller.isPaused || isAllPaused ? "En pause" : controller.targets.isEmpty ? "Aucune cible" : "En direct")
                     .font(Theme.bodySemibold)
                     .foregroundStyle(Theme.text)
-                Text(sessionInfo(now: context.date))
-                    .font(Theme.small)
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
+                let info = sessionInfo(now: context.date)
+                if !info.isEmpty {
+                    Text(info)
+                        .font(Theme.small)
+                        .foregroundStyle(Theme.textSecondary)
+                        .lineLimit(1)
+                }
             }
             // Marge avant « Exporter CSV » : le texte d'état ne colle pas au bouton.
             .padding(.trailing, 10)
@@ -85,7 +88,8 @@ struct PingScreen: View {
     }
 
     private func sessionInfo(now: Date) -> String {
-        guard !controller.targets.isEmpty else { return "Aucune cible" }
+        // Sans cible, l'état dit déjà « Aucune cible » : pas de doublon à côté.
+        guard !controller.targets.isEmpty else { return "" }
         let elapsed = max(0, Int(now.timeIntervalSince(controller.sessionStart)))
         let clock = String(format: "%02d:%02d:%02d", elapsed / 3600, elapsed / 60 % 60, elapsed % 60)
         let count = controller.targets.count

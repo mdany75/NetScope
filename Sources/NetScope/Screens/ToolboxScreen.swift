@@ -223,7 +223,7 @@ private struct ToolMainPanel: View {
                 titleBlock(tool)
                     .frame(minWidth: 240, idealWidth: 280, maxWidth: .infinity, alignment: .leading)
                 Spacer(minLength: 8)
-                commandRow(command).frame(maxWidth: 320, alignment: .trailing)
+                commandRow(command).frame(maxWidth: 360, alignment: .trailing)
             }
             VStack(alignment: .leading, spacing: 10) {
                 titleBlock(tool)

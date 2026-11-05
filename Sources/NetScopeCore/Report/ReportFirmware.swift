@@ -112,7 +112,7 @@ extension ReportBuilder {
             }
             var columns = [ReportColumn("Équipement", weight: 1.6)]
             if multi { columns.append(ReportColumn("Site", weight: 1.0)) }
-            columns += [ReportColumn("Modèle", weight: 1.3), ReportColumn("N° de série", weight: 1.6),
+            columns += [ReportColumn("Modèle", weight: 1.3), ReportColumn("N° de série", weight: 1.6, mono: true),
                         ReportColumn("Version", weight: 0.8, mono: true), ReportColumn("Disponible", weight: 0.9, mono: true),
                         ReportColumn("État", weight: 1.2)]
             blocks.append(.table(ReportTable(columns: columns, rows: rows, wraps: true)))
