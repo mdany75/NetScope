@@ -127,16 +127,20 @@ func registerHardwareDetectTests(_ suite: TestSuite) {
         try expectEqual(printer.serial, "VNB3R12345", "numéro de l'imprimante")
         try expect(SNMPHardwareInfo.combine(descr: "Linux web01 5.15.0", entity: nil) == nil, "rien d'utile : aucune fiche")
 
-        // Lecture v3 (GET aux index devinés) : réponse fixe analysée.
-        try expectEqual(SNMPHardwareReader.v3OIDs.count, 2 + 3 * 7, "sysDescr, sysObjectID et sept colonnes par index")
-        let v3 = try SNMPHardwareReader.hardware(fromGet: [
+        // Lecture par un vrai parcours (v2c ou v3, note 59) : le châssis est trouvé à l'index 5001, que
+        // les anciens index devinés (1, 1000, 1001) auraient manqué.
+        let agent = SNMPTableAgent([
             SNMPVarBind(oid: SNMPOIDs.sysDescr, value: text("FortiGate-60F")),
             SNMPVarBind(oid: SNMPOIDs.sysObjectID, value: .oid("1.3.6.1.4.1.12356.101.1.1004")),
-            entity(SNMPEntityOIDs.physicalClass, 1, .integer(3)),
-            entity(SNMPEntityOIDs.serialNum, 1, text("FGT60FTK2209A1B2")),
-            entity(SNMPEntityOIDs.softwareRev, 1, text("v7.2.8,build1639,240313 (GA.M)")),
-            SNMPVarBind(oid: SNMPEntityOIDs.cell(SNMPEntityOIDs.physicalClass, index: 1000), value: .noSuchInstance),
-        ]).unwrap("fiche v3")
+            entity(SNMPEntityOIDs.physicalClass, 4001, .integer(10)),
+            entity(SNMPEntityOIDs.physicalClass, 5001, .integer(3)),
+            entity(SNMPEntityOIDs.serialNum, 5001, text("FGT60FTK2209A1B2")),
+            entity(SNMPEntityOIDs.softwareRev, 5001, text("v7.2.8,build1639,240313 (GA.M)")),
+            entity(SNMPEntityOIDs.serialNum, 4001, text("PS-0001")),
+        ], maxBindsPerResponse: 12)
+        let walked = try await SNMPHardwareReader.entity { agent.answer($0) }.unwrap("entité parcourue")
+        try expectEqual(walked.index, 5001, "châssis trouvé par le parcours")
+        let v3 = try SNMPHardwareInfo.combine(descr: "FortiGate-60F", objectID: "1.3.6.1.4.1.12356.101.1.1004", entity: walked).unwrap("fiche")
         try expectEqual(v3.model, "FortiGate-60F", "modèle de sysDescr")
         try expectEqual(v3.serial, "FGT60FTK2209A1B2", "numéro ENTITY-MIB")
         try expectEqual(v3.vendor, "Fortinet", "marque")

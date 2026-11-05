@@ -6,6 +6,9 @@ public struct MonRunContext: Sendable {
     public var pinger: ScanPinging?
     /// Communauté SNMP v2c (Réglages › Identifiants), jamais « public » par défaut.
     public var snmpCommunity: String?
+    /// Identifiant SNMP v3 de chaque agent (note 59 : celui du site, sinon celui des Identifiants) ;
+    /// prioritaire sur la communauté, qui reste le repli.
+    public var snmpV3: SNMPv3Lookup?
     /// Appareils connus (inventaire du Scanner), pour le port de switch et les nouveaux appareils.
     public var devices: [Device]
     /// Faux pendant un scan : l'inventaire est vidé puis rempli peu à peu, il ne dit rien de fiable.
@@ -52,6 +55,16 @@ public struct MonRunContext: Sendable {
         self.inventoryReady = inventoryReady
         self.now = now
     }
+
+    /// Cible SNMP d'un agent avec ses identifiants (v3 du site d'abord, communauté en repli) ;
+    /// nil s'il n'y en a aucun.
+    public func snmpTarget(_ address: IPv4Address, timeout: TimeInterval = 2, retries: Int = 1) -> SNMPTarget? {
+        let target = SNMPTarget(host: address, community: snmpCommunity ?? "", v3: snmpV3?(address), timeout: timeout, retries: retries)
+        return target.hasCredentials ? target : nil
+    }
+
+    /// Message des sondes SNMP sans aucun identifiant.
+    public static let missingSNMPCredentials = "aucun identifiant SNMP (communauté ou utilisateur v3, Réglages › Identifiants)"
 }
 
 /// Résultat d'une exécution, avec ce que la sonde a appris (emplacement, MAC connues).
@@ -268,8 +281,8 @@ public enum MonRunner {
     // MARK: SNMP
 
     static func snmp(_ probe: MonProbe, host: String, context: MonRunContext) async -> MonResult {
-        guard let community = context.snmpCommunity, !community.isEmpty else {
-            return .failure(context.now, error: "aucune communauté SNMP (Réglages › Identifiants)")
+        guard !(context.snmpCommunity ?? "").isEmpty || context.snmpV3 != nil else {
+            return .failure(context.now, error: MonRunContext.missingSNMPCredentials)
         }
         guard let text = probe.snmpOID, let oid = SNMPOID(text.trimmingCharacters(in: CharacterSet(charactersIn: ". "))) else {
             return .failure(context.now, error: "OID à compléter")
@@ -277,7 +290,10 @@ public enum MonRunner {
         guard let address = try? await PingResolver.resolveAsync(host) else {
             return .failure(context.now, error: "Nom introuvable\u{00A0}: \(host)")
         }
-        let client = SNMPClient(target: SNMPTarget(host: address, community: community, timeout: 2, retries: 1))
+        guard let target = context.snmpTarget(address) else {
+            return .failure(context.now, error: MonRunContext.missingSNMPCredentials)
+        }
+        let client = SNMPClient(target: target)
         do {
             let binds = try await client.get([oid])
             guard let value = binds.first?.value, !value.isException else {

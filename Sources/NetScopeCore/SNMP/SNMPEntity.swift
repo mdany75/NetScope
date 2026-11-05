@@ -160,22 +160,28 @@ public struct SNMPHardwareInfo: Codable, Hashable, Sendable {
     }
 }
 
-/// Lecture de la fiche matériel d'un agent (v2c : parcours de la classe puis GET ; v3 : GET seul).
+/// Lecture de la fiche matériel d'un agent, en v2c comme en v3 : parcours de la colonne
+/// entPhysicalClass (les vrais index de l'agent, sans rien deviner), puis GET des colonnes utiles du
+/// châssis et du premier module.
 public enum SNMPHardwareReader {
-    /// Index souvent pris par le châssis quand on ne peut pas parcourir la table (SNMP v3 ici) :
-    /// 1 (la plupart), 1000 et 1001 (piles Cisco, premier membre).
-    public static let guessedIndexes = [1, 1000, 1001]
-
-    /// Entité principale par SNMP v2c ; nil si l'agent n'a pas ENTITY-MIB. Annulation propagée,
-    /// toute autre erreur donne nil (table facultative).
+    /// Entité principale ; nil si l'agent n'a pas ENTITY-MIB. Annulation propagée, toute autre
+    /// erreur donne nil (table facultative).
     public static func entity(client: SNMPClient) async throws -> SNMPEntityRow? {
+        try await entity { pdu in try await client.request(pdu, checkStatus: false) }
+    }
+
+    /// Même lecture avec une requête fournie (client UDP, agent en mémoire des tests).
+    public static func entity(fetch: (SNMPPDU) async throws -> SNMPPDU) async throws -> SNMPEntityRow? {
         do {
-            let classes = try await client.walk(SNMPEntityOIDs.column(SNMPEntityOIDs.physicalClass), maxRepetitions: 20, limit: 600)
+            let classes = try await SNMPWalker.walk(SNMPEntityOIDs.column(SNMPEntityOIDs.physicalClass),
+                                                    mode: .bulk(maxRepetitions: 20), limit: 600, fetch: fetch).binds
             let indexes = SNMPEntity.candidateIndexes(classes: classes)
             guard !indexes.isEmpty else { return nil }
             let oids = indexes.flatMap { index in SNMPEntityOIDs.detailColumns.map { SNMPEntityOIDs.cell($0, index: index) } }
-            let binds = try await client.get(oids)
-            return SNMPEntity.principal(SNMPEntity.rows(classes + binds))
+            let response = try await fetch(SNMPPDU(type: .getRequest, requestID: SNMPClient.newRequestID(),
+                                                   varbinds: oids.map { SNMPVarBind(oid: $0) }))
+            guard response.errorStatus == 0 else { return nil }
+            return SNMPEntity.principal(SNMPEntity.rows(classes + response.varbinds))
         } catch is CancellationError {
             throw CancellationError()
         } catch {
@@ -183,7 +189,7 @@ public enum SNMPHardwareReader {
         }
     }
 
-    /// Fiche complète par SNMP v2c ; `system` déjà lu (relevé d'un switch) évite une requête.
+    /// Fiche complète ; `system` déjà lu (relevé d'un switch) évite une requête.
     public static func read(client: SNMPClient, system: SNMPSystemInfo? = nil) async throws -> SNMPHardwareInfo? {
         let info: SNMPSystemInfo
         if let system {
@@ -195,23 +201,9 @@ public enum SNMPHardwareReader {
         return SNMPHardwareInfo.combine(descr: info.descr, objectID: info.objectID, entity: entity)
     }
 
-    /// Requête GET de la lecture v3 : sysDescr, sysObjectID, puis les colonnes utiles des index devinés.
-    public static var v3OIDs: [SNMPOID] {
-        [SNMPOIDs.sysDescr, SNMPOIDs.sysObjectID] + guessedIndexes.flatMap { index in
-            ([SNMPEntityOIDs.physicalClass] + SNMPEntityOIDs.detailColumns).map { SNMPEntityOIDs.cell($0, index: index) }
-        }
-    }
-
-    /// Analyse la réponse à `v3OIDs` (sans réseau).
-    public static func hardware(fromGet binds: [SNMPVarBind]) -> SNMPHardwareInfo? {
-        func value(_ oid: SNMPOID) -> SNMPValue? { binds.first { $0.oid == oid && !$0.value.isException }?.value }
-        let descr = value(SNMPOIDs.sysDescr)?.stringValue ?? ""
-        let objectID = value(SNMPOIDs.sysObjectID)?.stringValue
-        return SNMPHardwareInfo.combine(descr: descr, objectID: objectID, entity: SNMPEntity.principal(SNMPEntity.rows(binds)))
-    }
-
-    /// Fiche complète par SNMP v3 (GET seulement : le client v3 ne parcourt pas les tables).
+    /// Fiche complète par SNMP v3 seulement (même parcours qu'en v2c).
     public static func read(v3 client: SNMPv3Client) async throws -> SNMPHardwareInfo? {
-        hardware(fromGet: try await client.get(v3OIDs))
+        try client.credentials.validate()
+        return try await read(client: client.client)
     }
 }

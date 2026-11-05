@@ -127,7 +127,7 @@ public enum SNMPCredentialTest {
                     return (.communityRejected, "Échec · accès refusé : la communauté (ou l’utilisateur) n’a pas le droit de lire le groupe system.")
                 }
                 return (.other(error.localizedDescription), "Échec · \(error.localizedDescription)")
-            case .socket, .unexpectedResponse, .v3NotSupported:
+            case .socket, .unexpectedResponse:
                 return (.other(error.localizedDescription), "Échec · \(error.localizedDescription)")
             }
         }

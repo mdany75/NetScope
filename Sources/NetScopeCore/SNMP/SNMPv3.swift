@@ -19,7 +19,7 @@ public enum SNMPv3Level: String, CaseIterable, Codable, Sendable {
 }
 
 /// Identifiant SNMP v3 complet (les mots de passe viennent du Trousseau, jamais d'un fichier).
-public struct SNMPv3Credentials: Sendable, Equatable {
+public struct SNMPv3Credentials: Sendable, Hashable {
     public var user: String
     public var level: SNMPv3Level
     public var auth: SNMPAuthProtocol
@@ -301,83 +301,204 @@ public enum SNMPv3Error: Error, Equatable, LocalizedError {
     }
 }
 
-/// Client SNMP v3 (une socket par requête, comme le client v2c).
-public final class SNMPv3Client: Sendable {
-    public let host: IPv4Address
-    public let port: UInt16
-    public let credentials: SNMPv3Credentials
-    public let timeout: TimeInterval
-    public let retries: Int
 
-    public init(host: IPv4Address, port: UInt16 = 161, credentials: SNMPv3Credentials, timeout: TimeInterval = 2, retries: Int = 1) {
-        self.host = host
-        self.port = port
-        self.credentials = credentials
-        self.timeout = timeout
-        self.retries = retries
+extension SNMPv3Credentials {
+    /// Vérifie l'identifiant avant tout envoi (utilisateur, mots de passe de 8 caractères au moins).
+    public func validate() throws {
+        guard !user.isEmpty else { throw SNMPv3Error.missingUser }
+        if level != .noAuthNoPriv, authPassword.utf8.count < 8 { throw SNMPv3Error.shortPassword("d’authentification") }
+        if level == .authPriv, privPassword.utf8.count < 8 { throw SNMPv3Error.shortPassword("de confidentialité") }
     }
 
-    /// Lit les objets demandés (GetRequest) : découverte du moteur, puis requête sécurisée.
-    public func get(_ oids: [SNMPOID]) async throws -> [SNMPVarBind] {
-        let credentials = self.credentials
-        guard !credentials.user.isEmpty else { throw SNMPv3Error.missingUser }
-        if credentials.level != .noAuthNoPriv, credentials.authPassword.utf8.count < 8 { throw SNMPv3Error.shortPassword("d’authentification") }
-        if credentials.level == .authPriv, credentials.privPassword.utf8.count < 8 { throw SNMPv3Error.shortPassword("de confidentialité") }
-        let target = SNMPTarget(host: host, port: port, community: "v3", timeout: timeout, retries: retries)
-        return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                continuation.resume(with: Result { try SNMPv3Client.run(oids, credentials: credentials, target: target) })
-            }
+    /// « netscope-ro · authPriv · SHA-256/AES-128 » (sans aucun secret).
+    public var summary: String {
+        var parts = [user.isEmpty ? "utilisateur à saisir" : user, level.rawValue]
+        switch level {
+        case .noAuthNoPriv: break
+        case .authNoPriv: parts.append(auth.rawValue)
+        case .authPriv: parts.append("\(auth.rawValue)/\(priv.rawValue)")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    /// Options équivalentes de net-snmp (« -v3 -l authPriv -u … -a SHA-256 -x AES »), sans les mots de passe.
+    public var netSNMPOptions: String {
+        var parts = ["-v3", "-l \(level.rawValue)", "-u \(user.isEmpty ? "<utilisateur>" : user)"]
+        if level != .noAuthNoPriv { parts.append("-a \(auth.rawValue)") }
+        if level == .authPriv { parts.append("-x \(priv == .aes128 ? "AES" : priv.rawValue)") }
+        if !context.isEmpty { parts.append("-n \(context)") }
+        return parts.joined(separator: " ")
+    }
+}
+
+// MARK: - Session v3 (moteur de l'agent et clés en cache)
+
+/// Requêtes SNMP v3 de toute nature (GET, GETNEXT, GETBULK) : découverte du moteur de l'agent
+/// (engineID, boots, time) gardée en cache par agent, clés localisées gardées en cache par moteur
+/// (le calcul sur 1 Mo de la RFC 3414 n'est fait qu'une fois), resynchronisation de l'horloge
+/// (notInTimeWindow) et nouvelle découverte après un redémarrage de l'agent (unknownEngineID).
+public enum SNMPv3Session {
+    /// Moteur connu d'un agent : identifiant, démarrages et heure à l'instant `at`.
+    struct Engine {
+        var id: [UInt8]
+        var boots: Int32
+        var time: Int32
+        var at: Date
+
+        /// Heure du moteur estimée maintenant (RFC 3414 2.3 : fenêtre de 150 s).
+        func estimatedTime(now: Date = Date()) -> Int32 {
+            let elapsed = max(0, now.timeIntervalSince(at))
+            return Int32(clamping: Int64(time) + Int64(elapsed.rounded(.down)))
         }
     }
 
-    static func run(_ oids: [SNMPOID], credentials: SNMPv3Credentials, target: SNMPTarget) throws -> [SNMPVarBind] {
-        // 1. Découverte : requête vide non authentifiée → rapport unknownEngineID avec engineID, boots, time.
-        let discoveryID = Int32.random(in: 1...Int32.max)
+    private final class Cache: @unchecked Sendable {
+        let lock = NSLock()
+        var engines: [String: Engine] = [:]
+        var keys: [String: [UInt8]] = [:]
+    }
+
+    private static let cache = Cache()
+
+    /// Oublie les moteurs et les clés en mémoire (identifiants modifiés, tests).
+    public static func reset() {
+        cache.lock.lock(); defer { cache.lock.unlock() }
+        cache.engines = [:]
+        cache.keys = [:]
+    }
+
+    private static func engineKey(_ target: SNMPTarget) -> String { "\(target.host):\(target.port)" }
+
+    private static func cachedEngine(_ target: SNMPTarget) -> Engine? {
+        cache.lock.lock(); defer { cache.lock.unlock() }
+        return cache.engines[engineKey(target)]
+    }
+
+    private static func store(_ engine: Engine?, for target: SNMPTarget) {
+        cache.lock.lock(); defer { cache.lock.unlock() }
+        cache.engines[engineKey(target)] = engine
+    }
+
+    /// Clé localisée (authentification ou confidentialité) mise en cache ; l'empreinte SHA-256 du mot
+    /// de passe sert de clé de cache, jamais le mot de passe lui-même.
+    static func localizedKey(kind: String, password: String, engineID: [UInt8], compute: () -> [UInt8]) -> [UInt8] {
+        let id = kind + "|" + SNMPCryptoBytes.hex(SNMPAuthProtocol.sha256.hash(Array(password.utf8))) + "|" + SNMPCryptoBytes.hex(engineID)
+        cache.lock.lock()
+        if let key = cache.keys[id] {
+            cache.lock.unlock()
+            return key
+        }
+        cache.lock.unlock()
+        let key = compute()
+        cache.lock.lock()
+        cache.keys[id] = key
+        cache.lock.unlock()
+        return key
+    }
+
+    static func authKey(_ credentials: SNMPv3Credentials, engineID: [UInt8]) -> [UInt8] {
+        guard credentials.level != .noAuthNoPriv else { return [] }
+        return localizedKey(kind: "auth-\(credentials.auth.rawValue)", password: credentials.authPassword, engineID: engineID) {
+            credentials.auth.localizedKey(password: credentials.authPassword, engineID: engineID)
+        }
+    }
+
+    static func privKey(_ credentials: SNMPv3Credentials, engineID: [UInt8]) -> [UInt8] {
+        guard credentials.level == .authPriv else { return [] }
+        let kind = "priv-\(credentials.priv.rawValue)-\(credentials.auth.rawValue)"
+        return localizedKey(kind: kind, password: credentials.privPassword, engineID: engineID) {
+            credentials.priv.key(password: credentials.privPassword, engineID: engineID, auth: credentials.auth)
+        }
+    }
+
+    /// Découverte (RFC 3414 4) : requête vide non authentifiée → rapport avec engineID, boots et time.
+    static func discover(_ target: SNMPTarget) throws -> Engine {
+        let discoveryID = SNMPClient.newRequestID()
         let discovery = try SNMPv3Codec.encode(msgID: discoveryID, pdu: SNMPPDU(type: .getRequest, requestID: discoveryID, varbinds: []),
                                                usm: SNMPUSMParameters(), level: .noAuthNoPriv, contextEngineID: [], contextName: "")
-        let discovered = try exchange(discovery, msgID: discoveryID, target: target) { try SNMPv3Codec.decode($0) }
-        guard !discovered.usm.engineID.isEmpty else { throw SNMPv3Error.noEngineID }
-        var usm = SNMPUSMParameters(engineID: discovered.usm.engineID, boots: discovered.usm.boots, time: discovered.usm.time,
-                                    user: credentials.user)
-        let engine = usm.engineID
-        let authKey = credentials.level == .noAuthNoPriv ? [] : credentials.auth.localizedKey(password: credentials.authPassword, engineID: engine)
-        let privKey = credentials.level == .authPriv ? credentials.priv.key(password: credentials.privPassword, engineID: engine, auth: credentials.auth) : []
+        let reply = try exchange(discovery, msgID: discoveryID, target: target) { try SNMPv3Codec.decode($0) }
+        guard !reply.usm.engineID.isEmpty else { throw SNMPv3Error.noEngineID }
+        let engine = Engine(id: reply.usm.engineID, boots: reply.usm.boots, time: reply.usm.time, at: Date())
+        store(engine, for: target)
+        return engine
+    }
 
-        // 2. Requête sécurisée ; un rapport notInTimeWindow donne l'heure du moteur : un seul nouvel essai.
-        for attempt in 0..<2 {
-            let msgID = Int32.random(in: 1...Int32.max)
-            let pdu = SNMPPDU(type: .getRequest, requestID: msgID, varbinds: oids.map { SNMPVarBind(oid: $0) })
-            let bytes = try SNMPv3Codec.encode(msgID: msgID, pdu: pdu, usm: usm, level: credentials.level,
-                                               contextEngineID: engine, contextName: credentials.context,
-                                               auth: credentials.auth, authKey: authKey, priv: credentials.priv, privKey: privKey,
-                                               salt: UInt64.random(in: 0...UInt64.max))
-            let reply = try exchange(bytes, msgID: msgID, target: target) { data in
-                // Un rapport d'erreur n'est en général ni authentifié ni chiffré : décodé sans clés.
-                let plain = try SNMPv3Codec.decode(data)
-                if plain.isAuthenticated {
-                    return try SNMPv3Codec.decode(data, auth: credentials.auth, authKey: authKey, priv: credentials.priv, privKey: privKey)
+    /// Construit le message v3 d'une PDU (aucun réseau : utilisé aussi par les tests).
+    public static func encodeRequest(_ pdu: SNMPPDU, msgID: Int32, credentials: SNMPv3Credentials, engineID: [UInt8],
+                                     boots: Int32, time: Int32, salt: UInt64) throws -> [UInt8] {
+        let usm = SNMPUSMParameters(engineID: engineID, boots: boots, time: time, user: credentials.user)
+        return try SNMPv3Codec.encode(msgID: msgID, pdu: pdu, usm: usm, level: credentials.level,
+                                      contextEngineID: engineID, contextName: credentials.context,
+                                      auth: credentials.auth, authKey: authKey(credentials, engineID: engineID),
+                                      priv: credentials.priv, privKey: privKey(credentials, engineID: engineID), salt: salt)
+    }
+
+    /// Décode et vérifie une réponse v3 (aucun réseau). Un rapport non authentifié est rendu tel quel.
+    public static func decodeResponse(_ bytes: [UInt8], credentials: SNMPv3Credentials, engineID: [UInt8]) throws -> SNMPv3Message {
+        let plain = try SNMPv3Codec.decode(bytes)
+        guard plain.isAuthenticated, credentials.level != .noAuthNoPriv else { return plain }
+        return try SNMPv3Codec.decode(bytes, auth: credentials.auth, authKey: authKey(credentials, engineID: engineID),
+                                      priv: credentials.priv, privKey: privKey(credentials, engineID: engineID))
+    }
+
+    /// Envoie une PDU en v3 (bloquant) et rend la réponse de l'agent, error-status non vérifié.
+    public static func request(_ pdu: SNMPPDU, credentials: SNMPv3Credentials, target: SNMPTarget) throws -> SNMPPDU {
+        try credentials.validate()
+        let cached = cachedEngine(target)
+        var engine = try cached ?? discover(target)
+        var rediscovered = cached == nil
+        var resynchronized = false
+        while true {
+            let msgID = SNMPClient.newRequestID()
+            var sent = pdu
+            sent.requestID = msgID
+            let bytes = try encodeRequest(sent, msgID: msgID, credentials: credentials, engineID: engine.id, boots: engine.boots,
+                                          time: engine.estimatedTime(), salt: UInt64.random(in: 0...UInt64.max))
+            let engineID = engine.id
+            let reply: SNMPv3Message
+            do {
+                reply = try exchange(bytes, msgID: msgID, target: target) {
+                    try decodeResponse($0, credentials: credentials, engineID: engineID)
                 }
-                return plain
+            } catch SNMPError.timeout(let host) {
+                // Agent muet avec un moteur venu du cache : il a peut-être changé (remplacé, réinitialisé).
+                if !rediscovered {
+                    store(nil, for: target)
+                    rediscovered = true
+                    engine = try discover(target)
+                    continue
+                }
+                throw SNMPError.timeout(host)
             }
             guard let response = reply.pdu else { throw SNMPv3Error.responseDecryption }
             if let report = SNMPv3Codec.report(in: response) {
-                if report == .notInTimeWindow, attempt == 0 {
-                    usm.boots = reply.usm.boots
-                    usm.time = reply.usm.time
+                switch report {
+                case .notInTimeWindow where !resynchronized:
+                    // Le rapport donne l'heure du moteur : un seul nouvel essai.
+                    resynchronized = true
+                    engine = Engine(id: engine.id, boots: reply.usm.boots, time: reply.usm.time, at: Date())
+                    store(engine, for: target)
                     continue
+                case .unknownEngineID where !rediscovered:
+                    rediscovered = true
+                    engine = try discover(target)
+                    continue
+                default:
+                    throw SNMPv3Error.report(report)
                 }
-                throw SNMPv3Error.report(report)
             }
             // Une vraie réponse à une requête authentifiée doit être signée (et chiffrée en authPriv) :
             // sinon rien n'a été vérifié (agent mal configuré ou réponse usurpée).
             if credentials.level != .noAuthNoPriv, !reply.isAuthenticated { throw SNMPv3Error.badResponseDigest }
             if credentials.level == .authPriv, !reply.isEncrypted { throw SNMPv3Error.responseDecryption }
             guard response.type == .response else { throw SNMPError.unexpectedResponse }
-            if response.errorStatus != 0 { throw SNMPError.agent(status: response.errorStatus, index: response.errorIndex) }
-            return response.varbinds
+            if reply.usm.engineID == engine.id, reply.usm.boots >= engine.boots {
+                store(Engine(id: engine.id, boots: reply.usm.boots, time: reply.usm.time, at: Date()), for: target)
+            }
+            var answer = response
+            answer.requestID = pdu.requestID
+            return answer
         }
-        throw SNMPv3Error.report(.notInTimeWindow)
     }
 
     /// Envoi bloquant avec délai et renvois ; garde la première réponse au même msgID.
@@ -424,5 +545,47 @@ public final class SNMPv3Client: Sendable {
             }
         }
         throw SNMPError.timeout(target.host.description)
+    }
+}
+
+/// Client SNMP v3 : GET, GETNEXT, GETBULK et parcours, sur le même client que la v2c.
+public final class SNMPv3Client: Sendable {
+    public let host: IPv4Address
+    public let port: UInt16
+    public let credentials: SNMPv3Credentials
+    public let timeout: TimeInterval
+    public let retries: Int
+
+    public init(host: IPv4Address, port: UInt16 = 161, credentials: SNMPv3Credentials, timeout: TimeInterval = 2, retries: Int = 1) {
+        self.host = host
+        self.port = port
+        self.credentials = credentials
+        self.timeout = timeout
+        self.retries = retries
+    }
+
+    /// Client générique (v3 seulement, sans repli v2c).
+    public var client: SNMPClient {
+        SNMPClient(target: SNMPTarget(host: host, port: port, community: "", v3: credentials, timeout: timeout, retries: retries))
+    }
+
+    public func get(_ oids: [SNMPOID]) async throws -> [SNMPVarBind] {
+        try credentials.validate()
+        return try await client.get(oids)
+    }
+
+    public func getNext(_ oids: [SNMPOID]) async throws -> [SNMPVarBind] {
+        try credentials.validate()
+        return try await client.getNext(oids)
+    }
+
+    public func getBulk(_ oids: [SNMPOID], nonRepeaters: Int = 0, maxRepetitions: Int = 25) async throws -> [SNMPVarBind] {
+        try credentials.validate()
+        return try await client.getBulk(oids, nonRepeaters: nonRepeaters, maxRepetitions: maxRepetitions)
+    }
+
+    public func walk(_ root: SNMPOID, maxRepetitions: Int = 25, limit: Int = 20_000) async throws -> [SNMPVarBind] {
+        try credentials.validate()
+        return try await client.walk(root, maxRepetitions: maxRepetitions, limit: limit)
     }
 }
