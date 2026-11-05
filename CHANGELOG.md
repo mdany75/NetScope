@@ -1,5 +1,66 @@
 # Changements
 
+## 0.21.0 — 2026-11-04
+
+Le parc Fortinet sous contrôle (firmware et licences), un écran « Journaux » qui reçoit le
+Syslog et les traps SNMP, et un Ping continu qui met chaque cible en pause.
+
+### Ajouté
+- **Firmware et licences** (Boîte à outils, groupe Parc Fortinet) : versions FortiOS,
+  FortiSwitch et FortiAP de chaque site, version disponible ou recommandée et état « à jour »,
+  « mise à jour disponible » ou « inconnu », par site ou pour tous les sites (menu Site ▾).
+- **Licences FortiGuard** (antivirus, IPS, filtrage web…) et contrats FortiCare avec leur date
+  d'expiration et les jours restants : orange à 60 jours, rouge à 30 (seuils réglables).
+- **Détail d'un équipement** : version installée et build, version disponible (Mature ou
+  Feature), chemin de mise à jour publié par FortiOS, branche plus récente à planifier à part,
+  et la marche à suivre sur la FortiGate. NetScope ne lance jamais de mise à jour : tout se lit
+  par l'API en lecture seule.
+- **Écran « Journaux »** (groupe Suivi) : messages Syslog et traps SNMP reçus par ce Mac, et
+  journaux d'événements de la FortiGate, dans un même tableau. Recherche par heure, appareil,
+  gravité et source (`appareil:`, `gravite:`, `source:`), messages répétés regroupés,
+  double-clic vers la fiche de l'appareil, export CSV.
+- **Récepteur Syslog** sur ce Mac (RFC 3164, RFC 5424, format FortiOS, Cisco, HPE Aruba) et
+  **récepteur de traps SNMP** v1 et v2c (linkDown et linkUp avec le nom du port, coldStart,
+  échec d'authentification, traps FortiGate courantes, informs acquittés).
+- Réception démarrée seulement à la demande, avec arrêt automatique. Ports 5514 et 1162 par
+  défaut, sans droits administrateur ; les commandes à copier sur la FortiGate, le FortiSwitch,
+  Cisco ou HPE Aruba sont fournies, et le coupe-feu de macOS est signalé.
+- **Journaux d'événements de la FortiGate** (système, VPN, utilisateurs, Wi-Fi) lus par l'API,
+  en lecture seule, en mémoire ou sur disque.
+- **« Comprendre une coupure »** : autour d'une heure choisie, les messages de tous les
+  appareils mis en ordre, avec les constats (port qui tombe et remonte, redémarrage, accès
+  refusé, tunnel tombé).
+- **Surveillance** : nouvelles sondes « Licence bientôt expirée » (seuil en jours),
+  « Firmware pas à jour », « Message Syslog de gravité ≥ X » et « Trap SNMP reçue ».
+- **Ping continu** : chaque cible peut être mise en pause seule (bouton sur sa carte, dans la
+  carte Terminal ou au clic droit) ; elle n'envoie plus rien, ses statistiques restent figées
+  et sa carte affiche « En pause ». Le journal note la mise en pause et la reprise.
+
+### Modifié
+- **Rapports** : le drapeau « firmware à jour » des switchs est enfin rempli, les mises à jour
+  disponibles et les licences proches de l'expiration deviennent des problèmes du rapport, et
+  une section facultative « Firmware et licences » est ajoutée.
+- **Diagnostic de la FortiGate** : les réponses brutes du firmware, des licences et des
+  journaux y figurent (sans le jeton).
+- **Journal gardé sur ce Mac**, borné à 50 000 messages ou 7 jours (réglable).
+- **Ping continu** : l'écran s'ouvre vide, sans cibles ajoutées d'office ni ancien journal ;
+  ajoutez vos cibles dans le champ, depuis le Scanner ou depuis la fiche d'un appareil.
+
+### Corrigé
+- **Ping continu** : le tableau MTR / Traceroute montre toutes ses colonnes, dont
+  « Écart-type », dans une fenêtre normale ; quand il est trop large, il défile à gauche et à
+  droite au lieu de couper des colonnes.
+- **Ping continu** : l'export CSV ne compte plus de pertes pendant la pause d'une cible.
+
+### Limites connues
+- Pas encore essayé sur de vraies FortiGate : les champs du firmware, des licences et des
+  journaux varient selon la version de FortiOS (6.4 à 7.6 prévues) ; le jeton doit avoir les
+  droits de lecture voulus (sinon un message 403 l'explique).
+- Les états « à jour » se comparent dans la même branche ; un équipement dont la version
+  recommandée est introuvable reste « inconnu ».
+- Les récepteurs n'écoutent que pendant que NetScope est ouvert et que la réception est
+  démarrée ; les traps SNMP v3 ne sont pas encore décodées.
+
 ## 0.20.3 — 2026-11-04
 
 L'onglet Ressources mesure l'activité des disques, et le réseau et les disques se lisent côte à côte.
