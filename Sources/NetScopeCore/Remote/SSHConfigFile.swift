@@ -405,8 +405,13 @@ public enum SSHConfigImport {
     /// bloc du fichier (algorithmes, options) ; HostName est montré dans la description.
     public static func candidates(from config: SSHConfigFile, existing: [RemoteConnection],
                                   home: String = NSHomeDirectory()) -> [SSHConfigCandidate] {
-        config.concreteAliases.map { alias in
+        // « Host a b » : deux noms du même hôte ; seul le premier est proposé.
+        var seen = Set<String>()
+        return config.concreteAliases.compactMap { alias -> SSHConfigCandidate? in
             let resolved = config.resolve(alias)
+            let key = "\(resolved.user ?? "")@\(resolved.hostName ?? alias):\(resolved.port ?? 22)|\(resolved.proxyJump ?? "")"
+            guard !seen.contains(key) else { return nil }
+            seen.insert(key)
             var remarks: [String] = []
             var note: [String] = []
             if let hostName = resolved.hostName, hostName != alias { note.append("HostName \(hostName)") }

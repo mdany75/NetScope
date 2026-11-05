@@ -42,11 +42,13 @@ public enum RemoteLauncher {
     }
 
     /// Plan de lancement. `telnetPath` nil : nc sert de client Telnet minimal.
-    public static func plan(for connection: RemoteConnection, telnetPath: String? = findTelnet()) throws -> RemoteLaunchPlan {
+    /// `home` remplace « ~ » d'une clé de ~/.ssh/config (note 66).
+    public static func plan(for connection: RemoteConnection, telnetPath: String? = findTelnet(),
+                            home: String = NSHomeDirectory()) throws -> RemoteLaunchPlan {
         let c = try connection.validated()
         switch c.proto {
         case .ssh:
-            return .terminal(command: sshCommand(c))
+            return .terminal(command: sshCommand(c, home: home))
         case .telnet:
             return .terminal(command: telnetCommand(c, telnetPath: telnetPath))
         case .serie:

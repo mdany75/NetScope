@@ -162,7 +162,8 @@ final class QuickLoginModel: ObservableObject {
             persist()
             RemoteModel.shared.saveQuickConnection(QuickLogin.connection(for: valid, name: name, folder: target.folder ?? ""),
                                                    originID: connectionID, saveToBook: saveToBook)
-            RemoteModel.shared.connect(connection)
+            // Nom choisi dans la feuille (même vide : celui du Mac) : la feuille ne revient pas.
+            RemoteModel.shared.connect(connection, askUser: false)
             return
         }
         if RegEnvironment.isSandboxed {
@@ -189,6 +190,25 @@ final class QuickLoginModel: ObservableObject {
             guard !Task.isCancelled else { return }
             self?.lastOpened = nil
         }
+    }
+
+    /// Note 78 : nom utilisé en RDP ou en SFTP (carnet, navigateur de fichiers) retenu pour
+    /// l'appareil et son site, comme ceux de la feuille ; « Ne plus demander » de l'appareil est gardé.
+    func rememberUse(proto: RemoteProtocol, host: String, user: String, port: Int) {
+        let trimmed = user.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty,
+              let choice = try? QuickLoginChoice(proto: proto, host: host, user: trimmed, port: port).validated() else { return }
+        let device = QuickLoginDevice(host: choice.host, siteID: SiteModel.shared.list.activeID)
+        let previous = memory.entry(for: device, proto: proto)
+        memory.remember(choice, for: device, skipPrompt: previous?.skipPrompt ?? false)
+        persist()
+    }
+
+    /// Note 78 : nom proposé pour une connexion ouverte sans utilisateur (appareil, site, compte SSH
+    /// de l'appareil pour SFTP), ou "".
+    func suggestedUser(proto: RemoteProtocol, host: String) -> String {
+        let device = QuickLoginDevice(host: host, siteID: SiteModel.shared.list.activeID)
+        return memory.suggestion(for: device, proto: proto, credentials: credentials).choice.user
     }
 
     /// « Oublier cet appareil » : la feuille revient, sans le nom retenu.

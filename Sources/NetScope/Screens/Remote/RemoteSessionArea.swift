@@ -10,17 +10,23 @@ struct RemoteSessionArea: View {
     @ObservedObject private var telnet = ToolInstallMonitor.shared(.telnet)
     @ObservedObject private var files = FileTransferStore.shared
     @ObservedObject private var sessions = RemoteSessionStore.shared
+    @ObservedObject private var tunnels = SSHTunnelStore.shared
 
     var body: some View {
         VStack(spacing: 0) {
             RemoteSessionTabBar(model: model)
 
-            if model.draft == nil, let tab = sessions.activeTab {
+            if model.draft == nil, model.tunnelDraft == nil, let tab = sessions.activeTab {
                 sessionContent(tab)
             } else {
                 ScrollView {
                     if model.draft != nil {
                         RemoteForm(model: model)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 18)
+                    } else if model.tunnelDraft != nil {
+                        // Note 66 : formulaire d'un tunnel SSH.
+                        SSHTunnelForm(model: model)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 18)
                     } else {
@@ -39,6 +45,9 @@ struct RemoteSessionArea: View {
         .onChange(of: model.draft != nil) { _, editing in
             if editing { sessions.select(nil) }
         }
+        .onChange(of: model.tunnelDraft != nil) { _, editing in
+            if editing { sessions.select(nil) }
+        }
         .confirmationDialog("Fermer l’onglet « \(sessions.pendingClose?.connection.name ?? "") » ?",
                             isPresented: Binding(get: { sessions.pendingClose != nil },
                                                  set: { if !$0 { sessions.pendingClose = nil } }),
@@ -48,6 +57,16 @@ struct RemoteSessionArea: View {
             }
             Button("Annuler", role: .cancel) { sessions.pendingClose = nil }
         } message: {
+            if sessions.pendingClose?.tunnelSession != nil {
+                Text("Le tunnel SSH est arrêté\u{00A0}: les applications qui passent par lui sont déconnectées.")
+            } else {
+                closeMessage
+            }
+        }
+    }
+
+    @ViewBuilder private var closeMessage: some View {
+        Group {
             switch sessions.pendingClose?.connection.proto {
             case .serie?: Text("Le port série est refermé. Le journal déjà enregistré est gardé.")
             case .vnc?: Text("La session VNC est déconnectée.")
@@ -64,6 +83,9 @@ struct RemoteSessionArea: View {
                 .id(tab.id)
         case .vnc(let session):
             VNCSessionView(session: session)
+                .id(tab.id)
+        case .tunnel(let session):
+            SSHTunnelSessionView(session: session, model: model)
                 .id(tab.id)
         }
     }
@@ -141,6 +163,8 @@ struct RemoteSessionArea: View {
                                     isEnabled: (try? plan.get()) != nil)
             }
             terminalPreview(connection, plan: plan)
+            // Note 66 : tunnels de la connexion SSH, ouverts d'un clic.
+            if connection.proto == .ssh { tunnelsBox(connection) }
             if connection.proto == .telnet {
                 SpeedBanner(text: "Telnet n’est pas chiffré : le mot de passe circule en clair. Utilisez SSH si l’appareil le permet.")
             }
@@ -256,7 +280,8 @@ struct RemoteSessionArea: View {
     /// Ce que l'onglet intégré lance (jamais de secret).
     private func integratedCommand(_ connection: RemoteConnection, fallback: String) -> String {
         switch connection.proto {
-        case .ssh: return SSHTerminalCommand.displayCommand(user: connection.username, host: connection.host, port: connection.port)
+        case .ssh: return SSHTerminalCommand.displayCommand(user: connection.username, host: connection.host, port: connection.port,
+                                                             jump: connection.proxyJump, keyPath: connection.identityFile)
         case .telnet: return "telnet \(connection.host) \(connection.port)"
         case .serie: return "console \(connection.host) · \(TerminalSerialMemory.settings(for: connection).summary)"
         default: return fallback
@@ -272,6 +297,63 @@ struct RemoteSessionArea: View {
         }
     }
 
+    /// Note 66 : tunnels de la connexion SSH choisie (ouvrir, revenir à l'onglet, ajouter).
+    private func tunnelsBox(_ connection: RemoteConnection) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            SectionHeader(title: "Tunnels par \(connection.name)") {
+                Button {
+                    model.startTunnel(for: connection)
+                } label: {
+                    Label("Nouveau tunnel", systemImage: "plus").labelStyle(RemoteCompactLabelStyle())
+                }
+                .buttonStyle(.ghost)
+                .help("Redirection locale (-L) ou proxy SOCKS (-D) par ce serveur SSH")
+            }
+            if connection.tunnels.isEmpty {
+                Text("Aucun tunnel\u{00A0}: une redirection (-L) joint un service derrière ce serveur par 127.0.0.1, un proxy SOCKS (-D) tout son réseau.")
+                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 8)], alignment: .leading, spacing: 8) {
+                ForEach(connection.tunnels) { tunnel in
+                    Button {
+                        if let tab = sessions.tunnelTab(tunnel.id), SSHTunnelStore.shared.isActive(tunnel.id) {
+                            sessions.select(tab.id)
+                        } else {
+                            model.openTunnel(tunnel, of: connection)
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: SSHTunnelStyle.symbol(tunnel.kind)).font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(RemoteProtocol.ssh.tint)
+                                .frame(width: 22, height: 22)
+                                .background(RoundedRectangle(cornerRadius: 6).fill(RemoteProtocol.ssh.soft))
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(tunnel.title).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                                Text(tunnel.spec(activePort: SSHTunnelStore.shared.session(for: tunnel.id)?.localPort)).font(Theme.mono(10.5))
+                                    .foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.middle)
+                            }
+                            Spacer(minLength: 6)
+                            if let session = SSHTunnelStore.shared.session(for: tunnel.id) {
+                                SSHTunnelStateChip(session: session)
+                            } else {
+                                Chip(text: "Arrêté", tone: .neutral)
+                            }
+                        }
+                        .padding(.horizontal, 10)
+                        .frame(height: 42)
+                        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Ouvrir le tunnel \(tunnel.spec()) dans un onglet de session")
+                }
+            }
+        }
+        .padding(.top, 4)
+    }
+
     /// Sessions ouvertes (accueil) : un clic revient à l'onglet.
     private var openSessionsBox: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -283,12 +365,14 @@ struct RemoteSessionArea: View {
                 } label: {
                     HStack(spacing: 8) {
                         RemoteProtoIcon(proto: tab.connection.proto, size: 22)
-                        Text(tab.session?.tabLabel ?? tab.connection.name).font(.system(size: 12, weight: .medium)).lineLimit(1)
-                        Text(tab.session?.addressLabel ?? tab.connection.address).font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+                        Text(tab.tunnelSession?.title ?? tab.session?.tabLabel ?? tab.connection.name).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                        Text(tab.tunnelSession?.routeLabel ?? tab.session?.addressLabel ?? tab.connection.address).font(Theme.mono(11))
+                            .foregroundStyle(Theme.textSecondary)
                             .lineLimit(1)
                         Spacer(minLength: 6)
                         if let session = tab.session { RemoteSessionStateChip(session: session) }
                         if let vnc = tab.vncSession { VNCSessionStateChip(session: vnc) }
+                        if let tunnel = tab.tunnelSession { SSHTunnelStateChip(session: tunnel) }
                         Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.textTertiary)
                     }
                     .padding(.horizontal, 10)
@@ -440,6 +524,10 @@ struct RemoteForm: View {
                 if proto == .ssh || proto == .telnet {
                     TerminalPasswordField(draft: draft)
                 }
+                // Note 66 : saut par bastion et clé privée (comme ProxyJump et IdentityFile).
+                if proto == .ssh {
+                    sshRouteFields(draft)
+                }
                 if proto.isFileTransfer {
                     FileTransferFormSection(draft: draft)
                 }
@@ -475,6 +563,7 @@ struct RemoteForm: View {
             helpLine("FTP", "Navigateur de fichiers de NetScope (Ce Mac ↔ serveur)\u{00A0}; non chiffré, à réserver au réseau local.")
             helpLine("FTPS", "Même navigateur, chiffré par TLS (explicite sur 21, implicite sur 990).")
             helpLine("SFTP", "Même navigateur, par SSH (/usr/bin/sftp)\u{00A0}; clés et known_hosts de ~/.ssh.")
+            helpLine("Tunnel", "Par une connexion SSH\u{00A0}: redirection locale (-L), proxy SOCKS (-D), saut par bastion (-J)\u{00A0}; panneau de détails, «\u{00A0}Tunnels / redirections\u{00A0}».")
             helpLine("Série", "Console intégrée (/dev/cu.*)\u{00A0}: débit, bits, parité, arrêt, contrôle de flux, Break\u{00A0}; Cisco et Fortinet en 9600 8N1.")
             Text("Hôte : lettres, chiffres, point, tiret et deux-points seulement.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
@@ -493,6 +582,35 @@ struct RemoteForm: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(title).font(.system(size: 12, weight: .semibold)).frame(width: 48, alignment: .leading)
             Text(text).font(Theme.caption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// Note 66 : hôte de rebond (liste des connexions SSH du carnet ou saisie) et clé privée.
+    private func sshRouteFields(_ draft: Binding<RemoteDraft>) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                fieldLabel("Hôte de rebond (ProxyJump)")
+                HStack(spacing: 4) {
+                    RemoteInput(placeholder: "Aucun · ops@bastion:2222", text: draft.proxyJump)
+                    Menu {
+                        Button("Aucun (accès direct)") { draft.wrappedValue.proxyJump = "" }
+                        Divider()
+                        ForEach(model.jumpCandidates(excluding: draft.wrappedValue.editingID ?? UUID()), id: \.spec) { candidate in
+                            Button(candidate.label) { draft.wrappedValue.proxyJump = candidate.spec }
+                        }
+                    } label: {
+                        Image(systemName: "chevron.down")
+                    }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .frame(width: 26, height: 32)
+                    .help("Reprendre une connexion SSH du carnet comme rebond")
+                }
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                fieldLabel("Clé privée (facultatif)")
+                RemoteInput(placeholder: "~/.ssh/id_ed25519", text: draft.identityFile)
+            }
         }
     }
 

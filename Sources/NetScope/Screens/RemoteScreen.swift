@@ -41,7 +41,7 @@ struct RemoteScreen: View {
                 let browsing = files.session.flatMap { files.isShowing(model.selectedID) ? $0 : nil }
                 // Note 57 : petite fenêtre et onglet de session affiché (terminal ou VNC) : la session
                 // prend toute la largeur (l'onglet « Sessions » ramène la liste des connexions).
-                let sessionShown = sessions.activeTab != nil && model.draft == nil
+                let sessionShown = sessions.activeTab != nil && model.draft == nil && model.tunnelDraft == nil
                 if !model.compactLayout || (browsing == nil && !sessionShown) {
                     RemoteConnectionList(model: model)
                         .frame(width: 272)

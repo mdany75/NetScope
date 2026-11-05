@@ -104,6 +104,7 @@ func registerSSHTunnelTests(_ suite: TestSuite) {
         try expectEqual(LocalPortPicker.choose(preferred: 13_389, isFree: { _ in false }), nil, "aucun port libre")
         try expectEqual(SSHTunnelSpec.suggestedLocalPort(kind: .local, remotePort: 5001), 5001, "port non privilégié repris")
         try expectEqual(SSHTunnelSpec.suggestedLocalPort(kind: .local, remotePort: 22), 10_022, "22 → 10022")
+        try expectEqual(SSHTunnelSpec.suggestedLocalPort(kind: .local, remotePort: 5900), 15_900, "5900 (Partage d'écran du Mac) → 15900")
 
         // Un vrai port occupé sur 127.0.0.1 (aucun paquet ne quitte le Mac).
         let fd = socket(AF_INET, SOCK_STREAM, 0)
@@ -297,6 +298,7 @@ func registerSSHTunnelTests(_ suite: TestSuite) {
         try expect(tokens.remarks.contains { $0.contains("%u") }, "remarque")
         try expectEqual(try candidate("fgt").connection?.username, "admin", "hôte d'un fichier inclus")
         try expect(!candidates.contains { $0.alias.contains("*") }, "jokers jamais importés")
+        try expect(!candidates.contains { $0.alias == "sw-core-alt" }, "second nom du même bloc : non proposé en double")
         try expect(config.resolve("*.corp").user == "admin", "résolution sur un motif tapé tel quel")
     }
 
@@ -357,5 +359,26 @@ func registerSSHTunnelTests(_ suite: TestSuite) {
         try expectEqual(other.choice.user, "CORP\\dmenard", "RDP : nom du site proposé à un autre poste")
         try expectEqual(other.source, .site, "source : le site")
         try expectEqual(memory.suggestion(for: wks, proto: .rdp).choice.user, "CORP\\dmenard", "RDP : nom de l'appareil")
+    }
+}
+
+func registerSSHTunnelDiagnosisTests(_ suite: TestSuite) {
+    suite.add("Tunnels SSH : causes d'échec lues dans la sortie de ssh") {
+        try expectEqual(SSHTunnelDiagnosis.scan("bind [127.0.0.1]:8443: Address already in use\r\nchannel_setup_fwd_listener_tcpip: cannot listen to port: 8443\r\nCould not request local forwarding.\r\n"),
+                        .localPortInUse, "port local pris")
+        try expectEqual(SSHTunnelDiagnosis.scan("channel 2: open failed: administratively prohibited: open failed"), .forwardingRefused, "redirections interdites")
+        let unreachable = SSHTunnelDiagnosis.scan("channel 3: open failed: connect failed: No route to host")
+        try expectEqual(unreachable, .destinationUnreachable, "destination injoignable")
+        try expect(unreachable?.isFatal == false, "le tunnel reste ouvert")
+        try expectEqual(SSHTunnelDiagnosis.scan("ops@203.0.113.10: Permission denied (publickey,password)."), .authenticationFailed, "identification")
+        try expectEqual(SSHTunnelDiagnosis.scan("ssh: connect to host 10.0.0.9 port 22: Connection refused"), .connectionRefused, "refus")
+        try expectEqual(SSHTunnelDiagnosis.scan("ssh: connect to host 10.0.0.9 port 22: Operation timed out"), .timeout, "délai")
+        try expectEqual(SSHTunnelDiagnosis.scan("ssh: Could not resolve hostname bastion: nodename nor servname provided"), .hostNotFound, "DNS")
+        try expectEqual(SSHTunnelDiagnosis.scan("WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!"), .hostKeyChanged, "clé changée")
+        try expectEqual(SSHTunnelDiagnosis.scan("Authenticated to 10.182.122.2 ([10.182.122.2]:22)."), nil, "rien d'anormal")
+        try expectEqual(SSHTunnelDiagnosis.pendingPrompt("ops@203.0.113.10's password: "), "ops@203.0.113.10's password:", "mot de passe demandé")
+        try expectEqual(SSHTunnelDiagnosis.pendingPrompt("(admin@10.0.0.2) Password:"), "(admin@10.0.0.2) Password:", "keyboard-interactive")
+        try expect(SSHTunnelDiagnosis.pendingPrompt("Enter passphrase for key '/Users/dany/.ssh/id_bastion':") != nil, "phrase secrète")
+        try expectEqual(SSHTunnelDiagnosis.pendingPrompt("Last login: Tue"), nil, "pas une demande")
     }
 }

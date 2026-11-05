@@ -43,6 +43,8 @@ final class TerminalPreferences: ObservableObject {
     @Published var optionAsMeta: Bool { didSet { defaults?.set(optionAsMeta, forKey: "acces.terminal.optionMeta") } }
     /// Journal .log de chaque nouvelle session dans ~/Library/Logs/NetScope.
     @Published var logSessions: Bool { didSet { defaults?.set(logSessions, forKey: "acces.terminal.journal") } }
+    /// Note 78 : horodatage des lignes reçues en console série.
+    @Published var serialTimestamps: Bool { didSet { defaults?.set(serialTimestamps, forKey: "acces.serie.horodatage") } }
 
     static let fontSizes: [Double] = [11, 12, 13, 14, 16]
 
@@ -54,6 +56,8 @@ final class TerminalPreferences: ObservableObject {
         optionAsMeta = defaults?.bool(forKey: "acces.terminal.optionMeta") ?? false
         // Démonstration : journal activé, comme dans le croquis.
         logSessions = defaults?.bool(forKey: "acces.terminal.journal") ?? RegEnvironment.isDemo
+        // Démonstration : horodatage montré dans la console série.
+        serialTimestamps = defaults?.bool(forKey: "acces.serie.horodatage") ?? RegEnvironment.isDemo
     }
 }
 

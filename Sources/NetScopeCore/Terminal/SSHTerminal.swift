@@ -128,9 +128,10 @@ public enum SSHTerminalCommand {
 
     /// Ligne de commande affichée (jamais de secret) : « ssh -p 2222 -- admin@10.0.0.2 »,
     /// « ssh -J admin@10.182.122.1 -- netadmin@10.182.122.2 ».
-    public static func displayCommand(user: String, host: String, port: Int, jump: String = "") -> String {
+    public static func displayCommand(user: String, host: String, port: Int, jump: String = "", keyPath: String = "") -> String {
         var words = ["ssh"]
         if let hops = try? SSHJumpChain.normalized(jump), !hops.isEmpty { words += ["-J", hops] }
+        if !keyPath.isEmpty { words += ["-i", keyPath] }
         if port != 22 { words += ["-p", String(port)] }
         words += ["--", user.isEmpty ? host : user + "@" + host]
         return words.joined(separator: " ")

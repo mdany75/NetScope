@@ -42,6 +42,7 @@ struct RemoteSessionTabBar: View {
     }
 
     private var homeTitle: String {
+        if let tunnel = model.tunnelDraft { return tunnel.editingID == nil ? "Nouveau tunnel" : "Modifier le tunnel" }
         guard let draft = model.draft else { return "Sessions" }
         return draft.editingID == nil ? "Nouvelle connexion" : "Modifier la connexion"
     }
@@ -54,8 +55,8 @@ struct RemoteSessionTabBar: View {
             HStack(spacing: 6) {
                 Image(systemName: "rectangle.stack").font(.system(size: 12))
                 Text(homeTitle).font(.system(size: 12, weight: selected ? .semibold : .medium)).lineLimit(1)
-                if store.tabs.isEmpty, model.draft == nil {
-                    Text("SSH · Telnet · Console série · RDP · VNC · FTP · SFTP").font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                if store.tabs.isEmpty, model.draft == nil, model.tunnelDraft == nil {
+                    Text("SSH · Telnet · Console série · RDP · VNC · FTP · SFTP · Tunnels").font(Theme.caption).foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
                 }
             }
@@ -130,7 +131,22 @@ struct RemoteSessionTabButton: View {
         } else if let vnc = tab.vncSession {
             VNCTabLabel(session: vnc, selected: selected, select: select, close: { store.requestClose(tab) })
                 .contextMenu { vncMenu(vnc) }
+        } else if let tunnel = tab.tunnelSession {
+            SSHTunnelTabLabel(session: tunnel, selected: selected, select: select, close: { store.requestClose(tab) })
+                .contextMenu { tunnelMenu(tunnel) }
         }
+    }
+
+    @ViewBuilder private func tunnelMenu(_ session: SSHTunnelSession) -> some View {
+        if session.isActive {
+            Button("Arrêter le tunnel") { session.stop() }
+        } else {
+            Button("Démarrer le tunnel") { session.start(reserved: SSHTunnelStore.shared.reservedPorts(except: session.id)) }
+        }
+        Button("Copier l’adresse locale") { session.copyLocalAddress() }
+            .disabled(session.localPort == nil)
+        Divider()
+        Button("Fermer l’onglet") { store.requestClose(tab) }
     }
 
     private func select() {
@@ -225,15 +241,18 @@ struct RemoteTabContent: View {
     let selected: Bool
     let select: () -> Void
     let close: () -> Void
+    /// Note 66 : icône et étiquette propres (onglet de tunnel).
+    var symbol: String? = nil
+    var badge: String? = nil
 
     var body: some View {
         HStack(spacing: 0) {
             Button(action: select) {
                 HStack(spacing: 6) {
                     Circle().fill(dot).frame(width: 7, height: 7).accessibilityLabel(state)
-                    Image(systemName: proto.symbol).font(.system(size: 12))
+                    Image(systemName: symbol ?? proto.symbol).font(.system(size: 12))
                     Text(label).font(.system(size: 12, weight: selected ? .semibold : .medium)).lineLimit(1)
-                    RemoteProtoBadge(proto: proto, text: proto == .serie ? "SÉRIE" : nil)
+                    RemoteProtoBadge(proto: proto, text: badge ?? (proto == .serie ? "SÉRIE" : nil))
                 }
                 .foregroundStyle(selected ? Theme.text : Theme.textSecondary)
                 .padding(.leading, 10)

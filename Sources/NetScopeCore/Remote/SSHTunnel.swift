@@ -32,11 +32,11 @@ public enum SSHTunnelUse: String, Codable, CaseIterable, Identifiable, Sendable 
 
     public var label: String {
         switch self {
-        case .none: return "Rien (port seulement)"
-        case .rdp: return "Bureau à distance (RDP)"
-        case .vnc: return "VNC (session intégrée)"
-        case .http: return "Navigateur web (http)"
-        case .https: return "Navigateur web (https)"
+        case .none: return "Rien (port seul)"
+        case .rdp: return "RDP (Windows App)"
+        case .vnc: return "VNC intégré"
+        case .http: return "Navigateur (http)"
+        case .https: return "Navigateur (https)"
         }
     }
 
@@ -130,10 +130,15 @@ public struct SSHTunnelSpec: Codable, Hashable, Identifiable, Sendable {
         label = try c.decodeIfPresent(String.self, forKey: .label) ?? ""
     }
 
+    /// Ports souvent pris sur un Mac (Partage d'écran 5900, AirPlay 5000 et 7000, ARD 3283).
+    public static let busyOnMac: Set<Int> = Set(5_900...5_909).union([5_000, 7_000, 3_283])
+
     /// Port local proposé quand aucun n'est imposé : 1080 pour SOCKS ; le port distant s'il ne
-    /// demande pas de droits (≥ 1024), sinon 10000 + port (3389 → 13389, 443 → 10443, 22 → 10022).
+    /// demande pas de droits (≥ 1024) et n'est pas souvent pris sur un Mac, sinon 10000 + port
+    /// (443 → 10443, 22 → 10022, 5900 → 15900).
     public static func suggestedLocalPort(kind: SSHTunnelKind, remotePort: Int) -> Int {
         if kind == .dynamic { return 1080 }
+        if remotePort >= 1024, remotePort <= 55_535, busyOnMac.contains(remotePort) { return 10_000 + remotePort }
         if remotePort >= 1024, remotePort <= 65_535 { return remotePort }
         return 10_000 + max(1, remotePort)
     }
@@ -414,5 +419,65 @@ public enum LocalPortPicker {
     /// ouvrir de canal vers la destination).
     public static func isListening(_ port: Int) -> Bool {
         !isFree(port)
+    }
+}
+
+/// Lecture de la sortie de ssh pour un tunnel (texte brut) : causes d'échec expliquées.
+public enum SSHTunnelDiagnosis: Equatable, Sendable {
+    /// Le port local est déjà pris (« Address already in use »).
+    case localPortInUse
+    /// Le serveur SSH interdit les redirections (AllowTcpForwarding no, PermitOpen).
+    case forwardingRefused
+    /// La destination ne répond pas, vue du serveur SSH (le tunnel reste ouvert).
+    case destinationUnreachable
+    case authenticationFailed
+    case connectionRefused
+    case timeout
+    case hostNotFound
+    case hostKeyChanged
+
+    /// Explication montrée dans l'onglet.
+    public var message: String {
+        switch self {
+        case .localPortInUse: return "Le port local est déjà pris sur ce Mac\u{00A0}: choisissez « automatique » ou un autre port."
+        case .forwardingRefused: return "Le serveur SSH refuse les redirections (AllowTcpForwarding ou PermitOpen de sshd)."
+        case .destinationUnreachable: return "La destination ne répond pas, vue du serveur SSH (hôte éteint, port fermé ou pare-feu)."
+        case .authenticationFailed: return "Identification refusée\u{00A0}: vérifiez l’utilisateur, la clé ou le mot de passe du Trousseau."
+        case .connectionRefused: return "Le serveur SSH refuse la connexion (service arrêté ou autre port)."
+        case .timeout: return "Le serveur SSH ne répond pas (délai dépassé)."
+        case .hostNotFound: return "Nom d’hôte introuvable (DNS ou alias de ~/.ssh/config)."
+        case .hostKeyChanged: return "La clé du serveur a changé\u{00A0}: ssh refuse le tunnel (interception possible)."
+        }
+    }
+
+    /// L'erreur arrête le tunnel (sinon, un avertissement : la destination peut revenir).
+    public var isFatal: Bool { self != .destinationUnreachable }
+
+    /// Dernière cause reconnue dans la sortie de ssh.
+    public static func scan(_ text: String) -> SSHTunnelDiagnosis? {
+        let lower = text.lowercased()
+        if lower.contains("remote host identification has changed") { return .hostKeyChanged }
+        if lower.contains("address already in use") || lower.contains("could not request local forwarding")
+            || lower.contains("cannot listen to port") {
+            return .localPortInUse
+        }
+        if lower.contains("administratively prohibited") || lower.contains("remote port forwarding failed") {
+            return .forwardingRefused
+        }
+        if lower.contains("permission denied (") || lower.contains("too many authentication failures") { return .authenticationFailed }
+        if lower.contains("could not resolve hostname") { return .hostNotFound }
+        if lower.contains("open failed: connect failed") || lower.contains("connect failed:") { return .destinationUnreachable }
+        if lower.contains("connection timed out") || lower.contains("operation timed out") { return .timeout }
+        if lower.contains("connection refused") { return .connectionRefused }
+        return nil
+    }
+
+    /// Demande de mot de passe ou de phrase secrète en attente (dernière ligne non terminée).
+    public static func pendingPrompt(_ line: String) -> String? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        let lower = trimmed.lowercased()
+        guard lower.hasSuffix("password:") || lower.hasSuffix("passphrase:") || lower.hasSuffix("passcode:")
+            || (lower.contains("passphrase for key") && lower.hasSuffix(":")) || lower.hasSuffix("verification code:") else { return nil }
+        return RemoteShell.sanitizedTitle(trimmed, limit: 160)
     }
 }
