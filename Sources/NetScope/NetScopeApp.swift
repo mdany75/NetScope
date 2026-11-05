@@ -95,6 +95,8 @@ struct NetScopeApp: App {
                     await state.detectInterface()
                     // Sondes de surveillance : elles tournent dès le lancement, fenêtre fermée comprise.
                     MonStore.shared.attach(to: state)
+                    // Note 42 : rapports planifiés (jamais de scan ; rattrapage unique au lancement).
+                    RapportScheduleStore.shared.attach(to: state)
                     // Note 29 : relecture automatique du site actif (FortiGate, bornes, switchs SNMP).
                     AutoRefreshStore.shared.attach(to: state)
                     // État des services en ligne : reprend si l'outil a déjà servi (aucune requête sinon).

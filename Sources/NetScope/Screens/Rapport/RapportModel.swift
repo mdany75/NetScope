@@ -45,6 +45,8 @@ final class RapportModel: ObservableObject {
             if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_WAN"] == "1" { demo.sections.insert(.wan) }
             // NETSCOPE_RAPPORT_TRAFIC=1 coche la section « Trafic et analyse » (note 54).
             if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_TRAFIC"] == "1" { demo.sections.insert(.trafic) }
+            // NETSCOPE_RAPPORT_SUIVI=1 coche la section « Depuis le dernier rapport » (note 42).
+            if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_SUIVI"] == "1" { demo.sections.insert(.suivi) }
             config = demo
             library = ReportLibrary(recents: RapportDemo.recents)
         } else {
@@ -60,16 +62,28 @@ final class RapportModel: ObservableObject {
     /// Rapport du site actif ; plusieurs sites choisis (menu « Site ▾ ») : rapport multisite, une
     /// section par site.
     func document(state: AppState) -> ReportDocument {
-        let generator = "NetScope \(AppInfo.version)"
+        document(for: siteInputs(state: state))
+    }
+
+    /// Données de chaque site du rapport (clé du site et entrée), dans l'ordre du menu « Site ▾ ».
+    func siteInputs(state: AppState) -> [(key: String, site: ReportSiteInput)] {
         let keys = SiteScopeStore.shared.keys(for: .rapports)
         if keys == [SiteModel.shared.activeKey] {
-            return ReportBuilder.build(config: config, input: RapportData.input(state: state, demo: isDemo), generator: generator)
+            let input = RapportData.input(state: state, demo: isDemo)
+            return [(keys[0], ReportSiteInput(name: SiteModel.shared.activeName, input: input))]
         }
-        let inputs = RapportData.inputs(state: state, demo: isDemo, keys: keys)
+        return zip(keys, RapportData.inputs(state: state, demo: isDemo, keys: keys)).map { (key: $0.0, site: $0.1) }
+    }
+
+    func document(for inputs: [(key: String, site: ReportSiteInput)]) -> ReportDocument {
+        let generator = "NetScope \(AppInfo.version)"
+        if inputs.count == 1, inputs[0].key == SiteModel.shared.activeKey, menuSiteNames == nil {
+            return ReportBuilder.build(config: config, input: inputs[0].site.input, generator: generator)
+        }
         var chosen = config
         // Un seul autre site : son nom dans l'en-tête (pas celui du site actif).
-        if inputs.count == 1, let only = inputs.first { chosen.site = only.name }
-        return ReportBuilder.buildMultisite(config: chosen, sites: inputs, generator: generator)
+        if inputs.count == 1, let only = inputs.first { chosen.site = only.site.name }
+        return ReportBuilder.buildMultisite(config: chosen, sites: inputs.map(\.site), generator: generator)
     }
 
     /// Sites du rapport quand ce n'est pas le site actif seul (menu « Site ▾ ») : ils remplacent le
@@ -211,7 +225,8 @@ final class RapportModel: ObservableObject {
             show("Date invalide\u{00A0}: indiquez une date au format AAAA-MM-JJ avant de générer le rapport.")
             return nil
         }
-        let document = document(state: state)
+        let inputs = siteInputs(state: state)
+        let document = document(for: inputs)
         let pages = pages(for: document)
         let data: Data?
         switch format {
@@ -237,6 +252,12 @@ final class RapportModel: ObservableObject {
                                      technician: config.technician))
             persist()
             lastFile = url
+            // Note 42 : instantané de chaque site du rapport, base du prochain rapport de suivi.
+            for entry in inputs {
+                RapportHistoryStore.shared.record(ReportSnapshot.make(
+                    input: entry.site.input, siteKey: entry.key, siteName: entry.site.name, created: Date(), reportDate: config.date,
+                    title: config.template.shortTitle + " — " + entry.site.name, fileName: name, format: format))
+            }
             if !quiet { show("Rapport généré\u{00A0}: \(name) (enregistré dans Application Support/NetScope/rapports)") }
             return url
         } catch {
@@ -285,6 +306,74 @@ final class RapportModel: ObservableObject {
 
     var emailSubject: String { config.documentTitle + " — " + config.dateLabel }
 
+    // MARK: Rapports planifiés (note 42)
+
+    /// Produit le rapport planifié d'un site, sans jamais lancer de scan : le site actif d'après le
+    /// dernier scan de la session, les autres d'après leur dernier scan enregistré. La première
+    /// section dit l'âge du scan repris. Renvoie le fichier écrit, ou le message d'échec.
+    func produceScheduled(_ schedule: ReportSchedule, siteKey: String, slot: Date, state: AppState,
+                          now: Date = Date()) -> Result<URL, ScheduledReportError> {
+        let sites = SiteModel.shared
+        guard siteKey == sites.activeKey || sites.site(forKey: siteKey) != nil else {
+            return .failure(ScheduledReportError("site introuvable (supprimé ?)"))
+        }
+        let name = sites.name(forKey: siteKey)
+        var input = siteKey == sites.activeKey
+            ? RapportData.input(state: state, demo: isDemo, now: now, followUpBase: .last)
+            : RapportData.input(forSite: siteKey, now: now, followUpBase: .last)
+        input.now = now
+        var config = schedule.config
+        config.site = name
+        config.date = ReportText.isoDay(now)
+        if config.technician.trimmingCharacters(in: .whitespaces).isEmpty { config.technician = self.config.technician }
+        var document = ReportBuilder.build(config: config, input: input, generator: "NetScope \(AppInfo.version)")
+        let calendar = ReportScheduler.calendar()
+        ReportScheduler.annotate(&document, note: ReportScheduler.scanNote(scanDate: input.scanDate, now: now, calendar: calendar))
+        let pages = pages(for: document)
+        let data: Data?
+        switch config.format {
+        case .pdf: data = RapportPDF.render(document, pages: pages, logo: logo)
+        case .csv: data = ReportExport.csvData(document)
+        case .json: data = try? ReportExport.json(document)
+        case .html: data = Data(ReportExport.html(document, logoDataURL: RapportPDF.dataURL(logo)).utf8)
+        }
+        guard let data else { return .failure(ScheduledReportError("le document n’a pas pu être produit")) }
+        let folder = schedule.folder.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? directory
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let wanted = ReportScheduler.fileName(pattern: schedule.fileNamePattern, siteName: name, config: config, slot: slot,
+                                                  format: config.format, calendar: calendar)
+            let fileName = ReportLibrary.availableName(wanted, in: folder)
+            let url = folder.appendingPathComponent(fileName)
+            try data.write(to: url, options: .atomic)
+            let title = config.template.shortTitle + " — " + name
+            if schedule.folder == nil {
+                library.add(ReportRecent(title: title, fileName: fileName, format: config.format, date: config.date,
+                                         pages: config.format == .pdf ? pages.count : nil,
+                                         rows: config.format == .csv ? ReportExport.csvRowCount(document) : nil,
+                                         technician: config.technician))
+                persist()
+            }
+            RapportHistoryStore.shared.record(ReportSnapshot.make(
+                input: input, siteKey: siteKey, siteName: name, created: now, reportDate: config.date, title: title, fileName: fileName,
+                folder: schedule.folder, format: config.format, scheduleName: schedule.name))
+            return .success(url)
+        } catch {
+            return .failure(ScheduledReportError(error.localizedDescription))
+        }
+    }
+
+    /// Ouvre un brouillon dans Mail avec les fichiers joints ; rien n'est envoyé. Faux si aucune app de courriel.
+    @discardableResult
+    func openDraft(to recipient: String, subject: String, body: String, files: [URL]) -> Bool {
+        guard let service = NSSharingService(named: .composeEmail), service.canPerform(withItems: files) else { return false }
+        let to = recipient.trimmingCharacters(in: .whitespaces)
+        if !to.isEmpty { service.recipients = [to] }
+        service.subject = subject
+        service.perform(withItems: [body] + files)
+        return true
+    }
+
     // MARK: Rapports récents
 
     var recents: [ReportRecent] {
@@ -298,6 +387,12 @@ final class RapportModel: ObservableObject {
             return
         }
         NSWorkspace.shared.open(url)
+    }
+
+    /// Note 42 : un rapport passé supprimé quitte aussi la liste des rapports récents.
+    func forgetRecent(fileName: String) {
+        library.remove(fileName: fileName)
+        persist()
     }
 
     func revealLastFile() {
@@ -325,4 +420,10 @@ final class RapportModel: ObservableObject {
             self?.toast = nil
         }
     }
+}
+
+/// Échec d'un rapport planifié (message en clair).
+struct ScheduledReportError: Error {
+    let message: String
+    init(_ message: String) { self.message = message }
 }

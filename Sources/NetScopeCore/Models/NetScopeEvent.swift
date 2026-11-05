@@ -27,6 +27,8 @@ public enum NetScopeEventKind: String, Codable, CaseIterable, Sendable, Identifi
     case updateAvailable
     /// Fin d'un scan.
     case scanFinished
+    /// Rapport planifié produit (note 42), ou en échec.
+    case reportReady
     /// Notification de test (Réglages › Notifications).
     case test
 
@@ -48,6 +50,7 @@ public enum NetScopeEventKind: String, Codable, CaseIterable, Sendable, Identifi
         case .serviceIncident: return "Nouvel incident d’un service en ligne"
         case .updateAvailable: return "Mise à jour disponible"
         case .scanFinished: return "Fin de scan"
+        case .reportReady: return "Rapport planifié produit"
         case .test: return "Notification de test"
         }
     }
@@ -65,6 +68,7 @@ public enum NetScopeEventKind: String, Codable, CaseIterable, Sendable, Identifi
         case .serviceIncident: return "Panne, incident ou maintenance d’une page d’état, ou service injoignable d’ici."
         case .updateAvailable: return "Nouvelle version de NetScope trouvée par la vérification automatique."
         case .scanFinished: return "Seulement quand NetScope n’est pas au premier plan."
+        case .reportReady: return "Fin d’un rapport planifié (Rapports), avec son dossier\u{00A0}; rien n’est envoyé par courriel."
         case .test: return "Envoyée depuis Réglages › Notifications."
         }
     }
@@ -75,9 +79,13 @@ public enum NetScopeEventKind: String, Codable, CaseIterable, Sendable, Identifi
         case .probeDown, .ipConflict, .rogueDHCP: return .critical
         case .probeWarning, .serviceIncident: return .warning
         case .probeRecovered: return .success
-        case .newDevice, .deviceMoved, .updateAvailable, .scanFinished, .test: return .info
+        case .newDevice, .deviceMoved, .updateAvailable, .scanFinished, .reportReady, .test: return .info
         }
     }
+
+    /// Types ajoutés après la première version des réglages : absents d'un fichier enregistré avant
+    /// eux, ils prennent leur valeur par défaut au lieu d'être pris pour désactivés.
+    public static let introducedLater: Set<NetScopeEventKind> = [.reportReady]
 
     /// Activé tant que l'utilisateur n'a rien changé.
     public var enabledByDefault: Bool {

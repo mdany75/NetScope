@@ -74,6 +74,8 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
     case wan
     /// Trafic FortiView et analyse complète du réseau (note 54), facultative.
     case trafic
+    /// « Depuis le dernier rapport » : rapport de suivi (note 42), facultative.
+    case suivi
 
     public var id: String { rawValue }
 
@@ -93,13 +95,14 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
         case .wifiDiag: return "Diagnostic Wi-Fi"
         case .wan: return "WAN et VPN"
         case .trafic: return "Trafic et analyse"
+        case .suivi: return "Depuis le dernier rapport"
         case .annexe: return "Annexe brute"
         }
     }
 
     /// Ordre dans le document : le détail (inventaire, annexe) vient après la synthèse. « Santé
     /// courriel » est facultative : aucun modèle ne la coche par défaut.
-    public static let documentOrder: [ReportSectionKind] = [.resume, .plan, .dhcp, .wan, .switchs, .wifi, .fortiap, .wifiDiag, .trafic, .securite, .problemes,
+    public static let documentOrder: [ReportSectionKind] = [.resume, .suivi, .plan, .dhcp, .wan, .switchs, .wifi, .fortiap, .wifiDiag, .trafic, .securite, .problemes,
                                                             .courriel, .disques, .inventaire, .annexe]
 }
 
@@ -323,6 +326,11 @@ public struct ReportLibrary: Codable, Hashable, Sendable {
         recents.removeAll { $0.fileName == recent.fileName }
         recents.insert(recent, at: 0)
         if recents.count > Self.maxRecents { recents.removeLast(recents.count - Self.maxRecents) }
+    }
+
+    /// Retire un rapport de la liste (note 42 : « Supprimer » dans les rapports passés).
+    public mutating func remove(fileName: String) {
+        recents.removeAll { $0.fileName == fileName }
     }
 
     /// Enregistre un modèle ; un modèle du même nom est remplacé.

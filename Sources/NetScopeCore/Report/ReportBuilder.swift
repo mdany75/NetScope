@@ -167,6 +167,10 @@ public struct ReportInput: Sendable {
     public var traffic: TrafficOverview?
     /// Analyse complète du réseau, si elle a été lancée.
     public var networkAnalysis: NetworkAnalysisResult?
+    /// Note 42 : comparaison avec le dernier rapport du site (section « Depuis le dernier rapport »).
+    public var followUp: ReportFollowUpResult?
+    /// Note 42 : problèmes suivis fournis par l'application (alertes de la Surveillance, ports en erreur).
+    public var followUpIssues: [ReportIssue] = []
     public var now: Date
 
     public init(devices: [Device], records: [InvRecord] = [], ranges: [ReportRange] = [], switches: [ReportSwitch] = [],
@@ -377,6 +381,7 @@ public enum ReportBuilder {
             case .wifiDiag: blocks = wifiDiagnosisBlocks(input.wifiDiagnoses, masked: config.maskMAC)
             case .wan: blocks = wanBlocks(input.wan, thresholds: input.wanThresholds)
             case .trafic: blocks = trafficBlocks(input.traffic, analysis: input.networkAnalysis, masked: config.maskMAC)
+            case .suivi: blocks = ReportFollowUp.blocks(input.followUp, now: input.now)
             case .annexe: blocks = annex(input, masked: config.maskMAC)
             }
             sections.append(ReportSection(kind: kind, heading: heading, blocks: blocks))

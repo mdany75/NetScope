@@ -6,7 +6,7 @@ import NetScopeCore
 /// réseaux Wi-Fi vus (WifiStore). Lecture seule : rien n'est interrogé sur le réseau ici.
 @MainActor
 enum RapportData {
-    static func input(state: AppState, demo: Bool, now: Date = Date()) -> ReportInput {
+    static func input(state: AppState, demo: Bool, now: Date = Date(), followUpBase: ReportFollowUpBase? = nil) -> ReportInput {
         // Type choisi à la main (note 20) à la place du type détecté.
         let devices = InvModel.shared.withManualTypes(state.devices)
         let ranges = state.ranges.filter(\.isEnabled)
@@ -65,25 +65,42 @@ enum RapportData {
         if demo, input.wifiDiagnoses.isEmpty { input.wifiDiagnoses = WifiDiagnosisDemo.reportResults(state: state) }
         // Note 28 : les compléments du croquis décrivent le Siège seulement.
         if demo, SiteModel.shared.activeID == SitesDemo.siegeID { RapportDemo.complete(&input) }
+        // Note 42 : alertes de la Surveillance et ports en erreur, puis comparaison avec le dernier rapport.
+        input.followUpIssues = monitorIssues(ranges: parsed, isActiveSite: true) + ReportFollowUp.portErrorIssues(snapshots)
+        input.followUp = RapportHistoryStore.shared.followUp(forKey: SiteModel.shared.activeKey, siteName: SiteModel.shared.activeName,
+                                                             input: input, choice: followUpBase)
         return input
+    }
+
+    /// Note 42 : sondes de la Surveillance en panne ou en alerte qui concernent ce site.
+    static func monitorIssues(ranges: [IPRange], isActiveSite: Bool) -> [ReportIssue] {
+        let store = MonStore.shared
+        return store.probes.compactMap { probe in
+            guard let state = store.state(of: probe), state == .down || state == .warning,
+                  ReportFollowUp.probeBelongs(target: probe.target, ranges: ranges, isActiveSite: isActiveSite) else { return nil }
+            return ReportFollowUp.monitorIssue(probeID: probe.id, name: probe.name, down: state == .down)
+        }
     }
 
     /// Données de chaque site choisi dans le menu « Site ▾ » des Rapports : le site actif d'après le
     /// Scanner (comme ci-dessus), les autres d'après leur dernier scan enregistré et leur propre
     /// inventaire (lecture seule, aucun réseau). Rien n'est fusionné d'un site à l'autre.
-    static func inputs(state: AppState, demo: Bool, keys: [String], now: Date = Date()) -> [ReportSiteInput] {
+    static func inputs(state: AppState, demo: Bool, keys: [String], now: Date = Date(),
+                       followUpBase: ReportFollowUpBase? = nil) -> [ReportSiteInput] {
         let sites = SiteModel.shared
         return keys.map { key in
             let name = sites.name(forKey: key)
-            if key == sites.activeKey { return ReportSiteInput(name: name, input: input(state: state, demo: demo, now: now)) }
-            return ReportSiteInput(name: name, input: input(forSite: key, now: now))
+            if key == sites.activeKey {
+                return ReportSiteInput(name: name, input: input(state: state, demo: demo, now: now, followUpBase: followUpBase))
+            }
+            return ReportSiteInput(name: name, input: input(forSite: key, now: now, followUpBase: followUpBase))
         }
     }
 
     /// Un autre site que le site actif : appareils de son dernier scan (sites/<id>/resultats.json),
     /// fiches de son inventaire dans ses plages. Les relevés SNMP, le Wi-Fi vu par ce Mac et les
     /// outils (courriel, disques, FortiAP) ne décrivent que le site actif : ils n'y sont pas.
-    static func input(forSite key: String, now: Date = Date()) -> ReportInput {
+    static func input(forSite key: String, now: Date = Date(), followUpBase: ReportFollowUpBase? = nil) -> ReportInput {
         let sites = SiteModel.shared
         let results = sites.storedResults(for: key) ?? SiteResults()
         let store = InvModel.shared.inventory(for: key)
@@ -101,6 +118,10 @@ enum RapportData {
             ranges: ranges.map { ReportRange(label: $0.label, text: $0.text, vlan: $0.vlan) },
             scanDate: results.finishedAt ?? devices.map(\.lastSeen).max(), now: now)
         input.extraProblems = dhcpProblems(store.events, ranges: parsed)
+        // Note 42 : sondes dont la cible est dans les plages de ce site ; comparaison avec son dernier rapport.
+        input.followUpIssues = monitorIssues(ranges: parsed, isActiveSite: false)
+        input.followUp = RapportHistoryStore.shared.followUp(forKey: key, siteName: sites.name(forKey: key), input: input,
+                                                             choice: followUpBase)
         return input
     }
 
