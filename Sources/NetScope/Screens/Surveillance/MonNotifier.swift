@@ -177,6 +177,11 @@ final class MonNotifier: NSObject {
         for request in pending { center.add(request) { _ in } }
     }
 
+    /// Liens internes des notifications de la base des fabricants (note 81) et du débit
+    /// planifié (note 78).
+    static let ouiSettingsLink = "reglages/general"
+    static let speedScheduleLink = "speedtest/planifie"
+
     /// Ouvre le lien interne d'une notification (clic).
     static func open(_ link: NetScopeEventLink) {
         switch link {
@@ -194,6 +199,14 @@ final class MonNotifier: NSObject {
         case .device(let ip):
             MonWindow.open(screen: .scanner)
             if let state = MonWindow.appState, state.device(withID: ip) != nil { state.showDevice(ip) }
+        case .screen(let raw) where raw == ouiSettingsLink:
+            // Note 81 : base des fabricants mise à jour automatiquement.
+            RegNavigation.shared.section = .general
+            MonWindow.open(screen: .reglages)
+        case .screen(let raw) where raw == speedScheduleLink:
+            // Note 78 : débit Internet planifié sous le seuil.
+            SpeedtestModel.shared.tab = .planifie
+            MonWindow.open(screen: .speedtest)
         case .screen(let raw):
             if raw == Screen.reglages.rawValue { RegNavigation.shared.section = .notifications }
             MonWindow.open(screen: Screen(rawValue: raw) ?? .scanner)

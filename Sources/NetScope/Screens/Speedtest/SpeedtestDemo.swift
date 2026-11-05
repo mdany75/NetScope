@@ -12,7 +12,8 @@ enum SpeedtestDemo {
                                     asn: 577, asOrganization: "Bell Canada"),
             downloadBytes: 1_140_000_000, uploadBytes: 608_000_000)
         model.loadDemo(result: result, down: curve(912, phase: 2.1), up: curve(487, phase: 1.7),
-                       history: history(now: now), lan: lanResult(), lanHost: "10.10.0.20")
+                       history: SpeedHistoryStore.pruned(history(now: now) + SpeedScheduleDemo.records(now: now), now: now),
+                       lan: lanResult(), lanHost: "10.10.0.20")
         let list = servers
         let favorites = list.filter { ["mlab:yul04", "librespeed:3", "custom:https://vitesse.exemple.ca/"].contains($0.id) }
         model.loadDemoServers(list, prefs: SpeedServerPrefs(favorites: favorites.map(\.stored),
