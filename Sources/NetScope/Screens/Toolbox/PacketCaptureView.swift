@@ -4,6 +4,8 @@ import SwiftUI
 /// Capture et inspection de paquets, façon Wireshark (note 7) : choix de l'interface, filtre de
 /// capture et préréglages, limites, liste des paquets en direct, filtre d'affichage, détail par
 /// couche, hexadécimal surligné, suivi de flux, statistiques, ouverture et enregistrement en .pcap.
+/// Note 78 : décodeurs SIP, RTP, SNMP, Syslog, RADIUS et NTP, onglet « Constats » (retransmissions,
+/// fenêtre nulle, latence par flux, voix) et « Ouvrir dans Wireshark ».
 struct PacketCaptureView: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var model: ToolPacketCaptureModel
@@ -22,6 +24,9 @@ struct PacketCaptureView: View {
         ("DHCP", "dhcp"),
         ("Découverte (LLDP, CDP, STP)", "lldp || cdp || stp"),
         ("Diffusion et multidiffusion", "eth.dst == ff:ff:ff:ff:ff:ff || mdns || ssdp || nbns || igmp"),
+        ("Téléphonie (SIP, RTP, RTCP)", "sip || rtp || rtcp"),
+        ("Supervision (SNMP, Syslog, NTP)", "snmp || syslog || ntp"),
+        ("Authentification (RADIUS)", "radius"),
         ("IPv6", "ipv6"),
         ("Grands paquets (plus de 1 000 octets)", "frame.len > 1000"),
     ]
@@ -44,6 +49,7 @@ struct PacketCaptureView: View {
                 paneBar
                 switch model.pane {
                 case .packets: packetsPane
+                case .findings: PacketFindingsView(model: model)
                 case .flow: flowPane
                 case .statistics: statisticsPane
                 }
@@ -175,6 +181,13 @@ struct PacketCaptureView: View {
                 .buttonStyle(.secondary)
                 .controlSize(.small)
                 .help("Ouvrir un fichier .pcap ou .pcapng (Wireshark, tcpdump)")
+            Button { model.openInWireshark() } label: { Label("Ouvrir dans Wireshark", systemImage: "arrow.up.forward.app") }
+                .buttonStyle(.secondary)
+                .controlSize(.small)
+                .disabled(model.log.isEmpty)
+                .help(model.wiresharkURL != nil
+                      ? "Écrit toute la capture en .pcap et l’ouvre dans Wireshark, pour aller plus loin que NetScope"
+                      : "Wireshark n’est pas installé sur ce Mac\u{00A0}: enregistrez plutôt en .pcap")
             Menu {
                 Button("Tous les paquets (\(PacketText.number(model.log.count)))") { model.save(displayedOnly: false) }
                 Button("Paquets affichés (\(PacketText.number(model.rows.count)))") { model.save(displayedOnly: true) }
@@ -274,6 +287,7 @@ struct PacketCaptureView: View {
 
     private var summaryBar: some View {
         let stats = model.statistics(displayedOnly: false)
+        let notable = model.findingsReport().notableCount
         let seconds = model.log.duration
         let icon = Image(systemName: model.method == .file ? "doc" : "checkmark.circle")
             .font(.system(size: 13, weight: .semibold))
@@ -287,6 +301,11 @@ struct PacketCaptureView: View {
                 Chip(text: "\(stats.count(.retransmission)) retransmission\(stats.count(.retransmission) > 1 ? "s" : "")", tone: .warning)
             }
             if stats.count(.reset) > 0 { Chip(text: "\(stats.count(.reset)) RST", tone: .critical) }
+            if notable > 0 {
+                Chip(text: "\(notable) constat\(notable > 1 ? "s" : "")", tone: .warning, systemImage: "stethoscope")
+                    .onTapGesture { model.pane = .findings }
+                    .help("Voir l’onglet Constats")
+            }
         }
         // Une ligne quand la place suffit ; sinon le titre, puis les chiffres et les alertes dessous.
         return ViewThatFits(in: .horizontal) {
@@ -344,11 +363,18 @@ struct PacketCaptureView: View {
             if pane == .flow, model.stream == nil { model.followSelected() }
             model.pane = pane
         })) {
-            ForEach(ToolPacketCaptureModel.Pane.allCases) { pane in Text(pane.label).tag(pane) }
+            ForEach(ToolPacketCaptureModel.Pane.allCases) { pane in Text(paneLabel(pane)).tag(pane) }
         }
         .pickerStyle(.segmented)
         .labelsHidden()
         .fixedSize()
+    }
+
+    /// « Constats (3) » : nombre de constats à surveiller ou graves.
+    private func paneLabel(_ pane: ToolPacketCaptureModel.Pane) -> String {
+        guard pane == .findings else { return pane.label }
+        let count = model.findingsReport().notableCount
+        return count > 0 ? "\(pane.label) (\(count))" : pane.label
     }
 
     private var displayFilterField: some View {
@@ -464,6 +490,9 @@ struct PacketCaptureView: View {
         case "Adresse source", "Adresse de destination", "IP de l’émetteur", "IP de la cible": model.displayFilter = "ip.addr == \(value)"
         case "Port source", "Port de destination": model.displayFilter = "port \(value)"
         case "Nom du serveur (SNI)": model.displayFilter = "tls.sni == \"\(field.value)\""
+        case "Call-ID": model.displayFilter = "sip.call_id == \"\(field.value)\""
+        case "Source de synchronisation (SSRC)", "SSRC décrit":
+            if let ssrc = UInt32(field.value.dropFirst(2), radix: 16) { model.displayFilter = "rtp.ssrc == \(ssrc)" }
         case "Destination", "Source", "MAC de l’émetteur", "MAC de la cible": model.displayFilter = "eth.addr == \(value)"
         default: model.displayFilter = "info contains \"\(value)\""
         }
@@ -573,7 +602,7 @@ struct PacketCaptureView: View {
     // MARK: Limites
 
     private var limitsFootnote: some View {
-        Text("Limites\u{00A0}: pas de déchiffrement TLS (seuls le Client Hello, le SNI et le Server Hello sont lisibles)\u{00A0}; décodeurs de base (Ethernet, 802.1Q, ARP, IPv4/IPv6, ICMP, TCP, UDP, DNS, mDNS, NetBIOS, DHCP, HTTP, TLS, LLDP/CDP, STP), loin des milliers de Wireshark\u{00A0}; HTTP et TLS sont lus segment par segment, sans réassemblage. Pour aller plus loin, enregistrez en .pcap et ouvrez le fichier dans Wireshark.")
+        Text("Limites\u{00A0}: pas de déchiffrement TLS (seuls le Client Hello, le SNI et le Server Hello sont lisibles) ni SNMPv3\u{00A0}; décodeurs de base (Ethernet, 802.1Q, ARP, IPv4/IPv6, ICMP, TCP, UDP, DNS, mDNS, NetBIOS, DHCP, HTTP, TLS, LLDP/CDP, STP, SIP, RTP, RTCP, SNMP, Syslog, RADIUS, NTP), loin des milliers de Wireshark\u{00A0}; RTP reconnu par son contenu (version 2, ports au-dessus de 1024)\u{00A0}; HTTP, SIP et TLS sont lus segment par segment, sans réassemblage. Communautés SNMP et mots de passe RADIUS sont masqués dans le détail (une communauté SNMP v1 ou v2c passe en clair sur le réseau\u{00A0}: elle reste lisible dans l’hexadécimal). Pour aller plus loin\u{00A0}: «\u{00A0}Ouvrir dans Wireshark\u{00A0}».")
             .font(Theme.caption)
             .foregroundStyle(Theme.textTertiary)
             .fixedSize(horizontal: false, vertical: true)

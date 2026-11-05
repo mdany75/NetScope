@@ -14,11 +14,12 @@ final class ToolPacketCaptureModel: ObservableObject {
     enum Phase: Equatable { case idle, preparing, authorizing, capturing, finished }
     enum Method: Equatable { case bpf, privileged, demo, file }
     enum Pane: String, CaseIterable, Identifiable {
-        case packets, flow, statistics
+        case packets, findings, flow, statistics
         var id: String { rawValue }
         var label: String {
             switch self {
             case .packets: return "Paquets"
+            case .findings: return "Constats"
             case .flow: return "Suivre le flux"
             case .statistics: return "Statistiques"
             }
@@ -60,6 +61,9 @@ final class ToolPacketCaptureModel: ObservableObject {
     private(set) var rows: [PacketRow] = [] { didSet { revision &+= 1 } }
     @Published private(set) var revision = 0
     private var statisticsCache: (revision: Int, displayed: Bool, value: CaptureStatistics)?
+    private var findingsCache: (revision: Int, value: CaptureFindingsReport)?
+    /// Wireshark installé sur ce Mac (bouton « Ouvrir dans Wireshark »).
+    @Published private(set) var wiresharkURL: URL?
     @Published var displayFilter = "" { didSet { if displayFilter != oldValue { applyDisplayFilter() } } }
     @Published private(set) var displayFilterError: String?
     @Published var selection: PacketRow.ID? { didSet { if selection != oldValue { selectionChanged() } } }
@@ -109,6 +113,7 @@ final class ToolPacketCaptureModel: ObservableObject {
                 ?? LocalInterfaces.preferredLinkInterface(in: list, preferred: active?.name)?.name ?? ""
         }
         bpfAvailable = await Task.detached { BPFCapture.readableDevice() != nil }.value
+        wiresharkURL = Self.findWireshark()
     }
 
     func applyPreset(_ preset: CapturePreset, gateway: IPv4Address?) {
@@ -349,6 +354,23 @@ final class ToolPacketCaptureModel: ObservableObject {
         return value
     }
 
+    /// Constats automatiques de toute la capture (note 78), gardés tant que rien ne change.
+    func findingsReport() -> CaptureFindingsReport {
+        if let cache = findingsCache, cache.revision == revision { return cache.value }
+        let value = CaptureFindingsAnalyzer.analyze(log)
+        findingsCache = (revision, value)
+        return value
+    }
+
+    /// Montre les paquets d'un constat : filtre d'affichage, premier paquet choisi, liste.
+    func showFinding(_ finding: CaptureFinding) {
+        guard let filter = finding.filter else { return }
+        stream = nil
+        displayFilter = filter
+        pane = .packets
+        if let first = finding.packets.first(where: { number in rows.contains { $0.id == number } }) { selection = first }
+    }
+
     var displayedPackets: [CapturedPacket] {
         rows.compactMap { log.packet($0.id) }
     }
@@ -473,10 +495,7 @@ final class ToolPacketCaptureModel: ObservableObject {
         guard !records.isEmpty else { return }
         let panel = NSSavePanel()
         panel.title = displayedOnly ? "Enregistrer les paquets affichés" : "Enregistrer la capture"
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd-HHmm"
-        let base = (sourceName ?? interfaceName).replacingOccurrences(of: ".pcapng", with: "").replacingOccurrences(of: ".pcap", with: "")
-        panel.nameFieldStringValue = "capture-\(base)-\(formatter.string(from: Date())).pcap"
+        panel.nameFieldStringValue = PcapExportName.fileName(source: sourceName ?? interfaceName, date: Date())
         panel.allowedContentTypes = [UTType(filenameExtension: "pcap") ?? .data]
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
@@ -488,12 +507,75 @@ final class ToolPacketCaptureModel: ObservableObject {
         }
     }
 
+    // MARK: Wireshark (note 78)
+
+    static let wiresharkBundleID = "org.wireshark.Wireshark"
+
+    static func findWireshark() -> URL? {
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: wiresharkBundleID) { return url }
+        let standard = URL(fileURLWithPath: "/Applications/Wireshark.app")
+        return FileManager.default.fileExists(atPath: standard.path) ? standard : nil
+    }
+
+    /// Dossier des captures passées à Wireshark (~/Library/Caches/NetScope/Captures), vidé des
+    /// fichiers de plus de sept jours.
+    static func wiresharkFolder() throws -> URL {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Caches")
+        let folder = caches.appendingPathComponent("NetScope", isDirectory: true).appendingPathComponent("Captures", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let limit = Date().addingTimeInterval(-7 * 86_400)
+        if let items = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey]) {
+            for item in items where item.pathExtension == "pcap" {
+                let date = (try? item.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? Date()
+                if date < limit { try? FileManager.default.removeItem(at: item) }
+            }
+        }
+        return folder
+    }
+
+    /// Écrit toute la capture en .pcap et l'ouvre dans Wireshark, s'il est installé.
+    func openInWireshark() {
+        let records = log.records
+        guard !records.isEmpty else { return }
+        error = nil
+        warning = nil
+        let name = PcapExportName.fileName(source: sourceName ?? interfaceName, date: Date())
+        if isDemo {
+            notice = "Démonstration\u{00A0}: la capture serait écrite dans ~/Library/Caches/NetScope/Captures/\(name) puis ouverte dans Wireshark."
+            return
+        }
+        guard let app = wiresharkURL ?? Self.findWireshark() else {
+            wiresharkURL = nil
+            warning = "Wireshark n’est pas installé sur ce Mac. Enregistrez la capture en .pcap (bouton «\u{00A0}Enregistrer en .pcap\u{00A0}») pour l’ouvrir ailleurs, ou installez Wireshark depuis wireshark.org."
+            return
+        }
+        do {
+            let url = try Self.wiresharkFolder().appendingPathComponent(name)
+            try Data(try PcapFile.write(records)).write(to: url, options: .atomic)
+            let count = records.count
+            NSWorkspace.shared.open([url], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration()) { [weak self] _, failure in
+                Task { @MainActor in
+                    guard let self else { return }
+                    if let failure {
+                        self.error = "Wireshark n’a pas pu ouvrir la capture\u{00A0}: \(failure.localizedDescription)"
+                    } else {
+                        self.notice = "\(PacketText.number(count)) paquets ouverts dans Wireshark (fichier «\u{00A0}\(name)\u{00A0}», gardé sept jours dans les caches de NetScope)."
+                    }
+                }
+            }
+        } catch {
+            self.error = "Écriture de la capture impossible\u{00A0}: \((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)"
+        }
+    }
+
     // MARK: Démonstration
 
     private func loadDemo() {
         interfaces = CaptureDemo.interfaces
         interfaceName = PacketCaptureDemo.interface
         bpfAvailable = false
+        wiresharkURL = URL(fileURLWithPath: "/Applications/Wireshark.app")
         method = .demo
         phase = .finished
         sourceName = PacketCaptureDemo.interface
@@ -516,6 +598,25 @@ final class ToolPacketCaptureModel: ObservableObject {
             followSelected()
         case "stats":
             pane = .statistics
+        case "constats":
+            pane = .findings
+        case "voip":
+            // Note 78 : l'INVITE SIP et son SDP, détaillés par couche.
+            if let invite = log.packets.first(where: { $0.decoded.sipMethod == "INVITE" && $0.decoded.sipStatus == nil }) {
+                selection = invite.id
+                if let sdp = invite.decoded.firstField(named: "Description de session (SDP)") { selectField(sdp.id); expanded.insert(sdp.id) }
+            }
+            displayFilter = "sip || rtp || rtcp"
+        case "snmp":
+            if let response = log.packets.first(where: { $0.decoded.contains(.snmp) && $0.decoded.transaction?.isRequest == false }) {
+                selection = response.id
+                // Première variable choisie : ses parents (PDU, liaisons) se déplient.
+                if let binding = response.decoded.firstField(named: "Liaisons de variables"), let first = binding.children.first {
+                    selectField(first.id)
+                    expanded.insert(first.id)
+                }
+            }
+            displayFilter = "snmp || syslog || radius || ntp"
         case "filtre":
             displayFilter = "tcp.analysis.flags || dns"
             // La retransmission, premier problème que le filtre fait ressortir.

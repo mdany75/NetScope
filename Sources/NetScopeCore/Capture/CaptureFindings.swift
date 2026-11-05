@@ -349,7 +349,8 @@ public enum CaptureFindingsAnalyzer {
                     detail: unansweredAdvice(g.kind),
                     packets: g.unanswered, filter: numbersFilter(g.unanswered)))
             }
-            if !g.failures.isEmpty {
+            // Connexion TCP refusée : déjà dite par les constats TCP (RST).
+            if !g.failures.isEmpty, g.kind != .tcp {
                 // Échecs regroupés par message (« A imprimante-rh.bureau.local : nom inexistant »).
                 var byText: [String: [Int]] = [:]
                 var textOrder: [String] = []

@@ -19,6 +19,10 @@ enum PacketPalette {
         case .icmp, .icmpv6, .igmp: return (Color(light: 0xBE185D, dark: 0xF9A8D4), Color(light: 0xFCE7F3, dark: 0x45202F))
         case .lldp, .cdp, .stp, .llc: return (Color(light: 0x57534E, dark: 0xD6D3D1), Color(light: 0xF5F5F4, dark: 0x34312E))
         case .ipv4, .ipv6, .vlan: return (Color(light: 0x3730A3, dark: 0xA5B4FC), Color(light: 0xE0E7FF, dark: 0x262A4A))
+        // Note 78 : téléphonie, supervision, authentification.
+        case .sip, .rtp, .rtcp: return (Color(light: 0x9A3412, dark: 0xFDBA74), Color(light: 0xFFEDD5, dark: 0x41291A))
+        case .snmp, .syslog, .ntp: return (Color(light: 0x075985, dark: 0x7DD3FC), Color(light: 0xE0F2FE, dark: 0x1A3140))
+        case .radius: return (Color(light: 0x9F1239, dark: 0xFDA4AF), Color(light: 0xFFE4E6, dark: 0x3F1D26))
         default: return (Theme.neutralText, Theme.neutralSoft)
         }
     }

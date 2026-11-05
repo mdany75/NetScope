@@ -99,7 +99,7 @@ public enum LogDeviceGuide {
             end
             write memory
             """, isInterfacePath: false,
-                        verify: "show logging | include Trap|\(mac)",
+                        verify: "show logging",
                         note: "«\u{00A0}logging trap\u{00A0}» fixe la gravité minimale envoyée (informational = 6). Sur un équipement à VRF de gestion, ajoutez «\u{00A0}vrf Mgmt-intf\u{00A0}» après l’adresse.")
         case .arubaOS:
             return Step(brand: brand, transport: transport, commands: """

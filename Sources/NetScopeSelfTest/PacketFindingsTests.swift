@@ -316,6 +316,16 @@ func registerPacketFindingsTests(_ suite: TestSuite) {
         try expect(CaptureFindingsAnalyzer.jitter(shaky, rate: 8_000) > 0.004, "gigue de 10 ms détectée")
     }
 
+    suite.add("Capture : nom du fichier .pcap passé à Wireshark (source nettoyée)") {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/Toronto")!
+        let date = Date(timeIntervalSince1970: 1_793_805_693)
+        try expectEqual(PcapExportName.fileName(source: "en7", date: date, calendar: calendar), "capture-en7-2026-11-04-1021.pcap", "interface")
+        try expectEqual(PcapExportName.fileName(source: "Appel accueil/204.pcapng", date: date, calendar: calendar),
+                        "capture-Appel-accueil-204-2026-11-04-1021.pcap", "fichier ouvert : espaces, barre oblique, extension")
+        try expectEqual(PcapExportName.fileName(source: "///", date: date, calendar: calendar), "capture-netscope-2026-11-04-1021.pcap", "nom vide")
+    }
+
     suite.add("Capture : aucun constat sur une capture saine, formats (%, ms)") {
         let records = [
             PacketRecord(timestamp: 10.000, data: udp(mac, 50111, fgt, 161, ServicePayloads.snmpGet)),

@@ -198,7 +198,7 @@ struct JournauxScreen: View {
         }
         .buttonStyle(.primary)
         .help(store.isListening ? "Ferme les ports Syslog et traps de ce Mac"
-              : "Ouvre UDP \(store.syslogPort) (Syslog) et UDP \(store.trapPort) (traps) sur ce Mac, jusqu’à l’arrêt automatique")
+              : "Ouvre UDP\(store.syslogTCPEnabled ? " et TCP" : "") \(store.syslogPort) (Syslog) et UDP \(store.trapPort) (traps) sur ce Mac, jusqu’à l’arrêt automatique")
     }
 
     // MARK: En-tête
@@ -300,10 +300,17 @@ struct LogListeningIndicator: View {
 
     private var text: String {
         guard store.isListening else { return "Réception arrêtée" }
+        // « En écoute · UDP et TCP 5514, UDP 1162 ».
         var ports: [String] = []
-        if store.syslogListening { ports.append(String(store.syslogPort)) }
-        if store.trapListening { ports.append(String(store.trapPort)) }
-        return "En écoute · UDP " + ports.joined(separator: " et ")
+        if store.syslogListening, store.syslogTCPListening {
+            ports.append("UDP et TCP \(store.syslogPort)")
+        } else if store.syslogListening {
+            ports.append("UDP \(store.syslogPort)")
+        } else if store.syslogTCPListening {
+            ports.append("TCP \(store.syslogPort)")
+        }
+        if store.trapListening { ports.append("UDP \(store.trapPort)") }
+        return "En écoute · " + ports.joined(separator: ", ")
     }
 }
 

@@ -180,8 +180,144 @@ enum PacketCaptureDemo {
         add(11.402_331, udp(meMAC, me, 61_330, gatewayMAC, gateway, 53, PacketForge.dnsMessage(id: 0x5D02, flags: 0x0100, questions: [(missing, 1, 1)])))
         add(11.404_809, udp(gatewayMAC, gateway, 53, meMAC, me, 61_330, PacketForge.dnsMessage(id: 0x5D02, flags: 0x8183, questions: [(missing, 1, 1)])))
 
+        // Note 78 : téléphonie, supervision, authentification, fenêtre nulle.
+        list += Self.note78(meMAC: meMAC)
+
         return list.sorted { $0.0 < $1.0 }.map { PacketRecord(timestamp: start + $0.0, data: $0.1) }
     }
+
+    // MARK: Note 78 (VoIP, SNMP, Syslog, RADIUS, NTP, fenêtre nulle)
+
+    static let phoneMAC78 = MACAddress("64:16:7f:3a:51:0c")!
+    static let phone78 = IPv4Address("10.182.122.31")!
+    static let pbxMAC = MACAddress("00:50:56:9a:41:7e")!
+    static let pbx = IPv4Address("10.182.122.20")!
+    static let coreMAC = MACAddress("00:1b:54:aa:01:00")!
+    static let core = IPv4Address("10.182.122.2")!
+    static let floor = IPv4Address("10.182.122.3")!
+    static let floorMAC = MACAddress("88:3a:30:9c:41:00")!
+    static let nps = IPv4Address("10.10.0.12")!
+
+    /// Appel du poste de l'accueil (201) vers le 204 (SIP et voix G.711 µ-loi, deux paquets perdus),
+    /// relève SNMP du switch cœur, agent du switch d'étage muet (communauté refusée), message Syslog
+    /// de la FortiGate, RADIUS refusé, NTP du téléphone (horloge décalée de 2,4 s) et impression
+    /// bloquée par une imprimante saturée (fenêtre nulle).
+    private static func note78(meMAC: MACAddress) -> [(Double, [UInt8])] {
+        var list: [(Double, [UInt8])] = []
+        func add(_ time: Double, _ frame: [UInt8]) { list.append((time, frame)) }
+
+        // SIP : INVITE, 100 Trying, 180 Ringing, 200 OK (SDP), ACK.
+        let callID = "5c1e8a24f0b94d1c@10.182.122.31"
+        let via = "Via: SIP/2.0/UDP 10.182.122.31:5060;branch=z9hG4bK-524287-1---7d1c"
+        let from = "From: \"Accueil\" <sip:201@10.182.122.20>;tag=9a4f1b2c"
+        let toHeader = "To: <sip:204@10.182.122.20>"
+        func sdp(_ address: String, _ port: Int, _ session: String) -> String {
+            "v=0\r\no=- \(session) 1 IN IP4 \(address)\r\ns=NetScope\r\nc=IN IP4 \(address)\r\nt=0 0\r\nm=audio \(port) RTP/AVP 0 8 101\r\na=rtpmap:0 PCMU/8000\r\na=rtpmap:8 PCMA/8000\r\na=rtpmap:101 telephone-event/8000\r\na=fmtp:101 0-15\r\na=ptime:20\r\na=sendrecv\r\n"
+        }
+        func message(_ head: String, _ headers: [String], body: String = "") -> [UInt8] {
+            var text = head + "\r\n" + headers.joined(separator: "\r\n") + "\r\n"
+            if !body.isEmpty { text += "Content-Type: application/sdp\r\n" }
+            text += "Content-Length: \(body.utf8.count)\r\n\r\n" + body
+            return Array(text.utf8)
+        }
+        let offer = sdp("10.182.122.31", 16_384, "3920193842")
+        let answer = sdp("10.182.122.20", 20_000, "1029384756")
+        let phoneSIP = (phoneMAC78, phone78, UInt16(5060)), pbxSIP = (pbxMAC, pbx, UInt16(5060))
+        add(4.012_118, PacketForge.udpFrame(phoneSIP, pbxSIP, payload: message("INVITE sip:204@10.182.122.20 SIP/2.0", [
+            via, "Max-Forwards: 70", from, toHeader, "Call-ID: \(callID)", "CSeq: 1 INVITE",
+            "Contact: <sip:201@10.182.122.31:5060>", "User-Agent: Poly VVX 450 6.4.3"], body: offer), ttl: 64))
+        let back = [via, from, "Call-ID: \(callID)", "CSeq: 1 INVITE"]
+        add(4.016_402, PacketForge.udpFrame(pbxSIP, phoneSIP, payload: message("SIP/2.0 100 Trying", back + [toHeader])))
+        add(4.214_877, PacketForge.udpFrame(pbxSIP, phoneSIP, payload: message("SIP/2.0 180 Ringing", back + [toHeader + ";tag=3cx-81a2"])))
+        add(5.902_330, PacketForge.udpFrame(pbxSIP, phoneSIP, payload: message("SIP/2.0 200 OK", back + [toHeader + ";tag=3cx-81a2",
+                                                                                                     "Contact: <sip:204@10.182.122.20:5060>"], body: answer)))
+        add(5.906_114, PacketForge.udpFrame(phoneSIP, pbxSIP, payload: message("ACK sip:204@10.182.122.20 SIP/2.0", [
+            via, "Max-Forwards: 70", from, toHeader + ";tag=3cx-81a2", "Call-ID: \(callID)", "CSeq: 1 ACK"])))
+
+        // RTP : 1,6 s de voix dans chaque sens (20 ms par paquet) ; deux paquets perdus du poste
+        // vers le serveur, arrivées irrégulières du serveur vers le poste.
+        func rtp(sequence: Int, timestamp: UInt32, ssrc: UInt32, marker: Bool) -> [UInt8] {
+            var bytes: [UInt8] = [0x80, marker ? 0x80 : 0x00, UInt8(sequence >> 8 & 0xFF), UInt8(sequence & 0xFF)]
+            bytes += be32(timestamp) + be32(ssrc)
+            return bytes + PacketForge.noise(160, seed: UInt8(sequence & 0xFF))
+        }
+        let phoneRTP = (phoneMAC78, phone78, UInt16(16_384)), pbxRTP = (pbxMAC, pbx, UInt16(20_000))
+        let wobble: [Double] = [0.000_4, 0.003_1, -0.002_2, 0.006_8, 0.001_2, -0.004_1, 0.009_5, 0.000_8, -0.001_7, 0.004_4]
+        for index in 0..<80 {
+            let time = 5.95 + Double(index) * 0.02
+            if index != 31, index != 57 {
+                add(time + 0.000_2 + wobble[(index + 3) % wobble.count] / 4, PacketForge.udpFrame(phoneRTP, pbxRTP, payload: rtp(sequence: 21_040 + index, timestamp: 3_200_000 + UInt32(index * 160),
+                                                                                          ssrc: 0x6E3A_91C2, marker: index == 0)))
+            }
+            add(time + 0.011 + wobble[index % wobble.count], PacketForge.udpFrame(pbxRTP, phoneRTP, payload: rtp(sequence: 7_310 + index, timestamp: 980_000 + UInt32(index * 160),
+                                                                                                                 ssrc: 0x2F10_4B88, marker: index == 0)))
+        }
+        // RTCP : rapport du serveur (ce qu'il reçoit du poste).
+        var report: [UInt8] = [0x81, 201, 0x00, 0x07] + be32(0x2F10_4B88) + be32(0x6E3A_91C2)
+        report += [0x06, 0x00, 0x00, 0x02] + be32(21_040 + 79) + be32(184) + be32(0) + be32(0)
+        add(7.560_118, PacketForge.udpFrame((pbxMAC, pbx, 20_001), (phoneMAC78, phone78, 16_385), payload: report))
+
+        // SNMP : relève du switch cœur (répondue en 9 ms) ; switch d'étage muet (communauté refusée).
+        let names: [SNMPOID] = ["1.3.6.1.2.1.1.5.0", "1.3.6.1.2.1.1.3.0", "1.3.6.1.2.1.2.2.1.8.14"]
+        let request = SNMPMessage(community: "public", pdu: SNMPPDU(type: .getRequest, requestID: 18_244, varbinds: names.map { SNMPVarBind(oid: $0) })).encoded()
+        let response = SNMPMessage(community: "public", pdu: SNMPPDU(type: .response, requestID: 18_244, varbinds: [
+            SNMPVarBind(oid: names[0], value: .octetString(Array("SW-CORE-01".utf8))),
+            SNMPVarBind(oid: names[1], value: .timeTicks(318_224_100)),
+            SNMPVarBind(oid: names[2], value: .integer(2)),
+        ])).encoded()
+        add(8.201_330, udp(meMAC, me, 50_118, coreMAC, core, 161, request))
+        add(8.210_402, udp(coreMAC, core, 161, meMAC, me, 50_118, response))
+        let silent = SNMPMessage(community: "public", pdu: SNMPPDU(type: .getRequest, requestID: 18_245, varbinds: [SNMPVarBind(oid: names[0])])).encoded()
+        add(8.402_517, udp(meMAC, me, 50_119, floorMAC, floor, 161, silent))
+        add(9.403_002, udp(meMAC, me, 50_119, floorMAC, floor, 161, silent))
+
+        // Syslog de la FortiGate vers ce Mac (port 5514 de NetScope).
+        let syslog = "<189>date=2026-11-04 time=10:21:42 devname=\"FortiGate-60F\" devid=\"FGT60FTK2209A1B2\" logid=\"0100032001\" type=\"event\" subtype=\"system\" level=\"notice\" vd=\"root\" logdesc=\"Admin login successful\" user=\"dany\" ui=\"https(10.182.122.142)\" msg=\"Administrator dany logged in successfully from https(10.182.122.142)\""
+        add(9.012_774, udp(gatewayMAC, gateway, 514, meMAC, me, 5514, Array(syslog.utf8)))
+
+        // RADIUS : la FortiGate demande l'accès Wi-Fi de jtremblay au serveur NPS, refusé.
+        func attribute(_ type: UInt8, _ value: [UInt8]) -> [UInt8] { [type, UInt8(value.count + 2)] + value }
+        var attributes = attribute(1, Array("jtremblay".utf8)) + attribute(4, PacketForge.ipv4Bytes(gateway))
+        attributes += attribute(61, be32(19)) + attribute(30, Array("04-D5-90-3A-7C-20:Bureau-Wifi".utf8)) + attribute(31, Array("BA-7E-21-C4-90-13".utf8))
+        attributes += attribute(79, [0x02, 0x07, 0x00, 0x0E, 0x01] + Array("jtremblay".utf8)) + attribute(80, PacketForge.noise(16, seed: 0x31))
+        let accessRequest = [UInt8(1), 0x5A] + be16(20 + attributes.count) + PacketForge.noise(16, seed: 0x52) + attributes
+        let rejectAttributes = attribute(18, Array("Refusé par la stratégie Wi-Fi-Employés".utf8)) + attribute(80, PacketForge.noise(16, seed: 0x33))
+        let accessReject = [UInt8(3), 0x5A] + be16(20 + rejectAttributes.count) + PacketForge.noise(16, seed: 0x53) + rejectAttributes
+        add(10.104_220, udp(gatewayMAC, gateway, 1_645, gatewayMAC, nps, 1_812, accessRequest))
+        add(10.131_908, udp(gatewayMAC, nps, 1_812, gatewayMAC, gateway, 1_645, accessReject))
+
+        // NTP : le téléphone (horloge en avance de 2,4 s) interroge la FortiGate.
+        let ntpEpoch = start + 2_208_988_800
+        func ntpStamp(_ seconds: Double) -> [UInt8] {
+            let whole = UInt32(seconds.rounded(.down))
+            let fraction = UInt32(((seconds - seconds.rounded(.down)) * 4_294_967_296).rounded(.down))
+            return be32(whole) + be32(fraction)
+        }
+        let t1 = ntpEpoch + 10.602 + 2.4
+        let client: [UInt8] = [0x23, 0x00, 0x06, 0xEC] + [UInt8](repeating: 0, count: 36) + ntpStamp(t1)
+        let server: [UInt8] = [0x24, 0x02, 0x06, 0xE9] + be32(0x0000_0A5C) + be32(0x0000_1B2E) + PacketForge.ipv4Bytes(IPv4Address("10.10.0.5")!)
+            + ntpStamp(ntpEpoch - 512) + ntpStamp(t1) + ntpStamp(ntpEpoch + 10.603) + ntpStamp(ntpEpoch + 10.603_2)
+        add(10.602_004, udp(phoneMAC78, phone78, 123, gatewayMAC, gateway, 123, client))
+        add(10.603_611, udp(gatewayMAC, gateway, 123, phoneMAC78, phone78, 123, server))
+
+        // Impression JetDirect (9100) : l'imprimante ne vide plus son tampon (fenêtre nulle).
+        let job = (meMAC, me, UInt16(52_170)), printerJob = (printerMAC, printer, UInt16(9_100))
+        let printerBack = (printerMAC, printer, UInt16(9_100)), toJob = (meMAC, me, UInt16(52_170))
+        let jc: UInt32 = 1_404_220_001, js: UInt32 = 88_100_200
+        let chunk = PacketForge.noise(1_400, seed: 0x61)
+        add(4.602_118, PacketForge.tcpFrame(job, printerJob, sequence: jc, acknowledgment: 0, flags: 0x002, options: PacketForge.synOptions, id: 0x2D01))
+        add(4.603_771, PacketForge.tcpFrame(printerBack, toJob, sequence: js, acknowledgment: jc + 1, flags: 0x012, window: 4_380,
+                                            options: [0x02, 0x04, 0x05, 0xB4], ttl: 64, id: 0x0201))
+        add(4.603_890, PacketForge.tcpFrame(job, printerJob, sequence: jc + 1, acknowledgment: js + 1, flags: 0x010, window: 2_058, id: 0x2D02))
+        add(4.604_002, PacketForge.tcpFrame(job, printerJob, sequence: jc + 1, acknowledgment: js + 1, flags: 0x010, window: 2_058, payload: chunk, id: 0x2D03))
+        add(4.604_120, PacketForge.tcpFrame(job, printerJob, sequence: jc + 1 + 1_400, acknowledgment: js + 1, flags: 0x018, window: 2_058, payload: chunk, id: 0x2D04))
+        add(4.611_408, PacketForge.tcpFrame(printerBack, toJob, sequence: js + 1, acknowledgment: jc + 1 + 2_800, flags: 0x010, window: 0, ttl: 64, id: 0x0202))
+        add(4.912_604, PacketForge.tcpFrame(printerBack, toJob, sequence: js + 1, acknowledgment: jc + 1 + 2_800, flags: 0x010, window: 0, ttl: 64, id: 0x0203))
+        add(5.513_331, PacketForge.tcpFrame(printerBack, toJob, sequence: js + 1, acknowledgment: jc + 1 + 2_800, flags: 0x010, window: 4_380, ttl: 64, id: 0x0204))
+        return list
+    }
+
+    private static func be16(_ value: Int) -> [UInt8] { [UInt8(value >> 8 & 0xFF), UInt8(value & 0xFF)] }
 
     private static func be32(_ value: UInt32) -> [UInt8] {
         [UInt8(value >> 24), UInt8(value >> 16 & 0xFF), UInt8(value >> 8 & 0xFF), UInt8(value & 0xFF)]
