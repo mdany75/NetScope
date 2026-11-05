@@ -6,7 +6,9 @@ import NetScopeCore
 /// réseaux Wi-Fi vus (WifiStore). Lecture seule : rien n'est interrogé sur le réseau ici.
 @MainActor
 enum RapportData {
-    static func input(state: AppState, demo: Bool, now: Date = Date(), followUpBase: ReportFollowUpBase? = nil) -> ReportInput {
+    /// `map` (note 61) : dessiner la carte du site (section « Carte du réseau » cochée).
+    static func input(state: AppState, demo: Bool, now: Date = Date(), followUpBase: ReportFollowUpBase? = nil,
+                      map: Bool = false) -> ReportInput {
         // Type choisi à la main (note 20) à la place du type détecté.
         let devices = InvModel.shared.withManualTypes(state.devices)
         let ranges = state.ranges.filter(\.isEnabled)
@@ -77,6 +79,8 @@ enum RapportData {
         input.followUpIssues = monitorIssues(ranges: parsed, isActiveSite: true) + ReportFollowUp.portErrorIssues(snapshots)
         // Notes 62 et 78 : disponibilité des sondes du site sur 30 jours (section « Disponibilité »).
         input.availability = availability(siteKey: SiteModel.shared.activeKey)
+        // Note 61 : carte du réseau du site actif (dernier scan, relevés des switchs, disposition retenue).
+        if map { input.map = TopoSiteMap.reportMap(key: SiteModel.shared.activeKey, siteName: SiteModel.shared.activeName, state: state) }
         input.followUp = RapportHistoryStore.shared.followUp(forKey: SiteModel.shared.activeKey, siteName: SiteModel.shared.activeName,
                                                              input: input, choice: followUpBase)
         return input
@@ -107,21 +111,22 @@ enum RapportData {
     /// Scanner (comme ci-dessus), les autres d'après leur dernier scan enregistré et leur propre
     /// inventaire (lecture seule, aucun réseau). Rien n'est fusionné d'un site à l'autre.
     static func inputs(state: AppState, demo: Bool, keys: [String], now: Date = Date(),
-                       followUpBase: ReportFollowUpBase? = nil) -> [ReportSiteInput] {
+                       followUpBase: ReportFollowUpBase? = nil, map: Bool = false) -> [ReportSiteInput] {
         let sites = SiteModel.shared
         return keys.map { key in
             let name = sites.name(forKey: key)
             if key == sites.activeKey {
-                return ReportSiteInput(name: name, input: input(state: state, demo: demo, now: now, followUpBase: followUpBase))
+                return ReportSiteInput(name: name, input: input(state: state, demo: demo, now: now, followUpBase: followUpBase, map: map))
             }
-            return ReportSiteInput(name: name, input: input(forSite: key, now: now, followUpBase: followUpBase))
+            return ReportSiteInput(name: name, input: input(forSite: key, now: now, followUpBase: followUpBase, map: map, state: state))
         }
     }
 
     /// Un autre site que le site actif : appareils de son dernier scan (sites/<id>/resultats.json),
     /// fiches de son inventaire dans ses plages. Les relevés SNMP, le Wi-Fi vu par ce Mac et les
     /// outils (courriel, disques, FortiAP) ne décrivent que le site actif : ils n'y sont pas.
-    static func input(forSite key: String, now: Date = Date(), followUpBase: ReportFollowUpBase? = nil) -> ReportInput {
+    static func input(forSite key: String, now: Date = Date(), followUpBase: ReportFollowUpBase? = nil, map: Bool = false,
+                      state: AppState? = nil) -> ReportInput {
         let sites = SiteModel.shared
         let results = sites.storedResults(for: key) ?? SiteResults()
         let store = InvModel.shared.inventory(for: key)
@@ -142,6 +147,8 @@ enum RapportData {
         // Note 42 : sondes dont la cible est dans les plages de ce site ; comparaison avec son dernier rapport.
         input.followUpIssues = monitorIssues(ranges: parsed, isActiveSite: false)
         input.availability = availability(siteKey: key)
+        // Note 61 : carte d'après le dernier scan enregistré du site (sans relevés des switchs).
+        if map, let state { input.map = TopoSiteMap.reportMap(key: key, siteName: sites.name(forKey: key), state: state) }
         input.followUp = RapportHistoryStore.shared.followUp(forKey: key, siteName: sites.name(forKey: key), input: input,
                                                              choice: followUpBase)
         return input

@@ -202,6 +202,26 @@ public struct ReportUptimeChart: Codable, Hashable, Sendable {
     public var columns: Int { rows.map(\.values.count).max() ?? 0 }
 }
 
+/// Note 61 : image d'un rapport (carte du réseau), en PNG, la même dans le PDF, le HTML et le DOCX.
+public struct ReportImage: Codable, Hashable, Sendable {
+    public var png: Data
+    /// Taille naturelle en points (proportions de l'image) ; l'image est réduite pour tenir sur la page.
+    public var width: Double
+    public var height: Double
+    /// Légende sous l'image (« Carte du réseau — Siège »).
+    public var caption: String?
+    /// Texte de remplacement (HTML, DOCX).
+    public var alt: String
+
+    public init(png: Data, width: Double, height: Double, caption: String? = nil, alt: String) {
+        self.png = png
+        self.width = width
+        self.height = height
+        self.caption = caption
+        self.alt = alt
+    }
+}
+
 public enum ReportBlock: Codable, Hashable, Sendable {
     case paragraph(String)
     case kpis([ReportKPI])
@@ -211,6 +231,8 @@ public enum ReportBlock: Codable, Hashable, Sendable {
     case code([String])
     /// Note 78 : graphe de disponibilité par sonde.
     case uptime(ReportUptimeChart)
+    /// Note 61 : image (carte du réseau).
+    case image(ReportImage)
 }
 
 public struct ReportSection: Codable, Hashable, Sendable, Identifiable {
@@ -557,7 +579,20 @@ public struct ReportPageMetrics: Hashable, Sendable {
         case .note(let text): return noteHeight(text)
         case .code(let lines): return codePadding + Double(lines.count) * codeLineHeight
         case .uptime(let chart): return barTitleHeight + Double(chart.rows.count) * uptimeRowHeight + uptimeAxisHeight
+        case .image(let image): return imageSize(image).height + (image.caption == nil ? 0 : imageCaptionHeight)
         }
+    }
+
+    /// Note 61 : légende sous une image.
+    public var imageCaptionHeight: Double { noteLineHeight + 4 }
+
+    /// Taille dessinée d'une image : sa taille naturelle (jamais agrandie), réduite pour tenir dans
+    /// la largeur utile et sur une page avec le titre de sa section.
+    public func imageSize(_ image: ReportImage) -> (width: Double, height: Double) {
+        guard image.width > 0, image.height > 0 else { return (0, 0) }
+        let maxHeight = contentHeight - headingHeight - (image.caption == nil ? 0 : imageCaptionHeight) - 4
+        let scale = min(1, contentWidth / image.width, maxHeight / image.height)
+        return ((image.width * scale).rounded(.down), (image.height * scale).rounded(.down))
     }
 }
 

@@ -36,6 +36,10 @@ struct TopologieScreen: View {
     @State private var searchZoomed = false
     /// Demande de défilement jusqu'au résultat (change à chaque nouveau résultat montré).
     @State private var scrollRequest = 0
+    /// Note 61 : hauteur des piles de la disposition affichée (l'export reprend le même dessin).
+    @State private var shownStack = 4
+    /// Note 61 : résultat du dernier export (bandeau sous la barre de la carte).
+    @State private var exportNotice: TopoExportNotice?
 
     // MARK: Site dessiné
 
@@ -53,23 +57,12 @@ struct TopologieScreen: View {
     /// Appareils du site dessiné et ceux de son dernier scan : le Scanner pour le site actif, sinon
     /// les résultats enregistrés du site (lecture seule).
     private var siteDevices: (all: [Device], lastScan: [Device]) {
-        if isActiveDrawing {
-            return (state.devices, TopoScope.lastScan(state.devices, since: scan.startedAt, ranges: scan.lastScanRanges))
-        }
-        let results = sites.storedResults(for: drawnKey) ?? SiteResults()
-        let devices = results.devices.map { device -> Device in
-            var copy = device
-            copy.customName = results.customNames[device.id] ?? device.customName
-            return copy
-        }
-        return (devices, TopoScope.lastScan(devices, since: results.startedAt, ranges: results.parsedScanRanges))
+        TopoSiteMap.siteDevices(key: drawnKey, state: state)
     }
 
     /// Appareils dessinés : ceux du dernier scan, ou tous ceux que garde le site ; type choisi à la main.
     private var mapDevices: [Device] {
-        let devices = siteDevices
-        let shown = includePrevious ? devices.all : devices.lastScan
-        return isActiveDrawing ? model.withManualTypes(shown) : model.inventory(for: drawnKey).applyingManualTypes(to: shown)
+        TopoSiteMap.mapDevices(key: drawnKey, state: state, includePrevious: includePrevious)
     }
 
     /// Appareils gardés mais absents du dernier scan.
@@ -83,8 +76,7 @@ struct TopologieScreen: View {
     /// Relevés des switchs du site dessiné : ceux du site actif seulement (les relevés SNMP et
     /// FortiGate ne sont gardés que pour lui). Démonstration : avec l'anneau de FortiSwitch.
     private var drawnSwitches: [SNMPSwitchSnapshot] {
-        guard isActiveDrawing else { return [] }
-        return Launcher.isDemo ? TopoDemo.withRing(switchStore.siteSnapshots) : switchStore.siteSnapshots
+        TopoSiteMap.switches(key: drawnKey)
     }
 
     /// Appareils du dessin après le filtre VLAN (l'infrastructure reste).
@@ -179,6 +171,7 @@ struct TopologieScreen: View {
             selectedID = makeGraph(vlanFiltered(mapDevices)).nodes.first { $0.title.lowercased().contains(wanted) }?.id
         }
         .screenToolbar {
+            exportMenu(disabled: allDevices.isEmpty)
             Button { state.open(.switchs) } label: { Label("Switchs et ports", systemImage: Screen.switchs.symbol) }
                 .buttonStyle(.secondary)
             Button { state.open(.scanner) } label: { Label("Redécouvrir", systemImage: "arrow.clockwise") }
@@ -343,9 +336,7 @@ struct TopologieScreen: View {
     /// Passerelle du dessin : celle de l'interface pour le site actif ; pour un autre site,
     /// l'appareil de son dernier scan qui a la MAC de passerelle apprise par le site.
     private func drawnGateway(_ devices: [Device]) -> IPv4Address? {
-        if isActiveDrawing { return state.activeInterface?.gateway }
-        guard let macs = sites.site(forKey: drawnKey)?.hints.gatewayMACs, !macs.isEmpty else { return nil }
-        return devices.first { device in device.mac.map(macs.contains) ?? false }?.ip
+        TopoSiteMap.gateway(devices, key: drawnKey, state: state)
     }
 
     // MARK: Indicateurs
@@ -617,6 +608,9 @@ struct TopologieScreen: View {
             if let search {
                 TopoSearchBand(search: search, graph: graph, actions: searchActions)
             }
+            if let exportNotice {
+                exportBand(exportNotice)
+            }
 
             GeometryReader { geometry in
                 let fitted = fittedLayout(graph, in: geometry.size)
@@ -654,10 +648,12 @@ struct TopologieScreen: View {
                 .onAppear {
                     fitScale = fit
                     movedShown = layout.moved.count
+                    shownStack = fitted.stack
                     if highlight != nil { zoomForResult(fit: fit) }
                     seedDemoLayout(layout, stack: fitted.stack)
                 }
                 .onChange(of: fit) { _, value in fitScale = value }
+                .onChange(of: fitted.stack) { _, value in shownStack = value }
                 .onChange(of: layout.moved.count) { _, value in movedShown = value }
                 .onChange(of: scrollRequest) { _, _ in zoomForResult(fit: fit) }
             }
@@ -708,46 +704,8 @@ struct TopologieScreen: View {
         let hasLLDP = !graph.infraLinks.isEmpty
         let hasRedundant = !graph.redundantLinks.isEmpty
         return VStack(alignment: .leading, spacing: 6) {
-            InvFlowLayout(spacing: 11) {
-                Text("LÉGENDE").font(Theme.captionSemibold).foregroundStyle(Theme.textSecondary)
-                legendIcon(.internet, "Internet")
-                legendIcon(.passerelle, "Passerelle")
-                legendIcon(.switch, "Switch")
-                legendIcon(.pointAcces, "Point d’accès")
-                HStack(spacing: 5) {
-                    RoundedRectangle(cornerRadius: 3).strokeBorder(Theme.borderStrong).frame(width: 14, height: 11)
-                        .background(RoundedRectangle(cornerRadius: 3).fill(Theme.panel).offset(x: 2, y: 2))
-                    Text("Groupe agrégé")
-                }
-                Rectangle().fill(Theme.border).frame(width: 1, height: 14)
-                HStack(spacing: 5) { Capsule().fill(TopoStyle.wire).frame(width: 22, height: 3); Text("Filaire") }
-                HStack(spacing: 5) {
-                    Path { path in path.move(to: .zero); path.addLine(to: CGPoint(x: 22, y: 0)) }
-                        .stroke(TopoStyle.wifi, style: StrokeStyle(lineWidth: 2, dash: [4, 3]))
-                        .frame(width: 22, height: 2)
-                    Text("Wi-Fi")
-                }
-                if hasLLDP {
-                    HStack(spacing: 5) { Capsule().fill(TopoStyle.lldp).frame(width: 22, height: 3); Text("LLDP / FortiLink") }
-                        .help("Lien vu par les voisins LLDP relus par SNMP, ou par la FortiGate (FortiLink, ISL)")
-                }
-                if hasRedundant {
-                    HStack(spacing: 5) {
-                        Path { path in
-                            path.move(to: CGPoint(x: 0, y: 3))
-                            path.addQuadCurve(to: CGPoint(x: 22, y: 3), control: CGPoint(x: 11, y: -3))
-                        }
-                        .stroke(TopoStyle.lldp, style: StrokeStyle(lineWidth: 2, dash: [4, 3]))
-                        .frame(width: 22, height: 6)
-                        Text("Lien redondant")
-                    }
-                }
-                HStack(spacing: 5) { StatusDot(tone: .critical, size: 7); Text("Conflit IP") }
-                HStack(spacing: 5) { StatusDot(tone: .neutral, size: 7); Text("Hors ligne") }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .font(Theme.small)
-            .foregroundStyle(Theme.neutralText)
+            TopoLegendItems(hasLLDP: hasLLDP, hasRedundant: hasRedundant)
+                .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 6) {
                 Image(systemName: "info.circle").font(.system(size: 11))
                 // Sur une ligne quand elle tient, sinon la version courte (petite fenêtre).
@@ -776,22 +734,89 @@ struct TopologieScreen: View {
             : "Carte construite à partir du scan\u{00A0}; les liens physiques exacts nécessitent SNMP/LLDP (écran Switchs et ports). Glissez un nœud pour le placer."
     }
 
+    // MARK: Export (note 61)
+
+    /// Menu « Exporter » de la barre d'outils : PNG, PDF, SVG, draw.io.
+    private func exportMenu(disabled: Bool) -> some View {
+        Menu {
+            ForEach(TopoExportFormat.allCases) { format in
+                Button(format.menuLabel) { export(format) }
+                    .help(format.help)
+                if format == .pdf { Divider() }
+            }
+        } label: {
+            Label("Exporter", systemImage: "square.and.arrow.up")
+        }
+        .menuStyle(.button)
+        .fixedSize()
+        .disabled(disabled)
+        .help("Exporter la carte entière de «\u{00A0}\(sites.name(forKey: drawnKey))\u{00A0}» (filtre VLAN, recherche et calques compris)")
+    }
+
+    /// La carte telle qu'elle est dessinée, entière : même disposition (piles, nœuds placés à la
+    /// main), filtre VLAN, recherche et calques.
+    private func exportContent() -> TopoExportContent {
+        let devices = vlanFiltered(mapDevices)
+        let graph = makeGraph(devices)
+        let manual = manualLayout
+        let margin = Double(TopoStyle.margin)
+        let hideEnd = !showEndDevices
+        var layout = graph.layout(nodeWidth: TopoStyle.nodeWidth, nodeHeight: TopoStyle.nodeHeight, levelGap: 50, stackGap: 20,
+                                  maxStack: manual.isEmpty ? shownStack : manual.stack, margin: margin,
+                                  hidden: { hideEnd && ($0.kind == .groupe || $0.kind == .appareil) })
+        if !manual.isEmpty { layout = layout.applying(manual, margin: margin) }
+        let search = searchContext(graph, devices: devices)
+        var details: [String] = []
+        if !vlanFilter.isAll { details.append(vlanLabel(vlanFilter)) }
+        if let search, !search.hits.isEmpty {
+            details.append("Recherche «\u{00A0}\(search.text)\u{00A0}»\u{00A0}: " + searchResultsLabel(search.hits.count).lowercasedFirst)
+        }
+        if !showEndDevices { details.append("Équipements réseau seulement") }
+        if includePrevious { details.append("Scans précédents compris") }
+        let now = Launcher.isDemo ? (ReportText.longDate(RapportDemo.config.date) ?? "") : (ReportText.longDate(ReportText.isoDay(Date())) ?? "")
+        if !now.isEmpty { details.append("État du \(now)") }
+        return TopoExportContent(graph: graph, layout: layout, showPortLabels: showPortLabels, highlight: search?.highlight(graph),
+                                 carrying: vlanFilter.isAll ? nil : graph.nodesCarrying(vlanFilter, devices: devices),
+                                 title: "Carte du réseau — \(sites.name(forKey: drawnKey))", details: details)
+    }
+
+    private func export(_ format: TopoExportFormat) {
+        let content = exportContent()
+        guard let result = TopoExporter.save(content, format: format, site: sites.name(forKey: drawnKey)) else { return }
+        switch result {
+        case .success(let url):
+            exportNotice = TopoExportNotice(text: "Carte exportée\u{00A0}: \(url.lastPathComponent)", url: url, failed: false)
+        case .failure(let error):
+            exportNotice = TopoExportNotice(text: "Export impossible\u{00A0}: \(error.message)", url: nil, failed: true)
+        }
+    }
+
+    /// Bandeau du dernier export : fichier écrit (« Afficher dans le Finder ») ou échec.
+    private func exportBand(_ notice: TopoExportNotice) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: notice.failed ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                .foregroundStyle(notice.failed ? Theme.critical : Theme.success)
+            Text(notice.text).font(Theme.small).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.middle)
+            Spacer(minLength: 8)
+            if let url = notice.url {
+                Button("Afficher dans le Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }.buttonStyle(.ghost)
+            }
+            Button { exportNotice = nil } label: { Image(systemName: "xmark") }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.textSecondary)
+                .help("Fermer")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 4)
+        .background(notice.failed ? Theme.criticalSoft : Theme.successSoft)
+        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+    }
+
     /// Captures : NETSCOPE_CARTE_DEPLACES=1 place quelques nœuds à la main (démonstration).
     private func seedDemoLayout(_ layout: TopoGraph.Layout, stack: Int) {
         guard Launcher.isDemo, manualLayout.isEmpty else { return }
         let positions = TopoDemo.movedPositions(layout)
         guard !positions.isEmpty else { return }
         layoutStore.seedDemo(positions, stack: stack, siteKey: drawnKey)
-    }
-
-    private func legendIcon(_ kind: TopoNodeKind, _ title: String) -> some View {
-        let style = TopoStyle.colors(kind: kind, type: nil)
-        return HStack(spacing: 5) {
-            Image(systemName: TopoStyle.symbol(kind: kind, type: nil)).font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(style.fg)
-                .frame(width: 16, height: 16)
-                .background(RoundedRectangle(cornerRadius: 4).fill(style.bg))
-            Text(title)
-        }
     }
 }

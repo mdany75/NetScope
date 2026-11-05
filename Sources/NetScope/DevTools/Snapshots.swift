@@ -127,6 +127,8 @@ enum Snapshots {
         // Note 78 : export DOCX écrit à la main, section « Disponibilité » comprise.
         if options.demo { ok = RapportDocxCheck.write(into: directory, state: state) && ok }
         if options.demo { ok = LinkCheckPDFCheck.write(into: directory) && ok }
+        // Note 61 : exports de la carte (PNG, PDF, SVG, draw.io).
+        if options.demo { ok = TopoExportCheck.write(into: directory, state: state) && ok }
         // Note 78 : rapport « pour le fournisseur Internet » du ping continu.
         if options.demo { ok = PingISPReportCheck.write(into: directory) && ok }
         return ok

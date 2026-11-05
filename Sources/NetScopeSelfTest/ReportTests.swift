@@ -63,6 +63,7 @@ private func texts(_ document: ReportDocument, _ kind: ReportSectionKind) -> [St
         case .table(let table): result += table.rows.flatMap { $0.cells.map(\.text) }
         case .code(let lines): result += lines
         case .uptime(let chart): result.append(chart.title); result += chart.rows.map { $0.label + " " + $0.total }
+        case .image(let image): result.append(image.caption ?? image.alt)
         }
     }
     return result

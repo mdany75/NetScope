@@ -180,6 +180,8 @@ public struct ReportInput: Sendable {
     public var followUpIssues: [ReportIssue] = []
     /// Notes 62 et 78 : disponibilité des sondes de la Surveillance du site (section « Disponibilité »).
     public var availability: ReportAvailability?
+    /// Note 61 : carte du réseau du site (image dessinée par l'application, liens entre équipements).
+    public var map: ReportMap?
     public var now: Date
 
     public init(devices: [Device], records: [InvRecord] = [], ranges: [ReportRange] = [], switches: [ReportSwitch] = [],
@@ -410,6 +412,7 @@ public enum ReportBuilder {
             case .trafic: blocks = trafficBlocks(input.traffic, analysis: input.networkAnalysis, masked: config.maskMAC)
             case .suivi: blocks = ReportFollowUp.blocks(input.followUp, now: input.now)
             case .disponibilite: blocks = availabilityBlocks(input.availability)
+            case .carte: blocks = mapBlocks(input.map)
             case .annexe: blocks = annex(input, masked: config.maskMAC)
             }
             sections.append(ReportSection(kind: kind, heading: heading, blocks: blocks))

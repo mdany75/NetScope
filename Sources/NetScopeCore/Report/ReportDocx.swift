@@ -19,20 +19,39 @@ public enum ReportDocx {
     /// entrées du ZIP et des propriétés du document (fixe dans les tests).
     public static func make(_ document: ReportDocument, logoPNG: Data? = nil, date: Date = Date()) -> Data {
         let logo = logoPNG.flatMap { data in pngSize(data).map { (data: data, size: $0) } }
+        let images = imageBlocks(document)
         var entries = [
-            BackupZip.Entry(path: "[Content_Types].xml", data: Data(contentTypes(hasLogo: logo != nil).utf8)),
+            BackupZip.Entry(path: "[Content_Types].xml", data: Data(contentTypes(hasLogo: logo != nil || !images.isEmpty).utf8)),
             BackupZip.Entry(path: "_rels/.rels", data: Data(packageRelationships.utf8)),
             BackupZip.Entry(path: "docProps/core.xml", data: Data(coreProperties(document, date: date).utf8)),
             BackupZip.Entry(path: "docProps/app.xml", data: Data(appProperties(document).utf8)),
-            BackupZip.Entry(path: "word/_rels/document.xml.rels", data: Data(documentRelationships(hasLogo: logo != nil).utf8)),
+            BackupZip.Entry(path: "word/_rels/document.xml.rels",
+                            data: Data(documentRelationships(hasLogo: logo != nil, images: images.count).utf8)),
             BackupZip.Entry(path: "word/document.xml", data: Data(documentXML(document, logo: logo?.size).utf8)),
             BackupZip.Entry(path: "word/styles.xml", data: Data(styles.utf8)),
             BackupZip.Entry(path: "word/settings.xml", data: Data(settings.utf8)),
             BackupZip.Entry(path: "word/footer1.xml", data: Data(footer(document).utf8)),
         ]
         if let logo { entries.append(BackupZip.Entry(path: "word/media/logo.png", data: logo.data)) }
+        // Note 61 : images du rapport (carte du réseau), dans l'ordre du document.
+        for (index, image) in images.enumerated() {
+            entries.append(BackupZip.Entry(path: "word/media/" + imageName(index), data: image.png))
+        }
         return BackupZip.archive(entries, date: date)
     }
+
+    /// Images du document, dans l'ordre (seules les vraies images PNG sont gardées).
+    static func imageBlocks(_ document: ReportDocument) -> [ReportImage] {
+        document.sections.flatMap { section in
+            section.blocks.compactMap { block -> ReportImage? in
+                if case .image(let image) = block, pngSize(image.png) != nil { return image }
+                return nil
+            }
+        }
+    }
+
+    static func imageName(_ index: Int) -> String { "image-\(index + 1).png" }
+    static func imageRelationship(_ index: Int) -> String { "rIdImg\(index + 1)" }
 
     /// Parties obligatoires de l'archive (vérification et tests).
     public static let requiredParts = ["[Content_Types].xml", "_rels/.rels", "word/document.xml", "word/_rels/document.xml.rels",
@@ -65,12 +84,15 @@ public enum ReportDocx {
         + "<Relationship Id=\"rId3\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties\" Target=\"docProps/app.xml\"/>"
         + "</Relationships>"
 
-    static func documentRelationships(hasLogo: Bool) -> String {
+    static func documentRelationships(hasLogo: Bool, images: Int = 0) -> String {
         xmlHeader + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
             + "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>"
             + "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings\" Target=\"settings.xml\"/>"
             + "<Relationship Id=\"rId3\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer\" Target=\"footer1.xml\"/>"
             + (hasLogo ? "<Relationship Id=\"rId4\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/logo.png\"/>" : "")
+            + (0..<images).map {
+                "<Relationship Id=\"\(imageRelationship($0))\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/\(imageName($0))\"/>"
+            }.joined()
             + "</Relationships>"
     }
 
@@ -155,9 +177,19 @@ public enum ReportDocx {
             + "<w:spacing w:after=\"240\"/></w:pPr>"
             + run(document.dateLabel + " · Technicien\u{00A0}: ") + run(document.technicianLabel, bold: true, color: "111827")
             + run(" · Réf. " + document.reference) + "</w:p>"
+        var images = 0
         for section in document.sections {
             body += paragraph(style: "Heading1", runs: run(section.heading))
-            for block in section.blocks { body += xml(block) }
+            for block in section.blocks {
+                if case .image(let image) = block {
+                    // Même ordre que imageBlocks : la relation de l'image suit son rang.
+                    guard pngSize(image.png) != nil else { continue }
+                    body += picture(image, relationship: imageRelationship(images), id: 100 + images)
+                    images += 1
+                } else {
+                    body += xml(block)
+                }
+            }
         }
         if document.signature { body += signature(document) }
         body += "<w:sectPr><w:footerReference w:type=\"default\" r:id=\"rId3\"/>"
@@ -208,7 +240,31 @@ public enum ReportDocx {
             return lines.map { paragraph(style: "Code", runs: run($0.isEmpty ? " " : $0)) }.joined() + spacer
         case .uptime(let chart):
             return uptime(chart) + spacer
+        case .image(let image):
+            // Sans relation (appel isolé) : seulement la légende ; documentXML insère l'image.
+            return image.caption.map { paragraph(style: "Note", runs: run($0)) } ?? ""
         }
+    }
+
+    /// Note 61 : image dans le texte, centrée, réduite à la largeur utile (et à 8 po de haut au
+    /// plus), avec sa légende dessous.
+    static func picture(_ image: ReportImage, relationship: String, id: Int) -> String {
+        let maxWidth = Double(contentWidth) / 20, maxHeight = 576.0
+        let scale = min(1, maxWidth / max(image.width, 1), maxHeight / max(image.height, 1))
+        let cx = Int(image.width * scale * 12_700), cy = Int(image.height * scale * 12_700)
+        let name = escape(image.alt)
+        var out = "<w:p><w:pPr><w:keepNext/><w:jc w:val=\"center\"/><w:spacing w:before=\"60\" w:after=\"60\"/></w:pPr>"
+            + "<w:r><w:drawing><wp:inline distT=\"0\" distB=\"0\" distL=\"0\" distR=\"0\"><wp:extent cx=\"\(cx)\" cy=\"\(cy)\"/>"
+            + "<wp:docPr id=\"\(id)\" name=\"Image \(id)\" descr=\"\(name)\"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect=\"1\"/></wp:cNvGraphicFramePr>"
+            + "<a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/picture\"><pic:pic>"
+            + "<pic:nvPicPr><pic:cNvPr id=\"0\" name=\"image-\(id).png\" descr=\"\(name)\"/><pic:cNvPicPr/></pic:nvPicPr>"
+            + "<pic:blipFill><a:blip r:embed=\"\(relationship)\"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>"
+            + "<pic:spPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"\(cx)\" cy=\"\(cy)\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom></pic:spPr>"
+            + "</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>"
+        if let caption = image.caption {
+            out += "<w:p><w:pPr><w:pStyle w:val=\"Note\"/><w:jc w:val=\"center\"/></w:pPr>" + run(caption) + "</w:p>"
+        }
+        return out
     }
 
     /// Petit espace après un tableau (Word colle sinon le paragraphe suivant au tableau).
