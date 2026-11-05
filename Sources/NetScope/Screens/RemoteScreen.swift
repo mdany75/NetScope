@@ -8,6 +8,7 @@ struct RemoteScreen: View {
     @ObservedObject private var model = RemoteModel.shared
     @ObservedObject private var files = FileTransferStore.shared
     @ObservedObject private var ftpServer = FTPTemporaryServerModel.shared
+    @ObservedObject private var sessions = RemoteSessionStore.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,7 +39,10 @@ struct RemoteScreen: View {
             HStack(alignment: .top, spacing: 12) {
                 // Note 50 : navigateur de fichiers ouvert ; en petite fenêtre, il prend toute la largeur.
                 let browsing = files.session.flatMap { files.isShowing(model.selectedID) ? $0 : nil }
-                if browsing == nil || !model.compactLayout {
+                // Note 57 : petite fenêtre et onglet de session affiché : le terminal prend toute la
+                // largeur (l'onglet « Sessions » ramène la liste des connexions).
+                let sessionShown = sessions.activeTab != nil && model.draft == nil
+                if !model.compactLayout || (browsing == nil && !sessionShown) {
                     RemoteConnectionList(model: model)
                         .frame(width: 272)
                 }

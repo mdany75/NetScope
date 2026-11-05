@@ -1,38 +1,33 @@
 import NetScopeCore
 import SwiftUI
 
-/// Zone centrale : formulaire de connexion, ou aperçu de ce que « Connecter » va ouvrir.
-/// Le terminal intégré n'existe pas encore : les sessions s'ouvrent dans l'app externe.
+/// Zone centrale : barre d'onglets de session (note 57), puis l'onglet choisi — terminal intégré
+/// (SSH, Telnet, console série) — ou l'accueil « Sessions » : formulaire de connexion, ou aperçu de
+/// ce que « Connecter » va ouvrir.
 struct RemoteSessionArea: View {
     @ObservedObject var model: RemoteModel
     /// telnet installé depuis l’encadré : la commande affichée (telnet ou nc) se met à jour.
     @ObservedObject private var telnet = ToolInstallMonitor.shared(.telnet)
     @ObservedObject private var files = FileTransferStore.shared
+    @ObservedObject private var sessions = RemoteSessionStore.shared
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Image(systemName: "rectangle.stack").font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
-                Text(model.draft == nil ? "Sessions" : (model.draft?.editingID == nil ? "Nouvelle connexion" : "Modifier la connexion"))
-                    .font(.system(size: 12, weight: .semibold))
-                Text("SSH · Telnet · Console série · RDP · VNC · FTP · SFTP").font(Theme.caption).foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .frame(height: 38)
-            .background(Theme.neutralSoft)
-            .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+            RemoteSessionTabBar(model: model)
 
-            ScrollView {
-                if model.draft != nil {
-                    RemoteForm(model: model)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 18)
-                } else {
-                    launchOverview
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 18)
+            if model.draft == nil, let tab = sessions.activeTab {
+                sessionContent(tab)
+            } else {
+                ScrollView {
+                    if model.draft != nil {
+                        RemoteForm(model: model)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 18)
+                    } else {
+                        launchOverview
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 18)
+                    }
                 }
             }
         }
@@ -40,6 +35,36 @@ struct RemoteSessionArea: View {
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
         .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+        // Formulaire ouvert (Nouvelle connexion, Modifier) : il s'affiche dans l'onglet « Sessions ».
+        .onChange(of: model.draft != nil) { _, editing in
+            if editing { sessions.select(nil) }
+        }
+        .confirmationDialog("Fermer l’onglet « \(sessions.pendingClose?.connection.name ?? "") » ?",
+                            isPresented: Binding(get: { sessions.pendingClose != nil },
+                                                 set: { if !$0 { sessions.pendingClose = nil } }),
+                            titleVisibility: .visible) {
+            Button("Fermer la session", role: .destructive) {
+                if let tab = sessions.pendingClose { sessions.close(tab.id) }
+            }
+            Button("Annuler", role: .cancel) { sessions.pendingClose = nil }
+        } message: {
+            Text(sessions.pendingClose?.connection.proto == .serie
+                 ? "Le port série est refermé. Le journal déjà enregistré est gardé."
+                 : "La session encore ouverte est déconnectée. Le journal déjà enregistré est gardé.")
+        }
+    }
+
+    /// Contenu d'un onglet de session.
+    @ViewBuilder private func sessionContent(_ tab: RemoteSessionStore.Tab) -> some View {
+        switch tab.content {
+        case .terminal(let session):
+            TerminalSessionView(session: session, model: model)
+                .id(tab.id)
+        case .vnc(let connection):
+            if let view = RemoteSessionStore.vncView {
+                view(connection).id(tab.id)
+            }
+        }
     }
 
     // MARK: Aperçu
@@ -59,7 +84,7 @@ struct RemoteSessionArea: View {
             if let session = files.session, session.connection.id != model.selected?.id {
                 FileTransferBackgroundBanner(session: session, model: model)
             }
-            soonBox
+            if !sessions.tabs.isEmpty { openSessionsBox }
             FTPServerCard()
 
             SectionHeader("Ouvrir une connexion enregistrée").padding(.top, 6)
@@ -82,7 +107,7 @@ struct RemoteSessionArea: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .help("Ouvrir \(connection.name) dans \(connection.proto.externalApp)")
+                    .help("Ouvrir \(connection.name) \(RemoteSessionArea.destination(connection.proto))")
                 }
             }
             if recent.isEmpty {
@@ -130,8 +155,9 @@ struct RemoteSessionArea: View {
                 .buttonStyle(.secondary)
             }
             if connection.proto == .telnet {
-                // telnet n'est plus livré avec macOS : bouton « Installer » (Homebrew), nc en attendant.
-                InstallToolPanel(tool: .telnet, note: "En attendant, NetScope utilise nc (sans négociation Telnet).")
+                // telnet n'est plus livré avec macOS : utile seulement pour « Ouvrir dans Terminal »
+                // (l'onglet intégré de NetScope fait sa propre négociation Telnet).
+                InstallToolPanel(tool: .telnet, note: "Seulement pour « Ouvrir dans Terminal »\u{00A0}: l’onglet de NetScope n’en a pas besoin. Sans telnet, Terminal utilise nc.")
             }
             if connection.proto == .serie, !model.serialPorts.contains(connection.host) {
                 SpeedBanner(text: "\(connection.host) n’est pas branché. Ports série présents : "
@@ -143,9 +169,19 @@ struct RemoteSessionArea: View {
 
     private func launchSubtitle(_ connection: RemoteConnection, plan: Result<RemoteLaunchPlan, Error>) -> String {
         switch plan {
-        case .success(let plan): return "« Connecter » ouvre \(plan.appName)"
+        case .success(let plan):
+            if RemoteSessionStore.opensInTab(connection.proto) {
+                return connection.proto == .vnc ? "« Connecter » ouvre un onglet VNC dans NetScope"
+                    : "« Connecter » ouvre un onglet de terminal dans NetScope"
+            }
+            return "« Connecter » ouvre \(plan.appName)"
         case .failure: return "Connexion à corriger avant de l’ouvrir"
         }
+    }
+
+    /// « dans un onglet de NetScope », « dans Windows App »… (bulles d'aide).
+    static func destination(_ proto: RemoteProtocol) -> String {
+        RemoteSessionStore.opensInTab(proto) ? "dans un onglet de NetScope" : "dans \(proto.externalApp)"
     }
 
     /// Bloc sombre façon terminal : la commande, le fichier .rdp ou l'URL.
@@ -153,9 +189,9 @@ struct RemoteSessionArea: View {
         VStack(alignment: .leading, spacing: 3) {
             switch plan {
             case .success(.terminal(let command)):
-                (Text("\(model.localHostName) ~ % ").foregroundColor(Color(hex: 0x4ADE80)) + Text(command))
-                Text(connection.proto == .serie ? "Quitter screen : Ctrl-A puis K" : "La session s’ouvre dans une nouvelle fenêtre de Terminal.")
-                    .foregroundStyle(Theme.consoleMuted)
+                // Note 57 : session dans un onglet de NetScope ; la commande reste celle de « Ouvrir dans Terminal ».
+                (Text("NetScope › ").foregroundColor(Color(hex: 0x4ADE80)) + Text(integratedCommand(connection, fallback: command)))
+                Text(integratedHint(connection)).foregroundStyle(Theme.consoleMuted)
             case .success(.rdpFile(let contents, let fileName)):
                 Text(fileName).foregroundColor(Color(hex: 0x4ADE80))
                 ForEach(rdpPreviewLines(contents), id: \.self) { line in
@@ -196,20 +232,65 @@ struct RemoteSessionArea: View {
         return contents.components(separatedBy: "\r\n").filter { line in keys.contains { line.hasPrefix($0 + ":") } }
     }
 
-    private var soonBox: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "clock").font(.system(size: 12)).foregroundStyle(Theme.textTertiary).padding(.top, 1)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Terminal intégré : bientôt").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.neutralText)
-                Text("Les onglets de session (SSH, Telnet, console série, RDP et VNC dans NetScope) arriveront dans une prochaine version. Pour l’instant, « Connecter » ouvre l’application externe (FTP, FTPS et SFTP s’ouvrent dans le navigateur de fichiers de NetScope).")
-                    .font(Theme.caption).foregroundStyle(Theme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+    /// Ce que l'onglet intégré lance (jamais de secret).
+    private func integratedCommand(_ connection: RemoteConnection, fallback: String) -> String {
+        switch connection.proto {
+        case .ssh: return SSHTerminalCommand.displayCommand(user: connection.username, host: connection.host, port: connection.port)
+        case .telnet: return "telnet \(connection.host) \(connection.port)"
+        case .serie: return "console \(connection.host) · \(TerminalSerialMemory.settings(for: connection).summary)"
+        default: return fallback
+        }
+    }
+
+    private func integratedHint(_ connection: RemoteConnection) -> String {
+        switch connection.proto {
+        case .ssh: return "Onglet xterm-256color\u{00A0}: clés et known_hosts de ~/.ssh, mot de passe du Trousseau. Terminal\u{00A0}: menu de « Connecter »."
+        case .telnet: return "Onglet intégré avec négociation Telnet (écho, taille, type de terminal)\u{00A0}; non chiffré."
+        case .serie: return "Console intégrée\u{00A0}: le port s’ouvre par « Connecter » et se referme avec l’onglet\u{00A0}; débit, bits, parité, arrêt et flux réglables."
+        default: return ""
+        }
+    }
+
+    /// Sessions ouvertes (accueil) : un clic revient à l'onglet.
+    private var openSessionsBox: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            SectionHeader("Sessions ouvertes")
+            ForEach(sessions.tabs) { tab in
+                Button {
+                    sessions.select(tab.id)
+                    model.selectedID = tab.connection.id
+                } label: {
+                    HStack(spacing: 8) {
+                        RemoteProtoIcon(proto: tab.connection.proto, size: 22)
+                        Text(tab.session?.tabLabel ?? tab.connection.name).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                        Text(tab.session?.addressLabel ?? tab.connection.address).font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+                            .lineLimit(1)
+                        Spacer(minLength: 6)
+                        if let session = tab.session { RemoteSessionStateChip(session: session) }
+                        Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.textTertiary)
+                    }
+                    .padding(.horizontal, 10)
+                    .frame(height: 34)
+                    .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
         }
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
-        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+    }
+}
+
+/// État d'une session (pastille de l'accueil).
+struct RemoteSessionStateChip: View {
+    @ObservedObject var session: TerminalSession
+
+    var body: some View {
+        switch session.phase {
+        case .connected: Chip(text: session.kind == .serial ? "Port ouvert" : "Connectée", tone: .success)
+        case .connecting: Chip(text: "Connexion…", tone: .accent)
+        case .idle: Chip(text: "Port fermé", tone: .neutral)
+        case .ended: Chip(text: "Déconnectée", tone: .neutral)
+        }
     }
 }
 
@@ -324,6 +405,10 @@ struct RemoteForm: View {
                 if proto == .telnet {
                     SpeedBanner(text: "Telnet n’est pas chiffré. Utilisez SSH si l’appareil le permet.")
                 }
+                // Note 57 : mot de passe SSH ou Telnet au Trousseau (facultatif).
+                if proto == .ssh || proto == .telnet {
+                    TerminalPasswordField(draft: draft)
+                }
                 if proto.isFileTransfer {
                     FileTransferFormSection(draft: draft)
                 }
@@ -352,14 +437,14 @@ struct RemoteForm: View {
     private var helpBox: some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionHeader("Ce que fait « Connecter »")
-            helpLine("SSH", "Terminal ; clés et empreintes de ~/.ssh, vérifiées par ssh.")
-            helpLine("Telnet", "Terminal ; client Homebrew (brew install telnet), sinon nc.")
-            helpLine("RDP", "Windows App, en fenêtre ou en plein écran (fichier .rdp) ; identifiants demandés à l’ouverture.")
+            helpLine("SSH", "Onglet de terminal de NetScope (ssh de macOS\u{00A0}: clés et known_hosts de ~/.ssh, mot de passe du Trousseau)\u{00A0}; Terminal par le menu de « Connecter ».")
+            helpLine("Telnet", "Onglet de terminal de NetScope, négociation Telnet intégrée (aucun client à installer)\u{00A0}; non chiffré.")
+            helpLine("RDP", "Windows App, en fenêtre ou en plein écran (fichier .rdp)\u{00A0}; RDP est trop vaste pour être réécrit sans bibliothèque externe, il reste donc dans Windows App.")
             helpLine("VNC", "Partage d’écran de macOS (vnc://)\u{00A0}; plein écran par l’accessibilité.")
             helpLine("FTP", "Navigateur de fichiers de NetScope (Ce Mac ↔ serveur)\u{00A0}; non chiffré, à réserver au réseau local.")
             helpLine("FTPS", "Même navigateur, chiffré par TLS (explicite sur 21, implicite sur 990).")
             helpLine("SFTP", "Même navigateur, par SSH (/usr/bin/sftp)\u{00A0}; clés et known_hosts de ~/.ssh.")
-            helpLine("Série", "screen dans Terminal ; quitter avec Ctrl-A puis K.")
+            helpLine("Série", "Console intégrée (/dev/cu.*)\u{00A0}: débit, bits, parité, arrêt, contrôle de flux, Break\u{00A0}; Cisco et Fortinet en 9600 8N1.")
             Text("Hôte : lettres, chiffres, point, tiret et deux-points seulement.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
         }

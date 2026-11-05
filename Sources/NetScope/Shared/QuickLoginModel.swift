@@ -60,12 +60,16 @@ struct QuickLoginTarget: Identifiable, Equatable {
         }
     }
 
+    /// Note 57 : connexion du carnet ouverte dans Terminal plutôt que dans un onglet de NetScope.
+    var inTerminalApp = false
+
     /// Connexion du carnet (Accès distant) enregistrée sans utilisateur.
     @MainActor
-    init(connection: RemoteConnection) {
+    init(connection: RemoteConnection, inTerminalApp: Bool = false) {
         self.init(name: connection.name,
                   device: QuickLoginDevice(host: connection.host, siteID: SiteModel.shared.list.activeID),
                   proto: connection.proto, port: connection.port, folder: connection.folder, connectionID: connection.id)
+        self.inTerminalApp = inTerminalApp
     }
 }
 
@@ -148,6 +152,19 @@ final class QuickLoginModel: ObservableObject {
         let address = QuickLoginAddress(user: valid.user, host: valid.host, port: valid.port)
             .formatted(defaultPort: valid.proto.defaultPort)
         let title = "\(name) · " + address
+        // Note 57 : connexion du carnet d'Accès distant : onglet de terminal intégré à NetScope.
+        if let connectionID = target.connectionID, !target.inTerminalApp,
+           var connection = RemoteModel.shared.connections.first(where: { $0.id == connectionID }),
+           connection.host.caseInsensitiveCompare(valid.host) == .orderedSame {
+            connection.username = valid.user
+            connection.port = valid.port
+            memory.remember(valid, for: device, skipPrompt: skipPrompt)
+            persist()
+            RemoteModel.shared.saveQuickConnection(QuickLogin.connection(for: valid, name: name, folder: target.folder ?? ""),
+                                                   originID: connectionID, saveToBook: saveToBook)
+            RemoteModel.shared.connect(connection)
+            return
+        }
         if RegEnvironment.isSandboxed {
             // Captures et démonstration : rien n'est lancé (aucun trafic vers les adresses fictives).
             showOpened("Démonstration\u{00A0}: \(valid.proto.label.lowercased()) \(address) non lancé")

@@ -84,21 +84,37 @@ struct RemoteDetailPanel: View {
     }
 
     private var securityChip: (text: String, tone: Tone) {
-        guard connection.proto.isFileTransfer else { return ("Bientôt", .neutral) }
-        return connection.proto == .ftp ? ("Non chiffré", .warning) : ("Chiffré", .success)
+        switch connection.proto {
+        case .ssh, .sftp, .ftps: return ("Chiffré", .success)
+        case .telnet, .ftp: return ("Non chiffré", .warning)
+        case .serie: return ("Local", .neutral)
+        default: return ("Application externe", .neutral)
+        }
     }
 
     private var securityFootnote: String {
         if connection.proto.isFileTransfer {
             return "Mots de passe au Trousseau macOS (service com.danymenard.netscope.ftp), jamais dans le carnet."
         }
-        return "Clés, Trousseau, hôte de rebond, tunnels et vérification d’empreinte dans NetScope\u{00A0}: prochaine version."
+        // Note 57 : onglets de terminal intégrés.
+        if connection.proto == .ssh || connection.proto == .telnet {
+            return "Mot de passe au Trousseau macOS (service \(RemoteSessionStore.keychainService)), jamais dans le carnet"
+                + (connection.proto == .ssh ? ", remis à ssh par SSH_ASKPASS (ni sur le disque ni dans la ligne de commande)." : ".")
+        }
+        if connection.proto == .serie { return "Port ouvert seulement quand vous ouvrez la session, en accès exclusif." }
+        return "Identifiants demandés par l’application externe, jamais enregistrés par NetScope."
     }
 
     private var authText: String {
         switch connection.proto {
-        case .ssh: return "Géré par ssh : clés de ~/.ssh et agent SSH ; l’empreinte de la clé d’hôte est comparée à ~/.ssh/known_hosts."
-        case .telnet: return "Identifiant et mot de passe demandés par l’appareil, en clair."
+        case .ssh:
+            let saved = RemoteSessionStore.shared.hasPassword(connection.id)
+            return "Onglet de NetScope avec ssh de macOS\u{00A0}: clés de ~/.ssh et agent SSH" + (saved ? ", puis le mot de passe du Trousseau" : "")
+                + "\u{00A0}; un serveur inconnu montre son empreinte et attend votre accord (~/.ssh/known_hosts)."
+        case .telnet:
+            return RemoteSessionStore.shared.hasPassword(connection.id)
+                ? "Identifiant et mot de passe demandés par l’appareil, en clair\u{00A0}; mot de passe du Trousseau tapé sur demande (menu de l’onglet)."
+                : "Identifiant et mot de passe demandés par l’appareil, en clair."
         case .rdp: return "Identifiants demandés par Windows App à l’ouverture (NLA)."
         case .vnc: return "Mot de passe demandé par Partage d’écran (compte macOS ou mot de passe VNC)."
         case .ftp, .ftps:
@@ -115,7 +131,7 @@ struct RemoteDetailPanel: View {
             case .key: return "Clé \(connection.transfer.keyPath)\u{00A0}; clé du serveur comparée à ~/.ssh/known_hosts."
             case .agent: return "Clés de ~/.ssh et agent SSH, comme dans Terminal\u{00A0}; clé du serveur comparée à ~/.ssh/known_hosts."
             }
-        case .serie: return "Aucune : accès physique par le port console."
+        case .serie: return "Aucune\u{00A0}: accès physique par le port console (consoles Cisco et Fortinet\u{00A0}: 9600 8N1)."
         }
     }
 
@@ -146,10 +162,13 @@ struct RemoteDetailPanel: View {
                     .buttonStyle(GhostButtonStyle(color: Theme.critical))
                 }
                 VStack(alignment: .leading, spacing: 6) {
-                    SpeedFieldLabel(connection.proto.isFileTransfer ? "Ouvrir dans NetScope" : "Ouvrir dans l’app externe")
+                    let inTab = RemoteSessionStore.opensInTab(connection.proto)
+                    SpeedFieldLabel(connection.proto.isFileTransfer ? "Ouvrir dans NetScope" : (inTab ? "Ou dans l’app externe" : "Ouvrir dans l’app externe"))
                     switch plan {
                     case .success(let plan):
-                        Text(connection.proto.isFileTransfer ? "Navigateur de fichiers (Ce Mac ↔ serveur)" : plan.appName).font(.system(size: 12, weight: .semibold))
+                        Text(connection.proto.isFileTransfer ? "Navigateur de fichiers (Ce Mac ↔ serveur)"
+                             : (inTab ? "\(plan.appName) (menu de « Connecter »)" : plan.appName))
+                            .font(.system(size: 12, weight: .semibold))
                         Text(plan.preview)
                             .font(Theme.mono(11))
                             .foregroundStyle(Theme.neutralText)
