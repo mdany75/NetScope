@@ -50,7 +50,7 @@ struct MonEditor: View {
             Button("Supprimer", role: .destructive) { if let id = draft?.id { store.delete(id) } }
             Button("Annuler", role: .cancel) {}
         } message: {
-            Text("Son historique de 24\u{00A0}h est effacé\u{00A0}; ses entrées restent au journal des alertes.")
+            Text("Son historique (24\u{00A0}h, 7\u{00A0}jours et 90\u{00A0}jours) est effacé\u{00A0}; ses entrées restent au journal des alertes.")
         }
     }
 
@@ -156,13 +156,7 @@ struct MonEditor: View {
                 }
             }
         }
-        field("Plage horaire des alertes") {
-            MonMenuField(title: draft.wrappedValue.schedule.label) {
-                ForEach(MonSchedule.allCases) { schedule in
-                    Button(schedule.label) { draft.wrappedValue.schedule = schedule }
-                }
-            }
-        }
+        scheduleField(saved: saved, draft: draft)
         dependencyRow(draft)
         MonFieldset("Actions d’alerte") {
             VStack(alignment: .leading, spacing: 7) {
@@ -266,6 +260,70 @@ struct MonEditor: View {
                 }
             }
         }
+    }
+
+    /// Note 78 : plage horaire selon les heures ouvrables du site de la sonde, site choisi dans le
+    /// même menu, et maintenance en cours.
+    @ViewBuilder private func scheduleField(saved: MonProbe, draft: Binding<MonProbe>) -> some View {
+        let probe = draft.wrappedValue
+        let site = store.site(of: probe)
+        let hours = store.planning.hours(for: site)
+        field("Plage horaire des alertes") {
+            VStack(alignment: .leading, spacing: 4) {
+                MonMenuField(title: probe.schedule.label(hours: hours)) {
+                    ForEach(MonSchedule.allCases) { schedule in
+                        Button(schedule.label(hours: hours)) { draft.wrappedValue.schedule = schedule }
+                    }
+                    Divider()
+                    Picker("Site de la sonde", selection: draft.siteID) {
+                        Text("D’après la cible (\(store.siteName(MonSiteResolver.site(for: withoutSite(probe), sites: sites.sites, active: sites.activeID))))")
+                            .tag(UUID?.none)
+                        ForEach(sites.sortedSites) { site in
+                            Text(site.displayName).tag(Optional(site.id))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+                Text(siteCaption(probe: probe, site: site))
+                    .font(Theme.caption)
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .help("Heures ouvrables et fenêtres de maintenance\u{00A0}: panneau «\u{00A0}Horaires et maintenance\u{00A0}» sous les sondes.")
+                if let window = store.maintenance(of: saved) {
+                    Label(maintenanceLabel(window), systemImage: "wrench.and.screwdriver")
+                        .font(Theme.caption)
+                        .foregroundStyle(Theme.accentStrong)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .help("Fenêtre de maintenance en cours\u{00A0}: la sonde tourne, ses alertes sont suspendues et notées au journal.")
+                }
+            }
+        }
+    }
+
+    @ObservedObject private var sites = SiteModel.shared
+
+    private func withoutSite(_ probe: MonProbe) -> MonProbe {
+        var copy = probe
+        copy.siteID = nil
+        return copy
+    }
+
+    /// « Site : Siège (d’après la cible) · lun.–ven. 7 h – 18 h ; sam. 8 h – 12 h ».
+    private func siteCaption(probe: MonProbe, site: UUID?) -> String {
+        let origin = probe.siteID == nil ? " (d’après la cible)" : ""
+        let hours = store.planning.hours(for: site)
+        let own = site.map { store.planning.hasOwnHours($0) } ?? false
+        return "Site\u{00A0}: \(store.siteName(site))\(origin) · " + (own ? hours.summary : "horaire par défaut, \(hours.summary)")
+    }
+
+    /// « En maintenance jusqu’à 17 h 00 : Remplacement de SW-ETG2-01 ».
+    private func maintenanceLabel(_ window: MonMaintenanceWindow) -> String {
+        guard let occurrence = window.occurrence(containing: store.now) else { return "En maintenance\u{00A0}: \(window.name)" }
+        let parts = Calendar.current.dateComponents([.hour, .minute], from: occurrence.end)
+        let time = "\(parts.hour ?? 0)\u{00A0}h\u{00A0}" + String(format: "%02d", parts.minute ?? 0)
+        return "En maintenance jusqu’à \(time)\u{00A0}: \(window.name)"
     }
 
     private func dependencyName(_ probe: MonProbe?) -> String {

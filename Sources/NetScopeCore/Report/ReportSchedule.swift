@@ -5,7 +5,8 @@ import Foundation
 // un dossier de destination et un nom de fichier daté. Ils sont produits quand l'app est ouverte ;
 // une échéance manquée (Mac éteint, app fermée) est rattrapée UNE fois au lancement, sans rafale.
 // Un rapport planifié ne lance JAMAIS de scan : il reprend le dernier scan du site et dit son âge.
-// Rien n'est envoyé par courriel : au mieux un brouillon s'ouvre dans Mail, pour relecture.
+// Rien n'est envoyé par courriel sans un choix explicite : un brouillon peut s'ouvrir dans Mail, ou (note 78)
+// le rapport part par le serveur SMTP des Alertes si « Envoyer par courriel » est choisi pour ce rapport.
 // Ce fichier ne fait que les calculs (échéances, rattrapage, nommage, textes) : aucun réseau.
 
 /// Rythme d'un rapport planifié.
@@ -23,9 +24,11 @@ public enum ReportCadence: String, Codable, CaseIterable, Sendable, Identifiable
     }
 }
 
-/// Ce qui suit la production : rien, ou un brouillon de courriel ouvert dans Mail (jamais envoyé).
+/// Ce qui suit la production : rien, un brouillon de courriel ouvert dans Mail (jamais envoyé), ou
+/// (note 78) l'envoi par le serveur SMTP des Alertes, seulement si l'utilisateur l'a choisi pour ce
+/// rapport planifié.
 public enum ReportScheduleEmail: String, Codable, CaseIterable, Sendable, Identifiable {
-    case none, draft
+    case none, draft, send
 
     public var id: String { rawValue }
 
@@ -33,6 +36,7 @@ public enum ReportScheduleEmail: String, Codable, CaseIterable, Sendable, Identi
         switch self {
         case .none: return "Rien"
         case .draft: return "Préparer le courriel"
+        case .send: return "Envoyer par courriel"
         }
     }
 }
@@ -66,6 +70,8 @@ public struct ReportSchedule: Codable, Hashable, Sendable, Identifiable {
     public var fileNamePattern: String
     public var email: ReportScheduleEmail
     public var emailTo: String
+    /// Note 78 : destinataires de l'envoi automatique, par site (clé : `SiteFiles.key`).
+    public var mailRecipients: [String: [String]]
     /// Échéances antérieures ignorées : une création ou une modification ne rattrape rien du passé.
     public var activeSince: Date
     /// Échéance de la dernière production (pas l'heure réelle).
@@ -78,7 +84,7 @@ public struct ReportSchedule: Codable, Hashable, Sendable, Identifiable {
     public init(id: UUID = UUID(), name: String, isEnabled: Bool = true, siteKeys: [String], cadence: ReportCadence = .weekly,
                 weekday: Int = 2, monthDay: Int = 1, hour: Int = 7, minute: Int = 0, config: ReportConfig = ReportConfig(),
                 folder: String? = nil, fileNamePattern: String = ReportSchedule.defaultPattern, email: ReportScheduleEmail = .none,
-                emailTo: String = "", activeSince: Date = Date(), lastSlot: Date? = nil, lastProduced: Date? = nil,
+                emailTo: String = "", mailRecipients: [String: [String]] = [:], activeSince: Date = Date(), lastSlot: Date? = nil, lastProduced: Date? = nil,
                 lastStatus: ReportScheduleStatus? = nil, lastMessage: String? = nil, lastFiles: [String] = []) {
         self.id = id
         self.name = name
@@ -94,6 +100,7 @@ public struct ReportSchedule: Codable, Hashable, Sendable, Identifiable {
         self.fileNamePattern = fileNamePattern
         self.email = email
         self.emailTo = emailTo
+        self.mailRecipients = mailRecipients
         self.activeSince = activeSince
         self.lastSlot = lastSlot
         self.lastProduced = lastProduced
@@ -104,7 +111,7 @@ public struct ReportSchedule: Codable, Hashable, Sendable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, isEnabled, siteKeys, cadence, weekday, monthDay, hour, minute, config, folder, fileNamePattern, email,
-             emailTo, activeSince, lastSlot, lastProduced, lastStatus, lastMessage, lastFiles
+             emailTo, mailRecipients, activeSince, lastSlot, lastProduced, lastStatus, lastMessage, lastFiles
     }
 
     /// Lecture tolérante : un champ absent ou d'une autre version prend sa valeur par défaut.
@@ -125,6 +132,7 @@ public struct ReportSchedule: Codable, Hashable, Sendable, Identifiable {
             fileNamePattern: (try? c.decodeIfPresent(String.self, forKey: .fileNamePattern)) ?? ReportSchedule.defaultPattern,
             email: (try? c.decodeIfPresent(String.self, forKey: .email)).flatMap(ReportScheduleEmail.init(rawValue:)) ?? .none,
             emailTo: (try? c.decodeIfPresent(String.self, forKey: .emailTo)) ?? "",
+            mailRecipients: ((try? c.decodeIfPresent([String: [String]].self, forKey: .mailRecipients)) ?? nil) ?? [:],
             activeSince: (try? c.decodeIfPresent(Date.self, forKey: .activeSince)) ?? Date(),
             lastSlot: try? c.decodeIfPresent(Date.self, forKey: .lastSlot),
             lastProduced: try? c.decodeIfPresent(Date.self, forKey: .lastProduced),

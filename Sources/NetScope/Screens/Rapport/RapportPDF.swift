@@ -41,6 +41,49 @@ enum RapportPDF {
               let png = rep.representation(using: .png, properties: [:]) else { return nil }
         return "data:image/png;base64," + png.base64EncodedString()
     }
+
+    /// Logo en PNG (export DOCX, note 78), ou nil.
+    static func pngData(_ image: NSImage?) -> Data? {
+        guard let image, let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) else { return nil }
+        return rep.representation(using: .png, properties: [:])
+    }
+}
+
+/// Outil de développement (note 78) : écrit le DOCX du rapport de démonstration, section
+/// « Disponibilité » comprise, à côté des captures, puis le relit (archive, XML bien formé, titres).
+@MainActor
+enum RapportDocxCheck {
+    static func write(into directory: URL, state: AppState) -> Bool {
+        let model = RapportModel.shared
+        let saved = model.config
+        model.config.sections.insert(.disponibilite)
+        let document = model.document(state: state)
+        model.config = saved
+        let data = ReportDocx.make(document, logoPNG: RapportPDF.pngData(model.logo))
+        let url = directory.appendingPathComponent("rapport-demo.docx")
+        do {
+            try data.write(to: url, options: .atomic)
+            var problems: [String] = []
+            let entries = try BackupZip.entries(of: data)
+            let paths = Set(entries.map(\.path))
+            for part in ReportDocx.requiredParts where !paths.contains(part) { problems.append("partie absente\u{00A0}: \(part)") }
+            for entry in entries where entry.path.hasSuffix(".xml") || entry.path.hasSuffix(".rels") {
+                if !XMLParser(data: entry.data).parse() { problems.append("XML mal formé\u{00A0}: \(entry.path)") }
+            }
+            let xml = entries.first { $0.path == "word/document.xml" }.map { String(decoding: $0.data, as: UTF8.self) } ?? ""
+            for section in document.sections {
+                let heading = ReportDocx.escape(section.heading)
+                if !xml.contains(heading) { problems.append("titre absent\u{00A0}: \(section.heading)") }
+            }
+            for problem in problems { print("Erreur\u{00A0}: rapport DOCX\u{00A0}: \(problem)") }
+            guard problems.isEmpty else { return false }
+            print("Rapport DOCX\u{00A0}: \(url.path) (\(document.sections.count) sections, vérifié)")
+            return true
+        } catch {
+            print("Erreur\u{00A0}: \(url.path)\u{00A0}: \(error.localizedDescription)")
+            return false
+        }
+    }
 }
 
 /// Outil de développement : écrit le PDF du rapport de démonstration à côté des captures

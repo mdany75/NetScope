@@ -156,7 +156,7 @@ enum MonDemo {
             MonAlert(date: date, probeID: id(probe), probeName: probe, severity: severity, message: message,
                      resolvedAt: resolvedAt, resolution: resolution, acknowledgedAt: ackAt, acknowledgedBy: ackAt == nil ? nil : "Dany")
         }
-        let journal = MonJournal(alerts: [
+        var journal = MonJournal(alerts: [
             alert(at(14, 3, 41), "Tunnels VPN du Siège", .critical,
                   "Tunnel VPN-QUEBEC tombé (Vers Bureau Québec, 203.0.113.30)."),
             alert(at(13, 46, 8), "Liens WAN du Siège", .warning,
@@ -182,7 +182,12 @@ enum MonDemo {
                   resolvedAt: at(7, 40), resolution: "revenue à 41\(s)°C", ackAt: at(7, 30)),
         ])
 
+        // Note 78 : alerte du switch remplacé, suspendue par sa fenêtre de maintenance.
+        if let note = MonPlanningDemo.maintenanceNote(probes: probes, now: now) { journal.alerts.insert(note, at: 0) }
+
         store.loadDemo(probes: probes, trackers: trackers, history: history, journal: journal,
                        selected: id(selectedName), now: now, cycleStart: now.addingTimeInterval(-42))
+        // Note 78 : heures ouvrables, maintenance, rappels et historique long (latence, 30 jours).
+        MonPlanningDemo.apply(to: store, probes: probes, history: history, now: now)
     }
 }

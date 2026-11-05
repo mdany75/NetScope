@@ -2,12 +2,14 @@ import NetScopeCore
 import SwiftUI
 
 /// Note 42 : « Rapports planifiés » dans la colonne des Rapports : liste (rythme, sites, prochaine
-/// production, dernier résultat) et éditeur dans le panneau. Rien n'est envoyé par courriel : au
-/// mieux un brouillon s'ouvre dans Mail. Aucun scan n'est lancé : le dernier scan du site est repris.
+/// production, dernier résultat) et éditeur dans le panneau. Rien n'est envoyé sans un choix explicite :
+/// un brouillon dans Mail, ou (note 78) l'envoi par le SMTP des Alertes. Aucun scan n'est lancé.
 struct RapportSchedulePanel: View {
     @ObservedObject private var store = RapportScheduleStore.shared
     @ObservedObject private var sites = SiteModel.shared
     @State private var pendingDelete: ReportSchedule?
+    /// Note 78 : « Envoyer un essai… » en attente de confirmation.
+    @State private var pendingTest: ReportSchedule?
 
     var body: some View {
         Panel(padding: 14) {
@@ -41,6 +43,13 @@ struct RapportSchedulePanel: View {
             Button("Annuler", role: .cancel) {}
         } message: { _ in
             Text("Les rapports déjà produits restent dans leur dossier et dans les rapports passés.")
+        }
+        .confirmationDialog("Envoyer un essai de ce rapport\u{00A0}?", isPresented: Binding(get: { pendingTest != nil }, set: { if !$0 { pendingTest = nil } }),
+                            presenting: pendingTest) { schedule in
+            Button("Envoyer l’essai") { store.sendTest(schedule.id) }
+            Button("Annuler", role: .cancel) {}
+        } message: { schedule in
+            Text("Le rapport «\u{00A0}\(schedule.name)\u{00A0}» est produit maintenant (dernier scan de chaque site), puis envoyé à\u{00A0}: \(store.testRecipients(schedule)), par le serveur SMTP des Alertes.")
         }
     }
 
@@ -83,6 +92,13 @@ struct RapportSchedulePanel: View {
                     }
                     .help(message + (schedule.lastFiles.isEmpty ? "" : "\n" + schedule.lastFiles.joined(separator: "\n")))
                 }
+                if schedule.email == .send {
+                    let count = schedule.siteKeys.map { ReportMail.recipients(schedule, siteKey: $0).count }.reduce(0, +)
+                    Label(store.sending == schedule.id ? "Envoi du courriel…"
+                          : "Envoi automatique à \(count) destinataire\(count > 1 ? "s" : "")", systemImage: "paperplane")
+                        .font(Theme.caption).foregroundStyle(Theme.accentStrong).lineLimit(1).truncationMode(.middle)
+                        .help("Après chaque production, le rapport part par le serveur SMTP des Alertes\u{00A0}: \(store.testRecipients(schedule)).")
+                }
                 if schedule.email == .draft {
                     Label(schedule.emailTo.isEmpty ? "Brouillon de courriel (sans destinataire)" : "Brouillon pour \(schedule.emailTo)",
                           systemImage: "envelope")
@@ -95,6 +111,10 @@ struct RapportSchedulePanel: View {
                 Button("Modifier…") { store.edit(schedule.id) }
                 Button("Produire maintenant") { store.produceNow(schedule.id) }
                     .disabled(store.producing != nil)
+                Button("Envoyer un essai…") { pendingTest = schedule }
+                    .disabled(store.producing != nil || store.sending != nil
+                              || schedule.siteKeys.allSatisfy { ReportMail.recipients(schedule, siteKey: $0).isEmpty })
+                    .help("Produit le rapport maintenant et l’envoie aux destinataires, même si l’envoi automatique n’est pas activé")
                 Button("Afficher le dossier") { store.revealFolder(schedule) }
                 Divider()
                 Button("Supprimer…", role: .destructive) { pendingDelete = schedule }
@@ -235,13 +255,17 @@ struct RapportScheduleEditor: View {
                     Picker("À la fin", selection: draft.email) {
                         ForEach(ReportScheduleEmail.allCases) { Text($0.label).tag($0) }
                     }
-                    .pickerStyle(.radioGroup).horizontalRadioGroupLayout().labelsHidden()
+                    .pickerStyle(.radioGroup).labelsHidden()
                     if draft.wrappedValue.email == .draft {
                         TextField("Destinataire", text: draft.emailTo, prompt: Text("destinataire@exemple.ca"))
                             .textFieldStyle(.roundedBorder).labelsHidden()
                     }
-                    Text("Une notification annonce le rapport. Rien n’est envoyé par courriel\u{00A0}: au plus, un brouillon s’ouvre dans Mail pour relecture.")
-                        .font(Theme.caption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+                    if draft.wrappedValue.email == .send {
+                        RapportScheduleMailFields(store: store, draft: draft)
+                    } else {
+                        Text("Une notification annonce le rapport. Rien n’est envoyé par courriel\u{00A0}: au plus, un brouillon s’ouvre dans Mail pour relecture.")
+                            .font(Theme.caption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
             Text("Aucun scan n’est lancé\u{00A0}: le rapport reprend le dernier scan de chaque site et indique son âge. Produit quand NetScope est ouvert\u{00A0}; une échéance manquée est rattrapée une fois au lancement.")

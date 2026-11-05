@@ -289,6 +289,13 @@ private struct MonJournalFollow: View {
                     ackButton("Accuser réception")
                     ackButton("Accuser")
                 }
+                // Note 78 : rappels déjà envoyés pour cette alerte non accusée.
+                if let count = alert.reminderCount, count > 0 {
+                    Image(systemName: "bell.badge")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.warning)
+                        .help(count == 1 ? "1 rappel envoyé" : "\(count) rappels envoyés")
+                }
             }
         }
     }

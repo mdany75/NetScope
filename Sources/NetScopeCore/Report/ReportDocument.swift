@@ -148,6 +148,60 @@ public struct ReportBar: Codable, Hashable, Sendable {
     }
 }
 
+/// Note 78 : une ligne du graphe de disponibilité (une sonde, une case par jour).
+public struct ReportUptimeRow: Codable, Hashable, Sendable {
+    public var label: String
+    /// Disponibilité de chaque jour, en % (nil : aucune vérification ce jour-là).
+    public var values: [Double?]
+    /// « 99,95 % » sur la période.
+    public var total: String
+    public var tone: ReportTone
+
+    public init(label: String, values: [Double?], total: String, tone: ReportTone = .normal) {
+        self.label = label
+        self.values = values
+        self.total = total
+        self.tone = tone
+    }
+
+    /// Couleur de remplissage d'une case (« 22C55E »), la même dans le PDF, le HTML et le DOCX.
+    public static func cellColor(_ value: Double?) -> String {
+        switch tone(value) {
+        case .success: return "22C55E"
+        case .caution: return "EAB308"
+        case .warning: return "F97316"
+        case .critical: return "DC2626"
+        default: return "E5E7EB"
+        }
+    }
+
+    /// Couleur d'une case : vert à 99,9 % et plus, jaune à 99 %, orange à 95 %, rouge en dessous.
+    public static func tone(_ value: Double?) -> ReportTone {
+        guard let value else { return .neutral }
+        if value >= 99.9 { return .success }
+        if value >= 99 { return .caution }
+        if value >= 95 { return .warning }
+        return .critical
+    }
+}
+
+/// Note 78 : graphe de disponibilité par sonde (rapport « Disponibilité »), une case par jour.
+public struct ReportUptimeChart: Codable, Hashable, Sendable {
+    public var title: String
+    /// Étiquettes sous les cases : premier jour, milieu, dernier jour (« 7 oct. », « 22 oct. », « 5 nov. »).
+    public var axis: [String]
+    public var rows: [ReportUptimeRow]
+
+    public init(title: String, axis: [String], rows: [ReportUptimeRow]) {
+        self.title = title
+        self.axis = axis
+        self.rows = rows
+    }
+
+    /// Nombre de cases (jours) par ligne.
+    public var columns: Int { rows.map(\.values.count).max() ?? 0 }
+}
+
 public enum ReportBlock: Codable, Hashable, Sendable {
     case paragraph(String)
     case kpis([ReportKPI])
@@ -155,6 +209,8 @@ public enum ReportBlock: Codable, Hashable, Sendable {
     case table(ReportTable)
     case note(String)
     case code([String])
+    /// Note 78 : graphe de disponibilité par sonde.
+    case uptime(ReportUptimeChart)
 }
 
 public struct ReportSection: Codable, Hashable, Sendable, Identifiable {
@@ -294,6 +350,9 @@ public struct ReportPageMetrics: Hashable, Sendable {
     public var barTitleHeight: Double = 18
     public var barHeight: Double = 16.2
     public var codeLineHeight: Double = 15.3
+    /// Note 78 : ligne du graphe de disponibilité et légende sous les cases.
+    public var uptimeRowHeight: Double = 15.3
+    public var uptimeAxisHeight: Double = 16.2
     public var codePadding: Double = 14.4
     /// Vraie police de dessin, si l'application en a installé une (sinon : estimation).
     public var measurer: ReportTextMeasurer? = ReportTextMeasurer.installed
@@ -497,6 +556,7 @@ public struct ReportPageMetrics: Hashable, Sendable {
         case .table(let table): return tableHeaderHeight + table.rows.map { rowHeight($0, in: table) }.reduce(0, +)
         case .note(let text): return noteHeight(text)
         case .code(let lines): return codePadding + Double(lines.count) * codeLineHeight
+        case .uptime(let chart): return barTitleHeight + Double(chart.rows.count) * uptimeRowHeight + uptimeAxisHeight
         }
     }
 }

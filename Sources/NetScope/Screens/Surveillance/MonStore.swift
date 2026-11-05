@@ -23,6 +23,8 @@ final class MonStore: ObservableObject {
     @Published private(set) var trackers: [UUID: MonTracker] = [:]
     @Published private(set) var history = MonHistory()
     @Published private(set) var journal = MonJournal()
+    /// Note 78 : heures ouvrables par site, fenêtres de maintenance, rappel des alertes non accusées.
+    @Published private(set) var planning = MonPlanning()
     @Published var selectedID: UUID?
     @Published private(set) var manualTests: [UUID: MonManualTest] = [:]
     @Published private(set) var running: Set<UUID> = []
@@ -44,6 +46,7 @@ final class MonStore: ObservableObject {
     private var pinger: ICMPPinger?
     private var pingerFailed = false
     private var saveScheduled = false
+    private var lastReminderCheck = Date.distantPast
     private let url: URL
 
     private init() {
@@ -84,6 +87,7 @@ final class MonStore: ObservableObject {
             if let due = nextRun[probe.id], due > now { continue }
             execute(probe, manual: false)
         }
+        checkReminders(now)
     }
 
     // MARK: Lecture
@@ -177,7 +181,7 @@ final class MonStore: ObservableObject {
         if old.kind != probe.kind || old.target != probe.target {
             journal.resolveOpen(probe: probe.id, reason: "sonde modifiée", date: Date())
             trackers[probe.id] = MonTracker()
-            history.buckets[probe.id.uuidString] = nil
+            history.remove(probe: probe.id)
             nextRun[probe.id] = Date().addingTimeInterval(1)
         } else if old.interval != probe.interval {
             nextRun[probe.id] = Date().addingTimeInterval(TimeInterval(min(probe.interval, 5)))
@@ -223,7 +227,8 @@ final class MonStore: ObservableObject {
         trackers[id] = nil
         nextRun[id] = nil
         manualTests[id] = nil
-        history.buckets[id.uuidString] = nil
+        history.remove(probe: id)
+        for index in planning.windows.indices { planning.windows[index].probeIDs.removeAll { $0 == id } }
         launched[id] = nil
         journal.resolveOpen(probe: id, reason: "sonde supprimée", date: Date())
         journal.detach(probe: id)
@@ -414,10 +419,13 @@ final class MonStore: ObservableObject {
         if let macs = outcome.knownMACs { probes[index].knownMACs = macs }
         let probe = probes[index]
         let dependencyDown = self.probe(probe.dependsOn).map { state(of: $0) == .down } ?? false
+        // Note 78 : heures ouvrables du site de la sonde et maintenance en cours.
+        let gate = planning.gate(probe: id, site: site(of: probe), at: outcome.result.date)
         guard let step = MonStateMachine.step(probe: probe, tracker: trackers[id] ?? MonTracker(),
-                                              outcome: outcome, dependencyDown: dependencyDown) else { return }
+                                              outcome: outcome, dependencyDown: dependencyDown, gate: gate) else { return }
         trackers[id] = step.tracker
-        history.record(probe: id, result: outcome.result, state: step.tracker.state)
+        history.record(probe: id, result: outcome.result, state: step.tracker.state, interval: probe.interval,
+                       inMaintenance: gate.maintenance != nil)
         let openBefore = journal.openCount(probe: id)
         let created = journal.record(step.events, probe: probe, date: outcome.result.date)
         for alert in created { MonNotifier.shared.post(alert, probe: probe) }
@@ -510,6 +518,7 @@ final class MonStore: ObservableObject {
             history = archive.history
             history.prune(keeping: Set(probes.map(\.id)), now: Date())
             journal = archive.journal
+            planning = archive.planning
             selectedID = probes.first?.id
         } catch {
             AppLog.shared.error("Surveillance", "Lecture impossible de \(url.path)\u{00A0}: \(error.localizedDescription)")
@@ -537,7 +546,7 @@ final class MonStore: ObservableObject {
         guard !isSimulated else { return }
         var map: [String: MonTracker] = [:]
         for (id, tracker) in trackers { map[id.uuidString] = tracker }
-        let archive = MonArchive(probes: probes, trackers: map, history: history, journal: journal)
+        let archive = MonArchive(probes: probes, trackers: map, history: history, journal: journal, planning: planning)
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try archive.encoded().write(to: url, options: .atomic)
@@ -558,6 +567,84 @@ final class MonStore: ObservableObject {
         selectedID = selected
         demoNow = CommandLine.arguments.contains("--snapshot") ? now : nil
         self.cycleStart = cycleStart
+    }
+
+    /// Démonstration : planification et historique long (DevTools/MonPlanningDemo.swift).
+    func loadDemoPlanning(_ planning: MonPlanning, history: MonHistory) {
+        self.planning = planning
+        self.history = history
+    }
+
+    // MARK: Planification (note 78)
+
+    /// Site d'une sonde : celui choisi dans l'éditeur, sinon d'après sa cible, sinon le site actif.
+    func site(of probe: MonProbe) -> UUID? {
+        let sites = SiteModel.shared
+        return MonSiteResolver.site(for: probe, sites: sites.sites, active: sites.activeID)
+    }
+
+    func siteName(_ id: UUID?) -> String {
+        guard let id else { return "Aucun site" }
+        return SiteModel.shared.sites.first { $0.id == id }?.displayName ?? "Site supprimé"
+    }
+
+    /// Heures ouvrables qui s'appliquent à une sonde.
+    func hours(of probe: MonProbe) -> MonBusinessHours { planning.hours(for: site(of: probe)) }
+
+    /// Fenêtre de maintenance en cours pour une sonde, ou nil.
+    func maintenance(of probe: MonProbe) -> MonMaintenanceWindow? {
+        planning.activeWindow(probe: probe.id, site: site(of: probe), at: now)
+    }
+
+    /// Horaire propre à un site (nil : revenir à l'horaire par défaut) ; `site` nil : horaire par défaut.
+    func setHours(_ hours: MonBusinessHours?, site: UUID?) {
+        if let site {
+            planning.siteHours[site.uuidString] = hours
+        } else {
+            planning.defaultHours = hours ?? .standard
+        }
+        toast = nil
+        changed()
+    }
+
+    func saveWindow(_ window: MonMaintenanceWindow) {
+        var window = window
+        window.name = window.name.trimmingCharacters(in: .whitespaces)
+        if window.name.isEmpty { window.name = "Maintenance" }
+        if let index = planning.windows.firstIndex(where: { $0.id == window.id }) {
+            planning.windows[index] = window
+        } else {
+            planning.windows.append(window)
+        }
+        changed()
+    }
+
+    func deleteWindow(_ id: UUID) {
+        planning.windows.removeAll { $0.id == id }
+        changed()
+    }
+
+    func setReminder(minutes: Int) {
+        planning.reminderMinutes = max(0, minutes)
+        changed()
+    }
+
+    /// Rappel des alertes non accusées (au plus toutes les 30 secondes).
+    private func checkReminders(_ date: Date) {
+        guard planning.reminderMinutes > 0, date.timeIntervalSince(lastReminderCheck) >= 30 else { return }
+        lastReminderCheck = date
+        let due = MonReminder.due(journal, minutes: planning.reminderMinutes, limit: planning.reminderLimit, now: date)
+        guard !due.isEmpty else { return }
+        for id in due {
+            guard let alert = journal.alerts.first(where: { $0.id == id }) else { continue }
+            journal.markReminded(id, at: date)
+            guard let probe = probe(alert.probeID) else { continue }
+            var reminder = alert
+            reminder.message = MonReminder.message(for: alert, now: date)
+            MonNotifier.shared.postReminder(reminder, probe: probe, count: (alert.reminderCount ?? 0) + 1)
+            AlertDispatcher.shared.emit(.probe(reminder, probe: probe))
+        }
+        changed()
     }
 
     // MARK: Format

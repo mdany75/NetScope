@@ -278,6 +278,7 @@ struct MonProbeTable: View {
             legend(Theme.success, "Disponible")
             legend(Theme.warning, "Seuil dépassé")
             legend(Theme.critical, "Hors ligne")
+            legend(MonUptimeBar.maintenanceColor, "Maintenance")
             legend(Theme.border, "Aucune donnée", stroke: true)
             Spacer(minLength: 8)
             Text("\(filtered.count) affichées sur \(MonText.plural(store.probes.count, "sonde", "sondes"))")
@@ -533,8 +534,12 @@ private extension View {
     }
 }
 
-/// Barre de disponibilité 24 h : une case par heure, puis le pourcentage.
+/// Barre de disponibilité 24 h : une case par heure, puis le pourcentage. Note 78 : heure passée en
+/// fenêtre de maintenance en bleu pâle.
 struct MonUptimeBar: View {
+    /// Couleur des heures en maintenance (note 78).
+    static let maintenanceColor = Theme.accent.opacity(0.45)
+
     let slots: [MonSlot]
     let availability: Double?
     var enabled = true
@@ -579,6 +584,7 @@ struct MonUptimeBar: View {
         case .ok: return Theme.success
         case .warning: return Theme.warning
         case .down: return Theme.critical
+        case .maintenance: return Self.maintenanceColor
         case .none: return Theme.border
         }
     }

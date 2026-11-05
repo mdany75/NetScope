@@ -75,6 +75,8 @@ enum RapportData {
         if demo, SiteModel.shared.activeID == SitesDemo.siegeID { RapportDemo.complete(&input) }
         // Note 42 : alertes de la Surveillance et ports en erreur, puis comparaison avec le dernier rapport.
         input.followUpIssues = monitorIssues(ranges: parsed, isActiveSite: true) + ReportFollowUp.portErrorIssues(snapshots)
+        // Notes 62 et 78 : disponibilité des sondes du site sur 30 jours (section « Disponibilité »).
+        input.availability = availability(siteKey: SiteModel.shared.activeKey)
         input.followUp = RapportHistoryStore.shared.followUp(forKey: SiteModel.shared.activeKey, siteName: SiteModel.shared.activeName,
                                                              input: input, choice: followUpBase)
         return input
@@ -88,6 +90,17 @@ enum RapportData {
                   ReportFollowUp.probeBelongs(target: probe.target, ranges: ranges, isActiveSite: isActiveSite) else { return nil }
             return ReportFollowUp.monitorIssue(probeID: probe.id, name: probe.name, down: state == .down)
         }
+    }
+
+    /// Notes 62 et 78 : disponibilité sur 30 jours des sondes du site (celui choisi dans l'éditeur de
+    /// la sonde, sinon celui de sa cible), d'après l'historique par jour de la Surveillance.
+    static func availability(siteKey: String) -> ReportAvailability? {
+        let store = MonStore.shared
+        let siteID = SiteModel.shared.site(forKey: siteKey)?.id
+        let probes = store.probes.filter { store.site(of: $0) == siteID }
+        guard !probes.isEmpty else { return nil }
+        return ReportAvailability.make(probes: probes, history: store.history, journal: store.journal, now: store.now,
+                                       planning: store.planning, site: siteID)
     }
 
     /// Données de chaque site choisi dans le menu « Site ▾ » des Rapports : le site actif d'après le
@@ -128,6 +141,7 @@ enum RapportData {
         input.extraProblems = dhcpProblems(store.events, ranges: parsed)
         // Note 42 : sondes dont la cible est dans les plages de ce site ; comparaison avec son dernier rapport.
         input.followUpIssues = monitorIssues(ranges: parsed, isActiveSite: false)
+        input.availability = availability(siteKey: key)
         input.followUp = RapportHistoryStore.shared.followUp(forKey: key, siteName: sites.name(forKey: key), input: input,
                                                              choice: followUpBase)
         return input

@@ -231,7 +231,59 @@ struct RapportPageView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: px(4)).fill(Color(hex: 0xF9FAFB)))
             .overlay(RoundedRectangle(cornerRadius: px(4)).strokeBorder(Self.line))
+        case .uptime(let chart):
+            uptimeView(chart)
         }
+    }
+
+    // MARK: Graphe de disponibilité (note 78)
+
+    /// Une ligne par sonde : nom, une case par jour (vert, jaune, orange, rouge, gris), total.
+    private func uptimeView(_ chart: ReportUptimeChart) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(chart.title.uppercased())
+                .font(font(11, .semibold))
+                .kerning(px(0.4))
+                .foregroundStyle(Self.gray)
+                .frame(height: pt(metrics.barTitleHeight), alignment: .topLeading)
+            ForEach(Array(chart.rows.enumerated()), id: \.offset) { _, row in
+                HStack(spacing: px(8)) {
+                    Text(row.label)
+                        .font(font(11))
+                        .foregroundStyle(Self.body)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(width: px(150), alignment: .leading)
+                    HStack(spacing: px(1)) {
+                        ForEach(Array(row.values.enumerated()), id: \.offset) { _, value in
+                            RoundedRectangle(cornerRadius: px(1))
+                                .fill(Self.uptimeColor(value))
+                        }
+                    }
+                    .frame(height: px(10))
+                    Text(row.total)
+                        .font(font(11, .semibold, mono: true))
+                        .foregroundStyle(color(row.tone))
+                        .lineLimit(1)
+                        .frame(width: px(62), alignment: .trailing)
+                }
+                .frame(height: pt(metrics.uptimeRowHeight))
+            }
+            HStack(spacing: 0) {
+                ForEach(Array(chart.axis.enumerated()), id: \.offset) { index, label in
+                    if index > 0 { Spacer(minLength: 0) }
+                    Text(label).font(font(10)).foregroundStyle(Self.gray).lineLimit(1)
+                }
+            }
+            .padding(.leading, px(158))
+            .padding(.trailing, px(70))
+            .frame(height: pt(metrics.uptimeAxisHeight), alignment: .bottom)
+        }
+    }
+
+    /// Couleur fixe d'une case (le rapport est toujours en clair, mêmes couleurs que le HTML et le DOCX).
+    static func uptimeColor(_ value: Double?) -> Color {
+        Color(hex: UInt32(ReportUptimeRow.cellColor(value), radix: 16) ?? 0xE5E7EB)
     }
 
     // MARK: Tableaux

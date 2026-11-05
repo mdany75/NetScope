@@ -51,6 +51,8 @@ final class RapportModel: ObservableObject {
             if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_FIRMWARE"] == "1" { demo.sections.insert(.firmware) }
             // NETSCOPE_RAPPORT_SUIVI=1 coche la section « Depuis le dernier rapport » (note 42).
             if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_SUIVI"] == "1" { demo.sections.insert(.suivi) }
+            // NETSCOPE_RAPPORT_DISPO=1 coche la section « Disponibilité (Surveillance) » (note 78).
+            if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_DISPO"] == "1" { demo.sections.insert(.disponibilite) }
             config = demo
             library = ReportLibrary(recents: RapportDemo.recents)
         } else {
@@ -232,14 +234,7 @@ final class RapportModel: ObservableObject {
         let inputs = siteInputs(state: state)
         let document = document(for: inputs)
         let pages = pages(for: document)
-        let data: Data?
-        switch format {
-        case .pdf: data = RapportPDF.render(document, pages: pages, logo: logo)
-        case .csv: data = ReportExport.csvData(document)
-        case .json: data = try? ReportExport.json(document)
-        case .html: data = Data(ReportExport.html(document, logoDataURL: RapportPDF.dataURL(logo)).utf8)
-        }
-        guard let data else {
+        guard let data = render(document, pages: pages, format: format) else {
             show("Le rapport n’a pas pu être produit.")
             return nil
         }
@@ -310,6 +305,17 @@ final class RapportModel: ObservableObject {
 
     var emailSubject: String { config.documentTitle + " — " + config.dateLabel }
 
+    /// Contenu du fichier au format choisi (le PDF est dessiné page par page ; le DOCX est écrit à la main).
+    func render(_ document: ReportDocument, pages: [ReportPage], format: ReportFormat) -> Data? {
+        switch format {
+        case .pdf: return RapportPDF.render(document, pages: pages, logo: logo)
+        case .csv: return ReportExport.csvData(document)
+        case .json: return try? ReportExport.json(document)
+        case .html: return Data(ReportExport.html(document, logoDataURL: RapportPDF.dataURL(logo)).utf8)
+        case .docx: return ReportDocx.make(document, logoPNG: RapportPDF.pngData(logo))
+        }
+    }
+
     // MARK: Rapports planifiés (note 42)
 
     /// Produit le rapport planifié d'un site, sans jamais lancer de scan : le site actif d'après le
@@ -334,14 +340,9 @@ final class RapportModel: ObservableObject {
         let calendar = ReportScheduler.calendar()
         ReportScheduler.annotate(&document, note: ReportScheduler.scanNote(scanDate: input.scanDate, now: now, calendar: calendar))
         let pages = pages(for: document)
-        let data: Data?
-        switch config.format {
-        case .pdf: data = RapportPDF.render(document, pages: pages, logo: logo)
-        case .csv: data = ReportExport.csvData(document)
-        case .json: data = try? ReportExport.json(document)
-        case .html: data = Data(ReportExport.html(document, logoDataURL: RapportPDF.dataURL(logo)).utf8)
+        guard let data = render(document, pages: pages, format: config.format) else {
+            return .failure(ScheduledReportError("le document n’a pas pu être produit"))
         }
-        guard let data else { return .failure(ScheduledReportError("le document n’a pas pu être produit")) }
         let folder = schedule.folder.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? directory
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

@@ -128,8 +128,17 @@ public enum MonSchedule: String, Codable, CaseIterable, Sendable, Identifiable {
     public var label: String {
         switch self {
         case .always: return "Toujours (24 h sur 24, 7 j sur 7)"
-        case .businessHours: return "Heures ouvrables (lun.–ven., 7 h – 18 h)"
+        case .businessHours: return "Heures ouvrables du site"
         case .offHours: return "Hors heures ouvrables seulement"
+        }
+    }
+
+    /// Note 78 : libellé avec l'horaire du site (« Heures ouvrables du site (lun.–ven. 7 h – 18 h) »).
+    public func label(hours: MonBusinessHours) -> String {
+        switch self {
+        case .always: return label
+        case .businessHours: return "Heures ouvrables du site (\(hours.summary))"
+        case .offHours: return "Hors heures ouvrables du site seulement"
         }
     }
 
@@ -140,12 +149,17 @@ public enum MonSchedule: String, Codable, CaseIterable, Sendable, Identifiable {
         return (2...6).contains(weekday) && (7..<18).contains(hour)
     }
 
-    /// Vrai si une alerte peut être créée à cette date.
+    /// Vrai si une alerte peut être créée à cette date (horaire standard lun.–ven. 7 h – 18 h).
     public func allowsAlerts(at date: Date, calendar: Calendar = .current) -> Bool {
+        allowsAlerts(at: date, hours: .standard, calendar: calendar)
+    }
+
+    /// Note 78 : vrai si une alerte peut être créée à cette date, selon les heures ouvrables du site.
+    public func allowsAlerts(at date: Date, hours: MonBusinessHours, calendar: Calendar = .current) -> Bool {
         switch self {
         case .always: return true
-        case .businessHours: return MonSchedule.isBusinessHours(date, calendar: calendar)
-        case .offHours: return !MonSchedule.isBusinessHours(date, calendar: calendar)
+        case .businessHours: return hours.contains(date, calendar: calendar)
+        case .offHours: return !hours.contains(date, calendar: calendar)
         }
     }
 }
@@ -250,6 +264,8 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
     public var logSeverity: LogSeverity?
     /// Trap reçue (note 43) : nom ou OID de la trap attendue (nil ou vide : toutes).
     public var trapFilter: String?
+    /// Note 78 : site de la sonde (heures ouvrables, maintenance, rapport) ; nil : déduit de la cible.
+    public var siteID: UUID?
 
     public init(id: UUID = UUID(), name: String, kind: MonProbeKind, target: String, subtitle: String = "",
                 isEnabled: Bool = true, interval: Int = 60, thresholds: MonThresholds = MonThresholds(),
@@ -419,6 +435,7 @@ extension MonProbe {
         knownThreats = try? c.decodeIfPresent([String].self, forKey: .knownThreats)
         logSeverity = try? c.decodeIfPresent(LogSeverity.self, forKey: .logSeverity)
         trapFilter = try? c.decodeIfPresent(String.self, forKey: .trapFilter)
+        siteID = try? c.decodeIfPresent(UUID.self, forKey: .siteID)
     }
 }
 

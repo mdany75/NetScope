@@ -53,6 +53,17 @@ final class MonNotifier: NSObject {
             sourceAllowsBanner: probe.notify, sourceRequestsSound: probe.sound))
     }
 
+    /// Note 78 : rappel d'une alerte toujours ouverte et non accusée (un identifiant par rappel).
+    func postReminder(_ alert: MonAlert, probe: MonProbe, count: Int) {
+        guard let kind = NetScopeEventKind.forProbe(probe.kind, severity: alert.severity) else { return }
+        let severity: NetScopeEventSeverity = alert.severity == .critical ? .critical : .warning
+        let title = "Rappel\u{00A0}: " + NetScopeEventKind.probeTitle(kind, severity: alert.severity, probeName: probe.name)
+        NetScopeEventCenter.shared.publish(NetScopeEvent(
+            id: alert.id.uuidString + "-rappel-\(count)", kind: kind, severity: severity, title: title, detail: alert.message,
+            date: Date(), link: .probe(probe.id), source: probe.id.uuidString,
+            sourceAllowsBanner: probe.notify, sourceRequestsSound: probe.sound))
+    }
+
     /// Retour à la normale d'une sonde qui était en alerte.
     func postRecovery(probe: MonProbe, value: String) {
         NetScopeEventCenter.shared.publish(NetScopeEvent(

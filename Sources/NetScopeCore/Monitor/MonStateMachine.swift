@@ -69,20 +69,24 @@ public struct MonTracker: Codable, Equatable, Sendable {
     /// État pour lequel une alerte a été créée (avertissement ou panne), nil après le retour à la normale.
     public var alerted: MonState?
     public var lastResult: MonResult?
+    /// Note 78 : état dont l'alerte a été suspendue (et notée) par une fenêtre de maintenance.
+    public var suppressed: MonState?
 
     public init(state: MonState = .pending, consecutiveFailures: Int = 0, since: Date? = nil,
-                alerted: MonState? = nil, lastResult: MonResult? = nil) {
+                alerted: MonState? = nil, lastResult: MonResult? = nil, suppressed: MonState? = nil) {
         self.state = state
         self.consecutiveFailures = consecutiveFailures
         self.since = since
         self.alerted = alerted
         self.lastResult = lastResult
+        self.suppressed = suppressed
     }
 }
 
 /// Événement produit par la machine d'états : il crée ou résout une alerte.
 public struct MonEvent: Equatable, Sendable {
-    public enum Kind: String, Sendable { case down, warning, recovered }
+    /// `suppressed` (note 78) : alerte retenue par une fenêtre de maintenance, notée au journal sans notification.
+    public enum Kind: String, Sendable { case down, warning, recovered, suppressed }
     public var kind: Kind
     public var message: String
 
@@ -101,10 +105,15 @@ public struct MonEvent: Equatable, Sendable {
 /// - si la sonde dont elle dépend est hors ligne, un échec est « ignoré » (rien n'est compté) ;
 /// - une alerte n'est créée que dans la plage horaire de la sonde, une seule fois par état ; si la
 ///   panne commence hors plage, l'alerte part à la première vérification dans la plage ;
-/// - le retour à « OK » après une alerte produit un événement « recovered » (alerte résolue).
+/// - le retour à « OK » après une alerte produit un événement « recovered » (alerte résolue) ;
+/// - note 78 : la plage horaire suit les heures ouvrables du site (`gate.hours`) ; pendant une
+///   fenêtre de maintenance (`gate.maintenance`), aucune alerte n'est créée : un événement
+///   « suppressed » la note au journal (une fois par état) et, si le problème dure après la fenêtre,
+///   l'alerte part à la première vérification qui suit.
 public enum MonStateMachine {
     public static func evaluate(probe: MonProbe, tracker: MonTracker, result: MonResult,
-                                dependencyDown: Bool, calendar: Calendar = .current) -> (tracker: MonTracker, events: [MonEvent]) {
+                                dependencyDown: Bool, calendar: Calendar = .current,
+                                gate: MonAlertGate = MonAlertGate()) -> (tracker: MonTracker, events: [MonEvent]) {
         var next = tracker
         next.lastResult = result
         var events: [MonEvent] = []
@@ -133,30 +142,47 @@ public enum MonStateMachine {
         if newState != tracker.state { next.since = result.date }
         next.state = newState
 
-        let allowed = probe.schedule.allowsAlerts(at: result.date, calendar: calendar)
+        let inHours = probe.schedule.allowsAlerts(at: result.date, hours: gate.hours, calendar: calendar)
+        let allowed = inHours && gate.maintenance == nil
+        /// Alerte retenue par la maintenance : notée une fois par état.
+        func suppress(_ state: MonState, _ message: String) {
+            guard inHours, let window = gate.maintenance, next.suppressed != state else { return }
+            events.append(MonEvent(.suppressed, "Maintenance «\u{00A0}\(window.name)\u{00A0}» en cours, alerte suspendue\u{00A0}: " + message))
+            next.suppressed = state
+        }
         switch newState {
         case .down:
-            if next.alerted != .down, allowed {
+            if next.alerted != .down {
                 let attempts = max(next.consecutiveFailures, probe.thresholds.failures)
                 var message = "\(probe.target) ne répond plus depuis \(attempts) tentative\(attempts > 1 ? "s" : "")"
                 if let error = result.error, !error.isEmpty { message += " (\(error))" }
-                events.append(MonEvent(.down, message + "."))
-                next.alerted = .down
+                if allowed {
+                    events.append(MonEvent(.down, message + "."))
+                    next.alerted = .down
+                } else {
+                    suppress(.down, message + ".")
+                }
             }
         case .warning:
             if next.alerted == .down {
                 events.append(MonEvent(.recovered, "répond de nouveau (\(result.value))"))
                 next.alerted = nil
             }
-            if next.alerted != .warning, allowed {
-                events.append(MonEvent(.warning, problems.joined(separator: " ; ") + "."))
-                next.alerted = .warning
+            if next.alerted != .warning {
+                let message = problems.joined(separator: " ; ") + "."
+                if allowed {
+                    events.append(MonEvent(.warning, message))
+                    next.alerted = .warning
+                } else {
+                    suppress(.warning, message)
+                }
             }
         case .ok:
             if next.alerted != nil {
                 events.append(MonEvent(.recovered, "revenu à la normale (\(result.value))"))
                 next.alerted = nil
             }
+            next.suppressed = nil
         case .pending, .ignored:
             break
         }
@@ -166,10 +192,10 @@ public enum MonStateMachine {
     /// Comme `evaluate`, pour le résultat d'un exécuteur : sans donnée (`noData`), nil (le suivi ne
     /// bouge pas, aucun événement, rien dans l'historique).
     public static func step(probe: MonProbe, tracker: MonTracker, outcome: MonRunOutcome, dependencyDown: Bool,
-                            calendar: Calendar = .current) -> (tracker: MonTracker, events: [MonEvent])? {
+                            calendar: Calendar = .current, gate: MonAlertGate = MonAlertGate()) -> (tracker: MonTracker, events: [MonEvent])? {
         guard !outcome.noData else { return nil }
         return evaluate(probe: probe, tracker: tracker, result: outcome.result, dependencyDown: dependencyDown,
-                        calendar: calendar)
+                        calendar: calendar, gate: gate)
     }
 
     /// Avertissements d'une réponse : seuils de latence et de perte, condition du type.
