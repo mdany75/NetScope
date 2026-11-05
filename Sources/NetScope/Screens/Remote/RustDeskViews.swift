@@ -125,14 +125,13 @@ struct RustDeskQuickBox: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "Assistance RustDesk") {
-                Button {
-                    RegNavigation.shared.section = .rustdesk
-                    state.open(.reglages)
-                } label: {
-                    Label("Réglages du serveur", systemImage: "gearshape").labelStyle(RemoteCompactLabelStyle())
+                // Note 6 (0.26.2) : tableau de bord du serveur (onglet « Serveur RustDesk ») ; en
+                // colonne étroite, libellés courts puis icônes seules plutôt que tronqués.
+                ViewThatFits(in: .horizontal) {
+                    headerButtons(server: "Tableau de bord du serveur", settings: "Réglages du serveur")
+                    headerButtons(server: "Serveur", settings: "Réglages")
+                    headerButtons(server: nil, settings: nil)
                 }
-                .buttonStyle(.ghost)
-                .help("Serveur d’ID, clé publique et page d’assistance de l’usager")
             }
             HStack(spacing: 6) {
                 Image(systemName: RemoteProtocol.rustdesk.symbol)
@@ -180,6 +179,38 @@ struct RustDeskQuickBox: View {
                 .clipShape(RoundedRectangle(cornerRadius: Theme.buttonRadius))
             }
         }
+    }
+
+    /// Boutons de l'en-tête ; libellé nil : icône seule (aide au survol).
+    private func headerButtons(server: String?, settings: String?) -> some View {
+        HStack(spacing: 4) {
+            if RustDeskServerModel.shared.isAvailable {
+                Button {
+                    RustDeskServerModel.shared.open(in: state)
+                } label: {
+                    if let server {
+                        Label(server, systemImage: "server.rack").labelStyle(RemoteCompactLabelStyle())
+                    } else {
+                        Image(systemName: "server.rack")
+                    }
+                }
+                .buttonStyle(.ghost)
+                .help("Tableau de bord du serveur\u{00A0}: sessions relayées, demandes de connexion, hbbs et hbbr (lecture seule par SSH)")
+            }
+            Button {
+                RegNavigation.shared.section = .rustdesk
+                state.open(.reglages)
+            } label: {
+                if let settings {
+                    Label(settings, systemImage: "gearshape").labelStyle(RemoteCompactLabelStyle())
+                } else {
+                    Image(systemName: "gearshape")
+                }
+            }
+            .buttonStyle(.ghost)
+            .help("Réglages du serveur\u{00A0}: serveur d’ID, clé publique et page d’assistance de l’usager")
+        }
+        .fixedSize()
     }
 
     private func connect() {

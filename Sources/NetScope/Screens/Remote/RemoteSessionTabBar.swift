@@ -7,10 +7,13 @@ import SwiftUI
 struct RemoteSessionTabBar: View {
     @ObservedObject var model: RemoteModel
     @ObservedObject var store = RemoteSessionStore.shared
+    /// Note 6 (0.26.2) : onglet fixe « Serveur RustDesk » (tableau de bord du serveur).
+    @ObservedObject private var server = RustDeskServerModel.shared
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 2) {
             homeTab
+            if server.isAvailable { serverTab }
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(alignment: .bottom, spacing: 2) {
@@ -48,14 +51,15 @@ struct RemoteSessionTabBar: View {
     }
 
     private var homeTab: some View {
-        let selected = store.activeID == nil
+        let selected = store.activeID == nil && !dashboardShown
         return Button {
             store.select(nil)
+            server.isShown = false
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "rectangle.stack").font(.system(size: 12))
                 Text(homeTitle).font(.system(size: 12, weight: selected ? .semibold : .medium)).lineLimit(1)
-                if store.tabs.isEmpty, model.draft == nil, model.tunnelDraft == nil {
+                if store.tabs.isEmpty, model.draft == nil, model.tunnelDraft == nil, !server.isAvailable {
                     Text("SSH · Telnet · Console série · RDP · VNC · FTP · SFTP · Tunnels").font(Theme.caption).foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
                 }
@@ -67,7 +71,45 @@ struct RemoteSessionTabBar: View {
         }
         .buttonStyle(.plain)
         .background(RemoteTabShape(selected: selected))
+        .fixedSize()
         .help("Aperçu, connexions récentes et formulaire")
+    }
+
+    /// Tableau de bord affiché (aucun onglet de session ni formulaire par-dessus).
+    private var dashboardShown: Bool {
+        store.activeID == nil && server.isShown && model.draft == nil && model.tunnelDraft == nil
+    }
+
+    /// Note 6 (0.26.2) : tableau de bord du serveur RustDesk (lecture seule par SSH).
+    private var serverTab: some View {
+        let selected = dashboardShown
+        return Button {
+            model.draft = nil
+            model.tunnelDraft = nil
+            store.select(nil)
+            server.isShown = true
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "server.rack").font(.system(size: 12))
+                Text("Serveur RustDesk").font(.system(size: 12, weight: selected ? .semibold : .medium)).lineLimit(1)
+                if let status = server.status, status.relayConsole == .ok, !status.relaySessions.isEmpty {
+                    CountBadge(count: status.relaySessions.count, color: RemoteProtocol.rustdesk.tint)
+                        .help("Sessions relayées en cours")
+                }
+                if server.error != nil {
+                    Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 10)).foregroundStyle(Theme.warning)
+                }
+            }
+            .foregroundStyle(selected ? Theme.text : Theme.textSecondary)
+            .padding(.horizontal, 10)
+            .frame(height: 32)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(RemoteTabShape(selected: selected))
+        // Toujours lisible en entier : ce sont les onglets de session qui défilent.
+        .fixedSize()
+        .help("Tableau de bord du serveur RustDesk\u{00A0}: sessions relayées, demandes de connexion, état de hbbs et hbbr (lecture seule par SSH)")
     }
 
     private var addMenu: some View {

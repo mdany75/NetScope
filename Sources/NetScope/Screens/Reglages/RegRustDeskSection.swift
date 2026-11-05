@@ -15,8 +15,14 @@ struct RegRustDeskSection: View {
             if ProcessInfo.processInfo.environment["NETSCOPE_RUSTDESK_VIEW"] == "test" {
                 testPanel
                 clientPanel
+            } else if ProcessInfo.processInfo.environment["NETSCOPE_RUSTDESK_VIEW"] == "tableau" {
+                // Captures : le tableau de bord du serveur d'abord (note 6, 0.26.2).
+                RegRustDeskServerPanel()
+                serverPanel
             } else {
                 serverPanel
+                // Note 6 (0.26.2) : compte SSH et rafraîchissement du tableau de bord du serveur.
+                RegRustDeskServerPanel()
                 portablePanel
                 clientPanel
                 testPanel
