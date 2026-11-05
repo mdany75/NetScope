@@ -10,6 +10,9 @@ public struct DiskTestRecord: Codable, Hashable, Sendable, Identifiable {
     /// Chemin de l'emplacement (clé du regroupement par emplacement).
     public var locationID: String
     public var locationName: String
+    /// Chemin réellement mesuré (point de montage) quand la clé est celle d'un emplacement
+    /// enregistré (note 55) ; absent sinon (la clé est déjà le chemin).
+    public var locationPath: String?
     public var kind: DiskLocationKind
     /// « APFS », « SMB · nas.bureau.local/Projets », « OneDrive ».
     public var detail: String
@@ -36,6 +39,7 @@ public struct DiskTestRecord: Codable, Hashable, Sendable, Identifiable {
         self.date = date
         locationID = location.id
         locationName = location.name
+        locationPath = location.savedID == nil ? nil : location.path
         kind = location.kind
         detail = location.kind == .reseau || location.kind == .nuage
             ? location.detail.components(separatedBy: " · ").prefix(2).joined(separator: " · ")
@@ -115,6 +119,14 @@ public struct DiskHistoryStore: Sendable {
         records.filter { $0.locationID == locationID }.sorted { $0.date > $1.date }
     }
 
+    /// Tests d'un emplacement, plus récents d'abord : pour un emplacement enregistré (note 55)
+    /// déjà monté, aussi les tests faits avant son enregistrement sur le même point de montage.
+    public static func records(_ records: [DiskTestRecord], for location: DiskLocation) -> [DiskTestRecord] {
+        var keys: Set<String> = [location.id]
+        if location.savedID != nil, location.isMounted { keys.insert(location.path) }
+        return records.filter { keys.contains($0.locationID) }.sorted { $0.date > $1.date }
+    }
+
     /// Dernier test de chaque emplacement (pour un rapport), plus récents d'abord.
     public static func latestPerLocation(_ records: [DiskTestRecord], limit: Int = 8) -> [DiskTestRecord] {
         var seen: Set<String> = []
@@ -136,7 +148,7 @@ public struct DiskHistoryStore: Sendable {
         var lines = ["Date;Emplacement;Type;Détail;Chemin;Taille (Mio);Passes;Écriture (Mo/s);Lecture (Mo/s);IOPS 4K lecture;IOPS 4K écriture;Latence 4K moy. (ms);Latence 4K p95 (ms);Lien (Mbit/s);Latence serveur (ms);Envoi nuage;Envoi (s);Envoi (Mbit/s);Limite;Bilan"]
         for r in records {
             lines.append([
-                formatter.string(from: r.date), field(r.locationName), r.kind.label, field(r.detail), field(r.locationID),
+                formatter.string(from: r.date), field(r.locationName), r.kind.label, field(r.detail), field(r.locationPath ?? r.locationID),
                 String(r.sizeBytes >> 20), String(r.passes), number(r.writeMBps), number(r.readMBps),
                 number(r.randomReadIOPS, 0), number(r.randomWriteIOPS, 0), number(r.randomReadMeanMs, 3), number(r.randomReadP95Ms, 3),
                 number(r.network?.linkMbps, 0), number(r.network?.serverLatencyMs, 1), r.cloudStatus?.label ?? "",

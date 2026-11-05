@@ -10,6 +10,7 @@ struct DiskSpeedView: View {
     @ObservedObject var model: DiskSpeedModel
     @ObservedObject var store: ToolStore
     @StateObject private var table = DiskHistoryTable.makeModel()
+    @ObservedObject private var sites = SiteModel.shared
 
     private var location: DiskLocation? { model.selected }
     /// Emplacement des mesures affichées (test en cours ou terminé), sinon l'emplacement choisi.
@@ -19,6 +20,7 @@ struct DiskSpeedView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             locationPicker
+            if let share = model.selectedShare, let location { shareBar(share, location: location) }
             settings
             notices
             measures
@@ -34,6 +36,23 @@ struct DiskSpeedView: View {
             history
         }
         .onAppear { model.refreshLocations() }
+        // Emplacements ajoutés : ceux du site actif seulement.
+        .onChange(of: sites.activeID) { _, _ in model.rebuildLocations() }
+        .overlay(alignment: .top) { snapshotSheet }
+        .sheet(item: $model.editing) { draft in
+            DiskShareSheet(model: model, draft: draft, dismiss: { model.editing = nil })
+                .environmentObject(state)
+        }
+        .alert(deleteAlertTitle, isPresented: Binding(get: { model.confirmingDelete != nil },
+                                                      set: { if !$0 { model.confirmingDelete = nil } })) {
+            Button("Retirer", role: .destructive) {
+                if let share = model.confirmingDelete { model.delete(share) }
+                model.confirmingDelete = nil
+            }
+            Button("Annuler", role: .cancel) { model.confirmingDelete = nil }
+        } message: {
+            Text("L’emplacement et son mot de passe du Trousseau sont retirés de ce site. Les tests déjà faits restent dans l’historique. Rien n’est effacé sur le serveur.")
+        }
         .alert(cloudAlertTitle, isPresented: $model.confirmingCloud) {
             Button("Écrire \(DiskFormat.testSize(model.sizeBytes))") { model.start(state: state, store: store) }
             Button("Annuler", role: .cancel) {}
@@ -46,6 +65,123 @@ struct DiskSpeedView: View {
         "Écrire \(DiskFormat.testSize(model.sizeBytes)) dans \(location?.name ?? "le nuage")\u{00A0}?"
     }
 
+    private var deleteAlertTitle: String {
+        "Retirer «\u{00A0}\(model.confirmingDelete?.displayName ?? "")\u{00A0}»\u{00A0}?"
+    }
+
+    /// Captures (NETSCOPE_DISQUE_FEUILLE) : la feuille dessinée par-dessus l'outil, comme une
+    /// feuille de macOS (une vraie feuille ne se capture pas hors écran).
+    @ViewBuilder private var snapshotSheet: some View {
+        if let draft = DiskSpeedDemo.snapshotDraft {
+            ZStack(alignment: .top) {
+                Color(nsColor: .shadowColor).opacity(0.18)
+                DiskShareSheet(model: model, draft: draft, inline: true, dismiss: {})
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+                    .shadow(color: Color(nsColor: .shadowColor).opacity(0.3), radius: 18, y: 8)
+                    .padding(.top, 4)
+            }
+        }
+    }
+
+    // MARK: Emplacement ajouté (note 55)
+
+    /// Barre de l'emplacement ajouté choisi : adresse, compte, « Tester le serveur », « Modifier… ».
+    private func shareBar(_ share: DiskShareLocation, location: DiskLocation) -> some View {
+        let testing = model.testingServers.contains(share.id)
+        return VStack(alignment: .leading, spacing: 8) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    shareSummary(share, location: location)
+                    Spacer(minLength: 8)
+                    shareButtons(share, testing: testing)
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    shareSummary(share, location: location)
+                    HStack(spacing: 8) {
+                        Spacer(minLength: 0)
+                        shareButtons(share, testing: testing)
+                    }
+                }
+            }
+            if let report = model.serverReports[share.id] {
+                DiskServerReportView(report: report, kind: share.kind, secure: share.secure, customPort: share.port)
+            }
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
+        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+    }
+
+    private func shareSummary(_ share: DiskShareLocation, location: DiskLocation) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                Image(systemName: share.kind.symbol).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                Text(share.kind == .dossier ? share.address : (share.mountURL?.absoluteString.removingPercentEncoding ?? share.address))
+                    .font(Theme.mono(12, weight: .medium)).foregroundStyle(Theme.text)
+                    .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+            }
+            Text(shareDetail(share, location: location))
+                .font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func shareDetail(_ share: DiskShareLocation, location: DiskLocation) -> String {
+        var parts: [String] = []
+        if share.kind == .dossier {
+            parts.append(location.isMounted ? "Dossier choisi dans le Finder" : "Dossier introuvable")
+        } else {
+            if let name = share.deviceName { parts.append("Appareil\u{00A0}: \(name)") }
+            if share.kind.usesCredentials {
+                parts.append(share.trimmedUser.isEmpty ? "invité"
+                             : "\(share.trimmedUser) · " + (share.hasPassword ? "mot de passe au Trousseau" : "sans mot de passe"))
+            }
+            parts.append(location.isMounted ? "déjà monté, laissé tel quel" : "monté pour le test, puis démonté")
+        }
+        parts.append("site «\u{00A0}\(sites.name(forKey: share.siteKey))\u{00A0}»")
+        return parts.joined(separator: " · ")
+    }
+
+    private func shareButtons(_ share: DiskShareLocation, testing: Bool) -> some View {
+        HStack(spacing: 8) {
+            if share.kind != .dossier {
+                Button {
+                    model.testServer(share)
+                } label: {
+                    if testing {
+                        HStack(spacing: 5) { ProgressView().controlSize(.mini); Text("Test en cours…") }
+                    } else {
+                        Label("Tester le serveur", systemImage: "stethoscope")
+                    }
+                }
+                .buttonStyle(.secondary)
+                .controlSize(.small)
+                .disabled(testing || model.isRunning)
+                .help("Ping et ports 445 (SMB), 139, 2049 (NFS), 548 (AFP), 80 et 443 (WebDAV)")
+            }
+            Button {
+                model.beginEdit(share)
+            } label: {
+                Label("Modifier…", systemImage: "pencil")
+            }
+            .buttonStyle(.secondary)
+            .controlSize(.small)
+            .disabled(model.isRunning)
+            Button {
+                model.confirmingDelete = share
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.secondary)
+            .controlSize(.small)
+            .disabled(model.isRunning)
+            .help("Retirer cet emplacement")
+            .accessibilityLabel("Retirer cet emplacement")
+        }
+        .fixedSize()
+    }
+
     // MARK: Emplacement
 
     private var locationPicker: some View {
@@ -54,6 +190,15 @@ struct DiskSpeedView: View {
                 ToolFieldLabel("Emplacement")
                 if model.loadingLocations { ProgressView().controlSize(.small) }
                 Spacer(minLength: 8)
+                Button {
+                    model.beginAdd()
+                } label: {
+                    Label("Ajouter un emplacement…", systemImage: "plus")
+                }
+                .buttonStyle(.secondary)
+                .controlSize(.small)
+                .disabled(model.isRunning)
+                .help("NAS ou partage SMB, NFS, AFP, WebDAV, ou un dossier choisi dans le Finder (enregistré pour ce site)")
                 Button {
                     model.refreshLocations()
                 } label: {
@@ -75,20 +220,27 @@ struct DiskSpeedView: View {
 
     private func locationCard(_ item: DiskLocation) -> some View {
         let isOn = model.selectedID == item.id
+        let share = model.share(for: item)
         return Button {
             model.selectedID = item.id
         } label: {
             HStack(alignment: .top, spacing: 10) {
-                Image(systemName: Self.symbol(for: item))
+                Image(systemName: share?.kind == .dossier ? "folder" : Self.symbol(for: item))
                     .font(.system(size: 17, weight: .regular))
                     .foregroundStyle(isOn ? Theme.accentStrong : Theme.textSecondary)
                     .frame(width: 22, height: 22)
+                    .opacity(item.isMounted ? 1 : 0.6)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(item.name).font(Theme.bodySemibold).foregroundStyle(Theme.text)
                             .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                        if share != nil {
+                            Image(systemName: "bookmark.fill").font(.system(size: 9)).foregroundStyle(Theme.textTertiary)
+                                .help("Emplacement ajouté pour ce site")
+                        }
                         Spacer(minLength: 0)
-                        Chip(text: Self.kindChip(item), tone: isOn ? .accent : .neutral)
+                        Chip(text: share.map { $0.kind == .dossier ? "Dossier" : $0.kind.label } ?? Self.kindChip(item),
+                             tone: isOn ? .accent : .neutral)
                     }
                     Text(item.detail).font(Theme.caption).foregroundStyle(Theme.textSecondary)
                         .lineLimit(2).fixedSize(horizontal: false, vertical: true)
@@ -105,6 +257,16 @@ struct DiskSpeedView: View {
         .disabled(model.isRunning)
         .help("\(item.name)\n\(item.detail)\n\(item.path)")
         .accessibilityLabel("\(item.name), \(item.kind.label)")
+        .contextMenu {
+            if let share {
+                Button("Modifier…") { model.beginEdit(share) }
+                if share.kind != .dossier { Button("Tester le serveur") { model.testServer(share) } }
+                Divider()
+                Button("Retirer l’emplacement…") { model.confirmingDelete = share }
+            } else {
+                Button("Ajouter un emplacement…") { model.beginAdd() }
+            }
+        }
     }
 
     static func symbol(for location: DiskLocation) -> String {
@@ -233,7 +395,14 @@ struct DiskSpeedView: View {
                        message: "La copie locale s’écrit vite, l’envoi réel se fait ensuite. NetScope mesure l’écriture dans le dossier, puis le temps jusqu’à «\u{00A0}envoyé\u{00A0}» quand le service le signale. Au-delà de 1\u{00A0}Gio, une confirmation est demandée (quota, forfait).")
         }
         if let error = model.error {
-            ToolNotice(tone: .critical, message: error)
+            ToolNotice(tone: .critical, message: error) {
+                if model.credentialsProblem, let share = model.selectedShare {
+                    Button("Modifier…") { model.beginEdit(share) }
+                        .buttonStyle(.secondary)
+                        .controlSize(.small)
+                        .fixedSize()
+                }
+            }
         }
         if let notice = model.notice {
             ToolNotice(tone: model.stopped ? .warning : .success, message: notice)
@@ -357,6 +526,9 @@ struct DiskSpeedView: View {
 
     private var statusText: String {
         let config = model.testedConfig ?? model.config
+        if model.isRunning, let mount = model.mountStatus {
+            return "Préparation · \(mount)…"
+        }
         if model.isRunning, let phase = model.phase {
             var text = phase.label
             if (phase == .ecriture || phase == .lecture) && config.passes > 1 { text += " · passe \(model.pass)/\(config.passes)" }
@@ -400,7 +572,7 @@ struct DiskSpeedView: View {
                                  detail: [model.network?.linkKind, model.network?.interfaceName].compactMap { $0 }.joined(separator: " · "))
                     ToolStatTile(label: "Latence serveur", value: model.network?.serverLatencyMs.map(DiskFormat.latency) ?? "—",
                                  detail: model.network?.serverLatencyMs == nil
-                                     ? (model.isRunning ? "ping en cours" : "ne répond pas au ping")
+                                     ? (model.isRunning ? "ping en cours" : (model.result == nil ? "en attente" : "ne répond pas au ping"))
                                      : "ping, moyenne de 5")
                 }
             }
