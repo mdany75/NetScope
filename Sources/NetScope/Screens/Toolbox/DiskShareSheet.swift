@@ -80,7 +80,8 @@ struct DiskShareSheet: View {
                 Divider()
                 footer
             }
-            .frame(width: 620)
+            // Capture : la feuille suit la largeur de l'outil (petite fenêtre) sans dépasser 620.
+            .frame(maxWidth: 620)
             .background(Theme.panel)
         } else {
             VStack(alignment: .leading, spacing: 0) {

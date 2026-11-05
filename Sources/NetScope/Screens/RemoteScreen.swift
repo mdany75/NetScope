@@ -125,9 +125,14 @@ struct RemoteScreen: View {
                     Text("DÉTAILS · \(connection.name.uppercased())")
                         .font(Theme.captionSemibold)
                         .kerning(0.5)
+                        // Longueur bornée avant la rotation : un nom long est abrégé au lieu de
+                        // déborder sur le chevron.
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(width: 300, alignment: .leading)
                         .fixedSize()
                         .rotationEffect(.degrees(90))
-                        .frame(width: 20, height: 200)
+                        .frame(width: 20, height: 300)
                     Spacer()
                 }
                 .foregroundStyle(Theme.textSecondary)

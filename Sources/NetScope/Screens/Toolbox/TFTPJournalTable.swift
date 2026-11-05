@@ -108,7 +108,8 @@ struct TFTPJournalTable: View {
                     TableColumn("PROGRESSION", sortUsing: table.sort("progression")) { record in
                         TFTPProgressCell(record: record)
                     }
-                    .width(min: 70, ideal: 92)
+                    // Assez large pour l'en-tête « PROGRESSION » en entier.
+                    .width(min: 96, ideal: 108)
                     .customizationID("progression")
                 }
                 Group {

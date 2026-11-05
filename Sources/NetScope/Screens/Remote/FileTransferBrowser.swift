@@ -325,10 +325,15 @@ struct FileTransferPane: View {
         HStack(spacing: 6) {
             Image(systemName: side == .local ? "laptopcomputer" : "server.rack")
                 .font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-            Text(side == .local ? "CE MAC" : "SERVEUR")
-                .font(Theme.captionSemibold).kerning(0.4).foregroundStyle(Theme.textSecondary)
-                .fixedSize()
-            pathMenu
+            // En petite fenêtre, le libellé « CE MAC » / « SERVEUR » cède sa place au nom du dossier.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 6) {
+                    sideLabel
+                    pathMenu.fixedSize()
+                }
+                pathMenu
+            }
+            .layoutPriority(1)
             Spacer(minLength: 4)
             if side == .remote, session.remoteLoading {
                 ProgressView().controlSize(.mini)
@@ -355,6 +360,12 @@ struct FileTransferPane: View {
         .padding(.horizontal, 8)
         .frame(height: 32)
         .background(Theme.panelMuted)
+    }
+
+    private var sideLabel: some View {
+        Text(side == .local ? "CE MAC" : "SERVEUR")
+            .font(Theme.captionSemibold).kerning(0.4).foregroundStyle(Theme.textSecondary)
+            .fixedSize()
     }
 
     /// Dossier affiché, avec ses parents dans le menu.

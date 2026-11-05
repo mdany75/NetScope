@@ -6,6 +6,8 @@ import SwiftUI
 struct ServiceCatalogSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var svc = SvcStore.shared
+    /// Captures : feuille dessinée dans la page ; elle suit alors la largeur de l'outil.
+    var inline = false
 
     // Nouveau service
     @State private var name = ""
@@ -48,7 +50,7 @@ struct ServiceCatalogSheet: View {
             }
             .padding(12)
         }
-        .frame(width: 620, height: 640)
+        .frame(minWidth: inline ? nil : 620, maxWidth: 620, minHeight: 640, maxHeight: 640)
         .onAppear {
             tenant = svc.graphTenant
             client = svc.graphClient

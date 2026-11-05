@@ -16,7 +16,7 @@ struct ServiceStatusView: View {
         VStack(alignment: .leading, spacing: 14) {
             if Self.snapshotCatalog {
                 // Captures : NETSCOPE_SERVICES_FEUILLE=1 dessine la feuille « Modifier la liste… » dans la page.
-                ServiceCatalogSheet()
+                ServiceCatalogSheet(inline: true)
                     .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
                     .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
             }
