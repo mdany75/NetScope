@@ -20,6 +20,8 @@ final class InvHardwareFeed: ObservableObject {
     private var pending: [String: [Reading]] = [:]
     /// Relecture d'une même valeur : la date n'est réécrite dans un autre site qu'après ce délai.
     private static let refreshAge: TimeInterval = 12 * 3600
+    /// Même chose pour le site actif : une heure.
+    private static let activeRefreshAge: TimeInterval = 3600
 
     private var isDemo: Bool { Launcher.isDemo || RegEnvironment.isSnapshot }
 
@@ -131,16 +133,38 @@ final class InvHardwareFeed: ObservableObject {
         }
     }
 
-    /// Vrai si l'inventaire a changé : une valeur, ou (site actif seulement, ou lecture ancienne)
-    /// la date de lecture.
+    /// Vrai si l'inventaire a changé : une valeur, ou la date d'une lecture assez ancienne (une
+    /// heure pour le site actif, douze ailleurs). Une simple relecture identique (relevé des
+    /// switchs, firmware, Ressources) ne réécrit donc pas l'inventaire à chaque cycle.
     private static func differs(_ before: InventoryStore, _ after: InventoryStore, active: Bool) -> Bool {
+        let age = active ? activeRefreshAge : refreshAge
         for record in after.sortedRecords {
             guard let new = record.detectedHardware else { continue }
             guard let old = before.record(record.key)?.detectedHardware else { return true }
             if !old.sameValues(as: new) { return true }
-            if old.readAt != new.readAt && (active || new.readAt.timeIntervalSince(old.readAt) > refreshAge) { return true }
+            if new.readAt.timeIntervalSince(old.readAt) > age { return true }
         }
         return false
+    }
+
+    /// Clé actuelle de la fiche lue : une fusion de scan a pu la re-clé pendant la lecture (MAC
+    /// apparue : clé IP vers clé MAC) ; elle est alors retrouvée par son adresse.
+    private static func currentKey(of record: InvRecord, in store: InventoryStore) -> String? {
+        if store.record(record.key) != nil { return record.key }
+        guard record.hasAddress else { return nil }
+        return store.record(forIP: record.ip)?.key
+    }
+
+    /// Pose la lecture sur la fiche (retrouvée au besoin) ; le message ne dit « lue » que si une
+    /// fiche a bien été mise à jour.
+    private func save(_ detected: InvDetectedHardware, on record: InvRecord, site: String) -> String {
+        let saved = InvModel.shared.mutate(site: site) { store -> Bool in
+            guard let key = Self.currentKey(of: record, in: store) else { return false }
+            store.setDetectedHardware(detected, for: key)
+            return true
+        } ?? false
+        guard saved else { return "Fiche de \(record.ip) introuvable dans l’inventaire\u{00A0}: la lecture n’est pas enregistrée" }
+        return "Fiche matériel lue\u{00A0}: \(Self.summary(detected))"
     }
 
     // MARK: « Lire la fiche matériel »
@@ -176,8 +200,7 @@ final class InvHardwareFeed: ObservableObject {
             guard let detected = HardwareDetectDemo.reading(for: record, now: Date()) else {
                 return "Pas de réponse SNMP de \(ip) (démonstration)"
             }
-            model.mutate(site: site) { $0.setDetectedHardware(detected, for: record.key) }
-            return "Fiche matériel lue\u{00A0}: \(Self.summary(detected))"
+            return save(detected, on: record, site: site)
         }
 
         // Appareil Fortinet : la FortiGate du site connaît son modèle, son numéro et sa version.
@@ -185,7 +208,8 @@ final class InvHardwareFeed: ObservableObject {
             let ids = FirmwareStore.shared.controllerIDs(forSiteKeys: [site], state: state)
             if !ids.isEmpty, FirmwareStore.shared.canRead(ids) {
                 await FirmwareStore.shared.refresh(ids)
-                if let detected = model.inventory(for: site).record(record.key)?.detectedHardware,
+                let store = model.inventory(for: site)
+                if let key = Self.currentKey(of: record, in: store), let detected = store.record(key)?.detectedHardware,
                    detected.source == .fortigate, Date().timeIntervalSince(detected.readAt) < 120 {
                     return "Fiche matériel lue par la FortiGate\u{00A0}: \(Self.summary(detected))"
                 }
@@ -209,9 +233,7 @@ final class InvHardwareFeed: ObservableObject {
             }
             guard SiteModel.shared.activeKey == site else { return "Site changé pendant la lecture\u{00A0}: rien n’est enregistré" }
             guard let info else { return "\(ip) a répondu, mais sans modèle, numéro de série ni version" }
-            let detected = InvDetectedHardware(snmp: info, readAt: Date())
-            model.mutate(site: site) { $0.setDetectedHardware(detected, for: record.key) }
-            return "Fiche matériel lue\u{00A0}: \(Self.summary(detected))"
+            return save(InvDetectedHardware(snmp: info, readAt: Date()), on: record, site: site)
         } catch is CancellationError {
             return "Lecture annulée"
         } catch {
@@ -230,6 +252,8 @@ final class InvHardwareFeed: ObservableObject {
         let done = model.mutate(site: site) { $0.adoptDetectedSerial(for: record.key) } ?? false
         if done, let serial = model.inventory(for: site).record(record.key)?.enteredSerial {
             model.show("Numéro de série repris\u{00A0}: \(serial)")
+        } else {
+            model.show("Numéro de série non repris\u{00A0}: la fiche a déjà un numéro saisi")
         }
     }
 }

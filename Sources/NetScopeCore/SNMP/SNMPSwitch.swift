@@ -920,8 +920,9 @@ public struct SNMPSwitchPoller: Sendable {
         return result
     }
 
-    /// Relevé complet.
-    public func snapshot() async throws -> SNMPSwitchSnapshot {
+    /// Relevé complet. `readHardware` faux : la fiche matériel (ENTITY-MIB, qui ne change pas d'un
+    /// relevé à l'autre) n'est pas relue, `previousHardware` est recopiée.
+    public func snapshot(readHardware: Bool = true, previousHardware: SNMPHardwareInfo? = nil) async throws -> SNMPSwitchSnapshot {
         let system = try await system()
         let interfaces = try await interfaces()
         let bridge = try await bridgePorts()
@@ -934,7 +935,7 @@ public struct SNMPSwitchPoller: Sendable {
                                           pvid: pvid, poePorts: poe.ports, poeBudgetW: poe.budget, poeUsedW: poe.used,
                                           poeDetails: poe.details, arp: arp)
         // Note 60 : fiche matériel (ENTITY-MIB facultative : une erreur donne seulement sysDescr).
-        snapshot.hardware = try await SNMPHardwareReader.read(client: client, system: system)
+        snapshot.hardware = readHardware ? try await SNMPHardwareReader.read(client: client, system: system) : previousHardware
         return snapshot
     }
 }

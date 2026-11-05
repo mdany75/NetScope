@@ -105,27 +105,27 @@ struct RegDiagnosticSection: View {
                     ToolStandardTableFrame(rowCount: rows.count, maxRows: 14,
                                            emptyText: total == 0 ? "Le journal est vide." : "Aucune entrée pour ces critères.") {
                         Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
-                            TableColumn("Heure", sortUsing: table.sort("heure")) { entry in
+                            TableColumn("HEURE", sortUsing: table.sort("heure")) { entry in
                                 ToolTableText(Self.timeText(entry.date), size: 11.5)
                                     .help(Self.fullDate(entry.date))
                             }
-                            .width(min: 62, ideal: 76, max: 96)
+                            .width(min: 60, ideal: 66, max: 96)
                             .customizationID("heure").disabledCustomizationBehavior(.visibility)
-                            TableColumn("Niveau", sortUsing: table.sort("niveau")) { entry in
+                            TableColumn("NIVEAU", sortUsing: table.sort("niveau")) { entry in
                                 AppLogLevelChip(level: entry.level)
                             }
-                            .width(min: 64, ideal: 100, max: 116)
+                            .width(min: 56, ideal: 66, max: 116)
                             .customizationID("niveau")
-                            TableColumn("Module", sortUsing: table.sort("module")) { entry in
+                            TableColumn("MODULE", sortUsing: table.sort("module")) { entry in
                                 ToolTableText(entry.module, mono: false, weight: .medium)
                             }
-                            .width(min: 70, ideal: 92, max: 130)
+                            .width(min: 64, ideal: 76, max: 130)
                             .customizationID("module")
-                            TableColumn("Message", sortUsing: table.sort("message")) { entry in
+                            TableColumn("MESSAGE", sortUsing: table.sort("message")) { entry in
                                 ToolTableText(entry.message, mono: false)
                                     .help(entry.message)
                             }
-                            .width(min: 140, ideal: 150)
+                            .width(min: 160, ideal: 420)
                             .customizationID("message").disabledCustomizationBehavior(.visibility)
                         }
                         .contextMenu(forSelectionType: UUID.self) { ids in
@@ -153,7 +153,8 @@ struct RegDiagnosticSection: View {
             }
             Button("Annuler", role: .cancel) {}
         } message: {
-            Text("Les \(total) entrées et les fichiers de ~/Library/Logs/NetScope sont supprimés. Les rapports de plantage de macOS ne sont pas touchés.")
+            Text((total == 1 ? "L’entrée et les fichiers" : "Les \(Self.number(total)) entrées et les fichiers")
+                 + " de ~/Library/Logs/NetScope sont supprimés. Les rapports de plantage de macOS ne sont pas touchés.")
         }
     }
 
@@ -384,7 +385,15 @@ struct AppLogLevelChip: View {
     let level: AppLogLevel
 
     var body: some View {
-        Chip(text: level.label, tone: Self.tone(level))
+        // Colonne étroite (petite fenêtre) : « Avert. », le mot entier en infobulle.
+        ViewThatFits(in: .horizontal) {
+            Chip(text: level.label, tone: Self.tone(level))
+            Chip(text: Self.shortLabel(level), tone: Self.tone(level)).help(level.label)
+        }
+    }
+
+    static func shortLabel(_ level: AppLogLevel) -> String {
+        level == .warning ? "Avert." : level.label
     }
 
     static func tone(_ level: AppLogLevel) -> Tone {

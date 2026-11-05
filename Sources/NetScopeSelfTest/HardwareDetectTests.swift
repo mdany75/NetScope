@@ -283,6 +283,24 @@ func registerHardwareDetectTests(_ suite: TestSuite) {
                                                host: IPv4Address("10.0.0.80")!, at: hwNow)
         try expectEqual(snmpKey, InventoryStore.key(mac: MACAddress("00:11:22:33:44:81")!), "fiche en ligne")
     }
+
+    suite.add("Fiche matériel : gardée quand une suppression annulée retrouve la fiche recréée") {
+        var store = InventoryStore()
+        store.merge([hwDevice("10.0.0.90", "00:11:22:33:44:90", host: "sw-90", vendor: "Cisco", type: .switch)], at: hwNow)
+        let key = InventoryStore.key(mac: MACAddress("00:11:22:33:44:90")!)
+        store.setDetectedHardware(InvDetectedHardware(model: "C9300-48P", serialNumber: "FOC2233X0AB", firmware: "17.9.4",
+                                                      source: .snmp, detail: "ENTITY-MIB", readAt: hwNow), for: key)
+        let removal = store.removeRecords([key], exclude: false, at: hwNow.addingTimeInterval(60))
+        try expect(store.record(key) == nil, "supprimée")
+        // Le scan la recrée avant « Annuler » : la fiche réunie garde la lecture d'avant.
+        store.merge([hwDevice("10.0.0.90", "00:11:22:33:44:90", host: "sw-90", vendor: "Cisco", type: .switch)],
+                    at: hwNow.addingTimeInterval(120))
+        try expect(store.record(key)?.detectedHardware == nil, "fiche recréée sans lecture")
+        store.restore(removal)
+        try expectEqual(store.record(key)?.detectedHardware?.model, "C9300-48P", "modèle gardé")
+        try expectEqual(store.record(key)?.detectedHardware?.serialNumber, "FOC2233X0AB", "numéro de série gardé")
+        try expectEqual(store.record(key)?.detectedHardware?.firmware, "17.9.4", "firmware gardé")
+    }
 }
 
 private extension Optional {

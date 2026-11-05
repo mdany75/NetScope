@@ -320,6 +320,17 @@ func registerDiagnosticsTests(_ suite: TestSuite) {
         let first = reports.first { $0.path == "plantages/NetScope-0.ips" }
         try expect((first?.data.count ?? 0) < DiagnosticBundle.maxCrashBytes + 200, "gros rapport tronqué")
     }
+
+    suite.add("Diagnostic : dossier de l'utilisateur abrégé en ~ dans les rapports de plantage") {
+        let home = NSHomeDirectory()
+        let crash = #"{"procPath":"\#(home)/Developer/NetScope/.build/debug/NetScope","usedImages":[{"path":"\#(home)/Applications/NetScope.app"}]}"#
+        let input = DiagnosticInput(appVersion: "0.23.0", build: "1", macOSVersion: "macOS", macModel: "Mac",
+                                    crashReports: [.init(name: "NetScope-1.ips", data: Data(crash.utf8))])
+        let report = DiagnosticBundle.entries(input).first { $0.path == "plantages/NetScope-1.ips" }
+        let text = String(decoding: report?.data ?? Data(), as: UTF8.self)
+        try expect(text.contains("~/Developer/NetScope/.build/debug/NetScope") && text.contains("~/Applications/NetScope.app"), "chemins abrégés")
+        try expect(!text.contains(home), "le dossier de l'utilisateur n'apparaît pas")
+    }
 }
 
 /// Compteur partagé entre fils (observateurs du journal).

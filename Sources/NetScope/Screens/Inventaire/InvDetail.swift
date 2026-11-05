@@ -183,7 +183,15 @@ struct InvDetail: View {
                 }
 
                 // Note 60 : modèle, numéro de série et firmware lus (SNMP, FortiGate), à part des champs saisis.
-                InvDetectedHardwareBlock(record: record, siteKey: site, enteredSerial: current.hardware?.serialNumber ?? "", now: now)
+                InvDetectedHardwareBlock(record: record, siteKey: site, enteredSerial: current.hardware?.serialNumber ?? "", now: now,
+                                         onAdopt: isDirty ? { serial in
+                                             // Brouillon modifié : le numéro va dans le brouillon, enregistré avec lui.
+                                             var updated = current
+                                             var hardware = updated.hardware ?? InvHardware()
+                                             hardware.serialNumber = serial
+                                             updated.hardware = hardware
+                                             setDraft(updated)
+                                         } : nil)
 
                 InvWarrantyFields(hardware: Binding(get: { current.hardware ?? InvHardware() }, set: { value in
                     var updated = current

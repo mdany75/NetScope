@@ -16,6 +16,8 @@ struct InvDetectedHardwareBlock: View {
     /// Numéro de série du brouillon de la fiche (saisi, enregistré ou non).
     let enteredSerial: String
     let now: Date
+    /// Brouillon modifié : « Reprendre » écrit dans le brouillon plutôt que dans la fiche enregistrée.
+    var onAdopt: ((String) -> Void)? = nil
 
     private var detected: InvDetectedHardware? { record.detectedHardware }
     private var isReading: Bool { feed.isReading(site: siteKey, key: record.key) }
@@ -119,7 +121,9 @@ struct InvDetectedHardwareBlock: View {
             if entered.isEmpty {
                 HStack(spacing: 6) {
                     Text("Aucun numéro saisi").font(Theme.caption).foregroundStyle(Theme.textSecondary)
-                    Button("Reprendre") { feed.adoptSerial(record, site: siteKey) }
+                    Button("Reprendre") {
+                        if let onAdopt { onAdopt(serial) } else { feed.adoptSerial(record, site: siteKey) }
+                    }
                         .controlSize(.small)
                         .help("Copier «\u{00A0}\(serial)\u{00A0}» dans le numéro de série de la fiche")
                 }
@@ -143,7 +147,7 @@ struct DeviceDetectedHardwareRows: View {
         let record = model.store.existingKey(for: device).flatMap { model.store.record($0) }
         if let record {
             if let detected = record.detectedHardware {
-                if let value = detected.model { DeviceKVRow(key: "Modèle", value: value) }
+                if let value = detected.model { DeviceKVRow(key: "Modèle détecté", value: value) }
                 if let value = detected.serialNumber {
                     DeviceKVRow(key: "N° de série", value: value, detail: serialDetail(record, value))
                 }

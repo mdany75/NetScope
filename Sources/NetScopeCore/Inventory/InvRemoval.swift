@@ -255,6 +255,8 @@ public extension InventoryStore {
         record.firstSeen = min(old.firstSeen, new.firstSeen)
         record.isImported = old.isImported && new.isImported
         if record.manual == nil { record.manual = old.manual }
+        // Note 60 : fiche matériel détectée d'avant, complétée par une lecture faite depuis.
+        record.detectedHardware = new.detectedHardware.map { $0.merged(over: old.detectedHardware) } ?? old.detectedHardware
         // Pièces jointes des deux fiches réunies, chacune dans son dossier d'origine.
         record.takeAttachments(of: old)
         if record.attachmentFolder == nil { record.attachmentFolder = old.attachmentFolder }

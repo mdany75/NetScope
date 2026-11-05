@@ -128,8 +128,9 @@ public enum DiagnosticBundle {
             let safeName = crash.name.replacingOccurrences(of: "/", with: "_")
             files.append(("plantages/\(safeName)", String(decoding: data, as: UTF8.self) + suffix))
         }
-        // Dernière barrière : tout le texte repasse par le masqueur.
-        return files.map { BackupZip.Entry(path: $0.0, data: Data(SecretMasker.mask($0.1).utf8)) }
+        // Dernière barrière : tout le texte repasse par le masqueur, et le dossier de l’utilisateur
+        // devient « ~ » (rapports de plantage compris : procPath, images chargées…).
+        return files.map { BackupZip.Entry(path: $0.0, data: Data(AppLog.shortenHome(SecretMasker.mask($0.1)).utf8)) }
     }
 
     /// Archive .zip complète.

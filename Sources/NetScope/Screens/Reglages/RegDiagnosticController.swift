@@ -171,7 +171,7 @@ final class RegDiagnosticController: ObservableObject {
                 dismissCrash()
             } catch {
                 message = ("Export impossible\u{00A0}: \(error.localizedDescription)", .critical)
-                AppLog.shared.error("Diagnostic", "Export du diagnostic impossible : \(error.localizedDescription)")
+                AppLog.shared.error("Diagnostic", "Export du diagnostic impossible\u{00A0}: \(error.localizedDescription)")
             }
             isExporting = false
         }
@@ -227,14 +227,31 @@ final class RegDiagnosticController: ObservableObject {
 
     // MARK: Messages des autres modules
 
+    /// Dernier échec ou avertissement journalisé par module : le même texte, réaffecté à chaque
+    /// passage automatique (synchronisation toutes les 15 min, vérification des mises à jour hors
+    /// ligne), n'est écrit qu'une fois, jusqu'au prochain message favorable.
+    private static var lastNoted: [String: String] = [:]
+
     /// Message d'état d'un module (sauvegarde, synchronisation…) : les échecs et avertissements
-    /// vont aussi au journal.
+    /// vont aussi au journal, une seule fois tant que le texte ne change pas.
     static func note(_ message: (text: String, tone: Tone)?, module: String) {
         guard let message else { return }
         switch message.tone {
-        case .critical: AppLog.shared.error(module, message.text)
-        case .warning: AppLog.shared.warning(module, message.text)
-        default: break
+        case .critical: noteOnce(message.text, module: module) { AppLog.shared.error(module, message.text) }
+        case .warning: noteOnce(message.text, module: module) { AppLog.shared.warning(module, message.text) }
+        default: lastNoted[module] = nil
         }
+    }
+
+    /// Échec d'un module journalisé une seule fois de suite ; `nil` signale un retour à la normale.
+    static func noteFailure(_ text: String?, module: String) {
+        guard let text else { lastNoted[module] = nil; return }
+        noteOnce(text, module: module) { AppLog.shared.error(module, text) }
+    }
+
+    private static func noteOnce(_ text: String, module: String, write: () -> Void) {
+        guard lastNoted[module] != text else { return }
+        lastNoted[module] = text
+        write()
     }
 }

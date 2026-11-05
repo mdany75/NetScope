@@ -98,11 +98,17 @@ final class FirmwareStore: ObservableObject {
         Task { await perform(wanted) }
     }
 
-    /// Note 60 (« Lire la fiche matériel ») : relit ces FortiGate et attend la fin de la lecture.
+    /// Note 60 (« Lire la fiche matériel ») : relit ces FortiGate et attend la fin de la lecture,
+    /// y compris celle d'une FortiGate déjà en cours de lecture (relecture automatique).
     func refresh(_ ids: [UUID]) async {
         let wanted = ids.filter { !reading.contains($0) }
-        guard !wanted.isEmpty else { return }
-        await perform(wanted)
+        if !wanted.isEmpty { await perform(wanted) }
+        // Lectures lancées ailleurs : attendre qu'elles finissent (une minute au plus).
+        var waits = 0
+        while !reading.isDisjoint(with: ids), waits < 300, !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            waits += 1
+        }
     }
 
     private func perform(_ ids: [UUID]) async {

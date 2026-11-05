@@ -27,7 +27,13 @@ final class UpdController: ObservableObject {
     @Published private(set) var phase: UpdPhase = .idle {
         didSet {
             // Note 35 : les échecs de vérification, de téléchargement ou d'installation vont au journal.
-            if case .failed(let why) = phase, !RegEnvironment.isSandboxed { AppLog.shared.error("Mises à jour", why) }
+            // Un même échec répété (vérification automatique hors ligne) n'est écrit qu'une fois.
+            guard !RegEnvironment.isSandboxed else { return }
+            switch phase {
+            case .failed(let why): RegDiagnosticController.noteFailure(why, module: "Mises à jour")
+            case .checking, .downloading, .verifying, .installing: break
+            default: RegDiagnosticController.noteFailure(nil, module: "Mises à jour")
+            }
         }
     }
     @Published private(set) var release: UpdRelease?

@@ -94,15 +94,24 @@ public final class AppLogFile: @unchecked Sendable {
     /// Dernières entrées des fichiers (au plus `limit`), de la plus ancienne à la plus récente ;
     /// les lignes illisibles sont ignorées.
     public func readEntries(limit: Int = AppLog.defaultCapacity) -> [AppLogEntry] {
+        let limit = max(0, limit)
+        guard limit > 0 else { return [] }
+        // Lecture sous le verrou (rapide), analyse hors du verrou : les fils qui journalisent
+        // pendant le lancement ne sont pas bloqués par l'analyse des dates.
         lock.lock()
-        let files = existingFiles
-        var entries: [AppLogEntry] = []
-        for file in files {
-            guard let data = try? Data(contentsOf: file) else { continue }
-            let text = String(decoding: data, as: UTF8.self)
-            entries += text.split(separator: "\n", omittingEmptySubsequences: true).compactMap { AppLogEntry(fileLine: String($0)) }
-        }
+        let contents = existingFiles.reversed().compactMap { try? Data(contentsOf: $0) }
         lock.unlock()
-        return Array(entries.suffix(max(0, limit)))
+        // Du plus récent au plus ancien : seules les `limit` dernières lignes valides sont analysées.
+        var newestFirst: [AppLogEntry] = []
+        newestFirst.reserveCapacity(limit)
+        files: for data in contents {
+            let text = String(decoding: data, as: UTF8.self)
+            for line in text.split(separator: "\n", omittingEmptySubsequences: true).reversed() {
+                guard let entry = AppLogEntry(fileLine: String(line)) else { continue }
+                newestFirst.append(entry)
+                if newestFirst.count >= limit { break files }
+            }
+        }
+        return newestFirst.reversed()
     }
 }

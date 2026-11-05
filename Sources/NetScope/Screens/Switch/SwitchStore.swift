@@ -68,6 +68,9 @@ final class SwitchStore: ObservableObject {
     /// Note 48 : site actif au moment de chaque relevé SNMP (adresse → clé du site). Un relevé
     /// n'est montré que pour ce site : la même adresse chez un autre client est un autre switch.
     private(set) var readingSites: [String: String] = [:]
+    /// Note 60 : dernière lecture de la fiche matériel (ENTITY-MIB) par switch.
+    private var hardwareReadAt: [String: Date] = [:]
+    private static let hardwareRefresh: TimeInterval = 3600
     /// Switch à montrer dans la vue d'un autre site (double-clic, « Ouvrir dans », Retour).
     @Published var browseFocus: SwitchBrowseFocus?
     /// Switch choisi dans la vue d'un autre site ou de plusieurs (« site|adresse »).
@@ -395,11 +398,17 @@ final class SwitchStore: ObservableObject {
             isPolling = false
             pollingHost = nil
         }
-        let jobs: [(host: String, target: SNMPTarget)] = list.compactMap { host in
+        // Note 60 : la fiche matériel (ENTITY-MIB) n'est relue qu'au premier relevé d'un switch, puis
+        // une fois par heure au plus ; entre-temps, celle du relevé précédent est recopiée.
+        let now = Date()
+        let jobs: [(host: String, target: SNMPTarget, readHardware: Bool, previous: SNMPHardwareInfo?)] = list.compactMap { host in
             let community = community(for: host)
             guard let ip = IPv4Address(host), !community.isEmpty else { return nil }
-            return (host, SNMPTarget(host: ip, community: community, timeout: 2, retries: 1))
+            let previous = snapshots[host]
+            let stale = hardwareReadAt[host].map { now.timeIntervalSince($0) > Self.hardwareRefresh } ?? true
+            return (host, SNMPTarget(host: ip, community: community, timeout: 2, retries: 1), previous == nil || stale, previous?.hardware)
         }
+        let readsHardware = Set(jobs.filter(\.readHardware).map(\.host))
         var fresh = Set<String>()
         var next = 0
         let siteKey = SiteModel.shared.activeKey
@@ -409,7 +418,11 @@ final class SwitchStore: ObservableObject {
                 let job = jobs[next]
                 next += 1
                 group.addTask {
-                    do { return (job.host, .success(try await SNMPSwitchPoller(target: job.target).snapshot())) }
+                    do {
+                        let snapshot = try await SNMPSwitchPoller(target: job.target)
+                            .snapshot(readHardware: job.readHardware, previousHardware: job.previous)
+                        return (job.host, .success(snapshot))
+                    }
                     catch { return (job.host, .failure(error)) }
                 }
             }
@@ -423,6 +436,7 @@ final class SwitchStore: ObservableObject {
                     readingSites[host] = siteKey
                     errors[host] = nil
                     fresh.insert(host)
+                    if readsHardware.contains(host) { hardwareReadAt[host] = snapshot.polledAt }
                 case .failure(let error):
                     // « Arrêter » n'est pas une panne du switch.
                     if error is CancellationError || Task.isCancelled { break }

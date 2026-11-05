@@ -19,7 +19,8 @@ struct CrashBanner: View {
                         .lineLimit(1).truncationMode(.tail)
                     Text("Un diagnostic (journal masqué et rapport de plantage, sans aucun secret) aide à trouver la cause.")
                         .font(Theme.caption).foregroundStyle(Theme.textSecondary)
-                        .lineLimit(1).truncationMode(.tail)
+                        // Petite fenêtre : la phrase passe sur deux lignes plutôt que d'être coupée.
+                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 }
                 .layoutPriority(1)
                 Spacer(minLength: 8)

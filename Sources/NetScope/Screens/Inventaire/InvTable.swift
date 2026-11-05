@@ -674,7 +674,10 @@ struct InvTable: View {
 
     private func detectedCell(_ record: InvRecord, _ text: String) -> some View {
         ScanCellText(text.isEmpty ? "—" : text, mono: true, dimmed: text.isEmpty)
-            .help(record.detectedHardware.map { "\(text) · lu par \($0.sourceLabel) le \(InvFormat.stamp($0.readAt))" } ?? "Rien de lu")
+            .help(record.detectedHardware.map { hardware in
+                let source = "lu par \(hardware.sourceLabel) le \(InvFormat.stamp(hardware.readAt))"
+                return text.isEmpty ? "Non lu · fiche \(source)" : "\(text) · \(source)"
+            } ?? "Rien de lu")
     }
 
     private func textCell(_ text: String, mono: Bool = false) -> some View {
