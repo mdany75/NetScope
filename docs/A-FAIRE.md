@@ -3,11 +3,11 @@
 > Les phases 2, 3 et 4 (notes 6, 10 et 11) peuvent se faire dans n'importe quel ordre
 > (décision de Dany).
 
-## Priorités (revues le 4 novembre 2026, réorganisées avec les notes 45 à 56)
+## Priorités (revues le 5 novembre 2026, réorganisées avec les notes 45 à 57)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0 ; notes 42 et 10 dans la 0.20.0 ; notes 41 et 43, et la note 11 en partie (pause par cible, tableau MTR, écran vide), dans la 0.21.0 (la note 40 reste à faire).
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0 ; notes 42 et 10 dans la 0.20.0 ; notes 41 et 43, et la note 11 en partie (pause par cible, tableau MTR, écran vide), dans la 0.21.0 ; note 57 dans la 0.22.0 (la note 40 reste à faire).
 
-1. **0.13.x à 0.17.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP ; 0.17.0 : relecture automatique, WAN et VPN, Trafic FortiView et analyse complète à essayer sur de vraies FortiGate ; 0.18.0 : FTP, FTPS, SFTP, TFTP, « Bloqué ici », NAS dans Vitesse des disques, export, import et synchronisation à essayer sur de vrais appareils et deux Mac ; 0.20.0 : rapport de suivi, rapports planifiés et Inventaire repensé à essayer sur les vrais sites ; 0.21.0 : firmware et licences, Syslog, traps SNMP, journaux de la FortiGate et pause par cible du Ping à essayer sur de vrais équipements) : essais réels de la 0.3.x (localisation, DHCP, capture,
+1. **0.13.x à 0.17.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP ; 0.17.0 : relecture automatique, WAN et VPN, Trafic FortiView et analyse complète à essayer sur de vraies FortiGate ; 0.18.0 : FTP, FTPS, SFTP, TFTP, « Bloqué ici », NAS dans Vitesse des disques, export, import et synchronisation à essayer sur de vrais appareils et deux Mac ; 0.20.0 : rapport de suivi, rapports planifiés et Inventaire repensé à essayer sur les vrais sites ; 0.21.0 : firmware et licences, Syslog, traps SNMP, journaux de la FortiGate et pause par cible du Ping à essayer sur de vrais équipements ; 0.22.0 : terminal intégré SSH, Telnet et série, et session VNC intégrée à essayer sur de vrais équipements, câbles console et serveurs VNC) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
    des 0.5.0 à 0.8.0 (voir ci-dessous) ; 0.13.1 au besoin.
 2. ~~**0.5.0, diagnostic du poste et du réseau local**~~ : livrée le 4 novembre 2026
@@ -70,7 +70,13 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
     écran « Journaux », récepteurs Syslog et traps SNMP, journaux d'événements de la FortiGate,
     « Comprendre une coupure », sondes ; 11 en partie : pause par cible, tableau MTR complet,
     écran vide à l'ouverture) ; essai réel à faire sur les FortiGate et switchs de Dany.
-18. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany ;
+18. ~~**0.22.0, sessions intégrées**~~ : livrée le 5 novembre 2026 (note 57 : terminal
+    intégré xterm-256color dans des onglets d'Accès distant pour SSH, Telnet et la console
+    série, journal de session, extraits de commandes ; session VNC intégrée avec qualité
+    adaptative, mise à l'échelle, plein écran, observation seule et presse-papiers ; RDP reste
+    dans Windows App) ; essai réel à faire sur de vrais équipements, câbles console USB-série
+    et serveurs VNC (macOS, RealVNC, TightVNC, UltraVNC).
+19. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany ;
     réorganisé le même jour pour placer les notes 45 à 53, ordre accepté par Dany) :
     - **0.13.1** : essais réels (sites, FortiGate, FortiAP, navigation) et correctifs ; note 35
       (journal et diagnostic).
@@ -92,6 +98,8 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
     - ~~**0.21.0, journaux, firmware et Ping**~~ (livrée) : notes 43 (Syslog et traps), 41
       (firmware et licences), 11 en partie (pause par cible, MTR, écran vide) ; la note 44
       (aide et accueil) est retirée.
+    - ~~**0.22.0, sessions intégrées**~~ (livrée) : note 57 (terminal SSH, Telnet et série,
+      session VNC intégrés ; RDP dans Windows App).
     - **Plus tard** : note 11 (reste : préréglages du Ping continu), 6 (RustDesk), anglais ; idées d’un cran en dessous :
       navigateur SNMP, toner des imprimantes, test de câble, qualité VoIP (MOS), scan d’un VLAN
       tagué, relevé Wi-Fi sur plan, retour à la version
@@ -109,7 +117,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 | Inventaire | 8, 10, 30 | — |
 | Ping continu | 11 (en partie, 0.21.0) | 11 : préréglages (plus tard) |
 | Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22, 37, 51, 53, 55 | — |
-| Accès distant | 5, 50, 52 | 6 (plus tard) |
+| Accès distant | 5, 50, 52, 57 | 6 (plus tard) |
 | Surveillance, alertes et journaux | 3, 23, 43 | — |
 | Rapports | 4, 42 | — |
 | Réglages, sauvegarde, aide | 9, 13, 38, 56 | 35 (0.13.1) |
@@ -1075,6 +1083,8 @@ mon cas plusieurs Mac. » Puis : « je veux tout inclure, pour une facilité de 
 - Jamais de fusion entre sites ; un même site reconnu par son identifiant, pas par ses plages IP.
 
 ## 57. Accès distant : sessions intégrées à NetScope — 0.22.0 (demande de Dany)
+
+**Livrée dans la 0.22.0** (5 novembre 2026) ; essai réel à faire sur de vrais équipements (SSH, Telnet, câbles console USB-série) et serveurs VNC (macOS, RealVNC, TightVNC, UltraVNC).
 
 « Terminal intégré : bientôt… à faire aussi. » Aujourd'hui, « Connecter » ouvre Terminal,
 Windows App ou Partage d'écran. À la place, des onglets de session dans Accès distant :

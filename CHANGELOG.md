@@ -1,5 +1,59 @@
 # Changements
 
+## 0.22.0 — 2026-11-05
+
+Les sessions à distance s'ouvrent maintenant dans NetScope : un terminal intégré pour SSH,
+Telnet et la console série, et une session VNC intégrée, dans des onglets d'Accès distant.
+
+### Ajouté
+- **Terminal intégré** (Accès distant) : « Connecter » ouvre SSH, Telnet et la console série
+  dans un onglet de NetScope (xterm-256color : couleurs, curseur, défilement de 10 000 lignes,
+  copier-coller, recherche ⌘F, ⌘K pour effacer).
+- **Onglets de session** : plusieurs sessions à la fois, état connecté ou déconnecté,
+  « Reconnecter », confirmation avant de fermer une session active, et extraits de commandes
+  selon l'appareil (Cisco, FortiGate, Aruba, Linux).
+- **SSH intégré** : utilise le `ssh` de macOS (clés et `known_hosts` de `~/.ssh`) ; un serveur
+  inconnu montre son empreinte et attend votre accord ; le mot de passe, facultatif, est rangé
+  au Trousseau seulement, jamais sur le disque ni dans la ligne de commande.
+- **Telnet intégré** : plus besoin d'installer `telnet` ; NetScope négocie lui-même l'écho, la
+  taille de la fenêtre et le type de terminal. L'avertissement « non chiffré » reste affiché.
+- **Console série intégrée** : choix du port `/dev/cu.*` avec l'adaptateur USB-série reconnu
+  (FTDI, CP210x, CH340, Prolific), débit de 1200 à 921 600 bauds, bits, parité, bits d'arrêt,
+  contrôle de flux, préréglage Cisco / Fortinet 9600 8N1 et bouton « Envoyer Break ».
+- **Journal de session** : case « Journaliser la session » (texte brut dans
+  `~/Library/Logs/NetScope`) et « Enregistrer le journal… » au format `.log` ; « Copier la
+  sortie » copie tout l'historique.
+- **Apparence du terminal** : Sombre, Claire ou Suivre le système, taille du texte réglable,
+  Option comme touche Méta en option.
+- **Session VNC intégrée** : « Connecter » ouvre les connexions VNC directement dans NetScope.
+  Qualité « Adaptative » (moins de couleurs quand le lien ralentit) ou « Haute » (sans perte),
+  mise à l'échelle « Ajuster » ou « 100 % » avec défilement aux bords, et plein écran.
+- **Commandes de la session VNC** : bouton Ctrl-Alt-Suppr, mode « Observation seule »
+  (regarder sans toucher), presse-papiers texte partagé et bouton « Envoyer le presse-papiers ».
+  Le curseur affiché est celui de l'ordinateur distant.
+- **Clavier et souris en VNC** : clavier, souris et molette transmis ; les raccourcis Commande
+  vont à l'ordinateur distant, sauf Commande-Q et Ctrl-Commande-F.
+- **Authentification VNC** : mot de passe VNC ou compte macOS demandé dans la session,
+  mémorisable au Trousseau, jamais affiché ; le menu « … » permet d'oublier le mot de passe.
+
+### Modifié
+- **Accès distant** : le menu du bouton « Connecter » garde « Ouvrir dans Terminal » et
+  « Partage d'écran » ; Partage d'écran est aussi proposé quand une session VNC échoue.
+- **RDP** s'ouvre toujours dans Windows App ; l'aide explique pourquoi : le protocole est trop
+  vaste pour être réécrit sans bibliothèque externe.
+
+### Corrigé
+- **Accès distant** : l'onglet de la session active reste toujours visible quand plusieurs
+  sessions sont ouvertes.
+
+### Limites connues
+- Pas encore essayé sur de vrais équipements : SSH, Telnet et la console série (adaptateurs
+  USB-série, câbles console), ni la session VNC sur de vrais serveurs (macOS, RealVNC,
+  TightVNC, UltraVNC) ; certains serveurs ou encodages peu courants peuvent mal s'afficher.
+- VNC : seul le texte passe par le presse-papiers partagé (pas d'images ni de fichiers), et la
+  connexion n'est pas chiffrée par NetScope (passer par un VPN ou un tunnel SSH au besoin).
+- RDP reste dans Windows App, qui doit être installée.
+
 ## 0.21.0 — 2026-11-04
 
 Le parc Fortinet sous contrôle (firmware et licences), un écran « Journaux » qui reçoit le
