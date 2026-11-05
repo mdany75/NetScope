@@ -329,7 +329,7 @@ extension RemoteConnection: SearchableRecord {
         case "nom": return [name]
         case "ip": return [host] + userAtHost
         case "port": return [String(port)]
-        case "user": return [username]
+        case "user": return [username, endUser].filter { !$0.isEmpty }
         case "dossier": return [folderLabel]
         case "note": return [note]
         default: return []
@@ -338,12 +338,17 @@ extension RemoteConnection: SearchableRecord {
 
     /// Colonnes de l'ancienne recherche de l'Accès distant.
     public var searchFreeText: [String] {
-        [name, host, String(port), proto.label, proto.rawValue, username, folder, note] + userAtHost
+        [name, host, String(port), proto.label, proto.rawValue, username, folder, note, endUser] + userAtHost + rustDeskGrouped
     }
 
     /// Note 52 : « admin@10.182.122.2 » (forme user@ip) trouve la connexion.
     private var userAtHost: [String] {
         username.isEmpty ? [] : ["\(username)@\(host)"]
+    }
+
+    /// Note 6 : « 123 456 789 » (ID RustDesk groupé, tel que l'usager le dicte) trouve le poste.
+    private var rustDeskGrouped: [String] {
+        isRustDeskByID ? [RustDeskID.grouped(host, separator: " ")] : []
     }
 }
 

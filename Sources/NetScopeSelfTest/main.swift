@@ -95,6 +95,8 @@ registerAlertDedicatedTests(suite)
 registerPingSessionTests(suite)
 registerInventoryExportTests(suite)
 registerWakePlanTests(suite)
+// Note 6 (0.26.1) : RustDesk.
+registerRustDeskTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

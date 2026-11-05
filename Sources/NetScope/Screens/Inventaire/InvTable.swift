@@ -738,6 +738,12 @@ struct InvTable: View {
                                                                                      siteID: SiteModel.shared.list.activeID)))
             }
             .disabled(!isActive(row) || !record.hasAddress)
+            // Note 6 : ID RustDesk de la fiche (le serveur d'ID joint le poste, quel que soit le site).
+            if let id = record.annotations.validRustDeskID {
+                Button("Connecter par RustDesk (\(RustDeskID.grouped(id, separator: " ")))") {
+                    RemoteModel.shared.connectRustDesk(id: id, name: record.displayName)
+                }
+            }
             // Note 50 : ports du dernier relevé de cet appareil ; autre site : grisé (autre réseau).
             FileTransferOpenMenu(host: record.ip.description, name: record.displayName,
                                  openPorts: isActive(row) ? record.openPorts : [],

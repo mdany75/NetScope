@@ -44,6 +44,8 @@ struct InvDetail: View {
             layouts
             InvAttachmentsPanel(record: record, siteKey: site)
         }
+        // Note 6 : RustDesk absent au moment de « Connecter par RustDesk ».
+        .rustDeskInstallAlert()
         .sheet(item: $editing) { mode in
             InvManualSheet(mode: mode, onDone: { key, site in onCreated(site, key) }, dismiss: { editing = nil })
         }
@@ -180,6 +182,20 @@ struct InvDetail: View {
                         InvField(label: "Responsable", text: binding(\.owner))
                         InvField(label: "N° d’actif", text: binding(\.assetNumber))
                     }
+                    // Note 6 : ID RustDesk du poste (facultatif), connexion d'un clic.
+                    GridRow(alignment: .bottom) {
+                        InvField(label: "ID RustDesk", text: Binding(get: { current.rustdeskID ?? "" }, set: { value in
+                            var updated = current
+                            let trimmed = value.trimmingCharacters(in: .whitespaces)
+                            updated.rustdeskID = trimmed.isEmpty ? nil : (RustDeskID.parse(trimmed) ?? trimmed)
+                            setDraft(updated)
+                        }), placeholder: "123 456 789")
+                        rustDeskButton
+                    }
+                }
+                if let id = current.rustdeskID, !id.isEmpty, RustDeskID.parse(id) == nil {
+                    Text("ID RustDesk invalide\u{00A0}: 9 ou 10 chiffres.").font(Theme.caption).foregroundStyle(Theme.critical)
+                        .padding(.top, -8)
                 }
 
                 // Note 60 : modèle, numéro de série et firmware lus (SNMP, FortiGate), à part des champs saisis.
@@ -304,6 +320,20 @@ struct InvDetail: View {
                 Button("Fiche complète") { state.showDevice(record.ip.description) }.buttonStyle(.ghost)
             }
         }
+    }
+
+    /// Note 6 : « Connecter par RustDesk » (ID enregistré ou en cours de saisie).
+    private var rustDeskButton: some View {
+        let id = current.validRustDeskID
+        return Button {
+            guard let id else { return }
+            if let message = RemoteModel.shared.connectRustDesk(id: id, name: record.displayName) { model.show(message) }
+        } label: {
+            Label("Connecter par RustDesk", systemImage: RemoteProtocol.rustdesk.symbol)
+        }
+        .buttonStyle(.secondary)
+        .disabled(id == nil)
+        .help(id.map { "Ouvrir RustDesk sur l’ID \(RustDeskID.grouped($0))" } ?? "Indiquez l’ID RustDesk du poste")
     }
 
     private var typePicker: some View {

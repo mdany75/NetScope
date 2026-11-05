@@ -10,6 +10,9 @@ public enum RemoteLaunchPlan: Equatable, Sendable {
     case url(URL)
     /// Note 50 : navigateur de fichiers intégré (FTP, FTPS, SFTP), adresse affichée.
     case fileBrowser(address: String)
+    /// Note 6 : ouvrir RustDesk par une adresse rustdesk:// (sans mot de passe : il est ajouté au
+    /// lancement, depuis le Trousseau, et jamais affiché).
+    case rustdesk(target: RustDeskTarget)
 
     /// Application qui s'ouvre.
     public var appName: String {
@@ -18,6 +21,7 @@ public enum RemoteLaunchPlan: Equatable, Sendable {
         case .rdpFile: return "Windows App (Microsoft Remote Desktop)"
         case .url: return "Partage d’écran"
         case .fileBrowser: return "le navigateur de fichiers de NetScope"
+        case .rustdesk: return "RustDesk"
         }
     }
 
@@ -28,6 +32,7 @@ public enum RemoteLaunchPlan: Equatable, Sendable {
         case .rdpFile(_, let fileName): return fileName
         case .url(let url): return url.absoluteString
         case .fileBrowser(let address): return address
+        case .rustdesk(let target): return RustDeskLink.displayURL(target)
         }
     }
 }
@@ -59,6 +64,8 @@ public enum RemoteLauncher {
             return .url(try vncURL(for: c))
         case .ftp, .ftps, .sftp:
             return .fileBrowser(address: fileTransferURL(for: c))
+        case .rustdesk:
+            return .rustdesk(target: try RustDeskTarget.parse(c.host, port: c.port))
         }
     }
 

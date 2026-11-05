@@ -30,6 +30,8 @@ struct RemoteDraft: Equatable {
     /// Note 66 : hôtes de rebond (ProxyJump) et clé privée (IdentityFile), SSH seulement.
     var proxyJump = ""
     var identityFile = ""
+    /// Note 6 : usager du poste RustDesk.
+    var endUser = ""
 
     init() {}
 
@@ -59,6 +61,7 @@ struct RemoteDraft: Equatable {
         transfer = connection.transfer
         proxyJump = connection.proxyJump
         identityFile = connection.identityFile
+        endUser = connection.endUser
     }
 
     /// Connexion validée, ou erreur à afficher.
@@ -69,7 +72,7 @@ struct RemoteDraft: Equatable {
         // Note 52 : « admin@10.0.0.2 » ou « admin@10.0.0.2:2222 » accepté dans le champ Hôte.
         var host = self.host
         var username = self.username
-        if proto != .serie, host.contains("@") || host.contains("://") {
+        if proto != .serie, proto != .rustdesk, host.contains("@") || host.contains("://") {
             let address = try QuickLoginAddress.parse(host)
             host = address.host
             if !address.user.isEmpty { username = address.user }
@@ -103,6 +106,7 @@ struct RemoteDraft: Equatable {
         // Note 66 : rebond et clé (validés avec la connexion ; retirés des autres protocoles).
         connection.proxyJump = proxyJump.trimmingCharacters(in: .whitespaces)
         connection.identityFile = identityFile.trimmingCharacters(in: .whitespaces)
+        connection.endUser = endUser
         return try connection.validated()
     }
 }
@@ -167,7 +171,11 @@ final class RemoteModel: ObservableObject {
             selectedID = connections.first?.id
             // Mots de passe SSH et Telnet au Trousseau : lus une fois, hors du rendu.
             let ids = connections.filter { [.ssh, .telnet].contains($0.proto) }.map(\.id)
-            DispatchQueue.main.async { RemoteSessionStore.shared.loadSavedPasswords(for: ids) }
+            let rustdesk = connections.filter { $0.proto == .rustdesk }.map(\.id)
+            DispatchQueue.main.async {
+                RemoteSessionStore.shared.loadSavedPasswords(for: ids)
+                RustDeskModel.shared.loadSavedPasswords(for: rustdesk)
+            }
         }
         serialPorts = RemoteSerialPorts.list()
         if let raw = ProcessInfo.processInfo.environment["NETSCOPE_REMOTE_VIEW"] {
@@ -381,6 +389,10 @@ final class RemoteModel: ObservableObject {
             if [.ssh, .telnet].contains(connection.proto), let password = draft.password {
                 try RemoteSessionStore.shared.setPassword(password, for: connection.id)
             }
+            // Note 6 : mot de passe permanent RustDesk, au Trousseau seulement (vide : oublié).
+            if connection.proto == .rustdesk, let password = draft.password {
+                try RustDeskModel.shared.setPassword(password, for: connection.id)
+            }
             if let index = connections.firstIndex(where: { $0.id == connection.id }) {
                 connections[index] = connection
                 toast = "Connexion « \(connection.name) » enregistrée."
@@ -419,6 +431,7 @@ final class RemoteModel: ObservableObject {
         // Note 57 : onglets de la connexion fermés (terminal ou VNC, plein écran compris),
         // mots de passe SSH, Telnet et VNC oubliés.
         RemoteSessionStore.shared.forget(connection.id)
+        if connection.proto == .rustdesk { RustDeskModel.shared.forget(connection.id) }
         connections.removeAll { $0.id == connection.id }
         reachability[connection.id] = nil
         if selectedID == connection.id { selectedID = connections.first?.id }
@@ -489,7 +502,8 @@ final class RemoteModel: ObservableObject {
         serialPorts = RemoteSerialPorts.list()
         // Note 78 : un alias de ~/.ssh/config est sondé à son HostName.
         let config = SSHConfigCache.config
-        let targets = connections.filter { id == nil || $0.id == id }.map { connection -> RemoteConnection in
+        // Note 6 : postes RustDesk désignés par leur ID : joints par le serveur d'ID, jamais sondés.
+        let targets = connections.filter { (id == nil || $0.id == id) && !$0.isRustDeskByID }.map { connection -> RemoteConnection in
             guard connection.proto == .ssh, let hostName = config.resolve(connection.host).hostName,
                   let valid = try? RemoteValidator.validateHost(hostName) else { return connection }
             var probe = connection
@@ -526,6 +540,11 @@ final class RemoteModel: ObservableObject {
     /// `external` : VNC dans Partage d'écran plutôt que dans la session intégrée.
     func connect(_ connection: RemoteConnection, mode: RemoteDisplayMode? = nil, newTab: Bool = false, inTerminalApp: Bool = false, external: Bool = false,
                  askUser: Bool = true) {
+        // Note 6 : RustDesk s'ouvre par rustdesk:// (mot de passe permanent du Trousseau s'il y en a un).
+        if connection.proto == .rustdesk {
+            connectRustDesk(connection)
+            return
+        }
         // Note 57 : VNC s'ouvre dans la session intégrée de NetScope.
         if connection.proto == .vnc, !external {
             openVNC(connection, fullScreen: (mode ?? connection.display.mode) == .fullScreen)
@@ -599,6 +618,70 @@ final class RemoteModel: ObservableObject {
         } catch {
             toast = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
+    }
+
+    // MARK: RustDesk (note 6)
+
+    /// Ouvre RustDesk sur ce poste et note le lancement (historique, dernière connexion).
+    func connectRustDesk(_ connection: RemoteConnection) {
+        guard let valid = try? connection.validated(), let target = valid.rustDeskTarget else {
+            toast = "Connexion «\u{00A0}\(connection.name)\u{00A0}» à corriger avant de l’ouvrir."
+            return
+        }
+        selectedID = connection.id
+        draft = nil
+        let rustdesk = RustDeskModel.shared
+        let message = rustdesk.launch(target, name: valid.name, connection: valid)
+        guard !rustdesk.needsInstall else { return }
+        if let index = connections.firstIndex(where: { $0.id == connection.id }) {
+            connections[index].lastConnected = Date()
+            save()
+        }
+        toast = message
+    }
+
+    /// « Nouvelle connexion RustDesk » : ID collé (espaces acceptés) ou IP directe. `saveToBook` :
+    /// ajoutée au carnet (ou celle du carnet qui a déjà cet ID est reprise), sinon seulement lancée.
+    /// Renvoie l'erreur à afficher, nil si tout va bien.
+    @discardableResult
+    func quickRustDesk(_ text: String, name: String = "", endUser: String = "", saveToBook: Bool, launch: Bool = true) -> String? {
+        do {
+            let folder = selected?.proto == .rustdesk ? (selected?.folder ?? "") : ""
+            let fresh = try RemoteConnection.rustDesk(text, name: name, folder: folder, endUser: endUser)
+            if let existing = connections.first(where: { $0.proto == .rustdesk && $0.host == fresh.host }) {
+                if launch { connectRustDesk(existing) } else { selectedID = existing.id }
+                return nil
+            }
+            if saveToBook {
+                connections.append(fresh)
+                selectedID = fresh.id
+                save()
+                if launch { connectRustDesk(fresh) } else { toast = "Poste «\u{00A0}\(fresh.name)\u{00A0}» ajouté au carnet." }
+            } else if launch, let target = fresh.rustDeskTarget {
+                toast = RustDeskModel.shared.launch(target, name: fresh.name)
+            }
+            return nil
+        } catch {
+            return (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    /// Note 6 : ID RustDesk d'une fiche d'inventaire ou d'un appareil : la connexion du carnet qui a
+    /// cet ID, sinon un lancement direct (sans l'ajouter au carnet).
+    /// Renvoie le message affiché (aussi gardé dans `toast` pour l'écran Accès distant).
+    @discardableResult
+    func connectRustDesk(id text: String, name: String) -> String? {
+        guard let id = RustDeskID.parse(text) else {
+            toast = RemoteValidationError.invalidRustDeskID(text).errorDescription
+            return toast
+        }
+        if let existing = connections.first(where: { $0.proto == .rustdesk && $0.host == id }) {
+            toast = nil
+            connectRustDesk(existing)
+        } else {
+            toast = RustDeskModel.shared.launch(.id(id), name: name)
+        }
+        return RustDeskModel.shared.needsInstall ? nil : toast
     }
 
     /// Note 57 : session VNC intégrée (VNCSessionView), dans un onglet de la barre des sessions.
@@ -857,8 +940,8 @@ enum RemoteExecutor {
         case .url(let url):
             guard workspace.urlForApplication(toOpen: url) != nil else { throw Failure.noApplication(url.scheme.map { "les adresses \($0)://" } ?? "cette adresse") }
             workspace.open(url)
-        case .fileBrowser:
-            // Ouvert dans NetScope par RemoteModel.connect (jamais d'application externe).
+        case .fileBrowser, .rustdesk:
+            // Ouverts par RemoteModel.connect : navigateur de NetScope, ou RustDeskModel (mot de passe du Trousseau).
             break
         }
     }

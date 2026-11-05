@@ -109,6 +109,8 @@ struct RemoteSessionArea: View {
             }
             if !sessions.tabs.isEmpty { openSessionsBox }
             FTPServerCard()
+            // Note 6 : ID collé par le technicien (nouvelle connexion RustDesk) et derniers lancements.
+            RustDeskQuickBox(model: model).padding(.top, 4)
 
             SectionHeader("Ouvrir une connexion enregistrée").padding(.top, 6)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 8)], alignment: .leading, spacing: 8) {
@@ -170,6 +172,9 @@ struct RemoteSessionArea: View {
             }
             if connection.proto == .ftp {
                 SpeedBanner(text: FileTransferTexts.ftpWarning)
+            }
+            if connection.proto == .rustdesk, !RustDeskModel.shared.isInstalled {
+                RustDeskDownloadBanner()
             }
             // Note 57 : session VNC intégrée ouverte dans un onglet (affiché ou non).
             if connection.proto == .vnc, let tab = sessions.tab(for: connection.id) {
@@ -247,6 +252,15 @@ struct RemoteSessionArea: View {
                 Text("Partage d’écran demande le mot de passe du compte distant.").foregroundStyle(Theme.consoleMuted)
                 Text("Affichage\u{00A0}: \(connection.display.summary(for: .vnc).lowercased())"
                      + (connection.display.mode == .fullScreen ? " (après l’identification, avec l’autorisation Accessibilité)" : ""))
+                    .foregroundStyle(Theme.consoleMuted)
+            case .success(.rustdesk(let target)):
+                // Note 6 : client RustDesk ouvert par macOS (mot de passe jamais affiché).
+                Text("open ").foregroundColor(Color(hex: 0x4ADE80))
+                    + Text(RustDeskLink.displayURL(target, hasPassword: RustDeskModel.shared.hasPassword(connection.id)))
+                Text(target.isDirect ? "Accès IP direct\u{00A0}: le poste doit accepter les connexions directes (port \(connection.port))."
+                     : "RustDesk joint le poste par le serveur d’ID\u{00A0}; l’usager voit la demande et l’accepte.")
+                    .foregroundStyle(Theme.consoleMuted)
+                Text(connection.endUser.isEmpty ? "Usager\u{00A0}: non indiqué" : "Usager\u{00A0}: \(connection.endUser)")
                     .foregroundStyle(Theme.consoleMuted)
             case .success(.fileBrowser(let address)):
                 Text("NetScope › ").foregroundColor(Color(hex: 0x4ADE80)) + Text(address)
@@ -464,15 +478,15 @@ struct RemoteForm: View {
                 }
                 HStack(alignment: .top, spacing: 10) {
                     VStack(alignment: .leading, spacing: 4) {
-                        fieldLabel(proto == .serie ? "Port série" : "Hôte ou adresse IP")
+                        fieldLabel(proto == .serie ? "Port série" : (proto == .rustdesk ? "ID RustDesk ou adresse IP" : "Hôte ou adresse IP"))
                         if proto == .serie {
                             serialPicker(draft)
                         } else {
-                            RemoteInput(placeholder: "10.182.122.2", text: draft.host)
+                            RemoteInput(placeholder: proto == .rustdesk ? "123 456 789" : "10.182.122.2", text: draft.host)
                         }
                     }
                     VStack(alignment: .leading, spacing: 4) {
-                        fieldLabel(proto == .serie ? "Débit" : "Port")
+                        fieldLabel(proto == .serie ? "Débit" : (proto == .rustdesk ? "Port (IP directe)" : "Port"))
                         if proto == .serie {
                             Picker("", selection: draft.port) {
                                 ForEach(RemoteValidator.baudRates, id: \.self) { Text("\($0) bauds").tag(String($0)) }
@@ -487,10 +501,16 @@ struct RemoteForm: View {
                 }
                 HStack(alignment: .top, spacing: 10) {
                     VStack(alignment: .leading, spacing: 4) {
-                        fieldLabel("Utilisateur")
-                        RemoteInput(placeholder: proto == .rdp ? "CORP\\utilisateur" : "netadmin", text: draft.username, mono: false)
-                            .disabled(proto == .serie)
-                            .opacity(proto == .serie ? 0.5 : 1)
+                        if proto == .rustdesk {
+                            // Note 6 : usager du poste (nom, service), texte libre.
+                            fieldLabel("Usager")
+                            RemoteInput(placeholder: "Julie Gagnon (réception)", text: draft.endUser, mono: false)
+                        } else {
+                            fieldLabel("Utilisateur")
+                            RemoteInput(placeholder: proto == .rdp ? "CORP\\utilisateur" : "netadmin", text: draft.username, mono: false)
+                                .disabled(proto == .serie)
+                                .opacity(proto == .serie ? 0.5 : 1)
+                        }
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         fieldLabel("Dossier")
@@ -523,6 +543,10 @@ struct RemoteForm: View {
                 // Note 57 : mot de passe SSH ou Telnet au Trousseau (facultatif).
                 if proto == .ssh || proto == .telnet {
                     TerminalPasswordField(draft: draft)
+                }
+                // Note 6 : mot de passe permanent RustDesk (facultatif, Trousseau).
+                if proto == .rustdesk {
+                    RustDeskPasswordField(draft: draft)
                 }
                 // Note 66 : saut par bastion et clé privée (comme ProxyJump et IdentityFile).
                 if proto == .ssh {
@@ -564,6 +588,7 @@ struct RemoteForm: View {
             helpLine("FTPS", "Même navigateur, chiffré par TLS (explicite sur 21, implicite sur 990).")
             helpLine("SFTP", "Même navigateur, par SSH (/usr/bin/sftp)\u{00A0}; clés et known_hosts de ~/.ssh.")
             helpLine("Tunnel", "Par une connexion SSH\u{00A0}: redirection locale (-L), proxy SOCKS (-D), saut par bastion (-J)\u{00A0}; panneau de détails, «\u{00A0}Tunnels / redirections\u{00A0}».")
+            helpLine("RustDesk", "Client RustDesk de ce Mac, ouvert par rustdesk://\u{00A0}: ID de l’usager (ou IP directe), mot de passe à usage unique ou permanent du Trousseau.")
             helpLine("Série", "Console intégrée (/dev/cu.*)\u{00A0}: débit, bits, parité, arrêt, contrôle de flux, Break\u{00A0}; Cisco et Fortinet en 9600 8N1.")
             Text("Hôte : lettres, chiffres, point, tiret et deux-points seulement.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)

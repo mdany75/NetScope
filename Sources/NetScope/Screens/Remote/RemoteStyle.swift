@@ -14,6 +14,7 @@ extension RemoteProtocol {
         case .ftp: return Color(light: 0xA16207, dark: 0xF5CE6B)
         case .ftps: return Color(light: 0x0F766E, dark: 0x7FD8CC)
         case .sftp: return Color(light: 0x0369A1, dark: 0x8CCBF0)
+        case .rustdesk: return Color(light: 0x0E7490, dark: 0x7DD3E6)
         }
     }
 
@@ -27,6 +28,7 @@ extension RemoteProtocol {
         case .ftp: return Color(light: 0xFEF9C3, dark: 0x4A3F14)
         case .ftps: return Color(light: 0xCCFBF1, dark: 0x163F3A)
         case .sftp: return Color(light: 0xE0F2FE, dark: 0x16354A)
+        case .rustdesk: return Color(light: 0xCFFAFE, dark: 0x153A44)
         }
     }
 
@@ -40,6 +42,7 @@ extension RemoteProtocol {
         case .ftp: return "folder"
         case .ftps: return "lock.doc"
         case .sftp: return "folder.badge.gearshape"
+        case .rustdesk: return "person.wave.2"
         }
     }
 }

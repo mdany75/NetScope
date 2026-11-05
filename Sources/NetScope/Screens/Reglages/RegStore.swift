@@ -7,7 +7,7 @@ import ServiceManagement
 
 /// Sections de la colonne de gauche, dans l'ordre du croquis (docs/croquis/Reglages.dc.html).
 enum RegSection: String, CaseIterable, Identifiable {
-    case general, sites, profils, identifiants, switchs, notifications, alertes, interface, export, majs, raccourcis, diagnostic, apropos
+    case general, sites, profils, identifiants, switchs, notifications, alertes, interface, rustdesk, export, majs, raccourcis, diagnostic, apropos
 
     var id: String { rawValue }
 
@@ -21,6 +21,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .notifications: return "Notifications"
         case .alertes: return "Alertes"
         case .interface: return "Interface réseau"
+        case .rustdesk: return "RustDesk"
         case .export: return "Export et sauvegarde"
         case .majs: return "Mises à jour"
         case .raccourcis: return "Raccourcis"
@@ -39,6 +40,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .notifications: return "bell"
         case .alertes: return "paperplane"
         case .interface: return "network"
+        case .rustdesk: return "person.wave.2"
         case .export: return "square.and.arrow.up"
         case .majs: return "arrow.triangle.2.circlepath"
         case .raccourcis: return "command"
@@ -58,6 +60,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .notifications: return "alerte notification surveillance courriel son silence ne pas déranger regroupement dhcp conflit test"
         case .alertes: return "alerte courriel smtp starttls webhook teams slack json anti-rafale silence trousseau envoyer un test"
         case .interface: return "en0 wi-fi ethernet masque passerelle getifaddrs"
+        case .rustdesk: return "rustdesk assistance à distance hbbs hbbr serveur id relais clé publique client portable usager vip fortigate 21115 21116 21117"
         case .export: return "export sauvegarde csv json pdf restauration zip manifeste rotation icloud dossier chiffrement chiffrée mot de passe jetons secrets trousseau configuration importer exporter synchronisation synchroniser mac"
         case .raccourcis: return "raccourcis clavier touches commande menu conflit écran " + Screen.searchNames
         case .majs: return "version github release bêta stable signature télécharger installer jeton"

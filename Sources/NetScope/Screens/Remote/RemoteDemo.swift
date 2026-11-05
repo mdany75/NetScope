@@ -48,11 +48,15 @@ enum RemoteDemo {
             copy.tunnels = SSHTunnelDemo.tunnels(for: connection.name)
             return copy
         } + SSHTunnelDemo.connections(now: now)
+        // Note 6 : postes RustDesk (DevTools/RustDeskDemo.swift).
+        + RustDeskDemo.connections(now: now)
     }()
 
     static func reachability(for connections: [RemoteConnection]) -> [UUID: RemoteReachability] {
         var result: [UUID: RemoteReachability] = [:]
         for connection in connections {
+            // Note 6 : un poste RustDesk désigné par son ID n'est pas sondé (serveur d'ID).
+            if connection.proto == .rustdesk, connection.rustDeskTarget?.isDirect != true { continue }
             result[connection.id] = connection.name == "WKS341" ? .unreachable : .reachable
         }
         return result

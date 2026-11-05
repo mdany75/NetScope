@@ -10,6 +10,9 @@ public enum RemoteValidationError: Error, Equatable, LocalizedError {
     case invalidPort(Int)
     case invalidSerialDevice(String)
     case invalidBaud(Int)
+    /// Note 6 : ID RustDesk de mauvaise longueur, ou IPv6 (non prise en charge par rustdesk://).
+    case invalidRustDeskID(String)
+    case rustDeskIPv6(String)
 
     public var errorDescription: String? {
         switch self {
@@ -19,7 +22,9 @@ public enum RemoteValidationError: Error, Equatable, LocalizedError {
         case .invalidUser(let user): return "Nom d’utilisateur invalide : « \(user) »."
         case .invalidPort(let port): return "Port invalide : \(port) (1 à 65535)."
         case .invalidSerialDevice(let path): return "Port série invalide : « \(path) » (attendu : /dev/cu.…)."
-        case .invalidBaud(let baud): return "Débit série non pris en charge : \(baud) bauds."
+        case .invalidRustDeskID(let id): return "ID RustDesk invalide\u{00A0}: «\u{00A0}\(id)\u{00A0}» (9 ou 10 chiffres, espaces permis)."
+        case .rustDeskIPv6(let host): return "RustDesk\u{00A0}: IPv6 non prise en charge en accès direct («\u{00A0}\(host)\u{00A0}»)\u{00A0}; utilisez l’ID ou une IPv4."
+        case .invalidBaud(let baud): return"Débit série non pris en charge : \(baud) bauds."
         }
     }
 }

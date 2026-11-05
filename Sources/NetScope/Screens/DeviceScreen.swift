@@ -230,6 +230,17 @@ private struct DeviceDetailView: View {
             Label(QuickLoginFormat.buttonTitle(entry), systemImage: "terminal")
         }
         .buttonStyle(.secondary)
+        // Note 6 : ID RustDesk saisi dans la fiche d'inventaire de l'appareil.
+        if let id = InvModel.shared.store.record(forIP: device.ip)?.annotations.validRustDeskID {
+            Button {
+                RemoteModel.shared.connectRustDesk(id: id, name: device.displayName)
+            } label: {
+                Label("RustDesk", systemImage: RemoteProtocol.rustdesk.symbol)
+            }
+            .buttonStyle(.secondary)
+            .help("Connecter par RustDesk (ID \(RustDeskID.grouped(id)))")
+            .rustDeskInstallAlert()
+        }
         // Note 50 : FTP, FTPS ou SFTP, actifs seulement si le port était ouvert au dernier scan.
         Menu {
             FileTransferOpenMenuItems(host: device.ip.description, name: device.displayName,
