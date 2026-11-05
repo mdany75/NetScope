@@ -16,6 +16,11 @@ enum Launcher {
         // Restauration d'une sauvegarde demandée avant le redémarrage : appliquée avant que les
         // écrans ne lisent leurs fichiers (jamais en démonstration ni pendant une capture).
         if !RegEnvironment.isSandboxed { RegBackupController.applyPendingRestore() }
+        // Note 56 : import de configuration et changements synchronisés en attente, au même moment.
+        if !RegEnvironment.isSandboxed {
+            RegConfigController.applyPending()
+            RegSyncController.applyPending()
+        }
         NetScopeApp.main()
     }
 
@@ -98,6 +103,8 @@ struct NetScopeApp: App {
                     await UpdController.shared.applicationDidLaunch(state)
                     // Sauvegarde automatique quotidienne (Réglages › Export et sauvegarde).
                     RegBackupController.shared.startSchedule()
+                    // Note 56 : synchronisation par iCloud Drive (si activée), puis toutes les 15 minutes.
+                    RegSyncController.shared.startIfEnabled()
                 }
                 .task {
                     // Changement d'interface ou de réseau (lecture locale, toutes les 15 s) : le bilan

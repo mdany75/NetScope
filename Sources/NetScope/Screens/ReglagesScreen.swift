@@ -187,7 +187,20 @@ struct ReglagesScreen: View {
         case .alertes: RegAlertsSection()
         case .notifications: RegNotificationsSection()
         case .raccourcis: RegShortcutsSection()
-        case .export: RegBackupSection()
+        case .export:
+            // Note 56 : configuration (export, import) et synchronisation entre Mac, après les sauvegardes
+            // (en premier pour les captures « NETSCOPE_REGLAGES_SECTION=configuration »).
+            VStack(alignment: .leading, spacing: 14) {
+                if ConfigSyncDemo.focusOnConfiguration {
+                    RegConfigSection()
+                    RegSyncSection()
+                    RegBackupSection()
+                } else {
+                    RegBackupSection()
+                    RegConfigSection()
+                    RegSyncSection()
+                }
+            }
         }
     }
 }

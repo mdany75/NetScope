@@ -44,6 +44,7 @@ public enum BackupKeychainScan {
         case "alertes": return "Alertes (mot de passe SMTP, webhooks)"
         case "sauvegarde": return "Mot de passe des sauvegardes chiffrées"
         case "ftp": return "Mots de passe FTP, FTPS et SFTP (Accès distant)"
+        case "synchro": return "Mot de passe de synchronisation (iCloud Drive)"
         default: return suffix
         }
     }
@@ -66,7 +67,8 @@ public struct BackupKeychainSecrets: BackupSecretStore {
 
     public func readSecrets() throws -> [BackupSecret] {
         var secrets: [BackupSecret] = []
-        for item in BackupKeychainScan.items() where item.service != BackupPasswordKeychain.service {
+        // Ni le mot de passe des sauvegardes ni celui de la synchronisation (note 56) ne sont copiés.
+        for item in BackupKeychainScan.items() where !ConfigSecrets.neverCopied.contains(item.service) {
             var query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                         kSecAttrService as String: item.service,
                                         kSecAttrAccount as String: item.account,
