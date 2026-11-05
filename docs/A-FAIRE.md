@@ -1,15 +1,16 @@
 # À faire — NetScope
 
-> Les phases 2, 3 et 4 (notes 6, 10 et 11) peuvent se faire dans n'importe quel ordre
-> (décision de Dany).
+> Ordre des versions : voir « Feuille de route révisée » (point 20). Restent de l’ancienne
+> organisation par phases : note 6 (phase 2, RustDesk léger) et la fin de la note 11 (phase 4,
+> préréglages du Ping), toutes deux « plus tard ».
 
-## Priorités (revues le 5 novembre 2026, réorganisées avec les notes 45 à 57)
+## Priorités (revues le 5 novembre 2026, réorganisées avec les notes 45 à 79 après l’analyse du marché)
 
 Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0 ; notes 42 et 10 dans la 0.20.0 ; notes 41 et 43, et la note 11 en partie (pause par cible, tableau MTR, écran vide), dans la 0.21.0 ; note 57 dans la 0.22.0 (la note 40 reste à faire).
 
-1. **0.13.x à 0.17.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP ; 0.17.0 : relecture automatique, WAN et VPN, Trafic FortiView et analyse complète à essayer sur de vraies FortiGate ; 0.18.0 : FTP, FTPS, SFTP, TFTP, « Bloqué ici », NAS dans Vitesse des disques, export, import et synchronisation à essayer sur de vrais appareils et deux Mac ; 0.20.0 : rapport de suivi, rapports planifiés et Inventaire repensé à essayer sur les vrais sites ; 0.21.0 : firmware et licences, Syslog, traps SNMP, journaux de la FortiGate et pause par cible du Ping à essayer sur de vrais équipements ; 0.22.0 : terminal intégré SSH, Telnet et série, et session VNC intégrée à essayer sur de vrais équipements, câbles console et serveurs VNC) : essais réels de la 0.3.x (localisation, DHCP, capture,
+1. **0.13.x à 0.22.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP ; 0.17.0 : relecture automatique, WAN et VPN, Trafic FortiView et analyse complète à essayer sur de vraies FortiGate ; 0.18.0 : FTP, FTPS, SFTP, TFTP, « Bloqué ici », NAS dans Vitesse des disques, export, import et synchronisation à essayer sur de vrais appareils et deux Mac ; 0.20.0 : rapport de suivi, rapports planifiés et Inventaire repensé à essayer sur les vrais sites ; 0.21.0 : firmware et licences, Syslog, traps SNMP, journaux de la FortiGate et pause par cible du Ping à essayer sur de vrais équipements ; 0.22.0 : terminal intégré SSH, Telnet et série, et session VNC intégrée à essayer sur de vrais équipements, câbles console et serveurs VNC) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
-   des 0.5.0 à 0.8.0 (voir ci-dessous) ; 0.13.1 au besoin.
+   des 0.5.0 à 0.8.0 (voir ci-dessous) ; ces retours sont repris dans la 0.23.0 (point 20).
 2. ~~**0.5.0, diagnostic du poste et du réseau local**~~ : livrée le 4 novembre 2026
    (notes 12, 21, 17 et 16) ; essais réels à faire (PoE sur une vraie switch, SNMP, M-Lab,
    LibreSpeed, Ookla, bouton Installer).
@@ -79,7 +80,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 19. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany ;
     réorganisé le même jour pour placer les notes 45 à 53, ordre accepté par Dany) :
     - **0.13.1** : essais réels (sites, FortiGate, FortiAP, navigation) et correctifs ; note 35
-      (journal et diagnostic).
+      (journal et diagnostic). Reprise dans la 0.23.0 (point 20).
     - ~~**0.14.0, Carte, VoIP, DHCP, sauvegarde**~~ (livrée) : notes 32 (recherche dans la
       Carte), 30 (Téléphonie IP), 37 (étendues DHCP), 38 (sauvegarde chiffrée).
     - ~~**0.15.0, sites et navigation**~~ (livrée) : notes 49 (site sous le logo), 48 (site dans
@@ -93,34 +94,67 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       53 (réseaux sociaux et assistants IA dans les services en ligne), 55 (NAS dans Vitesse des
       disques), 56 (export, import et synchronisation de la configuration).
     - **0.19.0, parc Fortinet** : note 40 (sauvegarde des configurations) ; la note 41
-      (firmware et licences) est livrée dans la 0.21.0.
+      (firmware et licences) est livrée dans la 0.21.0. Reprise dans la 0.24.0 (point 20).
     - ~~**0.20.0, rapports et Inventaire**~~ (livrée) : notes 42 (rapport de suivi), 10 (Inventaire phase 3).
     - ~~**0.21.0, journaux, firmware et Ping**~~ (livrée) : notes 43 (Syslog et traps), 41
       (firmware et licences), 11 en partie (pause par cible, MTR, écran vide) ; la note 44
       (aide et accueil) est retirée.
     - ~~**0.22.0, sessions intégrées**~~ (livrée) : note 57 (terminal SSH, Telnet et série,
       session VNC intégrés ; RDP dans Windows App).
-    - **Plus tard** : note 11 (reste : préréglages du Ping continu), 6 (RustDesk), anglais ; idées d’un cran en dessous :
-      navigateur SNMP, toner des imprimantes, test de câble, qualité VoIP (MOS), scan d’un VLAN
-      tagué, relevé Wi-Fi sur plan, retour à la version
-      précédente, contrôle IPv6.
+    - **Plus tard** : remplacé par le point 20 ci-dessous.
+20. **Feuille de route révisée** (analyse du marché du 5 novembre 2026, à valider par Dany ;
+    notes 58 à 79, détails dans `docs/analyse-marche.md`). Principe : geler les grosses
+    nouveautés tant que les essais réels n’ont pas commencé.
+    - **0.23.0, fiabilité terrain** (reprend la 0.13.1) : note 35 (journal et « Exporter un
+      diagnostic ») ; retours d’essai sur une vraie FortiGate, un site et un scan, corrigés au
+      fil de l’eau ; note 60 (fiche matériel remplie automatiquement).
+    - **0.24.0, sauvegarde des configurations** (reprend la 0.19.0) : note 40 (FortiGate par
+      l’API, puis switchs en SSH grâce au terminal de la 0.22.0) ; note 61 (export de la carte et
+      section « Carte » du rapport).
+    - **0.25.0, SNMP complet** : note 59 (SNMP v3 partout) ; navigateur SNMP et MIB walk (idée
+      sans numéro, venue de l’ancienne feuille de route) ; note 74 (graphes de bande passante par port).
+    - **0.26.0, bilan de raccordement** : note 58 (bilan en un clic, avant/après) ; Test MTU réel
+      (note 78) ; note 65 (ping TCP/HTTP, traceroute TCP/UDP).
+    - **0.27.0, surveillance de longue durée** : note 62 (historique de 30 à 90 jours, rapport de
+      disponibilité) ; fenêtres de maintenance et heures ouvrables par site ; envoi automatique du
+      rapport planifié par SMTP (note 78).
+    - **0.28.0, automatique en arrière-plan** : notes 63 (scan planifié par site) et 64 (agent
+      sans fenêtre) ; sonde « débit Internet » planifiée (note 78).
+    - **0.29.0, IPv6** (idée sans numéro, venue de l’ancienne feuille de route) : découverte par
+      la table des voisins NDP (lue par sysctl, sans paquet), ping multicast lien local, ping et
+      traceroute IPv6, calculateur IPv6.
+    - **0.30.0, Wi-Fi et accès distant pro** : note 71 (éléments des balises Wi-Fi), meilleur
+      canal en 5/6 GHz et relevé enregistré (note 78) ; notes 66 (tunnels SSH) et 67 (commande
+      envoyée à plusieurs sessions) ; XMODEM en console série et import de `~/.ssh/config`
+      (note 78).
+    - **À décider avec Dany avant la 0.24.0** : note 73 (cycle PoE : rompt la règle de lecture
+      seule) ; Ookla caché ou retiré, nouveaux noms des deux « analyses », regrouper les outils
+      de courriel (note 79) ; avancer la note 66 (tunnels SSH) en 0.24.0 si le VNC non chiffré ou
+      le réseau FortiLink posent problème pendant les essais.
+    - **Plus tard** : note 11 (reste : préréglages du Ping continu), 6 (RustDesk, en version
+      légère), 13 (anglais) ; notes 68 à 70 (empreinte des services, ports UDP, certificats
+      TLS), 72 (partages SMB), 75 à 77 (NetFlow, ntfy et Pushover, autres contrôleurs) ; idées
+      d’un cran en dessous : relevé Wi-Fi sur plan, qualité VoIP (MOS) avec les décodeurs
+      SIP/RTP, toner des imprimantes, test de câble, scan d’un VLAN tagué, retour à la version
+      précédente.
 
 ## Index par module
 
 | Module | Livrées | À venir |
 | --- | --- | --- |
-| Scanner et sites | 18, 19, 20, 26, 28, 48, 49 | — |
+| Scanner et sites | 18, 19, 20, 26, 28, 48, 49 | 63 (0.28.0), IPv6 (0.29.0), 68, 69, 72 (plus tard) |
 | Navigation entre les modules | 31, 33, 34, 36, 45 | — |
-| Switchs et ports, Fortinet | 12, 24, 25, 29, 39, 41, 54 | 40 (0.19.0) |
-| Wi-Fi | 1, 27, 46, 47 | — |
-| Carte du réseau | 32 | — |
-| Inventaire | 8, 10, 30 | — |
-| Ping continu | 11 (en partie, 0.21.0) | 11 : préréglages (plus tard) |
-| Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22, 37, 51, 53, 55 | — |
-| Accès distant | 5, 50, 52, 57 | 6 (plus tard) |
-| Surveillance, alertes et journaux | 3, 23, 43 | — |
-| Rapports | 4, 42 | — |
-| Réglages, sauvegarde, aide | 9, 13, 38, 56 | 35 (0.13.1) |
+| Switchs et ports, Fortinet | 12, 24, 25, 29, 39, 41, 54 | 40 (0.24.0), 59, 74 et navigateur SNMP / MIB walk (0.25.0), 73 (à décider), 75, 77 (plus tard) |
+| Wi-Fi | 1, 27, 46, 47 | 71 (0.30.0) |
+| Carte du réseau | 32 | 61 (0.24.0) |
+| Inventaire | 8, 10, 30 | 60 (0.23.0) |
+| Ping continu | 11 (en partie, 0.21.0) | 65 (0.26.0) ; 11 : préréglages (plus tard) |
+| Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22, 37, 51, 53, 55 | 58 (0.26.0), 70 (plus tard) |
+| Accès distant | 5, 50, 52, 57 | 66 et 67 (0.30.0), 6 (plus tard) |
+| Surveillance, alertes et journaux | 3, 23, 43 | 62 (0.27.0), 64 (0.28.0), 76 (plus tard) |
+| Rapports | 4, 42 | 61 (0.24.0), 62 (0.27.0) |
+| Réglages, sauvegarde, aide | 9, 13, 38, 56 | 35 (0.23.0), 13 (plus tard) |
+| Toute l’app (analyse du marché) | — | 78 (améliorations), 79 (allègements, à décider) |
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
 
@@ -753,7 +787,7 @@ entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 3
 - Toujours : le même geste partout (double-clic, ou ↩︎), un menu contextuel « Ouvrir dans… »
   qui propose les autres modules, et « Retour » (⌘[) vers l'écran d'où l'on vient.
 
-## 35. Journal de l’app et « Exporter un diagnostic » — 0.13.1 (analyse, retenue par Dany)
+## 35. Journal de l’app et « Exporter un diagnostic » — 0.23.0 (analyse, retenue par Dany)
 
 - Journal interne consultable (erreurs, avertissements, appels FortiGate/SNMP en échec, avec date
   et module), visible dans l’app ; export .zip « diagnostic » sans aucun secret (jetons,
@@ -789,7 +823,7 @@ entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 3
 - Liens WAN et SD-WAN (état, latence, perte, gigue), tunnels VPN IPsec (montés ou tombés),
   par site ; sondes « tunnel tombé » et « lien WAN dégradé » ; vue de tous les sites.
 
-## 40. Sauvegarde des configurations — 0.19.0 (analyse, retenue par Dany)
+## 40. Sauvegarde des configurations — 0.24.0 (analyse, retenue par Dany)
 
 - Copie de la configuration de chaque FortiGate (API, lecture), puis des switchs en SSH ;
   historique par site, comparaison avant/après (différences surlignées), avant une intervention.
@@ -1086,8 +1120,9 @@ mon cas plusieurs Mac. » Puis : « je veux tout inclure, pour une facilité de 
 
 **Livrée dans la 0.22.0** (5 novembre 2026) ; essai réel à faire sur de vrais équipements (SSH, Telnet, câbles console USB-série) et serveurs VNC (macOS, RealVNC, TightVNC, UltraVNC).
 
-« Terminal intégré : bientôt… à faire aussi. » Aujourd'hui, « Connecter » ouvre Terminal,
-Windows App ou Partage d'écran. À la place, des onglets de session dans Accès distant :
+« Terminal intégré : bientôt… à faire aussi. » Avant la 0.22.0, « Connecter » ouvrait Terminal,
+Windows App ou Partage d'écran. Depuis, des onglets de session dans Accès distant (« Ouvrir dans
+Terminal » et « Partage d'écran » restent en secours dans le menu de « Connecter ») :
 
 - **Terminal intégré** (SSH, Telnet) : émulateur de terminal dans NetScope (xterm-256color :
   couleurs, curseur, défilement, copier-coller, redimensionnement, recherche), session lancée
@@ -1100,3 +1135,252 @@ Windows App ou Partage d'écran. À la place, des onglets de session dans Accès
 - **RDP** : le protocole est trop vaste pour être écrit sans bibliothèque externe (règle du
   projet) ; il reste ouvert dans Windows App, avec la session préparée par NetScope.
 - Aucune dépendance externe ; aucun mot de passe en clair.
+
+## 58. Bilan de raccordement en un clic — 0.26.0 (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : la preuve de passage et le « avant/après » d’une intervention en
+  30 secondes. Un seul bouton enchaîne lien et vitesse négociée, switch, port et VLAN par
+  LLDP/CDP, PoE, DHCP, passerelle, DNS, Internet et débit ; le bilan est horodaté, archivé par
+  site, comparé au bilan précédent et repris dans une section de rapport. Presque tout existe
+  déjà dans l’app : il ne manque que l’enchaînement.
+- **Référence du marché** : NetAlly LinkSprinter et LinkRunner (Link-Live).
+- **Effort** : moyen.
+
+## 59. SNMP v3 pour le relevé des switchs, les Ressources et les sondes — 0.25.0 (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : beaucoup de parcs récents refusent le v2c. Le moteur v3 existe déjà
+  (`SNMPv3.swift`) mais ne sert qu’au Test SNMP ; il faut le brancher sur le relevé des
+  switchs, les Ressources et les sondes de Surveillance.
+- **Référence du marché** : Domotz, NinjaOne, PRTG, LibreNMS.
+- **Effort** : moyen.
+
+## 60. Fiche matériel remplie automatiquement — 0.23.0 (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : inventaire et rapports justes sans saisie à la main. Modèle, numéro
+  de série et firmware lus par sysDescr et ENTITY-MIB, et par l’inventaire de la FortiGate pour
+  les FortiSwitch et FortiAP. Bon test de SNMP en vrai pendant la 0.23.0.
+- **Référence du marché** : Lansweeper, Auvik, Domotz.
+- **Effort** : petit à moyen.
+
+## 61. Export de la carte et section « Carte » du rapport — 0.24.0 (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : le schéma est le livrable que le client demande le plus. Export en
+  PNG et PDF (rendu SwiftUI vers une image), puis SVG ou draw.io (XML écrit à la main) ;
+  section « Carte » dans les rapports.
+- **Référence du marché** : Auvik, Domotz, Zenmap.
+- **Effort** : petit.
+
+## 62. Historique long de la Surveillance et rapport de disponibilité — 0.27.0 (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : prouver une panne au FAI ou au client et produire un rapport
+  mensuel. Historique de 30 à 90 jours (données agrégées) au lieu de 24 h, rapport de
+  disponibilité par site, graphes dans les rapports.
+- **Référence du marché** : PRTG, Nagios XI, Uptime Kuma, PingPlotter.
+- **Effort** : moyen.
+
+## 63. Scan planifié par site — 0.28.0 (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : aujourd’hui les rapports planifiés reprennent un vieux scan. Un scan
+  à l’heure choisie (quand NetScope est ouvert, ou par l’agent de la note 64) alimente la courbe
+  de l’Analyse, les nouveaux appareils et les rapports planifiés.
+- **Référence du marché** : Fing, Lansweeper, PRTG, phpIPAM.
+- **Effort** : moyen.
+
+## 64. Surveillance en arrière-plan sans fenêtre — 0.28.0 (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : sondes, Syslog et scans planifiés qui continuent après la fermeture
+  de l’app. Agent de connexion ou LaunchAgent qui fait tourner le moteur de sondes ; l’app
+  reste l’interface. C’est la limite raisonnable : pas de collecteur en ligne.
+- **Référence du marché** : Fing Agent, Domotz.
+- **Effort** : moyen à gros.
+
+## 65. Ping TCP et HTTP dans le Ping continu, traceroute TCP et UDP — 0.26.0 (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : suivre les caméras, serveurs et liens Internet qui filtrent l’ICMP.
+  La Surveillance a déjà un repli TCP à réutiliser.
+- **Référence du marché** : PingInfoView, mtr, PingPlotter.
+- **Effort** : petit à moyen.
+
+## 66. Tunnels SSH et saut par bastion — 0.30.0 (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : joindre le réseau FortiLink ou un site distant par un hôte relais.
+  Tunnels `-L`, `-D` et saut `-J` dans le carnet d’Accès distant, réutilisables par RDP, VNC et
+  le navigateur web ; s’appuie sur `/usr/bin/ssh`.
+- **Référence du marché** : Royal TSX, Termius, SecureCRT.
+- **Effort** : petit (arguments de `/usr/bin/ssh`).
+
+## 67. Envoi d’une commande à plusieurs sessions et extraits personnalisés — 0.30.0 (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : `show run` sur tous les switchs d’un site en une fois. Envoi d’une
+  même commande à plusieurs sessions ouvertes du terminal intégré (note 57) et extraits
+  personnalisés, enregistrés par l’utilisateur ; les extraits par marque (Cisco, FortiGate,
+  Aruba, Linux) sont livrés dans la 0.22.0.
+- **Référence du marché** : SecureCRT, Royal TSX, iTerm2.
+- **Effort** : petit (le terminal de la 0.22.0 est livré).
+
+## 68. Empreinte légère des services et du système — plus tard (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : type et système plus justes, versions visibles dans le rapport
+  Sécurité, sans Nmap : en-tête HTTP « Server », certificat TLS, dialecte SMB, sysDescr, TXT
+  mDNS, TTL. Pas de base de CVE ni de détection d’OS façon Nmap (voir note 79).
+- **Référence du marché** : Nmap, SoftPerfect, Lansweeper.
+- **Effort** : moyen.
+
+## 69. Scan de ports UDP ciblé — plus tard (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : repérer un SNMP ouvert, un SIP ou un IPMI exposés. Charge propre à
+  chaque protocole : DNS 53, NTP 123, SNMP 161, TFTP 69, SIP 5060, IPMI 623, mDNS.
+- **Référence du marché** : Nmap, SoftPerfect, NetScanTools.
+- **Effort** : petit à moyen.
+
+## 70. Vérificateur de certificat TLS — plus tard (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : trouver les pare-feu, portails, imprimantes et NAS aux certificats
+  expirés. Outil de la Boîte à outils (chaîne, SAN, expiration, versions TLS) qui réutilise la
+  sonde HTTP et le diagnostic SMTP.
+- **Référence du marché** : NetScanTools, SSL Labs.
+- **Effort** : petit.
+
+## 71. Éléments des balises Wi-Fi — 0.30.0 (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : diagnostic d’itinérance et de borne saturée, même hors FortiAP.
+  Lecture par CoreWLAN (`informationElementData`) : 802.11k/v/r, charge QBSS (clients,
+  utilisation du canal), génération Wi-Fi, WPA3.
+- **Référence du marché** : WiFi Explorer Pro 3.
+- **Effort** : petit à moyen.
+
+## 72. Partages SMB d’un hôte — plus tard (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : trouver un partage, vérifier un NAS ou un poste, depuis la fiche
+  Appareil et le menu du Scanner. S’appuie sur `smbutil view`, livré avec macOS.
+- **Référence du marché** : Advanced IP Scanner, SoftPerfect.
+- **Effort** : petit.
+
+## 73. Actions sur un port : cycle PoE et redémarrage — à décider (analyse du marché, à valider par Dany)
+
+- **À décider avec Dany : rompt la règle de lecture seule.** Aujourd’hui NetScope ne change
+  rien sur les équipements (API FortiGate et SNMP en lecture).
+- **Ce que ça apporte** : redémarrer à distance un téléphone IP, une borne ou une caméra figés,
+  par l’API FortiGate ou par SNMP en écriture.
+- **Référence du marché** : Meraki Live Tools, Domotz, OpUtils.
+- **Effort** : moyen.
+
+## 74. Graphes de bande passante par port sur la durée — 0.25.0 (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : voir un lien saturé dans le temps, pas en instantané. Compteurs SNMP
+  des interfaces, qui servent aussi de trafic de secours pour les réseaux sans FortiGate.
+- **Référence du marché** : LibreNMS, PRTG, Observium.
+- **Effort** : moyen.
+
+## 75. Collecteur NetFlow, sFlow et IPFIX — plus tard (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : « Qui sature le lien ? » sans FortiView, sur un réseau d’une autre
+  marque. Priorité basse : le parc de Dany est en Fortinet.
+- **Référence du marché** : NinjaOne, Auvik, PRTG.
+- **Effort** : gros.
+
+## 76. Notification sur téléphone par ntfy ou Pushover — plus tard (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : recevoir une alerte loin du Mac sans Teams. Nouveaux canaux d’Alertes
+  par de simples requêtes HTTPS.
+- **Référence du marché** : Uptime Kuma, PRTG.
+- **Effort** : petit.
+
+## 77. Autres contrôleurs : UniFi, Omada, Meraki — plus tard (analyse du marché, à valider par Dany)
+
+- **Ce que ça apporte** : les clients sans Fortinet retrouvent switchs, bornes et clients Wi-Fi.
+- **Référence du marché** : Domotz, WiFiman, Meraki Dashboard.
+- **Effort** : gros pour chacun.
+
+## 78. Améliorations issues de l’analyse du marché — 0.23.0 à 0.30.0 (analyse du marché, à valider par Dany)
+
+Écarts avec la référence du marché pour les outils existants ; la version indiquée suit la
+feuille de route révisée, « plus tard » sinon.
+
+- **Test MTU** (0.26.0) : vraie recherche par dichotomie avec le bit DF, résultat « MTU du
+  chemin = N vers X », historique, détection du PPPoE et des tunnels. Sinon, le retirer (note 79).
+- **Ping continu** (plus tard) : mode tableau compact au-delà de 9 cibles, session enregistrée
+  et rouverte, rapport « pour le FAI » en PDF, seuil réglable par cible, notification macOS (en
+  plus de la note 11).
+- **Surveillance** (0.27.0) : heures ouvrables par site au lieu de lun.–ven. 7 h–18 h fixes,
+  fenêtres de maintenance planifiées, rappel si l’alerte n’est pas accusée, graphe de latence
+  par sonde, SNMP v3 (note 59).
+- **Carte du réseau** (0.24.0 pour l’export, plus tard pour le reste) : liens entre switchs par
+  les voisins LLDP déjà relus par SNMP, filtre par VLAN, nœuds déplacés à la main retenus,
+  export (note 61).
+- **Analyse** (plus tard) : carte d’occupation de /23 à /16 (pages de /24), « prochaine IP libre
+  hors étendue DHCP », croisement avec les baux et réservations de la FortiGate.
+- **Wi-Fi (ce Mac)** (0.30.0) : meilleur canal en 5 et 6 GHz, relevé par pièce enregistré par
+  site avec latence et débit par point, historique du signal au-delà de 2 minutes.
+- **Wake-on-LAN** (plus tard) : ping de suivi « réveillé en N s », broadcast dirigé vers un
+  autre sous-réseau, envoi à plusieurs appareils.
+- **Speedtest** (0.28.0) : sonde « débit Internet » planifiée (une fois par jour) avec courbe
+  par site.
+- **iperf3** (plus tard) : mode serveur intégré compatible iperf3 (protocole JSON et TCP, sans
+  dépendance), ou au minimum un test NetScope-à-NetScope entre deux Mac.
+- **Capture de paquets** (plus tard) : décodeurs SIP, RTP, SNMP, Syslog, RADIUS et NTP ;
+  constats automatiques (retransmissions, fenêtre zéro, latence par flux) ; bouton « Ouvrir
+  dans Wireshark ». Ne pas aller plus loin (note 79).
+- **Rapports** (0.27.0 pour l’envoi) : envoi automatique du rapport planifié par le canal SMTP
+  déjà configuré dans Alertes ; export DOCX écrit à la main (ZIP et XML, comme l’archive de
+  sauvegarde) ; graphes de disponibilité (note 62).
+- **Alertes** (plus tard) : événements dédiés (licence, firmware, Syslog, WAN) au lieu de
+  « sonde en panne » générique ; ntfy et Pushover (note 76).
+- **Journaux** (plus tard) : Syslog en TCP (RFC 6587), transfert vers un autre serveur Syslog ;
+  garder le port 5514 (le 514 demande des droits) et mieux guider la configuration des
+  équipements.
+- **Inventaire** (0.23.0 pour le remplissage) : remplissage automatique (note 60),
+  rapprochement des MAC aléatoires par nom d’hôte et numéro de série, export compatible
+  NetBox, GLPI et Snipe-IT (CSV aux bons noms de colonnes).
+- **Accès distant** (0.30.0) : nom d’utilisateur retenu aussi pour RDP et SFTP, import de
+  `~/.ssh/config`, tunnels (note 66), commande envoyée à plusieurs sessions (note 67),
+  XMODEM/YMODEM et horodatage des lignes en console série ; presse-papiers VNC au-delà du texte
+  plus tard (le Break et le préréglage Cisco/Fortinet sont livrés dans la 0.22.0).
+- **Trafic** (0.25.0) : secours par les compteurs SNMP des interfaces (note 74) ; seuils sur un
+  écart dans le temps plutôt que « 1 000 erreurs depuis le démarrage ».
+- **Vitesse des disques** (plus tard) : SFTP et FTP comme emplacements (le client existe
+  déjà). Le reste suffit.
+
+## 79. Allègements proposés — à décider (analyse du marché, à valider par Dany)
+
+Outils inutiles ou redondants dans NetScope, et ce qu’il vaut mieux ne pas faire.
+
+### Dans NetScope
+
+- **Deux « analyses »** (écran Analyse et « Analyse complète du réseau » de Trafic) : même nom
+  pour deux choses différentes. **Décision en attente : renommer** l’écran Analyse en
+  « Historique et adressage » et la note sur 100 en « Bilan de santé », placée aussi en tête de
+  l’écran Analyse ou du rapport.
+- **Test MTU** dans la Boîte à outils : il ne mesure rien. Le rendre réel (note 78, 0.26.0),
+  sinon le retirer et garder le préréglage de la note 11.
+- **Ookla par sa CLI** dans Speedtest : dépend d’un binaire Homebrew, et sa licence semble
+  limitée à un usage personnel non commercial (à vérifier). Trois moteurs suffisent.
+  **Décision en attente : cacher par défaut, ou retirer** après vérification de la licence.
+- **Services en ligne grand public** (TikTok, Snapchat, Grok, Meta) : peu utiles chez une
+  entreprise. Les garder (note 53, demandée par Dany) mais masqués par défaut.
+- **Sept outils de courriel** côte à côte : le Super outil fait déjà MX, SPF, DKIM, DMARC et
+  listes noires. **Décision en attente : regrouper** en un outil « Courriel » à onglets (Super
+  outil, Diagnostic SMTP, Analyse d’en-têtes).
+- **Ressources de ce Mac** : le Moniteur d’activité fait la même chose ; la valeur est dans les
+  agents SNMP. Garder, en second plan, sans plus y investir.
+- **TFTP** : vérifier qu’il n’existe qu’une seule entrée dans la Boîte à outils.
+- **« Ouvrir dans Terminal » et « Partage d’écran »** dans le menu de « Connecter » : redondants
+  avec les sessions intégrées de la 0.22.0, mais utiles tant que celles-ci ne sont pas
+  éprouvées. Les garder en secours ; revoir après les essais réels.
+- **Note 6 (RustDesk)** : le client RustDesk fait déjà tout ; la garder petite (carnet et
+  lancement par `rustdesk://`).
+
+### À ne pas faire
+
+- Un scanner de vulnérabilités avec base de CVE (base tierce à tenir à jour) : l’empreinte
+  légère (note 68) et les ports risqués suffisent.
+- Une détection d’OS au niveau de Nmap : travail sans fin sans sa base d’empreintes.
+- RDP natif : déjà écarté par la note 57.
+- Le mode moniteur Wi-Fi ou une capture 802.11 : impossible sans droits sur un macOS récent
+  (Airtool le fait).
+- La planification Wi-Fi prédictive façon Ekahau ou Hamina : un autre métier ; le relevé sur
+  plan suffit.
+- Le travail d’équipe (coffre partagé, rôles, SSO) : Dany travaille seul.
+- Un filtre d’affichage Wireshark complet ou le déchiffrement TLS : renvoyer vers Wireshark.
+- Un SaaS ou un collecteur multi-sites façon Domotz ou Auvik : hors de la philosophie locale ;
+  l’agent local (note 64) est la limite.

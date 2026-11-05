@@ -1,160 +1,253 @@
 # NetScope
 
-Application macOS native pour le technicien réseau : découverte des appareils sur plusieurs
-plages, emplacement physique (switch et port), diagnostic (ping continu, Wi-Fi, outils),
-surveillance, rapports et accès distant, le tout en français.
+**L’outil du technicien réseau, natif sur Mac et en français.** NetScope découvre les appareils
+sur plusieurs plages, dit sur quel switch et quel port chacun est branché, puis diagnostique,
+surveille, documente et ouvre une session à distance, site par site, dans une seule fenêtre.
 
-![NetScope](docs/capture.png)
+[![Version](https://img.shields.io/badge/version-0.22.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
+[![macOS](https://img.shields.io/badge/macOS-14%2B-lightgrey?logo=apple)](#installation)
+[![Licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
+
+![NetScope : le Scanner avec trois plages, le switch et le port de chaque appareil](docs/captures/01-scanner.png)
+
+[Télécharger NetScope.dmg](https://github.com/mdany75/NetScope/releases/latest/download/NetScope.dmg)
+· [Nouveautés](CHANGELOG.md) · [Feuille de route](docs/feuille-de-route.html)
+
+## Pourquoi NetScope
+
+- **« Sur quel port est branché cet appareil ? »** : NetScope répond par SNMP (plusieurs
+  marques) et, pour les FortiSwitch, par l’API de la FortiGate, même quand le réseau FortiLink
+  n’est pas joignable depuis le Mac. À notre connaissance, aucun autre outil Mac ne le fait.
+- **Plusieurs clients sans mélange, sans nuage** : chaque site garde ses plages, sa FortiGate,
+  ses switchs, ses résultats et son inventaire, même quand deux sites utilisent les mêmes
+  adresses. Tout reste sur le Mac (synchronisation iCloud Drive entre tes Mac en option), sans
+  abonnement par site.
+- **Fortinet en profondeur, en lecture seule** : FortiSwitch, bornes FortiAP, liens WAN et VPN,
+  FortiView, firmware, licences et journaux, lus par l’API sans jamais rien modifier.
+- **Une seule fenêtre pour tout le travail** : scan, ping, Wi-Fi, outils de diagnostic,
+  rapports PDF, et depuis la 0.22.0 terminal SSH et Telnet, console série et VNC intégrés.
+
+> **État du projet** : NetScope est en développement actif (0.x). Les fonctions réseau
+> (FortiGate, FortiAP, SNMP, Syslog, sessions SSH, Telnet, série et VNC) sont testées sur des
+> données de démonstration et attendent encore des essais sur de vrais équipements ; voir les
+> limites connues dans le [CHANGELOG](CHANGELOG.md).
 
 ## Fonctions
 
-Version 0.22.0 : les écrans fonctionnent, au style Mac (mode sombre, petite fenêtre), avec des tableaux à colonnes réglables. Nouveau dans la 0.22.0 : dans Accès distant, « Connecter » ouvre SSH, Telnet et la console série dans un terminal intégré à NetScope (onglets de session, empreinte SSH à approuver, mots de passe au Trousseau, journal de session, extraits de commandes Cisco, FortiGate, Aruba et Linux) et les connexions VNC dans une session intégrée (qualité adaptative, mise à l’échelle, plein écran, Ctrl-Alt-Suppr, observation seule, presse-papiers texte) ; RDP reste dans Windows App. Depuis la 0.21.0 : l’outil « Firmware et licences » (versions FortiOS, FortiSwitch et FortiAP de chaque site, état « à jour », licences FortiGuard et FortiCare avec alertes avant l’expiration, en lecture seule), un écran « Journaux » qui reçoit le Syslog et les traps SNMP sur ce Mac et lit les journaux d’événements de la FortiGate, avec « Comprendre une coupure », et, dans le Ping continu, la pause d’une cible seule, un tableau MTR complet qui défile à gauche et à droite et un écran qui s’ouvre vide. Depuis la 0.20.3 : l’onglet Ressources mesure l’activité des disques (lecture, écriture, occupation) et place le réseau et les disques côte à côte. Depuis la 0.20.2 : dans le Ping continu, un clic retourne la carte d’une cible pour voir ses réponses comme dans Terminal, avec son traceroute et le journal dessous ; l’onglet Ressources de la fiche Appareil montre des jauges rondes (processeur, mémoire, disque, réseau). Depuis la 0.20.1 : le site actif, sous le logo, montre ses plages et un résumé (la section « Sites » de la barre latérale est retirée), et Speedtest et iperf3 sont des outils de la Boîte à outils. Depuis la 0.20.0 : dans les Rapports, une section « Depuis le dernier rapport » (appareils nouveaux, disparus et changés, problèmes réglés et nouveaux), la liste des rapports passés par site et des rapports planifiés par site (chaque jour, semaine ou mois, produits quand NetScope est ouvert, à partir du dernier scan) ; dans l’Inventaire, l’ajout à la main d’un appareil absent des scans (rapproché ensuite par MAC ou IP), le choix de ce qui entre dans l’inventaire, l’archivage restaurable et la liste « Ne plus réajouter », le déplacement vers un autre site, une fiche matériel avec garantie, des pièces jointes, des étiquettes et un menu « Filtrer ». Depuis la 0.18.0 : des connexions FTP, FTPS et SFTP dans Accès distant (navigateur de fichiers en deux volets Ce Mac ↔ serveur, glisser-déposer, file des transferts avec reprise, mots de passe au Trousseau, serveur FTP temporaire sur le Mac) ; un outil « TFTP » (serveur temporaire sur le port 69 sans droits administrateur, client get et put, options pour les gros firmwares, journal par site, cas d’usage Cisco, Aruba, FortiGate et téléphones IP) ; dans l’État des services, les réseaux sociaux et les assistants IA, un état « Bloqué ici » qui distingue le filtrage de la FortiGate d’une vraie panne, et des services masqués par site ; dans Vitesse des disques, « Ajouter un emplacement… » pour un NAS ou un partage SMB, NFS, AFP ou WebDAV (montage automatique, « Tester le serveur ») ; et, dans Réglages, l’export et l’import de toute la configuration (fichier chiffré dès qu’un secret est inclus, aperçu avant l’import) et une synchronisation entre vos Mac par iCloud Drive, site par site. Depuis la 0.17.0 : la relecture automatique de la FortiGate, des bornes FortiAP et des switchs du site actif (intervalle réglable par site, pause hors du site actif, pendant un scan ou hors réseau) ; l’outil « WAN et VPN » (liens WAN et SD-WAN avec latence, gigue, perte et SLA, tunnels IPsec, utilisateurs VPN SSL, vue de tous les sites) ; un écran « Trafic » qui lit FortiView (sources, applications, destinations, menaces), répond à « Qui sature le lien ? » et propose une « Analyse complète du réseau » notée sur 100 ; avec de nouvelles sondes de Surveillance et sections de Rapports, en lecture seule. Depuis la 0.16.0 : les clients Wi-Fi des bornes FortiAP par borne, par radio et par SSID, une fiche complète de chaque client (débits, standard, authentification, itinérances) avec l’historique de son signal, une section Wi-Fi dans la fiche Appareil, et un bouton « Diagnostiquer » sur un client, une borne ou un SSID qui vérifie chaque cause possible (signal, canal, interférences, charge, poste, authentification, DHCP, réseau au-delà du Wi-Fi) et propose les actions dans l’ordre, en lecture seule, avec suivi dans le temps et section de rapport. Depuis la 0.15.0 : le site actif se choisit sous le logo NetScope (pastille de sa FortiGate, recherche, « Détecter mon site », menu « Site » et ⌘⇧S, nom du site dans le titre de la fenêtre) ; Switchs et ports et Wi-Fi › FortiAP montrent un autre site, ou plusieurs, sans changer le site actif, avec une colonne « Site » et une lecture à la demande ; le bouton ‹ Retour nomme l’écran d’origine et retrouve la ligne choisie ; et chaque connexion SSH rapide demande le nom d’utilisateur (prérempli, retenu par appareil, forme « admin@10.0.0.2:2222 », commande affichée avant l’ouverture, aucun mot de passe retenu). Depuis la 0.14.0 : la recherche de la Carte du réseau trouve un appareil, centre la carte sur lui et affiche sa fiche (précédent / suivant, autres sites) ; un type « Téléphone IP » détecté automatiquement (fabricant, SIP, LLDP / CDP, VLAN voix) ; l’outil « Étendues DHCP » montre l’occupation de chaque étendue de la FortiGate, avec sonde de Surveillance et section de rapport ; et les sauvegardes peuvent être chiffrées par mot de passe (AES-GCM 256 bits), jetons et secrets inclus en option pour un deuxième Mac. Depuis la 0.13.0 : un double-clic (ou ↩︎) sur n’importe quel élément mène à sa suite logique (appareil vers sa fiche, port d’un switch vers l’appareil branché, groupe de la Carte vers l’Inventaire filtré sur ces appareils), un menu « Ouvrir dans › » propose les autres modules, et Retour / Avancer (⌘[ et ⌘]) ramènent à l’écran d’avant avec sa recherche et sa sélection ; les gros sites (milliers d’appareils, 20 sites) restent fluides. Depuis la 0.12.0 : des sites (un par client ou par lieu) avec leurs plages, leurs FortiGate, leurs switchs SNMP et leur propre inventaire, choisis dans le Scanner ou reconnus par la passerelle (jamais par la seule IP) ; changer de site met les résultats de côté sans mélanger deux sites, même sur les mêmes plages IP. On peut aussi supprimer des appareils de l’inventaire (sélection multiple, annulable) et afficher un, plusieurs ou tous les sites dans l’Analyse, l’Inventaire, la Carte et les Rapports. Depuis la 0.11.0 : une recherche multiple dans tous les modules (plusieurs mots, préfixes comme « switch:SW-ETG2 type:imprimante », « ip:10.20.0.0/16 » ou « vlan:30 », exclusion par « - », étiquettes retirables) et, dans le module Wi-Fi, les bornes FortiAP de chaque site lues par sa FortiGate en lecture seule (clients, SSID, AP voisins ou non autorisés), avec un diagnostic des canaux, des signaux faibles et des bornes surchargées. Depuis la 0.10.0 : plusieurs FortiGate, une par site, chacune avec son jeton au Trousseau et ses plages couvertes ; à la fin d’un scan, seules celles qui couvrent les plages scannées sont lues (import et export CSV de la liste, « Tester tout »). Depuis la 0.9.0 : les FortiSwitch gérés par une FortiGate (FortiLink) sont lus par l’API REST de la FortiGate, en lecture seule (jeton au Trousseau), et remplissent Switchs et ports ainsi que les colonnes Switch / Port et VLAN du Scanner, même si le réseau FortiLink n’est pas joignable depuis le Mac. Depuis la 0.8.0 : des Réglages complets (notifications choisies avec heures « Ne pas déranger », raccourcis modifiables et menus Scan, Appareil et Aller, sauvegarde automatique avec restauration, test SNMP v2c/v3, identifiants SSH et WMI, méthodes de découverte par profil) et des alertes hors du Mac par courriel et webhook Teams, Slack ou JSON. Depuis la 0.7.0 : « Capture de paquets » façon Wireshark (filtres, détail par couche, vue hexadécimale, suivi de flux, statistiques, .pcap) et « Vitesse des disques » (disques internes et externes, partages réseau, dossiers nuage) dans la Boîte à outils. Depuis la 0.6.0 : « État des services » (Microsoft 365, Azure, Apple, AWS, Google, Cloudflare… vus par leur page officielle et testés depuis votre réseau) et un groupe « Courriel » dans la Boîte à outils (santé d’un domaine sur 100, MX, listes noires, SPF/DKIM/DMARC, diagnostic SMTP, analyse d’en-têtes), avec une Recherche DNS plus complète (SOA, SRV, CAA, DNSSEC, comparaison et propagation). La suite prévue est dans
-[docs/A-FAIRE.md](docs/A-FAIRE.md).
+### Découverte
 
-- **Scanner multi-plages qui se remplit tout seul** : plusieurs plages à la fois, ping ICMP
-  sans droits administrateur, table ARP, noms d’hôte (DNS inverse, mDNS/Bonjour, NetBIOS,
-  sysName SNMP, avec leur source), 22 ports essentiels sondés à chaque scan, fabricant, type
-  d’appareil ; étapes visibles (Ping → Table ARP → Noms et ports → Switchs (SNMP) →
-  Emplacements), filtres, tri, panneau de détail, export CSV.
-- **Fabricants d’après le registre IEEE complet** : environ 53 700 préfixes MAC (MA-L, MA-M
-  et MA-S, plus long préfixe d’abord) fournis avec l’application ; Réglages › Général › Base
-  des fabricants affiche la source et met la base à jour depuis l’IEEE, seulement sur demande.
-- **Découverte automatique des switchs** (activée par défaut) : pendant chaque scan,
-  NetScope interroge en SNMP v2c lecture seule les appareils en ligne aux adresses privées
-  (jamais vers Internet ; communauté des
-  Identifiants, puis « public » ou la liste de Réglages › Switchs), ajoute les switchs qui
-  répondent, relève leurs tables MAC, complète les MAC des autres VLAN par l’ARP SNMP de la
-  passerelle et des switchs de niveau 3, puis remplit les colonnes **Switch / Port** et
-  **VLAN** de chaque appareil. Un switch retiré à la main n’est plus interrogé (« Ne plus
-  ignorer » dans Réglages › Switchs). Limite : mDNS ne répond pas d’un VLAN à l’autre ; sur
-  les autres VLAN, les noms viennent du DNS inverse, de NetBIOS (Windows) et du sysName SNMP.
-- **Surveillance** : sondes Ping, TCP, HTTP(S) (certificat qui expire, mot-clé), DNS, SNMP,
-  port de switch et nouveaux appareils, avec seuils, plage horaire et dépendance ; barre de
-  disponibilité 24 h, journal des alertes, notifications macOS et **icône dans la barre de
-  menus** ; les sondes continuent fenêtre fermée.
-- **Trafic, WAN et VPN** (FortiGate, lecture seule) : écran « Trafic » lu par FortiView
-  (sources, applications, destinations, menaces), « Qui sature le lien ? » et « Analyse
-  complète du réseau » notée sur 100 ; outil « WAN et VPN » (liens SD-WAN, tunnels IPsec, VPN
-  SSL) pour un, plusieurs ou tous les sites ; relecture automatique du site actif.
-- **Rapports** : rapport client en **PDF** (format lettre, « Page N de M », signature),
-  quatre modèles, sections tirées du scan, de l’inventaire, des switchs et du Wi-Fi ; exports
-  CSV, JSON et HTML ; brouillon Mail avec le PDF joint (rien n’est envoyé sans toi) ;
-  section « Depuis le dernier rapport », rapports passés par site et rapports planifiés
+- Plusieurs plages IPv4 à la fois (`10.0.0.0/24`, `192.168.1.1-254`, liste…), ping ICMP sans droits
+  administrateur, table ARP et 22 ports essentiels sondés à chaque scan.
+- Nom de chaque appareil avec sa source (DNS inverse, mDNS/Bonjour, NetBIOS, sysName SNMP),
+  fabricant d’après le registre IEEE complet (environ 53 700 préfixes) et type d’appareil.
+- Colonnes **Switch / Port** et **VLAN** remplies seules : découverte SNMP v2c des switchs
+  pendant le scan, ou FortiSwitch lus par la FortiGate.
+- Sites avec leurs plages et leur FortiGate, reconnus par la passerelle ; recherche multiple
+  dans tous les modules (`switch:`, `type:`, `ip:`, `vlan:`, `-mot`…).
+- **Carte du réseau** hiérarchique (Internet, passerelle, switchs, bornes, groupes d’appareils)
+  et **Inventaire** permanent : chronologie des changements d’IP et de port, garantie, pièces
+  jointes, étiquettes, import et export CSV.
+
+### Diagnostic
+
+- **Ping continu** jusqu’à 9 cibles : statistiques (min, moyenne, max, gigue, perte, P95),
+  journal des coupures, vue façon Terminal, traceroute et MTR.
+- **Fiche Appareil** : réseau, matériel, emplacement physique, ports et bannières, sonde web,
+  notes, et onglet **Ressources** (processeur, mémoire, disques et trafic par SNMP).
+- Capture **LLDP/CDP** : le switch, le port, le VLAN et le PoE où ce Mac est branché.
+- **Test DHCP** sans prendre de bail, avec alerte si un serveur n’est pas autorisé.
+
+### Wi-Fi
+
+- Connexion de ce Mac (RSSI, bruit, SNR, canal, débit), réseaux voisins et graphe des canaux
+  2,4, 5 et 6 GHz, avec recommandations.
+- **Bornes FortiAP** de chaque site : état, radios, clients, SSID, AP voisins ou non autorisés.
+- **« Diagnostiquer »** un client, une borne ou un SSID : signal, canal, interférences, charge,
+  authentification, DHCP, puis les actions à faire dans l’ordre.
+
+### Fortinet (lecture seule)
+
+- Plusieurs FortiGate, une par site, chacune avec son jeton au Trousseau.
+- FortiSwitch gérés par FortiLink dans Switchs et ports et dans le Scanner.
+- Outil **WAN et VPN** : liens WAN et SD-WAN (latence, gigue, perte, SLA), tunnels IPsec,
+  utilisateurs VPN SSL, pour un site ou tous.
+- **Firmware et licences** : versions FortiOS, FortiSwitch et FortiAP, licences FortiGuard et
+  FortiCare avec alerte avant l’expiration.
+- **Étendues DHCP** de la FortiGate, avec leur taux d’occupation.
+
+### Suivi
+
+- **Surveillance** : sondes ping, TCP, HTTP(S) (certificat, mot-clé), DNS, SNMP, port de switch,
+  nouveaux appareils, licences et plus, avec seuils, plages horaires et dépendances ;
+  disponibilité sur 24 h et icône dans la barre des menus.
+- Alertes par notification macOS, courriel ou webhook (Teams, Slack, JSON).
+- **Journaux** : récepteur Syslog et traps SNMP sur ce Mac, journaux d’événements de la
+  FortiGate et « Comprendre une coupure ».
+- **Trafic** lu par FortiView (sources, applications, destinations, menaces), « Qui sature le
+  lien ? » et « Analyse complète du réseau » notée sur 100.
+
+### Accès distant
+
+- Carnet de connexions par site (SSH, Telnet, série, RDP, VNC, FTP, FTPS, SFTP), rempli depuis
+  le scan.
+- **Terminal intégré en onglets** pour SSH, Telnet et la console série : empreinte SSH à
+  approuver, mots de passe au Trousseau, journal de session, extraits de commandes Cisco,
+  FortiGate, Aruba et Linux.
+- **Session VNC intégrée** : qualité adaptative, mise à l’échelle, plein écran, Ctrl-Alt-Suppr,
+  observation seule, presse-papiers texte. RDP s’ouvre dans Windows App.
+- Navigateur de fichiers en deux volets (FTP, FTPS, SFTP) et serveur FTP temporaire.
+
+### Rapports
+
+- Rapport client en **PDF** (format lettre, pagination, signature), quatre modèles et des
+  sections tirées du scan, de l’inventaire, des switchs et du Wi-Fi.
+- Exports CSV, JSON et HTML ; brouillon Mail avec le PDF joint.
+- Section « Depuis le dernier rapport », rapports passés par site et rapports planifiés
   (chaque jour, semaine ou mois, quand NetScope est ouvert).
-- **Test DHCP** : tous les serveurs DHCP qui répondent, avec leur offre, et alerte si un
-  serveur n’est pas autorisé (jamais de bail accepté).
-- **Capture LLDP/CDP** : le switch, le port, le VLAN et le PoE où ce Mac est branché, sans
-  SNMP. Il faut l’accès BPF (ChmodBPF de Wireshark) ou l’autorisation d’administrateur de
-  macOS, demandée une fois par capture.
-- **Ping continu** multi-cibles (intervalle, taille de paquet pour le test MTU), statistiques
-  (min, moyenne, max, gigue, perte, P95), graphes, journal des coupures, **traceroute et MTR**.
-- **Switchs et ports** : client SNMP v2c intégré (table MAC BRIDGE-MIB / Q-BRIDGE-MIB, LLDP,
-  interfaces, PoE) pour savoir **sur quel port de quel switch** chaque appareil est branché ;
-  switchs découverts automatiquement ou ajoutés à la main, façade du switch dessinée,
-  recherche par IP ou MAC ; **FortiSwitch gérés par une FortiGate** lus par l’API REST de la
-  FortiGate (Réglages › Switchs › Contrôleurs FortiGate, une par site choisie d’après les
-  plages scannées, lecture seule, empreinte du certificat acceptée une fois, aide pour créer
-  l’administrateur API).
-- **Wi-Fi** : connexion actuelle (RSSI, bruit, SNR, canal, débit), analyse des réseaux
-  voisins, graphe des canaux 2,4 / 5 / 6 GHz, recommandations ; **bornes FortiAP** de chaque
-  site lues par sa FortiGate (état, radios, clients, SSID, AP voisins ou non autorisés),
-  diagnostic automatique (chevauchements de canal, signal faible, bornes hors ligne ou
-  surchargées) et borne / SSID de chaque appareil en Wi-Fi dans le Scanner.
-- **Fiche appareil** : réseau, matériel, emplacement physique, ports et services avec
-  bannières, sonde web, notes.
-- **Boîte à outils** : calculateur de sous-réseaux avec découpage, convertisseur MAC/OUI,
-  scan de ports, DNS (A, AAAA, MX, PTR, TXT, NS, CNAME), Whois, Wake-on-LAN.
-- **Inventaire permanent** : tous les appareils jamais vus, champs éditables (local, prise,
-  responsable…), chronologie des changements (IP, port de switch, hors ligne), import et
-  export CSV ; appareils ajoutés à la main, archivage restaurable et
-  « Ne plus réajouter », déplacement vers un autre site, fiche matériel avec garantie, pièces
-  jointes, étiquettes et filtres.
-- **Analyse** : indicateurs, carte d’occupation de la plage, répartition par fabricant et par
-  type, alertes (nouvel appareil, conflit IP…), comparaison de deux scans.
-- **Carte du réseau** construite à partir du scan (passerelle, switchs, groupes d’appareils).
-- **Accès distant** : connexions SSH, Telnet, console série, RDP et VNC enregistrées par site,
-  ouvertes dans des **onglets de session intégrés** : terminal xterm-256color pour SSH, Telnet
-  et la console série (journal de session, extraits de commandes), session VNC dans NetScope
-  (qualité adaptative, plein écran, observation seule) ; RDP dans Windows App, Terminal et
-  Partage d’écran restent au menu de « Connecter » ; import depuis le scan.
-- **Speedtest** (Boîte à outils) : débit Internet (multi-flux, latence au repos et en charge, gigue) par
-  Cloudflare, M-Lab (NDT7), LibreSpeed ou Ookla (si son outil officiel est installé), choix du
-  serveur (automatique, favoris, personnalisé), débit local avec iperf3, historique comparé par
-  serveur ; bouton « Installer » (Homebrew, dans Terminal) pour iperf3, telnet et Ookla.
-- **Ressources** : processeur, mémoire et débit des interfaces de ce Mac (sans trafic) et des
-  appareils SNMP (HOST-RESOURCES-MIB, Cisco, Fortinet, HPE, IF-MIB), ports les plus chargés
-  d’un switch, courbes des 5 dernières minutes, export CSV, tuile dans la barre de menus et
-  sondes de Surveillance.
-- **PoE** : « Suis-je sur un port PoE ? » pour ce Mac (capture LLDP/CDP), PoE de chaque port
-  de switch (watts réels sur Cisco et HPE/Aruba) et colonne « PoE » du Scanner.
-- **Mise à jour automatique** depuis les Releases GitHub (canal Stable ou Bêta, vérification
-  de la signature avant installation), menu « Rechercher les mises à jour… ».
-- Barre latérale à quatorze écrans, fidèle aux croquis.
-- Interface active affichée en bas de la barre latérale (« en0 · 10.182.122.135 · Wi-Fi »),
-  avec la version et une pastille quand une mise à jour est disponible.
-- Recherche multiple dans tous les modules : plusieurs mots à la fois, préfixes de champ
-  (`switch:`, `type:`, `ip:`, `mac:`, `vlan:`, `fab:`, `site:`…), `-mot` pour exclure et
-  "phrase exacte" ; chaque critère en étiquette retirable.
-- Plages à scanner sous toutes les formes courantes : `10.182.122.0/24`, `192.168.1.1-254`,
-  `10.10.0.1-10.10.0.50`, `10.0.0.5`, ou une liste ; limite de sécurité de 65 536 adresses.
-- Calculateur de sous-réseaux : réseau, masque, masque inverse, broadcast, premier et dernier
-  hôte, nombre d’hôtes, classe, privé ou public, masque en binaire, découpage.
-- Reconnaissance des adresses MAC privées (aléatoires).
-- Au premier lancement, la plage proposée est celle du réseau de l’interface active.
-- Plages enregistrées et noms personnalisés conservés d’un lancement à l’autre.
 
-## Installer
+### Boîte à outils
+
+- Calculateur de sous-réseaux avec découpage, convertisseur MAC/OUI, scan de ports, Wake-on-LAN.
+- DNS complet (comparaison, propagation, DNSSEC), Whois et outils **Courriel** (santé d’un
+  domaine sur 100, MX, listes noires, SPF/DKIM/DMARC, diagnostic SMTP, en-têtes).
+- **Speedtest** (Cloudflare, M-Lab, LibreSpeed, Ookla) et iperf3 ; **État des services** en
+  ligne (Microsoft 365, Apple, AWS, Google…).
+- **Capture de paquets** (filtres, détail par couche, suivi de flux, .pcap), serveur et client
+  **TFTP**, **Vitesse des disques** (local, NAS, partage réseau).
+
+## Captures
+
+Toutes les captures utilisent les données de démonstration (`--demo`) ; aucune ne montre un
+vrai réseau.
+
+| | |
+| --- | --- |
+| ![Scanner](docs/captures/01-scanner.png) | ![Carte du réseau](docs/captures/02-carte.png) |
+| **Scanner** : trois plages, 21 appareils avec switch, port et VLAN, fiche de l’imprimante. | **Carte du réseau** : de l’Internet aux groupes d’appareils, avec le conflit IP signalé. |
+| ![Inventaire](docs/captures/03-inventaire.png) | ![Fiche Appareil](docs/captures/04-appareil-apercu.png) |
+| **Inventaire** : appareils connus, favoris, alertes et chronologie d’un appareil. | **Fiche Appareil** : réseau, matériel, emplacement (switch et port), services. |
+| ![Ressources](docs/captures/05-appareil-ressources.png) | ![Ping continu](docs/captures/06-ping-terminal.png) |
+| **Ressources** : jauges processeur et mémoire, courbes sur 5 minutes, trafic d’interface. | **Ping continu** : six cibles, une carte retournée en vue Terminal, MTR et journal. |
+| ![Switchs et ports](docs/captures/07-switchs.png) | ![Wi-Fi FortiAP](docs/captures/08-wifi-fortiap.png) |
+| **Switchs et ports** : « Ce Mac est branché sur… » et les switchs avec leur budget PoE. | **Wi-Fi, FortiAP** : bornes, clients par radio et conseils (AP non autorisé, canaux). |
+| ![Firmware et licences](docs/captures/09-outils-firmware.png) | ![Étendues DHCP](docs/captures/10-outils-dhcp.png) |
+| **Firmware et licences** : versions Fortinet et licence qui expire bientôt. | **Étendues DHCP** : occupation de chaque étendue, avec une étendue critique. |
+| ![Surveillance](docs/captures/11-surveillance.png) | ![Journaux et traps](docs/captures/12-journaux.png) |
+| **Surveillance** : sondes avec disponibilité sur 24 h, éditeur de sonde, alertes. | **Journaux et traps** : Syslog, traps et FortiGate regroupés. |
+| ![Analyse du trafic](docs/captures/13-trafic-analyse.png) | ![Rapports](docs/captures/14-rapports.png) |
+| **Trafic, analyse complète** : note sur 100 et constats classés. | **Rapports** : modèle, choix des sections et aperçu du PDF. |
+| ![Terminal SSH](docs/captures/15-acces-terminal.png) | ![Session VNC](docs/captures/16-acces-vnc.png) |
+| **Terminal SSH intégré** : sortie en couleurs, extraits de commandes, onglets. | **Session VNC intégrée** : bureau distant, qualité et mise à l’échelle. |
+| ![Scanner en mode sombre](docs/captures/20-scanner-sombre.png) | ![Carte en mode sombre](docs/captures/21-carte-sombre.png) |
+| **Mode sombre** : le Scanner. | **Mode sombre** : la Carte du réseau. |
+| ![Terminal en mode sombre](docs/captures/22-acces-terminal-sombre.png) | |
+| **Mode sombre** : le terminal SSH. | |
+
+## Installation
 
 Télécharge [NetScope.dmg](https://github.com/mdany75/NetScope/releases/latest/download/NetScope.dmg)
-(toujours la dernière version), ouvre-le et glisse NetScope dans Applications.
+(toujours la dernière version), ouvre-le et glisse NetScope dans Applications. Les mises à jour
+suivantes arrivent par le menu « Rechercher les mises à jour… » (canal Stable ou Bêta, signature
+vérifiée avant l’installation).
 
-Configuration requise : macOS 14 ou plus récent. Au premier scan, macOS demande l’accès au
-réseau local ; pour lire le nom des réseaux Wi-Fi, il demande aussi la localisation (bouton
-« Autoriser la localisation » de l’écran Wi-Fi). La Surveillance demande l’autorisation des
-notifications, et le plein écran VNC celle de l’Accessibilité.
+**Configuration requise** : macOS 14 (Sonoma) ou plus récent.
 
-## Reconstruire
+**Autorisations demandées par macOS** :
 
-Outils de ligne de commande Xcode (Swift 6 ou plus récent). Aucune dépendance externe.
+- l’accès au réseau local, au premier scan ;
+- la localisation, pour lire le nom des réseaux Wi-Fi (bouton « Autoriser la localisation » de
+  l’écran Wi-Fi) ;
+- les notifications, pour la Surveillance ;
+- l’Accessibilité, pour ouvrir Partage d’écran (app d’Apple) en plein écran ; la session VNC
+  intégrée n’en a pas besoin ;
+- l’accès BPF (ChmodBPF de Wireshark) ou l’autorisation d’administrateur, pour la capture
+  LLDP/CDP et la capture de paquets.
+
+## Démarrage rapide
+
+1. **Premier scan** : au premier lancement, la plage proposée est celle du réseau de
+   l’interface active. Clique sur Scanner : ping, table ARP, noms et ports, switchs (SNMP),
+   puis emplacements s’affichent au fur et à mesure.
+2. **Sites** : crée un site par client ou par lieu (sous le logo NetScope, ou ⌘⇧S), avec ses
+   plages. NetScope le reconnaît ensuite par sa passerelle et garde ses résultats à part.
+3. **FortiGate en lecture seule** : dans Réglages › Switchs › Contrôleurs FortiGate, ajoute la
+   FortiGate du site avec un jeton d’API. L’aide de l’écran explique comment créer un
+   administrateur API en lecture seule. FortiSwitch, FortiAP, WAN, trafic et firmware se
+   remplissent alors seuls.
+
+## Confidentialité et sécurité
+
+- **Secrets au Trousseau** : jetons FortiGate et mots de passe des connexions sont rangés
+  dans le Trousseau de macOS. Les sauvegardes et exports qui incluent un
+  secret sont chiffrés (AES-GCM 256 bits).
+- **Lecture seule chez Fortinet** : NetScope lit la FortiGate par son API et ne modifie rien.
+  L’empreinte de son certificat est acceptée une fois, de façon explicite.
+- **Rien n’est envoyé sans toi** : pas de compte, pas de serveur NetScope, pas de télémétrie ;
+  la synchronisation par iCloud Drive et les alertes par courriel ou webhook ne fonctionnent que
+  si tu les actives. Le scan reste sur les plages choisies, la découverte SNMP ne vise que des
+  adresses privées, les rapports partent en brouillon Mail et la base des fabricants n’est mise
+  à jour que sur demande. La vérification des mises à jour (GitHub) se désactive dans Réglages.
+- Chaque nouvelle empreinte SSH est montrée avant la connexion, pour que tu l’approuves.
+
+## Feuille de route
+
+La feuille de route complète est dans [docs/feuille-de-route.html](docs/feuille-de-route.html),
+et le détail des notes dans [docs/A-FAIRE.md](docs/A-FAIRE.md). Les prochaines versions prévues :
+
+- **0.23.0, fiabilité terrain** : journal de l’app et « Exporter un diagnostic », corrections
+  issues des essais sur une vraie FortiGate, fiche matériel remplie automatiquement.
+- **0.24.0, sauvegarde des configurations** : FortiGate par l’API, puis switchs en SSH ; export
+  de la carte et section « Carte » du rapport.
+- **0.25.0, SNMP complet** : SNMP v3 partout, navigateur SNMP et graphes de bande passante par
+  port.
+
+## Construire depuis les sources
+
+Il faut les outils de ligne de commande Xcode (Swift 6 ou plus récent). Aucune dépendance
+externe, aucun projet Xcode : tout passe par SwiftPM.
 
 ```bash
 ./build.sh            # produit build/NetScope.dmg
 ./build.sh --install  # remplace aussi /Applications/NetScope.app
 ```
 
-Captures de chaque écran, hors écran, avec les données de démonstration des croquis :
-
-```bash
-swift build && ./.build/debug/NetScope --snapshot /tmp/netscope-snap --demo
-```
-
-## Tests
+### Tests
 
 ```bash
 swift build && ./.build/debug/NetScopeSelfTest
 ```
 
-Les tests portent sur le moteur (adresses, plages, sous-réseaux, MAC, fabricants, scan, ping, SNMP, DNS, mise à jour, inventaire, Speedtest, accès distant, DHCP, LLDP/CDP, surveillance, rapports). Ils
-n’envoient rien sur le réseau : aucun scan, aucune requête, sauf éventuellement vers 127.0.0.1.
+Les tests portent sur le moteur (adresses, plages, sous-réseaux, MAC, fabricants, scan, ping,
+SNMP, DNS et courriel, Fortinet (FortiSwitch, FortiAP, WAN, firmware, trafic), journaux, sites,
+inventaire, sauvegarde chiffrée, mise à jour, Speedtest, accès distant (terminal, VNC, transferts
+de fichiers, TFTP), DHCP, LLDP/CDP, capture de paquets, surveillance, rapports). Ils n’envoient rien sur le réseau, sauf éventuellement vers 127.0.0.1.
 
-## Organisation
+### Captures
 
-- `Sources/NetScopeCore/` : moteur réseau sans interface (Foundation, Network, Darwin), un
+Une capture de chaque écran, hors écran, avec les données de démonstration :
+
+```bash
+swift build && ./.build/debug/NetScope --snapshot /tmp/netscope-snap --demo
+# options : --appearance dark|light, --size 1000x650
+```
+
+### Organisation
+
+- `Sources/NetScopeCore/` : moteur réseau sans interface (Foundation, Network, Darwin), un
   dossier par module (`Addressing/`, `Hardware/`, `Models/`, `System/`…)
-- `Sources/NetScope/` : application SwiftUI ; `Theme.swift`, `Sidebar.swift`, `AppState.swift`,
+- `Sources/NetScope/` : application SwiftUI ; `Theme.swift`, `Sidebar.swift`, `AppState.swift`,
   `Shared/Components.swift`, un fichier par écran dans `Screens/`, outils de développement dans
   `DevTools/` (captures, démonstration)
-- `Sources/NetScopeSelfTest/` : tests du moteur (exécutable, sans XCTest)
-- `scripts/make-icon.swift` : dessine l’icône (radar bleu sur fond bleu nuit)
-- `scripts/make-oui.py` : convertit le registre IEEE (oui.csv, mam.csv, oui36.csv) en
-  `Resources/oui.tsv` ; ses règles de noms courts sont aussi écrites en Swift
+- `Sources/NetScopeSelfTest/` : tests du moteur (exécutable, sans XCTest)
+- `scripts/make-icon.swift` : dessine l’icône
+- `scripts/make-oui.py` : convertit le registre IEEE (oui.csv, mam.csv, oui36.csv) en
+  `Resources/oui.tsv` ; ses règles de noms courts sont aussi écrites en Swift
   (`OUIRegistry.swift`) et vérifiées sur les mêmes exemples (`scripts/oui-name-examples.tsv`)
-- `Resources/oui.tsv` : base des fabricants (« préfixe<TAB>nom », une donnée, pas un fichier
-  produit), copiée dans l’application par `build.sh`
-- `Resources/Info.plist` : identité de l’application et autorisations (réseau local, Bonjour, localisation)
-- `docs/capture.png` : capture de la fenêtre
-- `docs/A-FAIRE.md` : notes d’essai et suite prévue ; `docs/feuille-de-route.html` : feuille de route
-- `docs/croquis/` : croquis de conception des quatorze écrans (`Main.dc.html` pour le Scanner,
-  `Ping.dc.html`, `Switch.dc.html`…, et `canvas.json` qui les assemble) ; ils font foi pour la
-  disposition, les couleurs, la densité et les libellés
-- `build.sh` : construction, signature, image disque, installation
+- `Resources/oui.tsv` : base des fabricants, copiée dans l’application par `build.sh`
+- `Resources/Info.plist` : identité de l’application et autorisations
+- `docs/captures/` : captures de la galerie ; `docs/croquis/` : croquis de conception des écrans
+- `build.sh` : construction, signature, image disque, installation
+
+## Licence
+
+NetScope est distribué sous [licence MIT](LICENSE). © 2026 Dany Ménard.

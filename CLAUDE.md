@@ -62,8 +62,10 @@ Dans cet ordre :
   (`@EnvironmentObject`), les composants communs par `Shared/Components.swift` et `Theme`.
 - Avant de pousser une fonctionnalité : construction et tests réussis, README et CHANGELOG à
   jour, capture d’écran (`docs/capture.png`, copie de `01-scanner.png` produit par
-  `--snapshot … --demo`) refaite si l’interface a changé, et une nouvelle version si ce qu’on
-  installe a changé.
+  `--snapshot … --demo`) refaite si l’interface a changé, captures de `docs/captures/` touchées
+  par le changement refaites (mêmes noms, mêmes vues : `NETSCOPE_ECRANS` et les variables
+  `NETSCOPE_*` de l’écran, un écran par exécution, sans pastille de mise à jour), et une
+  nouvelle version si ce qu’on installe a changé.
 - Pousser sur `main` directement ; un commit qui casse se corrige par `git revert`, jamais
   en réécrivant l’historique.
 
@@ -86,5 +88,7 @@ Dans cet ordre :
   `OUIDatabase.builtIn` lit la plus récente (date de l’en-tête) de `~/Library/Application Support/NetScope/oui.tsv`,
   de l’app et du dépôt (à date égale, dans cet ordre), sinon la petite table intégrée
 - `Resources/Info.plist` : identité et autorisations (réseau local, Bonjour, localisation)
-- `docs/` : `capture.png`, `croquis/` (quatorze croquis HTML et `canvas.json`)
+- `docs/` : `capture.png`, `captures/` (captures de la galerie du README, données de
+  démonstration), `analyse-marche.md` (analyse du marché), `croquis/` (quatorze croquis HTML
+  et `canvas.json`)
 - `build.sh` : construction, signature, image disque, installation

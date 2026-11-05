@@ -21,7 +21,9 @@ enum DemoData {
         }
         state.activeInterface = interface
         state.dnsServers = [IPv4Address("10.182.122.1")!]
-        state.updateAvailable = "1.1.0"
+        // Pastille « Mise à jour disponible » : seulement sur demande (NETSCOPE_MAJ_DEMO=1), pour que
+        // les captures publiées sur GitHub n'annoncent pas une version qui n'existe pas.
+        if ProcessInfo.processInfo.environment["NETSCOPE_MAJ_DEMO"] == "1" { state.updateAvailable = "0.23.0" }
         state.pingTargets = ["10.182.122.1", "10.182.122.111", "8.8.8.8"]
         state.sidebarBadges = [.surveillance: 3]
         MonStore.shared.attach(to: state) // badge Surveillance = alertes non lues de la démonstration
