@@ -282,7 +282,7 @@ public enum NavResolver {
             let search = rangeSearch(text: text, label: label)
             add("Scanner", NavDestination(.scanner, search: search))
             add("Inventaire", NavDestination(.inventaire, search: search))
-            add("Analyse", NavDestination(.analyse, search: search.hasPrefix("ip:") ? search : "ip:" + text))
+            add(NavModule.analyse.title, NavDestination(.analyse, search: search.hasPrefix("ip:") ? search : "ip:" + text))
         case .vlan(let vlan):
             add("Scanner", NavDestination(.scanner, search: "vlan:\(vlan)"))
             add("Inventaire", NavDestination(.inventaire, search: "vlan:\(vlan)"))
@@ -290,7 +290,7 @@ public enum NavResolver {
         case .site(let key, _):
             add("Inventaire", NavDestination(.inventaire, sites: .only([key])))
             add("Carte du réseau", NavDestination(.carte, sites: .only([key])))
-            add("Analyse", NavDestination(.analyse, sites: .only([key])))
+            add(NavModule.analyse.title, NavDestination(.analyse, sites: .only([key])))
             add("Rapports", NavDestination(.rapports, sites: .only([key])))
         case .probe(let probe):
             if case .go(let destination) = probeTarget(probe, in: context) { add("Cible de la sonde", destination) }
@@ -372,7 +372,7 @@ public enum NavResolver {
         if let probe = context.probe(targeting: ip) {
             add("Surveillance", NavDestination(.surveillance, focus: .probe(probe.id)))
         }
-        add("Analyse", NavDestination(.analyse, search: "ip:\(ip)", sites: .include(site)))
+        add(NavModule.analyse.title, NavDestination(.analyse, search: "ip:\(ip)", sites: .include(site)))
         if let remote = context.remoteHosts[ip.lowercased()] {
             add("Accès distant", NavDestination(.acces, focus: .remote(remote)))
         }

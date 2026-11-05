@@ -239,7 +239,7 @@ extension AppState {
         case .remote(let id):
             RemoteModel.shared.selectedID = UUID(uuidString: id)
         case .tool(let raw):
-            if let tool = ToolKind(rawValue: raw) { ToolStore.shared.selectedTool = tool }
+            if let tool = ToolKind.resolve(raw) { ToolStore.shared.selectedTool = tool }
         case .service(let id):
             ToolStore.shared.selectedTool = .cloud
             let svc = SvcStore.shared

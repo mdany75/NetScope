@@ -326,7 +326,7 @@ struct SitePickerPanel: View {
                                  checked: sites.activeID == nil) {
                     act { sites.activate(nil, state: state) }
                 }
-                SitePickerAction(title: "Tous les sites", detail: "Inventaire, Carte, Analyse, Rapports, Switchs et Wi-Fi\u{00A0}; le Scanner garde le site actif",
+                SitePickerAction(title: "Tous les sites", detail: "Inventaire, Carte, Historique et adressage, Rapports, Switchs et Wi-Fi\u{00A0}; le Scanner garde le site actif",
                                  symbol: "square.stack.3d.up", checked: scopes.showsAllEverywhere) {
                     let on = !scopes.showsAllEverywhere
                     act { scopes.showAllEverywhere(on) }

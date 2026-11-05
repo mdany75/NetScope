@@ -59,6 +59,8 @@ final class SvcStore: ObservableObject {
         var graphClient: String
         /// Absent avant la 0.18.0.
         var sitePreferences: SvcSitePreferences?
+        /// Note 79 : services grand public déjà passés à « non suivi » (absent avant la 0.25.0).
+        var consumerHidden: Bool?
     }
 
     private init() {
@@ -428,11 +430,18 @@ final class SvcStore: ObservableObject {
         guard let data = try? Data(contentsOf: url) else { return }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        guard let archive = try? decoder.decode(Archive.self, from: data) else {
+        guard var archive = try? decoder.decode(Archive.self, from: data) else {
             AppLog.shared.error("Services en ligne", "Lecture impossible de \(url.path)")
             return
         }
         services = SvcCatalog.merged(saved: archive.services)
+        // Note 79 : une seule fois, les services grand public (TikTok, Snapchat, Meta, Grok) ne
+        // sont plus suivis ; on les réactive dans « Modifier la liste ».
+        if archive.consumerHidden != true {
+            services = SvcCatalog.hidingConsumerServices(services)
+            for id in SvcCatalog.consumerServiceIDs { archive.snapshots[id] = nil }
+            DispatchQueue.main.async { SvcStore.shared.save() }
+        }
         snapshots = archive.snapshots
         history = archive.history
         lastRefresh = archive.lastRefresh
@@ -450,7 +459,7 @@ final class SvcStore: ObservableObject {
         let archive = Archive(services: services, snapshots: snapshots, history: history, lastRefresh: lastRefresh,
                               refreshMinutes: refreshMinutes, notifyIncidents: notifyIncidents, hasBeenUsed: hasBeenUsed,
                               graphTenant: graphTenant, graphClient: graphClient,
-                              sitePreferences: sitePreferences.bySite.isEmpty ? nil : sitePreferences)
+                              sitePreferences: sitePreferences.bySite.isEmpty ? nil : sitePreferences, consumerHidden: true)
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             let encoder = JSONEncoder()

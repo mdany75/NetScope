@@ -220,7 +220,7 @@ func registerNotificationShortcutTests(_ suite: TestSuite) {
         let actions = ShortcutCatalog.fixedActions + ShortcutCatalog.screenActions([
             ("scanner", "Scanner"), ("carte", "Carte du réseau"), ("inventaire", "Inventaire"), ("appareil", "Appareil"),
             ("ping", "Ping continu"), ("switchs", "Switchs et ports"), ("wifi", "Wi-Fi"), ("outils", "Outils"),
-            ("surveillance", "Surveillance"), ("analyse", "Analyse"), ("rapports", "Rapports"),
+            ("surveillance", "Surveillance"), ("analyse", "Historique et adressage"), ("rapports", "Rapports"),
         ])
         var settings = ShortcutSettings()
         try expectEqual(settings.conflicts(in: actions), [:], "valeurs par défaut sans conflit")

@@ -96,7 +96,7 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
         case .dhcp: return "Étendues DHCP"
         case .wifiDiag: return "Diagnostic Wi-Fi"
         case .wan: return "WAN et VPN"
-        case .trafic: return "Trafic et analyse"
+        case .trafic: return "Trafic et bilan de santé"
         case .suivi: return "Depuis le dernier rapport"
         case .firmware: return "Firmware et licences"
         case .annexe: return "Annexe brute"

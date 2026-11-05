@@ -285,7 +285,7 @@ public enum NetworkAnalysis {
         if findings.isEmpty, coverage.contains(where: \.analyzed) {
             findings.append(NetworkFinding(id: "ok", severity: .ok, area: .health, title: "Rien à signaler",
                                            explanation: "Aucun problème relevé dans les parties analysées.",
-                                           action: "Relancer l’analyse après un scan ou une relecture des FortiGate."))
+                                           action: "Refaire le bilan après un scan ou une relecture des FortiGate."))
         }
         return NetworkAnalysisResult(findings: findings, coverage: coverage, score: score, date: input.now)
     }

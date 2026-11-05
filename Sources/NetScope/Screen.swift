@@ -1,10 +1,12 @@
 import Foundation
+import NetScopeCore
 
 /// Les écrans de l'application, dans l'ordre de la barre latérale.
 enum Screen: String, CaseIterable, Identifiable, Codable {
     case scanner, carte, inventaire, appareil
     case ping, switchs, wifi, outils
-    /// Note 54 : « Trafic » (FortiView et analyse complète), entre Surveillance et Analyse.
+    /// Note 54 : « Trafic » (FortiView et bilan de santé), entre Surveillance et Historique et adressage.
+    /// Note 79 : `analyse` garde son identifiant (liens, réglages, captures) ; seul le nom change.
     /// Note 43 : « Journaux » (Syslog, traps SNMP, journaux de la FortiGate), après Surveillance.
     case surveillance, journaux, trafic, analyse, rapports
     case acces, speedtest
@@ -26,7 +28,7 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
         case .surveillance: return "Surveillance"
         case .trafic: return "Trafic"
         case .journaux: return "Journaux"
-        case .analyse: return "Analyse"
+        case .analyse: return "Historique et adressage"
         case .rapports: return "Rapports"
         case .acces: return "Accès distant"
         case .speedtest: return "Speedtest"
@@ -39,8 +41,8 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .wifi: return "Analyseur Wi-Fi"
         case .outils: return "Boîte à outils"
-        case .analyse: return "Analyse et alertes"
-        case .trafic: return "Trafic et analyse"
+        case .analyse: return "Historique et adressage"
+        case .trafic: return "Trafic et bilan de santé"
         case .journaux: return "Journaux et traps"
         default: return title
         }
@@ -102,6 +104,14 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
         case .speedtest: return "Speedtest.dc.html"
         case .reglages: return "Reglages.dc.html"
         }
+    }
+
+    /// Note 79 : anciens noms de l'écran, gardés pour la recherche (on retrouve « Analyse »).
+    var formerTitles: [String] { NavModule(rawValue: rawValue)?.formerTitles ?? [] }
+
+    /// Noms de tous les écrans, actuels et anciens, pour la recherche des réglages (Raccourcis).
+    static var searchNames: String {
+        allCases.flatMap { [$0.title, $0.pageTitle] + $0.formerTitles }.joined(separator: " ")
     }
 
     enum Group: String, CaseIterable {

@@ -53,6 +53,8 @@ struct AnaOnlineChart: View {
             Text("\(value)").fontWeight(.semibold).foregroundStyle(Theme.text)
         }
         .font(Theme.small)
+        // Jamais coupé (« Moy. » sur deux lignes) : le sous-titre du panneau raccourcit d'abord.
+        .fixedSize()
     }
 
     private func label(_ date: Date) -> String {

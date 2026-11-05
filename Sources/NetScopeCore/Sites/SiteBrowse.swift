@@ -353,6 +353,8 @@ extension NavModule {
         case .ping: return "Ping"
         case .switchs: return "Switchs"
         case .acces: return "Accès distant"
+        // Note 79 : « Historique et adressage » est trop long pour le bouton Retour.
+        case .analyse: return "Historique"
         default: return title
         }
     }

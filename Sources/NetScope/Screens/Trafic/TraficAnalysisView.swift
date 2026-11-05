@@ -15,11 +15,11 @@ struct TrafficAnalysisView: View {
             content(analysis)
         } else {
             VStack(alignment: .leading, spacing: 10) {
-                ToolNotice(tone: .accent, title: "Analyse complète du réseau",
-                           message: "Un bilan qui réunit le trafic (plus gros consommateurs, applications inattendues, pays inhabituels), la sécurité (menaces, appareils visés), la santé (WAN, ports de switch, Wi-Fi, étendues DHCP) et l’inventaire (appareils inconnus). Rien n’est envoyé sur le réseau\u{00A0}: l’analyse réunit ce que NetScope a déjà lu.")
+                ToolNotice(tone: .accent, title: "Bilan de santé du réseau",
+                           message: "Un bilan qui réunit le trafic (plus gros consommateurs, applications inattendues, pays inhabituels), la sécurité (menaces, appareils visés), la santé (WAN, ports de switch, Wi-Fi, étendues DHCP) et l’inventaire (appareils inconnus). Rien n’est envoyé sur le réseau\u{00A0}: le bilan réunit ce que NetScope a déjà lu.")
                 Button {
                     store.runAnalysis(state: state)
-                } label: { Label("Lancer l’analyse", systemImage: "stethoscope") }
+                } label: { Label("Établir le bilan", systemImage: "stethoscope") }
                     .buttonStyle(.primary)
                     .fixedSize()
             }
@@ -50,7 +50,7 @@ struct TrafficAnalysisView: View {
                 .pickerStyle(.segmented)
                 .fixedSize()
                 Spacer(minLength: 8)
-                Text("Analyse du \(InvFormat.timeOrStamp(analysis.date))").font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize()
+                Text("Bilan du \(InvFormat.timeOrStamp(analysis.date))").font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize()
                 Button {
                     store.runAnalysis(state: state)
                 } label: { Label("Relancer", systemImage: "arrow.clockwise") }
@@ -74,7 +74,7 @@ struct TrafficAnalysisView: View {
         let tone: Tone = analysis.count(.critical) > 0 ? .critical : (analysis.count(.warning) > 0 ? .warning : .success)
         return Panel(padding: 16) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Note du réseau").font(Theme.captionSemibold).foregroundStyle(Theme.textSecondary)
+                Text("Bilan de santé").font(Theme.captionSemibold).foregroundStyle(Theme.textSecondary)
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("\(analysis.score)").font(.system(size: 34, weight: .bold)).foregroundStyle(tone.foreground)
                     Text("/ 100").font(Theme.mono(13)).foregroundStyle(Theme.textSecondary)

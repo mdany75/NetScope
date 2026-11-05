@@ -519,7 +519,7 @@ public enum ReportFollowUp {
                                                        ReportColumn("Après", weight: 1.6)],
                                              rows: Array(rows), wraps: true)))
             if deviceChanges.count > maxRows {
-                blocks.append(.note("Et \(deviceChanges.count - maxRows) autres écarts (exporter l’écart complet depuis Analyse › Comparer deux scans)."))
+                blocks.append(.note("Et \(deviceChanges.count - maxRows) autres écarts (exporter l’écart complet depuis Historique et adressage › Comparer deux scans)."))
             }
         } else {
             blocks.append(.note("Aucun appareil nouveau, disparu ou changé."))

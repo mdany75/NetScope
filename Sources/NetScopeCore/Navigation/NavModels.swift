@@ -29,7 +29,8 @@ public enum NavModule: String, CaseIterable, Codable, Hashable, Sendable {
         case .surveillance: return "Surveillance"
         case .trafic: return "Trafic"
         case .journaux: return "Journaux"
-        case .analyse: return "Analyse"
+        // Note 79 : l'écran « Analyse » s'appelle désormais « Historique et adressage ».
+        case .analyse: return "Historique et adressage"
         case .rapports: return "Rapports"
         case .acces: return "Accès distant"
         case .speedtest: return "Speedtest"
@@ -37,8 +38,18 @@ public enum NavModule: String, CaseIterable, Codable, Hashable, Sendable {
         }
     }
 
+    /// Anciens noms du module (note 79), gardés pour la recherche : on retrouve l'écran en tapant
+    /// le nom qu'on connaissait.
+    public var formerTitles: [String] {
+        switch self {
+        case .analyse: return ["Analyse", "Analyse et alertes"]
+        case .trafic: return ["Trafic et analyse", "Analyse complète du réseau"]
+        default: return []
+        }
+    }
+
     /// Chiffre du raccourci ⌥⌘ du menu « Ouvrir dans › » (rang dans la barre latérale, comme ⌘1 à
-    /// ⌘9 pour les écrans) ; nil au-delà du neuvième (Analyse : ⌥⌘0).
+    /// ⌘9 pour les écrans) ; nil au-delà du neuvième (Historique et adressage : ⌥⌘0).
     public var shortcutDigit: String? {
         if self == .analyse { return "0" }
         guard let index = NavModule.allCases.firstIndex(of: self), index < 9 else { return nil }

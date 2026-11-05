@@ -235,15 +235,57 @@ public struct SpeedServerPrefs: Codable, Equatable, Sendable {
     public var selected: SpeedServer?
     public var favorites: [SpeedServer]
     public var custom: [SpeedServer]
+    /// Note 79 : moteur Ookla (CLI Homebrew) proposé. Masqué par défaut (licence d'Ookla limitée à un
+    /// usage personnel non commercial) ; réactivable dans Speedtest › Serveurs › Sources.
+    public var ooklaEnabled: Bool
 
     public static let automaticID = "auto"
 
     public init(selectedID: String = SpeedServerPrefs.automaticID, selected: SpeedServer? = nil,
-                favorites: [SpeedServer] = [], custom: [SpeedServer] = []) {
+                favorites: [SpeedServer] = [], custom: [SpeedServer] = [], ooklaEnabled: Bool = false) {
         self.selectedID = selectedID
         self.selected = selected
         self.favorites = favorites
         self.custom = custom
+        self.ooklaEnabled = ooklaEnabled
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case version, selectedID, selected, favorites, custom, ooklaEnabled
+    }
+
+    /// Fichier d'avant la 0.25.0 (sans « ooklaEnabled ») : Ookla reste proposé seulement si
+    /// l'utilisateur l'avait déjà choisi ou mis en favori ; sinon il est masqué, comme au premier lancement.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        version = try container.decodeIfPresent(Int.self, forKey: .version) ?? 1
+        selectedID = try container.decodeIfPresent(String.self, forKey: .selectedID) ?? SpeedServerPrefs.automaticID
+        selected = try container.decodeIfPresent(SpeedServer.self, forKey: .selected)
+        favorites = try container.decodeIfPresent([SpeedServer].self, forKey: .favorites) ?? []
+        custom = try container.decodeIfPresent([SpeedServer].self, forKey: .custom) ?? []
+        if let enabled = try container.decodeIfPresent(Bool.self, forKey: .ooklaEnabled) {
+            ooklaEnabled = enabled
+        } else {
+            ooklaEnabled = selected?.source == .ookla || favorites.contains { $0.source == .ookla }
+        }
+    }
+
+    /// Serveurs proposés : ceux d'Ookla seulement si le moteur est activé.
+    public func allowed(_ servers: [SpeedServer]) -> [SpeedServer] {
+        ooklaEnabled ? servers : servers.filter { $0.source != .ookla }
+    }
+
+    /// Le serveur peut servir au prochain test (un serveur Ookla, seulement moteur activé).
+    public func allows(_ server: SpeedServer) -> Bool { ooklaEnabled || server.source != .ookla }
+
+    /// Active ou masque le moteur Ookla ; masqué, un serveur Ookla choisi repasse en automatique
+    /// (les favoris restent, cachés, pour le jour où on le réactive).
+    public mutating func setOoklaEnabled(_ enabled: Bool) {
+        ooklaEnabled = enabled
+        if !enabled, selected?.source == .ookla || selectedID.hasPrefix("ookla") {
+            selectedID = SpeedServerPrefs.automaticID
+            selected = nil
+        }
     }
 
     public var favoriteIDs: Set<String> { Set(favorites.map(\.id)) }

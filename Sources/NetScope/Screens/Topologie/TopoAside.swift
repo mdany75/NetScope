@@ -319,7 +319,7 @@ struct TopoAside: View {
                 }
                 Button { state.open(.analyse) } label: {
                     HStack {
-                        Text("Ouvrir l’analyse et les alertes").font(.system(size: 12, weight: .semibold))
+                        Text("Ouvrir l’historique et les alertes").font(.system(size: 12, weight: .semibold))
                         Spacer()
                         Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold))
                     }

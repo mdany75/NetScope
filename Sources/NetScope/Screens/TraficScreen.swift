@@ -176,10 +176,10 @@ struct TraficScreen: View {
             screen.part = .analyse
             store.runAnalysis(state: state)
         } label: {
-            Label("Analyse complète", systemImage: "stethoscope")
+            Label("Bilan de santé", systemImage: "stethoscope")
         }
         .buttonStyle(.secondary)
-        .help("Bilan du trafic, de la sécurité, de la santé (WAN, ports, Wi-Fi, DHCP) et de l’inventaire")
+        .help("Bilan de santé du réseau, noté sur 100\u{00A0}: trafic, sécurité, santé (WAN, ports, Wi-Fi, DHCP) et inventaire")
         Button {
             screen.showSaturation = true
         } label: {
@@ -219,7 +219,7 @@ struct TraficScreen: View {
     private var partPicker: some View {
         Picker("Partie", selection: $screen.part) {
             Text("Trafic").tag(TrafficPart.trafic)
-            Text("Analyse complète").tag(TrafficPart.analyse)
+            Text("Bilan de santé").tag(TrafficPart.analyse)
         }
         .labelsHidden()
         .pickerStyle(.segmented)
@@ -273,7 +273,7 @@ struct TraficScreen: View {
                 screen.part = .analyse
                 store.runAnalysis(state: state)
             } label: {
-                Label("Analyse complète sans le trafic", systemImage: "stethoscope")
+                Label("Bilan de santé sans le trafic", systemImage: "stethoscope")
             }
             .buttonStyle(.secondary)
             .fixedSize()

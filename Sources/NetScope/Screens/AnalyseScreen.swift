@@ -36,7 +36,7 @@ struct AnaNetwork: Hashable {
     let base: IPv4Address
 }
 
-/// Écran `Screen.analyse` : indicateurs, occupation d'un /24, répartitions, alertes issues de l'inventaire
+/// Écran `Screen.analyse` (« Historique et adressage », note 79 ; ancien nom « Analyse ») : bilan de santé en tête s’il existe, indicateurs, occupation d'un /24, répartitions, alertes issues de l'inventaire
 /// et comparaison de deux scans (croquis docs/croquis/Analyse.dc.html). Menu « Site ▾ » : un,
 /// plusieurs ou tous les sites ; alertes regroupées par site ; carte d'occupation, courbe et
 /// comparaison toujours d'un seul site (celui de la plage choisie).
@@ -81,6 +81,8 @@ struct AnalyseScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 filters(networks: networks, chosen: chosen, inventories: inventories, now: now, since: since)
+                // Note 79 : le bilan de santé (Trafic) en tête, quand il existe.
+                AnaHealthBanner()
                 if let scopeLabel {
                     Label("Indicateurs\u{00A0}: " + scopeLabel, systemImage: "mappin.and.ellipse")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)

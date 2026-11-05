@@ -100,8 +100,9 @@ struct SpeedServersView: View {
 
     private var statusLine: String {
         if model.catalogLoading { return model.catalogStatus ?? "Chargement…" }
-        guard let date = model.catalogDate else { return "Liste non chargée : « Actualiser » interroge M-Lab, LibreSpeed et Ookla" }
-        return "\(model.catalogStatus ?? "") · mesurée à \(SpeedFormat.time.string(from: date))"
+        guard let date = model.catalogDate else { return "Liste non chargée : « Actualiser » interroge M-Lab, LibreSpeed" + (model.ooklaEnabled ? " et Ookla" : "") }
+        // Ookla masqué (note 79) : ses serveurs ne comptent pas.
+        return "\(SpeedtestModel.catalogSummary(model.serverPrefs.allowed(model.catalog))) · mesurée à \(SpeedFormat.time.string(from: date))"
     }
 
     private var listTools: some View {
@@ -123,7 +124,7 @@ struct SpeedServersView: View {
             Text("Toutes \(all.count)").tag(SpeedServerSource?.none)
             ForEach(SpeedServerSource.allCases, id: \.self) { source in
                 let count = all.filter { $0.source == source }.count
-                if count > 0 || source == .ookla {
+                if count > 0 || (source == .ookla && model.ooklaEnabled) {
                     Text("\(source == .custom ? "Perso." : source.label) \(count)").tag(SpeedServerSource?.some(source))
                 }
             }
@@ -208,25 +209,43 @@ struct SpeedServersView: View {
                 sourceLine("Cloudflare", "HTTP multi-flux, nœud anycast le plus proche.")
                 sourceLine("M-Lab", "NDT7 (WebSocket, 1 flux), mesures ouvertes de Measurement Lab ; résultats publiés en données ouvertes par M-Lab.")
                 sourceLine("LibreSpeed", "Serveurs libres, souvent hébergés par des fournisseurs.")
-                sourceLine("Ookla", model.ooklaPath != nil
-                           ? "CLI officiel installé. " + OoklaLocator.licenseNote
-                           : "Pas d’API publique libre : NetScope lance le CLI officiel d’Ookla s’il est installé.")
-                if model.ooklaPath != nil {
-                    Link(destination: OoklaLocator.licenseURL) {
-                        Label("Licence d’Ookla", systemImage: "arrow.up.right.square")
-                    }
-                    .font(Theme.small)
-                } else if ookla.presence.isInstalled {
-                    // Un « speedtest » est là, mais ce n'est pas celui d'Ookla (speedtest-cli en Python).
-                    SpeedBanner(text: "L’outil « speedtest » installé n’est pas le CLI d’Ookla (speedtest-cli\u{00A0}?). Installez « \(InstallableTool.ooklaSpeedtest.displayCommand) ».",
-                                tone: .neutral, systemImage: "info.circle")
-                    Link(destination: OoklaLocator.downloadURL) {
-                        Label(InstallableTool.ooklaSpeedtest.officialLabel, systemImage: "arrow.up.right.square")
-                    }
-                    .font(Theme.small)
-                } else {
-                    InstallToolPanel(tool: .ooklaSpeedtest, note: OoklaLocator.licenseNote)
+                ooklaPanel
+            }
+        }
+    }
+
+    /// Note 79 : Ookla masqué par défaut ; réactivable ici, avec sa licence en une ligne.
+    @ViewBuilder private var ooklaPanel: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle(isOn: Binding(get: { model.ooklaEnabled }, set: { model.setOoklaEnabled($0) })) {
+                Text("Proposer Ookla (CLI officiel, Homebrew)").font(.system(size: 12, weight: .semibold))
+            }
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .disabled(model.runState.isRunning)
+            Text("Licence d’Ookla\u{00A0}: usage personnel et non commercial seulement. Masqué par défaut\u{00A0}; Cloudflare, M-Lab et LibreSpeed suffisent pour un usage professionnel.")
+                .font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.top, 2)
+        if model.ooklaEnabled {
+            if model.ooklaPath != nil {
+                sourceLine("Ookla", "CLI officiel installé. " + OoklaLocator.licenseNote)
+                Link(destination: OoklaLocator.licenseURL) {
+                    Label("Licence d’Ookla", systemImage: "arrow.up.right.square")
                 }
+                .font(Theme.small)
+            } else if ookla.presence.isInstalled {
+                sourceLine("Ookla", "Pas d’API publique libre\u{00A0}: NetScope lance le CLI officiel d’Ookla s’il est installé.")
+                // Un « speedtest » est là, mais ce n'est pas celui d'Ookla (speedtest-cli en Python).
+                SpeedBanner(text: "L’outil «\u{00A0}speedtest\u{00A0}» installé n’est pas le CLI d’Ookla (speedtest-cli\u{00A0}?). Installez «\u{00A0}\(InstallableTool.ooklaSpeedtest.displayCommand)\u{00A0}».",
+                            tone: .neutral, systemImage: "info.circle")
+                Link(destination: OoklaLocator.downloadURL) {
+                    Label(InstallableTool.ooklaSpeedtest.officialLabel, systemImage: "arrow.up.right.square")
+                }
+                .font(Theme.small)
+            } else {
+                InstallToolPanel(tool: .ooklaSpeedtest, note: OoklaLocator.licenseNote)
             }
         }
     }

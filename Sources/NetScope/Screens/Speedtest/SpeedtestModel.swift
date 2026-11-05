@@ -20,7 +20,7 @@ enum SpeedTab: String, CaseIterable, Identifiable {
 
     var hint: String {
         switch self {
-        case .internet: return "Débit du lien Internet : Cloudflare, M-Lab, LibreSpeed ou Ookla"
+        case .internet: return "Débit du lien Internet : Cloudflare, M-Lab ou LibreSpeed (Ookla en option)"
         case .serveurs: return "Serveurs de test : latence mesurée, favoris et serveurs personnalisés"
         case .lan: return "Débit entre ce Mac et un serveur iperf3 du réseau"
         case .historique: return "Résultats conservés 90 jours sur ce Mac"
@@ -147,7 +147,8 @@ final class SpeedtestModel: ObservableObject {
             self.tab = tab
         }
         loading = false
-        refreshOokla()
+        // Ookla masqué (note 79, par défaut) : son CLI n'est même pas cherché.
+        if serverPrefs.ooklaEnabled || demo { refreshOokla() }
     }
 
     var planDown: Double? { SpeedFormat.parse(planDownText) }
@@ -240,7 +241,20 @@ final class SpeedtestModel: ObservableObject {
     /// Serveur choisi ; nil : automatique (le plus proche).
     var selectedServer: SpeedServer? {
         guard serverPrefs.selectedID != SpeedServerPrefs.automaticID else { return nil }
-        return allServers.first { $0.id == serverPrefs.selectedID } ?? serverPrefs.selected
+        let server = allServers.first { $0.id == serverPrefs.selectedID } ?? serverPrefs.selected
+        // Ookla masqué (note 79) : un ancien choix Ookla repasse en automatique.
+        return server.flatMap { serverPrefs.allows($0) ? $0 : nil }
+    }
+
+    /// Note 79 : moteur Ookla proposé (masqué par défaut, réactivable dans Serveurs › Sources).
+    var ooklaEnabled: Bool { serverPrefs.ooklaEnabled }
+
+    func setOoklaEnabled(_ enabled: Bool) {
+        guard !runState.isRunning, enabled != serverPrefs.ooklaEnabled else { return }
+        serverPrefs.setOoklaEnabled(enabled)
+        if !enabled, serverSourceFilter == .ookla { serverSourceFilter = nil }
+        saveServers()
+        if enabled { refreshOokla() }
     }
 
     var isAutomatic: Bool { serverPrefs.selectedID == SpeedServerPrefs.automaticID }
@@ -258,7 +272,7 @@ final class SpeedtestModel: ObservableObject {
         for server in serverPrefs.custom + serverPrefs.favorites where !list.contains(where: { $0.id == server.id }) {
             list.append(server)
         }
-        return list
+        return serverPrefs.allowed(list)
     }
 
     /// Liste filtrée (source, recherche) et triée : favoris, puis latence.
@@ -271,7 +285,7 @@ final class SpeedtestModel: ObservableObject {
 
     /// Favoris, avec la latence de la dernière mesure.
     var favoriteServers: [SpeedServer] {
-        serverPrefs.favorites.map { favorite in allServers.first { $0.id == favorite.id } ?? favorite }
+        serverPrefs.allowed(serverPrefs.favorites).map { favorite in allServers.first { $0.id == favorite.id } ?? favorite }
     }
 
     func isFavorite(_ server: SpeedServer) -> Bool { serverPrefs.favoriteIDs.contains(server.id) }
@@ -318,7 +332,7 @@ final class SpeedtestModel: ObservableObject {
         guard !catalogLoading, !Launcher.isDemo else { return }
         catalogTask?.cancel()
         catalogTask = Task { [weak self] in
-            await self?.loadCatalog(includeOokla: true)
+            await self?.loadCatalog(includeOokla: self?.ooklaEnabled == true)
         }
     }
 
