@@ -1,12 +1,12 @@
 # À faire — NetScope
 
-> Ordre des versions : voir « Feuille de route révisée » (point 20). Restent de l’ancienne
-> organisation par phases : note 6 (phase 2, RustDesk léger) et la fin de la note 11 (phase 4,
-> préréglages du Ping), toutes deux « plus tard ».
+> Ordre des versions : voir « Feuille de route révisée » (point 20). Reste de l’ancienne
+> organisation par phases : la fin de la note 11 (phase 4, préréglages du Ping), « plus tard » ;
+> la note 6 (phase 2, RustDesk) est livrée dans la 0.26.1.
 
 ## Priorités (revues le 5 novembre 2026, réorganisées avec les notes 45 à 79 après l’analyse du marché)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0 ; notes 42 et 10 dans la 0.20.0 ; notes 41 et 43, et la note 11 en partie (pause par cible, tableau MTR, écran vide), dans la 0.21.0 ; note 57 dans la 0.22.0 ; notes 35 et 60 dans la 0.23.0 ; erreurs récentes des ports dans la 0.23.1 ; notes 59, 73, 74 et 79, la partie « Trafic » de la note 78 et le navigateur SNMP dans la 0.25.0 ; notes 58, 65, 66 et 71, et les parties « Test MTU », « Ping continu », « Inventaire », « Wake-on-LAN », « Alertes » et « Accès distant » de la note 78 dans la 0.26.0 (la 0.24.0, notes 40 et 61, reste à faire).
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0 ; notes 42 et 10 dans la 0.20.0 ; notes 41 et 43, et la note 11 en partie (pause par cible, tableau MTR, écran vide), dans la 0.21.0 ; note 57 dans la 0.22.0 ; notes 35 et 60 dans la 0.23.0 ; erreurs récentes des ports dans la 0.23.1 ; notes 59, 73, 74 et 79, la partie « Trafic » de la note 78 et le navigateur SNMP dans la 0.25.0 ; notes 58, 65, 66 et 71, et les parties « Test MTU », « Ping continu », « Inventaire », « Wake-on-LAN », « Alertes » et « Accès distant » de la note 78 dans la 0.26.0 ; note 6 (RustDesk) dans la 0.26.1 (la 0.24.0, notes 40 et 61, reste à faire).
 
 1. **0.13.x à 0.22.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP ; 0.17.0 : relecture automatique, WAN et VPN, Trafic FortiView et analyse complète à essayer sur de vraies FortiGate ; 0.18.0 : FTP, FTPS, SFTP, TFTP, « Bloqué ici », NAS dans Vitesse des disques, export, import et synchronisation à essayer sur de vrais appareils et deux Mac ; 0.20.0 : rapport de suivi, rapports planifiés et Inventaire repensé à essayer sur les vrais sites ; 0.21.0 : firmware et licences, Syslog, traps SNMP, journaux de la FortiGate et pause par cible du Ping à essayer sur de vrais équipements ; 0.22.0 : terminal intégré SSH, Telnet et série, et session VNC intégrée à essayer sur de vrais équipements, câbles console et serveurs VNC ; 0.23.0 : journal de l’app, « Exporter un diagnostic » et fiche matériel automatique à essayer sur de vrais switchs, imprimantes et FortiGate ; 0.25.0 : SNMP v3, navigateur SNMP, graphes des ports et cycle PoE à essayer sur de vrais switchs, FortiSwitch et FortiGate, d’abord sur un port sans risque) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
@@ -140,6 +140,10 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       clic, avant/après) ; Test MTU réel (note 78) ; note 65 (ping TCP/HTTP, traceroute TCP/UDP) ;
       avec en plus les notes 66 et 71 et plusieurs parties de la note 78, avancées de la 0.30.0
       et de « plus tard ».
+    - ~~**0.26.1, assistance à distance par RustDesk**~~ (livrée le 5 novembre 2026) : note 6
+      (avancée de « plus tard » à la demande de Dany, une fois son serveur RustDesk en place) :
+      protocole RustDesk dans Accès distant, Réglages › RustDesk, ID RustDesk dans l’Inventaire
+      et ports RustDesk reconnus dans les scans. Essai réel sur le serveur et la FortiGate à faire.
     - **0.27.0, surveillance de longue durée** : note 62 (historique de 30 à 90 jours, rapport de
       disponibilité) ; fenêtres de maintenance et heures ouvrables par site ; envoi automatique du
       rapport planifié par SMTP (note 78).
@@ -155,8 +159,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       nouveaux noms des deux « analyses », outils de courriel regroupés) décidées et livrées dans
       la 0.25.0 ; reste à décider : avancer la note 66 (tunnels SSH) en 0.24.0 si le VNC non chiffré ou
       le réseau FortiLink posent problème pendant les essais (livrée dans la 0.26.0).
-    - **Plus tard** : note 11 (reste : préréglages du Ping continu), 6 (RustDesk, en version
-      légère), 13 (anglais) ; notes 68 à 70 (empreinte des services, ports UDP, certificats
+    - **Plus tard** : note 11 (reste : préréglages du Ping continu), 13 (anglais) ; notes 68 à 70 (empreinte des services, ports UDP, certificats
       TLS), 72 (partages SMB), 75 à 77 (NetFlow, ntfy et Pushover, autres contrôleurs) ; idées
       d’un cran en dessous : relevé Wi-Fi sur plan, qualité VoIP (MOS) avec les décodeurs
       SIP/RTP, toner des imprimantes, test de câble, scan d’un VLAN tagué, retour à la version
@@ -174,7 +177,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 | Inventaire | 8, 10, 30 | 60 (0.23.0) |
 | Ping continu | 11 (en partie, 0.21.0), 65 (0.26.0) | 11 : préréglages (plus tard) |
 | Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22, 37, 51, 53, 55, 58 (0.26.0) | 70 (plus tard) |
-| Accès distant | 5, 50, 52, 57, 66 (0.26.0) | 67 (0.30.0), 6 (plus tard) |
+| Accès distant | 5, 50, 52, 57, 66 (0.26.0), 6 (0.26.1) | 67 (0.30.0) |
 | Surveillance, alertes et journaux | 3, 23, 43 | 62 (0.27.0), 64 (0.28.0), 76 (plus tard) |
 | Rapports | 4, 42 | 61 (0.24.0), 62 (0.27.0) |
 | Réglages, sauvegarde, aide | 9, 13, 38, 56 | 35 (0.23.0), 13 (plus tard) |
@@ -263,10 +266,17 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
   honnêtement. Option échelle : « Ajuster à la fenêtre » / taille réelle.
 - Tests : contenu du .rdp pour chaque mode.
 
-## 6. Assistance à distance façon AnyDesk : par RustDesk (choix de Dany) — PHASE 2
+## 6. Assistance à distance façon AnyDesk : par RustDesk (choix de Dany) — 0.26.1
 
-> **Reporté en phase 2 (décision de Dany)** : ni serveur RustDesk, ni client, ni protocole
-> RustDesk dans NetScope lors du « procède » actuel. Garder ces notes pour plus tard.
+> **Livrée dans la 0.26.1** (5 novembre 2026) : protocole RustDesk dans Accès distant (carnet
+> des postes, « Assistance RustDesk » par ID, lien d’assistance pour l’usager), Réglages ›
+> RustDesk (serveur, clé, client portable, vérification du client, test du serveur, VIP de la
+> FortiGate), ID RustDesk dans l’Inventaire et la fiche Appareil, ports 21115 à 21119 reconnus
+> dans les scans. Reste : essai réel sur le serveur de Groupe Couture ; le client portable sur
+> 911.groupecouture.ca se fait dans le projet AssistanceDistance.
+>
+> Ancienne décision (dépassée) : reporté en phase 2, ni serveur RustDesk, ni client, ni
+> protocole RustDesk dans NetScope lors du « procède » d’alors.
 
 - Principe : serveur RustDesk auto-hébergé (hbbs + hbbr, gratuit, AGPL ; ports TCP 21115-21117,
   UDP 21116) ; client RustDesk chez l'usager installé comme service Windows (voit l'invite UAC :

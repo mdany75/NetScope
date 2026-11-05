@@ -1,5 +1,64 @@
 # Changements
 
+## 0.26.1 — 2026-11-05
+
+Assistance à distance par RustDesk avec votre propre serveur : carnet des postes, connexion en
+un clic, réglages et vérifications du serveur, et ports RustDesk reconnus dans les scans.
+
+### Ajouté
+- **Accès distant : protocole RustDesk** (assistance à distance). Carnet des postes avec l’ID
+  groupé « 123 456 789 », l’usager, le site et des notes ; « Connecter » ouvre le client
+  RustDesk de ce Mac, avec un mot de passe permanent facultatif gardé au Trousseau.
+  - **Assistance RustDesk** : collez l’ID donné par l’usager (espaces acceptés) pour vous
+    connecter tout de suite, avec ou sans ajout au carnet. Les derniers lancements se relancent
+    d’un clic.
+  - « Copier l’ID » et « Copier le lien d’assistance pour l’usager » (message prêt à coller
+    avec la page du client portable) ; lien « Télécharger RustDesk » si le client n’est pas
+    installé sur ce Mac.
+- **Réglages › RustDesk** : serveur d’ID, relais, clé publique et page d’assistance.
+  - Import depuis le nom du client portable (`rustdesk-host=…,key=…,.exe`) ; ce nom est aussi
+    reconstruit à partir des réglages, prêt à copier.
+  - « Vérifier le client RustDesk de ce Mac » compare son serveur et sa clé aux réglages et dit
+    quoi corriger.
+  - « Tester le serveur », sur demande seulement : ports TCP 21115 à 21117 avec leur temps de
+    réponse, échange RustDesk réel sur 21115 et sur UDP 21116.
+  - « Vérifier les VIP » de la FortiGate, en lecture seule : repère un port manquant ou un VIP
+    qui pointe sur l’adresse publique au lieu du serveur interne.
+- **Inventaire et fiche Appareil** : champ « ID RustDesk » et « Connecter par RustDesk » d’un
+  clic.
+- **Ports ouverts** : les ports de RustDesk (21115 à 21119, et 21116 en UDP) sont nommés dans
+  le Scanner, la fiche Appareil et le scan de ports.
+  - Clic sur le port 21118 d’un poste : « Ouvrir dans RustDesk » ; sur les ports d’un serveur :
+    rôle de chaque port et « Tester le serveur RustDesk » (connexions TCP, seulement sur clic).
+  - Nouveau préréglage « Accès distant et RustDesk » (SSH, Telnet, RDP, VNC et 21115 à 21119)
+    dans « Scanner les ports › … » et dans l’outil Scan de ports.
+- **Reconnaissance des serveurs RustDesk** (type « Serveur RustDesk », rôle et constat dans la
+  fiche) et des postes à accès IP direct, sans changer un type choisi à la main.
+- Démonstration : serveur srv-assistance et Poste direction avec RustDesk.
+
+### Modifié
+- Chaque scan vérifie maintenant aussi les ports 21116 (serveur RustDesk) et 21118 (accès IP
+  direct). La liste du profil Personnalisé n’est mise à jour que si vous ne l’aviez pas
+  modifiée.
+- Rapports : l’accès IP direct RustDesk est signalé comme un accès distant ; les ports d’un
+  serveur RustDesk ne sont plus traités comme inconnus.
+- Switchs : les erreurs des ports s’affichent en puce « 1 port en erreur » au bout de la ligne
+  du nom (« ⚠ 1 » dans une carte étroite) au lieu d’une pastille sur l’icône.
+
+### Corrigé
+- Petite fenêtre : boutons de Réglages › RustDesk, de l’Inventaire et « Scanner les ports » du
+  Scanner qui étaient tronqués.
+
+### Limites connues
+- NetScope ne remplace pas le client RustDesk : la session s’ouvre dans l’app RustDesk de ce
+  Mac, qui doit être installée et réglée sur le même serveur.
+- L’historique note seulement l’heure de lancement : RustDesk ne dit pas à NetScope quand la
+  session se termine, donc pas de durée.
+- Le mot de passe permanent sort du Trousseau au moment de « Connecter » : il est remis au
+  client RustDesk dans le lien de connexion.
+- Le test du serveur et la vérification des VIP n’ont été essayés que sur des données de
+  démonstration ; ils attendent un essai sur le vrai serveur et la vraie FortiGate.
+
 ## 0.26.0 — 2026-11-05
 
 Nouveau Bilan de raccordement en un clic avec mode avant/après, vrai Test MTU du chemin,

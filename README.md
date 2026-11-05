@@ -4,7 +4,7 @@
 sur plusieurs plages, dit sur quel switch et quel port chacun est branché, puis diagnostique,
 surveille, documente et ouvre une session à distance, site par site, dans une seule fenêtre.
 
-[![Version](https://img.shields.io/badge/version-0.26.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.26.1-blue)](https://github.com/mdany75/NetScope/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-lightgrey?logo=apple)](#installation)
 [![Licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
@@ -31,7 +31,9 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   depuis la 0.25.0, SNMP v3 partout, un Navigateur SNMP, le trafic de chaque port sur 30 jours
   et le cycle PoE d’un port à distance ; depuis la 0.26.0, un Bilan de raccordement en un clic
   (avant/après), le vrai MTU du chemin, le Ping continu en TCP et HTTP(S), les éléments des
-  balises Wi-Fi, les tunnels SSH et le saut par bastion.
+  balises Wi-Fi, les tunnels SSH et le saut par bastion ; depuis la 0.26.1, l’assistance à
+  distance par RustDesk avec ton propre serveur (carnet des postes, test du serveur, ports
+  RustDesk reconnus dans les scans).
 
 > **État du projet** : NetScope est en développement actif (0.x). Les fonctions réseau
 > (FortiGate, FortiAP, SNMP, Syslog, sessions SSH, Telnet, série et VNC) sont testées sur des
@@ -217,8 +219,8 @@ et le détail des notes dans [docs/A-FAIRE.md](docs/A-FAIRE.md). Les prochaines 
 
 - **0.24.0, sauvegarde des configurations** : FortiGate par l’API, puis switchs en SSH ; export
   de la carte et section « Carte » du rapport.
-- **0.26.0, bilan de raccordement** : bilan en un clic avec avant/après, vrai Test MTU, ping
-  TCP et HTTP, traceroute TCP et UDP.
+- **0.27.0, surveillance de longue durée** : historique de 30 à 90 jours, rapport de
+  disponibilité, fenêtres de maintenance et envoi automatique du rapport planifié.
 
 ## Construire depuis les sources
 
