@@ -116,7 +116,10 @@ struct RemoteScreen: View {
 
     /// Largeur des trois colonnes côte à côte : marges (32), liste (272), sessions (au moins 360)
     /// et détails (300), plus les espacements.
-    private static let threeColumnWidth: CGFloat = 32 + 272 + 12 + 360 + 12 + 300
+    private static let threeColumnWidth: CGFloat = 32 + 272 + 12 + 360 + 12 + detailWidth
+
+    /// Largeur fixe de la colonne des détails.
+    static let detailWidth: CGFloat = 300
 
     private func updateLayout(width: CGFloat) {
         let compact = width < Self.threeColumnWidth
@@ -132,8 +135,12 @@ struct RemoteScreen: View {
         if dashboardShown {
             EmptyView()
         } else if model.detailsVisible, let connection = model.selected {
+            // Correctif 0.27.2 : colonne fixe à droite. Le contenu est calé à gauche et coupé au
+            // bord de la colonne : même si une ligne réclamait plus de 300 points, le panneau ne
+            // déborde plus, centré, sur la session et hors de la fenêtre.
             RemoteDetailPanel(model: model, connection: connection)
-                .frame(width: 300)
+                .frame(width: Self.detailWidth, alignment: .topLeading)
+                .clipped()
         } else if let connection = model.selected {
             Button {
                 model.detailsVisible = true

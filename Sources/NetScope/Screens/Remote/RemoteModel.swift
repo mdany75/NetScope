@@ -178,6 +178,11 @@ final class RemoteModel: ObservableObject {
             // Vérification juste après la connexion la plus récente de la démonstration (il y a 6 min).
             lastCheck = Date().addingTimeInterval(-60)
             selectedID = connections.first?.id
+            if RemoteDemo.isSoloView {
+                connections = [RemoteDemo.soloConnection]
+                reachability = [:]
+                selectedID = RemoteDemo.soloConnection.id
+            }
         } else {
             connections = store?.load() ?? []
             selectedID = connections.first?.id

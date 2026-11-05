@@ -48,7 +48,7 @@ final class RustDeskModel: ObservableObject {
         store = sandboxed ? nil : RustDeskStore.standard
         if RegEnvironment.isDemo {
             settings = RustDeskDemo.settings
-            history = RustDeskDemo.history(connections: RemoteDemo.connections)
+            history = RemoteDemo.isSoloView ? [] : RustDeskDemo.history(connections: RemoteDemo.connections)
             savedPasswords = Set(RemoteDemo.connections.filter { RustDeskDemo.hasSavedPassword($0) }.map(\.id))
             isInstalled = true
             // Captures : NETSCOPE_RUSTDESK_VIEW=verifie|test : vérifications déjà faites (données fixes).

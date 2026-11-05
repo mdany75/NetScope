@@ -77,7 +77,7 @@ final class RemoteSessionStore: ObservableObject {
         if isSandboxed {
             savedPasswords = Set(RemoteDemo.connections.filter { $0.proto == .ssh && $0.name.hasPrefix("FortiGate") }.map(\.id))
         }
-        if RegEnvironment.isDemo {
+        if RegEnvironment.isDemo, !RemoteDemo.isSoloView {
             TerminalDemo.openDemoTabs(in: self)
             // Note 66 : tunnels ouverts de la démonstration (rien n'est lancé).
             SSHTunnelDemo.openDemoTunnels(in: self)

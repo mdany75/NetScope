@@ -39,6 +39,15 @@ struct RemoteDetailPanel: View {
         return hostName
     }
 
+    @ViewBuilder private var reachChip: some View {
+        if connection.isRustDeskByID {
+            Chip(text: "Par ID", tone: .neutral)
+                .help("Joint par le serveur d’ID RustDesk (aucune sonde TCP)")
+        } else {
+            Chip(text: reach.label, tone: reach.tone)
+        }
+    }
+
     private var identityCard: some View {
         Panel {
             VStack(alignment: .leading, spacing: 10) {
@@ -49,14 +58,20 @@ struct RemoteDetailPanel: View {
                         if !connection.note.isEmpty {
                             Text(connection.note).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
                         }
-                        HStack(spacing: 6) {
-                            if connection.isRustDeskByID {
-                                Chip(text: "Par ID", tone: .neutral)
-                                    .help("Joint par le serveur d’ID RustDesk (aucune sonde TCP)")
-                            } else {
-                                Chip(text: reach.label, tone: reach.tone)
+                        // Correctif 0.27.2 : un nom de dossier long (« St-Georges GM / St-Georges
+                        // Toyota ») passe sous la pastille d'état, puis s'abrège s'il le faut ; sur
+                        // une seule ligne, il élargissait le panneau au-delà de sa colonne de
+                        // 300 points, qui recouvrait alors la session et sortait de la fenêtre.
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 6) {
+                                reachChip
+                                Chip(text: connection.folderLabel, tone: .neutral)
                             }
-                            Chip(text: connection.folderLabel, tone: .neutral)
+                            VStack(alignment: .leading, spacing: 4) {
+                                reachChip
+                                Chip(text: connection.folderLabel, tone: .neutral, truncates: true)
+                                    .help(connection.folderLabel)
+                            }
                         }
                         .padding(.top, 4)
                     }
