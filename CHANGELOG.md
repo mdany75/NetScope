@@ -1,5 +1,91 @@
 # Changements
 
+## 0.25.0 — 2026-11-05
+
+SNMP v3 partout et nouveau Navigateur SNMP, graphes du trafic de chaque port sur 30 jours, et
+premières actions sur les ports (cycle PoE), désactivées par défaut et entourées de
+garde-fous.
+
+### Ajouté
+- **SNMP v3 partout** : relevé des switchs, relecture automatique, Ressources de la fiche
+  Appareil, sondes de la Surveillance, « Lire la fiche matériel » et découverte des switchs en
+  fin de scan interrogent maintenant en SNMP v3 (noAuthNoPriv, authNoPriv, authPriv ; MD5,
+  SHA-1 à SHA-512 ; DES, AES-128 à AES-256). La communauté v2c reste le repli.
+- **Utilisateur SNMP v3 par site** (Réglages › Identifiants) : menu « S’applique à » ; les
+  autres sites utilisent celui de tous les sites. Les mots de passe restent au Trousseau.
+- **Navigateur SNMP** (Boîte à outils › Diagnostic) : GET, GETNEXT et parcours d’un OID en
+  v2c ou v3, raccourcis vers les tables courantes (system, ifTable, ifXTable, ENTITY-MIB, LLDP,
+  BRIDGE, Q-BRIDGE, PoE, HOST-RESOURCES), noms et valeurs lisibles, limite de lignes, arrêt,
+  copie et export CSV.
+- **Graphe du trafic de chaque port** (Switchs et ports) : 1 h, 24 h, 7 jours ou 30 jours,
+  avec débits maximal et moyen, pourcentage de la vitesse du lien et erreurs par heure
+  (valeurs au survol).
+- **Historique du trafic des ports**, gardé par site sur ce Mac : 24 h à la résolution du
+  relevé, 7 jours par tranches de 5 min, puis à l’heure jusqu’à 90 jours. Les compteurs
+  32 bits qui bouclent et les compteurs remis à zéro sont gérés.
+- **Trafic sans FortiView** : sans FortiGate prête (ou sans le droit FortiView), l’écran
+  Trafic montre le trafic relevé sur les switchs (SNMP et FortiSwitch) : port le plus chargé,
+  ports chargés, ports en erreur et tableau des ports les plus chargés.
+- **Actions sur les ports** (note 73) : « Couper et rallumer le PoE » d’un port, pour
+  redémarrer à distance un téléphone IP, une borne ou une caméra figés, depuis le détail du
+  port (Switchs et ports) et depuis la fiche de l’appareil.
+  - FortiSwitch géré par une FortiGate : cycle PoE et « Redémarrer le port » par l’API REST
+    de la FortiGate. Le jeton doit avoir « WiFi & Switch Controller » en lecture-écriture ; un
+    jeton en lecture seule est signalé clairement.
+  - Autres switchs : cycle PoE par SNMP en écriture (v2c ou v3), durée de coupure réglable
+    (5 s par défaut), avec des identifiants d’écriture dédiés, distincts de ceux de lecture et
+    gardés au Trousseau.
+  - Garde-fous : actions désactivées par défaut (Réglages › Switchs › Actions sur les ports) ;
+    confirmation obligatoire qui nomme le switch, le port, l’appareil et son IP ; uplinks et
+    port de ce Mac refusés par défaut ; le PoE est rallumé jusqu’à trois fois si la remise
+    échoue.
+  - Après l’action, NetScope suit le retour de l’appareil (« revenu en 52 s ») et note l’action
+    au journal de l’app et dans la chronologie de l’appareil dans l’inventaire.
+
+### Modifié
+- **Fiche matériel en SNMP v3** : le châssis est trouvé par un vrai parcours d’ENTITY-MIB,
+  comme en v2c, au lieu d’index devinés.
+- **Réglages › Switchs** : la colonne SNMP indique l’utilisateur v3 utilisé pour chaque
+  switch, et si la communauté sert de repli.
+- **« Ports les plus chargés »** (Switchs et ports) : passe d’« En direct » à une période
+  (1 h à 30 j) dans un tableau standard, aussi pour les FortiSwitch gérés par la FortiGate.
+- **Bilan de santé** (ancienne « Analyse complète du réseau », note sur 100) : un port est
+  signalé en erreur selon son rythme d’erreurs par heure, et non plus d’après le total
+  accumulé depuis le démarrage du switch ; un port chargé à plus de 80 % en moyenne sur la
+  dernière heure est signalé saturé. Le bilan est rappelé en tête de l’écran Historique et
+  adressage, avec un lien vers son détail.
+- **« Analyse » devient « Historique et adressage »**, pour ne plus le confondre avec le bilan
+  de Trafic ; la recherche des Réglages le retrouve aussi par son ancien nom.
+- **Boîte à outils** : un seul outil « Courriel » à onglets (Super outil, SMTP, en-têtes,
+  santé, SPF/DKIM, MX, listes noires) remplace les sept outils séparés ; les anciens liens
+  ouvrent le bon onglet.
+- **Speedtest** : le moteur Ookla est masqué par défaut (licence pour un usage personnel et
+  non commercial) ; il se réactive dans Serveurs › Sources, et un choix Ookla déjà fait est
+  gardé.
+- **État des services** : TikTok, Snapchat, Facebook, Instagram et Grok ne sont plus suivis
+  par défaut ; une case les réactive dans « Modifier la liste ».
+- **Barre latérale** un peu plus large, pour afficher les noms d’écran en entier.
+
+### Corrigé
+- **Fiche Appareil › Ressources** : l’en-tête indique la version SNMP vraiment utilisée
+  (v3 avec le nom de l’utilisateur, ou v2c) au lieu de toujours « SNMP v2c ».
+- **Fiche Appareil** : un nom contenant « œ » (« Switch cœur ») n’est plus coupé en bas.
+
+### Limites connues
+- **Vérifié en démonstration seulement** : SNMP v3, Navigateur SNMP, graphes des ports et
+  actions sur les ports n’ont pas encore été essayés sur de vrais switchs, FortiSwitch ni
+  FortiGate.
+- **Les actions sur les ports modifient l’équipement** : c’est la première exception à la
+  lecture seule de NetScope. Le cycle PoE coupe l’alimentation de l’appareil branché ; à
+  essayer d’abord sur un port sans risque. Le cycle PoE par SNMP dépend de la prise en charge
+  de POWER-ETHERNET-MIB en écriture par le switch, et « Redémarrer le port » n’existe que pour
+  les FortiSwitch gérés par la FortiGate.
+- **Graphes des ports** : l’historique ne se remplit que pendant que NetScope est ouvert et
+  relit les switchs ; il commence vide à l’installation et garde des trous quand l’app est
+  fermée.
+- La 0.24.0 (sauvegarde des configurations, note 40, et export de la carte, note 61) n’est pas
+  encore faite : elle viendra plus tard.
+
 ## 0.23.1 — 2026-11-05
 
 Les cartes des switchs signalent les ports dont les erreurs augmentent, et Réglages › Mises à

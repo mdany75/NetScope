@@ -4,7 +4,7 @@
 sur plusieurs plages, dit sur quel switch et quel port chacun est branché, puis diagnostique,
 surveille, documente et ouvre une session à distance, site par site, dans une seule fenêtre.
 
-[![Version](https://img.shields.io/badge/version-0.23.1-blue)](https://github.com/mdany75/NetScope/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.25.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-lightgrey?logo=apple)](#installation)
 [![Licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
@@ -22,11 +22,14 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   ses switchs, ses résultats et son inventaire, même quand deux sites utilisent les mêmes
   adresses. Tout reste sur le Mac (synchronisation iCloud Drive entre tes Mac en option), sans
   abonnement par site.
-- **Fortinet en profondeur, en lecture seule** : FortiSwitch, bornes FortiAP, liens WAN et VPN,
-  FortiView, firmware, licences et journaux, lus par l’API sans jamais rien modifier.
+- **Fortinet en profondeur** : FortiSwitch, bornes FortiAP, liens WAN et VPN, FortiView,
+  firmware, licences et journaux, lus par l’API ; seules les actions sur les ports (cycle PoE,
+  désactivées par défaut) modifient quelque chose, après confirmation.
 - **Une seule fenêtre pour tout le travail** : scan, ping, Wi-Fi, outils de diagnostic,
   rapports PDF, terminal SSH et Telnet, console série et VNC intégrés, et depuis la 0.23.0 un
-  journal de l’app avec « Exporter un diagnostic » et une fiche matériel remplie toute seule.
+  journal de l’app avec « Exporter un diagnostic » et une fiche matériel remplie toute seule ;
+  depuis la 0.25.0, SNMP v3 partout, un Navigateur SNMP, le trafic de chaque port sur 30 jours
+  et le cycle PoE d’un port à distance.
 
 > **État du projet** : NetScope est en développement actif (0.x). Les fonctions réseau
 > (FortiGate, FortiAP, SNMP, Syslog, sessions SSH, Telnet, série et VNC) sont testées sur des
@@ -41,7 +44,7 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   administrateur, table ARP et 22 ports essentiels sondés à chaque scan.
 - Nom de chaque appareil avec sa source (DNS inverse, mDNS/Bonjour, NetBIOS, sysName SNMP),
   fabricant d’après le registre IEEE complet (environ 53 700 préfixes) et type d’appareil.
-- Colonnes **Switch / Port** et **VLAN** remplies seules : découverte SNMP v2c des switchs
+- Colonnes **Switch / Port** et **VLAN** remplies seules : découverte SNMP v2c ou v3 des switchs
   pendant le scan, ou FortiSwitch lus par la FortiGate.
 - Sites avec leurs plages et leur FortiGate, reconnus par la passerelle ; recherche multiple
   dans tous les modules (`switch:`, `type:`, `ip:`, `vlan:`, `-mot`…).
@@ -69,10 +72,16 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
 - **« Diagnostiquer »** un client, une borne ou un SSID : signal, canal, interférences, charge,
   authentification, DHCP, puis les actions à faire dans l’ordre.
 
-### Fortinet (lecture seule)
+### Switchs et Fortinet
 
 - Plusieurs FortiGate, une par site, chacune avec son jeton au Trousseau.
-- FortiSwitch gérés par FortiLink dans Switchs et ports et dans le Scanner.
+- FortiSwitch gérés par FortiLink dans Switchs et ports et dans le Scanner ; autres switchs
+  relus en SNMP v2c ou v3 (utilisateur v3 par site, mots de passe au Trousseau).
+- **Graphe du trafic de chaque port** sur 1 h, 24 h, 7 jours ou 30 jours (débits maximal et
+  moyen, pourcentage du lien, erreurs par heure), historique gardé par site jusqu’à 90 jours.
+- **Cycle PoE d’un port** (et « Redémarrer le port » sur un FortiSwitch) pour relancer un
+  téléphone IP, une borne ou une caméra figés : désactivé par défaut, confirmation qui nomme
+  l’appareil, uplinks refusés, suivi du retour de l’appareil.
 - Outil **WAN et VPN** : liens WAN et SD-WAN (latence, gigue, perte, SLA), tunnels IPsec,
   utilisateurs VPN SSL, pour un site ou tous.
 - **Firmware et licences** : versions FortiOS, FortiSwitch et FortiAP, licences FortiGuard et
@@ -88,7 +97,8 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
 - **Journaux** : récepteur Syslog et traps SNMP sur ce Mac, journaux d’événements de la
   FortiGate et « Comprendre une coupure ».
 - **Trafic** lu par FortiView (sources, applications, destinations, menaces), « Qui sature le
-  lien ? » et « Analyse complète du réseau » notée sur 100.
+  lien ? » et « Bilan de santé » noté sur 100 ; sans FortiView, trafic des ports relevé sur les
+  switchs.
 
 ### Accès distant
 
@@ -112,9 +122,11 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
 ### Boîte à outils
 
 - Calculateur de sous-réseaux avec découpage, convertisseur MAC/OUI, scan de ports, Wake-on-LAN.
-- DNS complet (comparaison, propagation, DNSSEC), Whois et outils **Courriel** (santé d’un
-  domaine sur 100, MX, listes noires, SPF/DKIM/DMARC, diagnostic SMTP, en-têtes).
-- **Speedtest** (Cloudflare, M-Lab, LibreSpeed, Ookla) et iperf3 ; **État des services** en
+- DNS complet (comparaison, propagation, DNSSEC), Whois et un outil **Courriel** à onglets
+  (santé d’un domaine sur 100, MX, listes noires, SPF/DKIM/DMARC, diagnostic SMTP, en-têtes).
+- **Navigateur SNMP** : GET, GETNEXT et parcours d’un OID en v2c ou v3, tables courantes
+  nommées, export CSV.
+- **Speedtest** (Cloudflare, M-Lab, LibreSpeed ; Ookla en option) et iperf3 ; **État des services** en
   ligne (Microsoft 365, Apple, AWS, Google…).
 - **Capture de paquets** (filtres, détail par couche, suivi de flux, .pcap), serveur et client
   **TFTP**, **Vitesse des disques** (local, NAS, partage réseau).
@@ -179,7 +191,8 @@ vérifiée avant l’installation).
 3. **FortiGate en lecture seule** : dans Réglages › Switchs › Contrôleurs FortiGate, ajoute la
    FortiGate du site avec un jeton d’API. L’aide de l’écran explique comment créer un
    administrateur API en lecture seule. FortiSwitch, FortiAP, WAN, trafic et firmware se
-   remplissent alors seuls.
+   remplissent alors seuls. Seules les actions sur les ports (cycle PoE, désactivées par
+   défaut) demandent « WiFi & Switch Controller » en lecture-écriture.
 
 ## Confidentialité et sécurité
 
@@ -202,8 +215,8 @@ et le détail des notes dans [docs/A-FAIRE.md](docs/A-FAIRE.md). Les prochaines 
 
 - **0.24.0, sauvegarde des configurations** : FortiGate par l’API, puis switchs en SSH ; export
   de la carte et section « Carte » du rapport.
-- **0.25.0, SNMP complet** : SNMP v3 partout, navigateur SNMP et graphes de bande passante par
-  port.
+- **0.26.0, bilan de raccordement** : bilan en un clic avec avant/après, vrai Test MTU, ping
+  TCP et HTTP, traceroute TCP et UDP.
 
 ## Construire depuis les sources
 
