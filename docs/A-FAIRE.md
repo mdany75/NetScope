@@ -7,7 +7,7 @@
 
 ## Priorités (revues le 5 novembre 2026, réorganisées avec les notes 45 à 79 après l’analyse du marché)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0 ; notes 42 et 10 dans la 0.20.0 ; notes 41 et 43, et la note 11 en partie (pause par cible, tableau MTR, écran vide), dans la 0.21.0 ; note 57 dans la 0.22.0 ; notes 35 et 60 dans la 0.23.0 ; erreurs récentes des ports dans la 0.23.1 ; notes 59, 73, 74 et 79, la partie « Trafic » de la note 78 et le navigateur SNMP dans la 0.25.0 ; notes 58, 65, 66 et 71, et les parties « Test MTU », « Ping continu », « Inventaire », « Wake-on-LAN », « Alertes » et « Accès distant » de la note 78 dans la 0.26.0 ; note 6 (RustDesk) dans la 0.26.1 ; tableau de bord du serveur RustDesk (note 6), « Ouvrir une fiche » et saisie à la main dans Appareil, et correctif des clients Wi-Fi de FortiOS 7.4.13 dans la 0.26.2 ; notes 62, 80, 81, 82 et 83 et le reste de la note 78 (Surveillance, Carte du réseau, Analyse, Wi-Fi ce Mac, Speedtest, iperf3, Capture de paquets, Rapports, Journaux, XMODEM/YMODEM, Vitesse des disques) dans la 0.27.0 ; note 84 dans la 0.27.1 ; correctif d’affichage de l’Accès distant (panneau de détails qui recouvrait la session et dépassait de la fenêtre, signalé par Dany le 5 novembre 2026) et fermeture de l’app à l’enregistrement d’une connexion dans la 0.27.2 ; note 85 (onglet « Assistance RustDesk ») dans la 0.27.3 (la 0.24.0, notes 40 et 61, reste à faire).
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0 ; notes 42 et 10 dans la 0.20.0 ; notes 41 et 43, et la note 11 en partie (pause par cible, tableau MTR, écran vide), dans la 0.21.0 ; note 57 dans la 0.22.0 ; notes 35 et 60 dans la 0.23.0 ; erreurs récentes des ports dans la 0.23.1 ; notes 59, 73, 74 et 79, la partie « Trafic » de la note 78 et le navigateur SNMP dans la 0.25.0 ; notes 58, 65, 66 et 71, et les parties « Test MTU », « Ping continu », « Inventaire », « Wake-on-LAN », « Alertes » et « Accès distant » de la note 78 dans la 0.26.0 ; note 6 (RustDesk) dans la 0.26.1 ; tableau de bord du serveur RustDesk (note 6), « Ouvrir une fiche » et saisie à la main dans Appareil, et correctif des clients Wi-Fi de FortiOS 7.4.13 dans la 0.26.2 ; notes 62, 80, 81, 82 et 83 et le reste de la note 78 (Surveillance, Carte du réseau, Analyse, Wi-Fi ce Mac, Speedtest, iperf3, Capture de paquets, Rapports, Journaux, XMODEM/YMODEM, Vitesse des disques) dans la 0.27.0 ; note 84 dans la 0.27.1 ; correctif d’affichage de l’Accès distant (panneau de détails qui recouvrait la session et dépassait de la fenêtre, signalé par Dany le 5 novembre 2026) et fermeture de l’app à l’enregistrement d’une connexion dans la 0.27.2 ; note 85 (onglet « Assistance RustDesk ») dans la 0.27.3 ; notes 61, 72, 75 et 76 (demandées par Dany le 5 novembre 2026) dans la 0.28.0 (la 0.24.0, note 40, reste à faire).
 
 1. **0.13.x à 0.22.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP ; 0.17.0 : relecture automatique, WAN et VPN, Trafic FortiView et analyse complète à essayer sur de vraies FortiGate ; 0.18.0 : FTP, FTPS, SFTP, TFTP, « Bloqué ici », NAS dans Vitesse des disques, export, import et synchronisation à essayer sur de vrais appareils et deux Mac ; 0.20.0 : rapport de suivi, rapports planifiés et Inventaire repensé à essayer sur les vrais sites ; 0.21.0 : firmware et licences, Syslog, traps SNMP, journaux de la FortiGate et pause par cible du Ping à essayer sur de vrais équipements ; 0.22.0 : terminal intégré SSH, Telnet et série, et session VNC intégrée à essayer sur de vrais équipements, câbles console et serveurs VNC ; 0.23.0 : journal de l’app, « Exporter un diagnostic » et fiche matériel automatique à essayer sur de vrais switchs, imprimantes et FortiGate ; 0.25.0 : SNMP v3, navigateur SNMP, graphes des ports et cycle PoE à essayer sur de vrais switchs, FortiSwitch et FortiGate, d’abord sur un port sans risque) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
@@ -131,8 +131,8 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       fil de l’eau en 0.23.x.
     - **0.24.0, sauvegarde des configurations** (reprend la 0.19.0 ; toujours à faire, la 0.25.0
       est sortie avant) : note 40 (FortiGate par
-      l’API, puis switchs en SSH grâce au terminal de la 0.22.0) ; note 61 (export de la carte et
-      section « Carte » du rapport).
+      l’API, puis switchs en SSH grâce au terminal de la 0.22.0) ; la note 61 (export de la carte
+      et section « Carte » du rapport) est livrée dans la 0.28.0.
     - ~~**0.25.0, SNMP complet**~~ (livrée le 5 novembre 2026, avant la 0.24.0) : note 59 (SNMP
       v3 partout) ; navigateur SNMP et MIB walk (idée sans numéro, venue de l’ancienne feuille de
       route) ; note 74 (graphes de bande passante par port) ; partie « Trafic » de la note 78 ;
@@ -172,7 +172,14 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       la 0.27.3.** Note 85 (demande de Dany du 5 novembre 2026) : l’assistance RustDesk quitte la
       page « Sessions » pour son propre onglet, comme « Serveur RustDesk », avec l’historique
       complet des sessions en tableau. Essai réel sur le serveur de Groupe Couture à faire.
-    - **0.28.0, automatique en arrière-plan** : notes 63 (scan planifié par site) et 64 (agent
+    - ~~**0.28.0, carte exportée, flux, partages SMB et alertes sur téléphone**~~ (livrée le 5
+      novembre 2026) : **Livrée dans la 0.28.0.** Notes 61 (export de la carte en PNG, PDF, SVG
+      et draw.io, section « Carte du réseau » des rapports), 72 (partages SMB d’un hôte), 75
+      (collecteur NetFlow, sFlow et IPFIX dans Trafic) et 76 (notifications ntfy et Pushover),
+      demandées par Dany le 5 novembre 2026 et avancées de « plus tard ». Essais réels à faire
+      (draw.io, NAS et postes Windows, vrais exportateurs de flux, vrais envois ntfy et Pushover).
+    - **Version suivante, automatique en arrière-plan** (prévue en 0.28.0, repoussée par la
+      livraison des notes 61, 72, 75 et 76) : notes 63 (scan planifié par site) et 64 (agent
       sans fenêtre) ; sonde « débit Internet » planifiée (note 78, livrée dans la 0.27.0).
     - **0.29.0, IPv6** (idée sans numéro, venue de l’ancienne feuille de route) : découverte par
       la table des voisins NDP (lue par sysctl, sans paquet), ping multicast lien local, ping et
@@ -185,7 +192,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       la 0.25.0 ; reste à décider : avancer la note 66 (tunnels SSH) en 0.24.0 si le VNC non chiffré ou
       le réseau FortiLink posent problème pendant les essais (livrée dans la 0.26.0).
     - **Plus tard** : note 11 (reste : préréglages du Ping continu), 13 (anglais) ; notes 68 à 70 (empreinte des services, ports UDP, certificats
-      TLS), 72 (partages SMB), 75 à 77 (NetFlow, ntfy et Pushover, autres contrôleurs) ; idées
+      TLS), 77 (autres contrôleurs ; les notes 72, 75 et 76 sont livrées dans la 0.28.0) ; idées
       d’un cran en dessous : relevé Wi-Fi sur plan, qualité VoIP (MOS) avec les décodeurs
       SIP/RTP, toner des imprimantes, test de câble, scan d’un VLAN tagué, retour à la version
       précédente.
@@ -194,17 +201,17 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 
 | Module | Livrées | À venir |
 | --- | --- | --- |
-| Scanner et sites | 18, 19, 20, 26, 28, 48, 49, 81, 82 (0.27.0) | 63 (0.28.0), IPv6 (0.29.0), 68, 69, 72 (plus tard) |
+| Scanner et sites | 18, 19, 20, 26, 28, 48, 49, 81, 82 (0.27.0), 72 (0.28.0) | 63 (version suivante), IPv6 (0.29.0), 68, 69 (plus tard) |
 | Navigation entre les modules | 31, 33, 34, 36, 45 | — |
-| Switchs et ports, Fortinet | 12, 24, 25, 29, 39, 41, 54, 59, 73, 74, navigateur SNMP / MIB walk (0.25.0), 83 (0.27.0) | 40 (0.24.0), 75, 77 (plus tard) |
+| Switchs et ports, Fortinet | 12, 24, 25, 29, 39, 41, 54, 59, 73, 74, navigateur SNMP / MIB walk (0.25.0), 83 (0.27.0), 75 (0.28.0) | 40 (0.24.0), 77 (plus tard) |
 | Wi-Fi | 1, 27, 46, 47, 71 (0.26.0), 80 et 78 : meilleur canal, relevé (0.27.0) | — |
-| Carte du réseau | 32, 78 : liens LLDP, VLAN, disposition (0.27.0) | 61 (0.24.0) |
+| Carte du réseau | 32, 78 : liens LLDP, VLAN, disposition (0.27.0), 61 (0.28.0) | — |
 | Inventaire | 8, 10, 30 | 60 (0.23.0) |
 | Ping continu | 11 (en partie, 0.21.0), 65 (0.26.0) | 11 : préréglages (plus tard) |
 | Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22, 37, 51, 53, 55, 58 (0.26.0) | 70 (plus tard) |
 | Accès distant | 5, 50, 52, 57, 66 (0.26.0), 6 (0.26.1 ; tableau de bord du serveur, 0.26.2), 85 (0.27.3) | 67 (0.30.0) |
-| Surveillance, alertes et journaux | 3, 23, 43, 62 et 78 (0.27.0) | 64 (0.28.0), 76 (plus tard) |
-| Rapports | 4, 42, 62 et 78 : SMTP, DOCX (0.27.0) | 61 (0.24.0) |
+| Surveillance, alertes et journaux | 3, 23, 43, 62 et 78 (0.27.0), 76 (0.28.0) | 64 (version suivante) |
+| Rapports | 4, 42, 62 et 78 : SMTP, DOCX (0.27.0), 61 (0.28.0) | — |
 | Réglages, sauvegarde, aide | 9, 13, 38, 56 | 35 (0.23.0), 13 (plus tard) |
 | Toute l’app (analyse du marché) | 79 (0.25.0), 78 en partie (Trafic, 0.25.0 ; Test MTU, Ping continu, Inventaire, Wake-on-LAN, Alertes, Accès distant, 0.26.0), 78 (reste, 0.27.0) | — |
 
@@ -1243,7 +1250,9 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 - **Référence du marché** : Lansweeper, Auvik, Domotz.
 - **Effort** : petit à moyen.
 
-## 61. Export de la carte et section « Carte » du rapport — 0.24.0 (analyse du marché, à valider par Dany)
+## 61. Export de la carte et section « Carte » du rapport — 0.28.0 (analyse du marché, demandée par Dany le 5 novembre 2026)
+
+**Livrée dans la 0.28.0** (5 novembre 2026) : menu « Exporter » de la Carte du réseau (carte entière en PNG haute résolution, PDF vectoriel, SVG et draw.io modifiable, avec le site, le filtre VLAN, la recherche et les calques affichés, toujours en clair) ; section facultative « Carte du réseau » des rapports (image, légende, liens entre équipements) en PDF, HTML et DOCX, rapports planifiés compris ; essai réel à faire sur un vrai site (ouverture dans draw.io et Illustrator, impression).
 
 - **Ce que ça apporte** : le schéma est le livrable que le client demande le plus. Export en
   PNG et PDF (rendu SwiftUI vers une image), puis SVG ou draw.io (XML écrit à la main) ;
@@ -1338,7 +1347,7 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 - **Référence du marché** : WiFi Explorer Pro 3.
 - **Effort** : petit à moyen.
 
-## 72. Partages SMB d’un hôte — plus tard (analyse du marché, à valider par Dany)
+## 72. Partages SMB d’un hôte — 0.28.0 (analyse du marché, demandée par Dany le 5 novembre 2026)
 
 **Livrée dans la 0.28.0** (5 novembre 2026) : section « Partages SMB » de la fiche Appareil (port 445 ou 139 ouvert, ou NAS) et « Partages SMB… » au menu du Scanner ; `smbutil view` sur clic seulement, en invité puis anonyme, ou avec un utilisateur (mot de passe tapé dans smbutil par un pseudo-terminal, gardé au Trousseau sur demande) ; tableau standard, partages cachés ($) sur demande, « Ouvrir dans le Finder », chemins smb:// et Windows ; essai réel à faire sur un NAS, un poste Windows et un hôte SMB1.
 
@@ -1367,14 +1376,18 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 - **Référence du marché** : LibreNMS, PRTG, Observium.
 - **Effort** : moyen.
 
-## 75. Collecteur NetFlow, sFlow et IPFIX — plus tard (analyse du marché, à valider par Dany)
+## 75. Collecteur NetFlow, sFlow et IPFIX — 0.28.0 (analyse du marché, demandée par Dany le 5 novembre 2026)
+
+**Livrée dans la 0.28.0** (5 novembre 2026) : source « Flux (NetFlow, sFlow, IPFIX) » de l’écran Trafic, collecteur sur les ports UDP 2055, 4739 et 6343 démarré sur clic (ports modifiables, avertissement du coupe-feu), sources, destinations, applications, interfaces, conversations et exportateurs sur 1 min à 24 h, « Qui sature le lien ? » sans FortiGate, guide de configuration par marque ; flux gardés en mémoire seulement, 24 h au plus ; essai réel à faire sur de vrais exportateurs (FortiGate, Cisco, Aruba, MikroTik) et le coupe-feu de macOS.
 
 - **Ce que ça apporte** : « Qui sature le lien ? » sans FortiView, sur un réseau d’une autre
   marque. Priorité basse : le parc de Dany est en Fortinet.
 - **Référence du marché** : NinjaOne, Auvik, PRTG.
 - **Effort** : gros.
 
-## 76. Notification sur téléphone par ntfy ou Pushover — plus tard (analyse du marché, à valider par Dany)
+## 76. Notification sur téléphone par ntfy ou Pushover — 0.28.0 (analyse du marché, demandée par Dany le 5 novembre 2026)
+
+**Livrée dans la 0.28.0** (5 novembre 2026) : canaux ntfy (ntfy.sh ou serveur auto-hébergé en https) et Pushover dans Réglages › Alertes, désactivés par défaut, secrets au Trousseau, priorité selon la gravité, filtre propre à chaque canal (gravité, sites), « Envoyer un test » confirmé et journal des envois sans secret ; essai réel à faire avec de vrais envois vers ntfy et Pushover.
 
 - **Ce que ça apporte** : recevoir une alerte loin du Mac sans Teams. Nouveaux canaux d’Alertes
   par de simples requêtes HTTPS.

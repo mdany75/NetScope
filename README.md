@@ -4,7 +4,7 @@
 sur plusieurs plages, dit sur quel switch et quel port chacun est branché, puis diagnostique,
 surveille, documente et ouvre une session à distance, site par site, dans une seule fenêtre.
 
-[![Version](https://img.shields.io/badge/version-0.27.3-blue)](https://github.com/mdany75/NetScope/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.28.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-lightgrey?logo=apple)](#installation)
 [![Licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
@@ -45,7 +45,9 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   filaire et adresses DHCP ; la 0.27.2 garde le panneau de détails de l’Accès distant
   dans sa colonne et corrige une fermeture de l’app à l’enregistrement d’une connexion ; la
   0.27.3 donne à l’assistance RustDesk son propre onglet, avec l’historique complet des
-  sessions dans un tableau.
+  sessions dans un tableau ; la 0.28.0 exporte la carte du réseau (PNG, PDF, SVG, draw.io) et
+  l’ajoute aux rapports, reçoit les flux NetFlow, sFlow et IPFIX de toute marque dans Trafic,
+  liste les partages SMB d’un hôte et envoie les alertes sur téléphone par ntfy ou Pushover.
 
 > **État du projet** : NetScope est en développement actif (0.x). Les fonctions réseau
 > (FortiGate, FortiAP, SNMP, Syslog, sessions SSH, Telnet, série et VNC) sont testées sur des
@@ -65,6 +67,7 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
 - Sites avec leurs plages et leur FortiGate, reconnus par la passerelle ; recherche multiple
   dans tous les modules (`switch:`, `type:`, `ip:`, `vlan:`, `-mot`…).
 - **Carte du réseau** hiérarchique (Internet, passerelle, switchs, bornes, groupes d’appareils)
+  avec **export de la carte entière** en PNG, PDF, SVG ou draw.io modifiable,
   et **Inventaire** permanent : chronologie des changements d’IP et de port, garantie, pièces
   jointes, étiquettes, import et export CSV ; modèle, numéro de série et
   firmware lus tout seuls (SNMP ENTITY-MIB, sysDescr, FortiGate).
@@ -74,7 +77,8 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
 - **Ping continu** (ICMP, TCP ou HTTP(S)) jusqu’à 64 cibles : statistiques
   (min, moyenne, max, gigue, perte, P95), journal des coupures, vue façon Terminal, traceroute et MTR.
 - **Fiche Appareil** : réseau, matériel, emplacement physique, ports et bannières, sonde web,
-  notes, et onglet **Ressources** (processeur, mémoire, disques et trafic par SNMP).
+  notes, **partages SMB** d’un NAS ou d’un poste Windows (par `smbutil`, sur clic), et onglet
+  **Ressources** (processeur, mémoire, disques et trafic par SNMP).
   Sans appareil choisi, une fiche s’ouvre par IP, nom ou MAC, et un appareil absent du
   Scanner se saisit à la main.
 - Capture **LLDP/CDP** : le switch, le port, le VLAN et le PoE où ce Mac est branché.
@@ -111,12 +115,14 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
 - **Surveillance** : sondes ping, TCP, HTTP(S) (certificat, mot-clé), DNS, SNMP, port de switch,
   nouveaux appareils, licences et plus, avec seuils, plages horaires et dépendances ;
   disponibilité sur 24 h et icône dans la barre des menus.
-- Alertes par notification macOS, courriel ou webhook (Teams, Slack, JSON).
+- Alertes par notification macOS, courriel, webhook (Teams, Slack, JSON) ou sur téléphone par
+  ntfy et Pushover, avec un filtre par canal.
 - **Journaux** : récepteur Syslog et traps SNMP sur ce Mac, journaux d’événements de la
   FortiGate et « Comprendre une coupure ».
 - **Trafic** lu par FortiView (sources, applications, destinations, menaces), « Qui sature le
   lien ? » et « Bilan de santé » noté sur 100 ; sans FortiView, trafic des ports relevé sur les
-  switchs.
+  switchs ou **flux NetFlow, sFlow et IPFIX** reçus de toute marque (collecteur démarré sur
+  clic, guide de configuration par marque).
 
 ### Accès distant
 
@@ -135,7 +141,7 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
 ### Rapports
 
 - Rapport client en **PDF** (format lettre, pagination, signature), quatre modèles et des
-  sections tirées du scan, de l’inventaire, des switchs et du Wi-Fi.
+  sections tirées du scan, de l’inventaire, des switchs, du Wi-Fi et de la carte du réseau.
 - Exports CSV, JSON et HTML ; brouillon Mail avec le PDF joint.
 - Section « Depuis le dernier rapport », rapports passés par site et rapports planifiés
   (chaque jour, semaine ou mois, quand NetScope est ouvert).
@@ -223,10 +229,11 @@ vérifiée avant l’installation).
 - **Lecture seule chez Fortinet** : NetScope lit la FortiGate par son API et ne modifie rien.
   L’empreinte de son certificat est acceptée une fois, de façon explicite.
 - **Rien n’est envoyé sans toi** : pas de compte, pas de serveur NetScope, pas de télémétrie ;
-  la synchronisation par iCloud Drive et les alertes par courriel ou webhook ne fonctionnent que
-  si tu les actives. Le scan reste sur les plages choisies, la découverte SNMP ne vise que des
-  adresses privées, les rapports partent en brouillon Mail et la base des fabricants n’est mise
-  à jour que sur demande. La vérification des mises à jour (GitHub) se désactive dans Réglages.
+  la synchronisation par iCloud Drive et les alertes par courriel, webhook, ntfy ou Pushover ne
+  fonctionnent que si tu les actives. Le scan reste sur les plages choisies, la découverte
+  SNMP ne vise que des adresses privées, les rapports partent en brouillon Mail et la base des
+  fabricants n’est mise à jour que sur demande. La vérification des mises à jour (GitHub) se
+  désactive dans Réglages.
 - Chaque nouvelle empreinte SSH est montrée avant la connexion, pour que tu l’approuves.
 
 ## Feuille de route
@@ -234,10 +241,9 @@ vérifiée avant l’installation).
 La feuille de route complète est dans [docs/feuille-de-route.html](docs/feuille-de-route.html),
 et le détail des notes dans [docs/A-FAIRE.md](docs/A-FAIRE.md). Les prochaines versions prévues :
 
-- **0.24.0, sauvegarde des configurations** : FortiGate par l’API, puis switchs en SSH ; export
-  de la carte et section « Carte » du rapport.
-- **0.27.0, surveillance de longue durée** : historique de 30 à 90 jours, rapport de
-  disponibilité, fenêtres de maintenance et envoi automatique du rapport planifié.
+- **0.24.0, sauvegarde des configurations** : FortiGate par l’API, puis switchs en SSH.
+- **Automatique en arrière-plan** (version suivante) : scan planifié par site et surveillance sans
+  fenêtre.
 
 ## Construire depuis les sources
 

@@ -1,5 +1,92 @@
 # Changements
 
+## 0.28.0 — 2026-11-05
+
+La carte du réseau s’exporte enfin en livrable pour le client (PNG, PDF, SVG, draw.io) et entre
+dans les rapports ; l’écran Trafic reçoit les flux NetFlow, sFlow et IPFIX de toute marque ; la
+fiche d’un appareil liste ses partages SMB ; et les alertes peuvent arriver sur téléphone par
+ntfy ou Pushover.
+
+### Ajouté
+- **Carte du réseau, menu « Exporter »** : la carte entière (pas seulement la partie visible)
+  en image PNG haute résolution, en PDF vectoriel, en dessin SVG ou en diagramme draw.io
+  modifiable. L’export suit le site, le filtre VLAN, la recherche et les calques affichés, et
+  rappelle ces choix et la date sous le titre ; il est toujours en clair, prêt à remettre au
+  client ou à imprimer.
+- **Carte en draw.io** : les appareils gardent leur place sur la carte et leurs couleurs par
+  type, et les liens restent attachés aux appareils quand on les déplace.
+- **Rapports, section « Carte du réseau »** (facultative) : image de la carte du site, sa
+  légende et la liste des liens entre switchs, passerelle et points d’accès (ports, vitesse,
+  source, liens redondants), en PDF, HTML et DOCX, et aussi dans les rapports planifiés.
+- **Partages SMB d’un hôte** : la fiche Appareil (onglet Ports et services) liste les partages
+  d’un NAS ou d’un poste Windows quand le port 445 est ouvert, et le menu contextuel du Scanner
+  gagne « Partages SMB… ». La lecture passe par `smbutil`, fourni avec macOS, et ne se lance que
+  sur un clic : en invité, puis en anonyme, ou avec un utilisateur (`DOMAINE\utilisateur`
+  accepté). Le mot de passe n’apparaît jamais dans la commande ni dans le journal ; il est gardé
+  au Trousseau seulement si vous le demandez.
+- **Tableau des partages** (tableau standard : nom, type Disque, Imprimante ou IPC, commentaire,
+  chemin). Les partages cachés (C$, ADMIN$, IPC$…) s’affichent sur demande. « Ouvrir dans le
+  Finder » (macOS demande lui-même l’identifiant), copie du chemin smb:// ou Windows, copie en
+  CSV. Messages clairs quand la lecture échoue : accès invité refusé, accès refusé, hôte en SMB1
+  seulement, port 445 fermé, hôte injoignable ou introuvable, délai dépassé.
+- **Trafic, source « Flux (NetFlow, sFlow, IPFIX) »** : NetScope reçoit les flux des routeurs,
+  pare-feu et switchs de toute marque et répond à « Qui sature le lien ? » même sans FortiGate.
+  Collecteur intégré sur les ports UDP 2055 (NetFlow v5 et v9), 4739 (IPFIX) et 6343 (sFlow v5),
+  démarré seulement sur clic, ports modifiables, avertissement si le coupe-feu de macOS bloque
+  l’écoute.
+- **Trafic par flux** : sources (reliées à la fiche de l’appareil et au port de switch),
+  destinations, applications (BitTorrent, Tor et le minage sont signalés), interfaces avec la
+  charge du lien, conversations et exportateurs vus (paquets reçus et rejetés, gabarits,
+  échantillonnage), sur 1 min, 5 min, 1 h ou 24 h, par exportateur ou tous. Nom de chaque
+  exportateur, interface vers Internet et débits du forfait réglables, pour la charge du lien et
+  « Qui sature le lien ? ».
+- **Guide de configuration des flux** avec les commandes à copier vers ce Mac pour FortiGate,
+  FortiSwitch, Cisco (NetFlow v9 et IPFIX), HP/Aruba, MikroTik et Ubiquiti.
+- **Alertes sur téléphone par ntfy et Pushover**, à côté du courriel et des webhooks Teams,
+  Slack et JSON, dans Réglages › Alertes. Les deux canaux sont désactivés par défaut.
+- **ntfy** : ntfy.sh ou votre propre serveur en https, sujet (le bouton dé en génère un difficile
+  à deviner), étiquettes, émoji de gravité, priorité selon la gravité (de minimale à urgente) et
+  jeton d’accès facultatif gardé au Trousseau macOS.
+- **Pushover** : jeton d’application et clé utilisateur gardés au Trousseau, son, appareil
+  facultatif, priorité selon la gravité, jusqu’à l’urgence qui sonne toutes les 60 s jusqu’à
+  l’accusé de réception.
+- **Bouton « Envoyer un test »** avec confirmation pour ntfy et Pushover. Le journal des envois
+  affiche leurs réussites et leurs erreurs expliquées (accès refusé, trop de messages, clé
+  invalide…), sans jamais montrer un jeton ni une clé.
+- **Démonstration** : exports de la carte, partages SMB (NAS Synology, postes Windows), trois
+  exportateurs de flux dans trois formats et canaux ntfy et Pushover fictifs, sans aucun envoi ni
+  aucune écoute réels.
+
+### Modifié
+- **Filtre propre à chaque canal de téléphone**, appliqué après les règles communes des alertes
+  (types, gravité, heures de silence, anti-rafale) : toutes les gravités, alerte et critique, ou
+  critique seulement, et tous les sites ou seulement certains. Un rétablissement ne part que si
+  la panne qu’il clôt était passée par ce filtre.
+- **Écran Trafic** : le choix de la source (FortiView ou Flux) masque les messages propres à
+  FortiView en mode Flux ; tableaux exportables en CSV et « Ajouter au rapport ».
+- **Trafic › Flux › Exportateurs** : « Rejetés » et « Gabarits » sont des colonnes
+  facultatives, pour que « Dernier reçu » tienne sans être coupé.
+
+### Corrigé
+- **Carte du réseau** : le lien vers un groupe d’appareils en conflit d’adresse IP est dessiné
+  sous les autres ; la descente partagée reste grise et seul son dernier tronçon est rouge, au
+  lieu de teinter toute la descente du switch.
+
+### Limites connues
+- Les flux restent en mémoire sur ce Mac, 24 h au plus, en mémoire bornée ; rien n’est écrit sur
+  disque : quitter NetScope efface l’historique des flux. Les flux ne
+  sont reçus que lorsque l’app est ouverte et le collecteur démarré.
+- Les débits par flux dépendent de l’échantillonnage annoncé par l’exportateur (sFlow surtout) :
+  ce sont des estimations, pas des compteurs exacts.
+- Partages SMB : un hôte qui n’accepte que SMB1 ne peut pas être lu par `smbutil` sur les
+  versions récentes de macOS ; NetScope le signale sans pouvoir lister ses partages.
+- ntfy et Pushover passent par Internet : sans accès Internet depuis le Mac, l’alerte ne part
+  pas (l’erreur est notée au journal des envois).
+- Testé sur des données de démonstration et des sorties recopiées seulement ; essais réels à
+  faire : export de la carte ouvert dans draw.io et Illustrator, NAS et postes Windows, vrais
+  exportateurs NetFlow, sFlow et IPFIX (FortiGate, Cisco, Aruba, MikroTik), et envois réels vers
+  ntfy et Pushover.
+
 ## 0.27.3 — 2026-11-05
 
 L’assistance RustDesk quitte la page « Sessions » d’Accès distant pour son propre onglet,
