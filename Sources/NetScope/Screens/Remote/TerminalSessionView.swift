@@ -286,7 +286,20 @@ struct TerminalSessionView: View {
             default:
                 EmptyView()
             }
-            if let notice = session.notice {
+            if let notice = session.notice, session.noticeIsError {
+                // Erreur : avertissement gardé jusqu'à sa fermeture.
+                HStack(alignment: .top, spacing: 6) {
+                    SpeedBanner(text: notice, tone: .warning, systemImage: "exclamationmark.triangle")
+                    Button {
+                        session.notice = nil
+                    } label: {
+                        Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 8)
+                    .help("Fermer le message")
+                }
+            } else if let notice = session.notice {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.circle").font(.system(size: 11, weight: .semibold))
                     Text(notice).font(Theme.small)

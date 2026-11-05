@@ -357,6 +357,27 @@ func registerTerminalTests(_ suite: TestSuite) {
         try expectEqual(result.data, [0x42], "texte après la commande")
     }
 
+    suite.add("Telnet : BINARY distinct dans chaque sens (CR NUL gardé tant que nous n'envoyons pas en binaire)") {
+        var telnet = TelnetNegotiator()
+        _ = telnet.receive([255, 251, 0])
+        try expect(telnet.remoteBinary && !telnet.localBinary, "WILL BINARY du serveur : seul son sens est binaire")
+        try expectEqual(telnet.encodeOutgoing([0x0D]), [0x0D, 0x00], "notre CR reste suivi de NUL")
+        _ = telnet.receive([255, 253, 0])
+        try expect(telnet.localBinary, "DO BINARY accepté : nous envoyons en binaire")
+        try expectEqual(telnet.encodeOutgoing([0x0D]), [0x0D], "CR seul en binaire")
+        _ = telnet.receive([255, 254, 0])
+        try expectEqual(telnet.encodeOutgoing([0x0D]), [0x0D, 0x00], "DONT BINARY : CR NUL de nouveau")
+        try expect(RemoteValidator.baudRates.contains(921_600) && RemoteValidator.baudRates == SerialSettings.baudRates,
+                   "débits du carnet et de l'onglet série identiques")
+    }
+
+    suite.add("Terminal : séquence CSI aux paramètres sans fin ignorée sans gonfler la mémoire") {
+        let emulator = TerminalEmulator(columns: 20, rows: 3)
+        emulator.feed("\u{1B}[" + String(repeating: ";", count: 200_000) + "1mA")
+        emulator.feed("\u{1B}[" + String(repeating: "1:", count: 100_000) + "mB")
+        try expectEqual(emulator.screenLine(0).text, "AB", "séquences ignorées, texte suivant affiché")
+    }
+
     suite.add("Telnet : session réelle vers un faux serveur sur 127.0.0.1") {
         let received = ToolTestBox<[UInt8]>([])
         let server = try LocalTCPServer { fd in
@@ -476,29 +497,39 @@ func registerTerminalTests(_ suite: TestSuite) {
         try expect(custom.contains("-p") && custom.contains("2222"), "port personnalisé")
         try expectEqual(custom.last, "nas", "sans utilisateur")
         try expect(custom.contains((("~/.ssh/id_ed25519") as NSString).expandingTildeInPath), "clé choisie")
-        let env = SSHTerminalCommand.environment(base: ["PATH": "/usr/bin", "TERM": "dumb", "SSH_ASKPASS": "/tmp/autre"],
-                                                 askpass: "/tmp/nsterm/askpass.sh", secret: "s3cr3t!", flag: "/tmp/nsterm/x")
+        let env = SSHTerminalCommand.environment(base: ["PATH": "/usr/bin", "TERM": "dumb", "SSH_ASKPASS": "/tmp/autre",
+                                                        "NETSCOPE_SSH_SECRET": "ancien"],
+                                                 askpass: "/tmp/nsterm/askpass.sh", secretPipe: "/tmp/nsterm/secret-1",
+                                                 expect: "netadmin@10.182.122.2", flag: "/tmp/nsterm/x")
         try expectEqual(env["TERM"], "xterm-256color", "TERM")
         try expectEqual(env["SSH_ASKPASS"], "/tmp/nsterm/askpass.sh", "script de NetScope")
         try expectEqual(env["SSH_ASKPASS_REQUIRE"], "force", "toujours par le script")
-        try expectEqual(env["NETSCOPE_SSH_SECRET"], "s3cr3t!", "secret dans l'environnement seulement")
-        try expect(!args.joined().contains("s3cr3t") && !SSHTerminalCommand.askpassScript.contains("s3cr3t"), "jamais dans les arguments ni le script")
-        try expectEqual(SSHTerminalCommand.environment(base: [:], askpass: "a", secret: nil, flag: "f")["NETSCOPE_SSH_SECRET"], nil, "sans secret")
+        try expectEqual(env["NETSCOPE_SSH_SECRET"], nil, "aucun secret dans l'environnement (hérité par ProxyCommand…)")
+        try expectEqual(env["NETSCOPE_SSH_FIFO"], "/tmp/nsterm/secret-1", "chemin du tube seulement")
+        try expectEqual(env["NETSCOPE_SSH_EXPECT"], "netadmin@10.182.122.2", "invite attendue")
+        try expectEqual(SSHTerminalCommand.environment(base: [:], askpass: "a", secretPipe: nil, expect: "a@b", flag: "f")["NETSCOPE_SSH_FIFO"],
+                        nil, "sans secret")
+        try expectEqual(SSHTerminalCommand.expectedPrompt(user: "", host: "nas", localUser: "dany"), "dany@nas", "utilisateur du Mac par défaut")
         try expectEqual(SSHTerminalCommand.displayCommand(user: "admin", host: "10.0.0.2", port: 2222), "ssh -p 2222 -- admin@10.0.0.2", "commande affichée")
         try expectEqual(BackupKeychainScan.usage(for: "com.danymenard.netscope.acces"), "Mots de passe SSH et Telnet (Accès distant)",
                         "service du Trousseau nommé dans les sauvegardes")
     }
 
-    suite.add("SSH intégré : le script SSH_ASKPASS donne le secret une seule fois") {
+    suite.add("SSH intégré : le script SSH_ASKPASS donne le secret une seule fois, par le tube, à la bonne invite") {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("netscope-askpass-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: folder) }
         let script = try SSHTerminalCommand.writeAskpass(in: folder)
         let flag = folder.appendingPathComponent("drapeau").path
+        let channel = try SSHSecretChannel(directory: folder, secret: "motdepasse")
+        defer { channel.cancel() }
+        let fifoMode = (try FileManager.default.attributesOfItem(atPath: channel.path)[.posixPermissions] as? NSNumber)?.intValue
+        try expectEqual(fifoMode, 0o600, "tube privé")
         func run(_ prompt: String, input: String) throws -> String {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/bin/sh")
             process.arguments = [script.path, prompt]
-            process.environment = ["NETSCOPE_SSH_SECRET": "motdepasse", "NETSCOPE_SSH_FLAG": flag, "PATH": "/usr/bin:/bin"]
+            process.environment = ["NETSCOPE_SSH_FIFO": channel.path, "NETSCOPE_SSH_EXPECT": "admin@10.0.0.2",
+                                   "NETSCOPE_SSH_FLAG": flag, "PATH": "/usr/bin:/bin"]
             let output = Pipe(), stdin = Pipe(), errors = Pipe()
             process.standardOutput = output
             process.standardInput = stdin
@@ -509,7 +540,11 @@ func registerTerminalTests(_ suite: TestSuite) {
             process.waitUntilExit()
             return String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
         }
+        try expectEqual(try run("rebond@10.0.0.1's password: ", input: "saisi\n"), "saisi\n",
+                        "serveur de rebond (ProxyJump) : jamais le secret de la destination")
+        try expect(!FileManager.default.fileExists(atPath: flag), "invite d'un autre hôte : témoin non créé")
         try expectEqual(try run("admin@10.0.0.2's password: ", input: "saisi\n"), "motdepasse\n", "première demande : Trousseau")
+        try await expectWait({ !FileManager.default.fileExists(atPath: channel.path) }, "tube supprimé après la lecture")
         try expect(FileManager.default.fileExists(atPath: flag), "fichier témoin créé")
         try expect(((try? String(contentsOfFile: flag, encoding: .utf8)) ?? "x").isEmpty, "fichier témoin vide (aucun secret)")
         try expectEqual(try run("admin@10.0.0.2's password: ", input: "saisi\n"), "saisi\n", "deuxième demande : saisie dans l'onglet")
@@ -544,8 +579,10 @@ func registerTerminalTests(_ suite: TestSuite) {
         let askpass = try SSHTerminalCommand.writeAskpass(in: folder)
         // -F /dev/null : la configuration de l'utilisateur (ProxyCommand…) n'intervient pas.
         let arguments = ["-F", "/dev/null"] + SSHTerminalCommand.arguments(user: "essai", host: "127.0.0.1", port: Int(port))
+        let channel = try SSHSecretChannel(directory: folder, secret: "secret-essai")
+        defer { channel.cancel() }
         let environment = SSHTerminalCommand.environment(base: ["PATH": "/usr/bin:/bin", "HOME": NSHomeDirectory()],
-                                                         askpass: askpass.path, secret: "secret-essai",
+                                                         askpass: askpass.path, secretPipe: channel.path, expect: "essai@127.0.0.1",
                                                          flag: folder.appendingPathComponent("drapeau").path)
         let recorder = TerminalRecorder()
         let ssh = PTYProcess(executable: SSHTerminalCommand.sshPath, arguments: arguments, environment: environment)

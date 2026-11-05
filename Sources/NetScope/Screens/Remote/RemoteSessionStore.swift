@@ -5,8 +5,8 @@ import SwiftUI
 
 // Note 57 : onglets de session d'Accès distant. « Connecter » ouvre un onglet de terminal intégré
 // pour SSH, Telnet et la console série (le menu de « Connecter » garde « Ouvrir dans Terminal ») ;
-// RDP reste dans Windows App. VNC : un onglet intégré si la vue VNC est fournie
-// (`RemoteSessionStore.vncView`), sinon Partage d'écran comme avant.
+// RDP reste dans Windows App. VNC : un onglet de session VNC intégrée (VNCSessionView), dans la
+// même barre que les terminaux ; Partage d'écran reste au menu de « Connecter ».
 //
 // Mots de passe SSH et Telnet : Trousseau macOS seulement (service com.danymenard.netscope.acces,
 // un compte par connexion), jamais dans le carnet ni dans une sauvegarde en clair.
@@ -20,8 +20,8 @@ final class RemoteSessionStore: ObservableObject {
     /// Contenu d'un onglet.
     enum Content {
         case terminal(TerminalSession)
-        /// Point d'accroche du client VNC intégré (vue autonome fournie par `vncView`).
-        case vnc(RemoteConnection)
+        /// Session VNC intégrée (une par connexion, gardée par `VNCSessionStore`).
+        case vnc(VNCSession)
     }
 
     @MainActor
@@ -32,7 +32,7 @@ final class RemoteSessionStore: ObservableObject {
         var connection: RemoteConnection {
             switch content {
             case .terminal(let session): return session.connection
-            case .vnc(let connection): return connection
+            case .vnc(let session): return session.connection
             }
         }
 
@@ -40,11 +40,20 @@ final class RemoteSessionStore: ObservableObject {
             if case .terminal(let session) = content { return session }
             return nil
         }
-    }
 
-    /// Vue VNC intégrée : `RemoteSessionStore.vncView = { AnyView(VNCSessionView(connection: $0)) }`.
-    /// Absente : VNC s'ouvre dans Partage d'écran.
-    static var vncView: ((RemoteConnection) -> AnyView)?
+        var vncSession: VNCSession? {
+            if case .vnc(let session) = content { return session }
+            return nil
+        }
+
+        /// Session encore ouverte (terminal connecté, VNC connecté ou en cours de connexion).
+        var isActive: Bool {
+            switch content {
+            case .terminal(let session): return session.isActive
+            case .vnc(let session): return session.isActive
+            }
+        }
+    }
 
     @Published private(set) var tabs: [Tab] = []
     /// Onglet affiché ; nil : l'accueil « Sessions » (aperçu et connexions récentes).
@@ -70,8 +79,7 @@ final class RemoteSessionStore: ObservableObject {
     /// Protocoles ouverts dans un onglet par « Connecter ».
     static func opensInTab(_ proto: RemoteProtocol) -> Bool {
         switch proto {
-        case .ssh, .telnet, .serie: return true
-        case .vnc: return vncView != nil
+        case .ssh, .telnet, .serie, .vnc: return true
         default: return false
         }
     }
@@ -79,25 +87,31 @@ final class RemoteSessionStore: ObservableObject {
     // MARK: Onglets
 
     /// Ouvre la connexion dans un onglet (ou revient à son onglet encore actif).
+    /// VNC : un seul onglet par connexion ; la session est relancée si elle était fermée.
     @discardableResult
     func open(_ connection: RemoteConnection, newTab: Bool = false) -> Tab? {
-        if !newTab, let existing = tabs.first(where: { $0.connection.id == connection.id && ($0.session?.isActive ?? true) }) {
+        if connection.proto == .vnc {
+            let session = VNCSessionStore.shared.open(connection)
+            if let existing = tabs.first(where: { $0.vncSession === session }) {
+                activeID = existing.id
+                return existing
+            }
+            let tab = Tab(id: UUID(), content: .vnc(session))
+            tabs.append(tab)
+            activeID = tab.id
+            return tab
+        }
+        if !newTab, let existing = tabs.first(where: { $0.connection.id == connection.id && $0.isActive }) {
             activeID = existing.id
             return existing
         }
-        let tab: Tab
-        if connection.proto == .vnc {
-            guard Self.vncView != nil else { return nil }
-            tab = Tab(id: UUID(), content: .vnc(connection))
-        } else {
-            guard TerminalSession.Kind(connection.proto) != nil else { return nil }
-            let session = TerminalSession(connection: connection)
-            if isSandboxed { session.demoTransport = TerminalDemo.transportFactory(for: connection) }
-            tab = Tab(id: UUID(), content: .terminal(session))
-            // « Connecter » est la demande de l'utilisateur : la liaison (ou le port série) s'ouvre
-            // maintenant, jamais avant ; « Fermer le port » la referme sans fermer l'onglet.
-            session.start()
-        }
+        guard TerminalSession.Kind(connection.proto) != nil else { return nil }
+        let session = TerminalSession(connection: connection)
+        if isSandboxed { session.demoTransport = TerminalDemo.transportFactory(for: connection) }
+        let tab = Tab(id: UUID(), content: .terminal(session))
+        // « Connecter » est la demande de l'utilisateur : la liaison (ou le port série) s'ouvre
+        // maintenant, jamais avant ; « Fermer le port » la referme sans fermer l'onglet.
+        session.start()
         tabs.append(tab)
         activeID = tab.id
         return tab
@@ -111,9 +125,8 @@ final class RemoteSessionStore: ObservableObject {
     }
 
     /// Fermeture demandée : confirmation si la session est encore active.
-    /// Un onglet VNC (état inconnu de NetScope) est toujours confirmé.
     func requestClose(_ tab: Tab) {
-        if tab.session.map(\.isActive) ?? true {
+        if tab.isActive {
             pendingClose = tab
         } else {
             close(tab.id)
@@ -123,6 +136,7 @@ final class RemoteSessionStore: ObservableObject {
     func close(_ id: UUID) {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
         tabs[index].session?.shutdown()
+        if let vnc = tabs[index].vncSession { VNCSessionStore.shared.close(vnc.id) }
         tabs.remove(at: index)
         if pendingClose?.id == id { pendingClose = nil }
         if activeID == id {
@@ -130,28 +144,39 @@ final class RemoteSessionStore: ObservableObject {
         }
     }
 
-    /// Connexion supprimée du carnet : ses onglets sont fermés et son mot de passe oublié.
+    /// Connexion supprimée du carnet : ses onglets (terminal ou VNC, plein écran compris) sont
+    /// fermés et ses mots de passe oubliés (SSH ou Telnet, et VNC).
     func forget(_ connectionID: UUID) {
         for tab in tabs where tab.connection.id == connectionID { close(tab.id) }
+        VNCSessionStore.shared.close(connectionID)
         try? setPassword("", for: connectionID)
+        try? VNCPasswordStore.setPassword(nil, for: connectionID)
+    }
+
+    /// Onglet de la connexion, s'il y en a un.
+    func tab(for connectionID: UUID) -> Tab? {
+        tabs.first { $0.connection.id == connectionID }
     }
 
     func select(_ id: UUID?) {
         activeID = id
     }
 
-    var activeSessionCount: Int { tabs.filter { $0.session?.isActive == true }.count }
+    var activeSessionCount: Int { tabs.filter(\.isActive).count }
 
     // MARK: Trousseau
 
+    /// Lecture seule (appelée pendant le rendu) : `savedPasswords` est rempli au lancement et par
+    /// `setPassword`, jamais ici, et le Trousseau n'est pas relu à chaque rendu.
     func hasPassword(_ id: UUID) -> Bool {
-        if savedPasswords.contains(id) { return true }
-        guard !isSandboxed else { return false }
-        if Self.keychain.string(for: id.uuidString) != nil {
-            savedPasswords.insert(id)
-            return true
-        }
-        return false
+        savedPasswords.contains(id)
+    }
+
+    /// Relit au Trousseau quelles connexions ont un mot de passe (au lancement, hors du rendu).
+    func loadSavedPasswords(for ids: [UUID]) {
+        guard !isSandboxed else { return }
+        let found = Set(ids.filter { Self.keychain.string(for: $0.uuidString) != nil })
+        if found != savedPasswords { savedPasswords = found }
     }
 
     func password(for id: UUID) -> String? {

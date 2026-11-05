@@ -98,8 +98,10 @@ final class TerminalSession: ObservableObject, Identifiable {
     }
     @Published private(set) var matches: [TerminalMatch] = []
     @Published private(set) var matchIndex = 0
-    /// Message bref sous la barre de l'onglet (« Sortie copiée »).
+    /// Message bref sous la barre de l'onglet (« Sortie copiée ») ; `noticeIsError` : une erreur,
+    /// affichée en avertissement et gardée jusqu'à sa fermeture.
     @Published var notice: String?
+    @Published private(set) var noticeIsError = false
 
     /// Redessin de la vue après chaque lot de sortie (posé par la vue).
     var onOutput: (() -> Void)?
@@ -113,6 +115,7 @@ final class TerminalSession: ObservableObject, Identifiable {
     private var recentText = ""
     private var logHandle: FileHandle?
     private var askpassFlag: URL?
+    private var secretChannel: SSHSecretChannel?
     private let demo: Bool
     /// Liaison de démonstration (captures, --demo).
     var demoTransport: (() -> TerminalTransport)?
@@ -134,7 +137,8 @@ final class TerminalSession: ObservableObject, Identifiable {
     var isActive: Bool { phase == .connecting || phase == .connected }
 
     var tabLabel: String {
-        kind == .serial ? "Console série" : connection.name
+        // Le badge « SÉRIE » dit déjà le type : deux consoles ouvertes gardent des noms distincts.
+        connection.name
     }
 
     /// « netadmin@10.182.122.2:22 », « cu.usbserial-A10K ».
@@ -184,11 +188,18 @@ final class TerminalSession: ObservableObject, Identifiable {
                 throw PTYProcess.Failure.spawn(SSHTerminalCommand.sshPath, ENOENT)
             }
             let askpass = try SSHTerminalCommand.writeAskpass()
+            // Fichier témoin d'une liaison remplacée (reconnexion) : supprimé avant d'en créer un autre.
+            removeFlag()
             let flag = SSHTerminalCommand.controlDirectory.appendingPathComponent("drapeau-" + UUID().uuidString)
             askpassFlag = flag
             let secret = RemoteSessionStore.shared.password(for: connection.id)
+            // Secret par un tube à usage unique, jamais dans l'environnement de ssh.
+            let channel = try secret.flatMap { $0.isEmpty ? nil : try SSHSecretChannel(directory: SSHTerminalCommand.controlDirectory, secret: $0) }
+            secretChannel = channel
             let environment = SSHTerminalCommand.environment(base: ProcessInfo.processInfo.environment, askpass: askpass.path,
-                                                              secret: secret, flag: flag.path)
+                                                              secretPipe: channel?.path,
+                                                              expect: SSHTerminalCommand.expectedPrompt(user: connection.username, host: connection.host),
+                                                              flag: flag.path)
             let arguments = SSHTerminalCommand.arguments(user: connection.username, host: connection.host, port: connection.port)
             info("NetScope › " + SSHTerminalCommand.displayCommand(user: connection.username, host: connection.host, port: connection.port)
                  + (secret == nil ? "" : "  (mot de passe du Trousseau)"))
@@ -273,7 +284,20 @@ final class TerminalSession: ObservableObject, Identifiable {
             let found = SSHPromptDetector.scan(recentText + detectFilter.pendingLine)
             if found != finding { finding = found }
         }
-        if searchVisible, !searchText.isEmpty { updateSearch(keepIndex: true) }
+        if searchVisible, !searchText.isEmpty { scheduleSearch() }
+    }
+
+    /// Recherche relancée au plus toutes les 250 ms pendant un flux de sortie rapide.
+    private var searchScheduled = false
+
+    private func scheduleSearch() {
+        guard !searchScheduled else { return }
+        searchScheduled = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard let self else { return }
+            self.searchScheduled = false
+            if self.searchVisible, !self.searchText.isEmpty { self.updateSearch(keepIndex: true) }
+        }
     }
 
     /// Ligne d'information de NetScope dans le terminal (grisée), jamais envoyée au serveur.
@@ -368,7 +392,7 @@ final class TerminalSession: ObservableObject, Identifiable {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
         let lines = text.isEmpty ? 0 : text.components(separatedBy: "\n").count
-        notice = "Sortie copiée dans le presse-papiers (\(lines) ligne\(lines > 1 ? "s" : ""))."
+        show("Sortie copiée dans le presse-papiers (\(lines) ligne\(lines > 1 ? "s" : "")).")
     }
 
     /// « Enregistrer le journal… » : texte de l'historique et de l'écran dans un fichier .log.
@@ -380,10 +404,15 @@ final class TerminalSession: ObservableObject, Identifiable {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try (transcript + "\n").write(to: url, atomically: true, encoding: .utf8)
-            notice = "Journal enregistré\u{00A0}: \(url.lastPathComponent)."
+            show("Journal enregistré\u{00A0}: \(url.lastPathComponent).")
         } catch {
-            notice = "Enregistrement impossible\u{00A0}: \(error.localizedDescription)"
+            show("Enregistrement impossible\u{00A0}: \(error.localizedDescription)", error: true)
         }
+    }
+
+    func show(_ text: String, error: Bool = false) {
+        noticeIsError = error
+        notice = text
     }
 
     // MARK: Recherche
@@ -420,7 +449,8 @@ final class TerminalSession: ObservableObject, Identifiable {
         serialSettings = settings
         TerminalSerialMemory.remember(settings, for: connection.id)
         if isActive {
-            // Les réglages s'appliquent en rouvrant le port.
+            // Les réglages s'appliquent en rouvrant le port. L'ancien et le nouveau SerialTransport
+            // passent par la même file pour ce chemin : la fermeture précède la réouverture (TIOCEXCL).
             transport?.close()
             transport = nil
             phase = .idle
@@ -468,7 +498,7 @@ final class TerminalSession: ObservableObject, Identifiable {
             logHandle = handle
             logFilter = TerminalLogFilter()
         } catch {
-            notice = "Journal impossible\u{00A0}: \(error.localizedDescription)"
+            show("Journal impossible\u{00A0}: \(error.localizedDescription)", error: true)
             logURL = nil
         }
     }
@@ -483,9 +513,12 @@ final class TerminalSession: ObservableObject, Identifiable {
         if !logEnabled { logURL = nil }
     }
 
+    /// Fichier témoin et tube du secret de la liaison SSH (fermée ou remplacée) supprimés.
     private func removeFlag() {
         if let askpassFlag { try? FileManager.default.removeItem(at: askpassFlag) }
         askpassFlag = nil
+        secretChannel?.cancel()
+        secretChannel = nil
     }
 }
 
@@ -499,6 +532,7 @@ enum TerminalSerialMemory {
            let data = UserDefaults.standard.dictionary(forKey: key)?[connection.id.uuidString] as? Data,
            let saved = try? JSONDecoder().decode(SerialSettings.self, from: data) {
             settings = saved
+            // Le débit du carnet fait foi : l'onglet l'y enregistre (mêmes débits des deux côtés).
             settings.baudRate = connection.port
         }
         return settings

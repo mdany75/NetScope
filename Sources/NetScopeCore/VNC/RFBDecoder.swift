@@ -33,7 +33,10 @@ final class RFBDecoder {
         default:
             break
         }
-        guard rect.intersection(framebuffer.bounds) == rect else {
+        // Bornes par arithmétique : un rectangle vide (largeur ou hauteur 0, permis par la RFC) placé
+        // ailleurs qu'en (0, 0) est accepté et ne dessine rien.
+        guard rect.x >= 0, rect.y >= 0, rect.width >= 0, rect.height >= 0,
+              rect.x + rect.width <= framebuffer.width, rect.y + rect.height <= framebuffer.height else {
             throw RFBError.protocolViolation("rectangle \(rect.x),\(rect.y) \(rect.width)×\(rect.height) hors de l’écran")
         }
         switch encoding {
@@ -44,7 +47,10 @@ final class RFBDecoder {
         case RFBEncoding.rre: try await rre(rect, reader: reader, into: &framebuffer)
         case RFBEncoding.hextile: try await hextile(rect, reader: reader, into: &framebuffer)
         case RFBEncoding.zrle:
-            let data = try await reader.string(limit: 64 << 20)
+            // Données compressées bornées par la taille maximale décompressée du rectangle (zlib ne
+            // grossit un bloc que de quelques octets), et jamais plus de 64 Mo.
+            let bound = Self.zrleMaxSize(rect, cpixel: format.compressedPixelSize)
+            let data = try await reader.string(limit: min(64 << 20, bound + bound / 100 + 4_096))
             try zrle(rect, compressed: data, into: &framebuffer)
         default:
             throw RFBError.unexpectedEncoding(encoding)
@@ -162,8 +168,17 @@ final class RFBDecoder {
     // MARK: ZRLE
 
     /// Décode un rectangle ZRLE : données zlib (suite du flux de la session), tuiles de 64 × 64.
+    /// Taille décompressée maximale d'un rectangle ZRLE : par tuile 64 × 64, un octet de
+    /// sous-encodage et une palette de 127 couleurs au plus, puis par pixel au pire une couleur et
+    /// un octet de longueur de plage (RLE simple de plages d'un pixel).
+    static func zrleMaxSize(_ rect: RFBRect, cpixel: Int) -> Int {
+        let tiles = ((rect.width + 63) / 64) * ((rect.height + 63) / 64)
+        return rect.area * (cpixel + 1) + tiles * (1 + 127 * cpixel) + 1_024
+    }
+
     func zrle(_ rect: RFBRect, compressed: [UInt8], into framebuffer: inout RFBFramebuffer) throws {
-        let data = try inflater.inflate(compressed)
+        // Bombe zlib : la décompression s'arrête au-delà de ce qu'un rectangle légitime produit.
+        let data = try inflater.inflate(compressed, maxOutput: Self.zrleMaxSize(rect, cpixel: format.compressedPixelSize))
         var cursor = RFBByteCursor(data)
         let format = self.format
         let layout = format.compressedLayout

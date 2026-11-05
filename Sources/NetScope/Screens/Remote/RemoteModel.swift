@@ -152,6 +152,9 @@ final class RemoteModel: ObservableObject {
         } else {
             connections = store?.load() ?? []
             selectedID = connections.first?.id
+            // Mots de passe SSH et Telnet au Trousseau : lus une fois, hors du rendu.
+            let ids = connections.filter { [.ssh, .telnet].contains($0.proto) }.map(\.id)
+            DispatchQueue.main.async { RemoteSessionStore.shared.loadSavedPasswords(for: ids) }
         }
         serialPorts = RemoteSerialPorts.list()
         if let raw = ProcessInfo.processInfo.environment["NETSCOPE_REMOTE_VIEW"] {
@@ -164,8 +167,10 @@ final class RemoteModel: ObservableObject {
                     ?? connections.first { $0.proto == .vnc }
                 if let target {
                     selectedID = target.id
-                    let session = VNCSessionStore.shared.open(target)
-                    if raw == "vnc-mdp" { session.showDemoCredentialsPrompt() }
+                    // Onglet de la barre des sessions, à côté des onglets de terminal de la démonstration.
+                    if raw == "vnc-mdp" { VNCSessionStore.shared.open(target).showDemoCredentialsPrompt() }
+                    RemoteSessionStore.shared.open(target)
+                    showDetails = false
                 }
             }
             // Captures : connexion RDP choisie, ou son formulaire de modification.
@@ -378,7 +383,8 @@ final class RemoteModel: ObservableObject {
             if FileTransferStore.shared.session?.connection.id == connection.id { FileTransferStore.shared.close() }
             try? FileTransferStore.shared.setPassword("", for: connection.id)
         }
-        // Note 57 : onglets de la connexion fermés, mot de passe SSH ou Telnet oublié.
+        // Note 57 : onglets de la connexion fermés (terminal ou VNC, plein écran compris),
+        // mots de passe SSH, Telnet et VNC oubliés.
         RemoteSessionStore.shared.forget(connection.id)
         connections.removeAll { $0.id == connection.id }
         reachability[connection.id] = nil
@@ -546,7 +552,9 @@ final class RemoteModel: ObservableObject {
         }
     }
 
-    /// Note 57 : session VNC intégrée (VNCSessionView), affichée à la place de la zone des sessions.
+    /// Note 57 : session VNC intégrée (VNCSessionView), dans un onglet de la barre des sessions.
+    /// Plein écran demandé : tout de suite si la session est déjà connectée, sinon dès qu'elle
+    /// l'est (après l'identification).
     func openVNC(_ connection: RemoteConnection, fullScreen: Bool = false) {
         selectedID = connection.id
         draft = nil
@@ -554,8 +562,14 @@ final class RemoteModel: ObservableObject {
             connections[index].lastConnected = Date()
             save()
         }
-        let session = VNCSessionStore.shared.open(connections.first { $0.id == connection.id } ?? connection)
-        if fullScreen, session.phase == .connected { VNCFullScreenController.shared.present(session) }
+        guard let session = RemoteSessionStore.shared.open(connections.first { $0.id == connection.id } ?? connection)?.vncSession else { return }
+        if !compactLayout { showDetails = false }
+        guard fullScreen else { return }
+        if session.phase == .connected {
+            VNCFullScreenController.shared.present(session)
+        } else {
+            session.pendingFullScreen = true
+        }
     }
 
     /// Échelle de Partage d'écran et autorisation d'accessibilité pour le plein écran ;

@@ -199,7 +199,20 @@ public final class SerialTransport: TerminalTransport, @unchecked Sendable {
     public let path: String
     public let settings: SerialSettings
     private var fd: Int32 = -1
-    private let queue = DispatchQueue(label: "netscope.serie")
+    /// File propre au chemin, partagée par les transports successifs du même port : la fermeture
+    /// d'un ancien transport passe toujours avant l'ouverture du suivant (sinon TIOCEXCL → EBUSY).
+    private let queue: DispatchQueue
+    private static let queuesLock = NSLock()
+    nonisolated(unsafe) private static var queues: [String: DispatchQueue] = [:]
+
+    static func queue(for path: String) -> DispatchQueue {
+        queuesLock.lock()
+        defer { queuesLock.unlock() }
+        if let queue = queues[path] { return queue }
+        let queue = DispatchQueue(label: "netscope.serie." + path)
+        queues[path] = queue
+        return queue
+    }
     private var readSource: DispatchSourceRead?
     private var handler: (@Sendable (TerminalTransportEvent) -> Void)?
     private let lock = TerminalLock()
@@ -212,6 +225,7 @@ public final class SerialTransport: TerminalTransport, @unchecked Sendable {
     public init(path: String, settings: SerialSettings) {
         self.path = path
         self.settings = settings
+        queue = Self.queue(for: path)
     }
 
     deinit {

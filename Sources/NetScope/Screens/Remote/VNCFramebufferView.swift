@@ -208,11 +208,28 @@ final class VNCFramebufferNSView: NSView {
             return
         }
         guard edgeTimer == nil else { return }
-        let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.panStep() }
+        let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { [weak self] timer in
+            MainActor.assumeIsolated {
+                guard let self else {
+                    timer.invalidate()
+                    return
+                }
+                self.panStep()
+            }
         }
         RunLoop.main.add(timer, forMode: .common)
         edgeTimer = timer
+    }
+
+    /// Vue retirée (onglet changé, plein écran) : le minuteur des bords s'arrête.
+    func stopEdgePanning() {
+        edgeTimer?.invalidate()
+        edgeTimer = nil
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil { stopEdgePanning() }
     }
 
     private func panStep() {
@@ -276,13 +293,32 @@ final class VNCFramebufferNSView: NSView {
             session?.key(keysym, down: false)
             return
         }
-        if modifierKeys.contains(event.keyCode) {
-            modifierKeys.remove(event.keyCode)
-            session?.key(keysym, down: false)
-        } else {
+        // État réel lu dans l'événement (et non déduit d'un appui précédent) : un modificateur
+        // déjà tenu quand la vue a pris le focus, puis relâché, part bien comme relâché.
+        if Self.isPressed(keyCode: event.keyCode, flags: event.modifierFlags) {
+            guard !modifierKeys.contains(event.keyCode) else { return }
             modifierKeys.insert(event.keyCode)
             session?.key(keysym, down: true)
+        } else {
+            modifierKeys.remove(event.keyCode)
+            session?.key(keysym, down: false)
         }
+    }
+
+    /// Masques gauche et droite de <IOKit/hidsystem/IOLLEvent.h> (NX_DEVICELSHIFTKEYMASK…), par code de touche.
+    private static let deviceMasks: [UInt16: (device: UInt, generic: NSEvent.ModifierFlags)] = [
+        0x38: (0x0002, .shift), 0x3C: (0x0004, .shift),
+        0x3B: (0x0001, .control), 0x3E: (0x2000, .control),
+        0x3A: (0x0020, .option), 0x3D: (0x0040, .option),
+        0x37: (0x0008, .command), 0x36: (0x0010, .command),
+    ]
+    private static let allDeviceBits: UInt = 0x2000 | 0x007F
+
+    static func isPressed(keyCode: UInt16, flags: NSEvent.ModifierFlags) -> Bool {
+        guard let mask = deviceMasks[keyCode] else { return false }
+        // Événement sans bits gauche/droite (rare, synthétisé) : le drapeau général suffit.
+        if flags.rawValue & allDeviceBits == 0 { return flags.contains(mask.generic) }
+        return flags.rawValue & mask.device != 0
     }
 
     /// Focus perdu : toutes les touches et tous les boutons sont relâchés à distance.
@@ -327,5 +363,6 @@ struct VNCFramebufferView: NSViewRepresentable {
 
     static func dismantleNSView(_ view: VNCFramebufferNSView, coordinator: ()) {
         view.releaseAll()
+        view.stopEdgePanning()
     }
 }

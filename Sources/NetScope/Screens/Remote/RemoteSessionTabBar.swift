@@ -116,8 +116,9 @@ struct RemoteSessionTabButton: View {
         if let session = tab.session {
             TerminalTabLabel(session: session, selected: selected, select: select, close: { store.requestClose(tab) })
                 .contextMenu { terminalMenu(session) }
-        } else {
-            tabBody(label: tab.connection.name, proto: tab.connection.proto, dot: Theme.successDot, state: "Ouverte")
+        } else if let vnc = tab.vncSession {
+            VNCTabLabel(session: vnc, selected: selected, select: select, close: { store.requestClose(tab) })
+                .contextMenu { vncMenu(vnc) }
         }
     }
 
@@ -127,9 +128,15 @@ struct RemoteSessionTabButton: View {
         model.draft = nil
     }
 
-    private func tabBody(label: String, proto: RemoteProtocol, dot: Color, state: String) -> some View {
-        RemoteTabContent(label: label, proto: proto, dot: dot, state: state, selected: selected, select: select,
-                         close: { store.requestClose(tab) })
+    @ViewBuilder private func vncMenu(_ session: VNCSession) -> some View {
+        if session.isActive {
+            Button("Déconnecter") { session.disconnect() }
+        } else {
+            Button("Reconnecter") { session.reconnect() }
+        }
+        Button("Ouvrir dans Partage d’écran") { model.connect(session.connection, external: true) }
+        Divider()
+        Button("Fermer l’onglet") { store.requestClose(tab) }
     }
 
     @ViewBuilder private func terminalMenu(_ session: TerminalSession) -> some View {
@@ -173,6 +180,28 @@ struct TerminalTabLabel: View {
         case .connecting: return "Connexion…"
         case .idle: return "Port fermé"
         case .ended: return "Déconnectée"
+        }
+    }
+}
+
+/// Étiquette d'un onglet VNC (suit l'état de la session : « Connecté », « Échec »…).
+struct VNCTabLabel: View {
+    @ObservedObject var session: VNCSession
+    let selected: Bool
+    let select: () -> Void
+    let close: () -> Void
+
+    var body: some View {
+        RemoteTabContent(label: session.connection.name, proto: .vnc, dot: dot, state: session.phaseLabel.text,
+                         selected: selected, select: select, close: close)
+    }
+
+    private var dot: Color {
+        switch session.phase {
+        case .connected: return Theme.successDot
+        case .connecting, .authenticating, .needsCredentials: return Theme.warningDot
+        case .failed: return Color(nsColor: .systemRed)
+        case .closed: return Theme.neutralDot
         }
     }
 }

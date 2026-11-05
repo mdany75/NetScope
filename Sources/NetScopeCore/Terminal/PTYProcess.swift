@@ -32,6 +32,8 @@ public final class PTYProcess: TerminalTransport, @unchecked Sendable {
     private var handler: (@Sendable (TerminalTransportEvent) -> Void)?
     private let lock = TerminalLock()
     private var finished = false
+    /// Posé (sous le verrou) juste avant waitpid : après, le pid peut appartenir à un autre processus.
+    private var reaped = false
 
     // Constantes de <sys/ttycom.h> et <spawn.h> (macros non importées par Swift).
     static let TIOCSWINSZ: UInt = 0x8008_7467
@@ -145,6 +147,7 @@ public final class PTYProcess: TerminalTransport, @unchecked Sendable {
 
     private func childExited() {
         var status: Int32 = 0
+        lock.run { reaped = true }
         _ = waitpid(pid, &status, 0)
         if readSource != nil { drain() }
         let signal = status & 0x7F
@@ -196,7 +199,9 @@ public final class PTYProcess: TerminalTransport, @unchecked Sendable {
         _ = ioctl(master, Self.TIOCSWINSZ, &size)
         // Le noyau prévient déjà le groupe au premier plan ; le signal direct couvre le cas où
         // le pseudo-terminal n'est pas devenu terminal de contrôle.
-        if pid > 0 { kill(pid, SIGWINCH) }
+        // Sous le verrou : le processus n'est pas encore récolté, son pid ne peut pas être réattribué.
+        let target = pid
+        lock.run { if target > 0, !reaped, !finished { kill(target, SIGWINCH) } }
     }
 
     /// Ferme la session : SIGHUP au groupe du processus, puis SIGKILL s'il résiste.

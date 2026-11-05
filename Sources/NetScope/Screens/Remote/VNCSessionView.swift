@@ -2,32 +2,12 @@ import AppKit
 import NetScopeCore
 import SwiftUI
 
-/// Session VNC intégrée (croquis docs/croquis/Remote.dc.html, bloc « VNC ») : barre de réglages
-/// (qualité, mise à l'échelle, observation seule, presse-papiers, plein écran), titre de la
-/// session, bureau distant, puis ligne d'état.
-///
-/// Point d'entrée autonome : `VNCSessionView(connection:)` ouvre (ou reprend) la session de cette
-/// connexion dans `VNCSessionStore.shared`.
+/// Contenu d'un onglet de session VNC intégrée (croquis docs/croquis/Remote.dc.html, bloc « VNC ») :
+/// barre de réglages (qualité, mise à l'échelle, observation seule, presse-papiers, plein écran),
+/// titre de la session, bureau distant, puis ligne d'état. L'onglet « Sessions » de la barre ramène
+/// l'accueil ; la session continue pendant ce temps.
 struct VNCSessionView: View {
     @ObservedObject var session: VNCSession
-    /// Petite fenêtre : bouton pour rouvrir la liste des connexions.
-    var compact = false
-    var onShowConnections: () -> Void = {}
-    /// Bouton « Masquer » (la session continue en arrière-plan) ; nil : bouton absent.
-    var onHide: (() -> Void)?
-
-    init(session: VNCSession, compact: Bool = false, onShowConnections: @escaping () -> Void = {}, onHide: (() -> Void)? = nil) {
-        self.session = session
-        self.compact = compact
-        self.onShowConnections = onShowConnections
-        self.onHide = onHide
-    }
-
-    /// Ouvre la session de la connexion (ou y revient) et l'affiche.
-    @MainActor
-    init(connection: RemoteConnection) {
-        self.init(session: VNCSessionStore.shared.open(connection))
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -39,22 +19,12 @@ struct VNCSessionView: View {
             footer
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
-        .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
-        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
     }
 
-    // MARK: En-tête (même forme que le navigateur de fichiers)
+    // MARK: En-tête (même forme que les onglets de terminal)
 
     private var header: some View {
         HStack(spacing: 8) {
-            if compact {
-                Button(action: onShowConnections) {
-                    Image(systemName: "sidebar.left").font(.system(size: 12))
-                }
-                .buttonStyle(.ghost)
-                .help("Afficher les connexions")
-            }
             RemoteProtoIcon(proto: .vnc, size: 22)
             Text("VNC intégré").font(.system(size: 12, weight: .semibold)).lineLimit(1)
             Chip(text: session.phaseLabel.text, tone: session.phaseLabel.tone)
@@ -89,13 +59,6 @@ struct VNCSessionView: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .help("Autres actions de la session")
-            if let onHide {
-                Button(action: onHide) {
-                    Label("Masquer", systemImage: "rectangle.portrait.and.arrow.right").labelStyle(RemoteCompactLabelStyle())
-                }
-                .buttonStyle(.ghost)
-                .help("Masque la session ; elle reste ouverte en arrière-plan")
-            }
             if session.phase == .connected || session.phase == .connecting {
                 Button {
                     session.disconnect()
@@ -114,7 +77,6 @@ struct VNCSessionView: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 38)
-        .background(Theme.neutralSoft)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
     }
 
@@ -170,7 +132,8 @@ struct VNCSessionView: View {
                 }
                 if let toast = session.toast {
                     HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle").font(.system(size: 11, weight: .semibold))
+                        Image(systemName: session.toastIsError ? "exclamationmark.triangle" : "checkmark.circle")
+                            .font(.system(size: 11, weight: .semibold))
                         Text(toast).font(Theme.caption)
                         Button {
                             session.toast = nil
@@ -180,7 +143,7 @@ struct VNCSessionView: View {
                         .buttonStyle(.plain)
                         .help("Fermer le message")
                     }
-                    .foregroundStyle(Theme.success)
+                    .foregroundStyle(session.toastIsError ? Theme.warning : Theme.success)
                 }
             }
             Spacer(minLength: 0)
@@ -249,14 +212,6 @@ struct VNCSessionView: View {
         .background(Theme.panelMuted)
         .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
         .padding(.top, 10)
-    }
-}
-
-extension VNCSessionView {
-    /// Petit raccourci pour les onglets : la session existe déjà.
-    @MainActor
-    static func existing(_ id: UUID) -> VNCSessionView? {
-        VNCSessionStore.shared.session(for: id).map { VNCSessionView(session: $0) }
     }
 }
 
@@ -378,6 +333,11 @@ final class VNCFullScreenController: NSObject, NSWindowDelegate {
         window.toggleFullScreen(nil)
     }
 
+    /// Ferme la fenêtre plein écran de la session (session fermée, connexion supprimée).
+    func close(_ id: UUID) {
+        windows[id]?.close()
+    }
+
     func windowDidExitFullScreen(_ notification: Notification) {
         (notification.object as? NSWindow)?.close()
     }
@@ -403,12 +363,14 @@ private struct VNCFullScreenContent: View {
                 Text(session.connection.name).font(.system(size: 12, weight: .semibold))
                 Button("Ctrl-Alt-Suppr") { session.sendCtrlAltDelete() }
                     .buttonStyle(RemoteSmallButtonStyle())
+                    .disabled(session.phase != .connected || session.viewOnly)
                 Picker("Mise à l’échelle", selection: $session.scale) {
                     ForEach(VNCScaleMode.allCases) { Text($0.label).tag($0) }
                 }
                 .labelsHidden()
                 .pickerStyle(.segmented)
                 .fixedSize()
+                .disabled(session.phase != .connected)
                 Button("Quitter le plein écran", action: exit)
                     .buttonStyle(RemoteSmallButtonStyle(primary: true))
             }

@@ -2,7 +2,7 @@ import NetScopeCore
 import SwiftUI
 
 /// Zone centrale : barre d'onglets de session (note 57), puis l'onglet choisi — terminal intégré
-/// (SSH, Telnet, console série) — ou l'accueil « Sessions » : formulaire de connexion, ou aperçu de
+/// (SSH, Telnet, console série) ou session VNC intégrée — ou l'accueil « Sessions » : formulaire de connexion, ou aperçu de
 /// ce que « Connecter » va ouvrir.
 struct RemoteSessionArea: View {
     @ObservedObject var model: RemoteModel
@@ -48,9 +48,11 @@ struct RemoteSessionArea: View {
             }
             Button("Annuler", role: .cancel) { sessions.pendingClose = nil }
         } message: {
-            Text(sessions.pendingClose?.connection.proto == .serie
-                 ? "Le port série est refermé. Le journal déjà enregistré est gardé."
-                 : "La session encore ouverte est déconnectée. Le journal déjà enregistré est gardé.")
+            switch sessions.pendingClose?.connection.proto {
+            case .serie?: Text("Le port série est refermé. Le journal déjà enregistré est gardé.")
+            case .vnc?: Text("La session VNC est déconnectée.")
+            default: Text("La session encore ouverte est déconnectée. Le journal déjà enregistré est gardé.")
+            }
         }
     }
 
@@ -60,10 +62,9 @@ struct RemoteSessionArea: View {
         case .terminal(let session):
             TerminalSessionView(session: session, model: model)
                 .id(tab.id)
-        case .vnc(let connection):
-            if let view = RemoteSessionStore.vncView {
-                view(connection).id(tab.id)
-            }
+        case .vnc(let session):
+            VNCSessionView(session: session)
+                .id(tab.id)
         }
     }
 
@@ -146,10 +147,10 @@ struct RemoteSessionArea: View {
             if connection.proto == .ftp {
                 SpeedBanner(text: FileTransferTexts.ftpWarning)
             }
-            // Note 57 : session VNC intégrée masquée (toujours ouverte).
-            if connection.proto == .vnc, let vnc = VNCSessionStore.shared.session(for: connection.id), !vnc.isVisible {
+            // Note 57 : session VNC intégrée ouverte dans un onglet (affiché ou non).
+            if connection.proto == .vnc, let tab = sessions.tab(for: connection.id) {
                 Button {
-                    vnc.isVisible = true
+                    sessions.select(tab.id)
                 } label: {
                     Label("Revenir à la session VNC", systemImage: "display")
                 }
@@ -177,13 +178,12 @@ struct RemoteSessionArea: View {
     }
 
     private func launchSubtitle(_ connection: RemoteConnection, plan: Result<RemoteLaunchPlan, Error>) -> String {
-        // Note 57 : VNC s'ouvre dans NetScope (Partage d'écran reste au menu du bouton).
-        if connection.proto == .vnc, (try? plan.get()) != nil { return "« Connecter » ouvre la session VNC intégrée" }
         switch plan {
         case .success(let plan):
+            // Note 57 : VNC s'ouvre dans NetScope (Partage d'écran reste au menu du bouton).
+            if connection.proto == .vnc { return "« Connecter » ouvre la session VNC intégrée" }
             if RemoteSessionStore.opensInTab(connection.proto) {
-                return connection.proto == .vnc ? "« Connecter » ouvre un onglet VNC dans NetScope"
-                    : "« Connecter » ouvre un onglet de terminal dans NetScope"
+                return "« Connecter » ouvre un onglet de terminal dans NetScope"
             }
             return "« Connecter » ouvre \(plan.appName)"
         case .failure: return "Connexion à corriger avant de l’ouvrir"
@@ -192,7 +192,9 @@ struct RemoteSessionArea: View {
 
     /// « dans un onglet de NetScope », « dans Windows App »… (bulles d'aide).
     static func destination(_ proto: RemoteProtocol) -> String {
-        RemoteSessionStore.opensInTab(proto) ? "dans un onglet de NetScope" : "dans \(proto.externalApp)"
+        if proto == .vnc { return "dans la session VNC intégrée de NetScope" }
+        if proto.isFileTransfer { return "dans le navigateur de fichiers de NetScope" }
+        return RemoteSessionStore.opensInTab(proto) ? "dans un onglet de NetScope" : "dans \(proto.externalApp)"
     }
 
     /// Bloc sombre façon terminal : la commande, le fichier .rdp ou l'URL.
@@ -286,6 +288,7 @@ struct RemoteSessionArea: View {
                             .lineLimit(1)
                         Spacer(minLength: 6)
                         if let session = tab.session { RemoteSessionStateChip(session: session) }
+                        if let vnc = tab.vncSession { VNCSessionStateChip(session: vnc) }
                         Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.textTertiary)
                     }
                     .padding(.horizontal, 10)
@@ -296,6 +299,15 @@ struct RemoteSessionArea: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+}
+
+/// État d'une session VNC (pastille de l'accueil).
+struct VNCSessionStateChip: View {
+    @ObservedObject var session: VNCSession
+
+    var body: some View {
+        Chip(text: session.phaseLabel.text, tone: session.phaseLabel.tone)
     }
 }
 

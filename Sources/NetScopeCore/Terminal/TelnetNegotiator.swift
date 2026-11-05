@@ -24,7 +24,11 @@ public struct TelnetNegotiator: Sendable {
     /// Le serveur fait l'écho : sinon la session affiche elle-même la saisie.
     public private(set) var remoteEcho = false
     public private(set) var suppressGoAhead = false
-    public private(set) var binary = false
+    /// Le serveur transmet en binaire (son WILL BINARY accepté).
+    public private(set) var remoteBinary = false
+    /// Nous transmettons en binaire (DO BINARY du serveur accepté) : seul ce sens supprime le NUL
+    /// après CR de notre envoi.
+    public private(set) var localBinary = false
     /// Le serveur a accepté NAWS : chaque redimensionnement lui est envoyé.
     public private(set) var windowSizeEnabled = false
 
@@ -107,7 +111,7 @@ public struct TelnetNegotiator: Sendable {
         for (index, byte) in bytes.enumerated() {
             out.append(byte)
             if byte == Self.iac { out.append(Self.iac) }
-            if byte == 0x0D, !binary {
+            if byte == 0x0D, !localBinary {
                 let next = index + 1 < bytes.count ? bytes[index + 1] : nil
                 if next != 0x0A { out.append(0x00) }
             }
@@ -148,7 +152,7 @@ public struct TelnetNegotiator: Sendable {
             // Le serveur nous demande de faire quelque chose.
             switch option {
             case .terminalType, .suppressGoAhead, .binary:
-                if option == .binary { binary = true }
+                if option == .binary { localBinary = true }
                 if weWill.contains(byte) { return [] }
                 weWill.insert(byte)
                 return [Self.iac, Command.will.rawValue, byte]
@@ -165,7 +169,7 @@ public struct TelnetNegotiator: Sendable {
             }
         case .dont:
             if option == .windowSize { windowSizeEnabled = false }
-            if option == .binary { binary = false }
+            if option == .binary { localBinary = false }
             guard weWill.contains(byte) else { return [] }
             weWill.remove(byte)
             return [Self.iac, Command.wont.rawValue, byte]
@@ -178,7 +182,7 @@ public struct TelnetNegotiator: Sendable {
         switch option {
         case .echo: remoteEcho = on
         case .suppressGoAhead: suppressGoAhead = on
-        case .binary: binary = on
+        case .binary: remoteBinary = on
         default: break
         }
     }

@@ -419,6 +419,9 @@ public final class TerminalEmulator {
         }
     }
 
+    static let maxParameters = 32
+    static let maxSubParameters = 16
+
     private func beginCSI() {
         state = .csi
         params.removeAll()
@@ -436,9 +439,13 @@ public final class TerminalEmulator {
             guard intermediates.isEmpty else { state = .csiIgnore; return }
             paramValue = min((paramValue ?? 0) * 10 + Int(value - 0x30), 65_535)
         case 0x3A: // :
+            // Sous-paramètres bornés comme les paramètres (une suite sans fin est ignorée).
+            guard paramGroup.count < Self.maxSubParameters else { state = .csiIgnore; return }
             paramGroup.append(paramValue ?? -1)
             paramValue = nil
         case 0x3B: // ;
+            // Au plus 32 paramètres (xterm en garde 30) : au-delà, la séquence est ignorée.
+            guard params.count < Self.maxParameters else { state = .csiIgnore; return }
             paramGroup.append(paramValue ?? -1)
             params.append(paramGroup)
             paramGroup.removeAll()
@@ -450,6 +457,7 @@ public final class TerminalEmulator {
                 state = .csiIgnore
             }
         case 0x20...0x2F:
+            guard intermediates.count < 4 else { state = .csiIgnore; return }
             intermediates.append(UInt8(value))
         case 0x40...0x7E:
             if paramValue != nil || !paramGroup.isEmpty || !params.isEmpty {

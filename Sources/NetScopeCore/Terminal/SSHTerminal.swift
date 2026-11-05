@@ -6,8 +6,10 @@ import Foundation
 /// - Serveur inconnu : ssh affiche l'empreinte de sa clé et demande « yes/no » dans l'onglet ;
 ///   NetScope montre en plus un bandeau « Accepter / Refuser » (`SSHPromptDetector`).
 /// - Mot de passe enregistré au Trousseau : remis à ssh par SSH_ASKPASS. Le script ne contient
-///   aucun secret ; le mot de passe ne passe que par l'environnement du processus ssh, jamais par le
-///   disque ni la ligne de commande, et il n'est donné qu'une fois (puis ssh le redemande dans l'onglet).
+///   aucun secret ; le mot de passe passe par un tube nommé à usage unique (`SSHSecretChannel`,
+///   0600 dans un dossier 0700), jamais par l'environnement, le disque ni la ligne de commande. Il
+///   n'est donné qu'une fois, et seulement à une invite qui nomme « utilisateur@hôte » de la
+///   connexion (jamais au serveur de rebond d'un ProxyJump) ; ensuite, ssh le demande dans l'onglet.
 public enum SSHTerminalCommand {
     public static let sshPath = "/usr/bin/ssh"
 
@@ -30,10 +32,13 @@ public enum SSHTerminalCommand {
     }
 
     /// Environnement du processus ssh : terminal xterm-256color, script SSH_ASKPASS forcé (toutes
-    /// les questions de ssh passent par lui, et il les pose dans l'onglet), secret éventuel.
-    public static func environment(base: [String: String], askpass: String, secret: String?, flag: String) -> [String: String] {
+    /// les questions de ssh passent par lui, et il les pose dans l'onglet), chemin du tube du secret
+    /// (`secretPipe`, jamais le secret lui-même) et invite attendue (`expect` : « utilisateur@hôte »).
+    public static func environment(base: [String: String], askpass: String, secretPipe: String?, expect: String,
+                                   flag: String) -> [String: String] {
         var env = base
-        for key in ["SSH_ASKPASS", "SSH_ASKPASS_REQUIRE", "NETSCOPE_SSH_SECRET", "NETSCOPE_SSH_FLAG", "TERM_PROGRAM", "TERM_PROGRAM_VERSION"] {
+        for key in ["SSH_ASKPASS", "SSH_ASKPASS_REQUIRE", "NETSCOPE_SSH_SECRET", "NETSCOPE_SSH_FIFO", "NETSCOPE_SSH_EXPECT",
+                    "NETSCOPE_SSH_FLAG", "TERM_PROGRAM", "TERM_PROGRAM_VERSION"] {
             env[key] = nil
         }
         env["TERM"] = "xterm-256color"
@@ -43,14 +48,25 @@ public enum SSHTerminalCommand {
         env["SSH_ASKPASS_REQUIRE"] = "force"
         env["DISPLAY"] = base["DISPLAY"] ?? ":0"
         env["NETSCOPE_SSH_FLAG"] = flag
-        if let secret, !secret.isEmpty { env["NETSCOPE_SSH_SECRET"] = secret }
+        if let secretPipe, !secretPipe.isEmpty, !expect.isEmpty {
+            env["NETSCOPE_SSH_FIFO"] = secretPipe
+            env["NETSCOPE_SSH_EXPECT"] = expect
+        }
         return env
+    }
+
+    /// « utilisateur@hôte » que l'invite de mot de passe de ssh doit nommer (« admin@10.0.0.2's
+    /// password: », « (admin@10.0.0.2) Password: ») ; sans utilisateur, celui du Mac.
+    public static func expectedPrompt(user: String, host: String, localUser: String = NSUserName()) -> String {
+        let user = user.trimmingCharacters(in: .whitespaces)
+        return (user.isEmpty ? localUser : user) + "@" + host
     }
 
     /// Script SSH_ASKPASS (aucun secret dedans). Ses entrée et sortie d'erreur sont le
     /// pseudo-terminal de l'onglet : les questions de ssh s'y affichent et la réponse y est tapée.
-    /// Mot de passe du Trousseau : donné à la première demande de mot de passe seulement (le
-    /// fichier témoin, vide, est créé à ce moment) ; ensuite, la saisie est demandée dans l'onglet.
+    /// Mot de passe du Trousseau : donné à la première demande de mot de passe qui nomme
+    /// « utilisateur@hôte » de la connexion seulement (le fichier témoin, vide, est créé à ce moment),
+    /// lu dans le tube à usage unique ; ensuite, la saisie est demandée dans l'onglet.
     public static let askpassScript = """
     #!/bin/sh
     # NetScope : réponses aux questions de ssh dans l'onglet de terminal. Aucun secret ici.
@@ -61,9 +77,15 @@ public enum SSHTerminalCommand {
         printf '%s\\n' "$answer"
         ;;
       *assword*|*ASSWORD*)
-        if [ -n "$NETSCOPE_SSH_SECRET" ] && [ -n "$NETSCOPE_SSH_FLAG" ] && [ ! -e "$NETSCOPE_SSH_FLAG" ]; then
+        expected=0
+        if [ -n "$NETSCOPE_SSH_EXPECT" ]; then
+          case "$1" in *"$NETSCOPE_SSH_EXPECT"*) expected=1 ;; esac
+        fi
+        if [ "$expected" = 1 ] && [ -n "$NETSCOPE_SSH_FIFO" ] && [ -p "$NETSCOPE_SSH_FIFO" ] \\
+           && [ -n "$NETSCOPE_SSH_FLAG" ] && [ ! -e "$NETSCOPE_SSH_FLAG" ]; then
           : > "$NETSCOPE_SSH_FLAG"
-          printf '%s\\n' "$NETSCOPE_SSH_SECRET"
+          IFS= read -r secret < "$NETSCOPE_SSH_FIFO"
+          printf '%s\\n' "$secret"
         else
           printf '%s' "$1" >&2
           stty -echo 2>/dev/null
@@ -108,6 +130,58 @@ public enum SSHTerminalCommand {
         if port != 22 { words += ["-p", String(port)] }
         words += ["--", user.isEmpty ? host : user + "@" + host]
         return words.joined(separator: " ")
+    }
+}
+
+/// Tube nommé à usage unique (0600, dossier 0700) par lequel le script SSH_ASKPASS lit le mot de
+/// passe : écrit une seule fois quand le script l'ouvre, puis supprimé. Rien dans l'environnement
+/// de ssh ni de ses sous-processus (ProxyCommand, LocalCommand…), rien sur le disque.
+public final class SSHSecretChannel: @unchecked Sendable {
+    public let path: String
+    private let lock = NSLock()
+    private var secret: String?
+
+    public init(directory: URL, secret: String) throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+                                                attributes: [.posixPermissions: 0o700])
+        path = directory.appendingPathComponent("secret-" + UUID().uuidString).path
+        guard mkfifo(path, 0o600) == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+        self.secret = secret
+        let path = self.path
+        // Attend un lecteur (le script) sans bloquer : ENXIO tant que personne n'a ouvert le tube ;
+        // au plus dix minutes (question d'empreinte laissée sans réponse), puis le secret est oublié.
+        let deadline = Date().addingTimeInterval(600)
+        DispatchQueue.global(qos: .utility).async { [self] in
+            while Date() < deadline, let value = lock.withLock({ self.secret }) {
+                let fd = open(path, O_WRONLY | O_NONBLOCK)
+                if fd < 0 {
+                    if errno == ENXIO {
+                        usleep(100_000)
+                        continue
+                    }
+                    break
+                }
+                _ = fcntl(fd, F_SETFL, 0)
+                let bytes = Array((value + "\n").utf8)
+                _ = bytes.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) }
+                close(fd)
+                break
+            }
+            cancel()
+        }
+    }
+
+    deinit { cancel() }
+
+    /// Oublie le secret et supprime le tube (session fermée, remplacée ou secret déjà lu).
+    public func cancel() {
+        let had = lock.withLock { () -> Bool in
+            defer { secret = nil }
+            return secret != nil
+        }
+        if had || FileManager.default.fileExists(atPath: path) { unlink(path) }
     }
 }
 

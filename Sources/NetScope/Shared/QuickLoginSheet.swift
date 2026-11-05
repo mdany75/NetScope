@@ -27,6 +27,17 @@ struct QuickLoginSheet: View {
 
     private var isSSH: Bool { target.proto == .ssh }
 
+    /// Note 57 : connexion SSH ou Telnet du carnet (même hôte) : onglet de NetScope, pas Terminal.
+    private var opensInTab: Bool {
+        guard let id = target.connectionID, !target.inTerminalApp, [.ssh, .telnet, .serie].contains(target.proto),
+              let connection = RemoteModel.shared.connections.first(where: { $0.id == id }) else { return false }
+        let host = QuickLoginAddress.splitUserField(user, defaultHost: target.device.host).host
+        return connection.host.caseInsensitiveCompare(host) == .orderedSame
+    }
+
+    /// « Onglet de NetScope » ou « Terminal ».
+    private var destination: String { opensInTab ? "Onglet de NetScope" : target.proto.externalApp }
+
     /// Choix lu dans les champs ; « admin@10.0.0.2:2222 » collé dans Utilisateur est découpé.
     private var choice: Result<QuickLoginChoice, Error> {
         Result {
@@ -177,7 +188,8 @@ struct QuickLoginSheet: View {
         }
         switch auth {
         case .automatic:
-            hint("Clés de ~/.ssh et agent SSH, puis mot de passe demandé par ssh dans Terminal.")
+            hint(opensInTab ? "Clés de ~/.ssh et agent SSH, puis mot de passe du Trousseau ou demandé par ssh dans l’onglet."
+                 : "Clés de ~/.ssh et agent SSH, puis mot de passe demandé par ssh dans Terminal.")
         case .key:
             RegField(label: "Clé privée") {
                 HStack(spacing: 6) {
@@ -193,7 +205,7 @@ struct QuickLoginSheet: View {
     private var passwordHint: String {
         let credential = credentialID.flatMap { id in model.credentials.first { $0.id == id } }
         let keychain = credential.map { " Le mot de passe de «\u{00A0}\($0.name)\u{00A0}» reste au Trousseau\u{00A0}: NetScope ne l’écrit jamais dans la commande ni sur le disque." } ?? ""
-        return "ssh demande le mot de passe dans Terminal (clés désactivées).\(keychain)"
+        return "ssh demande le mot de passe dans \(opensInTab ? "l’onglet" : "Terminal") (clés désactivées).\(keychain)"
     }
 
     private func hint(_ text: String) -> some View {
@@ -209,12 +221,13 @@ struct QuickLoginSheet: View {
                 .textSelection(.enabled)
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text(target.proto.externalApp).font(Theme.caption).foregroundStyle(Theme.textTertiary)
+            Text(destination).font(Theme.caption).foregroundStyle(Theme.textTertiary)
         }
         .padding(.horizontal, 10).padding(.vertical, 8)
         .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
         .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
-        .help("Commande ouverte dans Terminal (chaque mot échappé, rien n’est interprété par le shell)")
+        .help(opensInTab ? "Commande lancée dans un onglet de NetScope (chaque mot échappé, rien n’est interprété par le shell)"
+              : "Commande ouverte dans Terminal (chaque mot échappé, rien n’est interprété par le shell)")
     }
 
     private var options: some View {
@@ -249,7 +262,8 @@ struct QuickLoginSheet: View {
             if let openError {
                 Text(openError).font(Theme.small).foregroundStyle(Theme.critical).lineLimit(2)
             } else {
-                Text("Aucun mot de passe n’est retenu par NetScope.").font(Theme.small).foregroundStyle(Theme.textTertiary)
+                Text(opensInTab ? "Mot de passe au Trousseau seulement, jamais dans le carnet."
+                     : "Aucun mot de passe n’est retenu par NetScope.").font(Theme.small).foregroundStyle(Theme.textTertiary)
             }
             Spacer(minLength: 8)
             Button("Annuler", action: dismiss).buttonStyle(.secondary).keyboardShortcut(.cancelAction)
@@ -257,7 +271,7 @@ struct QuickLoginSheet: View {
                 .buttonStyle(.primary)
                 .keyboardShortcut(.defaultAction)
                 .regDisabled(errorText != nil)
-                .help("Ouvre la connexion dans \(target.proto.externalApp) (↩︎)")
+                .help(opensInTab ? "Ouvre la connexion dans un onglet de NetScope (↩︎)" : "Ouvre la connexion dans \(target.proto.externalApp) (↩︎)")
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)

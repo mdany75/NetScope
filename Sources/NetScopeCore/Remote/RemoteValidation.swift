@@ -27,7 +27,8 @@ public enum RemoteValidationError: Error, Equatable, LocalizedError {
 /// Validation stricte des champs qui finissent dans une ligne de commande, une URL ou un
 /// fichier .rdp : seule une liste fermée de caractères est acceptée (aucune injection possible).
 public enum RemoteValidator {
-    public static let baudRates = [1200, 2400, 4800, 9600, 19_200, 38_400, 57_600, 115_200, 230_400]
+    /// Mêmes débits que l’onglet de la console série (`SerialSettings.baudRates`).
+    public static let baudRates = SerialSettings.baudRates
 
     private static let hostCharacters = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-:_")
     private static let userCharacters = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-@")

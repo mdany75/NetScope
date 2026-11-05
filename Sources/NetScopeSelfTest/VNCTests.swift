@@ -220,6 +220,20 @@ func registerVNCTests(_ suite: TestSuite) {
         try expectEqual(block, [red, green, blue, blue, blue, red, green, red, green], "palette 2 bits")
     }
 
+    suite.add("VNC : bombe zlib ZRLE rejetée (sortie bornée par la taille du rectangle)") {
+        var fb = RFBFramebuffer(width: 8, height: 8, fill: black)
+        // 4 Mo de zéros compressés en quelques kilo-octets, pour un rectangle de 2 × 2 pixels.
+        let bomb = RFBDeflater().deflate([UInt8](repeating: 0, count: 4 << 20))
+        do {
+            try RFBDecoder(format: .rgb888).zrle(RFBRect(x: 0, y: 0, width: 2, height: 2), compressed: bomb, into: &fb)
+            try expect(false, "la bombe aurait dû être rejetée")
+        } catch let error as RFBError {
+            try expect("\(error)".contains("trop grandes"), "erreur de protocole : \(error)")
+        }
+        try expect(RFBDecoder.zrleMaxSize(RFBRect(x: 0, y: 0, width: 64, height: 64), cpixel: 3) >= 1 + 64 * 64 * 3,
+                   "tuile brute légitime acceptée")
+    }
+
     suite.add("VNC : ZRLE en grandes tuiles (64 × 64, rectangle partiel) contre l'image attendue") {
         // Image 70 × 66 (4 tuiles, dont trois partielles), compressée par la zlib du système.
         let width = 70, height = 66

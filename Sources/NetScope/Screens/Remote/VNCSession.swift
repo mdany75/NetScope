@@ -9,15 +9,8 @@ import SwiftUI
 // affiché ni écrit ailleurs. En démonstration et pendant les captures : bureau dessiné
 // (DevTools/VNCDemo.swift), aucun réseau, aucun Trousseau.
 //
-// Point d'entrée pour les onglets de session : `VNCSessionView(connection:)` affiche (et ouvre au
-// besoin) la session de cette connexion ; `VNCSessionStore.shared.open(_:)` l'ouvre sans l'afficher,
-// `close(_:)` la ferme. `RemoteSessionKind.vnc` désigne ce type de session.
-
-/// Types de sessions intégrées d'Accès distant (le terminal arrive avec les onglets de session).
-enum RemoteSessionKind: String {
-    /// Client VNC intégré : `VNCSessionView(connection:)`.
-    case vnc
-}
+// Chaque session s'affiche dans un onglet de la barre des sessions (`RemoteSessionStore.open`),
+// à côté des terminaux ; `VNCSessionStore.shared.open(_:)` l'ouvre, `close(_:)` la ferme.
 
 /// Mise à l'échelle de l'image (croquis : « Ajuster » ou « 100 % »).
 enum VNCScaleMode: String, CaseIterable, Identifiable {
@@ -44,14 +37,22 @@ enum VNCPasswordStore {
         return keychain.string(for: id.uuidString)
     }
 
+    /// Réponse retenue par connexion : le rendu n'interroge le Trousseau qu'une fois.
+    private static var known: [UUID: Bool] = [:]
+
     static func hasPassword(_ id: UUID) -> Bool {
         if RegEnvironment.isSandboxed { return VNCDemo.savedPassword }
-        return password(for: id) != nil
+        if let cached = known[id] { return cached }
+        let found = password(for: id) != nil
+        known[id] = found
+        return found
     }
 
     static func setPassword(_ value: String?, for id: UUID) throws {
         guard !RegEnvironment.isSandboxed else { return }
+        known[id] = nil
         try keychain.set(value, for: id.uuidString)
+        known[id] = value != nil
     }
 }
 
@@ -118,12 +119,12 @@ final class VNCSession: ObservableObject, Identifiable {
     @Published var scale: VNCScaleMode
     @Published var viewOnly = false
     @Published var shareClipboard = true
+    /// Message court sous le titre ; `toastIsError` : affiché comme un avertissement.
     @Published var toast: String?
-    /// Affichée dans Accès distant (sinon la session continue en arrière-plan).
-    @Published var isVisible = true {
-        didSet { if isVisible != oldValue { VNCSessionStore.shared.objectWillChange.send() } }
-    }
+    @Published var toastIsError = false
     @Published private(set) var isFullScreen = false
+    /// Plein écran demandé avant la fin de la connexion : appliqué au passage à « Connecté ».
+    var pendingFullScreen = false
     @Published var quality: RFBQuality {
         didSet {
             guard quality != oldValue else { return }
@@ -158,6 +159,25 @@ final class VNCSession: ObservableObject, Identifiable {
     var address: String {
         let user = sessionUsername ?? connection.username
         return (user.isEmpty ? "" : "\(user) @ ") + "\(connection.host):\(connection.port)"
+    }
+
+    /// Connectée ou en cours de connexion (la fermeture de l'onglet est alors confirmée).
+    var isActive: Bool {
+        switch phase {
+        case .connecting, .authenticating, .connected: return true
+        default: return false
+        }
+    }
+
+    /// Connexion modifiée dans le carnet : adresse, utilisateur et échelle repris. Si l'hôte ou le
+    /// port change pendant que la session est active, elle se reconnecte à la nouvelle adresse.
+    func update(connection updated: RemoteConnection) {
+        guard updated != connection else { return }
+        let moved = updated.host != connection.host || updated.port != connection.port
+        if updated.username != connection.username { sessionUsername = nil }
+        if updated.display.vncScale != connection.display.vncScale { scale = VNCScaleMode(updated.display.vncScale) }
+        connection = updated
+        if moved, isActive { start() }
     }
 
     /// « Connecté », « Connexion… », « Échec »… pour la puce d'état.
@@ -256,6 +276,7 @@ final class VNCSession: ObservableObject, Identifiable {
     /// Ferme la session (bouton « Déconnecter »).
     func disconnect() {
         generation += 1
+        pendingFullScreen = false
         task?.cancel()
         client?.close()
         client = nil
@@ -280,7 +301,7 @@ final class VNCSession: ObservableObject, Identifiable {
             do {
                 try VNCPasswordStore.setPassword(password, for: connection.id)
             } catch {
-                toast = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                show((error as? LocalizedError)?.errorDescription ?? error.localizedDescription, error: true)
             }
         }
         if isDemo { VNCDemo.savedPassword = true }
@@ -292,8 +313,14 @@ final class VNCSession: ObservableObject, Identifiable {
         sessionPassword = nil
         try? VNCPasswordStore.setPassword(nil, for: connection.id)
         if isDemo { VNCDemo.savedPassword = false }
-        toast = "Mot de passe retiré du Trousseau."
+        show("Mot de passe retiré du Trousseau.")
         objectWillChange.send()
+    }
+
+    /// Affiche un message ; une erreur garde le ton d'avertissement.
+    func show(_ text: String, error: Bool = false) {
+        toastIsError = error
+        toast = text
     }
 
     var hasSavedPassword: Bool { VNCPasswordStore.hasPassword(connection.id) }
@@ -306,9 +333,15 @@ final class VNCSession: ObservableObject, Identifiable {
         case .connecting:
             phase = .connecting
         case .authenticating(let type):
+            // Retenu dès maintenant : un échec d'authentification ARD redemande le compte.
+            security = type
             phase = .authenticating(type.label)
         case .connected(let info):
             phase = .connected
+            if pendingFullScreen {
+                pendingFullScreen = false
+                VNCFullScreenController.shared.present(self)
+            }
             desktopName = info.name
             serverVersion = info.version.rawValue
             security = info.security
@@ -337,6 +370,7 @@ final class VNCSession: ObservableObject, Identifiable {
     private func finish(_ error: RFBError?, generation: Int) {
         guard generation == self.generation else { return }
         client = nil
+        pendingFullScreen = false
         cursor = nil
         framesPerSecond = 0
         bytesPerSecond = 0
@@ -399,19 +433,19 @@ final class VNCSession: ObservableObject, Identifiable {
     func sendCtrlAltDelete() {
         guard acceptsInput else { return }
         client?.sendChord(RFBKeysym.ctrlAltDelete)
-        if isDemo { toast = "Ctrl-Alt-Suppr envoyé à \(connection.name)." }
+        if isDemo { show("Ctrl-Alt-Suppr envoyé à \(connection.name).") }
     }
 
     /// Envoie le texte du presse-papiers du Mac (bouton du croquis).
     func sendClipboard() {
         guard acceptsInput else { return }
         guard let text = NSPasteboard.general.string(forType: .string), !text.isEmpty else {
-            toast = "Le presse-papiers du Mac ne contient pas de texte."
+            show("Le presse-papiers du Mac ne contient pas de texte.", error: true)
             return
         }
         client?.sendClipboard(text)
         lastPasteboardChange = NSPasteboard.general.changeCount
-        toast = "Presse-papiers envoyé à \(connection.name)."
+        show("Presse-papiers envoyé à \(connection.name).")
     }
 
     /// Presse-papiers partagé : le texte copié sur le Mac part au premier clic dans la session.
@@ -453,6 +487,7 @@ final class VNCSession: ObservableObject, Identifiable {
         framesPerSecond = 30
         bytesPerSecond = 1_240_000
         phase = .connected
+        pendingFullScreen = false
     }
 
     // MARK: Images
@@ -496,17 +531,12 @@ final class VNCSessionStore: ObservableObject {
         id.flatMap { sessions[$0] }
     }
 
-    /// Session de la connexion choisie, si elle est affichée.
-    func displayed(for id: UUID?) -> VNCSession? {
-        guard let session = session(for: id), session.isVisible else { return nil }
-        return session
-    }
-
     /// Ouvre la session (ou y revient) ; la relance si elle avait échoué ou été fermée.
+    /// La connexion à jour du carnet remplace l'ancienne (hôte, port, utilisateur, échelle).
     @discardableResult
     func open(_ connection: RemoteConnection) -> VNCSession {
         if let existing = sessions[connection.id] {
-            existing.isVisible = true
+            existing.update(connection: connection)
             switch existing.phase {
             case .failed, .closed: existing.start()
             default: break
@@ -520,6 +550,7 @@ final class VNCSessionStore: ObservableObject {
     }
 
     func close(_ id: UUID) {
+        VNCFullScreenController.shared.close(id)
         sessions[id]?.disconnect()
         sessions[id] = nil
     }

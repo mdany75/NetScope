@@ -19,8 +19,9 @@ final class RFBInflater {
         stream.deallocate()
     }
 
-    /// Décompresse `input` (suite du flux) et rend tous les octets produits.
-    func inflate(_ input: [UInt8]) throws -> [UInt8] {
+    /// Décompresse `input` (suite du flux) et rend tous les octets produits ; au-delà de
+    /// `maxOutput` octets, le flux est rejeté (bombe zlib).
+    func inflate(_ input: [UInt8], maxOutput: Int = Int.max) throws -> [UInt8] {
         if !ready {
             guard inflateInit_(stream, ZLIB_VERSION, Int32(MemoryLayout<z_stream>.size)) == Z_OK else {
                 throw RFBError.protocolViolation("zlib indisponible")
@@ -45,6 +46,9 @@ final class RFBInflater {
                     return outBuffer.count - Int(stream.pointee.avail_out)
                 }
                 output.append(contentsOf: chunk[0..<produced])
+                guard output.count <= maxOutput else {
+                    throw RFBError.protocolViolation("ZRLE\u{00A0}: données décompressées trop grandes (plus de \(maxOutput) octets)")
+                }
                 // Place restante en sortie : toute l'entrée disponible a été traitée.
                 if stream.pointee.avail_out != 0 { break }
             } while true
