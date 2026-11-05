@@ -87,11 +87,11 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 | Carte du réseau | 32 | — |
 | Inventaire | 8, 30 | 10 (0.20.0) |
 | Ping continu | — | 11 (plus tard) |
-| Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22, 37 | 51 et 53 (0.18.0) |
+| Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22, 37 | 51, 53 et 55 (0.18.0) |
 | Accès distant | 5, 52 | 50 (0.18.0), 6 (plus tard) |
 | Surveillance et alertes | 3, 23 | 43 (0.21.0) |
 | Rapports | 4 | 42 (0.20.0) |
-| Réglages, sauvegarde, aide | 9, 13, 38 | 35 (0.13.1), 44 (0.21.0) |
+| Réglages, sauvegarde, aide | 9, 13, 38 | 35 (0.13.1), 56 (0.18.0), 44 (0.21.0) |
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
 
@@ -979,3 +979,37 @@ FortiView), en lecture seule comme les notes 24 et 25 :
   avec explications et actions conseillées, et une section « Trafic » dans les Rapports.
 - Surveillance : sondes « lien saturé », « appareil qui consomme trop », « nouvelle menace ».
 - Droits du profil API à ajouter en lecture : « Log & Report » et « FortiView » si nécessaire.
+
+## 55. Vitesse des disques : ajouter un NAS, un partage SMB ou un autre emplacement — 0.18.0 (demande de Dany)
+
+« Dans speeddisk, je veux avoir la possibilité d'ajouter un NAS, SMB, autre. » Dans Outils ›
+Vitesse des disques, bouton « Ajouter un emplacement… » à côté des disques détectés :
+
+- Types : NAS ou partage SMB (`smb://serveur/partage`), NFS, AFP, WebDAV, et « Autre » (un
+  dossier quelconque choisi dans le Finder) ; FTP, FTPS et SFTP par la connexion de la note 50.
+- Saisie : serveur (nom ou IP, ou un appareil choisi dans le Scanner ou l'Inventaire), partage,
+  utilisateur ; mot de passe dans le trousseau macOS, jamais en clair.
+- Montage par NetFS dans l'app si le partage n'est pas déjà monté, puis démontage après le test
+  seulement si c'est NetScope qui l'a monté ; erreurs expliquées (mauvais mot de passe, partage
+  introuvable, SMB1 refusé, droits d'écriture).
+- « Tester le serveur » avant le test de vitesse : ping, ports 445 (SMB), 2049 (NFS), 548 (AFP),
+  80/443 (WebDAV) ; emplacements enregistrés par site et retrouvés dans la liste.
+- Bilan habituel (lien réseau du Mac, limite réseau ou disque) et historique par emplacement.
+
+## 56. Configuration : exporter, importer et synchroniser entre Mac — 0.18.0 (demande de Dany)
+
+« Je veux importer et exporter la configuration de NetScope… et iCloud sync aussi, comme dans
+mon cas plusieurs Mac. » Puis : « je veux tout inclure, pour une facilité de configuration. »
+
+- Réglages › Sauvegarde : « Exporter la configuration… » et « Importer la configuration… » ;
+  tout est coché par défaut : sites et préréglages, FortiGate et leurs jetons, switchs et
+  communautés SNMP, identifiants SSH et WMI, SMTP et webhooks, réglages, raccourcis, profils de
+  scan, inventaires et historiques ; on peut décocher une partie.
+- Un seul fichier ; chiffrement par mot de passe obligatoire dès qu'un secret est inclus (même
+  format que la sauvegarde chiffrée de la note 38) ; import en un clic sur un autre Mac, avec
+  aperçu de ce qui sera remplacé ou ajouté, et secrets remis dans le trousseau de ce Mac.
+- Synchronisation par iCloud Drive (dossier NetScope/Sync, pas de CloudKit) : par site,
+  fusion par date de modification, conflits signalés (jamais écrasés sans le dire), secrets
+  chiffrés par un mot de passe de synchronisation gardé au trousseau ; état « Synchronisé il
+  y a… » et bouton « Synchroniser maintenant ».
+- Jamais de fusion entre sites ; un même site reconnu par son identifiant, pas par ses plages IP.
