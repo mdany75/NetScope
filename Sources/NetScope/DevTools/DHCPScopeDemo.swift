@@ -126,9 +126,10 @@ enum DHCPScopeDemo {
             lease(address, mac(hik, n), "DS-2CD2143G2-\(String(format: "%02d", n))", "vlan40", server: 4, minutes: 1440 + (n * 307) % (6 * 1440))
         }
 
-        // 5. VLAN 60 invités : 200 adresses, bail de 2 h, 170 baux → 85 %.
+        // 5. VLAN 60 invités : 200 adresses, bail de 2 h, 170 baux → 85 % ; réseau en /22
+        //    (10.182.140.0/22, place pour grandir : carte d'occupation par pages d'Historique et adressage).
         let invites = DHCPServerConfig(id: 5, interface: "vlan60", ranges: [range("10.182.140.20", "10.182.140.219")],
-                                       leaseTime: 7200, gateway: ip("10.182.140.1"), netmask: ip("255.255.255.0"), serverType: "regular")
+                                       leaseTime: 7200, gateway: ip("10.182.140.1"), netmask: ip("255.255.252.0"), serverType: "regular")
         lease("10.182.140.31", MACAddress("F2:6A:19:C4:0E:57")!, "iPhone-Reception", "vlan60", server: 5, minutes: 74)
         var guest = 0
         for n in 0..<200 where guest < 169 {

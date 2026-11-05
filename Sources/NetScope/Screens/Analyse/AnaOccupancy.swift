@@ -1,62 +1,206 @@
+import AppKit
 import NetScopeCore
 import SwiftUI
 
-/// Carte d'occupation 16 × 16 d'un /24, avec le détail de l'adresse survolée ou choisie.
+/// Carte d'occupation d'un bloc de /24 à /16 (note 78) : carte des pages (/24) du bloc, puis la
+/// page choisie en 16 × 16 cases, avec le détail de l'adresse survolée ou choisie. Croise les
+/// fiches du scan, les étendues, baux et réservations DHCP de la FortiGate et les plages exclues
+/// du site ; propose la prochaine IP libre hors étendue DHCP de la page.
 struct AnaOccupancyPanel: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var model = InvModel.shared
 
-    let network: IPv4Address
+    let plan: AddressPlan
     let records: [InvRecord]
     let now: Date
-    let recentWindow: TimeInterval
-    /// Site du /24 (nil : site actif) ; `siteName` : affiché quand plusieurs sites sont choisis.
+    /// Site du bloc (nil : site actif) ; `siteName` : affiché quand plusieurs sites sont choisis.
     var siteKey: String?
     var siteName: String?
+    /// Page montrée d'abord (celle du Mac, ou la plage choisie).
+    var preferredPage: IPv4Address?
+    /// Lecture DHCP de la FortiGate du site (nil : aucune étendue lue).
+    var dhcpReadAt: Date?
+    /// Change la taille du bloc (/24 à /16) autour de la page donnée.
+    var onPrefix: (Int, IPv4Address) -> Void = { _, _ in }
 
-    @State private var selected: Int?
-    @State private var hovered: Int?
+    @State private var page: IPv4Address?
+    @State private var selected: IPv4Address?
+    @State private var hovered: IPv4Address?
+    @State private var copied: IPv4Address?
 
     private static let cell: CGFloat = 19
     private static let gap: CGFloat = 3
+    private static let gridWidth: CGFloat = 30 + 16 * (cell + gap)
+    static let legendStates: [AddressPlanState] = [.enLigne, .horsLigne, .conflit, .bail, .reservee, .exclue, .libreDHCP, .libre, .reseau]
 
     var body: some View {
-        let grid = InvOccupancy(network: network, records: records, now: now, recentWindow: recentWindow)
-        // Case encadrée = adresse du détail (survolée, choisie, sinon la première en conflit ou en ligne).
-        let focus = hovered ?? selected ?? grid.defaultFocus
+        let shownPage = page.flatMap { plan.page(containing: $0) } ?? plan.defaultPage(preferring: preferredPage)
+        let cells = plan.cells(page: shownPage.base)
+        let focusIP = hovered ?? selected.flatMap { shownPage.base.value == $0.value & 0xFFFF_FF00 ? $0 : nil } ?? Self.defaultFocus(cells)
+        let focus = cells[Int(focusIP.value & 0xFF)]
 
         Panel(padding: 16) {
             VStack(alignment: .leading, spacing: 12) {
-                InvPanelTitle("Carte d’occupation", subtitle: (siteName.map { $0 + " · " } ?? "") + "\(grid.network) · survolez une case pour voir l’adresse")
+                InvPanelTitle(title: "Carte d’occupation", subtitle: subtitle(page: shownPage),
+                              shorterSubtitles: shorterSubtitles(page: shownPage)) {
+                    blockMenu(page: shownPage)
+                }
+                if plan.pageCount > 1 {
+                    pagesMap(current: shownPage)
+                }
                 HStack(alignment: .top, spacing: 16) {
                     VStack(alignment: .leading, spacing: Self.gap) {
-                        HStack(spacing: Self.gap) {
-                            Text("").frame(width: 30)
-                            ForEach(0..<16, id: \.self) { column in
-                                Text("\(column)").font(Theme.mono(9)).foregroundStyle(Theme.textSecondary)
-                                    .frame(width: Self.cell)
-                            }
-                        }
+                        header
                         ForEach(0..<16, id: \.self) { row in
                             HStack(spacing: Self.gap) {
                                 Text(".\(row * 16)").font(Theme.mono(10)).foregroundStyle(Theme.textSecondary)
                                     .frame(width: 30, alignment: .leading)
                                 ForEach(0..<16, id: \.self) { column in
-                                    let index = InvOccupancy.index(row: row, column: column)
-                                    cellView(grid.cells[index], isFocus: index == focus)
+                                    let item = cells[row * 16 + column]
+                                    cellView(item, isFocus: item.ip == focus.ip)
                                 }
                             }
                         }
-                        legend(grid).padding(.top, 8)
+                        legend(shownPage).padding(.top, 8)
                     }
-                    detail(grid.cells[focus])
+                    .frame(width: Self.gridWidth, alignment: .leading)
+                    detail(focus)
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
+                nextFree(page: shownPage)
             }
         }
     }
 
-    static func colors(_ state: InvCellState) -> (fill: Color, border: Color) {
+    /// Versions plus courtes, sans doublon (identifiants de ViewThatFits).
+    private func shorterSubtitles(page: AddressPlanPage) -> [String] {
+        let full = subtitle(page: page)
+        var result: [String] = []
+        for text in [(siteName.map { $0 + " · " } ?? "") + plan.block.description, plan.block.description]
+            where text != full && !result.contains(text) {
+            result.append(text)
+        }
+        return result
+    }
+
+    private func subtitle(page: AddressPlanPage) -> String {
+        let prefix = siteName.map { $0 + " · " } ?? ""
+        if plan.pageCount > 1 {
+            return prefix + "\(plan.block) · \(plan.pageCount) pages de /24 · page \(page.label)"
+        }
+        return prefix + "\(plan.block) · survolez une case pour voir l’adresse"
+    }
+
+    // MARK: Taille du bloc et carte des pages
+
+    private func blockMenu(page: AddressPlanPage) -> some View {
+        Menu {
+            ForEach(Array(stride(from: 24, through: AddressPlan.minPrefix, by: -1)), id: \.self) { prefix in
+                let block = Subnet(address: page.base, prefix: prefix)
+                Button {
+                    self.page = page.base
+                    onPrefix(prefix, page.base)
+                } label: {
+                    let pages = 1 << (24 - prefix)
+                    Text("/\(prefix) · \(block)" + (pages > 1 ? " · \(pages) pages" : ""))
+                }
+                .disabled(prefix == plan.block.prefix)
+            }
+        } label: {
+            Label("Bloc /\(plan.block.prefix)", systemImage: "square.grid.3x3")
+        }
+        .menuStyle(.button)
+        .fixedSize()
+        .help("Taille de la carte\u{00A0}: un /24 seul, ou un bloc de /23 à /16 parcouru par pages de /24")
+    }
+
+    /// Une case par /24 du bloc : remplie selon l'occupation, liseré rouge s'il y a un conflit.
+    private func pagesMap(current: AddressPlanPage) -> some View {
+        let columns = min(16, plan.pageCount)
+        // Le panneau fait 680 points en grande fenêtre (640 de contenu) : 16 pages tiennent sur une ligne.
+        // Plusieurs rangées (/19 à /16) : troisième octet en tête de rangée, comme la carte des adresses.
+        let labeled = plan.pageCount > 16
+        let tile = min(84, max(22, (640 - (labeled ? 34 : 0) - CGFloat(columns - 1) * 4) / CGFloat(columns)))
+        let height: CGFloat = labeled ? 15 : 34
+        return VStack(alignment: .leading, spacing: 4) {
+            ForEach(0..<(plan.pageCount + columns - 1) / columns, id: \.self) { row in
+                HStack(spacing: 4) {
+                    if labeled {
+                        Text(plan.pages[row * columns].shortLabel).font(Theme.mono(10)).foregroundStyle(Theme.textSecondary)
+                            .frame(width: 30, alignment: .leading)
+                    }
+                    ForEach(row * columns..<min(plan.pageCount, (row + 1) * columns), id: \.self) { index in
+                        pageTile(plan.pages[index], isCurrent: plan.pages[index].base == current.base, width: tile, height: height)
+                    }
+                }
+            }
+            HStack(spacing: 10) {
+                Text("\(plan.used) adresses prises sur \(RegFormat.count(plan.hosts)) · \(Int((plan.usage * 100).rounded()))\u{00A0}%")
+                Text("\(plan.pages.filter { !$0.isEmpty }.count) page\(plan.pages.filter { !$0.isEmpty }.count > 1 ? "s" : "") en usage")
+                Spacer(minLength: 0)
+                Text("Cliquez sur une page pour l’afficher").foregroundStyle(Theme.textTertiary)
+            }
+            .font(Theme.caption).foregroundStyle(Theme.textSecondary)
+            .lineLimit(1)
+        }
+    }
+
+    private func pageTile(_ item: AddressPlanPage, isCurrent: Bool, width: CGFloat, height: CGFloat) -> some View {
+        let fill: Color
+        if item.used > 0 {
+            fill = Theme.success.opacity(0.22 + 0.68 * min(1, item.usage * 1.4))
+        } else if item.count(.libreDHCP) > 0 {
+            fill = Self.colors(.libreDHCP).fill
+        } else if item.count(.exclue) > 0 {
+            fill = Self.colors(.exclue).fill
+        } else {
+            fill = Theme.panel
+        }
+        let conflict = item.count(.conflit) > 0
+        return ZStack {
+            RoundedRectangle(cornerRadius: 3).fill(fill)
+            RoundedRectangle(cornerRadius: 3).strokeBorder(conflict ? Theme.critical : Theme.borderStrong, lineWidth: conflict ? 1.5 : 1)
+            if height > 20 {
+                VStack(spacing: 0) {
+                    Text(item.shortLabel).font(Theme.mono(10, weight: .semibold))
+                    if item.used > 0 { Text("\(item.used)").font(Theme.mono(9)) }
+                }
+                .foregroundStyle(item.usage > 0.5 ? Theme.onAccent : Theme.text)
+            }
+        }
+        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(isCurrent ? Theme.text : Color.clear, lineWidth: 2).padding(-2))
+        .frame(width: width, height: height)
+        .contentShape(Rectangle())
+        .help("\(item.label)\u{00A0}: \(item.used) prise\(item.used > 1 ? "s" : "") sur \(item.hosts)"
+              + (item.count(.bail) > 0 ? ", dont \(item.count(.bail)) baux DHCP" : "")
+              + (item.count(.libreDHCP) > 0 ? " · \(item.count(.libreDHCP)) libres dans l’étendue DHCP" : "")
+              + (item.count(.exclue) > 0 ? " · \(item.count(.exclue)) exclues du scan" : "")
+              + (conflict ? " · conflit IP" : ""))
+        .onTapGesture {
+            page = item.base
+            selected = nil
+        }
+    }
+
+    // MARK: Page de 256 adresses
+
+    private var header: some View {
+        HStack(spacing: Self.gap) {
+            Text("").frame(width: 30)
+            ForEach(0..<16, id: \.self) { column in
+                Text("\(column)").font(Theme.mono(9)).foregroundStyle(Theme.textSecondary)
+                    .frame(width: Self.cell)
+            }
+        }
+    }
+
+    /// Case encadrée quand rien n'est survolé ni choisi : le premier conflit, sinon la première
+    /// adresse en ligne, sinon .1.
+    static func defaultFocus(_ cells: [AddressPlanCell]) -> IPv4Address {
+        (cells.first { $0.state == .conflit } ?? cells.first { $0.state == .enLigne } ?? cells[1]).ip
+    }
+
+    static func colors(_ state: AddressPlanState) -> (fill: Color, border: Color) {
         switch state {
         case .enLigne: return (Color(hex: 0x16A34A), Color(hex: 0x15803D))
         case .horsLigne: return (Color(light: 0xCBD5E1, dark: 0x273444), Color(hex: 0x94A3B8))
@@ -64,10 +208,14 @@ struct AnaOccupancyPanel: View {
         case .conflit: return (Color(hex: 0xB91C1C), Color(hex: 0x7F1D1D))
         // Sombre : gris plus clair que le fond du panneau, sinon les cases réseau et diffusion s'y perdent.
         case .reseau: return (Color(light: 0x374151, dark: 0x6B7280), Color(light: 0x1F2937, dark: 0x9CA3AF))
+        case .bail: return (Color(light: 0x60A5FA, dark: 0x2563EB), Color(light: 0x2563EB, dark: 0x93C5FD))
+        case .reservee: return (Color(light: 0xA78BFA, dark: 0x6D28D9), Color(light: 0x7C3AED, dark: 0xC4B5FD))
+        case .exclue: return (Color(light: 0xFDE68A, dark: 0x5C3D0A), Color(light: 0xD97706, dark: 0xF59E0B))
+        case .libreDHCP: return (Color(light: 0xE0EDFF, dark: 0x1B2E4A), Color(light: 0x93C5FD, dark: 0x3B6FB6))
         }
     }
 
-    private func cellView(_ cell: InvOccupancy.Cell, isFocus: Bool) -> some View {
+    private func cellView(_ cell: AddressPlanCell, isFocus: Bool) -> some View {
         let colors = Self.colors(cell.state)
         return RoundedRectangle(cornerRadius: 3)
             .fill(colors.fill)
@@ -75,31 +223,34 @@ struct AnaOccupancyPanel: View {
             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(isFocus ? Theme.text : Color.clear, lineWidth: 2).padding(-2))
             .frame(width: Self.cell, height: Self.cell)
             .contentShape(Rectangle())
-            .help("\(cell.ip.description) : \(cell.state.label)")
+            .help("\(cell.ip.description) : \(cell.state.label)")
             .onHover { inside in
-                if inside { hovered = cell.index } else if hovered == cell.index { hovered = nil }
+                if inside { hovered = cell.ip } else if hovered == cell.ip { hovered = nil }
             }
-            .onTapGesture { selected = cell.index }
+            .onTapGesture { selected = cell.ip }
     }
 
-    private func legend(_ grid: InvOccupancy) -> some View {
-        InvFlowLayout(spacing: 12) {
-            ForEach([InvCellState.enLigne, .horsLigne, .libre, .conflit, .reseau], id: \.self) { state in
+    private func legend(_ page: AddressPlanPage) -> some View {
+        InvFlowLayout(spacing: 10) {
+            ForEach(Self.legendStates.filter { page.count($0) > 0 || [.enLigne, .libre].contains($0) }, id: \.self) { state in
                 let colors = Self.colors(state)
                 HStack(spacing: 5) {
                     RoundedRectangle(cornerRadius: 3).fill(colors.fill)
                         .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(colors.border))
                         .frame(width: 12, height: 12)
-                    Text(state.label).font(Theme.small).foregroundStyle(Theme.textSecondary)
-                    Text("\(grid.count(state))").font(Theme.mono(12, weight: .semibold)).foregroundStyle(Theme.text)
+                    Text(state.shortLabel).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    Text("\(page.count(state))").font(Theme.mono(12, weight: .semibold)).foregroundStyle(Theme.text)
                 }
+                .help(state.label)
             }
         }
-        .frame(width: 30 + 16 * (Self.cell + Self.gap), alignment: .leading)
+        .frame(width: Self.gridWidth, alignment: .leading)
     }
 
+    // MARK: Détail
+
     @ViewBuilder
-    private func detail(_ cell: InvOccupancy.Cell) -> some View {
+    private func detail(_ cell: AddressPlanCell) -> some View {
         let here = records.filter { $0.ip == cell.ip }.sorted { $0.lastSeen > $1.lastSeen }
         let record = cell.recordKey.flatMap { key in records.first { $0.key == key } }
         VStack(alignment: .leading, spacing: 8) {
@@ -109,16 +260,13 @@ struct AnaOccupancyPanel: View {
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 5) {
                 switch cell.state {
                 case .reseau:
-                    row("Rôle", cell.index == 0 ? "Adresse réseau" : "Adresse de diffusion")
-                case .libre:
-                    row("Nom", "Libre")
-                    row("Vu", "Aucune réponse récente")
+                    row("Rôle", cell.ip.octets.3 == 0 || cell.ip == plan.block.network ? "Adresse réseau" : "Adresse de diffusion")
                 case .conflit:
                     row("Nom", "\(max(here.filter(\.isOnline).count, 2)) appareils en conflit")
                     row("MAC", here.compactMap { $0.mac?.formatted(.upperColon) }.joined(separator: "\n"), mono: true)
                     row("Fabricant", here.map(\.vendorLabel).joined(separator: " / "))
                     row("Port", here.compactMap(\.switchLocation).joined(separator: "\n"), mono: true)
-                default:
+                case .enLigne, .horsLigne:
                     if let record {
                         row("Nom", record.displayName)
                         row("Fabricant", record.vendorLabel)
@@ -127,46 +275,71 @@ struct AnaOccupancyPanel: View {
                         row("VLAN", record.vlan.map(String.init) ?? "—")
                         row("Vu", InvFormat.seen(record.lastSeen, online: record.isOnline, now: now))
                     }
+                default:
+                    EmptyView()
                 }
+                if let lease = cell.lease {
+                    row("Bail", lease.hostname ?? "Sans nom")
+                    if let mac = lease.mac { row("MAC du bail", mac.formatted(.upperColon), mono: true) }
+                    if let expires = lease.expires { row("Expire", InvFormat.timeOrStamp(expires)) }
+                }
+                if let reservation = cell.reservation {
+                    row("Réservation", reservation.description?.isEmpty == false ? reservation.description! : "Sans description")
+                    if cell.lease == nil, let mac = reservation.mac { row("MAC réservée", mac.formatted(.upperColon), mono: true) }
+                }
+                if cell.isGateway { row("Rôle", "Passerelle de l’étendue DHCP") }
+                if let scope = cell.scopeName { row("DHCP", scope + (cell.inPool ? "" : " (hors plage distribuée)")) }
+                if let exclusion = cell.exclusion { row("Exclue", exclusion.label) }
             }
             Text(note(cell, record: record))
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            if let record, cell.state != .libre {
-                HStack(spacing: 2) {
+            HStack(spacing: 2) {
+                if let record, cell.state != .libre, cell.state != .libreDHCP {
                     Button("Ouvrir la fiche") {
                         model.selectedSite = siteKey
                         model.selectedKey = record.key
                         state.open(.inventaire)
                     }
                     .buttonStyle(.ghost)
+                }
+                if cell.state != .reseau, cell.exclusion == nil {
                     Button("Ping continu") { state.sendToPing(cell.ip.description) }.buttonStyle(.ghost)
                 }
-                .padding(.leading, -8)
+                if cell.state == .libre {
+                    Button(copied == cell.ip ? "Copiée" : "Copier") { copy(cell.ip) }.buttonStyle(.ghost)
+                }
             }
+            .padding(.leading, -8)
         }
         .padding(12)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panelMuted))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
     }
 
-    private func note(_ cell: InvOccupancy.Cell, record: InvRecord?) -> String {
+    private func note(_ cell: AddressPlanCell, record: InvRecord?) -> String {
         switch cell.state {
-        case .reseau: return "Non attribuable dans un /24."
-        case .libre: return "Aucune fiche récente à cette adresse : candidate pour une IP fixe, à confirmer par un ping."
-        case .conflit: return "Plusieurs MAC répondent à cette adresse : IP fixe en double probable."
-        case .horsLigne: return "Ne répond plus, mais l’adresse a servi récemment : à éviter pour une IP fixe."
+        case .reseau: return "Non attribuable."
+        case .libre: return "Ni fiche récente, ni bail, ni réservation, hors étendue DHCP\u{00A0}: candidate pour une IP fixe, à confirmer par un ping."
+        case .libreDHCP: return "Libre, mais dans la plage distribuée par le DHCP\u{00A0}: à éviter pour une IP fixe (ou à exclure de l’étendue)."
+        case .bail: return "Bail DHCP actif, mais l’appareil n’a pas été vu au dernier scan (éteint, pare-feu, ou plage non scannée)."
+        case .reservee: return cell.isGateway ? "Adresse de la passerelle\u{00A0}: jamais distribuée." : "Gardée par une réservation DHCP, même sans bail en cours."
+        case .exclue: return "Dans les plages exclues du site\u{00A0}: jamais sondée, état inconnu. Ne pas l’attribuer sans vérifier."
+        case .conflit: return "Plusieurs MAC répondent à cette adresse : IP fixe en double probable."
+        case .horsLigne: return "Ne répond plus, mais l’adresse a servi récemment : à éviter pour une IP fixe."
         case .enLigne: return record?.openPorts.isEmpty == false
-            ? "Ports ouverts : " + (record?.openPorts.map(String.init).joined(separator: ", ") ?? "") + "."
+            ? "Ports ouverts : " + (record?.openPorts.map(String.init).joined(separator: ", ") ?? "") + "."
             : "Répond au scan."
         }
     }
 
-    private func pill(_ state: InvCellState) -> some View {
+    private func pill(_ state: AddressPlanState) -> some View {
         let (fg, bg): (Color, Color)
         switch state {
         case .enLigne: (fg, bg) = (Theme.success, Theme.successSoft)
         case .conflit: (fg, bg) = (Theme.critical, Theme.criticalSoft)
+        case .exclue: (fg, bg) = (Theme.warning, Theme.warningSoft)
+        case .bail, .reservee, .libreDHCP: (fg, bg) = (Theme.accentStrong, Theme.accentSoft)
         default: (fg, bg) = (Theme.neutralText, Theme.neutralSoft)
         }
         return InvPill(text: state.label, foreground: fg, background: bg, size: 12)
@@ -188,5 +361,44 @@ struct AnaOccupancyPanel: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    // MARK: Prochaine IP libre
+
+    private func nextFree(page: AddressPlanPage) -> some View {
+        let pageSubnet = Subnet(address: page.base, prefix: 24)
+        let candidates = plan.freeAddresses(in: pageSubnet, limit: 4)
+        return VStack(alignment: .leading, spacing: 4) {
+            Text("PROCHAINE IP LIBRE HORS ÉTENDUE DHCP · \(pageSubnet.description)")
+                .font(Theme.captionSemibold).kerning(0.4).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                if let first = candidates.first {
+                    Text(first.description).font(Theme.mono(14, weight: .semibold)).foregroundStyle(Theme.success)
+                        .textSelection(.enabled)
+                    if candidates.count > 1 {
+                        Text("puis " + candidates.dropFirst().map(\.description).joined(separator: ", "))
+                            .font(Theme.mono(11)).foregroundStyle(Theme.textTertiary).lineLimit(1).truncationMode(.tail)
+                    }
+                    Spacer(minLength: 4)
+                    Button(copied == first ? "Copiée" : "Copier") { copy(first) }.buttonStyle(.ghost)
+                    Button("Vérifier par ping") { state.sendToPing(first.description) }.buttonStyle(.ghost)
+                } else {
+                    Text("Aucune adresse libre hors étendue DHCP dans cette page.").foregroundStyle(Theme.textSecondary)
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+        .font(Theme.small)
+        .padding(.horizontal, 10).padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
+        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
+        .help(dhcpReadAt.map { "Fiches de l’inventaire, étendues et baux DHCP lus sur la FortiGate \(InvFormat.timeOrStamp($0)), plages exclues du site. Jamais .0 ni .255." }
+              ?? "Fiches de l’inventaire et plages exclues du site (aucune étendue DHCP lue sur une FortiGate). Jamais .0 ni .255.")
+    }
+
+    private func copy(_ ip: IPv4Address) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(ip.description, forType: .string)
+        copied = ip
     }
 }
