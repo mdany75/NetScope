@@ -135,5 +135,7 @@ enum InvDemo {
         }
         // Note 10 : appareil ajouté à la main, archives, garanties, pièce jointe.
         InvManualDemo.seed(&store, now: now)
+        // Note 60 : modèle, numéro de série et firmware lus par SNMP et par la FortiGate.
+        HardwareDetectDemo.seed(&store, now: now)
     }
 }

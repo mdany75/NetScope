@@ -328,6 +328,9 @@ public struct SNMPSwitchSnapshot: Hashable, Sendable, Codable, Identifiable {
     /// Adresse FortiLink réelle quand `host` est une adresse de remplacement (note 25 : deux sites
     /// dont les FortiSwitch ont la même adresse FortiLink, 10.255.1.2 par exemple).
     public var fortiLinkIP: IPv4Address?
+    /// Note 60 : modèle, numéro de série et version du logiciel (ENTITY-MIB, sinon sysDescr) ;
+    /// nil dans un relevé antérieur à la 0.23.0 ou sans réponse utile.
+    public var hardware: SNMPHardwareInfo?
 
     public init(host: IPv4Address, system: SNMPSystemInfo, interfaces: [SNMPInterface], fdb: [SNMPFDBEntry] = [],
                 neighbors: [SNMPLLDPNeighbor] = [], pvid: [Int: Int] = [:], poePorts: Set<Int> = [],
@@ -348,6 +351,7 @@ public struct SNMPSwitchSnapshot: Hashable, Sendable, Codable, Identifiable {
         self.polledAt = polledAt
         self.controllerName = controllerName
         self.fortiLinkIP = fortiLinkIP
+        self.hardware = nil
     }
 
     /// Relevé fourni par un contrôleur (FortiGate) et non par SNMP.
@@ -926,8 +930,11 @@ public struct SNMPSwitchPoller: Sendable {
         let neighbors = try await lldpNeighbors(interfaces: interfaces, bridgePorts: bridge)
         let poe = try await poe(interfaces: interfaces, brand: system.brand)
         let arp = try await arp()
-        return SNMPSwitchSnapshot(host: client.target.host, system: system, interfaces: interfaces, fdb: fdb, neighbors: neighbors,
-                                  pvid: pvid, poePorts: poe.ports, poeBudgetW: poe.budget, poeUsedW: poe.used,
-                                  poeDetails: poe.details, arp: arp)
+        var snapshot = SNMPSwitchSnapshot(host: client.target.host, system: system, interfaces: interfaces, fdb: fdb, neighbors: neighbors,
+                                          pvid: pvid, poePorts: poe.ports, poeBudgetW: poe.budget, poeUsedW: poe.used,
+                                          poeDetails: poe.details, arp: arp)
+        // Note 60 : fiche matériel (ENTITY-MIB facultative : une erreur donne seulement sysDescr).
+        snapshot.hardware = try await SNMPHardwareReader.read(client: client, system: system)
+        return snapshot
     }
 }

@@ -218,6 +218,11 @@ extension InvRecord: SearchableRecord {
                    annotations.assetNumber, annotations.notes]
         fields += ipHistory.map { $0.ip.description }
         if let vlan { fields.append("vlan \(vlan)") }
+        // Note 60 : modèle, numéros de série (saisi et détecté) et firmware.
+        if !enteredSerial.isEmpty { fields.append(enteredSerial) }
+        if let detected = detectedHardware {
+            fields += [detected.model, detected.serialNumber, detected.firmware].compactMap { $0 }
+        }
         return fields
     }
 }

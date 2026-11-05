@@ -433,6 +433,8 @@ final class SwitchStore: ObservableObject {
             }
         }
         if !fresh.isEmpty { lastPoll = Date() }
+        // Note 60 : modèle, numéro de série et version lus avec le relevé, dans l'inventaire du site.
+        InvHardwareFeed.shared.recordSwitches(fresh.compactMap { snapshots[$0] }, site: siteKey)
         if selectedHost == nil || snapshots[selectedHost!] == nil {
             selectedHost = hosts.first { snapshots[$0] != nil } ?? hosts.first
         }
@@ -600,6 +602,8 @@ final class SwitchStore: ObservableObject {
                                       noCommunity: communitiesTried == 0, communitiesTried: communitiesTried)
         guard !Task.isCancelled else { return interrupted(result) }
         if !found.isEmpty { state.devices = SNMPAutoLocate.applyDiscovery(found, to: state.devices) }
+        // Note 60 : sysDescr déjà lu par la découverte → modèle et version dans l'inventaire du site.
+        InvHardwareFeed.shared.recordDiscovery(found, site: SiteModel.shared.activeKey)
 
         // Switchs : un par équipement, ajoutés à la liste, communauté retenue au Trousseau.
         let switches = Self.deduplicated(found.filter { $0.kind == .switch && !ignoredHosts.contains($0.host.description) },

@@ -591,6 +591,7 @@ public struct InventoryStore: Codable, Sendable {
         // Pièces jointes : celles de la fiche rattachée s'ajoutent, chacune dans son dossier d'origine.
         keep.takeAttachments(of: other)
         if keep.manual == nil { keep.manual = other.manual }
+        if keep.detectedHardware == nil { keep.detectedHardware = other.detectedHardware }
         records[keepKey] = keep
         records[absorbKey] = nil
         for index in events.indices where events[index].key == absorbKey { events[index].key = keepKey }

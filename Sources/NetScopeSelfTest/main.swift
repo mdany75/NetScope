@@ -77,6 +77,7 @@ registerTFTPTests(suite)
 registerLogTests(suite)
 registerTerminalTests(suite)
 registerVNCTests(suite)
+registerHardwareDetectTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

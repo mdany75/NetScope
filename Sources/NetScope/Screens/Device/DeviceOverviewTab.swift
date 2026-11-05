@@ -140,6 +140,8 @@ struct DeviceOverviewTab: View {
                 DeviceKVRow(key: "Modèle / hôte", value: device.hostname ?? "—")
                 DeviceKVRow(key: "Ports ouverts", value: device.openPorts.isEmpty ? "aucun connu"
                             : "\(device.openPorts.count) · " + device.openPorts.prefix(6).map(String.init).joined(separator: ", "))
+                // Note 60 : modèle, numéro de série et firmware lus par SNMP ou par la FortiGate.
+                DeviceDetectedHardwareRows(device: device)
             }
         }
     }

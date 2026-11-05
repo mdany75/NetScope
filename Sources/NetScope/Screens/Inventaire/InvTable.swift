@@ -34,6 +34,9 @@ extension InvRecord {
     var invSortSerial: String { annotations.hardware?.serialNumber ?? "" }
     var invSortSupplier: String { annotations.hardware?.supplier ?? "" }
     var invSortAttachments: Int { attachmentList.count }
+    /// Note 60 : modèle et firmware détectés ; sans valeur, en dernier.
+    var invSortModel: String { detectedHardware?.model ?? "\u{10FFFF}" }
+    var invSortFirmware: String { detectedHardware?.firmware ?? "\u{10FFFF}" }
     /// Dernière vue ; une fiche ajoutée à la main jamais scannée vient en dernier (aucune vue).
     var invSortLastSeen: Date { isAwaitingScan ? .distantPast : lastSeen }
     var invOrigin: String { isManual ? "À la main" : (isImported ? "Import CSV" : "Scan") }
@@ -123,6 +126,8 @@ struct InvTable: View {
         StandardColumn(id: "garantie", title: "Fin de garantie", isDefaultVisible: false),
         StandardColumn(id: "serie", title: "N° de série", isDefaultVisible: false),
         StandardColumn(id: "fournisseur", title: "Fournisseur", isDefaultVisible: false),
+        StandardColumn(id: "modele", title: "Modèle", isDefaultVisible: false),
+        StandardColumn(id: "firmware", title: "Firmware", isDefaultVisible: false),
         StandardColumn(id: "piecesJointes", title: "Pièces jointes", isDefaultVisible: false),
         StandardColumn(id: "origine", title: "Origine", isDefaultVisible: false),
     ]
@@ -155,6 +160,8 @@ struct InvTable: View {
         "garantie": KeyPathComparator(\SiteScopedRecord.record.invSortWarranty),
         "serie": KeyPathComparator(\SiteScopedRecord.record.invSortSerial, comparator: .localizedStandard),
         "fournisseur": KeyPathComparator(\SiteScopedRecord.record.invSortSupplier, comparator: .localizedStandard),
+        "modele": KeyPathComparator(\SiteScopedRecord.record.invSortModel, comparator: .localizedStandard),
+        "firmware": KeyPathComparator(\SiteScopedRecord.record.invSortFirmware, comparator: .localizedStandard),
         "piecesJointes": KeyPathComparator(\SiteScopedRecord.record.invSortAttachments, order: .reverse),
         "origine": KeyPathComparator(\SiteScopedRecord.record.invOrigin, comparator: .localizedStandard),
     ]
@@ -527,6 +534,21 @@ struct InvTable: View {
             }
 
             Group {
+                // Note 60 : lus par SNMP ou par la FortiGate (infobulle : source et date).
+                TableColumn("MODÈLE", sortUsing: table.sort("modele")) { row in
+                    detectedCell(row.record, row.record.detectedModelLabel)
+                }
+                .width(min: 80, ideal: 150)
+                .customizationID("modele")
+                .defaultVisibility(.hidden)
+
+                TableColumn("FIRMWARE", sortUsing: table.sort("firmware")) { row in
+                    detectedCell(row.record, row.record.detectedFirmwareLabel)
+                }
+                .width(min: 70, ideal: 120)
+                .customizationID("firmware")
+                .defaultVisibility(.hidden)
+
                 TableColumn("PIÈCES JOINTES", sortUsing: table.sort("piecesJointes")) { row in
                     let count = row.record.attachmentList.count
                     Label("\(count)", systemImage: "paperclip")
@@ -648,6 +670,11 @@ struct InvTable: View {
         }
         .frame(height: Self.cellHeight)
         .help(record.hostname.map { "\(record.displayName) · \($0)" } ?? record.displayName)
+    }
+
+    private func detectedCell(_ record: InvRecord, _ text: String) -> some View {
+        ScanCellText(text.isEmpty ? "—" : text, mono: true, dimmed: text.isEmpty)
+            .help(record.detectedHardware.map { "\(text) · lu par \($0.sourceLabel) le \(InvFormat.stamp($0.readAt))" } ?? "Rien de lu")
     }
 
     private func textCell(_ text: String, mono: Bool = false) -> some View {

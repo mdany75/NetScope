@@ -351,6 +351,8 @@ final class SNMPResourceMonitor: ObservableObject {
             let memory = try await poller.memory()
             apply(ports: ports, processor: processor, memory: memory, at: now)
             error = nil
+            // Note 60 : l'agent répond, sa fiche matériel est lue aussi (une fois par heure au plus).
+            InvHardwareFeed.shared.resourcesPolled(host: address, community: community)
         } catch is CancellationError {
             return
         } catch {
