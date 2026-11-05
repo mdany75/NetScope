@@ -46,6 +46,10 @@ private struct DeviceDetailView: View {
                     DeviceOverviewTab(device: device) { scanPorts() }
                 case .ports:
                     DevicePortsTab(device: device, model: session.portModel(for: device), store: store)
+                    // Note 72 : partages SMB quand le port 445 (ou 139) est ouvert, ou pour un NAS.
+                    if SMBRelevance.isRelevant(openPorts: device.openPorts, vendor: device.vendor) {
+                        SMBSharesPanel(host: device.ip.description, name: device.displayName)
+                    }
                 case .web:
                     DeviceWebTab(device: device, model: session.webModel(for: device), store: store)
                 case .ressources:

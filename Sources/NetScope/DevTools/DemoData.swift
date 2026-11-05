@@ -85,6 +85,10 @@ enum DemoData {
         Row(ip: "10.182.122.135", name: "Ce Mac", host: "Macmini-de-Dany.local", vendor: "Apple", mac: "3C:22:FB:7E:05:B1", latency: 0.1, ports: [22, 5900], sw: "FortiAP-231F", port: "Wi-Fi", vlan: 20, minutesAgo: 0, type: .poste, online: true, range: "Bureau"),
         Row(ip: "10.182.122.140", name: nil, host: "NPI7A4410", vendor: "HP", mac: "00:1A:2B:44:10:EE", latency: 7.8, ports: [80, 9100], sw: "SW-ETG2-01", port: "1/18", vlan: 30, minutesAgo: 3, type: .imprimante, online: true, range: "Bureau"),
         Row(ip: "10.182.122.146", name: "Poste réception", host: "WKS341", vendor: "Dell", mac: "B0:7B:25:44:9F:20", latency: nil, ports: [], sw: "SW-CORE-01", port: "Gi1/0/23", vlan: 1, minutesAgo: 180, type: .poste, online: false, range: "Bureau"),
+        // Note 72 : NAS Synology qui remplace NAS-ANCIEN (InventairePhase3Demo), partages SMB lus
+        // en invité (SMBSharesDemo) ; après l'imprimante choisie dans le Scanner : le tableau des
+        // captures ne se décale pas.
+        Row(ip: "10.182.122.154", name: "NAS salle B01", host: "DS920-B01", vendor: "Synology", mac: "00:11:32:9A:4E:07", latency: 1.4, ports: [80, 139, 443, 445, 5000, 5001], sw: "SW-CORE-01", port: "Gi1/0/24", vlan: 1, minutesAgo: 0, type: .serveur, online: true, range: "Bureau"),
         Row(ip: "192.168.50.21", name: "Caméra quai", host: "DS-2CD2143G2-I", vendor: "Hikvision", mac: "BC:AD:28:6F:01:5A", latency: 3.0, ports: [80, 443, 554], sw: "SW-CORE-01", port: "Gi1/0/33", vlan: 40, minutesAgo: 0, type: .camera, online: true, range: "Caméras"),
         Row(ip: "192.168.50.22", name: nil, host: "axis-b8a44f2c19e0", vendor: "Axis", mac: "B8:A4:4F:2C:19:E0", latency: 2.7, ports: [80, 443, 554], sw: "SW-CORE-01", port: "Gi1/0/34", vlan: 40, minutesAgo: 0, type: .camera, online: true, range: "Caméras"),
         Row(ip: "10.10.0.10", name: "Contrôleur de domaine", host: "SRV-AD-01", vendor: "Dell", mac: "F4:EE:08:3C:72:A1", latency: 0.9, ports: [53, 88, 389, 445], sw: "SW-CORE-01", port: "Gi1/0/40", vlan: 100, minutesAgo: 0, type: .serveur, online: true, range: "Serveurs"),
@@ -105,7 +109,7 @@ enum DemoData {
         "10.182.122.133": (.dns, nil), "10.182.122.135": (.mdns, nil), "10.182.122.140": (.netbios, "WORKGROUP"),
         "10.182.122.146": (.netbios, "BUREAU"), "192.168.50.21": (.dns, nil), "192.168.50.22": (.mdns, nil),
         "10.10.0.10": (.dns, nil), "10.10.0.31": (.fortigate, nil), "192.168.50.31": (.fortigate, nil),
-        "10.182.122.126": (.netbios, "BUREAU"), "10.10.0.20": (.dns, nil),
+        "10.182.122.126": (.netbios, "BUREAU"), "10.10.0.20": (.dns, nil), "10.182.122.154": (.netbios, "BUREAU"),
     ]
 
     /// Nature SNMP des appareils qui ont répondu à la découverte automatique (démonstration).

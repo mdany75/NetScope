@@ -591,6 +591,8 @@ struct ScanDeviceMenu: View {
             Button("Wake-on-LAN") { scan.wake(device, state: state) }.disabled(device.mac == nil)
             // Note 51 : client TFTP prérempli avec cet appareil.
             Button("Transfert TFTP…") { TFTPModel.shared.prepareClient(for: device, state: state) }
+            // Note 72 : partages de l'hôte par smbutil view (lancé seulement dans la feuille, sur clic).
+            Button("Partages SMB…") { SMBSharesModel.shared.ask(device) }
             Divider()
             Button("Voir la fiche complète") { state.showDevice(device.id) }
         }

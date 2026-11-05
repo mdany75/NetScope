@@ -1340,6 +1340,8 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 
 ## 72. Partages SMB d’un hôte — plus tard (analyse du marché, à valider par Dany)
 
+**Livrée dans la 0.28.0** (5 novembre 2026) : section « Partages SMB » de la fiche Appareil (port 445 ou 139 ouvert, ou NAS) et « Partages SMB… » au menu du Scanner ; `smbutil view` sur clic seulement, en invité puis anonyme, ou avec un utilisateur (mot de passe tapé dans smbutil par un pseudo-terminal, gardé au Trousseau sur demande) ; tableau standard, partages cachés ($) sur demande, « Ouvrir dans le Finder », chemins smb:// et Windows ; essai réel à faire sur un NAS, un poste Windows et un hôte SMB1.
+
 - **Ce que ça apporte** : trouver un partage, vérifier un NAS ou un poste, depuis la fiche
   Appareil et le menu du Scanner. S’appuie sur `smbutil view`, livré avec macOS.
 - **Référence du marché** : Advanced IP Scanner, SoftPerfect.

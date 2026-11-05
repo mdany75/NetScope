@@ -40,6 +40,8 @@ struct ContentView: View {
             .quickLoginPrompt()
             // Note 73 : confirmation des actions sur un port (cycle PoE, redémarrage).
             .portActionPrompt()
+            // Note 72 : feuille « Partages SMB » du menu du Scanner.
+            .smbSharesPrompt()
             // Note 6 : « RustDesk n'est pas installé », une seule alerte pour tous les écrans
             // (Accès distant, Inventaire, fiche Appareil, Scanner).
             .rustDeskInstallAlert()
