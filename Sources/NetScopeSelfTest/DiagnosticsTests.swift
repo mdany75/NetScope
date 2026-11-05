@@ -154,6 +154,9 @@ func registerDiagnosticsTests(_ suite: TestSuite) {
         let entry = log.error("FortiGate", "Réponse : {\"access_token\":\"zzSECRETzz1\"} et Authorization: Bearer q1w2e3r4")
         try expect(!entry.message.contains("zzSECRETzz1") && !entry.message.contains("q1w2e3r4"), "entrée masquée")
         try expect(!log.exportText().contains("zzSECRETzz1"), "export masqué")
+        let path = log.error("Sites", "Enregistrement impossible de \(NSHomeDirectory())/Library/Application Support/NetScope/sites.json")
+        try expect(path.message.contains("~/Library/Application Support") && !path.message.contains(NSHomeDirectory()),
+                   "dossier de l'utilisateur abrégé en ~ (le nom du compte n'entre pas au journal)")
         let seen = LockedCounter()
         let token = log.addObserver { entry in if entry != nil { seen.increment() } }
         DispatchQueue.concurrentPerform(iterations: 8) { worker in
