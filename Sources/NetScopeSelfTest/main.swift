@@ -128,6 +128,8 @@ registerDiskTransferTests(suite)
 registerSerialFileTransferTests(suite)
 // Note 84 (0.27.1) : appareils Wi-Fi (itinérance sans alerte) et repères Wi-Fi / filaire / DHCP.
 registerWirelessRoamingTests(suite)
+// Note 75 (0.28.0) : collecteur NetFlow, sFlow et IPFIX.
+registerFlowTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)
