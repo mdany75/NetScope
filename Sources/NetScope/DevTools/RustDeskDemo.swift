@@ -52,12 +52,19 @@ enum RustDeskDemo {
             guard let c = connections.first(where: { $0.name == name }) else { return nil }
             return RustDeskLaunch(date: ago(hours), connectionID: c.id, name: c.name, target: c.host, endUser: c.endUser, site: c.folder)
         }
+        // Correctif 0.27.3 : historique plus fourni pour l'onglet « Assistance RustDesk » (deux ID
+        // collés sans les enregistrer, nommés comme le fait RemoteConnection.rustDesk, et un accès IP direct).
         let items: [RustDeskLaunch?] = [
             launch("WKS-ACCUEIL-02", 0.4),
-            RustDeskLaunch(date: ago(3.2), name: "ID collé", target: "731905246"),
+            launch("PORT-COMPTA-07", 1.6),
+            RustDeskLaunch(date: ago(3.2), name: "Poste " + RustDeskID.grouped("731905246"), target: "731905246"),
+            RustDeskLaunch(date: ago(5.5), name: "Poste " + RustDeskID.grouped("905117382"), target: "905117382"),
             launch("PORT-COMPTA-07", 26),
+            launch("LAVAL-POSTE-11", 28),
             launch("WKS-ACCUEIL-02", 49),
             launch("LAVAL-POSTE-11", 75),
+            RustDeskLaunch(date: ago(98), name: "10.182.122.177", target: "10.182.122.177"),
+            launch("SALLE-CONF-TV", 120),
             launch("SALLE-CONF-TV", 190),
         ]
         return items.compactMap { $0 }

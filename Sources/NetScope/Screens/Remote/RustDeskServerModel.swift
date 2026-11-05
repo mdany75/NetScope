@@ -50,7 +50,12 @@ final class RustDeskServerModel: ObservableObject {
     @Published private(set) var hasManualPassword = false
     /// Onglet « Serveur RustDesk » choisi dans Accès distant.
     @Published var isShown = false {
-        didSet { if isShown != oldValue { updateLoop() } }
+        didSet {
+            guard isShown != oldValue else { return }
+            // Correctif 0.27.3 : l'onglet « Assistance RustDesk » et celui-ci s'excluent.
+            if isShown { RustDeskModel.shared.isAssistanceShown = false }
+            updateLoop()
+        }
     }
     /// Écran Accès distant à l'écran (la lecture s'arrête dès qu'on le quitte).
     var screenVisible = false {

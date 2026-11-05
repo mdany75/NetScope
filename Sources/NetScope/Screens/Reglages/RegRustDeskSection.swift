@@ -5,6 +5,7 @@ import SwiftUI
 /// d'assistance de l'usager, nom du client portable, vérification du client de ce Mac, test du
 /// serveur (sur clic seulement) et VIP de la FortiGate (lecture seule).
 struct RegRustDeskSection: View {
+    @EnvironmentObject private var state: AppState
     @ObservedObject private var rustdesk = RustDeskModel.shared
     @State private var portableName = ""
     @State private var copied: String?
@@ -41,8 +42,16 @@ struct RegRustDeskSection: View {
         RegPanel(title: "Serveur RustDesk",
                  subtitle: "Serveur auto-hébergé (RustDesk Server OSS\u{00A0}: hbbs et hbbr). Ces valeurs servent au client portable de l’usager et à la vérification du client de ce Mac. La clé publique n’est pas un secret.",
                  accessory: {
-                     RegPill(text: rustdesk.settings.isConfigured ? "Configuré" : "À configurer",
-                             tone: rustdesk.settings.isConfigured ? .success : .neutral)
+                     HStack(spacing: 8) {
+                         // Correctif 0.27.3 : l'assistance par ID a son onglet dans Accès distant.
+                         Button {
+                             rustdesk.openAssistance(in: state)
+                         } label: { Label("Ouvrir l’assistance", systemImage: RemoteProtocol.rustdesk.symbol) }
+                             .buttonStyle(.secondary)
+                             .help("Onglet «\u{00A0}Assistance RustDesk\u{00A0}» d’Accès distant\u{00A0}: ID de l’usager, sessions récentes, reconnexion")
+                         RegPill(text: rustdesk.settings.isConfigured ? "Configuré" : "À configurer",
+                                 tone: rustdesk.settings.isConfigured ? .success : .neutral)
+                     }
                  }, content: {
                      VStack(alignment: .leading, spacing: 12) {
                          LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 12, alignment: .top)], alignment: .leading, spacing: 12) {

@@ -77,6 +77,15 @@ struct RustDeskDetailSection: View {
                     Text("RustDesk ne prévient pas NetScope de la fin d’une session\u{00A0}: seule l’heure de lancement est notée.")
                         .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
+                    // Correctif 0.27.3 : historique complet et autres postes dans l'onglet d'assistance.
+                    Button {
+                        rustdesk.showAssistance()
+                    } label: {
+                        Label("Toutes les sessions", systemImage: "clock.arrow.circlepath").labelStyle(RemoteCompactLabelStyle())
+                    }
+                    .buttonStyle(.ghost)
+                    .padding(.leading, -8)
+                    .help("Onglet «\u{00A0}Assistance RustDesk\u{00A0}»\u{00A0}: historique complet, reconnexion, autre ID")
                 }
                 .padding(.top, 8)
                 .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
@@ -110,139 +119,6 @@ struct RustDeskDownloadBanner: View {
         }
         .padding(8)
         .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.warningSoft))
-    }
-}
-
-/// Accueil : « Nouvelle connexion RustDesk » en collant un ID, et les derniers lancements.
-struct RustDeskQuickBox: View {
-    @EnvironmentObject private var state: AppState
-    @ObservedObject var model: RemoteModel
-    @ObservedObject private var rustdesk = RustDeskModel.shared
-    @State private var text = ""
-    @State private var saveToBook = true
-    @State private var error: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Assistance RustDesk") {
-                // Note 6 (0.26.2) : tableau de bord du serveur (onglet « Serveur RustDesk ») ; en
-                // colonne étroite, libellés courts puis icônes seules plutôt que tronqués.
-                ViewThatFits(in: .horizontal) {
-                    headerButtons(server: "Tableau de bord du serveur", settings: "Réglages du serveur")
-                    headerButtons(server: "Serveur", settings: "Réglages")
-                    headerButtons(server: nil, settings: nil)
-                }
-            }
-            HStack(spacing: 6) {
-                Image(systemName: RemoteProtocol.rustdesk.symbol)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(RemoteProtocol.rustdesk.tint)
-                    .frame(width: 26, height: 26)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(RemoteProtocol.rustdesk.soft))
-                TextField("", text: $text, prompt: Text("ID de l’usager (123 456 789)").foregroundStyle(Theme.textTertiary))
-                    .textFieldStyle(.plain)
-                    .font(Theme.mono(13))
-                    .padding(.horizontal, 10)
-                    .frame(height: 30)
-                    .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(error == nil ? Theme.border : Theme.critical))
-                    .onSubmit(connect)
-                    .onChange(of: text) { _, _ in error = nil }
-                Button(action: connect) {
-                    Label("Connecter", systemImage: "play.fill").labelStyle(RemoteCompactLabelStyle())
-                }
-                .buttonStyle(RemoteSmallButtonStyle(primary: true))
-                .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-            // L'aide passe sous la case : jamais tronquée en petite fenêtre.
-            VStack(alignment: .leading, spacing: 4) {
-                Toggle("Ajouter au carnet", isOn: $saveToBook).toggleStyle(.checkbox).font(Theme.small)
-                Group {
-                    if let error {
-                        Text(error).foregroundStyle(Theme.critical)
-                    } else {
-                        Text("Espaces acceptés\u{00A0}; une IPv4 ouvre l’accès IP direct (21118).")
-                            .foregroundStyle(Theme.textTertiary)
-                    }
-                }
-                .font(Theme.caption)
-                .fixedSize(horizontal: false, vertical: true)
-            }
-            if !rustdesk.history.isEmpty {
-                VStack(spacing: 0) {
-                    ForEach(rustdesk.history.prefix(4)) { launch in
-                        historyRow(launch)
-                    }
-                }
-                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
-                .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
-                .clipShape(RoundedRectangle(cornerRadius: Theme.buttonRadius))
-            }
-        }
-    }
-
-    /// Boutons de l'en-tête ; libellé nil : icône seule (aide au survol).
-    private func headerButtons(server: String?, settings: String?) -> some View {
-        HStack(spacing: 4) {
-            if RustDeskServerModel.shared.isAvailable {
-                Button {
-                    RustDeskServerModel.shared.open(in: state)
-                } label: {
-                    if let server {
-                        Label(server, systemImage: "server.rack").labelStyle(RemoteCompactLabelStyle())
-                    } else {
-                        Image(systemName: "server.rack")
-                    }
-                }
-                .buttonStyle(.ghost)
-                .help("Tableau de bord du serveur\u{00A0}: sessions relayées, demandes de connexion, hbbs et hbbr (lecture seule par SSH)")
-            }
-            Button {
-                RegNavigation.shared.section = .rustdesk
-                state.open(.reglages)
-            } label: {
-                if let settings {
-                    Label(settings, systemImage: "gearshape").labelStyle(RemoteCompactLabelStyle())
-                } else {
-                    Image(systemName: "gearshape")
-                }
-            }
-            .buttonStyle(.ghost)
-            .help("Réglages du serveur\u{00A0}: serveur d’ID, clé publique et page d’assistance de l’usager")
-        }
-        .fixedSize()
-    }
-
-    private func connect() {
-        error = model.quickRustDesk(text, saveToBook: saveToBook)
-        if error == nil { text = "" }
-    }
-
-    private func historyRow(_ launch: RustDeskLaunch) -> some View {
-        HStack(spacing: 8) {
-            Text(RemoteFormat.relative(launch.date)).font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
-                .frame(width: 118, alignment: .leading)
-            Text(launch.name).font(.system(size: 12, weight: .medium)).lineLimit(1)
-            Text(launch.targetLabel).font(Theme.mono(11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-            if !launch.endUser.isEmpty {
-                Text("· \(launch.endUser)").font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
-            }
-            Spacer(minLength: 4)
-            Button {
-                if let id = launch.connectionID, let connection = model.connections.first(where: { $0.id == id }) {
-                    model.connectRustDesk(connection)
-                } else if let target = try? RustDeskTarget.parse(launch.target) {
-                    if let message = rustdesk.launch(target, name: launch.name) { model.toast = message }
-                }
-            } label: {
-                Image(systemName: "arrow.clockwise").font(.system(size: 10, weight: .semibold))
-            }
-            .buttonStyle(.ghost)
-            .help("Relancer RustDesk sur ce poste")
-        }
-        .padding(.horizontal, 10)
-        .frame(height: 30)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
     }
 }
 

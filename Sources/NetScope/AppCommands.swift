@@ -101,6 +101,12 @@ struct AppCommands: Commands {
                     }
                 }
             }
+            Divider()
+            // Correctif 0.27.3 : onglet « Assistance RustDesk » d'Accès distant.
+            Button("Assistance RustDesk") {
+                MonWindow.open()
+                RustDeskModel.shared.openAssistance(in: state)
+            }
         }
 
         // Note 49 : changer de site depuis la barre de menus (⌘⇧S ouvre le sélecteur).

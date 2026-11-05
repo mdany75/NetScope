@@ -321,6 +321,15 @@ private struct DeviceDetailView: View {
             }
             .buttonStyle(.secondary)
             .help("Connecter par RustDesk (ID \(RustDeskID.grouped(id)))")
+            // Correctif 0.27.3 : l'onglet « Assistance RustDesk » d'Accès distant, ID déjà saisi.
+            .contextMenu {
+                Button("Connecter par RustDesk") {
+                    showRustDesk(RemoteModel.shared.connectRustDesk(id: id, name: device.displayName))
+                }
+                Button("Ouvrir dans l’assistance RustDesk") {
+                    RustDeskModel.shared.openAssistance(in: state, id: id)
+                }
+            }
         }
         // Note 50 : FTP, FTPS ou SFTP, actifs seulement si le port était ouvert au dernier scan.
         Menu {
