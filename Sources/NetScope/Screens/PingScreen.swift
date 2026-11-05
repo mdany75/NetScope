@@ -3,8 +3,9 @@ import SwiftUI
 
 /// Écran « Ping continu » (docs/croquis/Ping.dc.html) : cibles en parallèle ; un clic retourne la
 /// carte d'une cible en Terminal (croquis C, choisi par Dany), avec dessous le traceroute (MTR)
-/// de cette cible et le journal des événements. Le ping démarre à la première
-/// ouverture de l'écran et continue ensuite en arrière-plan.
+/// de cette cible et le journal des événements. L'écran s'ouvre vide (aucune cible d'office) ;
+/// une fois des cibles ajoutées, le ping continue en arrière-plan. Chaque cible peut être mise
+/// en pause seule (bouton de sa carte ou clic droit).
 struct PingScreen: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var controller = PingController.shared
@@ -40,9 +41,14 @@ struct PingScreen: View {
         .screenToolbar { toolbarActions }
         .onAppear {
             controller.activate(with: state)
-            // Captures (--snapshot) : NETSCOPE_PING_TERMINAL=1 retourne la carte choisie.
-            if Launcher.isDemo, ProcessInfo.processInfo.environment["NETSCOPE_PING_TERMINAL"] == "1" {
-                flippedID = controller.selectedTarget?.id
+            // Captures (--snapshot) : NETSCOPE_PING_TERMINAL=1 retourne la carte choisie,
+            // NETSCOPE_PING_TERMINAL=pause celle de la cible en pause.
+            if Launcher.isDemo {
+                switch ProcessInfo.processInfo.environment["NETSCOPE_PING_TERMINAL"] {
+                case "1": flippedID = controller.selectedTarget?.id
+                case "pause": flippedID = controller.targets.first(where: \.isPaused)?.id
+                default: break
+                }
             }
         }
         .onChange(of: state.pingTargets) { _, inputs in controller.sync(with: inputs) }
@@ -53,8 +59,8 @@ struct PingScreen: View {
     @ViewBuilder private var toolbarActions: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             HStack(spacing: 8) {
-                StatusDot(tone: controller.isPaused || !controller.hasStarted ? .neutral : .success)
-                Text(controller.isPaused ? "En pause" : controller.hasStarted ? "En direct" : "Arrêté")
+                StatusDot(tone: controller.isPaused || controller.targets.isEmpty || isAllPaused ? .neutral : .success)
+                Text(controller.isPaused || isAllPaused ? "En pause" : controller.targets.isEmpty ? "Aucune cible" : "En direct")
                     .font(Theme.bodySemibold)
                     .foregroundStyle(Theme.text)
                 Text(sessionInfo(now: context.date))
@@ -73,10 +79,18 @@ struct PingScreen: View {
         .help("Enregistrer toutes les mesures (horodatage, cible, rtt_ms, perdu) en CSV")
     }
 
+    /// Toutes les cibles sont en pause une à une.
+    private var isAllPaused: Bool {
+        !controller.targets.isEmpty && controller.pausedCount == controller.targets.count
+    }
+
     private func sessionInfo(now: Date) -> String {
         let elapsed = max(0, Int(now.timeIntervalSince(controller.sessionStart)))
         let clock = String(format: "%02d:%02d:%02d", elapsed / 3600, elapsed / 60 % 60, elapsed % 60)
-        return "Session \(clock) · \(controller.targets.count) cibles · \(controller.totalSent) envoyés · \(controller.totalLost) perdus"
+        let count = controller.targets.count
+        let paused = controller.pausedCount
+        let targets = "\(count) \(count > 1 ? "cibles" : "cible")" + (paused > 0 ? " (\(paused) en pause)" : "")
+        return "Session \(clock) · \(targets) · \(controller.totalSent) envoyés · \(controller.totalLost) perdus"
     }
 
     // MARK: Barre de contrôle
@@ -186,7 +200,7 @@ struct PingScreen: View {
             } else {
                 Button(action: controller.togglePause) { Label("Pause", systemImage: "pause.fill") }
                     .buttonStyle(.secondary)
-                    .disabled(!controller.hasStarted)
+                    .disabled(controller.targets.isEmpty)
             }
             Button(action: controller.reset) { Label("Réinitialiser", systemImage: "arrow.counterclockwise") }
                 .buttonStyle(.secondary)
@@ -218,9 +232,9 @@ struct PingScreen: View {
                 if width >= 1000 {
                     HStack(alignment: .top, spacing: 16) {
                         PingMTRPanel(controller: controller, target: target)
-                            .frame(width: (width - 16) * 1.4 / 2.4)
+                            .frame(width: (width - 16) * 1.6 / 2.6)
                         PingJournalPanel(controller: controller)
-                            .frame(width: (width - 16) / 2.4)
+                            .frame(width: (width - 16) / 2.6)
                     }
                 } else {
                     PingMTRPanel(controller: controller, target: target)
@@ -241,16 +255,18 @@ struct PingScreen: View {
                     .kerning(0.6)
                     .foregroundStyle(Theme.textSecondary)
                 Spacer(minLength: 8)
-                Text("Cliquer sur une carte pour voir ses réponses et son traceroute · statistiques sur les \(PingController.cardWindow) dernières mesures (\(PingFormat.duration(Double(PingController.cardWindow) * controller.interval)))")
-                    .font(Theme.small)
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
+                if !controller.targets.isEmpty {
+                    Text("Cliquer sur une carte pour voir ses réponses et son traceroute · statistiques sur les \(PingController.cardWindow) dernières mesures (\(PingFormat.duration(Double(PingController.cardWindow) * controller.interval)))")
+                        .font(Theme.small)
+                        .foregroundStyle(Theme.textSecondary)
+                        .lineLimit(1)
+                }
             }
             if controller.targets.isEmpty {
                 Panel {
                     EmptyState(systemImage: "waveform.path.ecg",
-                               title: controller.hasStarted ? "Aucune cible" : "Démarrage…",
-                               message: "Ajoutez une adresse, un nom d’hôte ou une plage dans le champ ci-dessus, ou envoyez un appareil depuis le Scanner.")
+                               title: "Aucune cible",
+                               message: "Ajoutez une adresse, un nom d’hôte ou une plage dans le champ ci-dessus, ou envoyez un appareil depuis le Scanner ou sa fiche.")
                         .frame(height: 160)
                 }
             } else {
@@ -261,6 +277,7 @@ struct PingScreen: View {
                         if flippedID == target.id {
                             PingTerminalCard(target: target, payloadSize: controller.payloadSize,
                                              onFlipBack: { withAnimation(.easeInOut(duration: 0.2)) { flippedID = nil } },
+                                             onTogglePause: { controller.togglePause(target.id) },
                                              onRemove: { controller.remove(target.id) })
                                 .transition(.opacity)
                         } else {
@@ -270,6 +287,7 @@ struct PingScreen: View {
                                                controller.selectedID = target.id
                                                withAnimation(.easeInOut(duration: 0.2)) { flippedID = target.id }
                                            },
+                                           onTogglePause: { controller.togglePause(target.id) },
                                            onRemove: { controller.remove(target.id) })
                                 .transition(.opacity)
                         }

@@ -57,6 +57,9 @@ import SwiftUI
 //    la hauteur (en-tête + lignes, plafonnée) et coupe le défilement interne quand tout tient.
 //    Panneau étroit : en-têtes `StandardTableHeading("TITRE")` (11 pt, comme les croquis) et
 //    `StandardColumnsMenu(model:, compact: true)` (icône seule).
+//    Tableau plus large que son panneau : l'envelopper dans `StandardTableHorizontalScroll(
+//    minWidth: table.contentWidth(largeursIdéales), height: …)` ; il défile alors à gauche et à
+//    droite au lieu de couper ses dernières colonnes (exemple : Screens/Ping/PingMTRPanel.swift).
 //
 // Tri par défaut décroissant (dates, signal) : `defaultAscending: false`. Menu de tri hors de
 // l'en-tête : `table.currentSort` et `table.setSort(_:ascending:)`.
@@ -280,6 +283,52 @@ enum StandardTableMetrics {
     static func height(rows: Int, rowHeight: CGFloat, maxRows: Int = .max,
                        headerHeight: CGFloat = headerHeight, extra: CGFloat = 0) -> CGFloat {
         headerHeight + CGFloat(min(max(rows, 0), maxRows)) * rowHeight + extra
+    }
+}
+
+// MARK: - Défilement horizontal (0.21.0)
+
+extension StandardTableMetrics {
+    /// Espace ajouté par le tableau autour de chaque colonne (marges des cellules, style `.inset`).
+    static let columnPadding: CGFloat = 17
+    /// Marges du style `.inset` à gauche et à droite du tableau.
+    static let insetPadding: CGFloat = 20
+    /// Hauteur réservée à la barre de défilement horizontale quand le tableau déborde.
+    static let horizontalScrollerHeight: CGFloat = 14
+
+    /// Largeur dont le tableau a besoin pour montrer ses colonnes visibles à leur largeur idéale.
+    static func contentWidth(columnWidths: [CGFloat]) -> CGFloat {
+        columnWidths.reduce(0, +) + CGFloat(columnWidths.count) * columnPadding + insetPadding
+    }
+}
+
+extension StandardTableModel {
+    /// Largeur idéale des colonnes visibles (`widths` : largeur idéale par identifiant de colonne).
+    func contentWidth(_ widths: [String: CGFloat]) -> CGFloat {
+        StandardTableMetrics.contentWidth(columnWidths: columns.filter(isVisible).map { widths[$0.id] ?? 60 })
+    }
+}
+
+/// Tableau standard plus large que son panneau : il défile à gauche et à droite au lieu de couper
+/// ses dernières colonnes ; quand tout tient, il prend la largeur du panneau, sans barre.
+/// - `minWidth` : largeur des colonnes visibles (`StandardTableModel.contentWidth(_:)`).
+/// - `height` : hauteur du tableau (`StandardTableMetrics.height(rows:…)`).
+struct StandardTableHorizontalScroll<Content: View>: View {
+    let minWidth: CGFloat
+    let height: CGFloat
+    @ViewBuilder let content: Content
+    @State private var width: CGFloat = 0
+
+    var body: some View {
+        let overflow = width > 0 && width + 0.5 < minWidth
+        ScrollView(.horizontal) {
+            content.frame(width: max(width, minWidth), height: height)
+        }
+        .scrollDisabled(!overflow)
+        .scrollIndicators(overflow ? .visible : .hidden, axes: .horizontal)
+        .frame(maxWidth: .infinity)
+        .frame(height: height + (overflow ? StandardTableMetrics.horizontalScrollerHeight : 0))
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
     }
 }
 

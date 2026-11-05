@@ -98,7 +98,7 @@ struct PingJournalPanel: View {
             .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
 
             if events.isEmpty {
-                Text("Aucun événement depuis la réinitialisation. Les pertes, retours en ligne et pics de latence s’afficheront ici.")
+                Text("Aucun événement pour l’instant. Les pertes, retours en ligne et pics de latence s’afficheront ici.")
                     .font(Theme.small)
                     .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)

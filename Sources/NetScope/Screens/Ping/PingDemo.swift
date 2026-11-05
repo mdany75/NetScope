@@ -86,11 +86,23 @@ enum PingDemo {
         return history
     }
 
+    /// Cible mise en pause dans la démonstration (0.21.0) : l'imprimante, depuis la mesure 86
+    /// (35 s avant la capture) ; sa carte est atténuée avec la pastille « En pause ».
+    static let pausedInput = "10.182.122.111"
+    static let pausedIndex = 85
+
+    /// Heure de la mesure `index` des données préremplies (la dernière, 119, est « maintenant »).
+    static func date(of index: Int, now: Date) -> Date {
+        now.addingTimeInterval(Double(index - 119))
+    }
+
     static func events(now: Date) -> [PingEvent] {
         let at = { (index: Int) in now.addingTimeInterval(Double(index - 119)) }
         return [
             PingEvent(date: at(101), level: .alerte, subject: "10.182.122.2",
                       message: "latence élevée 17,4 ms (seuil 15 ms), CPU du switch qui dépriorise l’ICMP"),
+            PingEvent(date: at(pausedIndex), level: .info, subject: pausedInput,
+                      message: PingPausePeriods.journalMessage(paused: true)),
             PingEvent(date: at(80), level: .retabli, subject: "192.168.50.21", message: "retour en ligne après 4 s (4 paquets perdus)"),
             PingEvent(date: at(78), level: .coupure, subject: "192.168.50.21", message: "délai dépassé (3 paquets perdus)"),
             PingEvent(date: at(53), level: .alerte, subject: "10.182.122.111", message: "1 paquet perdu (seq 53)"),
