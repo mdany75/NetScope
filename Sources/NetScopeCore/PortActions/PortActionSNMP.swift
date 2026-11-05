@@ -161,64 +161,15 @@ public struct SNMPPoEPortWriter: PoEPortWriter {
     }
 }
 
-// MARK: - SET en SNMP v3 (ajout localisé, le client v3 ne fait que des GET)
+// MARK: - SET en SNMP v3
 
 extension SNMPv3Client {
-    /// Écrit les objets donnés (SetRequest) : découverte du moteur puis requête authentifiée.
+    /// Écrit les objets donnés (SetRequest) par le client v3 commun : moteur en cache, reprise de
+    /// l'heure de l'agent, réponse signée (et chiffrée en authPriv) exigée, error-status vérifié.
+    /// Le SET de PoE est idempotent : un renvoi après un délai dépassé ne change rien de plus.
     public func set(_ binds: [SNMPVarBind]) async throws -> [SNMPVarBind] {
-        let credentials = self.credentials
-        guard !credentials.user.isEmpty else { throw SNMPv3Error.missingUser }
-        if credentials.level != .noAuthNoPriv, credentials.authPassword.utf8.count < 8 { throw SNMPv3Error.shortPassword("d’authentification") }
-        if credentials.level == .authPriv, credentials.privPassword.utf8.count < 8 { throw SNMPv3Error.shortPassword("de confidentialité") }
-        let target = SNMPTarget(host: host, port: port, community: "v3", timeout: timeout, retries: retries)
-        return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                continuation.resume(with: Result { try SNMPv3Client.runSet(binds, credentials: credentials, target: target) })
-            }
-        }
-    }
-
-    static func runSet(_ binds: [SNMPVarBind], credentials: SNMPv3Credentials, target: SNMPTarget) throws -> [SNMPVarBind] {
-        let discoveryID = Int32.random(in: 1...Int32.max)
-        let discovery = try SNMPv3Codec.encode(msgID: discoveryID, pdu: SNMPPDU(type: .getRequest, requestID: discoveryID, varbinds: []),
-                                               usm: SNMPUSMParameters(), level: .noAuthNoPriv, contextEngineID: [], contextName: "")
-        let discovered = try exchange(discovery, msgID: discoveryID, target: target) { try SNMPv3Codec.decode($0) }
-        guard !discovered.usm.engineID.isEmpty else { throw SNMPv3Error.noEngineID }
-        var usm = SNMPUSMParameters(engineID: discovered.usm.engineID, boots: discovered.usm.boots, time: discovered.usm.time,
-                                    user: credentials.user)
-        let engine = usm.engineID
-        let authKey = credentials.level == .noAuthNoPriv ? [] : credentials.auth.localizedKey(password: credentials.authPassword, engineID: engine)
-        let privKey = credentials.level == .authPriv ? credentials.priv.key(password: credentials.privPassword, engineID: engine, auth: credentials.auth) : []
-        for attempt in 0..<2 {
-            let msgID = Int32.random(in: 1...Int32.max)
-            let pdu = SNMPPDU(type: .setRequest, requestID: msgID, varbinds: binds)
-            let bytes = try SNMPv3Codec.encode(msgID: msgID, pdu: pdu, usm: usm, level: credentials.level,
-                                               contextEngineID: engine, contextName: credentials.context,
-                                               auth: credentials.auth, authKey: authKey, priv: credentials.priv, privKey: privKey,
-                                               salt: UInt64.random(in: 0...UInt64.max))
-            let reply = try exchange(bytes, msgID: msgID, target: target) { data in
-                let plain = try SNMPv3Codec.decode(data)
-                if plain.isAuthenticated {
-                    return try SNMPv3Codec.decode(data, auth: credentials.auth, authKey: authKey, priv: credentials.priv, privKey: privKey)
-                }
-                return plain
-            }
-            guard let response = reply.pdu else { throw SNMPv3Error.responseDecryption }
-            if let report = SNMPv3Codec.report(in: response) {
-                // Hors fenêtre de temps : le SET n'a pas été appliqué, un seul nouvel essai.
-                if report == .notInTimeWindow, attempt == 0 {
-                    usm.boots = reply.usm.boots
-                    usm.time = reply.usm.time
-                    continue
-                }
-                throw SNMPv3Error.report(report)
-            }
-            if credentials.level != .noAuthNoPriv, !reply.isAuthenticated { throw SNMPv3Error.badResponseDigest }
-            if credentials.level == .authPriv, !reply.isEncrypted { throw SNMPv3Error.responseDecryption }
-            guard response.type == .response else { throw SNMPError.unexpectedResponse }
-            if response.errorStatus != 0 { throw SNMPError.agent(status: response.errorStatus, index: response.errorIndex) }
-            return response.varbinds
-        }
-        throw SNMPv3Error.report(.notInTimeWindow)
+        try credentials.validate()
+        let pdu = SNMPPDU(type: .setRequest, requestID: SNMPClient.newRequestID(), varbinds: binds)
+        return try await client.request(pdu).varbinds
     }
 }

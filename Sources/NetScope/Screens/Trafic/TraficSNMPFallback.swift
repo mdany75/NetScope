@@ -104,7 +104,7 @@ struct TraficSNMPFallback: View {
                 }
             }
             Button(action: analyse) {
-                Label("Analyse complète", systemImage: "stethoscope")
+                Label("Bilan de santé", systemImage: "stethoscope")
             }
             .buttonStyle(.secondary)
             .fixedSize()
