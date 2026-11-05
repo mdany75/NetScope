@@ -50,6 +50,10 @@ struct PingTargetMenu: View {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(target.addressLabel, forType: .string)
         }
+        // Note 78 : seuil de lenteur réglable par cible.
+        Menu("Seuil de lenteur (\(PingThreshold.label(target.thresholdMs)))") {
+            PingThresholdChoices(target: target, controller: PingController.shared)
+        }
     }
 }
 
@@ -255,7 +259,10 @@ struct PingTargetCard: View {
                     (Text("Envoyés / reçus ").foregroundColor(Theme.textSecondary)
                         + Text("\(target.history.totalSent) / \(target.history.totalReceived)").font(Theme.mono(11)).foregroundColor(Theme.text))
                     Spacer()
-                    Text("seq \(last?.sequence ?? 0)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+                    // Note 78 : seuil de lenteur de la cible (clic droit pour le changer).
+                    (Text("seuil \(PingThreshold.label(target.thresholdMs)) · ") + Text("seq \(last?.sequence ?? 0)"))
+                        .font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+                        .help("Seuil de lenteur\u{00A0}: clic droit sur la carte pour le changer")
                 }
                 .font(Theme.caption)
             }

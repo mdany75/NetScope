@@ -29,6 +29,19 @@ public enum NetScopeEventKind: String, Codable, CaseIterable, Sendable, Identifi
     case scanFinished
     /// Rapport planifié produit (note 42), ou en échec.
     case reportReady
+    /// Note 78 (0.26.0) : événements dédiés au lieu d'un « sonde en panne » générique.
+    /// Licence FortiGuard ou FortiCare bientôt expirée (sonde « Licence »).
+    case licenseExpiring
+    /// Firmware à mettre à jour (sonde « Firmware »).
+    case firmwareOutdated
+    /// Message Syslog (ou de la FortiGate) grave (sonde « Syslog »).
+    case syslogSevere
+    /// Lien WAN ou tunnel VPN en panne (sondes « WAN » et « VPN »).
+    case wanDown
+    /// Cible du ping continu hors ligne (3 pertes consécutives).
+    case pingTargetDown
+    /// Cible du ping continu revenue en ligne.
+    case pingTargetUp
     /// Notification de test (Réglages › Notifications).
     case test
 
@@ -51,6 +64,12 @@ public enum NetScopeEventKind: String, Codable, CaseIterable, Sendable, Identifi
         case .updateAvailable: return "Mise à jour disponible"
         case .scanFinished: return "Fin de scan"
         case .reportReady: return "Rapport planifié produit"
+        case .licenseExpiring: return "Licence bientôt expirée"
+        case .firmwareOutdated: return "Firmware à mettre à jour"
+        case .syslogSevere: return "Message Syslog grave"
+        case .wanDown: return "WAN en panne"
+        case .pingTargetDown: return "Cible du ping continu hors ligne"
+        case .pingTargetUp: return "Cible du ping continu rétablie"
         case .test: return "Notification de test"
         }
     }
@@ -69,6 +88,12 @@ public enum NetScopeEventKind: String, Codable, CaseIterable, Sendable, Identifi
         case .updateAvailable: return "Nouvelle version de NetScope trouvée par la vérification automatique."
         case .scanFinished: return "Seulement quand NetScope n’est pas au premier plan."
         case .reportReady: return "Fin d’un rapport planifié (Rapports), avec son dossier\u{00A0}; rien n’est envoyé par courriel."
+        case .licenseExpiring: return "Sonde «\u{00A0}Licence\u{00A0}»\u{00A0}: FortiGuard ou FortiCare à renouveler dans le délai réglé."
+        case .firmwareOutdated: return "Sonde «\u{00A0}Firmware\u{00A0}»\u{00A0}: une version plus récente est publiée."
+        case .syslogSevere: return "Sonde «\u{00A0}Syslog\u{00A0}»\u{00A0}: message reçu de gravité égale ou supérieure au seuil."
+        case .wanDown: return "Sondes «\u{00A0}WAN\u{00A0}» et «\u{00A0}VPN\u{00A0}»\u{00A0}: lien Internet ou tunnel tombé."
+        case .pingTargetDown: return "Ping continu\u{00A0}: 3 paquets perdus de suite sur une cible."
+        case .pingTargetUp: return "Ping continu\u{00A0}: retour en ligne d’une cible tombée."
         case .test: return "Envoyée depuis Réglages › Notifications."
         }
     }
@@ -76,16 +101,17 @@ public enum NetScopeEventKind: String, Codable, CaseIterable, Sendable, Identifi
     /// Gravité habituelle des événements de ce type.
     public var defaultSeverity: NetScopeEventSeverity {
         switch self {
-        case .probeDown, .ipConflict, .rogueDHCP: return .critical
-        case .probeWarning, .serviceIncident: return .warning
-        case .probeRecovered: return .success
+        case .probeDown, .ipConflict, .rogueDHCP, .wanDown, .pingTargetDown: return .critical
+        case .probeWarning, .serviceIncident, .licenseExpiring, .firmwareOutdated, .syslogSevere: return .warning
+        case .probeRecovered, .pingTargetUp: return .success
         case .newDevice, .deviceMoved, .updateAvailable, .scanFinished, .reportReady, .test: return .info
         }
     }
 
     /// Types ajoutés après la première version des réglages : absents d'un fichier enregistré avant
     /// eux, ils prennent leur valeur par défaut au lieu d'être pris pour désactivés.
-    public static let introducedLater: Set<NetScopeEventKind> = [.reportReady]
+    public static let introducedLater: Set<NetScopeEventKind> = [.reportReady, .licenseExpiring, .firmwareOutdated,
+                                                                  .syslogSevere, .wanDown, .pingTargetDown, .pingTargetUp]
 
     /// Activé tant que l'utilisateur n'a rien changé.
     public var enabledByDefault: Bool {

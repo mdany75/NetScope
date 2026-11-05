@@ -18,6 +18,8 @@ struct PingTarget: Identifiable {
     var thresholdMs: Double
     /// Pause propre à la cible (0.21.0) : plus aucun envoi, statistiques figées.
     var pauses = PingPausePeriods()
+    /// Note 78 : agrégats horaires et pannes, pour le rapport « pour le fournisseur Internet ».
+    var longLog = PingLongLog()
 
     var isPaused: Bool { pauses.isPaused }
     var status: PingTargetStatus { PingTargetStatus.of(history, isPaused: isPaused) }
@@ -32,7 +34,8 @@ struct PingTarget: Identifiable {
 final class PingController: ObservableObject {
     static let shared = PingController()
 
-    static let maxTargets = 9
+    /// Note 78 : au-delà de 9 cibles, l'écran passe au tableau compact (PingLayoutChoice).
+    static let maxTargets = PingSessionFile.maxTargets
     static let cardWindow = 60
     static let chartWindow = 120
     static let maxEvents = 200
@@ -45,6 +48,10 @@ final class PingController: ObservableObject {
     @Published private(set) var interval: TimeInterval = 1
     @Published private(set) var payloadSize = 56
     @Published var soundOnLoss = true
+    /// Note 78 : notification macOS quand une cible tombe ou revient.
+    @Published var notifyChanges = true
+    /// Note 78 : cartes, tableau compact, ou automatique (tableau au-delà de 9 cibles).
+    @Published var layoutChoice = PingLayoutChoice.automatic
     @Published private(set) var isPaused = false
     @Published private(set) var hasStarted = false
     @Published private(set) var sessionStart = Date()
@@ -205,16 +212,17 @@ final class PingController: ObservableObject {
         }
     }
 
-    func remove(_ id: PingTarget.ID) {
+    /// `quietly` : sans ligne au journal (session rouverte, note 78).
+    func remove(_ id: PingTarget.ID, quietly: Bool = false) {
         guard let index = targets.firstIndex(where: { $0.id == id }) else { return }
         let target = targets.remove(at: index)
         monitors.removeValue(forKey: id)?.stop()
         appState?.pingTargets.removeAll { $0.caseInsensitiveCompare(target.input) == .orderedSame }
-        log(.info, target.addressLabel, "cible retirée")
+        if !quietly { log(.info, target.addressLabel, "cible retirée") }
         if selectedID == id { selectedID = targets.first?.id }
     }
 
-    private func update(_ id: PingTarget.ID, _ change: (inout PingTarget) -> Void) {
+    func update(_ id: PingTarget.ID, _ change: (inout PingTarget) -> Void) {
         guard let index = targets.firstIndex(where: { $0.id == id }) else { return }
         change(&targets[index])
     }
@@ -264,6 +272,7 @@ final class PingController: ObservableObject {
         let previous = targets[index].history.consecutiveLosses
         let wasAbove = (targets[index].history.last?.rttMs).map { $0 > targets[index].thresholdMs } ?? false
         targets[index].history.append(sample)
+        targets[index].longLog.record(sample, thresholdMs: targets[index].thresholdMs)
         let target = targets[index]
         let found = PingEventDetector.events(for: sample, previousLosses: previous, interval: interval,
                                              thresholdMs: target.thresholdMs, subject: target.addressLabel,
@@ -271,6 +280,10 @@ final class PingController: ObservableObject {
         for event in found {
             let suffix = event.level == .coupure && soundOnLoss ? " · alerte sonore" : ""
             insert(PingEvent(date: event.date, level: event.level, subject: event.subject, message: event.message + suffix))
+            // Note 78 : notification macOS à la coupure et au retour (Réglages › Notifications).
+            if notifyChanges, !isSimulated, let notice = PingNotification.event(for: event, name: target.name, address: target.addressLabel) {
+                NetScopeEventCenter.shared.publish(notice)
+            }
         }
         if sample.isLost, soundOnLoss, previous == 0 || previous + 1 == PingTargetStatus.offlineThreshold {
             playLossSound()
@@ -367,6 +380,7 @@ final class PingController: ObservableObject {
         let now = Date()
         for index in targets.indices {
             targets[index].history.reset()
+            targets[index].longLog.reset()
             targets[index].pauses.reset(at: now)
         }
         sessionStart = Date()
@@ -376,7 +390,7 @@ final class PingController: ObservableObject {
 
     func clearEvents() { events.removeAll() }
 
-    private func log(_ level: PingEvent.Level, _ subject: String, _ message: String) {
+    func log(_ level: PingEvent.Level, _ subject: String, _ message: String) {
         insert(PingEvent(level: level, subject: subject, message: message))
     }
 
@@ -494,14 +508,18 @@ final class PingController: ObservableObject {
     private func loadDemo(state: AppState) {
         let now = Date()
         var inputs = PingDemo.profiles.map(\.input)
+        // Note 78 : NETSCOPE_PING_COMPACT=1 ajoute des cibles (tableau compact au-delà de 9).
+        inputs += PingSessionDemo.extraInputs
         for extra in state.pingTargets where !inputs.contains(extra) { inputs.append(extra) }
         for input in inputs.prefix(Self.maxTargets) {
-            let profile = PingDemo.profile(for: input)
+            let profile = PingDemo.profile(for: input) ?? PingSessionDemo.profile(for: input)
             let address = IPv4Address(input)
             var target = PingTarget(input: input, name: profile?.name ?? input, role: profile?.role ?? "", address: address,
                                     thresholdMs: profile?.threshold ?? PingEventDetector.defaultThreshold(for: address))
             if profile == nil { describe(&target) }
             if let profile { target.history = PingDemo.prefill(profile, now: now) }
+            // Note 78 : 24 h d'agrégats horaires (rapport pour le fournisseur Internet).
+            target.longLog = PingSessionDemo.longLog(for: input, threshold: target.thresholdMs, now: now)
             if input == PingDemo.pausedInput {
                 // Cible en pause : plus aucune mesure depuis la mise en pause.
                 let start = PingDemo.date(of: PingDemo.pausedIndex, now: now)
@@ -514,6 +532,7 @@ final class PingController: ObservableObject {
         }
         sessionStart = now.addingTimeInterval(-121)
         events = PingDemo.events(now: now)
+        PingSessionDemo.adjust(self)
         selectedID = targets.first { $0.input == "8.8.8.8" }?.id ?? targets.first?.id
         if let target = selectedTarget, let address = target.address {
             mtrReport = PingDemo.report(to: address, profile: PingDemo.profile(for: target.input), cycles: 60)
@@ -535,7 +554,8 @@ final class PingController: ObservableObject {
     private func simulateTick() {
         let now = Date()
         for target in targets where !target.isPaused {
-            let profile = PingDemo.profile(for: target.input) ?? PingDemo.genericProfile(for: target.input, address: target.address)
+            let profile = PingDemo.profile(for: target.input) ?? PingSessionDemo.profile(for: target.input)
+                ?? PingDemo.genericProfile(for: target.input, address: target.address)
             let sequence = (target.history.last?.sequence ?? 0) + 1
             apply(PingSample(sequence: sequence, date: now, rttMs: PingDemo.sample(for: profile, payloadSize: payloadSize)), to: target.id)
         }

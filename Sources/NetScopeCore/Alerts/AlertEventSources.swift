@@ -7,26 +7,12 @@ import Foundation
 extension AlertEvent {
     /// Alerte d'une sonde de la Surveillance (panne ou alerte).
     public static func probe(_ alert: MonAlert, probe: MonProbe) -> AlertEvent? {
-        let kind: AlertEventKind
-        let title: String
-        switch alert.severity {
-        case .critical:
-            kind = .probeDown
-            title = "\(probe.name) hors ligne"
-        case .warning:
-            kind = .probeWarning
-            title = "\(probe.name) en alerte"
-        case .info:
-            // Information de la sonde « Nouveaux appareils » : nouvel appareil sur la plage.
-            guard probe.kind == .newDevices else { return nil }
-            kind = .newDevice
-            title = "Nouvel appareil sur \(probe.target)"
-        case .success:
-            return nil
-        }
-        return AlertEvent(kind: kind, severity: kind == .newDevice ? .info : (alert.severity == .critical ? .critical : .warning),
-                          title: title, message: alert.message, subject: probe.id.uuidString, occurredAt: alert.date,
-                          details: probeDetails(probe), probeID: probe.id)
+        // Note 78 : licence, firmware, Syslog et WAN ont leur propre type (AlertDedicatedEvents.swift).
+        guard let kind = AlertEventKind.forProbe(probe.kind, severity: alert.severity) else { return nil }
+        let title = AlertEventKind.probeTitle(kind, probeName: probe.name, target: probe.target)
+        let severity: AlertSeverity = kind == .newDevice ? .info : (alert.severity == .critical ? .critical : .warning)
+        return AlertEvent(kind: kind, severity: severity, title: title, message: alert.message, subject: probe.id.uuidString,
+                          occurredAt: alert.date, details: probeDetails(probe), probeID: probe.id)
     }
 
     /// Retour à la normale d'une sonde.

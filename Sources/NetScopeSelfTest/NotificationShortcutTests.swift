@@ -159,7 +159,9 @@ func registerNotificationShortcutTests(_ suite: TestSuite) {
         let json = #"{"enabledKinds":["probeDown","typeFutur"],"sound":"bizarre"}"#
         let tolerant = NotificationSettings.decoded(Data(json.utf8))
         // Fichier antérieur à la note 42 : « Rapport planifié produit » prend sa valeur par défaut (activé).
-        try expectEqual(tolerant.enabledKinds, [.probeDown, .reportReady], "type inconnu ignoré")
+        // Note 78 (0.26.0) : WAN suit « sonde en panne » (activé ici), licence, firmware et Syslog
+        // suivent « sonde en alerte » (coupé ici) ; les cibles du ping continu prennent leur défaut.
+        try expectEqual(tolerant.enabledKinds, [.probeDown, .reportReady, .wanDown, .pingTargetDown, .pingTargetUp], "type inconnu ignoré")
         try expectEqual(tolerant.sound, .critical, "son inconnu : valeur par défaut")
         try expect(tolerant.grouping && tolerant.bannersEnabled, "clés absentes : valeurs par défaut")
         try expectEqual(NotificationSettings.decoded(Data("pas du json".utf8)), NotificationSettings(), "illisible : défaut")

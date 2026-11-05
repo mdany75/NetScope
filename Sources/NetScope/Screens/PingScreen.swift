@@ -12,6 +12,8 @@ struct PingScreen: View {
     @State private var newTarget = ""
     /// Carte retournée (réponses façon Terminal) ; un second clic la remet à l'endroit.
     @State private var flippedID: PingTarget.ID?
+    /// Note 78 : tableau compact (au-delà de 9 cibles, ou imposé).
+    @StateObject private var compactTable = PingCompactTable.makeModel()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,6 +54,8 @@ struct PingScreen: View {
             }
         }
         .onChange(of: state.pingTargets) { _, inputs in controller.sync(with: inputs) }
+        // Note 78 : la dernière session (cibles et réglages) est gardée pour être rouverte.
+        .onChange(of: controller.sessionSignature) { _, _ in controller.autosave() }
     }
 
     // MARK: Barre d'outils
@@ -74,12 +78,20 @@ struct PingScreen: View {
             // Marge avant « Exporter CSV » : le texte d'état ne colle pas au bouton.
             .padding(.trailing, 10)
         }
-        Button { controller.exportCSV() } label: {
-            Label("Exporter CSV", systemImage: "square.and.arrow.down")
+        PingSessionMenu(controller: controller)
+        Menu {
+            Button("Mesures en CSV…") { controller.exportCSV() }
+                .disabled(controller.totalSent == 0)
+            Divider()
+            Button("Rapport pour le fournisseur Internet (PDF)…") { controller.exportISPReport() }
+                .disabled(!controller.hasLongLog)
+            Button("Copier le rapport pour le fournisseur Internet (texte)") { controller.copyISPReportText() }
+                .disabled(!controller.hasLongLog)
+        } label: {
+            Label("Exporter", systemImage: "square.and.arrow.up")
         }
-        .buttonStyle(.secondary)
-        .disabled(controller.totalSent == 0)
-        .help("Enregistrer toutes les mesures (horodatage, cible, rtt_ms, perdu) en CSV")
+        .fixedSize()
+        .help("Mesures en CSV, ou rapport pour le fournisseur Internet\u{00A0}: perte, latence et gigue par heure, périodes de panne")
     }
 
     /// Toutes les cibles sont en pause une à une.
@@ -234,6 +246,42 @@ struct PingScreen: View {
         return "Test MTU : 1472 octets de données + 28 octets d’en-tête IP/ICMP = 1500 octets, bit DF activé. Une perte franche signale un MTU réduit sur le chemin (tunnel, PPPoE)."
     }
 
+    // MARK: Tableau compact (note 78)
+
+    @ViewBuilder private var compactSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    Text(controller.layoutChoice == .automatic
+                         ? "Tableau compact automatique au-delà de \(PingLayoutChoice.cardLimit) cibles · clic droit sur une ligne pour la pause ou le seuil"
+                         : "Tableau compact · clic droit sur une ligne pour la pause ou le seuil")
+                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    Spacer(minLength: 8)
+                    StandardColumnsMenu(model: compactTable, compact: true)
+                }
+                .padding(.horizontal, 12)
+                .frame(height: 32)
+                .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+                PingCompactTable(controller: controller, table: compactTable) { id in
+                    controller.selectedID = id
+                    withAnimation(.easeInOut(duration: 0.2)) { flippedID = id }
+                }
+                .standardTableHeight(rows: controller.targets.count, rowHeight: PingCompactTable.rowHeight, maxRows: 16)
+            }
+            .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
+            .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
+            if let id = flippedID, let target = controller.targets.first(where: { $0.id == id }) {
+                PingTerminalCard(target: target, payloadSize: controller.payloadSize,
+                                 onFlipBack: { withAnimation(.easeInOut(duration: 0.2)) { flippedID = nil } },
+                                 onTogglePause: { controller.togglePause(target.id) },
+                                 onRemove: { controller.remove(target.id) })
+                    .frame(maxWidth: 520, alignment: .leading)
+                    .transition(.opacity)
+            }
+        }
+    }
+
     // MARK: Contenu
 
     @ViewBuilder private func content(width: CGFloat) -> some View {
@@ -267,19 +315,40 @@ struct PingScreen: View {
                     .foregroundStyle(Theme.textSecondary)
                 Spacer(minLength: 8)
                 if !controller.targets.isEmpty {
-                    Text("Cliquer sur une carte pour voir ses réponses et son traceroute · statistiques sur les \(PingController.cardWindow) dernières mesures (\(PingFormat.duration(Double(PingController.cardWindow) * controller.interval)))")
+                    Text((controller.usesTable ? "Double-cliquer sur une ligne pour voir ses réponses" : "Cliquer sur une carte pour voir ses réponses et son traceroute")
+                         + " · statistiques sur les \(PingController.cardWindow) dernières mesures (\(PingFormat.duration(Double(PingController.cardWindow) * controller.interval)))")
                         .font(Theme.small)
                         .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
+                        .truncationMode(.tail)
+                    PingLayoutPicker(controller: controller)
                 }
             }
             if controller.targets.isEmpty {
                 Panel {
-                    EmptyState(systemImage: "waveform.path.ecg",
-                               title: "Aucune cible",
-                               message: "Ajoutez une adresse, un nom d’hôte ou une plage dans le champ ci-dessus, ou envoyez un appareil depuis le Scanner ou sa fiche.")
-                        .frame(height: 160)
+                    VStack(spacing: 10) {
+                        EmptyState(systemImage: "waveform.path.ecg",
+                                   title: "Aucune cible",
+                                   message: "Ajoutez une adresse, un nom d’hôte ou une plage dans le champ ci-dessus, ou envoyez un appareil depuis le Scanner ou sa fiche.")
+                            .frame(height: 150)
+                        // Note 78 : la dernière session (cibles et réglages) se rouvre d'un clic.
+                        if let last = controller.lastSession {
+                            HStack(spacing: 8) {
+                                Button { controller.reopenLastSession() } label: {
+                                    Label("Rouvrir la dernière session", systemImage: "clock.arrow.circlepath")
+                                }
+                                .buttonStyle(.primary)
+                                Button { controller.openSession() } label: { Label("Ouvrir une session…", systemImage: "folder") }
+                                    .buttonStyle(.secondary)
+                            }
+                            Text("\(last.summary) · enregistrée le \(PingISPReport.stamp(last.savedAt))")
+                                .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    .padding(.bottom, 8)
                 }
+            } else if controller.usesTable {
+                compactSection
             } else {
                 let columns = width >= 900 ? 3 : width >= 560 ? 2 : 1
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12, alignment: .top), count: columns),
