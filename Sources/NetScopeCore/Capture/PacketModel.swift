@@ -7,7 +7,10 @@ import Foundation
 /// Protocole reconnu par un décodeur (une couche d'un paquet).
 public enum PacketProtocol: String, Sendable, CaseIterable, Codable, Hashable {
     case ethernet, vlan, llc, stp, loopback, linuxSLL, arp, ipv4, ipv6, icmp, icmpv6, igmp, tcp, udp
-    case dns, mdns, nbns, dhcp, lldp, cdp, http, ssdp, tls, data
+    case dns, mdns, nbns, dhcp, lldp, cdp, http, ssdp, tls
+    // Note 78 : VoIP (SIP, RTP, RTCP), supervision (SNMP, Syslog, NTP) et authentification (RADIUS).
+    case sip, rtp, rtcp, snmp, syslog, radius, ntp
+    case data
 
     /// Nom court affiché dans la colonne « Protocole ».
     public var label: String {
@@ -35,6 +38,13 @@ public enum PacketProtocol: String, Sendable, CaseIterable, Codable, Hashable {
         case .http: return "HTTP"
         case .ssdp: return "SSDP"
         case .tls: return "TLS"
+        case .sip: return "SIP"
+        case .rtp: return "RTP"
+        case .rtcp: return "RTCP"
+        case .snmp: return "SNMP"
+        case .syslog: return "Syslog"
+        case .radius: return "RADIUS"
+        case .ntp: return "NTP"
         case .data: return "Données"
         }
     }
@@ -154,6 +164,73 @@ public struct TransportInfo: Sendable, Equatable {
     public var payloadLength: Int
 }
 
+/// Requête ou réponse d'une application (DNS, SNMP, RADIUS, NTP, SIP) : relie une réponse à sa
+/// requête pour mesurer la latence et repérer les requêtes restées sans réponse.
+public struct PacketTransaction: Sendable, Equatable {
+    public var kind: PacketProtocol
+    /// Identifiant commun à la requête et à sa réponse (ID DNS, request-id SNMP, Call-ID et CSeq SIP…).
+    public var key: String
+    public var isRequest: Bool
+    /// « A outlook.office365.com », « get-request sysName.0 », « INVITE », « Access-Request ».
+    public var label: String
+    /// Réponse en échec (code d'erreur lisible), nil si la réponse est bonne.
+    public var failure: String?
+    /// Réponse provisoire (SIP 1xx) : ne clôt pas la requête.
+    public var provisional: Bool
+    /// La clé suffit à relier requête et réponse, même entre deux flux différents (Call-ID SIP).
+    public var global: Bool
+
+    public init(kind: PacketProtocol, key: String, isRequest: Bool, label: String, failure: String? = nil,
+                provisional: Bool = false, global: Bool = false) {
+        self.kind = kind
+        self.key = key
+        self.isRequest = isRequest
+        self.label = label
+        self.failure = failure
+        self.provisional = provisional
+        self.global = global
+    }
+}
+
+/// En-tête RTP (RFC 3550).
+public struct RTPHeaderInfo: Sendable, Equatable {
+    public var ssrc: UInt32
+    public var sequence: UInt16
+    public var timestamp: UInt32
+    public var payloadType: UInt8
+    public var marker: Bool
+    public var payloadLength: Int
+
+    public init(ssrc: UInt32, sequence: UInt16, timestamp: UInt32, payloadType: UInt8, marker: Bool, payloadLength: Int) {
+        self.ssrc = ssrc
+        self.sequence = sequence
+        self.timestamp = timestamp
+        self.payloadType = payloadType
+        self.marker = marker
+        self.payloadLength = payloadLength
+    }
+}
+
+/// Bloc de rapport RTCP (RFC 3550, section 6.4.1) : ce que l'émetteur du rapport a reçu.
+public struct RTCPReportBlock: Sendable, Equatable {
+    /// Flux décrit (SSRC de la source reçue).
+    public var ssrc: UInt32
+    /// Part perdue depuis le rapport précédent (0 à 1).
+    public var fractionLost: Double
+    public var cumulativeLost: Int
+    /// Gigue d'arrivée, en unités d'horodatage RTP.
+    public var jitter: UInt32
+}
+
+/// Paquet NTP : mode et horodatages (secondes depuis le 1er janvier 1970, 0 si absent).
+public struct NTPInfo: Sendable, Equatable {
+    public var mode: Int
+    public var stratum: Int
+    public var origin: Double
+    public var receive: Double
+    public var transmit: Double
+}
+
 /// Un paquet décodé : couches, adresses, résumé d'une ligne et clés utiles aux filtres.
 public struct DecodedPacket: Sendable, Equatable {
     public var layers: [PacketLayer] = []
@@ -179,6 +256,20 @@ public struct DecodedPacket: Sendable, Equatable {
     public var httpRequest: String?
     public var httpStatus: Int?
     public var arpOperation: Int?
+    /// Requête ou réponse d'application (latence par flux, requêtes sans réponse).
+    public var transaction: PacketTransaction?
+    /// En-tête RTP (perte et gigue par flux).
+    public var rtp: RTPHeaderInfo?
+    /// Rapport RTCP (perte et gigue vues par l'autre extrémité).
+    public var rtcpReports: [RTCPReportBlock] = []
+    public var sipMethod: String?
+    public var sipStatus: Int?
+    public var sipCallID: String?
+    /// Gravité Syslog (0 à 7) d'un message vu passer.
+    public var syslogSeverity: Int?
+    public var radiusCode: Int?
+    /// Horodatages NTP (secondes depuis 1970) pour l'écart d'horloge.
+    public var ntp: NTPInfo?
     /// Problèmes de décodage (paquet tronqué, longueur incohérente).
     public var problems: [String] = []
 

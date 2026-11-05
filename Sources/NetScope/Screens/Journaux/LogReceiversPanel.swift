@@ -1,9 +1,9 @@
 import NetScopeCore
 import SwiftUI
 
-/// Panneau de droite de l'écran Journaux : récepteurs Syslog et traps de ce Mac (ports, état,
-/// arrêt automatique, coupe-feu), commandes à régler sur les équipements, lecture des journaux de
-/// la FortiGate et conservation du journal.
+/// Panneau de droite de l'écran Journaux : récepteurs Syslog (UDP et TCP) et traps de ce Mac
+/// (ports, état, arrêt automatique, coupe-feu), guide de configuration par marque, transfert vers un
+/// autre serveur Syslog (note 78), lecture des journaux de la FortiGate et conservation du journal.
 struct LogReceiversPanel: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var store = LogStore.shared
@@ -13,22 +13,31 @@ struct LogReceiversPanel: View {
     let until: Date?
     @State private var syslogText = ""
     @State private var trapText = ""
+    @State private var forwardPortText = ""
     @State private var example = 0
     @State private var exampleKind = 0
+    @State private var brand: LogDeviceGuide.Brand = .fortigate
+    @State private var guideTransport: SyslogTransport = .udp
     /// Une communauté SNMP est enregistrée (Trousseau) ; lue à l'apparition, pas à chaque rendu.
     @State private var hasCommunity = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             receivers
-            commands
+            guide
+            forwardPanel
             fortiGatePanel
             retentionPanel
         }
         .onAppear {
             syslogText = String(store.syslogPort)
             trapText = String(store.trapPort)
+            forwardPortText = String(store.forward.port)
             hasCommunity = store.isDemo || !(RegSNMPCredentials.load()?.community ?? "").isEmpty
+            if store.isDemo {
+                brand = JournauxDemo.guideBrand ?? brand
+                guideTransport = JournauxDemo.guideTransport ?? guideTransport
+            }
         }
     }
 
@@ -45,11 +54,16 @@ struct LogReceiversPanel: View {
                 }
             }
             receiverRow(title: "Syslog", detail: "RFC\u{00A0}3164, RFC\u{00A0}5424, FortiOS", enabled: $store.syslogEnabled,
-                        text: $syslogText, listening: store.syslogListening, error: store.syslogError,
-                        count: store.receivedCount[.syslog] ?? 0, standard: 514) { store.syslogPort = $0 }
-            receiverRow(title: "Traps SNMP", detail: "v1 et v2c, informs acquittés", enabled: $store.trapsEnabled,
+                        transport: store.syslogTCPEnabled ? "UDP/TCP" : "UDP",
+                        text: $syslogText, listening: store.isSyslogListening, error: syslogErrors,
+                        countText: syslogCountText, standard: 514) { store.syslogPort = $0 }
+            ToolCheckbox(label: "Recevoir aussi en TCP (RFC\u{00A0}6587, même port)", isOn: $store.syslogTCPEnabled)
+                .disabled(store.isListening || !store.syslogEnabled)
+                .padding(.leading, 20)
+                .help("Cadrage par longueur (mode «\u{00A0}reliable\u{00A0}» de FortiOS, rsyslog) et par saut de ligne (Cisco, AOS-S)\u{00A0}: aucun message perdu, même en rafale.")
+            receiverRow(title: "Traps SNMP", detail: "v1 et v2c, informs acquittés", enabled: $store.trapsEnabled, transport: "UDP",
                         text: $trapText, listening: store.trapListening, error: store.trapError,
-                        count: store.receivedCount[.trap] ?? 0, standard: 162) { store.trapPort = $0 }
+                        countText: LogFormat.count(store.receivedCount[.trap] ?? 0, "message reçu", "messages reçus"), standard: 162) { store.trapPort = $0 }
             ToolCheckbox(label: "N’accepter que les traps de la communauté SNMP enregistrée", isOn: $store.checkCommunity)
                 .disabled(store.isListening || !hasCommunity)
                 .help(hasCommunity
@@ -89,13 +103,28 @@ struct LogReceiversPanel: View {
             if let warning = store.firewall?.logWarning {
                 ToolNotice(tone: .warning, message: warning)
             }
-            Text("Ports au-dessus de 1024 par défaut\u{00A0}: aucun droit administrateur n’est nécessaire. Les ports standard (514 et 162) demandent les droits root sur certains Mac\u{00A0}: réglez plutôt le port de NetScope sur l’équipement (commandes ci-dessous). Certains équipements n’envoient leurs traps que vers le port 162.")
+            Text("Ports au-dessus de 1024 par défaut\u{00A0}: aucun droit administrateur n’est nécessaire. Les ports standard (514 et 162) demandent les droits root sur certains Mac\u{00A0}: réglez plutôt le port de NetScope sur l’équipement (guide ci-dessous). Certains équipements n’envoient leurs traps que vers le port 162.")
                 .font(Theme.caption).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .monPanel()
+    }
+
+    private var syslogErrors: String? {
+        let list = [store.syslogError, store.syslogTCPError].compactMap { $0 }
+        return list.isEmpty ? nil : list.joined(separator: "\n")
+    }
+
+    /// « 12 messages reçus, dont 5 en TCP · 2 connexions TCP ».
+    private var syslogCountText: String {
+        var text = LogFormat.count(store.receivedCount[.syslog] ?? 0, "message reçu", "messages reçus")
+        if store.receivedTCP > 0 { text += ", dont \(store.receivedTCP) en TCP" }
+        if store.syslogTCPListening, store.tcpConnections > 0 {
+            text += " · " + LogFormat.count(store.tcpConnections, "connexion TCP", "connexions TCP")
+        }
+        return text
     }
 
     static func autoStopLabel(_ minutes: Int) -> String {
@@ -106,8 +135,8 @@ struct LogReceiversPanel: View {
         }
     }
 
-    private func receiverRow(title: String, detail: String, enabled: Binding<Bool>, text: Binding<String>, listening: Bool,
-                             error: String?, count: Int, standard: UInt16, apply: @escaping (UInt16) -> Void) -> some View {
+    private func receiverRow(title: String, detail: String, enabled: Binding<Bool>, transport: String, text: Binding<String>, listening: Bool,
+                             error: String?, countText: String, standard: UInt16, apply: @escaping (UInt16) -> Void) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 8) {
                 Toggle(isOn: enabled) {
@@ -119,7 +148,7 @@ struct LogReceiversPanel: View {
                 .toggleStyle(.checkbox)
                 .disabled(store.isListening)
                 Spacer(minLength: 6)
-                Text("UDP").font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                Text(transport).font(Theme.caption).foregroundStyle(Theme.textSecondary).fixedSize()
                 TextField("", text: text)
                     .textFieldStyle(.roundedBorder)
                     .font(Theme.mono(12))
@@ -127,13 +156,15 @@ struct LogReceiversPanel: View {
                     .disabled(store.isListening)
                     .onSubmit { commit(text, apply: apply) }
                     .onChange(of: text.wrappedValue) { _, _ in commit(text, apply: apply) }
-                    .help("Port UDP d’écoute (standard\u{00A0}: \(standard))")
+                    .help("Port d’écoute (standard\u{00A0}: \(standard))")
             }
             HStack(spacing: 6) {
                 if listening {
                     Chip(text: "En écoute", tone: .success, systemImage: "dot.radiowaves.left.and.right")
-                    Text(LogFormat.count(count, "message reçu", "messages reçus"))
+                    Text(countText)
                         .font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 } else if enabled.wrappedValue {
                     Chip(text: "Arrêté", tone: .neutral)
                 } else {
@@ -151,16 +182,13 @@ struct LogReceiversPanel: View {
         if let port = UInt16(text.wrappedValue.trimmingCharacters(in: .whitespaces)), port > 0 { apply(port) }
     }
 
-    // MARK: Commandes des équipements
+    // MARK: Guide de configuration (note 78)
 
     private var macAddress: String { state.activeInterface?.address.description ?? "<adresse du Mac>" }
 
-    private var commands: some View {
-        let list = exampleKind == 0 ? LogDeviceCommands.syslog(mac: macAddress, port: store.syslogPort)
-            : LogDeviceCommands.traps(mac: macAddress, port: store.trapPort)
-        let chosen = list[min(example, list.count - 1)]
-        return VStack(alignment: .leading, spacing: 8) {
-            MonHeading("À régler sur l’équipement")
+    private var guide: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            MonHeading("Guide de configuration")
             HStack(spacing: 8) {
                 Picker("Type", selection: $exampleKind) {
                     Text("Syslog").tag(0)
@@ -170,32 +198,19 @@ struct LogReceiversPanel: View {
                 .pickerStyle(.segmented)
                 .fixedSize()
                 .onChange(of: exampleKind) { _, _ in example = 0 }
-                Picker("Équipement", selection: $example) {
-                    ForEach(Array(list.enumerated()), id: \.offset) { index, item in
-                        Text(item.title).tag(index)
+                if exampleKind == 0 {
+                    Picker("Transport", selection: Binding(get: { brand.supportsTCP ? guideTransport : .udp }, set: { guideTransport = $0 })) {
+                        ForEach(SyslogTransport.allCases) { Text($0.label).tag($0) }
                     }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .fixedSize()
+                    .disabled(!brand.supportsTCP)
+                    .help(brand.supportsTCP ? "UDP\u{00A0}: le plus répandu. TCP\u{00A0}: aucun message perdu (activez «\u{00A0}Recevoir aussi en TCP\u{00A0}»)." : "Cet équipement n’envoie qu’en UDP.")
                 }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .controlSize(.small)
+                Spacer(minLength: 0)
             }
-            ZStack(alignment: .topTrailing) {
-                Text(chosen.text)
-                    .font(Theme.mono(11))
-                    .foregroundStyle(Theme.consoleText)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
-                    .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.console))
-                Button { ToolActions.copy(chosen.text) } label: {
-                    Image(systemName: "doc.on.doc").font(.system(size: 11))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Theme.consoleMuted)
-                .padding(8)
-                .help("Copier les commandes")
-            }
+            if exampleKind == 0 { syslogGuide } else { trapGuide }
             Text("Adresse de ce Mac\u{00A0}: \(macAddress). Les messages sont rattachés au site actif («\u{00A0}\(SiteModel.shared.activeName)\u{00A0}») au moment de leur réception.")
                 .font(Theme.caption).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -203,6 +218,173 @@ struct LogReceiversPanel: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .monPanel()
+    }
+
+    private var brandPicker: some View {
+        Picker("Équipement", selection: $brand) {
+            ForEach(Self.families, id: \.self) { family in
+                Section(family) {
+                    ForEach(LogDeviceGuide.Brand.allCases.filter { $0.family == family }) { item in
+                        Text(item.label).tag(item)
+                    }
+                }
+            }
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .controlSize(.small)
+    }
+
+    static let families = ["Fortinet", "Cisco", "HP/Aruba", "Ubiquiti", "Autres"]
+
+    @ViewBuilder private var syslogGuide: some View {
+        let step = LogDeviceGuide.syslog(brand, mac: macAddress, port: store.syslogPort, transport: guideTransport)
+        brandPicker
+        if guideTransport == .tcp, !brand.supportsTCP {
+            Text("En UDP seulement sur cet équipement.").font(Theme.caption).foregroundStyle(Theme.warning)
+        } else if step.transport == .tcp, !store.syslogTCPEnabled {
+            Text("Activez «\u{00A0}Recevoir aussi en TCP\u{00A0}» dans les récepteurs ci-dessus.").font(Theme.caption).foregroundStyle(Theme.warning)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        commandBlock(step.commands, help: step.isInterfacePath ? "Copier le chemin" : "Copier les commandes")
+        if let verify = step.verify {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("Vérifier").font(Theme.caption.weight(.semibold)).foregroundStyle(Theme.textSecondary).fixedSize()
+                Text(verify)
+                    .font(Theme.mono(11))
+                    .foregroundStyle(Theme.text)
+                    .textSelection(.enabled)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 4)
+                Button { ToolActions.copy(verify) } label: { Image(systemName: "doc.on.doc").font(.system(size: 10)) }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.textSecondary)
+                    .help("Copier la commande de vérification")
+            }
+        }
+        if let note = step.note {
+            Text(note).font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @ViewBuilder private var trapGuide: some View {
+        let list = LogDeviceCommands.traps(mac: macAddress, port: store.trapPort)
+        let chosen = list[min(example, list.count - 1)]
+        Picker("Équipement", selection: $example) {
+            ForEach(Array(list.enumerated()), id: \.offset) { index, item in
+                Text(item.title).tag(index)
+            }
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .controlSize(.small)
+        commandBlock(chosen.text, help: "Copier les commandes")
+    }
+
+    private func commandBlock(_ text: String, help: String) -> some View {
+        ZStack(alignment: .topTrailing) {
+            Text(text)
+                .font(Theme.mono(11))
+                .foregroundStyle(Theme.consoleText)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(10)
+                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.console))
+            Button { ToolActions.copy(text) } label: {
+                Image(systemName: "doc.on.doc").font(.system(size: 11))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.consoleMuted)
+            .padding(8)
+            .help(help)
+        }
+    }
+
+    // MARK: Transfert (note 78)
+
+    private var forwardPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                MonHeading("Transfert vers un autre serveur")
+                Spacer(minLength: 6)
+                Toggle("Transférer", isOn: $store.forward.enabled)
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .labelsHidden()
+                    .help("Relayer les messages reçus vers un SIEM ou le serveur Syslog du client")
+            }
+            if store.forward.enabled {
+                HStack(spacing: 6) {
+                    TextField("Serveur (10.10.0.40 ou siem.client.local)", text: $store.forward.host)
+                        .textFieldStyle(.roundedBorder)
+                        .font(Theme.mono(12))
+                    TextField("514", text: $forwardPortText)
+                        .textFieldStyle(.roundedBorder)
+                        .font(Theme.mono(12))
+                        .frame(width: 58)
+                        .onChange(of: forwardPortText) { _, value in
+                            if let port = UInt16(value.trimmingCharacters(in: .whitespaces)), port > 0 { store.forward.port = port }
+                        }
+                        .help("Port du serveur de destination (514 en général)")
+                }
+                HStack(spacing: 8) {
+                    Picker("Transport", selection: $store.forward.transport) {
+                        ForEach(SyslogTransport.allCases) { Text($0.label).tag($0) }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .fixedSize()
+                    .help("UDP\u{00A0}: un datagramme par message. TCP\u{00A0}: connexion gardée ouverte, cadrage par longueur (RFC\u{00A0}6587).")
+                    Picker("Gravité", selection: $store.forward.minimumSeverity) {
+                        ForEach(LogSeverity.allCases) { severity in
+                            Text(severity == .debug ? "Toutes les gravités" : "Gravité " + severity.atLeastLabel).tag(severity)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .controlSize(.small)
+                    .fixedSize()
+                    Spacer(minLength: 0)
+                }
+                ToolCheckbox(label: "Inclure les traps SNMP (converties en Syslog RFC\u{00A0}5424)", isOn: $store.forward.includeTraps)
+                forwardState
+            }
+            Text("Les messages Syslog reçus sont relayés tels quels, avec leur heure et leur émetteur d’origine. Désactivé par défaut\u{00A0}; le transfert suit la réception (il démarre et s’arrête avec elle).")
+                .font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .monPanel()
+    }
+
+    @ViewBuilder private var forwardState: some View {
+        let status = store.forwardStatus
+        if let problem = store.forwardProblem {
+            Text(problem).font(Theme.caption).foregroundStyle(Theme.warning)
+                .fixedSize(horizontal: false, vertical: true)
+        } else if store.isForwarding {
+            HStack(spacing: 6) {
+                Chip(text: store.forward.transport == .tcp && !status.connected && status.sent == 0 ? "En attente" : "Transfert actif",
+                     tone: status.lastError == nil ? .success : .warning, systemImage: "arrow.turn.up.right")
+                Text("\(LogFormat.count(status.sent, "message relayé", "messages relayés"))" + (status.dropped > 0 ? " · \(status.dropped) perdu\(status.dropped > 1 ? "s" : "")" : "")
+                     + " vers \(store.forward.destinationLabel)")
+                    .font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let error = status.lastError {
+                Text(error).font(Theme.caption).foregroundStyle(Theme.critical)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        } else {
+            Text("Prêt\u{00A0}: le transfert vers \(store.forward.destinationLabel) démarrera avec la réception.")
+                .font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     // MARK: FortiGate

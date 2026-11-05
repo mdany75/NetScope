@@ -28,10 +28,13 @@ public struct LogDatagram: Sendable {
 public struct LogBindError: Error, Equatable, Sendable, LocalizedError {
     public var code: Int32
     public var port: UInt16
+    /// UDP (Syslog, traps) ou TCP (Syslog en TCP, RFC 6587).
+    public var transport: SyslogTransport
 
-    public init(code: Int32, port: UInt16) {
+    public init(code: Int32, port: UInt16, transport: SyslogTransport = .udp) {
         self.code = code
         self.port = port
+        self.transport = transport
     }
 
     public var isPermission: Bool { code == EACCES || code == EPERM }
@@ -39,12 +42,12 @@ public struct LogBindError: Error, Equatable, Sendable, LocalizedError {
 
     public var errorDescription: String? {
         if isInUse {
-            return "Le port UDP \(port) est déjà utilisé (un autre serveur Syslog ou SNMP, ou une autre copie de NetScope)\u{00A0}: arrêtez-le ou choisissez un autre port."
+            return "Le port \(transport.label) \(port) est déjà utilisé (un autre serveur Syslog ou SNMP, ou une autre copie de NetScope)\u{00A0}: arrêtez-le ou choisissez un autre port."
         }
         if isPermission {
-            return "macOS refuse le port UDP \(port)\u{00A0}: sous 1024, il faut les droits administrateur sur ce Mac. Choisissez un port au-dessus de 1024 (5514 pour Syslog, 1162 pour les traps) et réglez-le sur l’équipement."
+            return "macOS refuse le port \(transport.label) \(port)\u{00A0}: sous 1024, il faut les droits administrateur sur ce Mac. Choisissez un port au-dessus de 1024 (5514 pour Syslog, 1162 pour les traps) et réglez-le sur l’équipement."
         }
-        return "Ouverture du port UDP \(port) impossible (\(String(cString: strerror(code))))."
+        return "Ouverture du port \(transport.label) \(port) impossible (\(String(cString: strerror(code))))."
     }
 }
 
@@ -280,28 +283,12 @@ public enum LogDeviceCommands {
         public var text: String
     }
 
-    public static func syslog(mac: String, port: UInt16) -> [Example] {
-        [
-            Example(title: "FortiGate (FortiOS)", text: """
-            config log syslogd setting
-                set status enable
-                set server "\(mac)"
-                set port \(port)
-                set mode udp
-                set format default
-            end
-            """),
-            Example(title: "FortiSwitch", text: """
-            config log syslogd setting
-                set status enable
-                set server "\(mac)"
-                set port \(port)
-            end
-            """),
-            Example(title: "Cisco IOS", text: "logging host \(mac) transport udp port \(port)\nlogging trap informational"),
-            Example(title: "HPE Aruba (AOS-S)", text: "logging \(mac) udp \(port)\nlogging severity info"),
-            Example(title: "Linux (rsyslog)", text: "*.* @\(mac):\(port)"),
-        ]
+    /// Commandes Syslog par marque (UDP par défaut) ; voir `LogDeviceGuide` pour le guide complet.
+    public static func syslog(mac: String, port: UInt16, transport: SyslogTransport = .udp) -> [Example] {
+        LogDeviceGuide.Brand.allCases.map { brand in
+            let step = LogDeviceGuide.syslog(brand, mac: mac, port: port, transport: transport)
+            return Example(title: brand.label, text: step.commands)
+        }
     }
 
     public static func traps(mac: String, port: UInt16) -> [Example] {

@@ -9,7 +9,10 @@ import NetScopeCore
 /// démonstration éprouve le moteur. Aucun port ouvert, rien d'envoyé.
 ///
 /// Captures : NETSCOPE_JOURNAUX=coupure dessine « Comprendre une coupure » dans la page ;
-/// NETSCOPE_JOURNAUX=arrete montre les récepteurs arrêtés ; NETSCOPE_JOURNAUX=vide, un journal vide.
+/// NETSCOPE_JOURNAUX=arrete montre les récepteurs arrêtés ; NETSCOPE_JOURNAUX=vide, un journal vide ;
+/// NETSCOPE_JOURNAUX=transfert montre le transfert vers un SIEM actif (note 78) ;
+/// NETSCOPE_JOURNAUX_MARQUE=cisco (fortigate, fortiswitch, arubaOS, arubaCX, unifi, edgeOS, linux)
+/// choisit la marque du guide, NETSCOPE_JOURNAUX_TRANSPORT=tcp son transport.
 @MainActor
 enum JournauxDemo {
     struct Result {
@@ -156,6 +159,37 @@ enum JournauxDemo {
         """
         return FortiLogParser.messages(Data(json.utf8), host: "10.182.122.1", subtype: "vpn")
             .map { $0.attached(siteKey: siteKey, siteName: siteName) }
+    }
+
+    // MARK: Syslog TCP et transfert (note 78)
+
+    /// Émetteurs qui envoient en TCP dans la démonstration : la FortiGate (mode « reliable ») et le
+    /// switch cœur.
+    static let tcpHosts: Set<String> = ["10.182.122.1", "10.182.122.2"]
+
+    /// Transfert : désactivé (comme par défaut), ou actif vers le SIEM du client pour la capture.
+    static var forwardSettings: SyslogForwardSettings {
+        guard requested == "transfert" else { return SyslogForwardSettings(host: "", port: 514) }
+        return SyslogForwardSettings(enabled: true, host: "10.10.0.40", port: 514, transport: .tcp, minimumSeverity: .warning, includeTraps: true)
+    }
+
+    /// Compteurs du transfert de la démonstration (aucun envoi réel).
+    static func forwardStatus(listening: Bool) -> SyslogForwardStatus {
+        var status = SyslogForwardStatus()
+        guard listening, requested == "transfert" else { return status }
+        status.sent = 14
+        status.connected = true
+        return status
+    }
+
+    /// Marque et transport du guide pour les captures.
+    static var guideBrand: LogDeviceGuide.Brand? {
+        guard let raw = ProcessInfo.processInfo.environment["NETSCOPE_JOURNAUX_MARQUE"] else { return nil }
+        return LogDeviceGuide.Brand.allCases.first { $0.rawValue.lowercased() == raw.lowercased() }
+    }
+
+    static var guideTransport: SyslogTransport? {
+        ProcessInfo.processInfo.environment["NETSCOPE_JOURNAUX_TRANSPORT"].flatMap { SyslogTransport(rawValue: $0.lowercased()) }
     }
 
     // MARK: Mise en forme des lignes

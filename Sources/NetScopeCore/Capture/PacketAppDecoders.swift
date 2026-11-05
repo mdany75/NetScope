@@ -81,6 +81,12 @@ extension PacketDecoding {
                 if rcode != 0 { summary += " · \(Self.rcodeName(rcode))" }
                 if !answers.isEmpty { summary += " → " + answers.prefix(4).joined(separator: ", ") + (answers.count > 4 ? "…" : "") }
             }
+            // Note 78 : requête et réponse reliées par l'identifiant (latence, sans réponse, échecs).
+            if kind == .dns, !llmnr, opcode == 0 {
+                packet.transaction = PacketTransaction(kind: .dns, key: "dns|\(id)|\(questions.first ?? "")", isRequest: !isResponse,
+                                                       label: questions.first ?? "DNS",
+                                                       failure: isResponse && rcode != 0 ? Self.rcodeName(rcode) : nil)
+            }
         }
         packet.summary = summary
     }

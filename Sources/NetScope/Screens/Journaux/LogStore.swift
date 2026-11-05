@@ -88,6 +88,16 @@ final class LogStore: ObservableObject {
     @Published var syslogPort: UInt16 { didSet { save("journaux.port.syslog", Int(syslogPort)) } }
     @Published var trapPort: UInt16 { didSet { save("journaux.port.traps", Int(trapPort)) } }
     @Published var syslogEnabled: Bool { didSet { save("journaux.syslog", syslogEnabled) } }
+    /// Note 78 : Syslog aussi en TCP (RFC 6587), sur le même port que l'UDP.
+    @Published var syslogTCPEnabled: Bool { didSet { save("journaux.syslog.tcp", syslogTCPEnabled) } }
+    /// Note 78 : transfert des messages reçus vers un autre serveur Syslog (désactivé par défaut).
+    @Published var forward: SyslogForwardSettings {
+        didSet {
+            guard forward != oldValue else { return }
+            if !isDemo, let data = try? JSONEncoder().encode(forward) { UserDefaults.standard.set(data, forKey: "journaux.transfert") }
+            forwardSettingsChanged()
+        }
+    }
     @Published var trapsEnabled: Bool { didSet { save("journaux.traps", trapsEnabled) } }
     /// Arrêt automatique des récepteurs (minutes ; 0 : jamais).
     @Published var autoStopMinutes: Int { didSet { save("journaux.arret", autoStopMinutes) } }
@@ -113,6 +123,14 @@ final class LogStore: ObservableObject {
     /// Change à chaque modification du journal (mémoire des lignes calculées).
     @Published private(set) var version = 0
     @Published private(set) var syslogListening = false
+    @Published private(set) var syslogTCPListening = false
+    @Published private(set) var syslogTCPError: String?
+    /// Connexions TCP ouvertes par les équipements (Syslog TCP).
+    @Published private(set) var tcpConnections = 0
+    /// Messages Syslog reçus en TCP depuis le démarrage.
+    @Published private(set) var receivedTCP = 0
+    /// Transfert : compteurs et dernier incident.
+    @Published private(set) var forwardStatus = SyslogForwardStatus()
     @Published private(set) var trapListening = false
     @Published private(set) var syslogError: String?
     @Published private(set) var trapError: String?
@@ -141,6 +159,8 @@ final class LogStore: ObservableObject {
     var now: Date { demoNow ?? Date() }
 
     private var syslogListener: LogUDPListener?
+    private var syslogTCPListener: LogTCPListener?
+    private var forwarder: SyslogForwarder?
     private var trapListener: LogUDPListener?
     private let inbox = LogInbox()
     private var flushTimer: Timer?
@@ -165,6 +185,8 @@ final class LogStore: ObservableObject {
         syslogPort = UInt16(clamping: int("journaux.port.syslog", Int(Self.defaultSyslogPort)))
         trapPort = UInt16(clamping: int("journaux.port.traps", Int(Self.defaultTrapPort)))
         syslogEnabled = bool("journaux.syslog", true)
+        syslogTCPEnabled = bool("journaux.syslog.tcp", true)
+        forward = demo ? JournauxDemo.forwardSettings : (defaults.data(forKey: "journaux.transfert").flatMap { try? JSONDecoder().decode(SyslogForwardSettings.self, from: $0) } ?? .disabled)
         trapsEnabled = bool("journaux.traps", true)
         autoStopMinutes = int("journaux.arret", 60)
         checkCommunity = bool("journaux.communaute", false)
@@ -179,7 +201,11 @@ final class LogStore: ObservableObject {
             demoNow = demo.now
             journal = LogJournal(messages: demo.messages)
             syslogListening = demo.listening
+            syslogTCPListening = demo.listening
             trapListening = demo.listening
+            tcpConnections = demo.listening ? 2 : 0
+            receivedTCP = demo.listening ? demo.messages.filter { $0.source == .syslog && JournauxDemo.tcpHosts.contains($0.host) }.count : 0
+            forwardStatus = JournauxDemo.forwardStatus(listening: demo.listening)
             startedAt = demo.listening ? demo.now.addingTimeInterval(-42 * 60) : nil
             stopAt = demo.listening ? startedAt?.addingTimeInterval(60 * 60) : nil
             receivedCount = [.syslog: demo.messages.filter { $0.source == .syslog }.count, .trap: demo.messages.filter { $0.source == .trap }.count]
@@ -201,11 +227,12 @@ final class LogStore: ObservableObject {
 
     // MARK: Récepteurs
 
-    var isListening: Bool { syslogListening || trapListening }
-    func isListening(_ source: LogSource) -> Bool { source == .syslog ? syslogListening : (source == .trap ? trapListening : false) }
+    var isListening: Bool { syslogListening || syslogTCPListening || trapListening }
+    var isSyslogListening: Bool { syslogListening || syslogTCPListening }
+    func isListening(_ source: LogSource) -> Bool { source == .syslog ? isSyslogListening : (source == .trap ? trapListening : false) }
     var listeningSources: Set<LogSource> {
         var set = Set<LogSource>()
-        if syslogListening { set.insert(.syslog) }
+        if isSyslogListening { set.insert(.syslog) }
         if trapListening { set.insert(.trap) }
         return set
     }
@@ -215,6 +242,7 @@ final class LogStore: ObservableObject {
     func start() {
         guard !isDemo else {
             syslogListening = syslogEnabled
+            syslogTCPListening = syslogEnabled && syslogTCPEnabled
             trapListening = trapsEnabled
             startedAt = now
             scheduleAutoStop()
@@ -222,9 +250,13 @@ final class LogStore: ObservableObject {
         }
         stop(reason: nil)
         syslogError = nil
+        syslogTCPError = nil
         trapError = nil
         lastStopReason = nil
         receivedCount = [:]
+        receivedTCP = 0
+        tcpConnections = 0
+        forwardStatus = SyslogForwardStatus()
         rejectedCount = 0
         lastRejection = nil
         let inbox = self.inbox
@@ -241,6 +273,21 @@ final class LogStore: ObservableObject {
                 syslogListening = true
             } catch {
                 syslogError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
+            if syslogTCPEnabled {
+                let tcp = LogTCPListener(port: syslogPort, name: "Syslog TCP", handler: { datagram in
+                    inbox.add(datagram, kind: .syslog, tcp: true)
+                }, stopped: { reason in
+                    guard let reason else { return }
+                    Task { @MainActor in LogStore.shared.tcpListenerStopped(reason: reason) }
+                })
+                do {
+                    try tcp.start()
+                    syslogTCPListener = tcp
+                    syslogTCPListening = true
+                } catch {
+                    syslogTCPError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                }
             }
         }
         if trapsEnabled {
@@ -264,6 +311,7 @@ final class LogStore: ObservableObject {
             }
         }
         guard isListening else { return }
+        startForwarder()
         startedAt = Date()
         scheduleAutoStop()
         startFlushTimer()
@@ -274,6 +322,7 @@ final class LogStore: ObservableObject {
     func stop(reason: String? = nil) {
         if isDemo {
             syslogListening = false
+            syslogTCPListening = false
             trapListening = false
             stopAt = nil
             lastStopReason = reason
@@ -282,12 +331,21 @@ final class LogStore: ObservableObject {
         // Derniers datagrammes d'abord, sockets encore ouverts : les informs reçoivent leur accusé.
         flush()
         syslogListener?.stop()
+        syslogTCPListener?.stop()
         trapListener?.stop()
         syslogListener = nil
+        syslogTCPListener = nil
         trapListener = nil
+        if let forwarder {
+            forwardStatus = forwarder.currentStatus
+            forwarder.stop()
+        }
+        forwarder = nil
         let wasListening = isListening
         syslogListening = false
+        syslogTCPListening = false
         trapListening = false
+        tcpConnections = 0
         stopAt = nil
         if wasListening { lastStopReason = reason }
     }
@@ -302,6 +360,49 @@ final class LogStore: ObservableObject {
             trapListener = nil
             trapError = reason
         }
+    }
+
+    private func tcpListenerStopped(reason: String) {
+        syslogTCPListening = false
+        syslogTCPListener = nil
+        syslogTCPError = reason
+        tcpConnections = 0
+    }
+
+    // MARK: Transfert (note 78)
+
+    /// Ports où ce Mac écoute (pas de transfert en boucle vers soi-même).
+    private var listeningPorts: [(SyslogTransport, UInt16)] {
+        var list: [(SyslogTransport, UInt16)] = []
+        if syslogEnabled { list.append((.udp, syslogPort)) }
+        if syslogEnabled, syslogTCPEnabled { list.append((.tcp, syslogPort)) }
+        return list
+    }
+
+    /// Réglage du transfert à corriger, en clair (nil : prêt ou désactivé).
+    var forwardProblem: String? {
+        guard forward.enabled else { return nil }
+        return forward.problem(listening: listeningPorts)
+    }
+
+    /// Le transfert tourne (réception démarrée, réglages valides).
+    var isForwarding: Bool { isDemo ? (isListening && forward.enabled) : forwarder != nil }
+
+    private func startForwarder() {
+        forwarder?.stop()
+        forwarder = nil
+        guard !isDemo, forward.enabled, forwardProblem == nil else { return }
+        forwarder = SyslogForwarder(settings: forward)
+    }
+
+    private func forwardSettingsChanged() {
+        if isDemo {
+            forwardStatus = JournauxDemo.forwardStatus(listening: isListening && forward.enabled)
+            return
+        }
+        guard isListening else { return }
+        if let forwarder { forwardStatus = forwarder.currentStatus }
+        startForwarder()
     }
 
     private func scheduleAutoStop() {
@@ -325,6 +426,11 @@ final class LogStore: ObservableObject {
 
     private func tick() {
         flush()
+        if let syslogTCPListener { tcpConnections = syslogTCPListener.connections }
+        if let forwarder {
+            let status = forwarder.currentStatus
+            if status != forwardStatus { forwardStatus = status }
+        }
         if let stopAt, Date() >= stopAt {
             stop(reason: "Arrêté automatiquement après \(autoStopMinutes >= 60 ? "\(autoStopMinutes / 60)\u{00A0}h" : "\(autoStopMinutes)\u{00A0}min") d’écoute.")
         }
@@ -341,12 +447,18 @@ final class LogStore: ObservableObject {
         let siteKey = SiteModel.shared.activeKey
         let siteName = SiteModel.shared.activeName
         var messages: [LogMessage] = []
-        for (datagram, kind) in batch.datagrams {
+        var forwarded: [[UInt8]] = []
+        let forwarding = forwarder?.settings
+        for (datagram, kind, viaTCP) in batch.datagrams {
             let outcome = kind == .syslog ? LogDecoder.syslog(datagram) : LogDecoder.trap(datagram, community: batch.community)
             switch outcome {
             case .message(let message, let reply):
                 messages.append(message.attached(siteKey: siteKey, siteName: siteName))
                 receivedCount[message.source, default: 0] += 1
+                if viaTCP { receivedTCP += 1 }
+                if let forwarding, forwarding.accepts(message) {
+                    forwarded.append(forwarding.payload(for: message, original: message.source == .syslog ? datagram.bytes : nil))
+                }
                 if let reply, allowReply(to: datagram.from) { trapListener?.reply(reply, to: datagram.from, port: datagram.fromPort) }
             case .rejected(let reason):
                 rejectedCount += 1
@@ -357,6 +469,7 @@ final class LogStore: ObservableObject {
             rejectedCount += batch.dropped
             lastRejection = "\(batch.dropped) message\(batch.dropped > 1 ? "s" : "") ignoré\(batch.dropped > 1 ? "s" : "")\u{00A0}: débit trop élevé (plus de \(LogInbox.limit) en une demi-seconde)."
         }
+        if !forwarded.isEmpty { forwarder?.enqueue(forwarded) }
         guard !messages.isEmpty else { return }
         journal.append(messages, retention: retention, now: Date())
         changed()
@@ -382,7 +495,12 @@ final class LogStore: ObservableObject {
         if syslogListening {
             let bytes = SyslogParser.encode5424(severity: .notice, date: Date(), hostname: Host.current().localizedName ?? "NetScope",
                                                 app: "NetScope", msgID: "ESSAI", message: "Message d’essai de NetScope\u{00A0}: le récepteur Syslog fonctionne.")
-            if LogUDPListener.sendToSelf(bytes, port: syslogListener?.boundPort ?? syslogPort) { sent.append("un message Syslog") }
+            if LogUDPListener.sendToSelf(bytes, port: syslogListener?.boundPort ?? syslogPort) { sent.append("un message Syslog (UDP)") }
+        }
+        if syslogTCPListening {
+            let bytes = SyslogParser.encode5424(severity: .notice, date: Date(), hostname: Host.current().localizedName ?? "NetScope",
+                                                app: "NetScope", msgID: "ESSAI", message: "Message d’essai de NetScope\u{00A0}: le récepteur Syslog TCP fonctionne.")
+            if LogTCPListener.sendToSelf(SyslogFrameDecoder.octetCounted(bytes), port: syslogTCPListener?.boundPort ?? syslogPort) { sent.append("un message Syslog (TCP)") }
         }
         if trapListening {
             let community = checkCommunity ? (RegSNMPCredentials.load()?.community ?? "") : "netscope"
@@ -668,15 +786,16 @@ final class LogStore: ObservableObject {
 final class LogInbox: @unchecked Sendable {
     static let limit = 2_000
     private let lock = NSLock()
-    private var items: [(LogDatagram, LogSource)] = []
+    private var items: [(LogDatagram, LogSource, Bool)] = []
     private var dropped = 0
     private var community: String?
 
-    func add(_ datagram: LogDatagram, kind: LogSource) {
+    /// `tcp` : message reçu par le récepteur Syslog TCP (note 78).
+    func add(_ datagram: LogDatagram, kind: LogSource, tcp: Bool = false) {
         lock.lock()
         defer { lock.unlock() }
         if items.count >= Self.limit { dropped += 1; return }
-        items.append((datagram, kind))
+        items.append((datagram, kind, tcp))
     }
 
     func setCommunity(_ value: String?) {
@@ -687,7 +806,7 @@ final class LogInbox: @unchecked Sendable {
 
     var isEmpty: Bool { lock.lock(); defer { lock.unlock() }; return items.isEmpty }
 
-    func take() -> (datagrams: [(LogDatagram, LogSource)], dropped: Int, community: String?) {
+    func take() -> (datagrams: [(LogDatagram, LogSource, Bool)], dropped: Int, community: String?) {
         lock.lock()
         defer { lock.unlock() }
         let result = (items, dropped, community)
