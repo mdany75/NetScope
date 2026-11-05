@@ -10,9 +10,12 @@ public protocol SvcProbing: Sendable {
 /// Test réel : résolution DNS, connexion TLS (port 443) et réponse HTTPS, chacun avec sa latence.
 public struct SvcNetworkProber: SvcProbing {
     public var timeout: TimeInterval
+    /// Adresses de portails de blocage propres à ce réseau (ex. « redirect-portal » d'une FortiGate).
+    public var extraBlockPortals: [String]
 
-    public init(timeout: TimeInterval = 6) {
+    public init(timeout: TimeInterval = 6, extraBlockPortals: [String] = []) {
         self.timeout = timeout
+        self.extraBlockPortals = extraBlockPortals
     }
 
     public func probe(_ text: String) async -> SvcEndpointResult {
@@ -31,28 +34,46 @@ public struct SvcNetworkProber: SvcProbing {
             return result
         }
         result.addresses = addresses
-        // 2. Connexion TCP et poignée de main TLS
+        // Portail de blocage DNS (FortiGuard, Umbrella, 0.0.0.0) : bloqué ici, inutile d'aller plus loin.
+        if let block = SvcFilterDetector.dnsBlock(host: host, addresses: addresses, extraPortals: extraBlockPortals) {
+            result.failure = .blocked
+            result.block = block
+            result.detail = block.evidence
+            return result
+        }
+        // 2. Connexion TCP et poignée de main TLS (émetteur du certificat relevé au passage)
         guard let port = UInt16(exactly: url.port ?? 443), port > 0 else {
             result.failure = .http
             result.detail = "port invalide"
             return result
         }
-        switch await SvcReachability.tlsHandshake(host: host, port: port, timeout: timeout) {
+        let (step, issuer) = await SvcReachability.tlsHandshake(host: host, port: port, timeout: timeout)
+        result.certificateIssuer = issuer
+        switch step {
         case .success(let ms):
             result.tlsMs = ms
         case .failure(let failure, let detail):
             result.failure = failure
             result.detail = detail
+            if failure == .tls, let block = SvcFilterDetector.certificateBlock(issuer: issuer, tlsFailed: true) {
+                result.failure = .blocked
+                result.block = block
+                result.detail = block.evidence
+            }
             return result
         }
-        // 3. Réponse HTTPS (premiers en-têtes, sans suivre les redirections)
+        // 3. Réponse HTTPS (premiers en-têtes et début de la page, sans suivre les redirections)
         switch await SvcReachability.httpsHead(url, timeout: timeout + 2) {
-        case .success(let ms, let status):
+        case .success(let ms, let status, let location, let body):
             result.httpMs = ms
             result.httpStatus = status
             if status == 407 {
                 result.failure = .proxy
                 result.detail = "HTTP 407"
+            } else if let block = SvcFilterDetector.pageBlock(status: status, location: location, body: body) {
+                result.failure = .blocked
+                result.block = block
+                result.detail = block.evidence
             }
         case .failure(let failure, let detail):
             result.failure = failure
@@ -70,7 +91,8 @@ public enum SvcReachability {
     }
 
     enum HTTPStep {
-        case success(Double, Int)
+        /// Durée, code, en-tête Location, début de la page.
+        case success(Double, Int, String?, String)
         case failure(SvcFailure, String)
     }
 
@@ -106,10 +128,26 @@ public enum SvcReachability {
         }
     }
 
-    /// Durée jusqu'à la connexion TLS établie (TCP compris).
-    static func tlsHandshake(host: String, port: UInt16, timeout: TimeInterval) async -> Step {
-        guard let nwPort = NWEndpoint.Port(rawValue: port) else { return .failure(.connect, "port invalide") }
-        let connection = NWConnection(host: NWEndpoint.Host(host), port: nwPort, using: .tls)
+    /// Durée jusqu'à la connexion TLS établie (TCP compris), et émetteur du certificat présenté.
+    /// La vérification reste celle du système (SecTrust) ; le bloc de vérification sert seulement à
+    /// lire l'émetteur, pour reconnaître un certificat de remplacement du pare-feu (note 53).
+    static func tlsHandshake(host: String, port: UInt16, timeout: TimeInterval) async -> (Step, String?) {
+        guard let nwPort = NWEndpoint.Port(rawValue: port) else { return (.failure(.connect, "port invalide"), nil) }
+        let issuer = SvcIssuerBox()
+        let verifyQueue = DispatchQueue(label: "netscope.services.tls.verification")
+        let tls = NWProtocolTLS.Options()
+        sec_protocol_options_set_verify_block(tls.securityProtocolOptions, { _, trustRef, complete in
+            let trust = sec_trust_copy_ref(trustRef).takeRetainedValue()
+            issuer.set(SvcCertificate.issuer(of: trust))
+            SecTrustEvaluateAsyncWithError(trust, verifyQueue) { _, trusted, _ in complete(trusted) }
+        }, verifyQueue)
+        let step = await handshake(host: host, port: nwPort, parameters: NWParameters(tls: tls), timeout: timeout)
+        return (step, issuer.value)
+    }
+
+    private static func handshake(host: String, port nwPort: NWEndpoint.Port, parameters: NWParameters,
+                                  timeout: TimeInterval) async -> Step {
+        let connection = NWConnection(host: NWEndpoint.Host(host), port: nwPort, using: parameters)
         let queue = DispatchQueue(label: "netscope.services.tls")
         let start = Date()
         return await withCheckedContinuation { (continuation: CheckedContinuation<Step, Never>) in
@@ -131,7 +169,11 @@ public enum SvcReachability {
         }
     }
 
-    /// Premiers en-têtes HTTPS (GET sans suivre les redirections) : durée et code.
+    /// Taille lue au début de la page, pour reconnaître une page de blocage.
+    static let bodySample = 16 * 1024
+
+    /// Premiers en-têtes HTTPS (GET sans suivre les redirections) : durée, code, redirection et
+    /// début de la page (texte seulement, 16 Ko au plus).
     static func httpsHead(_ url: URL, timeout: TimeInterval) async -> HTTPStep {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = timeout
@@ -142,10 +184,23 @@ public enum SvcReachability {
         defer { session.invalidateAndCancel() }
         let start = Date()
         do {
-            let (_, response) = try await session.bytes(for: URLRequest(url: url))
+            let (bytes, response) = try await session.bytes(for: URLRequest(url: url))
             let elapsed = Date().timeIntervalSince(start) * 1000
             guard let http = response as? HTTPURLResponse else { return .failure(.http, "réponse non HTTP") }
-            return .success(elapsed, http.statusCode)
+            let location = http.value(forHTTPHeaderField: "Location")
+            var body = Data()
+            let type = (http.value(forHTTPHeaderField: "Content-Type") ?? "").lowercased()
+            if !(300..<400).contains(http.statusCode), type.isEmpty || type.contains("html") || type.contains("text") {
+                do {
+                    for try await byte in bytes {
+                        body.append(byte)
+                        if body.count >= bodySample { break }
+                    }
+                } catch {
+                    // Page coupée en cours de lecture : le début suffit.
+                }
+            }
+            return .success(elapsed, http.statusCode, location, String(decoding: body, as: UTF8.self))
         } catch let error as URLError {
             let failure = classify(urlErrorCode: error.code.rawValue)
             return .failure(failure, error.localizedDescription)
@@ -222,6 +277,24 @@ public enum SvcReachability {
             return "proxy HTTP \(host)\(port)"
         }
         return nil
+    }
+}
+
+/// Émetteur du certificat relevé pendant la vérification TLS (écrit sur la file de vérification).
+final class SvcIssuerBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: String?
+
+    func set(_ value: String?) {
+        lock.lock()
+        defer { lock.unlock() }
+        if stored == nil { stored = value }
+    }
+
+    var value: String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return stored
     }
 }
 

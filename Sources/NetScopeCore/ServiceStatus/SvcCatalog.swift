@@ -62,7 +62,61 @@ public enum SvcCatalog {
                    feedURL: "https://status.dropbox.com/api/v2/summary.json",
                    pageURL: "https://status.dropbox.com",
                    endpoints: ["https://www.dropbox.com/"]),
+    ] + socialNetworks + aiAssistants
+
+    /// Catégorie « Réseaux sociaux » (note 53).
+    public static let socialCategory = "Réseaux sociaux"
+    /// Catégorie « Assistants IA » (note 53).
+    public static let aiCategory = "Assistants IA"
+
+    /// Réseaux sociaux (note 53). Meta publie metastatus.com (application web, sans flux public
+    /// documenté) ; TikTok et Snapchat n'ont pas de page d'état officielle : test depuis ce réseau
+    /// seulement, comme Zscaler et Okta. Adresses clés : site, API et réseau de diffusion, souvent
+    /// bloqués séparément par le filtrage web.
+    static let socialNetworks: [SvcService] = [
+        SvcService(id: "facebook", name: "Facebook", category: socialCategory, format: .none, feedURL: nil,
+                   pageURL: "https://metastatus.com/",
+                   endpoints: ["https://www.facebook.com/", "https://graph.facebook.com/", "https://static.xx.fbcdn.net/"]),
+        SvcService(id: "instagram", name: "Instagram", category: socialCategory, format: .none, feedURL: nil,
+                   pageURL: "https://metastatus.com/",
+                   endpoints: ["https://www.instagram.com/", "https://i.instagram.com/", "https://static.cdninstagram.com/"]),
+        SvcService(id: "tiktok", name: "TikTok", category: socialCategory, format: .none, feedURL: nil,
+                   pageURL: "https://support.tiktok.com/fr",
+                   endpoints: ["https://www.tiktok.com/", "https://www.tiktokv.com/"]),
+        SvcService(id: "snapchat", name: "Snapchat", category: socialCategory, format: .none, feedURL: nil,
+                   pageURL: "https://help.snapchat.com/hc/fr",
+                   endpoints: ["https://www.snapchat.com/", "https://web.snapchat.com/", "https://accounts.snapchat.com/"]),
     ]
+
+    /// Assistants IA (note 53). Claude : Statuspage (status.claude.com, anciennement
+    /// status.anthropic.com) ; ChatGPT : incident.io (summary.json compatible) ; Microsoft Copilot :
+    /// page publique Microsoft 365, incidents « Copilot » seulement ; Grok : status.x.ai refuse
+    /// les lecteurs automatiques, test depuis ce réseau seulement.
+    static let aiAssistants: [SvcService] = [
+        SvcService(id: "claude", name: "Claude", category: aiCategory, format: .statuspage,
+                   feedURL: "https://status.claude.com/api/v2/summary.json",
+                   pageURL: "https://status.claude.com",
+                   endpoints: ["https://claude.ai/", "https://api.anthropic.com/", "https://platform.claude.com/"]),
+        SvcService(id: "chatgpt", name: "ChatGPT", category: aiCategory, format: .incidentIO,
+                   feedURL: "https://status.openai.com/api/v2/summary.json",
+                   pageURL: "https://status.openai.com",
+                   endpoints: ["https://chatgpt.com/", "https://api.openai.com/", "https://auth.openai.com/"]),
+        SvcService(id: "copilot", name: "Microsoft Copilot", category: aiCategory, format: .microsoft365,
+                   feedURL: "https://status.cloud.microsoft/api/posts/m365Consumer",
+                   pageURL: "https://status.cloud.microsoft",
+                   endpoints: ["https://copilot.microsoft.com/", "https://m365.cloud.microsoft/"],
+                   components: ["Copilot"]),
+        SvcService(id: "grok", name: "Grok", category: aiCategory, format: .none, feedURL: nil,
+                   pageURL: "https://status.x.ai/",
+                   endpoints: ["https://grok.com/", "https://x.com/", "https://api.x.ai/"]),
+    ]
+
+    /// Catégories dans l'ordre du catalogue (intégrées d'abord, puis celles des services ajoutés).
+    public static func categories(in services: [SvcService]) -> [String] {
+        var result: [String] = []
+        for service in services where !result.contains(service.category) { result.append(service.category) }
+        return result
+    }
 
     /// Retrouve un service par identifiant ou par nom (sans tenir compte de la casse ni des accents).
     public static func find(_ text: String, in services: [SvcService]) -> SvcService? {

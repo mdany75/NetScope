@@ -8,6 +8,9 @@ import Foundation
 public enum SvcFeedFormat: String, Codable, CaseIterable, Sendable, Identifiable {
     /// Atlassian Statuspage : /api/v2/summary.json (Cloudflare, GitHub, Zoom, Dropbox, Atlassian…).
     case statuspage
+    /// incident.io : /api/v2/summary.json compatible Statuspage (OpenAI), sans maintenances
+    /// planifiées ni composants par incident (note 53).
+    case incidentIO
     /// Slack : slack-status.com/api/v2.0.0/current.
     case slack
     /// Apple System Status : JSON du site (system_status_*.js), parfois enveloppé dans jsonCallback(…).
@@ -30,6 +33,7 @@ public enum SvcFeedFormat: String, Codable, CaseIterable, Sendable, Identifiable
     public var label: String {
         switch self {
         case .statuspage: return "Statuspage (JSON)"
+        case .incidentIO: return "incident.io (JSON)"
         case .slack: return "API Slack Status"
         case .apple: return "Apple System Status"
         case .awsHealth: return "AWS Health (JSON)"
@@ -45,6 +49,9 @@ public enum SvcFeedFormat: String, Codable, CaseIterable, Sendable, Identifiable
 /// État d'un service, du meilleur au pire.
 public enum SvcHealth: String, Codable, CaseIterable, Sendable, Comparable {
     case operational, maintenance, degraded, outage, unreachable, unknown
+    /// Bloqué ici par le filtrage web ou DNS (note 53) : ce n'est pas une panne, le service
+    /// fonctionne ailleurs.
+    case blocked
 
     /// Gravité, pour trier et comparer (inconnu juste après « OK »).
     public var rank: Int {
@@ -53,8 +60,9 @@ public enum SvcHealth: String, Codable, CaseIterable, Sendable, Comparable {
         case .unknown: return 1
         case .maintenance: return 2
         case .degraded: return 3
-        case .unreachable: return 4
-        case .outage: return 5
+        case .blocked: return 4
+        case .unreachable: return 5
+        case .outage: return 6
         }
     }
 
@@ -67,6 +75,7 @@ public enum SvcHealth: String, Codable, CaseIterable, Sendable, Comparable {
         case .degraded: return "Dégradé"
         case .outage: return "Panne chez eux"
         case .unreachable: return "Injoignable d’ici"
+        case .blocked: return "Bloqué ici"
         case .unknown: return "Inconnu"
         }
     }
@@ -184,6 +193,8 @@ public struct SvcFeedReport: Codable, Hashable, Sendable {
 /// Étape où le test depuis ce réseau a échoué.
 public enum SvcFailure: String, Codable, Sendable {
     case dns, connect, tls, proxy, http, timeout
+    /// Page de blocage, portail de blocage DNS ou certificat de remplacement du pare-feu (note 53).
+    case blocked
 
     /// Cause probable, de notre côté.
     public var cause: String {
@@ -194,6 +205,7 @@ public enum SvcFailure: String, Codable, Sendable {
         case .proxy: return "le proxy demande une authentification (HTTP 407)"
         case .http: return "réponse HTTPS invalide"
         case .timeout: return "délai dépassé (pare-feu, proxy ou lien saturé)"
+        case .blocked: return "bloqué par le filtrage web ou DNS de ce réseau (pas une panne)"
         }
     }
 
@@ -205,6 +217,7 @@ public enum SvcFailure: String, Codable, Sendable {
         case .proxy: return "Proxy 407"
         case .http: return "Réponse invalide"
         case .timeout: return "Délai dépassé"
+        case .blocked: return "Bloqué"
         }
     }
 }
@@ -223,9 +236,14 @@ public struct SvcEndpointResult: Codable, Hashable, Sendable {
     /// Étape en échec (nil : réussite).
     public var failure: SvcFailure?
     public var detail: String?
+    /// Émetteur du certificat présenté (« Fortinet_CA_SSL · Fortinet »), lu pendant la poignée de main.
+    public var certificateIssuer: String?
+    /// Preuve d'un blocage par le filtrage de ce réseau (avec failure = .blocked).
+    public var block: SvcBlock?
 
     public init(url: String, host: String, addresses: [String] = [], dnsMs: Double? = nil, tlsMs: Double? = nil,
-                httpMs: Double? = nil, httpStatus: Int? = nil, failure: SvcFailure? = nil, detail: String? = nil) {
+                httpMs: Double? = nil, httpStatus: Int? = nil, failure: SvcFailure? = nil, detail: String? = nil,
+                certificateIssuer: String? = nil, block: SvcBlock? = nil) {
         self.url = url
         self.host = host
         self.addresses = addresses
@@ -235,6 +253,8 @@ public struct SvcEndpointResult: Codable, Hashable, Sendable {
         self.httpStatus = httpStatus
         self.failure = failure
         self.detail = detail
+        self.certificateIssuer = certificateIssuer
+        self.block = block
     }
 
     public var isReachable: Bool { failure == nil }

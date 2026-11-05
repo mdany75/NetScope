@@ -942,6 +942,13 @@ une connexion rapide (depuis le Scanner, la fiche Appareil ou l'Inventaire) part
 
 ## 53. Services en ligne : réseaux sociaux et assistants IA — 0.18.0 (demande de Dany)
 
+**Livrée dans la 0.18.0** ; formats vérifiés le 4 novembre 2026 : Claude = Statuspage
+(status.claude.com, status.anthropic.com y redirige), ChatGPT = incident.io (summary.json
+compatible Statuspage), Copilot = page Microsoft 365 filtrée sur « Copilot » ; metastatus.com
+(Meta), status.x.ai (Grok), TikTok et Snapchat : aucun flux lisible, test depuis ce réseau
+seulement. Essai réel à faire derrière une FortiGate qui filtre (page de blocage FortiGuard,
+filtrage DNS, inspection de certificat, contrôle des applications).
+
 Ajouter au catalogue de la note 15 (`SvcCatalog.swift`, livré dans la 0.6.0) une catégorie
 « Réseaux sociaux » et une catégorie « Assistants IA » :
 

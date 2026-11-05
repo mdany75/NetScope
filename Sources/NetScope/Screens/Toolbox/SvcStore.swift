@@ -34,6 +34,8 @@ final class SvcStore: ObservableObject {
     @Published private(set) var graphSecretSet = false
     /// Proxy du système (lecture locale), affiché avec les problèmes « chez nous ».
     @Published private(set) var systemProxy: String?
+    /// Services et catégories masqués selon le site (note 53).
+    @Published private(set) var sitePreferences = SvcSitePreferences()
 
     /// Démonstration ou capture : aucune requête.
     let isSimulated: Bool
@@ -55,6 +57,8 @@ final class SvcStore: ObservableObject {
         var hasBeenUsed: Bool
         var graphTenant: String
         var graphClient: String
+        /// Absent avant la 0.18.0.
+        var sitePreferences: SvcSitePreferences?
     }
 
     private init() {
@@ -110,7 +114,65 @@ final class SvcStore: ObservableObject {
     // MARK: Lecture
 
     var now: Date { demoNow ?? Date() }
-    var enabledServices: [SvcService] { services.filter(\.isEnabled) }
+    /// Services suivis sur le site actif : cochés dans le catalogue et non masqués pour ce site.
+    var enabledServices: [SvcService] { sitePreferences.visible(services, siteKey: siteKey) }
+    /// Services cochés dans le catalogue, tous sites confondus.
+    var catalogEnabledServices: [SvcService] { services.filter(\.isEnabled) }
+
+    // MARK: Sites (note 53)
+
+    /// Clé du site actif (« Aucun site » a aussi la sienne).
+    var siteKey: String { SiteModel.shared.activeKey }
+    var siteName: String { SiteModel.shared.activeName }
+    var siteSelection: SvcSiteSelection { sitePreferences.selection(for: siteKey) }
+
+    /// Catégories du catalogue, dans l'ordre.
+    var categories: [String] { SvcCatalog.categories(in: services) }
+
+    func categoryState(_ category: String) -> SvcCategoryState {
+        siteSelection.categoryState(category, in: services)
+    }
+
+    func isVisibleHere(_ service: SvcService) -> Bool { siteSelection.isVisible(service) }
+
+    /// Montre ou masque une catégorie pour le site actif.
+    func setCategory(_ category: String, visible: Bool) {
+        let all = services
+        sitePreferences.update(siteKey) { $0.setCategory(category, visible: visible, in: all) }
+        siteSelectionChanged()
+    }
+
+    /// Montre ou masque un service pour le site actif.
+    func setVisibleHere(_ visible: Bool, for id: String) {
+        guard let service = service(id) else { return }
+        let all = services
+        sitePreferences.update(siteKey) { $0.setService(service, visible: visible, in: all) }
+        siteSelectionChanged()
+    }
+
+    /// Services bloqués ici par le filtrage (note 53).
+    var blockedServices: [SvcService] {
+        enabledServices.filter { snapshots[$0.id]?.verdict.health == .blocked }
+    }
+
+    private func siteSelectionChanged() {
+        if let selected = selectedServiceID, let service = service(selected), !isVisibleHere(service) {
+            selectedServiceID = nil
+        }
+        changed()
+        // Services qui redeviennent visibles sans vérification récente : vérifiés tout de suite.
+        guard !isSimulated, hasBeenUsed else { return }
+        for service in enabledServices where snapshots[service.id] == nil { refresh(service.id) }
+    }
+
+    /// Changement de site : les services propres au nouveau site sont vérifiés s'ils ne l'ont jamais été.
+    func siteChanged() {
+        if let selected = selectedServiceID, let service = service(selected), !isVisibleHere(service) {
+            selectedServiceID = nil
+        }
+        guard !isSimulated, hasBeenUsed else { return }
+        for service in enabledServices where snapshots[service.id] == nil { refresh(service.id) }
+    }
     var isChecking: Bool { !checking.isEmpty }
 
     func snapshot(_ id: String) -> SvcSnapshot? { snapshots[id] }
@@ -154,13 +216,14 @@ final class SvcStore: ObservableObject {
         if degraded > 0 { parts.append("\(degraded) dégradé\(degraded > 1 ? "s" : "")") }
         if count(.outage) > 0 { parts.append("\(count(.outage)) en panne") }
         if count(.unreachable) > 0 { parts.append("\(count(.unreachable)) injoignable\(count(.unreachable) > 1 ? "s" : "") d’ici") }
+        if count(.blocked) > 0 { parts.append("\(count(.blocked)) bloqué\(count(.blocked) > 1 ? "s" : "") ici") }
         return parts.joined(separator: " · ")
     }
 
     /// Ton global (barre de menus, tuile).
     var overallTone: Tone {
         if count(.outage) > 0 || count(.unreachable) > 0 { return .critical }
-        if count(.degraded) > 0 { return .warning }
+        if count(.degraded) > 0 || count(.blocked) > 0 { return .warning }
         if count(.maintenance) > 0 { return .accent }
         return currentSnapshots.isEmpty ? .neutral : .success
     }
@@ -236,6 +299,11 @@ final class SvcStore: ObservableObject {
                 MonNotifier.shared.postService(title: "\(current.name) injoignable d’ici", body: snapshot.verdict.headline,
                                                serviceID: current.id, identifier: "service-\(current.id)-injoignable-\(Int(snapshot.date.timeIntervalSince1970))")
             }
+            // Note 53 : bloqué par le filtrage, seulement si le service est suivi sur ce site.
+            if snapshot.verdict.health == .blocked, previousHealth != .blocked, isVisibleHere(current) {
+                MonNotifier.shared.postService(title: "\(current.name) bloqué ici", body: snapshot.verdict.headline,
+                                               serviceID: current.id, identifier: "service-\(current.id)-bloque-\(Int(snapshot.date.timeIntervalSince1970))")
+            }
         }
         // Alertes hors du Mac (Réglages › Alertes), indépendantes des notifications de l'outil.
         if known { for incident in fresh { AlertDispatcher.shared.emit(.serviceIncident(serviceID: current.id, serviceName: current.name, incident: incident)) } }
@@ -246,7 +314,7 @@ final class SvcStore: ObservableObject {
     private func finishedAll(manual: Bool) {
         guard manual else { return }
         let status: ToolRecent.Status = count(.outage) + count(.unreachable) > 0 ? .failure
-            : count(.degraded) > 0 ? .warning : .ok
+            : count(.degraded) + count(.blocked) > 0 ? .warning : .ok
         ToolStore.shared.record(ToolRecent(tool: .cloud, target: "\(currentSnapshots.count) services", summary: summaryLine, status: status))
     }
 
@@ -290,6 +358,7 @@ final class SvcStore: ObservableObject {
         services.removeAll { $0.id == id }
         snapshots[id] = nil
         history.forget(serviceID: id)
+        sitePreferences.forget(serviceID: id)
         if selectedServiceID == id { selectedServiceID = nil }
         changed()
     }
@@ -372,6 +441,7 @@ final class SvcStore: ObservableObject {
         hasBeenUsed = archive.hasBeenUsed
         graphTenant = archive.graphTenant
         graphClient = archive.graphClient
+        sitePreferences = archive.sitePreferences ?? SvcSitePreferences()
         graphSecretSet = !graphTenant.isEmpty && Self.keychain.string(for: Self.secretAccount) != nil
     }
 
@@ -379,7 +449,8 @@ final class SvcStore: ObservableObject {
         guard !isSimulated else { return }
         let archive = Archive(services: services, snapshots: snapshots, history: history, lastRefresh: lastRefresh,
                               refreshMinutes: refreshMinutes, notifyIncidents: notifyIncidents, hasBeenUsed: hasBeenUsed,
-                              graphTenant: graphTenant, graphClient: graphClient)
+                              graphTenant: graphTenant, graphClient: graphClient,
+                              sitePreferences: sitePreferences.bySite.isEmpty ? nil : sitePreferences)
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             let encoder = JSONEncoder()
@@ -394,8 +465,9 @@ final class SvcStore: ObservableObject {
     // MARK: Démonstration
 
     func loadDemo(services: [SvcService], snapshots: [String: SvcSnapshot], history: SvcHistory, now: Date,
-                  selected: String?, proxy: String?) {
+                  selected: String?, proxy: String?, sitePreferences: SvcSitePreferences = SvcSitePreferences()) {
         self.services = services
+        self.sitePreferences = sitePreferences
         self.snapshots = snapshots
         self.history = history
         lastRefresh = now.addingTimeInterval(-2 * 60)

@@ -38,7 +38,7 @@ enum ServiceStatusDemo {
             latestUpdate: "Le trafic est acheminé vers les centres voisins pendant la maintenance\u{00A0}; une latence légèrement plus élevée est possible.")
 
         // Mesures depuis ce réseau (Montréal) : adresses du catalogue, dans le même ordre.
-        let measures: [String: (SvcFeedReport?, String?, [SvcEndpointResult])] = [
+        var measures: [String: (SvcFeedReport?, String?, [SvcEndpointResult])] = [
             "microsoft365": (SvcFeedReport(health: .degraded, description: "1 incident en cours", incidents: [teams],
                                            components: [SvcComponent(name: "Teams", health: .degraded)]),
                              "Microsoft Graph (locataire)",
@@ -72,6 +72,16 @@ enum ServiceStatusDemo {
                                            failure: .dns, detail: "nom introuvable (NXDOMAIN du résolveur 10.182.122.1)")]),
         ]
 
+        // Note 53 : réseaux sociaux et assistants IA. Au Siège, la FortiGate bloque Instagram
+        // (filtrage web FortiGuard, catégorie « Social Networking ») : la page de blocage reçue est
+        // reconnue par les vraies règles (SvcFilterDetector), pas écrite à la main.
+        let chatgpt = SvcIncident(
+            id: "01M6MBCX427A7113A3T4FJ1N6Y", title: "Elevated error rates for file uploads in ChatGPT", impact: .degraded,
+            status: "Sous surveillance", started: at(13, 48), updated: at(14, 21),
+            url: "https://status.openai.com/incidents/01M6MBCX427A7113A3T4FJ1N6Y",
+            latestUpdate: "We’ve applied a mitigation and are monitoring the affected services to confirm recovery.")
+        for (id, value) in socialAndAI(ok: ok, chatgpt: chatgpt) { measures[id] = value }
+
         var snapshots: [String: SvcSnapshot] = [:]
         for service in SvcCatalog.builtIn {
             guard let (feed, source, endpoints) = measures[service.id] else { continue }
@@ -101,10 +111,69 @@ enum ServiceStatusDemo {
             SvcHistoryEvent(date: at(8, 58, dayOffset: -3), serviceID: "aws", serviceName: "AWS", kind: .incident, health: .degraded,
                             title: "Increased API Error Rates · Amazon EC2 · N. Virginia", url: "https://health.aws.amazon.com/health/status"),
         ]
-        history.openIncidents = ["microsoft365|TM892341": teams.title, "cloudflare|cf-yul-maint": cloudflare.title]
+        history.events.insert(SvcHistoryEvent(date: at(14, 30), serviceID: "instagram", serviceName: "Instagram", kind: .blocked,
+                                              health: .blocked, title: snapshots["instagram"]?.verdict.headline ?? "Bloqué ici"), at: 0)
+        history.events.insert(SvcHistoryEvent(date: at(13, 48), serviceID: "chatgpt", serviceName: "ChatGPT", kind: .incident,
+                                              health: .degraded, title: chatgpt.title, url: chatgpt.url), at: 2)
+        history.events.sort { $0.date > $1.date }
+        history.openIncidents = ["microsoft365|TM892341": teams.title, "cloudflare|cf-yul-maint": cloudflare.title,
+                                 "chatgpt|\(chatgpt.id)": chatgpt.title]
         for (id, snapshot) in snapshots { history.lastHealth[id] = snapshot.verdict.health }
 
+        // Au Siège, tout est suivi ; à l'entrepôt de Laval, les réseaux sociaux sont bloqués exprès
+        // et masqués ; au bureau de Québec, seul Grok est masqué.
+        var preferences = SvcSitePreferences()
+        preferences.update(SitesDemo.lavalKey) { $0.hiddenCategories = [SvcCatalog.socialCategory] }
+        preferences.update(SiteFiles.key(for: SitesDemo.quebecID)) { $0.hiddenServices = ["grok"] }
+
         store.loadDemo(services: SvcCatalog.builtIn, snapshots: snapshots, history: history, now: now,
-                       selected: "microsoft365", proxy: nil)
+                       selected: ProcessInfo.processInfo.environment["NETSCOPE_SERVICE"] ?? "microsoft365", proxy: nil,
+                       sitePreferences: preferences)
+    }
+
+    /// Réseaux sociaux et assistants IA (note 53), mesurés « depuis le Siège ».
+    private static func socialAndAI(ok: (String, Double, Double, Double, Int) -> SvcEndpointResult,
+                                    chatgpt: SvcIncident) -> [String: (SvcFeedReport?, String?, [SvcEndpointResult])] {
+        // Page de blocage par défaut d'une FortiGate (message de remplacement « ftgd-block »).
+        let blockPage = """
+        <html><head><title>Web Filter Violation</title></head><body><h1>Web Page Blocked!</h1>
+        <p>You have tried to access a web page which is in violation of your internet usage policy.</p>
+        <p>URL: www.instagram.com/</p><p>Category: Social Networking</p>
+        <p>To have the rating of this web page re-evaluated <a href="https://www.fortiguard.com/faq/wfratingsubmit">please click here</a>.</p>
+        </body></html>
+        """
+        func blocked(_ url: String, _ dns: Double, _ tls: Double, _ http: Double) -> SvcEndpointResult {
+            var result = ok(url, dns, tls, http, 403)
+            result.certificateIssuer = "Fortinet_CA_SSL · Fortinet"
+            if let block = SvcFilterDetector.pageBlock(status: 403, location: nil,
+                                                       body: blockPage.replacingOccurrences(of: "www.instagram.com", with: result.host)) {
+                result.failure = .blocked
+                result.block = block
+                result.detail = block.evidence
+            }
+            return result
+        }
+        func operational() -> SvcFeedReport { SvcFeedReport(health: .operational, description: "Aucun incident en cours") }
+        return [
+            "facebook": (nil, nil, [ok("https://www.facebook.com/", 7, 19, 64, 302), ok("https://graph.facebook.com/", 7, 18, 52, 400),
+                                    ok("https://static.xx.fbcdn.net/", 6, 17, 28, 404)]),
+            "instagram": (nil, nil, [blocked("https://www.instagram.com/", 7, 21, 9), blocked("https://i.instagram.com/", 8, 20, 8),
+                                     blocked("https://static.cdninstagram.com/", 6, 19, 8)]),
+            "tiktok": (nil, nil, [ok("https://www.tiktok.com/", 11, 29, 88, 200), ok("https://www.tiktokv.com/", 12, 31, 71, 404)]),
+            "snapchat": (nil, nil, [ok("https://www.snapchat.com/", 10, 30, 95, 200), ok("https://web.snapchat.com/", 10, 31, 102, 302),
+                                    ok("https://accounts.snapchat.com/", 11, 33, 117, 302)]),
+            "claude": (operational(), "Statuspage (JSON)",
+                       [ok("https://claude.ai/", 9, 26, 74, 403), ok("https://api.anthropic.com/", 9, 25, 61, 404),
+                        ok("https://platform.claude.com/", 10, 27, 83, 307)]),
+            "chatgpt": (SvcFeedReport(health: .degraded, description: "1 incident en cours", incidents: [chatgpt],
+                                      components: [SvcComponent(name: "File uploads", health: .degraded)]),
+                        "incident.io (JSON)",
+                        [ok("https://chatgpt.com/", 8, 22, 69, 403), ok("https://api.openai.com/", 9, 24, 58, 421),
+                         ok("https://auth.openai.com/", 9, 25, 77, 302)]),
+            "copilot": (operational(), "Microsoft 365 (page publique)",
+                        [ok("https://copilot.microsoft.com/", 13, 36, 121, 200), ok("https://m365.cloud.microsoft/", 12, 34, 98, 302)]),
+            "grok": (nil, nil, [ok("https://grok.com/", 9, 27, 92, 200), ok("https://x.com/", 8, 24, 81, 200),
+                                ok("https://api.x.ai/", 10, 28, 66, 404)]),
+        ]
     }
 }

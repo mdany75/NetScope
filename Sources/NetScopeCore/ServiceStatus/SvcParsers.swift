@@ -17,6 +17,9 @@ public enum SvcFeedParser {
     public static func parse(_ data: Data, service: SvcService, now: Date) throws -> SvcFeedReport {
         switch service.format {
         case .statuspage: return try statuspage(data)
+        // incident.io publie le même summary.json (page, status, components, incidents), sans
+        // maintenances planifiées ni lien court : le même lecteur suffit.
+        case .incidentIO: return try statuspage(data, fallbackPageURL: service.pageURL)
         case .slack: return try slack(data, pageURL: service.pageURL)
         case .apple: return try apple(data, pageURL: service.pageURL)
         case .awsHealth: return try awsHealth(data, pageURL: service.pageURL)
@@ -30,13 +33,16 @@ public enum SvcFeedParser {
 
     // MARK: Atlassian Statuspage (/api/v2/summary.json)
 
-    public static func statuspage(_ data: Data) throws -> SvcFeedReport {
+    public static func statuspage(_ data: Data, fallbackPageURL: String? = nil) throws -> SvcFeedReport {
         let root = try object(data)
         guard let status = root["status"] as? [String: Any] else {
             throw SvcParseError.unreadable("champ «\u{00A0}status\u{00A0}» absent (summary.json attendu)")
         }
         let page = root["page"] as? [String: Any]
-        let pageURL = page?["url"] as? String
+        // « https://status.openai.com/ » : sans la barre finale, pour des liens /incidents/… propres.
+        let pageURL = ((page?["url"] as? String) ?? fallbackPageURL).map { url in
+            url.hasSuffix("/") ? String(url.dropLast()) : url
+        }
         var components: [SvcComponent] = []
         for item in root["components"] as? [[String: Any]] ?? [] {
             guard (item["group"] as? Bool) != true, let name = item["name"] as? String else { continue }
@@ -89,7 +95,15 @@ public enum SvcFeedParser {
             default: impact = .degraded
             }
         }
-        let updates = item["incident_updates"] as? [[String: Any]] ?? []
+        // Statuspage liste la plus récente d'abord ; incident.io, dans l'ordre chronologique :
+        // la date décide quand elle est là.
+        let raw = item["incident_updates"] as? [[String: Any]] ?? []
+        func when(_ update: [String: Any]) -> Date? {
+            date(update["display_at"]) ?? date(update["created_at"]) ?? date(update["updated_at"])
+        }
+        let updates = raw.allSatisfy({ when($0) != nil })
+            ? raw.sorted { (when($0) ?? .distantPast) > (when($1) ?? .distantPast) }
+            : raw
         let affected = (item["components"] as? [[String: Any]] ?? []).compactMap { $0["name"] as? String }
         let link = (item["shortlink"] as? String) ?? pageURL.map { $0 + "/incidents/" + id }
         return SvcIncident(id: id, title: title, impact: impact, status: statuspageStatus(state), affected: affected,
