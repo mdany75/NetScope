@@ -1,5 +1,114 @@
 # Changements
 
+## 0.26.0 — 2026-11-05
+
+Nouveau Bilan de raccordement en un clic avec mode avant/après, vrai Test MTU du chemin,
+Ping continu en TCP et HTTP(S) jusqu’à 64 cibles, éléments des balises Wi-Fi, tunnels SSH et
+saut par bastion dans Accès distant.
+
+### Ajouté
+- **Bilan de raccordement** (Boîte à outils) : en un clic sur la prise où le Mac est branché,
+  NetScope vérifie le lien (vitesse, duplex), le switch et le port (LLDP/CDP), le VLAN, le PoE
+  annoncé, le DHCP (sans prendre de bail), la passerelle (perte, latence), le DNS et l’accès
+  Internet. Chaque étape est OK, en avertissement ou en échec, avec une explication en clair.
+  - **Avant/après** : un bilan peut être retenu comme « avant » ; les bilans suivants lui sont
+    comparés et les écarts (vitesse, port, VLAN, serveurs DHCP, pertes, temps de réponse) sont
+    surlignés.
+  - **VLAN attendu** facultatif : un port brassé dans le mauvais VLAN est signalé en échec ; un
+    serveur DHCP hors de la liste des serveurs autorisés du Test DHCP aussi.
+  - Historique des bilans par site, export PDF d’un bilan et nouvelle section facultative
+    « Bilan de raccordement » dans les rapports.
+- **Test MTU réel** : la Boîte à outils mesure le MTU du chemin vers une cible (pings « ne pas
+  fragmenter » de taille variable, par dichotomie) et affiche « MTU du chemin = N octets
+  vers X ».
+  - Diagnostic probable du chemin (PPPoE, tunnel IPsec, GRE, WireGuard, VXLAN, DS-Lite, trames
+    jumbo), MSS TCP conseillé, MTU de l’interface de ce Mac, et alerte quand un pare-feu jette
+    les paquets trop grands sans prévenir (trou noir ICMP).
+  - Étapes de la recherche détaillées, historique des mesures (un MTU qui a changé est
+    signalé), nouvelle mesure en double-cliquant une ligne, export CSV ; option pour tester les
+    trames jumbo jusqu’à 9000 octets.
+- **Ping continu en TCP et HTTP(S)**, pour suivre les caméras, serveurs et sites qui bloquent
+  le ping : le mode TCP mesure le temps de connexion à un port, le mode HTTP(S) le temps de
+  réponse d’une page avec son code HTTP. Mêmes cartes, graphes, journal et export CSV.
+  « hôte:port », « tcp://… » et « https://… » s’ajoutent directement dans le champ ; la carte
+  d’une cible web détaille le temps DNS, TCP, TLS et l’attente du serveur.
+- **Traceroute (MTR) en ICMP, UDP ou TCP** vers un port (proposé automatiquement pour les
+  cibles TCP et web), pour suivre un chemin qui filtre l’ICMP.
+- **Ping continu, tableau compact** : au-delà de 9 cibles, l’écran passe tout seul à un tableau
+  (état, dernière mesure, courbe, perte, seuil) ; un bouton Auto / Cartes / Tableau impose l’un
+  ou l’autre. On peut suivre jusqu’à 64 cibles.
+- **Ping continu** : seuil de lenteur réglable pour chaque cible (clic droit sur la carte ou
+  colonne « Seuil » du tableau) ; notification macOS quand une cible ne répond plus et quand
+  elle revient (menu Session et Réglages › Notifications) ; session (cibles et réglages)
+  enregistrée dans un fichier et rouverte, la dernière d’un clic depuis l’écran vide.
+- **« Rapport pour le fournisseur Internet »** en PDF (Ping continu › Exporter) : perte,
+  latence et gigue heure par heure, périodes de panne, disponibilité et constats en phrases
+  simples.
+- **Éléments des balises Wi-Fi** (Wi-Fi, ce Mac) : pour chaque BSSID, génération Wi-Fi (4, 5,
+  6, 6E, 7), largeur annoncée jusqu’à 320 MHz, flux spatiaux, itinérance 802.11k/v/r, charge
+  de la borne (clients associés, utilisation du canal en %), sécurité détaillée (WPA2,
+  WPA3-SAE, OWE, PMF obligatoire ou facultative).
+  - Nom de la borne quand l’élément propriétaire le donne (Cisco, Aruba, Fortinet, avec modèle
+    et numéro de série pour Fortinet), sinon nom WPS des routeurs et imprimantes.
+  - Nouvelles colonnes cachables (Génération, 11k/v/r, Charge, Clients, Nom de la borne, PMF)
+    et panneau « Balise du BSSID » pour le réseau sélectionné.
+  - Nouvelles recommandations : itinérance sans 802.11k/v/r ou incomplète (borne fautive
+    nommée), borne saturée (plus de 70 % d’utilisation ou plus de 40 clients), WPA2 seul alors
+    que WPA3 est possible, WPA2-Entreprise sans PMF.
+- **Tunnels SSH** dans le carnet d’Accès distant : redirection locale (-L) et proxy SOCKS5
+  (-D) par une connexion SSH, chacun dans son onglet de session (démarrer, arrêter, état,
+  journal de ssh), avec un port local libre choisi automatiquement sur 127.0.0.1. RDP, VNC
+  (session intégrée) ou le navigateur web s’ouvrent à travers un tunnel ouvert ; son adresse
+  locale se copie.
+- **Saut par bastion** (ProxyJump, -J) choisi parmi les connexions SSH du carnet ; il sert au
+  terminal intégré, aux tunnels et à « Ouvrir dans Terminal ».
+- **Import de `~/.ssh/config`** (Host, HostName, User, Port, ProxyJump, IdentityFile) dans le
+  carnet, en lecture seule ; les clés ne sont jamais copiées.
+- **Console série** : option « Horodater » qui ajoute l’heure à la milliseconde devant chaque
+  ligne reçue, aussi dans le journal de session.
+- **Inventaire** : export CSV pour NetBox, GLPI et Snipe-IT (menu Exporter), avec les noms de
+  colonnes de leurs imports.
+- **Wake-on-LAN** : réveil de plusieurs postes d’un coup (⌘-clic dans le tableau), broadcast
+  dirigé automatique vers le sous-réseau d’un poste distant, et suivi par ping qui affiche
+  « réveillé en N s ».
+
+### Modifié
+- **Wi-Fi** : le filtre « Signalés » inclut les bornes saturées ; l’export CSV ajoute la
+  génération, 11k/v/r, l’utilisation du canal, les clients, la PMF et le nom de la borne.
+- **Accès distant** : le nom d’utilisateur est aussi demandé et retenu pour RDP, et proposé
+  pour SFTP (nom retenu, sinon le compte SSH de l’appareil).
+- **Inventaire** : les appareils à adresse MAC aléatoire (adresse privée) sont rapprochés de
+  leur ancienne fiche par le nom d’hôte ou le numéro de série et proposés dans « Doublons
+  probables », jamais fusionnés sans votre accord.
+- **Alertes** : une licence qui expire, un firmware à mettre à jour, un message Syslog grave et
+  un WAN en panne ont maintenant leur propre type d’alerte et de notification, chacun
+  activable à part, au lieu d’un « sonde en panne » général.
+
+### Corrigé
+- **Accès distant** : le mot de passe SSH enregistré au Trousseau est maintenant fourni même
+  quand le nom d’utilisateur vient de `~/.ssh/config` ; une connexion dont le nom est dans ce
+  fichier ne le demande plus.
+- **Wi-Fi** : sans autorisation de localisation, macOS masque aussi les éléments des balises ;
+  NetScope l’explique et propose de l’autoriser au lieu d’afficher des colonnes vides.
+
+### Limites connues
+- Tout ce qui précède est vérifié sur des données de démonstration ; les essais sur de vrais
+  switchs, bornes, bastions et liens restent à faire.
+- Le Bilan de raccordement dépend de ce que le switch annonce : sans LLDP ni CDP sur le port,
+  le switch, le port, le VLAN et le PoE restent inconnus (avertissement, pas échec). Le PoE est
+  celui que le switch annonce, pas une mesure électrique. La vitesse de connexion à Internet
+  n’est pas mesurée par le bilan (Speedtest à part).
+- Le Test MTU suppose que la cible répond au ping : si l’ICMP est filtré en route, NetScope ne
+  peut que signaler un trou noir probable, sans valeur exacte.
+- Le mode HTTP(S) du Ping continu mesure une requête complète, plus lourde qu’un ping : garder
+  un intervalle raisonnable sur les serveurs des autres.
+- Les éléments des balises Wi-Fi ne sont lus que pour les réseaux vus par ce Mac et exigent
+  l’autorisation de localisation ; la charge (QBSS) n’est connue que si la borne l’annonce.
+- Les tunnels SSH et le saut par bastion passent par `/usr/bin/ssh` : l’authentification par
+  clé suit la configuration SSH du Mac.
+- Le broadcast dirigé du Wake-on-LAN est souvent bloqué par les routeurs et les FortiGate
+  (directed-broadcast désactivé par défaut).
+
 ## 0.25.0 — 2026-11-05
 
 SNMP v3 partout et nouveau Navigateur SNMP, graphes du trafic de chaque port sur 30 jours, et

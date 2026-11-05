@@ -4,7 +4,7 @@
 sur plusieurs plages, dit sur quel switch et quel port chacun est branché, puis diagnostique,
 surveille, documente et ouvre une session à distance, site par site, dans une seule fenêtre.
 
-[![Version](https://img.shields.io/badge/version-0.25.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.26.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-lightgrey?logo=apple)](#installation)
 [![Licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
@@ -29,7 +29,9 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   rapports PDF, terminal SSH et Telnet, console série et VNC intégrés, et depuis la 0.23.0 un
   journal de l’app avec « Exporter un diagnostic » et une fiche matériel remplie toute seule ;
   depuis la 0.25.0, SNMP v3 partout, un Navigateur SNMP, le trafic de chaque port sur 30 jours
-  et le cycle PoE d’un port à distance.
+  et le cycle PoE d’un port à distance ; depuis la 0.26.0, un Bilan de raccordement en un clic
+  (avant/après), le vrai MTU du chemin, le Ping continu en TCP et HTTP(S), les éléments des
+  balises Wi-Fi, les tunnels SSH et le saut par bastion.
 
 > **État du projet** : NetScope est en développement actif (0.x). Les fonctions réseau
 > (FortiGate, FortiAP, SNMP, Syslog, sessions SSH, Telnet, série et VNC) sont testées sur des
@@ -55,8 +57,8 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
 
 ### Diagnostic
 
-- **Ping continu** jusqu’à 9 cibles : statistiques (min, moyenne, max, gigue, perte, P95),
-  journal des coupures, vue façon Terminal, traceroute et MTR.
+- **Ping continu** (ICMP, TCP ou HTTP(S)) jusqu’à 64 cibles : statistiques
+  (min, moyenne, max, gigue, perte, P95), journal des coupures, vue façon Terminal, traceroute et MTR.
 - **Fiche Appareil** : réseau, matériel, emplacement physique, ports et bannières, sonde web,
   notes, et onglet **Ressources** (processeur, mémoire, disques et trafic par SNMP).
 - Capture **LLDP/CDP** : le switch, le port, le VLAN et le PoE où ce Mac est branché.
