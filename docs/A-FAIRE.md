@@ -304,6 +304,12 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 - **Disposition livrée dans la 0.20.2** (croquis C choisi par Dany) : clic sur une carte → elle
   se retourne en Terminal (réponses de la cible), traceroute (MTR) et journal dessous, grand
   graphe retiré. Reste : préréglages (ci-dessous) et traceroute relancé tout seul.
+- **Demandes de Dany après la 0.20.3** (4 novembre 2026), pour la 0.21.0 :
+  - mettre **une cible en pause** individuellement (et la reprendre), sans arrêter les autres ;
+  - tableau **MTR / Traceroute** : toutes les colonnes visibles (« Écart-type » coupé), et
+    pouvoir faire défiler le tableau à gauche et à droite quand il est trop large ;
+  - **l'écran s'ouvre vide** : aucune cible ajoutée d'office et aucun ancien journal à
+    l'ouverture ; les cibles viennent seulement de Dany (champ, Scanner, fiche Appareil).
 - **Constat de Dany** (4 novembre 2026) : « j'aime pas la fenêtre de ping en continu, je sais
   pas pourquoi ». Avant de coder, proposer des croquis de dispositions différentes et choisir
   avec lui (voir aussi ce qui gêne : densité, graphe, place des cibles, journal).
@@ -771,7 +777,7 @@ entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 3
 - Copie de la configuration de chaque FortiGate (API, lecture), puis des switchs en SSH ;
   historique par site, comparaison avant/après (différences surlignées), avant une intervention.
 
-## 41. Firmware et licences du parc — 0.19.0 (analyse, retenue par Dany)
+## 41. Firmware et licences du parc — 0.21.0 (analyse, retenue par Dany)
 
 - Versions FortiOS, FortiSwitch et FortiAP de chaque site, versions recommandées, contrats
   FortiGuard et dates d’expiration ; tableau de tous les sites et drapeau « firmware à jour » du
