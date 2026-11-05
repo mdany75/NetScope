@@ -48,46 +48,58 @@ struct RemoteDetailPanel: View {
         }
     }
 
+    /// En-tête de la carte : icône, nom, note et pastilles (`chips`), bouton de repli à droite.
+    private func header<Chips: View>(@ViewBuilder chips: () -> Chips) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            RemoteProtoIcon(proto: connection.proto, size: 40)
+            VStack(alignment: .leading, spacing: 2) {
+                // Largeur idéale nulle : seules les pastilles décident si la disposition sur une
+                // ligne tient (`ViewThatFits`) ; un nom ou une note longs s'abrègent ou passent à la
+                // ligne comme avant, sans repousser le dossier sous l'en-tête.
+                Text(connection.name).font(Theme.panelTitle).lineLimit(1)
+                    .frame(minWidth: 0, idealWidth: 0, maxWidth: .infinity, alignment: .leading)
+                if !connection.note.isEmpty {
+                    Text(connection.note).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                        .frame(minWidth: 0, idealWidth: 0, maxWidth: .infinity, alignment: .leading)
+                }
+                chips().padding(.top, 4)
+            }
+            .layoutPriority(1)
+            Spacer(minLength: 0)
+            Button {
+                model.detailsVisible = false
+            } label: {
+                Image(systemName: "sidebar.right").font(.system(size: 12))
+            }
+            .buttonStyle(.ghost)
+            .help("Replier le panneau de détails")
+            // Servi avant le texte (priorité 1) : le bouton garde sa taille et reste
+            // visible même si la colonne coupe un contenu trop large.
+            .fixedSize()
+            .layoutPriority(2)
+        }
+    }
+
     private var identityCard: some View {
         Panel {
             VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .top, spacing: 10) {
-                    RemoteProtoIcon(proto: connection.proto, size: 40)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(connection.name).font(Theme.panelTitle).lineLimit(1)
-                        if !connection.note.isEmpty {
-                            Text(connection.note).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                // Correctif 0.27.2 : un nom de dossier long (« St-Georges GM / St-Georges Toyota »)
+                // sur la ligne de la pastille d'état élargissait le panneau au-delà de sa colonne de
+                // 300 points, qui recouvrait alors la session et sortait de la fenêtre. S'il ne tient
+                // pas à côté d'elle, il passe sous l'en-tête, sur toute la largeur du panneau (sous
+                // le nom, la colonne du texte l'abrégeait), puis s'abrège au milieu s'il le faut.
+                ViewThatFits(in: .horizontal) {
+                    header {
+                        HStack(spacing: 6) {
+                            reachChip
+                            Chip(text: connection.folderLabel, tone: .neutral)
                         }
-                        // Correctif 0.27.2 : un nom de dossier long (« St-Georges GM / St-Georges
-                        // Toyota ») passe sous la pastille d'état, puis s'abrège s'il le faut ; sur
-                        // une seule ligne, il élargissait le panneau au-delà de sa colonne de
-                        // 300 points, qui recouvrait alors la session et sortait de la fenêtre.
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: 6) {
-                                reachChip
-                                Chip(text: connection.folderLabel, tone: .neutral)
-                            }
-                            VStack(alignment: .leading, spacing: 4) {
-                                reachChip
-                                Chip(text: connection.folderLabel, tone: .neutral, truncates: true)
-                                    .help(connection.folderLabel)
-                            }
-                        }
-                        .padding(.top, 4)
                     }
-                    .layoutPriority(1)
-                    Spacer(minLength: 0)
-                    Button {
-                        model.detailsVisible = false
-                    } label: {
-                        Image(systemName: "sidebar.right").font(.system(size: 12))
+                    VStack(alignment: .leading, spacing: 8) {
+                        header { reachChip }
+                        Chip(text: connection.folderLabel, tone: .neutral, truncates: true)
+                            .help(connection.folderLabel)
                     }
-                    .buttonStyle(.ghost)
-                    .help("Replier le panneau de détails")
-                    // Servi avant le texte (priorité 1) : le bouton garde sa taille et reste
-                    // visible même si la colonne coupe un contenu trop large.
-                    .fixedSize()
-                    .layoutPriority(2)
                 }
                 if connection.proto.isInsecure {
                     SpeedBanner(text: "Protocole non chiffré : le mot de passe circule en clair.")
