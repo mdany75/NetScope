@@ -89,6 +89,9 @@ final class RustDeskServerModel: ObservableObject {
             case "rustdesk-serveur-ancien"?:
                 isShown = true
                 status = RustDeskServerDemo.degraded(now: Date())
+                // Console hbbr fermée : les lectures récentes n'ont donné aucun échantillon
+                // (voir RustDeskServerSamples.sample(from:)) ; le graphe s'arrête il y a 25 min.
+                samples = samples.filter { $0.date < Date().addingTimeInterval(-25 * 60) }
             case "rustdesk-serveur-console"?:
                 isShown = true
                 status = RustDeskServerDemo.consoleSilent(now: Date())
