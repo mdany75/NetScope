@@ -140,6 +140,7 @@ struct SidebarSitePicker: View {
         let site = sites.activeSite
         let link = site.map { sites.linkState($0) }
         Button { presenter.isPresented = true } label: {
+            VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 ZStack(alignment: .bottomTrailing) {
                     Image(systemName: site == nil ? "mappin.slash" : "mappin.and.ellipse")
@@ -171,12 +172,16 @@ struct SidebarSitePicker: View {
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
             }
+            // Croquis 2 : les plages du site et un petit résumé, dans la même carte.
+            Divider().opacity(0.8)
+            siteDetails
+            }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 7).fill(hover || presenter.isPresented ? Theme.hover.opacity(1.6) : Theme.hover))
-            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.border.opacity(0.7)))
-            .contentShape(RoundedRectangle(cornerRadius: 7))
+            // Même carte que « Interface active » en bas de la barre latérale.
+            .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(hover || presenter.isPresented ? Theme.hover.opacity(1.6) : Theme.hover))
+            .contentShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
@@ -187,6 +192,48 @@ struct SidebarSitePicker: View {
             SitePickerPanel(close: { presenter.isPresented = false })
                 .environmentObject(state)
         }
+    }
+
+    private static let rangesShown = 3
+
+    /// Plages du site actif (au plus trois, puis « +N plages »), dans le style des plages du
+    /// Scanner, puis le résumé : appareils du dernier scan et alertes de la Surveillance.
+    @ViewBuilder private var siteDetails: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if state.ranges.isEmpty {
+                Text("Aucune plage").font(Theme.caption).foregroundStyle(Theme.textSecondary)
+            }
+            ForEach(state.ranges.prefix(Self.rangesShown)) { range in
+                HStack(spacing: 6) {
+                    Text(range.text).font(Theme.mono(11)).foregroundStyle(Theme.text).lineLimit(1)
+                    Spacer(minLength: 4)
+                    Text(range.label).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                }
+                .opacity(range.isEnabled ? 1 : 0.55)
+            }
+            if state.ranges.count > Self.rangesShown {
+                let extra = state.ranges.count - Self.rangesShown
+                Text("+\(extra) plage\(extra > 1 ? "s" : "")").font(Theme.caption).foregroundStyle(Theme.textSecondary)
+            }
+            HStack(spacing: 4) {
+                if sites.hasUnsavedRanges(state) {
+                    Circle().fill(Theme.warningDot).frame(width: 6, height: 6)
+                        .help("Plages modifiées, non enregistrées dans le site")
+                }
+                Text(summary).lineLimit(1).truncationMode(.tail)
+            }
+            .font(Theme.caption)
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.top, 2)
+        }
+    }
+
+    private var summary: String {
+        let count = state.devices.count
+        let devices = count == 0 ? "Aucun scan" : "\(count) appareil\(count > 1 ? "s" : "")"
+        let alerts = state.sidebarBadges[.surveillance] ?? 0
+        guard alerts > 0 else { return devices }
+        return devices + " · \(alerts) alerte\(alerts > 1 ? "s" : "")"
     }
 
     private func shortSubtitle(_ site: Site?, link: SiteLinkState?) -> String {

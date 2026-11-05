@@ -29,24 +29,3 @@ struct MTUToolView: View {
         }
     }
 }
-
-/// iperf3 et Speedtest : liens vers l'écran Speedtest.
-struct SpeedRedirectView: View {
-    @EnvironmentObject private var state: AppState
-    let tool: ToolKind
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ToolNotice(tone: .accent, title: tool == .iperf ? "iperf3 est dans l’écran Speedtest" : "Le test de débit est dans l’écran Speedtest",
-                       message: tool == .iperf
-                       ? "Mesure du débit réel entre ce Mac et un serveur iperf3 du réseau (flux parallèles, sens envoi, réception ou bidirectionnel), avec l’historique des mesures."
-                       : "Débit Internet descendant et montant, latence au repos et sous charge (bufferbloat), avec l’historique des tests.")
-            Button {
-                state.open(.speedtest)
-            } label: {
-                Label("Ouvrir Speedtest", systemImage: Screen.speedtest.symbol)
-            }
-            .buttonStyle(.primary)
-        }
-    }
-}

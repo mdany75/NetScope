@@ -1,46 +1,36 @@
 import NetScopeCore
 import SwiftUI
 
-/// Écran `Screen.speedtest` (croquis docs/croquis/Speedtest.dc.html) : débit Internet (Cloudflare,
-/// M-Lab, LibreSpeed, Ookla), choix du serveur, débit local par iperf3, historique.
-struct SpeedtestScreen: View {
-    @EnvironmentObject private var state: AppState
-    @ObservedObject private var model = SpeedtestModel.shared
+/// Speedtest et iperf3 dans la Boîte à outils (croquis docs/croquis/Speedtest.dc.html) : débit
+/// Internet (Cloudflare, M-Lab, LibreSpeed, Ookla), choix du serveur, débit local par iperf3,
+/// historique. L'ancien écran à part est retiré de la barre latérale (groupe Accès).
+struct SpeedtestToolView: View {
+    @ObservedObject var model: SpeedtestModel
+    let tool: ToolKind
+
+    /// Onglets de l'outil : Speedtest (Internet, serveurs, historique) ou iperf3 (réseau local,
+    /// historique).
+    private var tabs: [SpeedTab] { tool == .iperf ? [.lan, .historique] : [.internet, .serveurs, .historique] }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 14) {
             tabBar
-            ScrollView {
-                Group {
-                    switch model.tab {
-                    case .internet: SpeedInternetView(model: model)
-                    case .serveurs: SpeedServersView(model: model)
-                    case .lan: SpeedLanView(model: model)
-                    case .historique: SpeedHistoryView(model: model)
-                    }
+            Group {
+                switch model.tab {
+                case .internet: SpeedInternetView(model: model)
+                case .serveurs: SpeedServersView(model: model)
+                case .lan: SpeedLanView(model: model)
+                case .historique: SpeedHistoryView(model: model)
                 }
-                .padding(.horizontal, Theme.contentPadding)
-                .padding(.vertical, 16)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .screenToolbar {
-            statusPill
-            Button {
-                ToolStore.shared.open(.disques, in: state)
-            } label: {
-                Label("Vitesse des disques", systemImage: "internaldrive")
-            }
-            .buttonStyle(.secondary)
-            .help("Mesurer un disque, un partage réseau ou un dossier nuage (Boîte à outils)")
-            Button {
-                model.exportCSV()
-            } label: {
-                Label("Exporter CSV", systemImage: "square.and.arrow.down")
-            }
-            .buttonStyle(.secondary)
-            .speedDisabled(model.history.isEmpty)
-        }
+        .onAppear(perform: fitTab)
+        .onChange(of: tool) { fitTab() }
+    }
+
+    private func fitTab() {
+        if !tabs.contains(model.tab) { model.tab = tabs[0] }
     }
 
     private var statusPill: some View {
@@ -67,18 +57,15 @@ struct SpeedtestScreen: View {
         HStack(spacing: 10) {
             // Onglets : contrôle segmenté natif (le nombre de tests suit « Historique »).
             Picker("Onglet", selection: $model.tab) {
-                ForEach(SpeedTab.allCases) { tab in
+                ForEach(tabs) { tab in
                     Text(tab == .historique ? "\(tab.label) (\(model.history.count))" : tab.label).tag(tab)
                 }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
             .fixedSize()
-            // Phrase d'aide : passe à la ligne en petite fenêtre plutôt que d'être tronquée.
-            Text(model.tab.hint).font(Theme.small).foregroundStyle(Theme.textSecondary)
-                .lineLimit(3)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            .help(model.tab.hint)
+            // La phrase d'aide de l'onglet passe en info-bulle : le titre de l'outil la donne déjà.
             Spacer(minLength: 0)
             if let toast = model.toast {
                 HStack(spacing: 6) {
@@ -96,10 +83,16 @@ struct SpeedtestScreen: View {
                 .padding(.vertical, 5)
                 .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.successSoft))
             }
+            // iperf3 : l'état du dernier test Internet n'a pas sa place, sauf iperf3 en cours.
+            if tool == .speedtest || model.lanRunning { statusPill }
+            Button {
+                model.exportCSV()
+            } label: {
+                Label("Exporter CSV", systemImage: "square.and.arrow.down")
+                    .fixedSize()
+            }
+            .buttonStyle(.secondary)
+            .speedDisabled(model.history.isEmpty)
         }
-        .padding(.horizontal, Theme.contentPadding)
-        .padding(.vertical, 8)
-        .background(Theme.panel)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
     }
 }

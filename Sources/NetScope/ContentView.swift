@@ -74,13 +74,12 @@ struct ContentView: View {
         case .ping: PingScreen()
         case .switchs: SwitchScreen()
         case .wifi: WifiScreen()
-        case .outils: ToolboxScreen()
+        case .outils, .speedtest: ToolboxScreen()
         case .surveillance: SurveillanceScreen()
         case .trafic: TraficScreen()
         case .analyse: AnalyseScreen()
         case .rapports: RapportScreen()
         case .acces: RemoteScreen()
-        case .speedtest: SpeedtestScreen()
         case .reglages: ReglagesScreen()
         }
     }

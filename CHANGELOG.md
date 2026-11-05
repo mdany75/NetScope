@@ -1,5 +1,22 @@
 # Changements
 
+## 0.20.1 — 2026-11-04
+
+Une barre latérale plus simple : le site actif montre ses plages et un résumé, et Speedtest
+rejoint la Boîte à outils.
+
+### Modifié
+- **Site sous le logo** : la carte du site actif montre maintenant ses plages (au plus trois,
+  puis « +N plages ») et un résumé, par exemple « 21 appareils · 6 alertes ». Elle a le même
+  style que la carte « Interface active » du bas.
+- **Section « Sites » retirée** de la barre latérale : on change de site par la carte sous le
+  logo (ou ⌘⇧S).
+- **Speedtest et iperf3 dans la Boîte à outils** (groupe Performance) : ils s'ouvrent dans
+  l'outil lui-même, sans écran à part ; Speedtest n'est plus dans le groupe Accès. Les anciens
+  liens vers l'écran Speedtest ouvrent l'outil.
+- **Petite fenêtre** : avec un outil pleine largeur (Speedtest, iperf3, capture de paquets…),
+  la liste des outils devient un menu « Outil » pour laisser toute la place à l'outil.
+
 ## 0.20.0 — 2026-11-04
 
 Les rapports de suivi et un Inventaire repensé : NetScope dit ce qui a changé depuis le dernier

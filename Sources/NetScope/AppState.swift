@@ -32,7 +32,14 @@ final class AppState: ObservableObject {
 
     @Published var screen: Screen = .scanner {
         // Notes 31, 33 et 34 : chaque changement d'écran est retenu pour Retour (⌘[).
-        didSet { screenChanged(from: oldValue) }
+        didSet {
+            // Speedtest est devenu un outil : l'ancien écran ouvre la Boîte à outils sur cet outil.
+            if screen == .speedtest {
+                ToolStore.shared.selectedTool = .speedtest
+                screen = .outils
+            }
+            screenChanged(from: oldValue)
+        }
     }
     /// Recherche de la barre d'outils, propre à chaque module (note 26) : les préfixes
     /// (`switch:`, `type:`…) dépendent du module, une recherche du Scanner ne filtre pas les Réglages.

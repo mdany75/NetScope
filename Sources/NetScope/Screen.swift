@@ -70,8 +70,9 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
         case .scanner, .carte, .inventaire, .appareil: return .decouverte
         case .ping, .switchs, .wifi, .outils: return .diagnostic
         case .surveillance, .trafic, .analyse, .rapports: return .suivi
-        case .acces, .speedtest: return .acces
-        case .reglages: return nil
+        case .acces: return .acces
+        // Speedtest est un outil de la Boîte à outils : hors de la barre latérale.
+        case .speedtest, .reglages: return nil
         }
     }
 

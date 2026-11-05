@@ -8,7 +8,45 @@ struct ToolboxScreen: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var store = ToolStore.shared
 
+    /// Largeur sous laquelle un outil pleine largeur (Speedtest, iperf3, capture…) remplace la
+    /// liste des outils par un menu, pour garder toute la place à l'outil (fenêtre 1000 × 650).
+    private static let compactListBelow: CGFloat = 1060
+
     var body: some View {
+        GeometryReader { geometry in
+            if store.selectedTool.usesFullWidth && geometry.size.width < Self.compactListBelow {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ToolCompactMenu(store: store)
+                        ToolMainPanel(store: store)
+                    }
+                    .padding(.horizontal, Theme.contentPadding)
+                    .padding(.vertical, 16)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+            } else {
+                regular
+            }
+        }
+        .screenToolbar {
+            Button {
+                ToolActions.copy(store.recents.map { "\(ToolText.time($0.date))\t\($0.tool.label)\t\($0.target)\t\($0.summary)" }
+                    .joined(separator: "\n"))
+            } label: {
+                Label("Copier les résultats", systemImage: "doc.on.doc")
+            }
+            .buttonStyle(.secondary)
+            .disabled(store.recents.isEmpty)
+            Button {
+                state.open(.scanner)
+            } label: {
+                Label("Nouveau scan", systemImage: "magnifyingglass")
+            }
+            .buttonStyle(.primary)
+        }
+    }
+
+    private var regular: some View {
         ScrollView {
             HStack(alignment: .top, spacing: 16) {
                 // La liste des outils descend jusqu'au bas de la colonne la plus haute.
@@ -31,21 +69,34 @@ struct ToolboxScreen: View {
             .padding(.vertical, 16)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .screenToolbar {
-            Button {
-                ToolActions.copy(store.recents.map { "\(ToolText.time($0.date))\t\($0.tool.label)\t\($0.target)\t\($0.summary)" }
-                    .joined(separator: "\n"))
+    }
+}
+
+/// Liste des outils réduite à un menu, au-dessus d'un outil pleine largeur en petite fenêtre.
+private struct ToolCompactMenu: View {
+    @ObservedObject var store: ToolStore
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("Outil").font(Theme.small).foregroundStyle(Theme.textSecondary)
+            Menu {
+                ForEach(ToolKind.Group.allCases, id: \.self) { group in
+                    Section(group.rawValue) {
+                        ForEach(group.tools) { tool in
+                            Button {
+                                store.selectedTool = tool
+                            } label: {
+                                Label(tool.label, systemImage: tool.symbol)
+                            }
+                        }
+                    }
+                }
             } label: {
-                Label("Copier les résultats", systemImage: "doc.on.doc")
+                Label(store.selectedTool.label, systemImage: store.selectedTool.symbol)
             }
-            .buttonStyle(.secondary)
-            .disabled(store.recents.isEmpty)
-            Button {
-                state.open(.scanner)
-            } label: {
-                Label("Nouveau scan", systemImage: "magnifyingglass")
-            }
-            .buttonStyle(.primary)
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            Spacer(minLength: 0)
         }
     }
 }
@@ -146,6 +197,7 @@ private struct ToolMainPanel: View {
     @ObservedObject private var capture = ToolStore.shared.capture
     @ObservedObject private var disks = DiskSpeedModel.shared
     @ObservedObject private var tftp = TFTPModel.shared
+    @ObservedObject private var speed = SpeedtestModel.shared
 
     var body: some View {
         let tool = store.selectedTool
@@ -224,7 +276,7 @@ private struct ToolMainPanel: View {
         case .dns: DNSLookupView(model: dns, store: store)
         case .whois: WhoisView(model: whois, store: store)
         case .mtu: MTUToolView()
-        case .iperf, .speedtest: SpeedRedirectView(tool: tool)
+        case .iperf, .speedtest: SpeedtestToolView(model: speed, tool: tool)
         case .wol: WakeOnLANView(model: wol, store: store)
         case .dhcp: DHCPTestView(model: dhcp, store: store)
         case .dhcpScopes: DHCPScopesView(store: store)

@@ -10,10 +10,6 @@ import SwiftUI
 struct Sidebar: View {
     @EnvironmentObject private var state: AppState
 
-    /// Hauteur de liste sous laquelle « Plages enregistrées » serait coupée sous son titre (petite
-    /// fenêtre) : les quatre groupes d'écrans, puis le titre et au moins une plage.
-    private static let rangesMinListHeight: CGFloat = 576
-
     /// Hauteur de la barre latérale (sous la barre de titre) à partir de laquelle la carte
     /// « Interface active » s'affiche entière au-dessus de Réglages : logo, quatre groupes d'écrans,
     /// carte et pied. En dessous (fenêtre 1000 × 650), seule la pastille de mise à jour reste.
@@ -22,11 +18,7 @@ struct Sidebar: View {
     var body: some View {
         GeometryReader { sidebar in
             let showsCard = sidebar.size.height >= Self.cardMinSidebarHeight
-            // Hauteur de la liste (entre le logo et le pied), lue dans la même passe de mise en page :
-            // les plages enregistrées sont masquées quand elles n'ont pas la place.
-            GeometryReader { geometry in
-                list(height: geometry.size.height)
-            }
+            list
             .safeAreaInset(edge: .top, spacing: 0) {
                 // Note 49 : le site actif, toujours visible juste sous le logo.
                 VStack(spacing: 0) {
@@ -41,7 +33,7 @@ struct Sidebar: View {
         }
     }
 
-    private func list(height listHeight: CGFloat) -> some View {
+    private var list: some View {
         List(selection: selection) {
             ForEach(Screen.Group.allCases, id: \.self) { group in
                 Section(group.title) {
@@ -49,11 +41,6 @@ struct Sidebar: View {
                         row(screen)
                     }
                 }
-            }
-            if listHeight >= Self.rangesMinListHeight {
-                // Note 28 : les sites remplacent « Plages enregistrées » ; le site actif est marqué,
-                // ses plages en dessous ; un clic change de site.
-                SidebarSites()
             }
         }
         .listStyle(.sidebar)

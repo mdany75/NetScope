@@ -137,7 +137,6 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     var redirect: Screen? {
         switch self {
         case .mtu: return .ping
-        case .iperf, .speedtest: return .speedtest
         default: return nil
         }
     }
@@ -145,7 +144,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     static let favorites: [ToolKind] = [.subnet, .ports, .dns, .wol]
 
     /// Outils qui prennent toute la largeur (sans le panneau des favoris et de l'historique).
-    var usesFullWidth: Bool { self == .capture || self == .dhcpScopes || self == .wan || self == .tftp }
+    var usesFullWidth: Bool { self == .capture || self == .dhcpScopes || self == .wan || self == .tftp || self == .speedtest || self == .iperf }
 
     /// Recherche multiple (note 26) : `nom:dns`, `groupe:courriel` ; un mot seul lit le nom, la
     /// clé et le résumé, comme avant.
