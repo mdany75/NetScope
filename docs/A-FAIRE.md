@@ -169,7 +169,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 | Scanner et sites | 18, 19, 20, 26, 28, 48, 49 | 63 (0.28.0), IPv6 (0.29.0), 68, 69, 72 (plus tard) |
 | Navigation entre les modules | 31, 33, 34, 36, 45 | — |
 | Switchs et ports, Fortinet | 12, 24, 25, 29, 39, 41, 54, 59, 73, 74, navigateur SNMP / MIB walk (0.25.0) | 40 (0.24.0), 75, 77 (plus tard) |
-| Wi-Fi | 1, 27, 46, 47, 71 (0.26.0) | 78 : meilleur canal, relevé (0.30.0) |
+| Wi-Fi | 1, 27, 46, 47, 71 (0.26.0) | 78 : meilleur canal, relevé ; 80 : FortiAP en onglets (0.30.0) |
 | Carte du réseau | 32 | 61 (0.24.0) |
 | Inventaire | 8, 10, 30 | 60 (0.23.0) |
 | Ping continu | 11 (en partie, 0.21.0), 65 (0.26.0) | 11 : préréglages (plus tard) |
@@ -1429,3 +1429,22 @@ Outils inutiles ou redondants dans NetScope, et ce qu’il vaut mieux ne pas fai
 - Un filtre d’affichage Wireshark complet ou le déchiffrement TLS : renvoyer vers Wireshark.
 - Un SaaS ou un collecteur multi-sites façon Domotz ou Auvik : hors de la philosophie locale ;
   l’agent local (note 64) est la limite.
+
+## 80. Wi-Fi › FortiAP : page divisée en onglets — 0.30.0 (demande de Dany, 5 novembre 2026)
+
+- Constat de Dany : la partie FortiAP de l’écran Wi-Fi empile tout sur une seule longue page
+  (tuiles, bornes, clients de la borne, carte des canaux, clients, SSID, bornes voisines, avec
+  conseils et détail de la borne à côté) ; il est dur d’y trouver l’information.
+- Garder en haut le bandeau de la FortiGate et les tuiles de résumé, puis des onglets natifs :
+  - **Bornes** : tableau des bornes, détail de la borne choisie (radios, canal, émission) et ses
+    clients par radio et par SSID ;
+  - **Clients** : tous les clients, avec la fiche complète du client (note 46) ;
+  - **SSID** : réseaux diffusés, clients et bornes par SSID ;
+  - **Canaux** : carte des canaux par bande (2,4 / 5 / 6 GHz) ;
+  - **Voisins** : bornes voisines et non autorisées ;
+  - **Conseils** : diagnostic et recommandations, avec le nombre de constats sur l’onglet.
+- Les liens entre onglets restent : un clic sur une borne dans Clients, Canaux ou Conseils ouvre
+  l’onglet Bornes sur cette borne ; « Diagnostiquer » et le retour ‹ (note 45) continuent de
+  marcher ; la fiche d’un appareil ouvre directement le bon onglet.
+- Onglet choisi retenu ; une variable de capture par onglet ; vérifier en clair, en sombre et en
+  1000 × 650.
