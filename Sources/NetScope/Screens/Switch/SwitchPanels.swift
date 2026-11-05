@@ -196,31 +196,34 @@ struct SwitchSourcesPanel: View {
 /// Icône de la carte d'un switch ; quand des ports gagnent des erreurs (erreurs récentes, pas le
 /// total depuis le démarrage), elle passe en rouge avec une pastille du nombre de ports touchés.
 struct SwitchCardIcon: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.neutralSoft)
+            Image(systemName: "rectangle.connected.to.line.below").font(.system(size: 15))
+                .foregroundStyle(Theme.text)
+        }
+        .frame(width: 34, height: 34)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Ports dont les erreurs augmentent, en haut à droite de la carte du switch.
+struct SwitchErrorBadge: View {
     let snapshot: SNMPSwitchSnapshot?
     let recent: SwitchRecentErrors
 
     var body: some View {
         let alerts = recent.alerts
-        ZStack {
-            RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(alerts.isEmpty ? Theme.neutralSoft : Theme.criticalSoft)
-            Image(systemName: "rectangle.connected.to.line.below").font(.system(size: 15))
-                .foregroundStyle(alerts.isEmpty ? Theme.text : Theme.critical)
-        }
-        .frame(width: 34, height: 34)
-        .overlay(alignment: .topTrailing) {
-            if !alerts.isEmpty {
-                Text("\(alerts.count)")
-                    .font(.system(size: 10, weight: .bold).monospacedDigit())
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 4)
-                    .frame(minWidth: 16, minHeight: 16)
-                    .background(Capsule().fill(Theme.critical))
-                    .overlay(Capsule().strokeBorder(Theme.panel, lineWidth: 1.5))
-                    .offset(x: 6, y: -6)
+        if !alerts.isEmpty {
+            // Carte étroite : seulement le nombre, la carte ne doit pas déborder.
+            ViewThatFits(in: .horizontal) {
+                Chip(text: "\(alerts.count) port\(alerts.count > 1 ? "s" : "") en erreur", tone: .critical,
+                     systemImage: "exclamationmark.triangle.fill")
+                Chip(text: "\(alerts.count)", tone: .critical, systemImage: "exclamationmark.triangle.fill")
             }
+            .help(helpText(alerts))
+            .accessibilityLabel("\(alerts.count) port\(alerts.count > 1 ? "s" : "") dont les erreurs augmentent")
         }
-        .help(helpText(alerts))
-        .accessibilityLabel(alerts.isEmpty ? "Switch" : "Switch, \(alerts.count) port\(alerts.count > 1 ? "s" : "") dont les erreurs augmentent")
     }
 
     private func helpText(_ alerts: [PortErrorDelta]) -> String {
@@ -250,43 +253,48 @@ struct SwitchCard: View {
         let active = (store.current?.id ?? store.selectedHost) == host
         Button { store.select(host: host) } label: {
             VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 10) {
-                    SwitchCardIcon(snapshot: snapshot, recent: store.recentErrors(host))
+                HStack(alignment: .top, spacing: 10) {
+                    SwitchCardIcon()
                     VStack(alignment: .leading, spacing: 2) {
-                        // Petite fenêtre : la puce d'origine disparaît avant que le nom ne se coupe.
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: 8) {
-                                cardName(snapshot)
-                                statusChip(snapshot)
-                                if store.isController(host) {
-                                    // Note 25 : le site de la FortiGate qui a lu ce FortiSwitch.
-                                    Chip(text: snapshot?.controllerName.map { "via FortiGate · \($0)" } ?? "via FortiGate", tone: .accent)
-                                        .help("FortiSwitch géré par FortiLink\u{00A0}: lu par l’API REST de la FortiGate \(snapshot?.controllerName.map { "du site «\u{00A0}\($0)\u{00A0}»" } ?? ""), jamais interrogé directement (son adresse FortiLink n’est pas joignable depuis ce Mac).")
-                                } else if store.isAutoDiscovered(host) {
-                                    Chip(text: "Découvert automatiquement", tone: .accent)
-                                        .help("Trouvé par la découverte SNMP à la fin du scan\u{00A0}; la communauté qui a répondu est gardée au Trousseau.")
-                                } else if let role = snapshot?.system.location {
-                                    Chip(text: role, tone: .neutral)
-                                }
-                            }
-                            if store.isController(host) {
+                        // Erreurs des ports à droite de la ligne du nom ; la description garde toute la largeur.
+                        HStack(alignment: .top, spacing: 8) {
+                            // Petite fenêtre : la puce d'origine disparaît avant que le nom ne se coupe.
+                            ViewThatFits(in: .horizontal) {
                                 HStack(spacing: 8) {
                                     cardName(snapshot)
                                     statusChip(snapshot)
-                                    Chip(text: "via FortiGate", tone: .accent)
-                                        .help(snapshot?.controllerName.map { "FortiSwitch lu par la FortiGate du site «\u{00A0}\($0)\u{00A0}»." } ?? "FortiSwitch lu par la FortiGate.")
+                                    if store.isController(host) {
+                                        // Note 25 : le site de la FortiGate qui a lu ce FortiSwitch.
+                                        Chip(text: snapshot?.controllerName.map { "via FortiGate · \($0)" } ?? "via FortiGate", tone: .accent)
+                                            .help("FortiSwitch géré par FortiLink\u{00A0}: lu par l’API REST de la FortiGate \(snapshot?.controllerName.map { "du site «\u{00A0}\($0)\u{00A0}»" } ?? ""), jamais interrogé directement (son adresse FortiLink n’est pas joignable depuis ce Mac).")
+                                    } else if store.isAutoDiscovered(host) {
+                                        Chip(text: "Découvert automatiquement", tone: .accent)
+                                            .help("Trouvé par la découverte SNMP à la fin du scan\u{00A0}; la communauté qui a répondu est gardée au Trousseau.")
+                                    } else if let role = snapshot?.system.location {
+                                        Chip(text: role, tone: .neutral)
+                                    }
+                                }
+                                if store.isController(host) {
+                                    HStack(spacing: 8) {
+                                        cardName(snapshot)
+                                        statusChip(snapshot)
+                                        Chip(text: "via FortiGate", tone: .accent)
+                                            .help(snapshot?.controllerName.map { "FortiSwitch lu par la FortiGate du site «\u{00A0}\($0)\u{00A0}»." } ?? "FortiSwitch lu par la FortiGate.")
+                                    }
+                                }
+                                HStack(spacing: 8) {
+                                    cardName(snapshot)
+                                    statusChip(snapshot)
+                                }
+                                // Nom trop long pour la puce sur la même ligne : l'état passe dessous
+                                // plutôt que de disparaître (FSW-ENTREPOT en petite fenêtre).
+                                VStack(alignment: .leading, spacing: 4) {
+                                    cardName(snapshot)
+                                    statusChip(snapshot)
                                 }
                             }
-                            HStack(spacing: 8) {
-                                cardName(snapshot)
-                                statusChip(snapshot)
-                            }
-                            // Nom trop long pour la puce sur la même ligne : l'état passe dessous
-                            // plutôt que de disparaître (FSW-ENTREPOT en petite fenêtre).
-                            VStack(alignment: .leading, spacing: 4) {
-                                cardName(snapshot)
-                                statusChip(snapshot)
-                            }
+                            Spacer(minLength: 0)
+                            SwitchErrorBadge(snapshot: snapshot, recent: store.recentErrors(host))
                         }
                         Group {
                             if let snapshot, store.isController(host) {
