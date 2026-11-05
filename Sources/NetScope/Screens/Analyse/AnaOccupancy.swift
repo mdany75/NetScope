@@ -6,6 +6,8 @@ import SwiftUI
 /// page choisie en 16 × 16 cases, avec le détail de l'adresse survolée ou choisie. Croise les
 /// fiches du scan, les étendues, baux et réservations DHCP de la FortiGate et les plages exclues
 /// du site ; propose la prochaine IP libre hors étendue DHCP de la page.
+/// Note 84 : appareils filaires (vert) et Wi-Fi (cyan, symbole Wi-Fi), repère dans le coin pour une
+/// adresse attribuée par bail DHCP (triangle) ou gardée par une réservation (point), légende dessous.
 struct AnaOccupancyPanel: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var model = InvModel.shared
@@ -24,14 +26,15 @@ struct AnaOccupancyPanel: View {
     var onPrefix: (Int, IPv4Address) -> Void = { _, _ in }
 
     @State private var page: IPv4Address?
-    @State private var selected: IPv4Address?
+    /// Captures : NETSCOPE_ANA_ADRESSE=10.182.122.153 choisit l’adresse détaillée (démonstration).
+    @State private var selected: IPv4Address? = Launcher.isDemo
+        ? ProcessInfo.processInfo.environment["NETSCOPE_ANA_ADRESSE"].flatMap { IPv4Address($0) } : nil
     @State private var hovered: IPv4Address?
     @State private var copied: IPv4Address?
 
     private static let cell: CGFloat = 19
     private static let gap: CGFloat = 3
     private static let gridWidth: CGFloat = 30 + 16 * (cell + gap)
-    static let legendStates: [AddressPlanState] = [.enLigne, .horsLigne, .conflit, .bail, .reservee, .exclue, .libreDHCP, .libre, .reseau]
 
     var body: some View {
         let shownPage = page.flatMap { plan.page(containing: $0) } ?? plan.defaultPage(preferring: preferredPage)
@@ -61,7 +64,7 @@ struct AnaOccupancyPanel: View {
                                 }
                             }
                         }
-                        legend(shownPage).padding(.top, 8)
+                        legend(shownPage, cells: cells).padding(.top, 8)
                     }
                     .frame(width: Self.gridWidth, alignment: .leading)
                     detail(focus)
@@ -172,7 +175,8 @@ struct AnaOccupancyPanel: View {
         .frame(width: width, height: height)
         .contentShape(Rectangle())
         .help("\(item.label)\u{00A0}: \(item.used) prise\(item.used > 1 ? "s" : "") sur \(item.hosts)"
-              + (item.count(.bail) > 0 ? ", dont \(item.count(.bail)) baux DHCP" : "")
+              + (item.count(.enLigneWifi) > 0 ? ", dont \(item.count(.enLigneWifi)) en Wi-Fi" : "")
+              + (item.count(.bail) > 0 ? " · \(item.count(.bail)) baux DHCP sans appareil vu" : "")
               + (item.count(.libreDHCP) > 0 ? " · \(item.count(.libreDHCP)) libres dans l’étendue DHCP" : "")
               + (item.count(.exclue) > 0 ? " · \(item.count(.exclue)) exclues du scan" : "")
               + (conflict ? " · conflit IP" : ""))
@@ -197,12 +201,14 @@ struct AnaOccupancyPanel: View {
     /// Case encadrée quand rien n'est survolé ni choisi : le premier conflit, sinon la première
     /// adresse en ligne, sinon .1.
     static func defaultFocus(_ cells: [AddressPlanCell]) -> IPv4Address {
-        (cells.first { $0.state == .conflit } ?? cells.first { $0.state == .enLigne } ?? cells[1]).ip
+        (cells.first { $0.state == .conflit } ?? cells.first { $0.state.isOnline } ?? cells[1]).ip
     }
 
     static func colors(_ state: AddressPlanState) -> (fill: Color, border: Color) {
         switch state {
         case .enLigne: return (Color(hex: 0x16A34A), Color(hex: 0x15803D))
+        // Note 84 : Wi-Fi en cyan (et symbole Wi-Fi dans la case), distinct du vert des filaires.
+        case .enLigneWifi: return (Theme.wifiFill, Theme.wifi)
         case .horsLigne: return (Color(light: 0xCBD5E1, dark: 0x273444), Color(hex: 0x94A3B8))
         case .libre: return (Theme.panel, Theme.borderStrong)
         case .conflit: return (Color(hex: 0xB91C1C), Color(hex: 0x7F1D1D))
@@ -220,28 +226,66 @@ struct AnaOccupancyPanel: View {
         return RoundedRectangle(cornerRadius: 3)
             .fill(colors.fill)
             .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(colors.border))
+            .overlay {
+                if cell.state == .enLigneWifi {
+                    Image(systemName: "wifi").font(.system(size: 8, weight: .bold)).foregroundStyle(Theme.onAccent)
+                        .offset(y: 1)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if let marker = cell.marker { AnaCellMarker(kind: marker) }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 3))
             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(isFocus ? Theme.text : Color.clear, lineWidth: 2).padding(-2))
             .frame(width: Self.cell, height: Self.cell)
             .contentShape(Rectangle())
-            .help("\(cell.ip.description)\u{00A0}: \(cell.state.label)")
+            .help(Self.tooltip(cell))
             .onHover { inside in
                 if inside { hovered = cell.ip } else if hovered == cell.ip { hovered = nil }
             }
             .onTapGesture { selected = cell.ip }
     }
 
-    private func legend(_ page: AddressPlanPage) -> some View {
+    /// Infobulle d'une case : état, accès (filaire ou Wi-Fi, borne, SSID) et attribution (note 84).
+    static func tooltip(_ cell: AddressPlanCell) -> String {
+        var parts = [cell.state.label]
+        if let medium = cell.medium, cell.state.hasRecord, cell.state != .enLigneWifi, cell.state != .enLigne {
+            parts.append(medium.medium.label)
+        }
+        if let medium = cell.medium, medium.isWireless {
+            if let ap = medium.apAfter { parts.append("borne \(ap)") }
+            if let ssid = medium.ssid { parts.append("SSID \(ssid)") }
+        }
+        if cell.state.hasRecord, let assignment = cell.assignment { parts.append(assignment.label) }
+        return "\(cell.ip.description)\u{00A0}: " + parts.joined(separator: " · ")
+    }
+
+    private func legend(_ page: AddressPlanPage, cells: [AddressPlanCell]) -> some View {
         InvFlowLayout(spacing: 10) {
-            ForEach(Self.legendStates.filter { page.count($0) > 0 || [.enLigne, .libre].contains($0) }, id: \.self) { state in
-                let colors = Self.colors(state)
+            ForEach(AddressPlanLegend.items(page: page, cells: cells, dhcpRead: dhcpReadAt != nil)) { item in
                 HStack(spacing: 5) {
-                    RoundedRectangle(cornerRadius: 3).fill(colors.fill)
-                        .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(colors.border))
-                        .frame(width: 12, height: 12)
-                    Text(state.shortLabel).font(Theme.small).foregroundStyle(Theme.textSecondary)
-                    Text("\(page.count(state))").font(Theme.mono(12, weight: .semibold)).foregroundStyle(Theme.text)
+                    switch item.kind {
+                    case .state(let state):
+                        let colors = Self.colors(state)
+                        RoundedRectangle(cornerRadius: 3).fill(colors.fill)
+                            .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(colors.border))
+                            .overlay {
+                                if state == .enLigneWifi {
+                                    Image(systemName: "wifi").font(.system(size: 6, weight: .bold)).foregroundStyle(Theme.onAccent)
+                                }
+                            }
+                            .frame(width: 12, height: 12)
+                    case .marker(let assignment):
+                        RoundedRectangle(cornerRadius: 3).fill(Theme.panelMuted)
+                            .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Theme.borderStrong))
+                            .overlay(alignment: .topTrailing) { AnaCellMarker(kind: assignment, size: 7) }
+                            .clipShape(RoundedRectangle(cornerRadius: 3))
+                            .frame(width: 12, height: 12)
+                    }
+                    Text(item.label).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    Text("\(item.count)").font(Theme.mono(12, weight: .semibold)).foregroundStyle(Theme.text)
                 }
-                .help(state.label)
+                .help(item.help)
             }
         }
         .frame(width: Self.gridWidth, alignment: .leading)
@@ -266,12 +310,12 @@ struct AnaOccupancyPanel: View {
                     row("MAC", here.compactMap { $0.mac?.formatted(.upperColon) }.joined(separator: "\n"), mono: true)
                     row("Fabricant", here.map(\.vendorLabel).joined(separator: " / "))
                     row("Port", here.compactMap(\.switchLocation).joined(separator: "\n"), mono: true)
-                case .enLigne, .horsLigne:
+                case .enLigne, .enLigneWifi, .horsLigne:
                     if let record {
                         row("Nom", record.displayName)
                         row("Fabricant", record.vendorLabel)
                         row("MAC", record.mac?.formatted(.upperColon) ?? "—", mono: true)
-                        row("Port", record.switchLocation ?? "—", mono: true)
+                        accessRows(cell, record: record)
                         row("VLAN", record.vlan.map(String.init) ?? "—")
                         row("Vu", InvFormat.seen(record.lastSeen, online: record.isOnline, now: now))
                     }
@@ -327,9 +371,38 @@ struct AnaOccupancyPanel: View {
         case .exclue: return "Dans les plages exclues du site\u{00A0}: jamais sondée, état inconnu. Ne pas l’attribuer sans vérifier."
         case .conflit: return "Plusieurs MAC répondent à cette adresse\u{00A0}: IP fixe en double probable."
         case .horsLigne: return "Ne répond plus, mais l’adresse a servi récemment\u{00A0}: à éviter pour une IP fixe."
-        case .enLigne: return record?.openPorts.isEmpty == false
+        case .enLigne, .enLigneWifi: return record?.openPorts.isEmpty == false
             ? "Ports ouverts\u{00A0}: " + (record?.openPorts.map(String.init).joined(separator: ", ") ?? "") + "."
             : "Répond au scan."
+        }
+    }
+
+    /// Note 84 : accès (filaire et son port, ou Wi-Fi, sa borne et son SSID) et attribution de
+    /// l'adresse (bail DHCP, réservation, fixe).
+    @ViewBuilder
+    private func accessRows(_ cell: AddressPlanCell, record: InvRecord) -> some View {
+        let medium = cell.medium ?? .wired
+        if medium.isWireless {
+            row("Accès", "Wi-Fi" + (medium.reason.map { " (\($0.label))" } ?? ""))
+            row("Borne", medium.apAfter ?? record.wireless?.apName ?? "inconnue")
+            if let ssid = medium.ssid ?? record.wireless?.ssid {
+                row("SSID", ssid + (medium.band.map { " · \($0.label)" } ?? ""))
+            }
+            if let location = record.switchLocation, !InvWirelessContext.isWifiPort(record.switchPort) {
+                row("Port", location, mono: true)
+            }
+        } else {
+            row("Accès", "Filaire")
+            row("Port", record.switchLocation ?? "—", mono: true)
+        }
+        row("Adresse", cell.assignment.map(Self.assignmentText) ?? "Inconnue (aucune étendue DHCP lue)")
+    }
+
+    static func assignmentText(_ assignment: AddressAssignment) -> String {
+        switch assignment {
+        case .dhcp: return "Bail DHCP (attribuée par la FortiGate)"
+        case .reservee: return "Réservée (réservation DHCP)"
+        case .fixe: return "Fixe (ni bail ni réservation)"
         }
     }
 
@@ -337,6 +410,7 @@ struct AnaOccupancyPanel: View {
         let (fg, bg): (Color, Color)
         switch state {
         case .enLigne: (fg, bg) = (Theme.success, Theme.successSoft)
+        case .enLigneWifi: (fg, bg) = (Theme.wifi, Theme.wifiSoft)
         case .conflit: (fg, bg) = (Theme.critical, Theme.criticalSoft)
         case .exclue: (fg, bg) = (Theme.warning, Theme.warningSoft)
         case .bail, .reservee, .libreDHCP: (fg, bg) = (Theme.accentStrong, Theme.accentSoft)
@@ -400,5 +474,38 @@ struct AnaOccupancyPanel: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(ip.description, forType: .string)
         copied = ip
+    }
+}
+
+/// Note 84 : repère dans le coin d'une case de la carte d'occupation : triangle pour un bail DHCP,
+/// point pour une réservation (formes différentes, lisibles sans la couleur).
+struct AnaCellMarker: View {
+    let kind: AddressAssignment
+    var size: CGFloat = 8
+
+    var body: some View {
+        switch kind {
+        case .dhcp:
+            AnaCornerTriangle().fill(Theme.dhcpMarker).frame(width: size, height: size)
+        case .reservee:
+            Circle().fill(Theme.reservedMarker)
+                .overlay(Circle().strokeBorder(Theme.panel, lineWidth: 1))
+                .frame(width: size - 1, height: size - 1)
+                .padding(1)
+        case .fixe:
+            EmptyView()
+        }
+    }
+}
+
+/// Triangle du coin supérieur droit d'une case.
+struct AnaCornerTriangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.closeSubpath()
+        return path
     }
 }

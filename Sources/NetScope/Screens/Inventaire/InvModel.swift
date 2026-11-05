@@ -23,6 +23,8 @@ final class InvModel: ObservableObject {
     /// Types choisis à la main pour des appareils sans MAC et encore sans fiche, par IP, pour cette
     /// session seulement (note 20 ; voir Shared/DeviceTypeMenu.swift).
     @Published var sessionTypes: [String: DeviceType] = [:]
+    /// Note 84 : état partagé (interface Wi-Fi de ce Mac) pour classer les appareils Wi-Fi à la fusion.
+    weak var appState: AppState?
 
     let isEphemeral: Bool
     /// Inventaire du site actif (note 28 : un fichier par site, sites/<id>/inventory.json).
@@ -187,7 +189,10 @@ final class InvModel: ObservableObject {
         if isEphemeral && store.isEmpty && Launcher.isDemo && siteKey == SitesDemo.siegeKey {
             InvDemo.seed(&store, devices: devices, now: date)
         } else {
-            let produced = store.merge(devices, at: date)
+            // Note 84 : un client Wi-Fi qui change de borne donne une itinérance, pas une alerte de port.
+            let wireless = WirelessContextFeed.current(devices: devices, records: Array(store.records.values),
+                                                       interface: appState?.activeInterface)
+            let produced = store.merge(devices, at: date, wireless: wireless)
             // Conflit d'adresse IP relevé par la fusion : événement commun (notification, autres canaux).
             for event in produced where event.kind == .conflitIP && !event.baseline {
                 NetScopeEventCenter.shared.publish(NetScopeEvent(
@@ -496,9 +501,10 @@ final class InvModel: ObservableObject {
     }
 
     /// Alertes critiques ou importantes à traiter sur 24 h (compteur de la barre latérale, Analyse).
+    /// Note 84 : les anciens changements de port d'appareils Wi-Fi n'y comptent plus.
     var pendingAlertCount: Int {
         alerts(since: Date().addingTimeInterval(-86_400))
-            .filter { $0.status == .aTraiter && $0.severity != .info }.count
+            .filter { InvWireless.isPending($0, record: store.record($0.key)) }.count
     }
 
     func updateBadge(_ state: AppState) {
@@ -515,6 +521,7 @@ extension View {
     func feedsInventory(_ state: AppState) -> some View {
         let model = InvModel.shared
         return onAppear {
+            model.appState = state
             model.observe(state.devices, immediately: true)
             model.updateBadge(state)
         }

@@ -85,9 +85,11 @@ public struct InventoryStore: Codable, Sendable {
     /// Fusionne le résultat d'un scan et renvoie les événements produits.
     /// - `coverage` : plages réellement sondées ; une fiche en ligne qui y était attendue et qui manque passe hors ligne.
     /// - `snapshot` : ajoute un instantané résumé si le résultat diffère du précédent.
+    /// - `wireless` : clients Wi-Fi et ports des bornes déjà lus (note 84) ; un appareil Wi-Fi qui
+    ///   change de port donne une itinérance (historique, sans alerte), pas un changement de port.
     @discardableResult
     public mutating func merge(_ devices: [Device], at date: Date = Date(), coverage: InvCoverage = .none,
-                               snapshot: Bool = true) -> [InvEvent] {
+                               snapshot: Bool = true, wireless: InvWirelessContext = .none) -> [InvEvent] {
         // Appareils qu'on ne suit plus : jamais remis dans l'inventaire par un scan, mais toujours
         // comptés pour les conflits IP et les adresses reprises (étapes 2 et 4).
         var ignored: [(key: String, device: Device)] = []
@@ -175,10 +177,11 @@ public struct InventoryStore: Codable, Sendable {
         // 3. Mise à jour ou création des fiches.
         for (key, device) in resolved {
             if var record = records[key] {
-                update(&record, with: device, at: date, emit: emit)
+                update(&record, with: device, at: date, wireless: wireless, emit: emit)
                 records[key] = record
             } else {
-                let record = makeRecord(key: key, device: device, at: date)
+                var record = makeRecord(key: key, device: device, at: date)
+                Self.noteWireless(&record, device: device, context: wireless, at: date)
                 records[key] = record
                 let detail = describe(record)
                 if baseline {
@@ -255,7 +258,18 @@ public struct InventoryStore: Codable, Sendable {
             }
         }
 
-        // 7. Journal, instantané.
+        // 7. Journal, instantané. Note 84 : une itinérance Wi-Fi rapprochée remplace la précédente
+        // du même appareil (son titre reprend déjà la borne de départ).
+        let roamed = Set(produced.filter { $0.kind == .itineranceWifi }.map(\.key))
+        if !roamed.isEmpty {
+            var superseded = Set<UUID>()
+            for key in roamed {
+                guard let last = events.last(where: { $0.key == key }), last.kind == .itineranceWifi,
+                      date.timeIntervalSince(last.date) <= InvWireless.roamingWindow else { continue }
+                superseded.insert(last.id)
+            }
+            if !superseded.isEmpty { events.removeAll { superseded.contains($0.id) } }
+        }
         events.append(contentsOf: produced.sorted { $0.date < $1.date })
         if events.count > Self.maxEvents { events.removeFirst(events.count - Self.maxEvents) }
         lastMerge = date
@@ -305,7 +319,7 @@ public struct InventoryStore: Codable, Sendable {
         return record
     }
 
-    func update(_ record: inout InvRecord, with device: Device, at date: Date,
+    func update(_ record: inout InvRecord, with device: Device, at date: Date, wireless: InvWirelessContext = .none,
                         emit: (InvEventKind, InvSeverity, String, IPv4Address, Date?, String, String) -> Void) {
         let key = record.key
         // Adresse IP
@@ -324,10 +338,31 @@ public struct InventoryStore: Codable, Sendable {
                 if oldSwitch != newSwitch || oldPort != newPort {
                     if let last = record.portHistory.indices.last, record.portHistory[last].to == nil { record.portHistory[last].to = date }
                     record.portHistory.append(InvPortSpan(switchName: newSwitch, port: newPort, vlan: device.vlan ?? record.vlan, from: date))
-                    let sameSwitch = oldSwitch == newSwitch
-                    emit(.changementPort, .alerte, key, device.ip, nil,
-                         "Changement de port : \(record.displayName) de \(oldSwitch) \(oldPort) à " + (sameSwitch ? newPort : "\(newSwitch) \(newPort)"),
-                         "\(device.ip) · \(oldSwitch) · \(oldPort) → \(newSwitch) · \(newPort)" + ((device.vlan ?? record.vlan).map { " · VLAN \($0)" } ?? ""))
+                    let from = "\(oldSwitch) · \(oldPort)", to = "\(newSwitch) · \(newPort)"
+                    let type = record.annotations.customType ?? (device.deviceType != .inconnu ? device.deviceType : record.detectedType)
+                    let verdict = InvWireless.classify(type: type, mac: device.mac ?? record.mac, ip: device.ip, from: from, to: to,
+                                                       remembered: record.wireless, context: wireless, now: date)
+                    let vlan = (device.vlan ?? record.vlan).map { " · VLAN \($0)" } ?? ""
+                    if verdict.isWireless {
+                        // Note 84 : itinérance d'un client Wi-Fi (nouvelle borne), sans alerte. Plusieurs
+                        // itinérances rapprochées : la borne de départ reste celle de la première.
+                        let previous = record.wireless
+                        let recentRoam = previous?.roamedAt.map { date.timeIntervalSince($0) <= InvWireless.roamingWindow } ?? false
+                        let chained = recentRoam && events.last(where: { $0.key == key })?.kind == .itineranceWifi
+                        let apBefore = chained ? (previous?.roamedFrom ?? verdict.apBefore) : verdict.apBefore
+                        emit(.itineranceWifi, .info, key, device.ip, nil,
+                             InvWireless.roamingTitle(name: record.displayName, from: from, to: to, apBefore: apBefore, apAfter: verdict.apAfter),
+                             "\(device.ip) · \(from) → \(to)" + vlan + " · Wi-Fi\u{00A0}: " + (verdict.reason?.label ?? "")
+                             + (verdict.ssid.map { " · SSID \($0)" } ?? ""))
+                        record.wireless = InvWirelessLink(apName: verdict.apAfter ?? previous?.apName, ssid: verdict.ssid ?? previous?.ssid,
+                                                          band: verdict.band ?? previous?.band, seen: date,
+                                                          roamedFrom: apBefore, roamedAt: date)
+                    } else {
+                        let sameSwitch = oldSwitch == newSwitch
+                        emit(.changementPort, .alerte, key, device.ip, nil,
+                             "Changement de port : \(record.displayName) de \(oldSwitch) \(oldPort) à " + (sameSwitch ? newPort : "\(newSwitch) \(newPort)"),
+                             "\(device.ip) · \(from) → \(to)" + vlan)
+                    }
                 }
             } else {
                 record.portHistory.append(InvPortSpan(switchName: newSwitch, port: newPort, vlan: device.vlan ?? record.vlan, from: date))
@@ -335,6 +370,7 @@ public struct InventoryStore: Codable, Sendable {
             record.switchName = newSwitch
             record.switchPort = newPort
         }
+        Self.noteWireless(&record, device: device, context: wireless, at: date)
         // Disponibilité
         if device.isOnline && !record.isOnline {
             let since = record.offlineSince ?? record.lastSeen
@@ -367,6 +403,25 @@ public struct InventoryStore: Codable, Sendable {
         }
         record.firstSeen = min(record.firstSeen, device.firstSeen)
         record.isImported = false
+    }
+
+    /// Note 84 : retient l'association Wi-Fi d'un client vu par la FortiGate (ou de ce Mac en Wi-Fi,
+    /// ou d'un appareil rattaché à sa borne), pour le reconnaître même quand la lecture Wi-Fi manque.
+    static func noteWireless(_ record: inout InvRecord, device: Device, context: InvWirelessContext, at date: Date) {
+        guard device.isOnline else { return }
+        let client = context.client(mac: device.mac ?? record.mac, ip: device.ip)
+        let wifiPort = InvWirelessContext.isWifiPort(device.switchPort)
+        guard client != nil || wifiPort || context.localWifiIPs.contains(device.ip) else { return }
+        var link = record.wireless ?? InvWirelessLink(seen: date)
+        if let client {
+            link.apName = client.apName ?? link.apName
+            link.ssid = client.ssid ?? link.ssid
+            link.band = client.band ?? link.band
+        } else if wifiPort, let ap = device.switchName {
+            link.apName = ap
+        }
+        link.seen = date
+        record.wireless = link
     }
 
     private func severityForOffline(_ record: InvRecord) -> InvSeverity {

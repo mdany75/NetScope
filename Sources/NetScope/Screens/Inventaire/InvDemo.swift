@@ -33,7 +33,8 @@ enum InvDemo {
                 copy.firstSeen = min(copy.firstSeen, date)
                 return copy
             }
-            store.merge(list, at: date)
+            // Note 84 : clients Wi-Fi et bornes de la démonstration (itinérance sans alerte).
+            store.merge(list, at: date, wireless: WirelessDemo.context(devices: list, now: now))
         }
 
         let lateNew: Set<String> = ["10.182.122.133", "10.182.122.140"]
@@ -58,6 +59,8 @@ enum InvDemo {
                   name: "Macmini-de-Dany (Ethernet)"))
         put(extra("10.182.122.171", "9C:93:4E:21:0A:5B", "XRX-9C934E21", "Xerox", "SW-CORE-01", "Gi1/0/30", 30, .imprimante,
                   name: "Imprimante locataire"))
+        // Note 84 : deuxième borne et portables en Wi-Fi (le premier changera de borne).
+        for device in WirelessDemo.devices(firstSeen: at(90)) where device.ip.description != WirelessDemo.roamingIP { put(device) }
         // Note 10 : deux appareils retirés du parc depuis (archivés à la fin, InvManualDemo).
         for retired in InvManualDemo.retiredDevices(at: at(90)) { put(retired) }
         scan(at(90))
@@ -79,12 +82,20 @@ enum InvDemo {
             past.firstSeen = at(5)
             put(past)
         }
+        // Note 84 : portable en Wi-Fi derrière la borne AP-ETG2 depuis 5 jours.
+        for device in WirelessDemo.devices(firstSeen: at(5)) where device.ip.description == WirelessDemo.roamingIP { put(device) }
         scan(at(5))
         // Hier : un scan de plus (sert de point de comparaison).
         scan(at(1))
         // Il y a 3 h : le poste de la réception ne répond plus.
         change("10.182.122.146") { $0.isOnline = false; $0.latencyMs = nil }
         scan(now.addingTimeInterval(-3 * 3600))
+        // Note 84 : il vient de passer de la borne AP-ETG2 à la borne AP-ACCUEIL (itinérance, sans alerte).
+        change(WirelessDemo.roamingIP) {
+            $0.switchName = WirelessDemo.accueilPort.switchName
+            $0.switchPort = WirelessDemo.accueilPort.port
+            $0.lastSeen = now.addingTimeInterval(-6 * 60)
+        }
 
         // Maintenant : l'état réel de la démonstration, plus une seconde MAC qui répond sur .140 (conflit IP).
         var current = devices.map { device -> Device in
@@ -101,7 +112,7 @@ enum InvDemo {
                               hostname: "MacBook-Air-Accueil", isOnline: true, latencyMs: 9.2, switchName: "SW-ETG2-01",
                               switchPort: "1/7", vlan: 30, firstSeen: now.addingTimeInterval(-600),
                               lastSeen: now.addingTimeInterval(-60), rangeLabel: "Bureau", deviceType: .poste))
-        store.merge(current, at: now)
+        store.merge(current, at: now, wireless: WirelessDemo.context(devices: current, now: now))
 
         // Fiches renseignées par le technicien (croquis Inventaire).
         let notes: [(String, [String], String, String, String, String, String, Bool)] = [

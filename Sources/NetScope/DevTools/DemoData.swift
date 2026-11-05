@@ -28,6 +28,7 @@ enum DemoData {
         state.sidebarBadges = [.surveillance: 3]
         MonStore.shared.attach(to: state) // badge Surveillance = alertes non lues de la démonstration
         // Inventaire de démonstration et pastille Analyse calculés dès le départ, comme sur les autres écrans.
+        InvModel.shared.appState = state   // note 84 : interface Wi-Fi de ce Mac
         InvModel.shared.observe(state.devices, immediately: true)
         InvModel.shared.updateBadge(state)
         // Note 28 : sites de démonstration (NETSCOPE_SITE choisit le site actif des captures).

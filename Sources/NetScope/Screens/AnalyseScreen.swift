@@ -61,6 +61,8 @@ struct AnaAddressing {
     let dhcp: AddressPlanDHCP
     let dhcpReadAt: Date?
     let exclusions: AddressExclusions
+    /// Note 84 : clients Wi-Fi des bornes et ports des bornes (filaire ou Wi-Fi sur la carte).
+    let wireless: InvWirelessContext
 
     /// Étendues DHCP des FortiGate du site (toutes celles lues pour les plages libres).
     init(siteKey: String, records: [InvRecord], state: AppState, now: Date) {
@@ -72,6 +74,7 @@ struct AnaAddressing {
         dhcp = AddressPlanDHCP(reports: reports, now: now)
         dhcpReadAt = reports.map(\.readAt).max()
         exclusions = sites.exclusions(forKey: siteKey)
+        wireless = WirelessContextFeed.forSite(siteKey, records: records, state: state)
     }
 
     /// Choix du menu « Plage / VLAN » : chaque sous-réseau connu (bloc de /16 à /24).
@@ -129,7 +132,7 @@ struct AnalyseScreen: View {
                 planInputs.map { inputs in
                     planCache.value(identity: AnaPlanIdentity(site: focus.key, block: network.subnet), inputs: inputs) {
                         AddressPlan(block: network.subnet, records: focusRecords, dhcp: info.dhcp, exclusions: info.exclusions,
-                                    subnets: info.subnets.map(\.subnet), now: now, recentWindow: recentWindow)
+                                    subnets: info.subnets.map(\.subnet), now: now, recentWindow: recentWindow, wireless: info.wireless)
                     }
                 }
             }
@@ -155,7 +158,7 @@ struct AnalyseScreen: View {
                         .help("Tuiles et répartitions\u{00A0}: " + scopeLabel
                               + (chosen == nil ? "" : ". La courbe, la carte d’occupation et la comparaison portent sur ce site."))
                 }
-                tiles(records: records, plan: plan, alerts: tileAlerts.map(\.event), now: now, since: since)
+                tiles(records: records, plan: plan, alerts: tileAlerts, now: now, since: since)
                 // Petite fenêtre : courbe et répartitions passent sous la carte d'occupation, qui prend
                 // alors toute la largeur (pas de vide à sa droite).
                 ViewThatFits(in: .horizontal) {
@@ -359,13 +362,14 @@ struct AnalyseScreen: View {
 
     // MARK: Tuiles
 
-    private func tiles(records: [InvRecord], plan: AddressPlan?, alerts: [InvEvent], now: Date, since: Date) -> some View {
+    private func tiles(records: [InvRecord], plan: AddressPlan?, alerts: [SiteScopedEvent], now: Date, since: Date) -> some View {
         let added = records.filter { $0.firstSeen >= since && !$0.isImported }.count
         let lost = records.filter { !$0.isOnline && ($0.offlineSince ?? .distantPast) >= since }.count
         let online = records.filter(\.isOnline).count
         let recentOffline = records.filter { !$0.isOnline && now.timeIntervalSince($0.lastSeen) <= 7 * 86_400 }.count
         let conflicts = Set(records.filter(\.hasConflict).map(\.ip)).sorted()
-        let pending = alerts.filter { $0.status == .aTraiter && $0.severity != .info }.count
+        // Note 84 : les anciens changements de port d'appareils Wi-Fi ne comptent plus.
+        let pending = alerts.filter(\.isPending).count
         // Même plan que la carte d'occupation affichée dessous (fiches, baux et réservations DHCP).
         let occupancy = plan
 

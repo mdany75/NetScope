@@ -23,6 +23,8 @@ struct AnaPlanInputs: Hashable, Sendable {
     let count: Int
     /// Minute du calcul : un appareil hors ligne finit par ne plus occuper son adresse.
     let minute: Int
+    /// Note 84 : empreinte des clients Wi-Fi et des ports des bornes (filaire ou Wi-Fi).
+    let wireless: Int
 
     @MainActor
     init(addressing: AnaAddressing, records: [InvRecord], recentWindow: TimeInterval, now: Date) {
@@ -40,11 +42,28 @@ struct AnaPlanInputs: Hashable, Sendable {
             hasher.combine(record.isOnline)
             hasher.combine(record.hasConflict)
             hasher.combine(record.lastSeen)
+            hasher.combine(record.wireless?.seen)
+            hasher.combine(record.switchName)
+            hasher.combine(record.switchPort)
             digest = digest &+ hasher.finalize()
         }
         self.records = digest
         count = records.count
         minute = Int(now.timeIntervalSinceReferenceDate / 60)
+        var wifi = addressing.wireless.localWifiIPs.count
+        for (mac, client) in addressing.wireless.clientsByMAC {
+            var hasher = Hasher()
+            hasher.combine(mac)
+            hasher.combine(client)
+            wifi = wifi &+ hasher.finalize()
+        }
+        for (location, ap) in addressing.wireless.accessPointPorts {
+            var hasher = Hasher()
+            hasher.combine(location)
+            hasher.combine(ap)
+            wifi = wifi &+ hasher.finalize()
+        }
+        wireless = wifi
     }
 }
 
