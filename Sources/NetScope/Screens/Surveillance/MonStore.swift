@@ -352,6 +352,14 @@ final class MonStore: ObservableObject {
                 traffic = store.monitorOverview
                 trafficError = store.monitorReadError
             }
+            // Journaux (note 43) : messages récents du journal (récepteurs de ce Mac, FortiGate).
+            var logs: [LogMessage]?
+            var logsListening: Set<LogSource> = []
+            if probe.kind == .syslogSeverity || probe.kind == .trapReceived {
+                let store = LogStore.shared
+                logs = store.recentForMonitoring(seconds: TimeInterval(probe.interval) + 10)
+                logsListening = store.listeningSources
+            }
             if perHost {
                 await SwitchStore.shared.loadVault()
                 let host = SwitchStore.shared.community(for: probe.target)
@@ -373,6 +381,8 @@ final class MonStore: ObservableObject {
             context.firmwareSiteErrors = firmwareSiteErrors
             context.traffic = traffic
             context.trafficError = trafficError
+            context.logs = logs
+            context.logsListening = logsListening
             let outcome = await MonRunner.run(probe, context: context)
             MonStore.shared.finish(probe.id, outcome: outcome, manual: manual)
         }

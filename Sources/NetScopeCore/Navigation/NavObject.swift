@@ -107,6 +107,8 @@ public struct NavProbeRef: Hashable, Sendable {
         case .switchPort, .newDevices, .onlineService, .fortiAPOffline, .fortiAPOverload, .dhcpScope, .vpnTunnel, .wanLink,
              .linkSaturated, .heavyDevice, .newThreat, .licenseExpiring, .firmwareOutdated:
             return nil
+        case .syslogSeverity, .trapReceived:
+            return MonTrafficChecks.isAll(text) ? nil : text
         }
     }
 }

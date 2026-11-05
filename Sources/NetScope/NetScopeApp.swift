@@ -54,7 +54,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Tant que des sondes de surveillance sont actives, NetScope reste dans la barre de menus.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        MainActor.assumeIsolated { !MonStore.shared.hasActiveProbes }
+        // Note 43 : les récepteurs Syslog et traps continuent aussi fenêtre fermée.
+        MainActor.assumeIsolated { !MonStore.shared.hasActiveProbes && !LogStore.isListeningIfLoaded }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -62,6 +63,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MonStore.shared.save()
             // Note 28 : derniers résultats et inventaire du site actif.
             SiteModel.shared.saveOnQuit()
+            // Note 43 : journal des messages reçus depuis le dernier enregistrement.
+            LogStore.saveOnQuitIfLoaded()
         }
     }
 }

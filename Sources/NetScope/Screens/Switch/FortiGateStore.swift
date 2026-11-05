@@ -698,7 +698,12 @@ final class FortiGateStore: ObservableObject {
         let traffic = trafficCalls.isEmpty ? "" : "\n\n" + FortiDiagnostic.text(calls: trafficCalls, config: c.config, system: nil, token: tokens[id],
                                                                               date: TrafficStore.shared.lastRefresh ?? Date())
             .replacingOccurrences(of: "réponses brutes de la FortiGate", with: "réponses brutes du trafic (FortiView) de la FortiGate")
-        return "Site\u{00A0}: \(c.displayName)\n" + text + wifi + dhcp + wan + firmware + traffic
+        // Note 43 : appels des journaux d'événements de la dernière lecture (même retrait du jeton).
+        let logCalls = calls == nil ? LogStore.shared.diagnosticCalls(id) : []
+        let logs = logCalls.isEmpty ? "" : "\n\n" + FortiDiagnostic.text(calls: logCalls, config: c.config, system: nil, token: tokens[id],
+                                                                        date: LogStore.shared.fortiLastRead[id] ?? Date())
+            .replacingOccurrences(of: "réponses brutes de la FortiGate", with: "réponses brutes des journaux d’événements de la FortiGate")
+        return "Site\u{00A0}: \(c.displayName)\n" + text + wifi + dhcp + wan + firmware + traffic + logs
     }
 
     // MARK: Wi-Fi (note 27)

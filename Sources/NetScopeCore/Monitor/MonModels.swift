@@ -20,6 +20,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
     case linkSaturated, heavyDevice, newThreat
     /// Parc Fortinet (note 41) : licence FortiGuard ou FortiCare bientôt expirée, firmware pas à jour.
     case licenseExpiring, firmwareOutdated
+    /// Journaux (note 43) : message Syslog (ou de la FortiGate) de gravité ≥ X, trap SNMP reçue.
+    case syslogSeverity, trapReceived
 
     public var id: String { rawValue }
 
@@ -47,6 +49,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .newThreat: return "Nouvelle menace"
         case .licenseExpiring: return "Licence bientôt expirée"
         case .firmwareOutdated: return "Firmware pas à jour"
+        case .syslogSeverity: return "Message Syslog de gravité ≥ X"
+        case .trapReceived: return "Trap SNMP reçue"
         }
     }
 
@@ -74,6 +78,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .newThreat: return "Menace"
         case .licenseExpiring: return "Licence"
         case .firmwareOutdated: return "Firmware"
+        case .syslogSeverity: return "Syslog"
+        case .trapReceived: return "Trap"
         }
     }
 
@@ -99,6 +105,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .newThreat: return "Site, ou «\u{00A0}*\u{00A0}» pour tous les sites lus"
         case .licenseExpiring: return "Service (IPS, FortiCare…), «\u{00A0}Siège / *\u{00A0}», ou «\u{00A0}*\u{00A0}» pour toutes"
         case .firmwareOutdated: return "Équipement, modèle ou famille (FortiAP), «\u{00A0}Siège / *\u{00A0}», ou «\u{00A0}*\u{00A0}»"
+        case .syslogSeverity, .trapReceived: return "Adresse ou nom de l’appareil, ou «\u{00A0}*\u{00A0}» pour tous"
         }
     }
 
@@ -239,6 +246,10 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
     public var wanThresholds: WANThresholds?
     /// Nouvelle menace (note 54) : menaces déjà vues (clés « site|menace|adresse »), apprises au premier passage.
     public var knownThreats: [String]?
+    /// Message Syslog (note 43) : gravité minimale qui déclenche l'alerte (nil : erreur).
+    public var logSeverity: LogSeverity?
+    /// Trap reçue (note 43) : nom ou OID de la trap attendue (nil ou vide : toutes).
+    public var trapFilter: String?
 
     public init(id: UUID = UUID(), name: String, kind: MonProbeKind, target: String, subtitle: String = "",
                 isEnabled: Bool = true, interval: Int = 60, thresholds: MonThresholds = MonThresholds(),
@@ -328,6 +339,11 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
             return "Alerte si une licence expire dans \(days)\u{00A0}j ou moins, panne si elle est expirée"
         case .firmwareOutdated:
             return "Alerte si une version plus récente est disponible (aucune mise à jour lancée)"
+        case .syslogSeverity:
+            return "Alerte à chaque message de gravité \((logSeverity ?? .error).atLeastLabel) reçu"
+        case .trapReceived:
+            let filter = trapFilter?.trimmingCharacters(in: .whitespaces) ?? ""
+            return filter.isEmpty ? "Alerte à chaque trap reçue" : "Alerte à chaque trap «\(nbsp)\(filter)\(nbsp)» reçue"
         }
     }
 
@@ -401,6 +417,8 @@ extension MonProbe {
         dhcpThresholds = try? c.decodeIfPresent(DHCPScopeThresholds.self, forKey: .dhcpThresholds)
         wanThresholds = try? c.decodeIfPresent(WANThresholds.self, forKey: .wanThresholds)
         knownThreats = try? c.decodeIfPresent([String].self, forKey: .knownThreats)
+        logSeverity = try? c.decodeIfPresent(LogSeverity.self, forKey: .logSeverity)
+        trapFilter = try? c.decodeIfPresent(String.self, forKey: .trapFilter)
     }
 }
 

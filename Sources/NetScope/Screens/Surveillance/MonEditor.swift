@@ -398,6 +398,8 @@ private struct MonConditionFields: View {
             MonTrafficConditionFields(probe: $probe)
         case .licenseExpiring, .firmwareOutdated:
             MonFirmwareConditionFields(probe: $probe)
+        case .syslogSeverity, .trapReceived:
+            MonLogConditionFields(probe: $probe)
         }
     }
 

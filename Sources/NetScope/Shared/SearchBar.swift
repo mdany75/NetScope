@@ -18,6 +18,7 @@ extension Screen {
         case .reglages: return .reglages
         case .switchs: return .switchs
         case .wifi: return .wifiEcran
+        case .journaux: return .journaux
         default: return nil
         }
     }
@@ -35,6 +36,7 @@ extension Screen {
         case .reglages: return "les sections des réglages"
         case .switchs: return "la table MAC du switch affiché"
         case .wifi: return "les réseaux voisins et les tableaux FortiAP"
+        case .journaux: return "les messages Syslog, les traps et les journaux de la FortiGate"
         default: return "cet écran"
         }
     }
