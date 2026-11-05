@@ -119,6 +119,7 @@ struct TraficScreen: View {
                     .environmentObject(state)
                     .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panel).shadow(radius: 18))
                     .padding(.top, 40)
+                    .padding(.bottom, 16)
             }
         }
         .onAppear {

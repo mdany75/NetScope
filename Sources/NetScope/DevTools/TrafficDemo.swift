@@ -4,11 +4,11 @@ import NetScopeCore
 /// Démonstration de la note 54 (écran Trafic) : trafic FortiView fictif, cohérent avec les
 /// appareils de démonstration (DemoData, SitesDemo). Aucun accès réseau.
 /// - Siège : le Poste comptabilité (WKS346, 10.182.122.117) envoie une sauvegarde OneDrive qui
-///   sature l'envoi du lien wan1 (Vidéotron 500/50) ; l'appareil inconnu 10.182.122.100 utilise
+///   sature l'envoi du lien wan1 (Bell Fibre 500/50) ; l'appareil inconnu 10.182.122.100 utilise
 ///   BitTorrent (application inattendue) ; le téléphone Android 10.182.122.133 a contacté un serveur
 ///   de commande de botnet, bloqué par la FortiGate ; une tentative d'injection vers une caméra
 ///   Hikvision a été bloquée par l'IPS.
-/// - Entrepôt Laval : trafic calme (lecteurs, postes, caméras), lien Bell 100/10 peu chargé.
+/// - Entrepôt Laval : trafic calme (lecteurs, postes, caméras), lien Cogeco Affaires 250/50 peu chargé.
 ///
 /// Captures : NETSCOPE_ECRANS=trafic ; NETSCOPE_TRAFIC_VUE=analyse (analyse complète),
 /// saturation (feuille « Qui sature le lien ? »), menaces, applications, sessions, wan…
@@ -39,20 +39,6 @@ enum TrafficDemo {
     /// Erreur de lecture d'une FortiGate de démonstration (Drummondville : droit FortiView manquant).
     static func error(controllerID: UUID) -> String? {
         controllerID == FortiGateSitesDemo.drummondID ? FortiGateError.forbidden(path: TrafficPaths.realtime).trafficDescription : nil
-    }
-
-    /// État du WAN de démonstration pour l'analyse complète (en attendant la lecture du WAN, note 39).
-    static func wan(sites: [String]) -> [NetworkWANStatus] {
-        var result: [NetworkWANStatus] = []
-        if sites.contains("Siège") {
-            result += [NetworkWANStatus(site: "Siège", name: "wan1", isUp: true, latencyMs: 14, lossPercent: 0, jitterMs: 2),
-                       NetworkWANStatus(site: "Siège", name: "wan2", isUp: true, latencyMs: 146, lossPercent: 1.2, jitterMs: 38),
-                       NetworkWANStatus(site: "Siège", name: "VPN-Laval", isTunnel: true, isUp: true, latencyMs: 9)]
-        }
-        if sites.contains("Entrepôt Laval") {
-            result += [NetworkWANStatus(site: "Entrepôt Laval", name: "wan1", isUp: true, latencyMs: 11, lossPercent: 0)]
-        }
-        return result
     }
 
     // MARK: Données
@@ -143,19 +129,19 @@ enum TrafficDemo {
         Line(view: .applications, key: "HTTPS.BROWSER", name: "HTTPS.BROWSER", rxMbps: 4.8, txMbps: 0.3, sessions: 37, category: "Web.Client", risk: 2),
         Line(view: .applications, key: "Hikvision.Hik-Connect", name: "Hikvision.Hik-Connect", rxMbps: 0.1, txMbps: 2.2, sessions: 2, category: "IoT", risk: 2, duty: 1),
         Line(view: .webCategories, key: "Business", name: "Business", rxMbps: 2.1, txMbps: 0.2, sessions: 18),
-        Line(view: .interfaces, key: "wan1", name: "wan1", rxMbps: 9.6, txMbps: 3.3, sessions: 59, interface: "wan1"),
+        Line(view: .interfaces, key: "wan", name: "wan", rxMbps: 9.6, txMbps: 3.3, sessions: 59, interface: "wan"),
         Line(view: .interfaces, key: "lan", name: "lan", rxMbps: 1.1, txMbps: 9.5, sessions: 57, interface: "lan"),
         Line(view: .policies, key: "2", name: "Entrepôt vers Internet", rxMbps: 9.5, txMbps: 3.3, sessions: 57, category: "policy", policy: 2),
     ]
 
     private static let siegeLinks = [
-        TrafficLink(site: "", name: "wan1", alias: "Vidéotron 500/50", role: "wan", linkUp: true, speedMbps: 1000, upstreamKbps: 50_000, downstreamKbps: 500_000),
-        TrafficLink(site: "", name: "wan2", alias: "LTE secours", role: "wan", linkUp: true, speedMbps: 1000, upstreamKbps: 20_000, downstreamKbps: 50_000),
+        TrafficLink(site: "", name: "wan1", alias: "Bell Fibre", role: "wan", linkUp: true, speedMbps: 1000, upstreamKbps: 50_000, downstreamKbps: 500_000),
+        TrafficLink(site: "", name: "wan2", alias: "Vidéotron Câble", role: "wan", linkUp: true, speedMbps: 1000, upstreamKbps: 20_000, downstreamKbps: 400_000),
         TrafficLink(site: "", name: "internal", role: "lan", linkUp: true, speedMbps: 1000),
     ]
 
     private static let lavalLinks = [
-        TrafficLink(site: "", name: "wan1", alias: "Bell 100/10", role: "wan", linkUp: true, speedMbps: 1000, upstreamKbps: 10_000, downstreamKbps: 100_000),
+        TrafficLink(site: "", name: "wan", alias: "Cogeco Affaires", role: "wan", linkUp: true, speedMbps: 1000, upstreamKbps: 50_000, downstreamKbps: 250_000),
         TrafficLink(site: "", name: "lan", role: "lan", linkUp: true, speedMbps: 1000),
     ]
 

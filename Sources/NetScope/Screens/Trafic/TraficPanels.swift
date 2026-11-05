@@ -154,13 +154,19 @@ struct TrafficSaturationSheet: View {
             ToolNotice(tone: verdict.isSaturated ? (verdict.link?.level == .critical ? .critical : .warning) : .success,
                        title: verdict.headline, message: verdict.advice)
             if !verdict.consumers.isEmpty {
-                VStack(spacing: 0) {
-                    ForEach(Array(verdict.consumers.enumerated()), id: \.element.id) { index, consumer in
-                        consumerRow(index + 1, consumer)
-                        if index < verdict.consumers.count - 1 { Divider() }
+                // La liste défile quand la fenêtre est basse (petite fenêtre, 1000 × 650) : le
+                // bouton « Fermer » reste visible.
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(Array(verdict.consumers.enumerated()), id: \.element.id) { index, consumer in
+                            consumerRow(index + 1, consumer)
+                            if index < verdict.consumers.count - 1 { Divider() }
+                        }
                     }
                 }
+                .frame(minHeight: 170, idealHeight: CGFloat(verdict.consumers.count) * 86, maxHeight: CGFloat(verdict.consumers.count) * 86)
                 .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
                 .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
             }
             HStack {
@@ -179,7 +185,14 @@ struct TrafficSaturationSheet: View {
         let entry = consumer.entry
         let ref = store.deviceRef(ip: entry.ip, mac: entry.mac, name: entry.name, site: entry.site, state: state)
         let name = ref.map { $0.name != $0.ip ? $0.name : entry.name } ?? entry.name
-        let location = ref?.switchName.map { $0 + (ref?.switchPort.map { " · " + $0 } ?? "") }
+        let switchLocation = ref?.switchName.map { $0 + (ref?.switchPort.map { " · " + $0 } ?? "") }
+        // Un appareil Wi-Fi (« FortiAP-231F · Wi-Fi ») n'a pas de port de switch : on donne sa
+        // borne (AP-ACCUEIL), comme la colonne « Borne Wi-Fi » du tableau des sources.
+        let location: String? = {
+            guard let switchLocation, switchLocation.hasSuffix("Wi-Fi") else { return switchLocation }
+            if let ap = store.accessPointName(ip: entry.ip, mac: entry.mac, state: state) { return "Borne " + ap + " · Wi-Fi" }
+            return switchLocation
+        }()
         return HStack(alignment: .top, spacing: 10) {
             Text("\(rank)").font(Theme.mono(13, weight: .bold)).foregroundStyle(Theme.textTertiary).frame(width: 18)
             VStack(alignment: .leading, spacing: 3) {

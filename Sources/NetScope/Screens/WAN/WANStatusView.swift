@@ -370,20 +370,20 @@ struct WANStatusView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .help(row.link.reasons.isEmpty ? row.link.interface.displayName : row.link.reasons.joined(separator: "\n"))
                             }
-                            .width(min: 90, ideal: 140)
+                            .width(min: 90, ideal: 146)
                             .customizationID("lien")
                             .disabledCustomizationBehavior(.visibility)
                             TableColumn("ADRESSE IP", sortUsing: linkTable.sort("adresse")) { row in
                                 ToolTableText(row.link.interface.addressLabel, size: 11, color: Theme.textSecondary)
                                     .help(row.link.interface.mode.map { "Adressage\u{00A0}: \($0.uppercased())" } ?? "")
                             }
-                            .width(min: 80, ideal: 110)
+                            .width(min: 80, ideal: 124)
                             .customizationID("adresse")
                             TableColumn("DÉBIT ↓ / ↑", sortUsing: linkTable.sort("debit")) { row in
                                 ToolTableText(WANFormat.throughput(rx: row.link.interface.rxBps, tx: row.link.interface.txBps), size: 11)
                                     .help(rateHelp(row.link.interface))
                             }
-                            .width(min: 120, ideal: 186)
+                            .width(min: 120, ideal: 184)
                             .customizationID("debit")
                             TableColumn("LATENCE", sortUsing: linkTable.sort("latence")) { row in
                                 ToolTableText(WANFormat.ms(row.link.latencyMs), color: (row.link.latencyMs ?? 0) > store.thresholds.latencyMs ? Theme.warning : Theme.text, alignment: .trailing)

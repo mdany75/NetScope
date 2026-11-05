@@ -86,13 +86,23 @@ enum MonDemo {
             state: .warning, value: "2 actifs sur 2 · 44\(s)ms · perte 4\(s)%", latency: nil, orange: [22, 23], red: [], dependsOnGateway: false,
             configure: { $0.wanThresholds = .standard; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
         // Trafic (note 54) : envoi du lien wan1 saturé par une sauvegarde OneDrive, menaces bloquées.
-        Row(name: "Lien Internet du Siège", kind: .linkSaturated, target: "wan1", sub: "FortiView · Vidéotron 500/50", iv: 300,
+        Row(name: "Lien Internet du Siège", kind: .linkSaturated, target: "wan1", sub: "FortiView · Bell Fibre", iv: 300,
             state: .warning, value: "wan1 · 96\(s)%", latency: nil, orange: [13, 14], red: [], dependsOnGateway: false,
             configure: { $0.resourceLimit = 80; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
         Row(name: "Nouvelles menaces", kind: .newThreat, target: "*", sub: "FortiView · IPS, antivirus, botnet", iv: 300,
             state: .ok, value: "3 menaces · 3 bloquées", latency: nil, orange: [], red: [], dependsOnGateway: false,
             configure: { $0.knownThreats = []; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
     ]
+
+    /// Sonde ouverte dans l'éditeur. Captures : NETSCOPE_SURV_SONDE="Liens WAN du Siège" (ou
+    /// « Tunnels VPN du Siège », « Lien Internet du Siège », « Nouvelles menaces ») choisit une autre
+    /// sonde que Caméra-Quai ; le tableau la ramène en vue.
+    private static var selectedName: String {
+        guard CommandLine.arguments.contains("--snapshot"),
+              let name = ProcessInfo.processInfo.environment["NETSCOPE_SURV_SONDE"],
+              rows.contains(where: { $0.name == name }) else { return "Caméra-Quai" }
+        return name
+    }
 
     static func load(into store: MonStore) {
         let calendar = Calendar.current
@@ -165,6 +175,6 @@ enum MonDemo {
         ])
 
         store.loadDemo(probes: probes, trackers: trackers, history: history, journal: journal,
-                       selected: id("Caméra-Quai"), now: now, cycleStart: now.addingTimeInterval(-42))
+                       selected: id(selectedName), now: now, cycleStart: now.addingTimeInterval(-42))
     }
 }

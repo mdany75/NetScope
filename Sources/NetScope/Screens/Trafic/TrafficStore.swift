@@ -464,8 +464,9 @@ final class TrafficStore: ObservableObject {
     /// État du WAN et des tunnels pour l'analyse : liens et tunnels IPsec lus par la lecture du WAN
     /// (WANStore) pour les FortiGate données ; nil si aucune n'a encore été lue (l'analyse le dit
     /// dans sa couverture). Les liens désactivés et les tunnels en attente ne sont pas des pannes.
+    /// En démonstration, WANStore tient les relevés de WANDemo : l'analyse voit le même WAN que
+    /// l'onglet « WAN » (tunnel VPN-QUEBEC tombé, wan2 dégradé).
     func wanStatuses(ids: [UUID], sites: [String]) -> [NetworkWANStatus]? {
-        if isDemo { return TrafficDemo.wan(sites: sites) }
         let wan = WANStore.shared
         var seen = Set<UUID>()
         let read = ids.filter { wan.reports[$0] != nil && seen.insert($0).inserted }

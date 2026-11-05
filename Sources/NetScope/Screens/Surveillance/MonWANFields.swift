@@ -12,23 +12,35 @@ struct MonWANConditionFields: View {
         VStack(alignment: .leading, spacing: 6) {
             if probe.kind == .wanLink {
                 let t = probe.wanThresholds ?? .standard
-                HStack(spacing: 6) {
-                    Text("Dégradé si latence >").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
-                    field($latencyText, value: t.latencyMs, range: 1...5000) { v in
-                        let c = probe.wanThresholds ?? .standard
-                        probe.wanThresholds = WANThresholds(latencyMs: v, jitterMs: c.jitterMs, lossPercent: c.lossPercent)
+                // Trois seuils sur trois lignes courtes : sur une seule, la ligne dépassait la
+                // largeur de l'éditeur (et l'élargissait au-delà de la fenêtre).
+                Text("Dégradé si l’un de ces seuils est dépassé\u{00A0}:").font(Theme.small).foregroundStyle(Theme.text)
+                    .fixedSize(horizontal: false, vertical: true)
+                Grid(alignment: .leading, horizontalSpacing: 6, verticalSpacing: 6) {
+                    GridRow {
+                        label("Latence >")
+                        field($latencyText, value: t.latencyMs, range: 1...5000) { v in
+                            let c = probe.wanThresholds ?? .standard
+                            probe.wanThresholds = WANThresholds(latencyMs: v, jitterMs: c.jitterMs, lossPercent: c.lossPercent)
+                        }
+                        label("ms")
                     }
-                    Text("ms, gigue >").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
-                    field($jitterText, value: t.jitterMs, range: 1...2000) { v in
-                        let c = probe.wanThresholds ?? .standard
-                        probe.wanThresholds = WANThresholds(latencyMs: c.latencyMs, jitterMs: v, lossPercent: c.lossPercent)
+                    GridRow {
+                        label("Gigue >")
+                        field($jitterText, value: t.jitterMs, range: 1...2000) { v in
+                            let c = probe.wanThresholds ?? .standard
+                            probe.wanThresholds = WANThresholds(latencyMs: c.latencyMs, jitterMs: v, lossPercent: c.lossPercent)
+                        }
+                        label("ms")
                     }
-                    Text("ms ou perte >").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
-                    field($lossText, value: t.lossPercent, range: 0.1...100) { v in
-                        let c = probe.wanThresholds ?? .standard
-                        probe.wanThresholds = WANThresholds(latencyMs: c.latencyMs, jitterMs: c.jitterMs, lossPercent: v)
+                    GridRow {
+                        label("Perte >")
+                        field($lossText, value: t.lossPercent, range: 0.1...100) { v in
+                            let c = probe.wanThresholds ?? .standard
+                            probe.wanThresholds = WANThresholds(latencyMs: c.latencyMs, jitterMs: c.jitterMs, lossPercent: v)
+                        }
+                        label("%")
                     }
-                    Text("%").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
                 }
                 .onChange(of: probe.id) { _, _ in
                     latencyText = nil
@@ -44,6 +56,10 @@ struct MonWANConditionFields: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private func label(_ text: String) -> some View {
+        Text(text).font(Theme.small).foregroundStyle(Theme.text).fixedSize()
     }
 
     private func field(_ text: Binding<String?>, value: Double, range: ClosedRange<Double>, apply: @escaping (Double) -> Void) -> some View {

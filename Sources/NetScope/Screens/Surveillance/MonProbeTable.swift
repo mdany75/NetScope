@@ -485,6 +485,9 @@ private struct MonProbeGrid: View {
             }
         }
         .standardTableStyle()
+        // Au retour sur l'écran (et en capture), la sonde choisie revient en vue, comme dans
+        // l'Inventaire et le Scanner.
+        .revealRow(id: store.selectedProbe?.id) { rows.firstIndex { $0.id == store.selectedProbe?.id } }
         // Note 34 : double-clic ou ↩︎ sur une sonde → l'appareil ou le service surveillé ; clic droit →
         // « Ouvrir dans › » (cible, Ping continu, fiche…).
         .standardRowActions(selection: store.selectedID.map { [$0] } ?? [], object: { id in

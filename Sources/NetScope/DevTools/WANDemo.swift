@@ -3,8 +3,9 @@ import NetScopeCore
 
 /// WAN et VPN fictifs (note 39), lus « sur » les FortiGate de démonstration. Aucun accès réseau.
 ///
-/// - Siège (FortiGate-60F) : deux liens WAN en SD-WAN, wan1 Bell Fibre en bon état et wan2
-///   Vidéotron Câble dégradé (perte 4 %, gigue élevée, SLA non respecté) ; trois tunnels IPsec,
+/// - Siège (FortiGate-60F) : deux liens WAN en SD-WAN, wan1 Bell Fibre 500/50 en bon état mais
+///   dont l'envoi est saturé par une sauvegarde OneDrive (mêmes débits que TrafficDemo) et wan2
+///   Vidéotron Câble 400/20 dégradé (perte 4 %, gigue élevée, SLA non respecté) ; trois tunnels IPsec,
 ///   vers Entrepôt Laval et Usine Drummondville montés, vers Bureau Québec tombé ; un serveur
 ///   d'accès distant (FortiClient) et trois utilisateurs VPN SSL ;
 /// - Entrepôt Laval (FortiGate-40F) : un lien WAN sans SD-WAN, le tunnel vers le Siège monté ;
@@ -75,14 +76,14 @@ enum WANDemo {
         let wan1 = WANInterfaceStatus(name: "wan1", alias: "Bell Fibre", role: "wan", type: "physical", mode: "static", adminUp: true,
                                       linkUp: true, speedMbps: 1000, ip: ip("203.0.113.10"), prefix: 29,
                                       rxBytes: 9_412_884_120_311, txBytes: 1_288_017_442_960, rxErrors: 0, txErrors: 0,
-                                      rxBps: 312_400_000, txBps: 48_700_000, estimatedDownKbps: 1_000_000, estimatedUpKbps: 1_000_000,
-                                      gateway: ip("203.0.113.9"), sdwanZone: "virtual-wan-link", isSDWANMember: true, sessions: 1_842,
+                                      rxBps: 66_400_000, txBps: 48_100_000, estimatedDownKbps: 500_000, estimatedUpKbps: 50_000,
+                                      gateway: ip("203.0.113.9"), sdwanZone: "virtual-wan-link", isSDWANMember: true, sessions: 428,
                                       stateChanged: now.addingTimeInterval(-19 * 86_400))
         let wan2 = WANInterfaceStatus(name: "wan2", alias: "Vidéotron Câble", role: "wan", type: "physical", mode: "dhcp", adminUp: true,
                                       linkUp: true, speedMbps: 1000, ip: ip("198.51.100.73"), prefix: 24,
                                       rxBytes: 2_106_330_918_004, txBytes: 402_119_783_210, rxErrors: 1_284, txErrors: 0,
-                                      rxBps: 86_300_000, txBps: 9_100_000, estimatedDownKbps: 400_000, estimatedUpKbps: 20_000,
-                                      gateway: ip("198.51.100.1"), sdwanZone: "virtual-wan-link", isSDWANMember: true, sessions: 611,
+                                      rxBps: 300_000, txBps: 100_000, estimatedDownKbps: 400_000, estimatedUpKbps: 20_000,
+                                      gateway: ip("198.51.100.1"), sdwanZone: "virtual-wan-link", isSDWANMember: true, sessions: 3,
                                       stateChanged: now.addingTimeInterval(-47 * 60))
         let checks = [
             WANHealthCheckConfig(name: "Google_DNS", servers: ["8.8.8.8", "8.8.4.4"], proto: "ping", members: ["wan1", "wan2"],
@@ -94,10 +95,10 @@ enum WANDemo {
         let health = [
             WANHealthMeasure(checkName: "Google_DNS", interface: "wan1", status: "up", latencyMs: 6.8, jitterMs: 0.9, lossPercent: 0,
                              packetsSent: 30_412, packetsReceived: 30_412, slaTargetsMet: [1], stateChanged: now.addingTimeInterval(-19 * 86_400),
-                             rxBps: 312_400_000, txBps: 48_700_000, sessions: 1_842),
+                             rxBps: 66_400_000, txBps: 48_100_000, sessions: 428),
             WANHealthMeasure(checkName: "Google_DNS", interface: "wan2", status: "up", latencyMs: 38.6, jitterMs: 12.4, lossPercent: 4,
                              packetsSent: 30_410, packetsReceived: 29_194, slaTargetsMet: [], stateChanged: changed,
-                             rxBps: 86_300_000, txBps: 9_100_000, sessions: 611),
+                             rxBps: 300_000, txBps: 100_000, sessions: 3),
             WANHealthMeasure(checkName: "Microsoft_365", interface: "wan1", status: "up", latencyMs: 11.2, jitterMs: 1.6, lossPercent: 0,
                              packetsSent: 6_080, packetsReceived: 6_080, slaTargetsMet: [1], stateChanged: now.addingTimeInterval(-19 * 86_400)),
             WANHealthMeasure(checkName: "Microsoft_365", interface: "wan2", status: "up", latencyMs: 44.1, jitterMs: 15.8, lossPercent: 3.2,
@@ -138,7 +139,7 @@ enum WANDemo {
         let wan = WANInterfaceStatus(name: "wan", alias: "Cogeco Affaires", role: "wan", type: "physical", mode: "dhcp", adminUp: true,
                                      linkUp: true, speedMbps: 1000, ip: ip("192.0.2.44"), prefix: 26,
                                      rxBytes: 1_904_442_117_002, txBytes: 811_204_337_412, rxErrors: 0, txErrors: 0,
-                                     rxBps: 41_800_000, txBps: 12_600_000, estimatedDownKbps: 250_000, estimatedUpKbps: 50_000)
+                                     rxBps: 9_600_000, txBps: 3_300_000, estimatedDownKbps: 250_000, estimatedUpKbps: 50_000)
         let tunnel = WANTunnel(name: "VPN-SIEGE", remoteGateway: "203.0.113.10", type: "automatic", comments: "Vers Siège",
                                connectionCount: 1, incomingBytes: 61_993_402_118, outgoingBytes: 48_204_117_830,
                                upSince: now.addingTimeInterval(-(6 * 86_400 + 4 * 3600)),
