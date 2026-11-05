@@ -688,12 +688,17 @@ final class FortiGateStore: ObservableObject {
         let wan = wanCalls.isEmpty ? "" : "\n\n" + FortiDiagnostic.text(calls: wanCalls, config: c.config, system: nil, token: tokens[id],
                                                                       date: WANStore.shared.reports[id]?.report.readAt ?? Date())
             .replacingOccurrences(of: "réponses brutes de la FortiGate", with: "réponses brutes du WAN et des VPN de la FortiGate")
+        // Note 41 : appels du firmware et des licences de la dernière lecture (même retrait du jeton).
+        let firmwareCalls = calls == nil ? FirmwareStore.shared.calls[id] ?? [] : []
+        let firmware = firmwareCalls.isEmpty ? "" : "\n\n" + FortiDiagnostic.text(calls: firmwareCalls, config: c.config, system: nil, token: tokens[id],
+                                                                                date: FirmwareStore.shared.reports[id]?.report.readAt ?? Date())
+            .replacingOccurrences(of: "réponses brutes de la FortiGate", with: "réponses brutes du firmware et des licences de la FortiGate")
         // Note 54 : appels FortiView de la dernière lecture du trafic (même retrait du jeton).
         let trafficCalls = calls == nil ? TrafficStore.shared.diagnosticCalls(id) : []
         let traffic = trafficCalls.isEmpty ? "" : "\n\n" + FortiDiagnostic.text(calls: trafficCalls, config: c.config, system: nil, token: tokens[id],
                                                                               date: TrafficStore.shared.lastRefresh ?? Date())
             .replacingOccurrences(of: "réponses brutes de la FortiGate", with: "réponses brutes du trafic (FortiView) de la FortiGate")
-        return "Site\u{00A0}: \(c.displayName)\n" + text + wifi + dhcp + wan + traffic
+        return "Site\u{00A0}: \(c.displayName)\n" + text + wifi + dhcp + wan + firmware + traffic
     }
 
     // MARK: Wi-Fi (note 27)

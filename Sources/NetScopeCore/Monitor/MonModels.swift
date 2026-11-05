@@ -18,6 +18,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
     case vpnTunnel, wanLink
     /// Trafic lu par FortiView (note 54) : lien WAN saturé, appareil qui consomme trop, nouvelle menace.
     case linkSaturated, heavyDevice, newThreat
+    /// Parc Fortinet (note 41) : licence FortiGuard ou FortiCare bientôt expirée, firmware pas à jour.
+    case licenseExpiring, firmwareOutdated
 
     public var id: String { rawValue }
 
@@ -43,6 +45,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .linkSaturated: return "Lien saturé"
         case .heavyDevice: return "Appareil qui consomme trop"
         case .newThreat: return "Nouvelle menace"
+        case .licenseExpiring: return "Licence bientôt expirée"
+        case .firmwareOutdated: return "Firmware pas à jour"
         }
     }
 
@@ -68,6 +72,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .linkSaturated: return "Lien WAN"
         case .heavyDevice: return "Trafic"
         case .newThreat: return "Menace"
+        case .licenseExpiring: return "Licence"
+        case .firmwareOutdated: return "Firmware"
         }
     }
 
@@ -91,6 +97,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .linkSaturated: return "Interface WAN (wan1), ou «\u{00A0}*\u{00A0}» pour tous les liens"
         case .heavyDevice: return "Adresse IP de l’appareil, ou «\u{00A0}*\u{00A0}» pour tous"
         case .newThreat: return "Site, ou «\u{00A0}*\u{00A0}» pour tous les sites lus"
+        case .licenseExpiring: return "Service (IPS, FortiCare…), «\u{00A0}Siège / *\u{00A0}», ou «\u{00A0}*\u{00A0}» pour toutes"
+        case .firmwareOutdated: return "Équipement, modèle ou famille (FortiAP), «\u{00A0}Siège / *\u{00A0}», ou «\u{00A0}*\u{00A0}»"
         }
     }
 
@@ -315,6 +323,11 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
             return "Alerte si un appareil dépasse \(MonFormat.number(resourceLimit ?? MonProbe.defaultResourceLimit(.heavyDevice)))\u{00A0}Mb/s"
         case .newThreat:
             return "Alerte à chaque nouvelle menace vue par FortiView" + (knownThreats.map { " (\($0.count) connues)" } ?? "")
+        case .licenseExpiring:
+            let days = Int(resourceLimit ?? MonProbe.defaultResourceLimit(.licenseExpiring))
+            return "Alerte si une licence expire dans \(days)\u{00A0}j ou moins, panne si elle est expirée"
+        case .firmwareOutdated:
+            return "Alerte si une version plus récente est disponible (aucune mise à jour lancée)"
         }
     }
 
@@ -323,6 +336,7 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
         switch kind {
         case .portLoad, .linkSaturated: return 80
         case .heavyDevice: return 50
+        case .licenseExpiring: return Double(MonFirmwareChecks.defaultDays)
         default: return 90
         }
     }

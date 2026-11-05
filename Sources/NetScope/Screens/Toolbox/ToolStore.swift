@@ -14,6 +14,8 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     case cloud
     /// WAN et VPN des FortiGate (note 39) : liens WAN, SD-WAN, tunnels IPsec.
     case wan
+    /// Firmware et licences du parc Fortinet (note 41) : versions, mises à jour disponibles, contrats.
+    case firmware
     // Outils courriel (note 14).
     case mailSuper, mailHealth, mx, blacklist, mailRecords
     // Courriel (note 14, partie 2)
@@ -29,6 +31,8 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case adressage = "Adressage", diagnostic = "Diagnostic", performance = "Performance", services = "Services"
         case internet = "Internet"
         case courriel = "Courriel"
+        /// Parc Fortinet (note 41) : firmware et licences de chaque site.
+        case parc = "Parc Fortinet"
         var tools: [ToolKind] { ToolKind.allCases.filter { $0.group == self } }
     }
 
@@ -41,6 +45,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .wol, .dhcp, .lldp, .dhcpScopes: return .services
         case .tftp: return .services
         case .cloud, .wan: return .internet
+        case .firmware: return .parc
         case .mailSuper, .mailHealth, .mx, .blacklist, .mailRecords: return .courriel
         case .smtp, .headers: return .courriel
         }
@@ -63,6 +68,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .tftp: return "TFTP"
         case .cloud: return "État des services"
         case .wan: return "WAN et VPN"
+        case .firmware: return "Firmware et licences"
         case .mailSuper: return "Super outil courriel"
         case .mailHealth: return "Santé courriel"
         case .mx: return "Recherche MX"
@@ -92,6 +98,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .tftp: return "Serveur TFTP temporaire sur ce Mac et client TFTP\u{00A0}: configurations, firmwares et fichiers des téléphones IP."
         case .cloud: return "Microsoft 365, AWS, Google, GitHub…\u{00A0}: page d’état officielle et accès depuis ce réseau."
         case .wan: return "Liens WAN et SD-WAN de chaque FortiGate (état, débit, latence, perte, SLA) et tunnels VPN montés ou tombés, pour un site ou tous."
+        case .firmware: return "Versions FortiOS, FortiSwitch et FortiAP de chaque site, mises à jour disponibles et contrats FortiGuard avec leur date d’expiration, en lecture seule."
         case .mailSuper: return "Domaine, adresse courriel, IP ou nom d’hôte\u{00A0}: toutes les vérifications utiles d’un coup."
         case .mailHealth: return "Note sur 100 d’un domaine (MX, SPF, DKIM, DMARC, listes noires, MTA-STS, DNSSEC) et recommandations."
         case .mx: return "Serveurs MX par priorité, leurs adresses et la cohérence du DNS inverse."
@@ -121,6 +128,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .tftp: return "arrow.up.arrow.down.square"
         case .cloud: return "cloud"
         case .wan: return "point.3.filled.connected.trianglepath.dotted"
+        case .firmware: return "checkmark.seal"
         case .mailSuper: return "wand.and.stars"
         case .mailHealth: return "heart.text.square"
         case .mx: return "tray.2"
@@ -144,7 +152,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     static let favorites: [ToolKind] = [.subnet, .ports, .dns, .wol]
 
     /// Outils qui prennent toute la largeur (sans le panneau des favoris et de l'historique).
-    var usesFullWidth: Bool { self == .capture || self == .dhcpScopes || self == .wan || self == .tftp || self == .speedtest || self == .iperf }
+    var usesFullWidth: Bool { self == .capture || self == .dhcpScopes || self == .wan || self == .firmware || self == .tftp || self == .speedtest || self == .iperf }
 
     /// Recherche multiple (note 26) : `nom:dns`, `groupe:courriel` ; un mot seul lit le nom, la
     /// clé et le résumé, comme avant.

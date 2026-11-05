@@ -333,6 +333,16 @@ final class MonStore: ObservableObject {
                 wanError = WANStore.shared.readError
                 wanSiteErrors = WANStore.shared.monitoringErrors
             }
+            // Firmware et licences (note 41) : FortiGate activées relues si plus vieilles que l'intervalle.
+            var firmware: FirmwareOverview?
+            var firmwareError: String?
+            var firmwareSiteErrors: [String: String] = [:]
+            if probe.kind == .licenseExpiring || probe.kind == .firmwareOutdated {
+                await FirmwareStore.shared.refreshForMonitoring(maxAge: TimeInterval(probe.interval))
+                firmware = FirmwareStore.shared.monitoringOverview
+                firmwareError = FirmwareStore.shared.readError
+                firmwareSiteErrors = FirmwareStore.shared.monitoringErrors
+            }
             // Trafic (note 54) : temps réel FortiView du site actif, relu si plus vieux que l'intervalle.
             var traffic: TrafficOverview?
             var trafficError: String?
@@ -358,6 +368,9 @@ final class MonStore: ObservableObject {
             context.wan = wan
             context.wanError = wanError
             context.wanSiteErrors = wanSiteErrors
+            context.firmware = firmware
+            context.firmwareError = firmwareError
+            context.firmwareSiteErrors = firmwareSiteErrors
             context.traffic = traffic
             context.trafficError = trafficError
             let outcome = await MonRunner.run(probe, context: context)

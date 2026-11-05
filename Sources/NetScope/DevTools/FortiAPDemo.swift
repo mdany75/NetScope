@@ -76,7 +76,7 @@ enum FortiAPDemo {
                                     radio(3, .ghz5, 100, 40, power: 16, util: 29, noise: -97)],
                            location: "Grande salle de conférence"),
             FortiManagedAP(name: "AP-ENTREPOT", wtpID: "FP231FTF22004233", serial: "FP231FTF22004233", model: "FAP-231F",
-                           firmware: "FP231F-v7.2.8-build0436", ip: IPv4Address("10.182.130.12"), connected: true, state: "connected",
+                           firmware: "FP231F-v7.2.4-build0412", ip: IPv4Address("10.182.130.12"), connected: true, state: "connected",
                            admin: "authorized", uptime: 41 * 86_400, profile: "FAP231F-entrepot",
                            radios: [radio(1, .ghz24, 1, 20, power: 18, util: 27, noise: -91, interfering: 3),
                                     radio(2, .ghz5, 52, 80, power: 20, util: 18, noise: -96)],
