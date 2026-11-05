@@ -18,7 +18,7 @@ enum PingDemo {
         Profile(input: "8.8.8.8", name: "Google DNS", role: "Internet", base: 13.6, jitter: 1.8, loss: 0.004, burst: 0, spike: 0.015, threshold: 40),
         Profile(input: "1.1.1.1", name: "Cloudflare", role: "Internet", base: 11.8, jitter: 1.5, loss: 0.003, burst: 0, spike: 0.015, threshold: 40),
         Profile(input: "192.168.50.21", name: "Caméra-Quai", role: "Caméra · VLAN 40", base: 3.9, jitter: 2.4, loss: 0.025, burst: 0.012, spike: 0.04, threshold: 20),
-    ]
+    ] + PingProtocolsDemo.profiles // Note 65 : une cible TCP et une cible HTTPS.
 
     /// Générateur pseudo-aléatoire reproductible (SplitMix64) : les captures sont identiques d'un lancement à l'autre.
     struct Random {
@@ -107,7 +107,7 @@ enum PingDemo {
             PingEvent(date: at(78), level: .coupure, subject: "192.168.50.21", message: "délai dépassé (3 paquets perdus)"),
             PingEvent(date: at(53), level: .alerte, subject: "10.182.122.111", message: "1 paquet perdu (seq 53)"),
             PingEvent(date: at(0).addingTimeInterval(-1), level: .info, subject: "Session",
-                      message: "surveillance démarrée · 6 cibles · ICMP · 56 octets · 1 s"),
+                      message: "surveillance démarrée · 8 cibles (6 ICMP, 1 TCP, 1 HTTPS) · 56 octets · 1 s"),
         ]
     }
 

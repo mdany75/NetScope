@@ -19,7 +19,7 @@ struct PingTerminalCard: View {
             HStack(spacing: 6) {
                 Text(target.name).font(Theme.mono(11, weight: .semibold)).foregroundStyle(Theme.consolePrompt)
                     .lineLimit(1)
-                Text(target.addressLabel).font(Theme.mono(11)).foregroundStyle(Theme.consoleMuted).lineLimit(1)
+                Text(target.endpointLabel).font(Theme.mono(11)).foregroundStyle(Theme.consoleMuted).lineLimit(1)
                 Spacer(minLength: 4)
                 if target.isPaused {
                     Text("EN PAUSE").font(Theme.mono(10, weight: .semibold)).foregroundStyle(Color(hex: 0xFFB340))
@@ -56,12 +56,13 @@ struct PingTerminalCard: View {
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isButton)
         .accessibilityAction(named: "Revenir à la carte", onFlipBack)
-        .help("Réponses de \(target.addressLabel) · clic\u{00A0}: revenir à la carte")
+        .help("Réponses de \(target.endpointLabel) · clic\u{00A0}: revenir à la carte")
         .contextMenu {
             Button(target.isPaused ? "Reprendre la cible" : "Mettre la cible en pause", action: onTogglePause)
             Button("Copier les réponses") {
                 NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(target.history.samples.suffix(60).map(text).joined(separator: "\n"), forType: .string)
+                let lines: [String] = target.history.samples.suffix(60).map { text($0) }
+                NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
             }
             Divider()
             Button("Retirer la cible", role: .destructive, action: onRemove)
@@ -76,18 +77,32 @@ struct PingTerminalCard: View {
 
     private func line(_ sample: PingSample) -> some View {
         let slow = (sample.rttMs ?? 0) > target.thresholdMs
-        return Text(text(sample) + (slow ? "  ← lent" : ""))
+        return Text(text(sample, compact: true) + (slow ? "  ← lent" : ""))
             .font(Theme.mono(11))
             .foregroundStyle(sample.isLost ? Color(hex: 0xFF6B6B) : slow ? Color(hex: 0xFFB340) : Theme.consoleText)
             .lineLimit(1)
             .truncationMode(.tail)
     }
 
-    private func text(_ sample: PingSample) -> String {
+    /// `compact` : ligne de la carte (HTTP : seulement le temps TCP, le détail complet est copié).
+    private func text(_ sample: PingSample, compact: Bool = false) -> String {
         guard let rtt = sample.rttMs else {
             let reason = sample.failure?.label ?? "délai dépassé"
-            return "\(reason.prefix(1).uppercased() + reason.dropFirst())\u{00A0}: seq=\(sample.sequence)"
+            let detail = sample.detail.map { " (\($0))" } ?? ""
+            return "\(reason.prefix(1).uppercased() + reason.dropFirst())\u{00A0}: seq=\(sample.sequence)\(detail)"
         }
-        return "\(payloadSize + 8) octets de \(target.addressLabel)\u{00A0}: seq=\(sample.sequence) temps=\(PingFormat.decimal(rtt)) ms"
+        // Note 65 : réponses façon tcping et curl pour les cibles TCP et HTTP(S).
+        switch target.kind {
+        case .icmp:
+            return "\(payloadSize + 8) octets de \(target.addressLabel)\u{00A0}: seq=\(sample.sequence) temps=\(PingFormat.decimal(rtt)) ms"
+        case .tcp:
+            return "Connecté à \(target.endpointLabel)\u{00A0}: seq=\(sample.sequence) temps=\(PingFormat.decimal(rtt)) ms"
+        case .http:
+            let code = sample.statusCode.map { "HTTP \($0)" } ?? "HTTP"
+            let parts = sample.detail?.components(separatedBy: " · ") ?? []
+            let tcp = parts.first { $0.hasPrefix("TCP") }?.replacingOccurrences(of: "\u{00A0}ms", with: "")
+            let detail = compact ? (tcp.map { " · \($0)" } ?? "") : (sample.detail.map { " (\($0))" } ?? "")
+            return "\(code)\u{00A0}: seq=\(sample.sequence) temps=\(PingFormat.decimal(rtt)) ms\(detail)"
+        }
     }
 }

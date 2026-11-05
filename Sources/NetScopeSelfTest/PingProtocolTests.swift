@@ -186,4 +186,29 @@ func registerPingProtocolTests(_ suite: TestSuite) {
         let closed = PingTCP.probe(IPv4Address(127, 0, 0, 1), port: port, timeout: 1)
         try expectEqual(closed.failure, .refused, "port fermé : RST")
     }
+
+    suite.add("Ping HTTP : serveur local sur 127.0.0.1 (200, puis 503)") {
+        guard let (fd, port) = listenLocal() else { throw TestSkipped(reason: "écoute TCP locale impossible") }
+        defer { close(fd) }
+        // Petit serveur : répond aux deux requêtes suivantes avec ces lignes d'état.
+        let answers = ["HTTP/1.1 200 OK", "HTTP/1.1 503 Service Unavailable"]
+        DispatchQueue.global().async {
+            for answer in answers {
+                let client = accept(fd, nil, nil)
+                guard client >= 0 else { return }
+                var buffer = [UInt8](repeating: 0, count: 1024)
+                _ = recv(client, &buffer, buffer.count, 0)
+                let response = Array("\(answer)\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".utf8)
+                _ = response.withUnsafeBytes { send(client, $0.baseAddress, $0.count, 0) }
+                close(client)
+            }
+        }
+        let url = URL(string: "http://127.0.0.1:\(port)/sante")!
+        let ok = await PingHTTP.probe(url, timeout: 2)
+        try expectEqual(ok.statusCode, 200, "code 200")
+        try expect(ok.rttMs != nil && ok.failure == nil, "réponse comptée : \(String(describing: ok.failure))")
+        try expect(ok.detail?.contains("TCP") == true, "détail du temps : \(ok.detail ?? "—")")
+        let down = await PingHTTP.probe(url, timeout: 2)
+        try expectEqual(down.failure, .httpStatus(503), "503 compté comme une perte")
+    }
 }

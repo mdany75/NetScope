@@ -18,10 +18,18 @@ struct PingTarget: Identifiable {
     var thresholdMs: Double
     /// Pause propre à la cible (0.21.0) : plus aucun envoi, statistiques figées.
     var pauses = PingPausePeriods()
+    /// Note 65 : ICMP, connexion TCP à un port ou requête HTTP(S).
+    var kind: PingProbeKind = .icmp
+    /// Nom ou adresse à résoudre (sans préfixe ni port).
+    var host = ""
 
     var isPaused: Bool { pauses.isPaused }
     var status: PingTargetStatus { PingTargetStatus.of(history, isPaused: isPaused) }
     var addressLabel: String { address?.description ?? input }
+    /// « 10.0.0.5 », « 10.0.0.5:3389 », « portail.exemple.ca » : ce qui est sondé.
+    var endpointLabel: String {
+        kind.isICMP ? addressLabel : PingTargetSpec.endpoint(kind: kind, address: address?.description ?? host)
+    }
 }
 
 /// Moteur de l'écran Ping continu : cibles, mesures, journal et MTR. Une seule instance, qui
@@ -50,6 +58,11 @@ final class PingController: ObservableObject {
     @Published private(set) var sessionStart = Date()
     /// Le système a refusé le bit DF : le test MTU n'est pas fiable.
     @Published private(set) var dontFragmentRefused = false
+    /// Note 65 : protocole des cibles saisies sans préfixe, et port du mode TCP.
+    @Published var probeMode: PingProbeMode = .icmp
+    @Published var tcpPort: UInt16 = 443
+    /// Note 65 : protocole du traceroute (ICMP natif ; TCP et UDP par /usr/sbin/traceroute).
+    @Published private(set) var mtrProtocol: PingTraceProtocol = .icmp
 
     // MTR
     @Published private(set) var mtrReport: PingMTRReport?
@@ -64,7 +77,7 @@ final class PingController: ObservableObject {
     let isSimulated: Bool
     private let isSnapshot: Bool
 
-    private var monitors: [PingTarget.ID: PingMonitor] = [:]
+    private var monitors: [PingTarget.ID: any PingSampler] = [:]
     private var pendingSamples: [(PingTarget.ID, PingSample)] = []
     private var flushScheduled = false
     private var mtrTask: Task<Void, Never>?
@@ -118,9 +131,10 @@ final class PingController: ObservableObject {
         for input in inputs where !contains(input) { add(input, log: shouldLog) }
     }
 
-    private func contains(_ input: String) -> Bool {
-        let key = input.trimmingCharacters(in: .whitespaces).lowercased()
-        return targets.contains { $0.input.lowercased() == key || $0.address?.description == key }
+    private func contains(_ input: String, mode: PingProbeMode = .icmp) -> Bool {
+        let trimmed = input.trimmingCharacters(in: .whitespaces)
+        let key = (PingTargetSpec.parse(trimmed, mode: mode, defaultPort: tcpPort)?.canonical ?? trimmed).lowercased()
+        return targets.contains { $0.input.lowercased() == key || ($0.kind.isICMP && $0.address?.description == key) }
     }
 
     // MARK: Cibles
@@ -130,26 +144,32 @@ final class PingController: ObservableObject {
         let tokens = text.split(whereSeparator: { $0 == "," || $0 == ";" || $0 == " " }).map(String.init)
         for token in tokens {
             if (token.contains("/") || token.contains("-")), let range = try? IPRange(parsing: token), range.count > 1 {
-                for address in range.addresses().prefix(Self.maxTargets) where !contains(address.description) {
-                    guard add(address.description) else { break }
+                for address in range.addresses().prefix(Self.maxTargets) where !contains(address.description, mode: probeMode) {
+                    guard add(address.description, mode: probeMode) else { break }
                 }
-            } else if !contains(token) {
-                add(token)
+            } else if !contains(token, mode: probeMode) {
+                add(token, mode: probeMode)
             }
         }
     }
 
     @discardableResult
-    func add(_ rawInput: String, name: String? = nil, role: String? = nil, log shouldLog: Bool = true) -> Bool {
-        let input = rawInput.trimmingCharacters(in: .whitespaces)
-        guard !input.isEmpty, !contains(input) else { return false }
+    func add(_ rawInput: String, name: String? = nil, role: String? = nil, log shouldLog: Bool = true,
+             mode: PingProbeMode = .icmp) -> Bool {
+        let trimmed = rawInput.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, !contains(trimmed, mode: mode) else { return false }
+        guard let spec = PingTargetSpec.parse(trimmed, mode: mode, defaultPort: tcpPort) else {
+            if shouldLog { log(.alerte, trimmed, "cible illisible (adresse, nom, hôte:port, tcp:// ou http(s)://)") }
+            return false
+        }
         guard targets.count < Self.maxTargets else {
             log(.alerte, "Session", "limite de \(Self.maxTargets) cibles atteinte")
             return false
         }
-        let address = IPv4Address(input)
-        var target = PingTarget(input: input, name: name ?? input, role: role ?? "", address: address,
-                                thresholdMs: PingEventDetector.defaultThreshold(for: address))
+        let input = spec.canonical
+        let address = IPv4Address(spec.host)
+        var target = PingTarget(input: input, name: name ?? (spec.kind.isICMP ? input : spec.host), role: role ?? "", address: address,
+                                thresholdMs: PingEventDetector.defaultThreshold(for: address), kind: spec.kind, host: spec.host)
         describe(&target)
         if let name { target.name = name }
         if let role { target.role = role }
@@ -157,14 +177,14 @@ final class PingController: ObservableObject {
         if targets.isEmpty { sessionStart = Date() }
         targets.append(target)
         if selectedID == nil { selectedID = target.id }
-        if shouldLog { log(.info, input, "cible ajoutée à la surveillance") }
+        if shouldLog { log(.info, target.endpointLabel, spec.kind.isICMP ? "cible ajoutée à la surveillance" : "cible \(spec.kind.label) ajoutée à la surveillance") }
         if address != nil {
             startMonitor(target.id)
         } else if !isSimulated {
             let id = target.id
             Task {
                 do {
-                    let resolved = try await PingResolver.resolveAsync(input)
+                    let resolved = try await PingResolver.resolveAsync(spec.host)
                     update(id) {
                         $0.address = resolved
                         $0.role = $0.role.isEmpty || $0.role == "Nom d’hôte" ? resolved.description : $0.role
@@ -189,7 +209,7 @@ final class PingController: ObservableObject {
         }
         let wellKnown = ["1.1.1.1": "Cloudflare", "1.0.0.1": "Cloudflare", "8.8.8.8": "Google DNS",
                          "8.8.4.4": "Google DNS", "9.9.9.9": "Quad9"]
-        if let known = wellKnown[target.input] {
+        if let known = wellKnown[target.kind.isICMP ? target.input : target.host] {
             target.name = known
             target.role = "Internet"
             return
@@ -225,10 +245,16 @@ final class PingController: ObservableObject {
         guard !isSimulated, !isPaused, monitors[id] == nil,
               let target = targets.first(where: { $0.id == id }), !target.isPaused,
               let address = target.address else { return }
-        let monitor = PingMonitor(address: address, options: options) { sample in
+        let handler: PingMonitor.Handler = { sample in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated { PingController.shared.enqueue(id, sample) }
             }
+        }
+        let monitor: any PingSampler
+        switch target.kind {
+        case .icmp: monitor = PingMonitor(address: address, options: options, handler: handler)
+        case let .tcp(port): monitor = PingProbeMonitor.tcp(address: address, port: port, options: options, handler: handler)
+        case let .http(url): monitor = PingProbeMonitor.http(url: url, options: options, handler: handler)
         }
         do {
             try monitor.start()
@@ -266,7 +292,7 @@ final class PingController: ObservableObject {
         targets[index].history.append(sample)
         let target = targets[index]
         let found = PingEventDetector.events(for: sample, previousLosses: previous, interval: interval,
-                                             thresholdMs: target.thresholdMs, subject: target.addressLabel,
+                                             thresholdMs: target.thresholdMs, subject: target.endpointLabel,
                                              previousAboveThreshold: wasAbove)
         for event in found {
             let suffix = event.level == .coupure && soundOnLoss ? " · alerte sonore" : ""
@@ -303,7 +329,7 @@ final class PingController: ObservableObject {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 MainActor.assumeIsolated {
                     let controller = PingController.shared
-                    controller.dontFragmentRefused = controller.monitors.values.contains { !$0.dontFragmentApplied }
+                    controller.dontFragmentRefused = controller.monitors.values.contains { ($0 as? PingMonitor)?.dontFragmentApplied == false }
                 }
             }
         }
@@ -390,7 +416,7 @@ final class PingController: ObservableObject {
     /// Toutes les mesures en CSV (séparateur « ; », virgule décimale, comme Excel en français).
     /// Aucune mesure n'est comptée pendant la pause d'une cible (NetScopeCore.PingCSV).
     private var csvTargets: [PingCSV.Target] {
-        targets.map { PingCSV.Target(name: $0.name, address: $0.addressLabel, samples: $0.history.samples, pauses: $0.pauses) }
+        targets.map { PingCSV.Target(name: $0.name, address: $0.endpointLabel, samples: $0.history.samples, pauses: $0.pauses) }
     }
 
     func csv() -> String { PingCSV.make(csvTargets) }
@@ -417,17 +443,36 @@ final class PingController: ObservableObject {
     private func selectionChanged() {
         stopMTR()
         mtrError = nil
+        mtrProtocol = selectedTarget.map { PingTraceProtocol.suggested(for: $0.kind) } ?? .icmp
         guard let target = selectedTarget, let address = target.address else {
             mtrReport = nil
             return
         }
         if isSimulated {
             let profile = PingDemo.profile(for: target.input)
-            mtrReport = PingDemo.report(to: address, profile: profile, cycles: 30)
+            mtrReport = PingDemo.report(to: address, profile: profile, cycles: 30, traceProtocol: mtrProtocol)
             hostnames.merge(PingDemo.hostnames) { current, _ in current }
         } else {
             mtrReport = nil
         }
+    }
+
+    /// Change le protocole du traceroute (le rapport repart de zéro).
+    func setMTRProtocol(_ value: PingTraceProtocol) {
+        guard value != mtrProtocol else { return }
+        let wasRunning = isMTRRunning
+        stopMTR()
+        mtrProtocol = value
+        mtrError = nil
+        if let address = selectedTarget?.address {
+            if isSimulated {
+                mtrReport = PingDemo.report(to: address, profile: PingDemo.profile(for: selectedTarget?.input ?? ""), cycles: 30,
+                                            traceProtocol: value)
+            } else {
+                mtrReport = PingMTRReport(destination: address)
+            }
+        }
+        if wasRunning { startMTR() }
     }
 
     func startMTR() {
@@ -436,7 +481,7 @@ final class PingController: ObservableObject {
         isMTRRunning = true
         if mtrReport?.destination != address || isSimulated { mtrReport = PingMTRReport(destination: address) }
         if isSimulated {
-            let hops = PingDemo.hops(to: address, profile: PingDemo.profile(for: target.input))
+            let hops = PingDemo.hops(to: address, profile: PingDemo.profile(for: target.input), traceProtocol: mtrProtocol)
             mtrTask = Task {
                 while !Task.isCancelled {
                     mtrReport?.record(PingDemo.cycle(hops: hops))
@@ -445,7 +490,29 @@ final class PingController: ObservableObject {
             }
             return
         }
-        log(.info, address.description, "MTR lancé")
+        log(.info, address.description, "MTR \(mtrProtocol.label) lancé")
+        let traceProtocol = mtrProtocol
+        if traceProtocol.usesSystemTraceroute {
+            // TCP SYN et UDP : sockets brutes (droits root) → /usr/sbin/traceroute d'Apple, setuid root.
+            mtrTask = Task {
+                do {
+                    let tracer = PingSystemTracer(destination: address, protocol: traceProtocol, maxHops: 30)
+                    while !Task.isCancelled {
+                        let cycle = try await tracer.runCycle(destinationTTL: mtrReport?.probeLimit)
+                        guard !Task.isCancelled, mtrReport?.destination == address, mtrProtocol == traceProtocol else { break }
+                        mtrReport?.record(cycle)
+                        if resolveHopNames, let report = mtrReport { resolveNames(in: report) }
+                        try await Task.sleep(nanoseconds: 1_000_000_000)
+                    }
+                } catch is CancellationError {
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    mtrError = "Traceroute \(traceProtocol.label) impossible\u{00A0}: \(error.localizedDescription)"
+                    isMTRRunning = false
+                }
+            }
+            return
+        }
         mtrTask = Task {
             do {
                 let tracer = try PingTracer(destination: address, maxHops: 30, timeout: 1)
@@ -497,11 +564,13 @@ final class PingController: ObservableObject {
         for extra in state.pingTargets where !inputs.contains(extra) { inputs.append(extra) }
         for input in inputs.prefix(Self.maxTargets) {
             let profile = PingDemo.profile(for: input)
-            let address = IPv4Address(input)
-            var target = PingTarget(input: input, name: profile?.name ?? input, role: profile?.role ?? "", address: address,
-                                    thresholdMs: profile?.threshold ?? PingEventDetector.defaultThreshold(for: address))
+            let spec = PingTargetSpec.parse(input) ?? PingTargetSpec(kind: .icmp, host: input)
+            let address = IPv4Address(spec.host) ?? PingProtocolsDemo.address(for: spec.host)
+            var target = PingTarget(input: spec.canonical, name: profile?.name ?? input, role: profile?.role ?? "", address: address,
+                                    thresholdMs: profile?.threshold ?? PingEventDetector.defaultThreshold(for: address),
+                                    kind: spec.kind, host: spec.host)
             if profile == nil { describe(&target) }
-            if let profile { target.history = PingDemo.prefill(profile, now: now) }
+            if let profile { target.history = PingProtocolsDemo.decorate(PingDemo.prefill(profile, now: now), kind: spec.kind) }
             if input == PingDemo.pausedInput {
                 // Cible en pause : plus aucune mesure depuis la mise en pause.
                 let start = PingDemo.date(of: PingDemo.pausedIndex, now: now)
@@ -514,9 +583,16 @@ final class PingController: ObservableObject {
         }
         sessionStart = now.addingTimeInterval(-121)
         events = PingDemo.events(now: now)
-        selectedID = targets.first { $0.input == "8.8.8.8" }?.id ?? targets.first?.id
+        // Captures : NETSCOPE_PING_MODE=tcp (ou http) montre la barre dans ce mode (note 65).
+        if let mode = ProcessInfo.processInfo.environment["NETSCOPE_PING_MODE"].flatMap(PingProbeMode.init(rawValue:)) {
+            probeMode = mode
+        }
+        // Captures : NETSCOPE_PING_CIBLE=<texte de la cible> choisit la cible du traceroute.
+        let chosen = ProcessInfo.processInfo.environment["NETSCOPE_PING_CIBLE"] ?? "8.8.8.8"
+        selectedID = targets.first { $0.input == chosen }?.id ?? targets.first { $0.input == "8.8.8.8" }?.id ?? targets.first?.id
         if let target = selectedTarget, let address = target.address {
-            mtrReport = PingDemo.report(to: address, profile: PingDemo.profile(for: target.input), cycles: 60)
+            mtrProtocol = PingTraceProtocol.suggested(for: target.kind)
+            mtrReport = PingDemo.report(to: address, profile: PingDemo.profile(for: target.input), cycles: 60, traceProtocol: mtrProtocol)
         }
         hostnames = PingDemo.hostnames
         restartSimulation()
@@ -537,7 +613,8 @@ final class PingController: ObservableObject {
         for target in targets where !target.isPaused {
             let profile = PingDemo.profile(for: target.input) ?? PingDemo.genericProfile(for: target.input, address: target.address)
             let sequence = (target.history.last?.sequence ?? 0) + 1
-            apply(PingSample(sequence: sequence, date: now, rttMs: PingDemo.sample(for: profile, payloadSize: payloadSize)), to: target.id)
+            let rtt = PingDemo.sample(for: profile, payloadSize: payloadSize)
+            apply(PingProtocolsDemo.sample(sequence: sequence, date: now, rttMs: rtt, kind: target.kind), to: target.id)
         }
     }
 }
