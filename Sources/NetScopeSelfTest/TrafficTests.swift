@@ -299,7 +299,7 @@ func registerTrafficTests(_ suite: TestSuite) {
             traffic: traffic, trafficThresholds: TrafficThresholds(linkWarningPercent: 60),
             wan: [NetworkWANStatus(site: "Siège", name: "wan2", isUp: true, latencyMs: 180, lossPercent: 4),
                   NetworkWANStatus(site: "Siège", name: "VPN-Laval", isTunnel: true, isUp: false)],
-            ports: [NetworkPortIssue(site: "Siège", switchName: "SW-ETG2-01", host: "10.182.122.3", port: "1/7", kind: .errors(48_211))],
+            ports: [NetworkPortIssue(site: "Siège", switchName: "SW-ETG2-01", host: "10.182.122.3", port: "1/7", kind: .errors(PortErrorRate(errors: 4_800, seconds: 3600)))],
             unknownDevices: [NetworkUnknownDevice(site: "Siège", ip: "10.182.122.100", name: "10.182.122.100", firstSeen: now.addingTimeInterval(-3600))],
             now: now)
         let result = NetworkAnalysis.analyze(input)

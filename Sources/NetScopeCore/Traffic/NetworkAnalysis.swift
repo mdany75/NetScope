@@ -106,8 +106,9 @@ public struct NetworkWANStatus: Hashable, Sendable {
 /// Port de switch en difficulté.
 public struct NetworkPortIssue: Hashable, Sendable {
     public enum Kind: Hashable, Sendable {
-        /// Compteur d'erreurs en entrée (depuis le démarrage du switch).
-        case errors(UInt64)
+        /// Erreurs en entrée apparues sur une durée mesurée (note 78 : un écart dans le temps, plus le
+        /// total accumulé depuis le démarrage du switch).
+        case errors(PortErrorRate)
         /// Charge du lien (%).
         case saturated(Double)
     }
@@ -217,8 +218,8 @@ public struct NetworkAnalysisResult: Hashable, Sendable {
 }
 
 public enum NetworkAnalysis {
-    /// Seuil d'erreurs d'un port signalé (compteur depuis le démarrage du switch).
-    public static let portErrorThreshold: UInt64 = 1000
+    /// Charge moyenne d'un port sur la dernière heure à partir de laquelle il est « saturé » (%).
+    public static let portSaturationPercent: Double = 80
     /// Un appareil inconnu vu depuis moins de 24 h est « nouveau ».
     public static let recentUnknown: TimeInterval = 86_400
 
@@ -452,11 +453,11 @@ public enum NetworkAnalysis {
         return ports.map { issue in
             let at = multi ? " (\(issue.site))" : ""
             switch issue.kind {
-            case .errors(let count):
+            case .errors(let rate):
                 return NetworkFinding(
-                    id: "port|\(issue.host)|\(issue.port)", severity: count >= portErrorThreshold * 10 ? .warning : .advice, area: .health,
+                    id: "port|\(issue.host)|\(issue.port)", severity: rate.level >= 2 ? .warning : .advice, area: .health,
                     title: "Port \(issue.switchName) · \(issue.port) en erreur" + at,
-                    explanation: "\(ToolFormat.integer(count)) erreurs en réception depuis le démarrage du switch\u{00A0}: câble abîmé, prise murale ou négociation de vitesse.",
+                    explanation: "\(ToolFormat.integer(rate.errors)) nouvelles erreurs en réception en \(PortErrorRate.durationLabel(rate.seconds)) (\(PortErrorRate.label(rate.perHour).replacingOccurrences(of: "/h", with: "\u{00A0}par heure")))\u{00A0}: câble abîmé, prise murale ou négociation de vitesse.",
                     action: "Tester le câble et la prise, puis forcer la vitesse et le duplex des deux côtés si les erreurs continuent.",
                     site: issue.site, target: .switchPort(host: issue.host, port: issue.port))
             case .saturated(let percent):
@@ -529,13 +530,26 @@ public enum NetworkAnalysis {
         return result
     }
 
-    /// Ports en erreur relevés sur les switchs (SNMP ou FortiSwitch convertis).
-    public static func portIssues(_ snapshots: [SNMPSwitchSnapshot], site: String, threshold: UInt64 = portErrorThreshold) -> [NetworkPortIssue] {
+    /// Ports en erreur ou saturés relevés sur les switchs (SNMP ou FortiSwitch convertis). Les erreurs
+    /// sont jugées sur leur rythme (erreurs par heure) : `errorRates` vient de l'historique des ports
+    /// (24 h) ou, à défaut, du suivi des 30 dernières minutes ; un port sans mesure dans le temps n'est
+    /// pas signalé, quel que soit son total depuis le démarrage du switch. `loads` : charge moyenne
+    /// de la dernière heure (% du lien, sens le plus chargé).
+    public static func portIssues(_ snapshots: [SNMPSwitchSnapshot], site: String,
+                                  errorRates: [String: [Int: PortErrorRate]],
+                                  loads: [String: [Int: Double]] = [:]) -> [NetworkPortIssue] {
         snapshots.flatMap { snapshot in
-            snapshot.interfaces.compactMap { iface -> NetworkPortIssue? in
-                guard let errors = iface.inErrors, errors >= threshold, iface.isPhysical else { return nil }
-                return NetworkPortIssue(site: snapshot.controllerName ?? site, switchName: snapshot.displayName, host: snapshot.id,
-                                        port: iface.name, kind: .errors(errors))
+            snapshot.interfaces.filter(\.isPhysical).sorted { $0.index < $1.index }.compactMap { iface -> NetworkPortIssue? in
+                let issueSite = snapshot.controllerName ?? site
+                if let rate = errorRates[snapshot.id]?[iface.index], rate.level > 0 {
+                    return NetworkPortIssue(site: issueSite, switchName: snapshot.displayName, host: snapshot.id,
+                                            port: iface.name, kind: .errors(rate))
+                }
+                if let load = loads[snapshot.id]?[iface.index], load >= portSaturationPercent {
+                    return NetworkPortIssue(site: issueSite, switchName: snapshot.displayName, host: snapshot.id,
+                                            port: iface.name, kind: .saturated(load))
+                }
+                return nil
             }
         }
     }

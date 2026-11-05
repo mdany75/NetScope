@@ -350,6 +350,8 @@ final class SNMPResourceMonitor: ObservableObject {
             let processor = try await poller.processor()
             let memory = try await poller.memory()
             apply(ports: ports, processor: processor, memory: memory, at: now)
+            // Note 74 : un switch connu garde aussi ces compteurs dans l'historique de ses ports.
+            PortHistoryStore.shared.record(host: host, ports: ports, at: now, siteKey: SwitchStore.shared.historySiteKey(for: host))
             error = nil
             // Note 60 : l'agent répond, sa fiche matériel est lue aussi (une fois par heure au plus).
             InvHardwareFeed.shared.resourcesPolled(host: address, community: community)
