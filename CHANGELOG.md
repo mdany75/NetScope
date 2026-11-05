@@ -3,7 +3,8 @@
 ## 0.26.2 — 2026-11-05
 
 Tableau de bord de votre serveur RustDesk, lu par SSH en lecture seule : sessions relayées,
-demandes de connexion, postes enregistrés, état de hbbs et hbbr, et espace disque.
+demandes de connexion, postes enregistrés, état de hbbs et hbbr, et espace disque. Les clients
+Wi-Fi des FortiGate en FortiOS 7.4.13 s’affichent de nouveau.
 
 ### Ajouté
 - **Accès distant › Serveur RustDesk** : nouvel onglet, un tableau de bord de votre serveur
@@ -29,6 +30,13 @@ demandes de connexion, postes enregistrés, état de hbbs et hbbr, et espace dis
   arrière-plan.
 
 ### Corrigé
+- **Wi-Fi › FortiAP : 0 client sur certaines FortiGate** (constaté à St-Georges Ford, FortiOS
+  7.4.13). FortiOS glisse des données invalides (restes de mémoire) dans un champ de la liste des
+  clients, ce qui faisait rejeter toute la réponse. NetScope la répare maintenant avant de la lire,
+  pour toutes les lectures de la FortiGate, et le diagnostic indique les réponses réparées.
+- **Wi-Fi › FortiAP : plus de 0 sans explication.** Une réponse illisible, un droit refusé ou des
+  clients annoncés par les bornes mais absents de la liste sont signalés dans le bandeau et
+  comptés en alerte dans « Conseils ».
 - Messages clairs, avec la marche à suivre, quand le serveur est injoignable par SSH, quand la
   console de hbbr ne répond pas, quand hbbs est trop ancien pour lister les demandes ou quand le
   disque est presque plein, au lieu d’un tableau vide.
