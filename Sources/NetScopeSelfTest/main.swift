@@ -102,6 +102,8 @@ registerRustDeskTests(suite)
 registerRustDeskPortTests(suite)
 // Note 6 (0.26.2) : tableau de bord du serveur RustDesk.
 registerRustDeskServerTests(suite)
+// Écran Appareil : ouvrir une fiche par IP, nom ou MAC, appareils saisis à la main.
+registerDeviceLookupTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

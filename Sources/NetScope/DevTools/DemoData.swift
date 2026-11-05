@@ -37,6 +37,8 @@ enum DemoData {
         NavDemo.apply(to: state)
         // Note 73 : NETSCOPE_PORT choisit le port affiché dans Switchs et ports (actions sur le port).
         PortActionDemo.apply(to: state)
+        // Écran Appareil : « Ouvrir une fiche », appareil saisi à la main (NETSCOPE_APPAREIL_*).
+        DeviceLookupDemo.apply(to: state)
     }
 
     /// Interface active fictive (Wi-Fi du bureau).

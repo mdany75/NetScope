@@ -31,6 +31,8 @@ struct InvManualSheet: View {
     let mode: InvManualMode
     /// Dessinée dans la page (captures) plutôt qu'en feuille.
     var inline = false
+    /// Champs préremplis d'un nouvel appareil (fiche saisie dans l'écran Appareil).
+    var prefill: InvManualDraft? = nil
     /// Clé de la fiche créée ou modifiée (et son site).
     var onDone: (String, String) -> Void = { _, _ in }
     let dismiss: () -> Void
@@ -206,7 +208,9 @@ struct InvManualSheet: View {
         loaded = true
         site = mode.site
         guard let record = editedRecord else {
-            if InvManualDemo.prefills {
+            if let prefill {
+                apply(prefill)
+            } else if InvManualDemo.prefills {
                 let demo = InvManualDemo.draft
                 name = demo.name
                 ip = demo.ip?.description ?? ""
@@ -220,7 +224,10 @@ struct InvManualSheet: View {
             }
             return
         }
-        let current = InvManualDraft(record: record)
+        apply(InvManualDraft(record: record))
+    }
+
+    private func apply(_ current: InvManualDraft) {
         name = current.name
         ip = current.ip?.description ?? ""
         mac = current.mac?.formatted(.upperColon) ?? ""

@@ -87,16 +87,14 @@ struct DevicePortsTab: View {
     static func start(_ model: ToolPortScanModel, device: Device, state: AppState, store: ToolStore) {
         model.target = device.ip.description
         model.start(store: store) { summary in
-            guard !summary.wasCancelled, var updated = state.device(withID: device.id) else { return }
+            guard !summary.wasCancelled else { return }
             // Un profil partiel (Imprimantes, Caméras…) ne doit pas effacer les ports connus hors de sa liste.
             let scanned = Set(summary.results.map(\.port))
-            let kept = updated.openPorts.filter { !scanned.contains($0) }
-            updated.openPorts = Array(Set(kept + summary.open.map(\.port))).sorted()
-            if summary.results.contains(where: { $0.state != .filtered }) {
-                updated.isOnline = true
-                updated.lastSeen = Date()
+            let open = summary.open.map(\.port)
+            // Appareil du Scanner : ses résultats ; appareil saisi à la main : sa saisie seulement.
+            state.updateShownPorts(of: device.id, seen: summary.results.contains(where: { $0.state != .filtered })) { known in
+                Array(Set(known.filter { !scanned.contains($0) } + open)).sorted()
             }
-            state.merge([updated])
         }
     }
 

@@ -92,6 +92,11 @@ enum FileTransferPortCheck {
                 device.openPorts = ScanController.mergedPorts(open, probed: Set(list), known: device.openPorts)
                 device.lastSeen = Date()
                 state.merge([device])
+            } else if let deviceID {
+                // Appareil saisi à la main (écran Appareil) : les ports vont dans sa saisie, pas au Scanner.
+                state.updateShownPorts(of: deviceID, seen: false) {
+                    ScanController.mergedPorts(open, probed: Set(list), known: $0)
+                }
             }
             let lines = list.map { port -> String in
                 let proto = RemoteProtocol.transferProtocols.first { $0.defaultPort == Int(port) }
