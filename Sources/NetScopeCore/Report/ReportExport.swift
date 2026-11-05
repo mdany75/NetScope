@@ -69,6 +69,13 @@ public enum ReportExport {
             var tableaux: [Table]
             var brut: [String]?
             var disponibilites: [Uptime]?
+            /// Note 61 : images de la section (carte du réseau), décrites sans leurs pixels.
+            var images: [Image]?
+        }
+        struct Image: Codable {
+            var titre: String
+            var largeur: Int
+            var hauteur: Int
         }
         /// Note 78 : disponibilité de chaque sonde, jour par jour (null : aucune vérification).
         struct Uptime: Codable {
@@ -95,6 +102,7 @@ public enum ReportExport {
             var tables: [JSONReport.Table] = []
             var raw: [String]?
             var uptime: [JSONReport.Uptime]?
+            var images: [JSONReport.Image]?
             for block in section.blocks {
                 switch block {
                 case .paragraph(let text), .note(let text): texts.append(text)
@@ -112,10 +120,13 @@ public enum ReportExport {
                     uptime = (uptime ?? []) + chart.rows.map {
                         .init(sonde: $0.label, periode: $0.total, jours: $0.values.map { $0.map { ($0 * 100).rounded() / 100 } })
                     }
+                case .image(let image):
+                    images = (images ?? []) + [.init(titre: image.caption ?? image.alt, largeur: Int(image.width.rounded()),
+                                                     hauteur: Int(image.height.rounded()))]
                 }
             }
             return .init(id: section.id, titre: section.heading, textes: texts, indicateurs: kpis,
-                         repartition: bars, tableaux: tables, brut: raw, disponibilites: uptime)
+                         repartition: bars, tableaux: tables, brut: raw, disponibilites: uptime, images: images)
         }
         let report = JSONReport(
             rapport: .init(titre: document.title, modele: document.template.rawValue, client: document.client, site: document.site,
@@ -214,6 +225,9 @@ public enum ReportExport {
         .uptime .cells i{flex:1;border-radius:1px}
         .uptime .row>span:last-child{width:62px;text-align:right;font-family:ui-monospace,Menlo,monospace}
         .uptime .axis{display:flex;justify-content:space-between;margin:2px 70px 0 168px;color:#4B5563;font-size:10px}
+        figure.image{margin:6px 0 10px;text-align:center}
+        figure.image img{max-width:100%;height:auto;border:1px solid #E5E7EB;border-radius:6px}
+        figure.image figcaption{font-size:11px;color:#4B5563;margin-top:4px}
         .sign{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:32px;font-size:12px}
         .sign div div:first-child{height:30px;border-bottom:1px solid #111827}
         footer{display:flex;justify-content:space-between;border-top:1px solid #E5E7EB;margin-top:24px;padding-top:8px;font-size:11px;color:#4B5563}
@@ -310,6 +324,12 @@ public enum ReportExport {
             }
             out += "<div class=\"axis\">" + chart.axis.map { "<span>\(e($0))</span>" }.joined() + "</div>\n</div>\n"
             return out
+        case .image(let image):
+            // Image intégrée (aucune ressource externe), à sa taille naturelle au plus.
+            var out = "<figure class=\"image\"><img src=\"data:image/png;base64,\(image.png.base64EncodedString())\" alt=\"\(e(image.alt))\" "
+                + "style=\"width:\(Int(image.width.rounded()))px\">"
+            if let caption = image.caption { out += "<figcaption>\(e(caption))</figcaption>" }
+            return out + "</figure>\n"
         }
     }
 }

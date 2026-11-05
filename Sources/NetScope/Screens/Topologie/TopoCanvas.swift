@@ -3,31 +3,21 @@ import SwiftUI
 
 /// Couleurs et symboles des nœuds (croquis Topologie).
 enum TopoStyle {
-    static let wire = Color(hex: 0x94A3B8)
-    static let wifi = Color(hex: 0x7C3AED)
+    static let wire = color(TopoPalette.wire)
+    static let wifi = color(TopoPalette.wifi)
     /// Note 78 : liens vus par LLDP ou la FortiGate (ISL, uplinks, FortiLink).
-    static let lldp = Color(light: 0x0F766E, dark: 0x4FC3B5)
+    static let lldp = color(TopoPalette.lldp)
+
+    /// Couleur de la palette commune aux exports (note 61), en clair et en sombre.
+    static func color(_ value: TopoColor) -> Color { Color(light: value.light, dark: value.dark) }
     static let nodeWidth: CGFloat = 178
     static let nodeHeight: CGFloat = 54
     /// Marge du dessin (disposition et nœuds déplacés).
     static let margin: CGFloat = 22
 
     static func colors(kind: TopoNodeKind, type: DeviceType?) -> (fg: Color, bg: Color) {
-        switch kind {
-        case .internet: return (Color(light: 0x475569, dark: 0xB6C0CE), Color(light: 0xF1F5F9, dark: 0x20364B))
-        case .passerelle: return (Color(light: 0x4338CA, dark: 0xA49EE5), Color(light: 0xE0E7FF, dark: 0x1B2750))
-        case .switch: return (Color(light: 0x1D4ED8, dark: 0x93ACF1), Color(light: 0xDBEAFE, dark: 0x1B3250))
-        case .pointAcces: return (Color(light: 0x6D28D9, dark: 0xB897ED), Color(light: 0xEDE9FE, dark: 0x251B50))
-        case .groupe, .appareil:
-            switch type {
-            case .imprimante: return (Color(light: 0x0E7490, dark: 0x8FDEF4), Color(light: 0xCFFAFE, dark: 0x1B4C50))
-            case .camera: return (Color(light: 0x92400E, dark: 0xF4B68F), Color(light: 0xFEF3C7, dark: 0x50461B))
-            case .serveur: return (Color(light: 0x1E3A8A, dark: 0x9AAFE9), Color(light: 0xE0E7FF, dark: 0x1B2750))
-            case .telephone: return (Color(light: 0x6D28D9, dark: 0xB897ED), Color(light: 0xF5F3FF, dark: 0x241B50))
-            case .telephoneIP: return (Color(light: 0xBE185D, dark: 0xF29BC4), Color(light: 0xFCE7F3, dark: 0x50203A))
-            default: return (Color(light: 0x374151, dark: 0xB6BFCE), Color(light: 0xF3F4F6, dark: 0x2E333D))
-            }
-        }
+        let pair = TopoPalette.node(kind: kind, type: type)
+        return (color(pair.fg), color(pair.bg))
     }
 
     static func symbol(kind: TopoNodeKind, type: DeviceType?) -> String {
@@ -221,65 +211,42 @@ struct TopoCanvas: View {
         }
     }
 
-    /// Courbe d'un lien redondant. Deux nœuds sur la même rangée (switchs voisins d'un anneau) :
-    /// arc sous eux, du bas de l'un au bas de l'autre, au-dessus du palier de leurs enfants (les
-    /// étiquettes des liens vers le parent restent seules au-dessus). Sinon : courbe entre les
-    /// centres, bombée sur le côté.
+    /// Courbe d'un lien redondant : arc sous deux nœuds de la même rangée, sinon courbe bombée sur le
+    /// côté (tracé commun aux exports, note 61).
     private func redundantCurve(_ link: TopoInfraLink) -> (start: CGPoint, control: CGPoint, end: CGPoint)? {
         guard let a = point(link.aID), let b = point(link.bID) else { return nil }
-        if abs(a.y - b.y) < TopoStyle.nodeHeight {
-            let (left, right) = a.x <= b.x ? (a, b) : (b, a)
-            let bottom = max(left.y, right.y) + TopoStyle.nodeHeight / 2
-            let inset = TopoStyle.nodeWidth / 4
-            let start = CGPoint(x: left.x + inset, y: left.y + TopoStyle.nodeHeight / 2)
-            let end = CGPoint(x: right.x - inset, y: right.y + TopoStyle.nodeHeight / 2)
-            return (start, CGPoint(x: (start.x + end.x) / 2, y: bottom + 30), end)
-        }
-        let mid = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
-        let dx = b.x - a.x, dy = b.y - a.y
-        let length = max(sqrt(dx * dx + dy * dy), 1)
-        let bulge = min(90, max(50, length * 0.3))
-        return (a, CGPoint(x: mid.x - dy / length * bulge, y: mid.y + dx / length * bulge), b)
+        let curve = TopoGeometry.redundantCurve(Self.graphPoint(a), Self.graphPoint(b),
+                                                nodeWidth: Double(TopoStyle.nodeWidth), nodeHeight: Double(TopoStyle.nodeHeight))
+        return (Self.cgPoint(curve.start), Self.cgPoint(curve.control), Self.cgPoint(curve.end))
     }
 
     /// Milieu de la courbe d'un lien redondant (étiquette des ports).
     private func redundantMidpoint(_ link: TopoInfraLink) -> CGPoint? {
         guard let curve = redundantCurve(link) else { return nil }
-        return CGPoint(x: 0.25 * curve.start.x + 0.5 * curve.control.x + 0.25 * curve.end.x,
-                       y: 0.25 * curve.start.y + 0.5 * curve.control.y + 0.25 * curve.end.y)
+        return Self.cgPoint(TopoGeometry.redundantMidpoint((Self.graphPoint(curve.start), Self.graphPoint(curve.control),
+                                                            Self.graphPoint(curve.end))))
     }
 
-    /// Ordonnée du palier horizontal entre un parent et ses enfants.
-    private func busY(_ parent: CGPoint) -> CGFloat {
-        parent.y + TopoStyle.nodeHeight / 2 + 24
-    }
+    private static func graphPoint(_ point: CGPoint) -> TopoGraph.Point { TopoGraph.Point(x: Double(point.x), y: Double(point.y)) }
+    private static func cgPoint(_ point: TopoGraph.Point) -> CGPoint { CGPoint(x: point.x, y: point.y) }
 
-    /// Lien en équerre : du bas du parent jusqu'au haut de l'enfant ; pour une feuille empilée,
-    /// par un rail à gauche de sa colonne jusqu'à son flanc gauche.
+    /// Lien en équerre du bas du parent au haut de l'enfant (rail latéral pour une feuille empilée,
+    /// courbe pour un nœud placé à la main) : tracé commun aux exports (note 61).
     private func linkPath(_ link: (parent: TopoNode, child: TopoNode)) -> Path {
         Path { path in
             guard let parent = point(link.parent.id), let child = point(link.child.id) else { return }
-            let start = CGPoint(x: parent.x, y: parent.y + TopoStyle.nodeHeight / 2)
-            if isFree(link.parent.id) || isFree(link.child.id) {
-                // Nœud placé à la main : courbe du bas du parent au haut de l'enfant.
-                let end = CGPoint(x: child.x, y: child.y - TopoStyle.nodeHeight / 2)
-                let bend = max(abs(end.y - start.y) / 2, 40)
-                path.move(to: start)
-                path.addCurve(to: end, control1: CGPoint(x: start.x, y: start.y + bend), control2: CGPoint(x: end.x, y: end.y - bend))
-                return
-            }
-            let bus = busY(parent)
-            path.move(to: start)
-            path.addLine(to: CGPoint(x: start.x, y: bus))
-            if layout.stacked.contains(link.child.id) {
-                let rail = child.x - TopoStyle.nodeWidth / 2 - 12
-                path.addLine(to: CGPoint(x: rail, y: bus))
-                path.addLine(to: CGPoint(x: rail, y: child.y))
-                path.addLine(to: CGPoint(x: child.x - TopoStyle.nodeWidth / 2, y: child.y))
-            } else {
-                let end = CGPoint(x: child.x, y: child.y - TopoStyle.nodeHeight / 2)
-                path.addLine(to: CGPoint(x: end.x, y: bus))
-                path.addLine(to: end)
+            let segments = TopoGeometry.treePath(parent: Self.graphPoint(parent), child: Self.graphPoint(child),
+                                                 free: isFree(link.parent.id) || isFree(link.child.id),
+                                                 stacked: layout.stacked.contains(link.child.id),
+                                                 nodeWidth: Double(TopoStyle.nodeWidth), nodeHeight: Double(TopoStyle.nodeHeight))
+            for segment in segments {
+                switch segment {
+                case .move(let end): path.move(to: Self.cgPoint(end))
+                case .line(let end): path.addLine(to: Self.cgPoint(end))
+                case .quad(let end, let control): path.addQuadCurve(to: Self.cgPoint(end), control: Self.cgPoint(control))
+                case .cubic(let end, let c1, let c2):
+                    path.addCurve(to: Self.cgPoint(end), control1: Self.cgPoint(c1), control2: Self.cgPoint(c2))
+                }
             }
         }
     }
@@ -287,17 +254,10 @@ struct TopoCanvas: View {
     /// Étiquette de port : sur la descente vers l'enfant, ou au-dessus d'une feuille empilée.
     private func labelPosition(_ link: (parent: TopoNode, child: TopoNode)) -> CGPoint? {
         guard let parent = point(link.parent.id), let child = point(link.child.id) else { return nil }
-        let top = child.y - TopoStyle.nodeHeight / 2
-        if isFree(link.parent.id) || isFree(link.child.id) {
-            // Sur la fin de la courbe, juste au-dessus de l'enfant (elle y arrive à la verticale) :
-            // les étiquettes de deux enfants voisins ne se chevauchent pas.
-            let gap = top - (parent.y + TopoStyle.nodeHeight / 2)
-            return CGPoint(x: child.x, y: top - min(max(gap / 2, 11), 16))
-        }
-        if layout.stacked.contains(link.child.id) {
-            return CGPoint(x: child.x + TopoStyle.nodeWidth / 2 - 30, y: top - 9)
-        }
-        return CGPoint(x: child.x, y: (busY(parent) + top) / 2)
+        return Self.cgPoint(TopoGeometry.treeLabel(parent: Self.graphPoint(parent), child: Self.graphPoint(child),
+                                                   free: isFree(link.parent.id) || isFree(link.child.id),
+                                                   stacked: layout.stacked.contains(link.child.id),
+                                                   nodeWidth: Double(TopoStyle.nodeWidth), nodeHeight: Double(TopoStyle.nodeHeight)))
     }
 
     private func color(_ link: (parent: TopoNode, child: TopoNode), highlighted: Bool) -> Color {

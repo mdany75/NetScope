@@ -57,6 +57,8 @@ enum RapportDocxCheck {
         let model = RapportModel.shared
         let saved = model.config
         model.config.sections.insert(.disponibilite)
+        // Note 61 : section « Carte du réseau » (image intégrée au DOCX).
+        model.config.sections.insert(.carte)
         let document = model.document(state: state)
         model.config = saved
         let data = ReportDocx.make(document, logoPNG: RapportPDF.pngData(model.logo))
@@ -67,6 +69,8 @@ enum RapportDocxCheck {
             let entries = try BackupZip.entries(of: data)
             let paths = Set(entries.map(\.path))
             for part in ReportDocx.requiredParts where !paths.contains(part) { problems.append("partie absente\u{00A0}: \(part)") }
+            let hasMap = document.sections.contains { $0.blocks.contains { if case .image = $0 { return true } else { return false } } }
+            if hasMap, !paths.contains("word/media/image-1.png") { problems.append("image de la carte absente") }
             for entry in entries where entry.path.hasSuffix(".xml") || entry.path.hasSuffix(".rels") {
                 if !XMLParser(data: entry.data).parse() { problems.append("XML mal formé\u{00A0}: \(entry.path)") }
             }

@@ -233,7 +233,37 @@ struct RapportPageView: View {
             .overlay(RoundedRectangle(cornerRadius: px(4)).strokeBorder(Self.line))
         case .uptime(let chart):
             uptimeView(chart)
+        case .image(let image):
+            imageView(image)
         }
+    }
+
+    // MARK: Image (note 61 : carte du réseau)
+
+    /// Image centrée à la taille de la pagination, légende dessous.
+    private func imageView(_ image: ReportImage) -> some View {
+        let size = metrics.imageSize(image)
+        return VStack(spacing: 0) {
+            Group {
+                if let picture = NSImage(data: image.png) {
+                    Image(nsImage: picture).resizable().interpolation(.high).aspectRatio(contentMode: .fit)
+                } else {
+                    Rectangle().fill(Color(hex: 0xF3F4F6))
+                }
+            }
+            .frame(width: pt(size.width), height: pt(size.height))
+            .overlay(RoundedRectangle(cornerRadius: px(4)).strokeBorder(Self.line))
+            .accessibilityLabel(image.alt)
+            if let caption = image.caption {
+                Text(caption)
+                    .font(font(11))
+                    .foregroundStyle(Self.gray)
+                    .lineLimit(1)
+                    .frame(height: pt(metrics.imageCaptionHeight), alignment: .bottom)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: pt(metrics.height(of: .image(image))), alignment: .top)
     }
 
     // MARK: Graphe de disponibilité (note 78)

@@ -53,6 +53,10 @@ final class RapportModel: ObservableObject {
             if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_SUIVI"] == "1" { demo.sections.insert(.suivi) }
             // NETSCOPE_RAPPORT_DISPO=1 coche la section « Disponibilité (Surveillance) » (note 78).
             if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_DISPO"] == "1" { demo.sections.insert(.disponibilite) }
+            // NETSCOPE_RAPPORT_CARTE=1 coche la section « Carte du réseau » (note 61).
+            if ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_CARTE"] == "1" { demo.sections.insert(.carte) }
+            // NETSCOPE_RAPPORT_PAGE=2 : page montrée dans l'aperçu (captures).
+            if let wanted = ProcessInfo.processInfo.environment["NETSCOPE_RAPPORT_PAGE"].flatMap(Int.init), wanted > 1 { page = wanted }
             config = demo
             library = ReportLibrary(recents: RapportDemo.recents)
         } else {
@@ -75,10 +79,11 @@ final class RapportModel: ObservableObject {
     func siteInputs(state: AppState) -> [(key: String, site: ReportSiteInput)] {
         let keys = SiteScopeStore.shared.keys(for: .rapports)
         if keys == [SiteModel.shared.activeKey] {
-            let input = RapportData.input(state: state, demo: isDemo)
+            let input = RapportData.input(state: state, demo: isDemo, map: config.includes(.carte))
             return [(keys[0], ReportSiteInput(name: SiteModel.shared.activeName, input: input))]
         }
-        return zip(keys, RapportData.inputs(state: state, demo: isDemo, keys: keys)).map { (key: $0.0, site: $0.1) }
+        return zip(keys, RapportData.inputs(state: state, demo: isDemo, keys: keys, map: config.includes(.carte)))
+            .map { (key: $0.0, site: $0.1) }
     }
 
     func document(for inputs: [(key: String, site: ReportSiteInput)]) -> ReportDocument {
@@ -329,8 +334,8 @@ final class RapportModel: ObservableObject {
         }
         let name = sites.name(forKey: siteKey)
         var input = siteKey == sites.activeKey
-            ? RapportData.input(state: state, demo: isDemo, now: now, followUpBase: .last)
-            : RapportData.input(forSite: siteKey, now: now, followUpBase: .last)
+            ? RapportData.input(state: state, demo: isDemo, now: now, followUpBase: .last, map: schedule.config.includes(.carte))
+            : RapportData.input(forSite: siteKey, now: now, followUpBase: .last, map: schedule.config.includes(.carte), state: state)
         input.now = now
         var config = schedule.config
         config.site = name
