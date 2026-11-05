@@ -137,7 +137,12 @@ struct RapportPreview: View {
                 .foregroundStyle(Theme.textSecondary)
                 .help("Format lettre · 8,5 × 11 po · \(pageCount)")
                 Spacer(minLength: 8)
-                pager
+                // Petite fenêtre : « ‹ 1 / 6 › » plutôt que cinq boutons, pour que l'écran ne
+                // défile jamais horizontalement.
+                ViewThatFits(in: .horizontal) {
+                    pager
+                    compactPager
+                }
             }
             .padding(.horizontal, 12)
             .frame(height: 49)
@@ -193,6 +198,26 @@ struct RapportPreview: View {
                 }
                 .buttonStyle(.plain)
             }
+            Button { select(min(pages.count, current + 1)) } label: { Image(systemName: "chevron.right") }
+                .buttonStyle(RapportSmallButtonStyle(width: 28))
+                .disabled(current >= pages.count)
+                .help("Page suivante")
+        }
+        .fixedSize()
+    }
+
+    /// Forme courte du sélecteur de pages : « ‹ 2 / 6 › ».
+    private var compactPager: some View {
+        HStack(spacing: 4) {
+            Button { select(max(1, current - 1)) } label: { Image(systemName: "chevron.left") }
+                .buttonStyle(RapportSmallButtonStyle(width: 28))
+                .disabled(current <= 1)
+                .help("Page précédente")
+            Text("\(current) / \(max(pages.count, 1))")
+                .font(.system(size: 12, weight: .medium).monospacedDigit())
+                .foregroundStyle(Theme.text)
+                .padding(.horizontal, 6)
+                .help("Page \(current) de \(max(pages.count, 1))")
             Button { select(min(pages.count, current + 1)) } label: { Image(systemName: "chevron.right") }
                 .buttonStyle(RapportSmallButtonStyle(width: 28))
                 .disabled(current >= pages.count)

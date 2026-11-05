@@ -60,6 +60,19 @@ enum InvManualDemo {
             store.removeRecords([record.key], exclude: false, archive: true, at: at(days))
         }
 
+        // Liste « Ne plus réajouter » (Réglages › Sites et plages › Inventaire du site) : le
+        // téléphone d'un visiteur retiré avec exclusion, et la MAC d'un portable de prêt écrite à la main.
+        let visitor = Device(ip: IPv4Address("10.182.122.171")!, mac: MACAddress("A4:C3:F0:5D:21:9B"), vendor: "Apple",
+                             hostname: "iPhone-visiteur", isOnline: true, latencyMs: 8.4, openPorts: [],
+                             vlan: 20, firstSeen: at(15), lastSeen: at(15), rangeLabel: "Bureau", deviceType: .telephone)
+        store.addScanned([visitor], at: at(15))
+        if let key = store.existingKey(for: visitor) {
+            store.removeRecords([key], exclude: true, archive: false, at: at(14))
+        }
+        if let loaner = MACAddress("F8:FF:C2:4B:7A:10") {
+            store.exclude(mac: loaner, name: "Portable de prêt (salle de formation)", at: at(6))
+        }
+
         // Appareil ajouté à la main : en stock, jamais vu par un scan.
         let manual = InvManualDraft(name: manualName, vendor: "Zebra", type: .imprimante,
                                     location: "Sous-sol · Armoire TI", owner: "Service TI", assetNumber: "INV-00533",

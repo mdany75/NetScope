@@ -35,6 +35,10 @@ enum RapportSuiviDemo {
         intervention.reportDate = "2026-09-22"
         intervention.title = "Intervention — Siège (imprimantes)"
         intervention.fileName = "rapport-intervention-siege-2026-09-22.pdf"
+        // Rapports plus anciens : un parc un peu plus petit et d'autres problèmes, pour que la liste
+        // « Rapports passés » ne répète pas trois fois les mêmes nombres.
+        intervention.devices = Array(base.devices.dropLast(1))
+        intervention.issues = Array(base.issues.dropFirst(2))
         var inventory = base
         inventory.id = inventaireID
         inventory.created = at(2026, 8, 12, 11, 5)
@@ -43,6 +47,8 @@ enum RapportSuiviDemo {
         inventory.fileName = "rapport-inventaire-siege-2026-08-12.csv"
         inventory.format = .csv
         inventory.scheduleName = "Inventaire mensuel"
+        inventory.devices = Array(base.devices.dropLast(3))
+        inventory.issues = Array(base.issues.dropFirst(5))
         return ReportHistory(snapshots: [base, intervention, inventory])
     }
 

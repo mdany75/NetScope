@@ -712,6 +712,9 @@ struct InventaireScreen: View {
         case "garanties":
             filter.warranty = true
         case "manuel":
+            // Filtre « Ajoutés à la main » : la ligne choisie reste visible (jamais scannée, elle
+            // serait tout en bas du tri par dernière vue, hors de la partie visible du tableau).
+            filter.manual = true
             if let manual = model.store.sortedRecords.first(where: \.isManual) {
                 DispatchQueue.main.async { selection = [SiteScope.id(site: model.siteKey, key: manual.key)] }
             }
