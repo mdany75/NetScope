@@ -107,11 +107,19 @@ public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
     public var display: RemoteDisplaySettings
     /// Note 50 : mode passif ou actif, TLS, identification SFTP, dossiers de départ (FTP, FTPS, SFTP).
     public var transfer: FileTransferSettings
+    /// Note 66 : hôtes de rebond (ProxyJump, valeur de -J) ; SSH seulement, vide sans saut.
+    public var proxyJump: String
+    /// Note 78 : clé privée reprise de ~/.ssh/config (IdentityFile, chemin seulement : la clé
+    /// n'est jamais copiée) ; SSH seulement.
+    public var identityFile: String
+    /// Note 66 : tunnels (-L, -D) ouverts par cette connexion SSH.
+    public var tunnels: [SSHTunnelSpec]
 
     public init(id: UUID = UUID(), name: String, proto: RemoteProtocol, host: String, port: Int? = nil,
                 username: String = "", folder: String = "", isFavorite: Bool = false, note: String = "",
                 lastConnected: Date? = nil, createdAt: Date = Date(), display: RemoteDisplaySettings? = nil,
-                transfer: FileTransferSettings = FileTransferSettings()) {
+                transfer: FileTransferSettings = FileTransferSettings(), proxyJump: String = "",
+                identityFile: String = "", tunnels: [SSHTunnelSpec] = []) {
         self.id = id
         self.name = name
         self.proto = proto
@@ -125,10 +133,14 @@ public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
         self.createdAt = createdAt
         self.display = display ?? .defaults(for: proto)
         self.transfer = transfer
+        self.proxyJump = proxyJump
+        self.identityFile = identityFile
+        self.tunnels = tunnels
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, name, proto, host, port, username, folder, isFavorite, note, lastConnected, createdAt, display, transfer
+        case proxyJump, identityFile, tunnels
     }
 
     /// Les connexions enregistrées avant les réglages d'affichage (sans « display ») se lisent
@@ -148,7 +160,14 @@ public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         display = try c.decodeIfPresent(RemoteDisplaySettings.self, forKey: .display) ?? .defaults(for: proto)
         transfer = try c.decodeIfPresent(FileTransferSettings.self, forKey: .transfer) ?? FileTransferSettings()
+        // Note 66 : absents des carnets d'avant la 0.26.0 (et ignorés par eux).
+        proxyJump = (try? c.decodeIfPresent(String.self, forKey: .proxyJump)) ?? ""
+        identityFile = (try? c.decodeIfPresent(String.self, forKey: .identityFile)) ?? ""
+        tunnels = (try? c.decodeIfPresent([SSHTunnelSpec].self, forKey: .tunnels)) ?? []
     }
+
+    /// Note 66 : rebond, clé et tunnels n'ont de sens qu'en SSH.
+    public var supportsTunnels: Bool { proto == .ssh }
 
     /// « 10.182.122.2:22 » ou « cu.usbserial-A10K · 9600 8N1 ».
     public var address: String {
@@ -176,6 +195,12 @@ public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
         copy.isFavorite = false
         copy.lastConnected = nil
         copy.createdAt = now
+        // Tunnels copiés avec de nouveaux identifiants (chacun a sa propre session).
+        copy.tunnels = tunnels.map { tunnel in
+            var fresh = tunnel
+            fresh.id = UUID()
+            return fresh
+        }
         return copy
     }
 
@@ -194,6 +219,21 @@ public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
             copy.username = try RemoteValidator.validateUser(username, allowDomain: proto == .rdp)
         }
         copy.folder = folder.trimmingCharacters(in: .whitespacesAndNewlines)
+        if proto == .ssh {
+            copy.proxyJump = try SSHJumpChain.normalized(proxyJump)
+            let key = identityFile.trimmingCharacters(in: .whitespaces)
+            if key.isEmpty {
+                copy.identityFile = ""
+            } else {
+                guard let valid = try? QuickLogin.validateKeyPath(key) else { throw SSHTunnelError.invalidIdentityFile(key) }
+                copy.identityFile = valid
+            }
+            copy.tunnels = try tunnels.map { try $0.validated() }
+        } else {
+            copy.proxyJump = ""
+            copy.identityFile = ""
+            copy.tunnels = []
+        }
         copy.display.customWidth = RemoteDisplaySettings.clamp(display.customWidth, RemoteDisplaySettings.widthRange)
         copy.display.customHeight = RemoteDisplaySettings.clamp(display.customHeight, RemoteDisplaySettings.heightRange)
         return copy

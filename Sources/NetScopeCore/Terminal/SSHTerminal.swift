@@ -14,14 +14,16 @@ public enum SSHTerminalCommand {
     public static let sshPath = "/usr/bin/ssh"
 
     /// Arguments de ssh : options, puis « -- » et la destination (jamais lue comme une option).
+    /// Note 66 : `jump` (hôtes de rebond, déjà validés par `SSHJumpChain`) devient « -J ».
     public static func arguments(user: String, host: String, port: Int, keyPath: String? = nil,
-                                 serverAliveInterval: Int = 30) -> [String] {
+                                 jump: String = "", serverAliveInterval: Int = 30) -> [String] {
         var args = [
             "-o", "ConnectTimeout=15",
             "-o", "ServerAliveInterval=\(serverAliveInterval)",
             "-o", "ServerAliveCountMax=4",
             "-o", "StrictHostKeyChecking=ask",
         ]
+        if let hops = try? SSHJumpChain.normalized(jump), !hops.isEmpty { args += ["-J", hops] }
         if let keyPath, !keyPath.trimmingCharacters(in: .whitespaces).isEmpty {
             args += ["-i", (keyPath as NSString).expandingTildeInPath]
         }
@@ -124,9 +126,11 @@ public enum SSHTerminalCommand {
         return url
     }
 
-    /// Ligne de commande affichée (jamais de secret) : « ssh -p 2222 -- admin@10.0.0.2 ».
-    public static func displayCommand(user: String, host: String, port: Int) -> String {
+    /// Ligne de commande affichée (jamais de secret) : « ssh -p 2222 -- admin@10.0.0.2 »,
+    /// « ssh -J admin@10.182.122.1 -- netadmin@10.182.122.2 ».
+    public static func displayCommand(user: String, host: String, port: Int, jump: String = "") -> String {
         var words = ["ssh"]
+        if let hops = try? SSHJumpChain.normalized(jump), !hops.isEmpty { words += ["-J", hops] }
         if port != 22 { words += ["-p", String(port)] }
         words += ["--", user.isEmpty ? host : user + "@" + host]
         return words.joined(separator: " ")
