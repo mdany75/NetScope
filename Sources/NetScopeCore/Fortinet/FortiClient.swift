@@ -167,7 +167,11 @@ public struct FortiGateReader: Sendable {
                 return Fetched(response: response, record: FortiCallRecord(path: shown, status: embedded.status ?? response.status, outcome: outcome,
                                                                            message: error.errorDescription ?? "", body: clean), error: error)
             }
-            return Fetched(response: response, record: FortiCallRecord(path: shown, status: response.status, outcome: .ok, body: clean,
+            // Réponse lisible seulement une fois réparée (octets invalides envoyés par FortiOS) : dit dans le diagnostic.
+            let message = FortiJSON.needsRepair(response.body)
+                ? "Réponse réparée par NetScope\u{00A0}: la FortiGate y a glissé des octets invalides (défaut de FortiOS), retirés avant la lecture."
+                : ""
+            return Fetched(response: response, record: FortiCallRecord(path: shown, status: response.status, outcome: .ok, message: message, body: clean,
                                                                        items: FortiParsers.itemCount(response.body)), error: nil)
         } catch let error as FortiGateError {
             if error.isBlocking { throw error }

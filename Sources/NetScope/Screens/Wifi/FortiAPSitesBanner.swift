@@ -38,6 +38,7 @@ struct FortiAPSitesBanner: View {
                 ForEach(keys, id: \.self) { key in
                     row(key)
                 }
+                FortiAPReadNotes(notes: store.shownOverview.notes)
             }
         }
     }

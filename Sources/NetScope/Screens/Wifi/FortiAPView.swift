@@ -224,6 +224,8 @@ struct FortiAPBanner: View {
                                 .font(Theme.small).foregroundStyle(Theme.warning)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
+                        // Parties lues mais vides ou illisibles (clients, SSID, AP voisins) : jamais un 0 sans explication.
+                        FortiAPReadNotes(notes: store.shownOverview.notes)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -276,6 +278,28 @@ struct FortiAPBanner: View {
         }
         let read = "\(o.aps.count) borne\(o.aps.count > 1 ? "s" : ""), \(o.clients.count) client\(o.clients.count > 1 ? "s" : "") Wi-Fi"
         return "\(read) · lu à \(WifiText.timeSeconds(last)) (bornes, clients, SSID et AP voisins)."
+    }
+}
+
+// MARK: - Remarques de lecture
+
+/// Remarques de la dernière lecture (« Site · Clients Wi-Fi : … ») : les anomalies en avertissement,
+/// les simples absences (adresse inconnue de cette version de FortiOS) en texte discret.
+struct FortiAPReadNotes: View {
+    let notes: [String]
+
+    var body: some View {
+        ForEach(notes, id: \.self) { note in
+            let serious = FortiAPReadNotes.isSerious(note)
+            Label(note, systemImage: serious ? "exclamationmark.triangle.fill" : "info.circle")
+                .font(Theme.small)
+                .foregroundStyle(serious ? Theme.warning : Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    static func isSerious(_ note: String) -> Bool {
+        ["illisible", "annoncent", "refusé"].contains { note.contains($0) }
     }
 }
 
