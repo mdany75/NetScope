@@ -53,7 +53,7 @@ public enum LinkCheckComparison {
             guard a != nil || b != nil else { continue }
             result.append(statusDifference(kind, a?.status, b?.status))
             var keys: [String] = []
-            for fact in (a?.facts ?? []) + (b?.facts ?? []) where !keys.contains(fact.key) { keys.append(fact.key) }
+            for fact in (a?.facts ?? []) + (b?.facts ?? []) where !keys.contains(fact.key) && !fact.isDetail { keys.append(fact.key) }
             for key in keys {
                 result.append(factDifference(kind, a?.fact(key), b?.fact(key)))
             }

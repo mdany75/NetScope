@@ -51,6 +51,8 @@ public enum LinkDuplex: String, Codable, Sendable {
     case full, half
 
     public var label: String { self == .full ? "duplex intégral" : "semi-duplex" }
+    /// Valeur seule, après l'étiquette « Duplex » (« intégral », « semi »).
+    public var shortLabel: String { self == .full ? "intégral" : "semi" }
 }
 
 /// État du lien de l'interface (lecture locale : getifaddrs, SIOCGIFMEDIA).
@@ -116,12 +118,16 @@ public struct LinkCheckDHCPMeasure: Equatable, Sendable {
     /// « port UDP 68 partagé avec macOS », « BPF ».
     public var method: String?
     public var unavailableReason: String?
+    /// Précision ajoutée quand aucune offre n'arrive (macOS a peut-être gardé les réponses).
+    public var emptyHint: String?
 
-    public init(offers: [DHCPOffer], waitedSeconds: Double, method: String? = nil, unavailableReason: String? = nil) {
+    public init(offers: [DHCPOffer], waitedSeconds: Double, method: String? = nil, unavailableReason: String? = nil,
+                emptyHint: String? = nil) {
         self.offers = offers
         self.waitedSeconds = waitedSeconds
         self.method = method
         self.unavailableReason = unavailableReason
+        self.emptyHint = emptyHint
     }
 }
 

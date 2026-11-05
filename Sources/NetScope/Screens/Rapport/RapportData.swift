@@ -68,6 +68,9 @@ enum RapportData {
         // Diagnostic Wi-Fi (note 47) : diagnostics retenus pour le rapport du site actif.
         input.wifiDiagnoses = WifiDiagnosisStore.shared.reported(forKey: SiteModel.shared.activeKey)
         if demo, input.wifiDiagnoses.isEmpty { input.wifiDiagnoses = WifiDiagnosisDemo.reportResults(state: state) }
+        // Bilan de raccordement (note 58) : bilans retenus pour le rapport du site actif, avec leur « avant ».
+        input.linkChecks = LinkCheckModel.shared.reportEntries(forKey: SiteModel.shared.activeKey)
+        if demo, input.linkChecks.isEmpty { input.linkChecks = LinkCheckDemo.reportEntries() }
         // Note 28 : les compléments du croquis décrivent le Siège seulement.
         if demo, SiteModel.shared.activeID == SitesDemo.siegeID { RapportDemo.complete(&input) }
         // Note 42 : alertes de la Surveillance et ports en erreur, puis comparaison avec le dernier rapport.

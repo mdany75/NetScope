@@ -283,6 +283,8 @@ func registerLinkCheckTests(_ suite: TestSuite) {
         try expectEqual(change(.switchPort, "port"), .changed, "port 1/22 → 1/23")
         try expectEqual(change(.switchPort, "switch"), .same, "même switch")
         try expectEqual(change(.dhcp, "serveurs"), .changed, "2 serveurs → 1 (sans sens)")
+        try expect(!diffs.contains { $0.key.hasPrefix("nom.") }, "adresses de chaque nom : détail non comparé")
+        try expectEqual(change(.dns, "resolus"), .same, "2/2 noms des deux côtés")
         let shown = diffs.filter(\.change.isDifference)
         try expect(LinkCheckComparison.summary(shown).hasPrefix("\(shown.count) écarts\u{00A0}: "), "résumé des écarts")
         try expectEqual(LinkCheckComparison.summary([]), "Aucun écart", "aucun écart")

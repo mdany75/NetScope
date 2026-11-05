@@ -4,6 +4,8 @@ import SwiftUI
 
 /// Les outils de la boîte à outils, dans l'ordre du croquis (docs/croquis/Toolbox.dc.html).
 enum ToolKind: String, CaseIterable, Identifiable, Codable {
+    /// Bilan de raccordement en un clic (note 58), en tête du groupe Diagnostic.
+    case bilan
     case subnet, mac, ports, dns, whois, mtu, iperf, speedtest, wol, dhcp
     /// Occupation des étendues DHCP (note 37), juste après le Test DHCP dans la liste.
     case dhcpScopes = "dhcpscopes"
@@ -42,6 +44,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .subnet, .mac: return .adressage
         case .ports, .dns, .whois, .mtu, .capture, .snmp: return .diagnostic
+        case .bilan: return .diagnostic
         case .iperf, .speedtest: return .performance
         case .disques: return .performance
         case .wol, .dhcp, .lldp, .dhcpScopes: return .services
@@ -82,6 +85,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .capture: return "Capture de paquets"
         case .disques: return "Vitesse des disques"
         case .snmp: return "Navigateur SNMP"
+        case .bilan: return "Bilan de raccordement"
         }
     }
 
@@ -113,6 +117,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .capture: return "Paquets en direct ou fichier .pcap\u{00A0}: détail par couche, hexadécimal, flux, statistiques, façon Wireshark."
         case .disques: return "Écriture, lecture et accès 4\u{00A0}Kio d’un disque, d’un partage réseau ou d’un dossier nuage\u{00A0}; d’où vient la limite."
         case .snmp: return "GET, GETNEXT et parcours d’un OID en SNMP v2c ou v3\u{00A0}: tables courantes nommées, valeurs lisibles, export CSV."
+        case .bilan: return "En un clic sur cette prise\u{00A0}: lien, switch et port, VLAN, PoE, DHCP, passerelle, DNS et Internet\u{00A0}; comparaison avant/après."
         }
     }
 
@@ -144,6 +149,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .capture: return "waveform.path.ecg.rectangle"
         case .disques: return "internaldrive"
         case .snmp: return "list.bullet.indent"
+        case .bilan: return "checklist"
         }
     }
 
@@ -158,7 +164,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     static let favorites: [ToolKind] = [.subnet, .ports, .dns, .wol]
 
     /// Outils qui prennent toute la largeur (sans le panneau des favoris et de l'historique).
-    var usesFullWidth: Bool { self == .capture || self == .snmp || self == .dhcpScopes || self == .wan || self == .firmware || self == .tftp || self == .speedtest || self == .iperf }
+    var usesFullWidth: Bool { self == .bilan || self == .capture || self == .snmp || self == .dhcpScopes || self == .wan || self == .firmware || self == .tftp || self == .speedtest || self == .iperf }
 
     /// Recherche multiple (note 26) : `nom:dns`, `groupe:courriel` ; un mot seul lit le nom, la
     /// clé et le résumé, comme avant.

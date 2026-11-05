@@ -85,6 +85,10 @@ public struct LinkCheckFact: Codable, Hashable, Sendable {
     /// Écart absolu en dessous duquel deux valeurs sont jugées identiques (bruit de mesure).
     public var tolerance: Double?
 
+    /// Détail (« nom.microsoft.com ») : l'adresse d'un nom change souvent (CDN), la comparaison
+    /// porte sur le nombre de noms résolus et le temps moyen.
+    public var isDetail: Bool { key.hasPrefix("nom.") }
+
     public init(_ key: String, _ label: String, _ value: String, number: Double? = nil, higherIsBetter: Bool? = nil,
                 tolerance: Double? = nil) {
         self.key = key
@@ -121,6 +125,9 @@ public struct LinkCheckStep: Codable, Hashable, Sendable, Identifiable {
     }
 
     public func fact(_ key: String) -> LinkCheckFact? { facts.first { $0.key == key } }
+
+    /// Constats de détail (une ligne par nom résolu) : affichés, mais ni comparés ni résumés.
+    public var mainFacts: [LinkCheckFact] { facts.filter { !$0.isDetail } }
 }
 
 /// Un bilan complet.

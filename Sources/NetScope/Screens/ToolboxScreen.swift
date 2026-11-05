@@ -200,6 +200,7 @@ private struct ToolMainPanel: View {
     @ObservedObject private var tftp = TFTPModel.shared
     @ObservedObject private var speed = SpeedtestModel.shared
     @ObservedObject private var snmp = SNMPBrowserModel.shared
+    @ObservedObject private var linkCheck = LinkCheckModel.shared
 
     var body: some View {
         let tool = store.selectedTool
@@ -308,6 +309,7 @@ private struct ToolMainPanel: View {
         case .capture: PacketCaptureView(model: capture, store: store)
         case .disques: DiskSpeedView(model: disks, store: store)
         case .snmp: SNMPBrowserView(model: snmp, store: store)
+        case .bilan: LinkCheckView(model: linkCheck, store: store)
         }
     }
 
@@ -340,6 +342,7 @@ private struct ToolMainPanel: View {
         case .capture: return capture.command
         case .disques: return disks.command
         case .snmp: return snmp.command
+        case .bilan: return linkCheck.command
         }
     }
 }

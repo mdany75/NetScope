@@ -32,7 +32,7 @@ public enum LinkCheckEvaluator {
         if let speed = link.speedMbps {
             facts.append(LinkCheckFact("vitesse", "Vitesse", LinkMedia.speedLabel(speed), number: Double(speed), higherIsBetter: true))
         }
-        if let duplex = link.duplex { facts.append(LinkCheckFact("duplex", "Duplex", duplex.label)) }
+        if let duplex = link.duplex { facts.append(LinkCheckFact("duplex", "Duplex", duplex.shortLabel)) }
         if let media = link.mediaLabel { facts.append(LinkCheckFact("media", "Média", media)) }
         if let address = link.address, address.value != 0 { facts.append(LinkCheckFact("adresse", "Adresse IPv4", address.description)) }
 
@@ -174,7 +174,7 @@ public enum LinkCheckEvaluator {
         var facts = [LinkCheckFact("poe", "PoE", power.summary)]
         if let type = power.typeLabel { facts.append(LinkCheckFact("norme", "Norme", type)) }
         if let label = power.powerLabel { facts.append(LinkCheckFact("puissance", "Puissance", label)) }
-        if let cls = power.classLabel { facts.append(LinkCheckFact("classe", "Classe", cls)) }
+        if let cls = power.powerClass { facts.append(LinkCheckFact("classe", "Classe", String(cls))) }
         switch power.isPoEPort {
         case false?:
             return LinkCheckStep(kind: .poe, status: .ok, summary: "Port sans PoE",
@@ -188,7 +188,7 @@ public enum LinkCheckEvaluator {
             }
             let delivered = power.isPowerDelivered == true
             return LinkCheckStep(kind: .poe, status: .ok, summary: power.summary,
-                                 explanation: "Port PoE disponible" + (power.typeLabel.map { " (\($0))" } ?? "")
+                                 explanation: "Port PoE disponible" + (power.typeLabel.map { ", \($0)" } ?? "")
                                     + (delivered ? ", courant fourni en ce moment." : "\(nb); ce Mac n’en consomme pas, c’est normal."),
                                  facts: facts)
         case nil:
@@ -208,7 +208,8 @@ public enum LinkCheckEvaluator {
                 ? " Le Mac a pourtant une adresse (\(link.address?.description ?? ""))\(nb): elle est peut-être fixe, ou le serveur ne répond qu’aux clients connus."
                 : ""
             return LinkCheckStep(kind: .dhcp, status: .failure, summary: "Aucune offre",
-                                 explanation: "Aucun serveur DHCP n’a répondu en \(ToolFormat.seconds(measure.waitedSeconds)). Vérifiez le VLAN du port et le relais DHCP (ip helper) du routeur." + fixed,
+                                 explanation: "Aucun serveur DHCP n’a répondu en \(ToolFormat.seconds(measure.waitedSeconds)). Vérifiez le VLAN du port et le relais DHCP (ip helper) du routeur." + fixed
+                                    + (measure.emptyHint.map { " " + $0 } ?? ""),
                                  facts: [LinkCheckFact("serveurs", "Serveurs", "0", number: 0)], seconds: measure.waitedSeconds)
         }
         var facts = [LinkCheckFact("serveur", "Serveur", first.server?.description ?? "?"),
@@ -282,7 +283,9 @@ public enum LinkCheckEvaluator {
             facts.append(LinkCheckFact("latence", "Latence moyenne", ms(average), number: average, higherIsBetter: false,
                                        tolerance: max(2, average * 0.5)))
         }
-        if let maximum = measure.maximum { facts.append(LinkCheckFact("max", "Maximum", ms(maximum))) }
+        if let maximum = measure.maximum {
+            facts.append(LinkCheckFact("max", "Maximum", ms(maximum), number: maximum, higherIsBetter: false, tolerance: max(5, maximum * 0.5)))
+        }
         if let jitter = measure.jitter {
             facts.append(LinkCheckFact("gigue", "Gigue", ms(jitter), number: jitter, higherIsBetter: false, tolerance: max(2, jitter * 0.5)))
         }
