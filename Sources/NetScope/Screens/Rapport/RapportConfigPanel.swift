@@ -10,6 +10,11 @@ struct RapportConfigPanel: View {
     /// Première page de chaque partie de section (une par site dans un rapport multisite).
     let startPages: [ReportSectionKind: [Int]]
     let totalPages: Int
+    /// Note 42 : site du suivi (le premier du rapport) et sa comparaison avec le dernier rapport.
+    var followUpKey: String = ""
+    var followUpSite: String = ""
+    var followUp: ReportFollowUpResult?
+    var multisite = false
     @State private var calendarOpen = false
 
     var body: some View {
@@ -17,6 +22,8 @@ struct RapportConfigPanel: View {
             templatePanel
             sectionsPanel
             outputPanel
+            RapportFollowUpPanel(model: model, siteKey: followUpKey, siteName: followUpSite, result: followUp, multisite: multisite)
+            RapportSchedulePanel()
             recentsPanel
         }
     }

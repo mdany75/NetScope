@@ -258,6 +258,17 @@ func registerReportFollowUpTests(_ suite: TestSuite) {
         try expect(ReportScheduler.canProduce(lastProduction: now.addingTimeInterval(-ReportScheduler.spacing), now: now), "après l'écart")
     }
 
+    suite.add("Rapports planifiés : notification « Rapport planifié produit » activée pour les réglages déjà enregistrés") {
+        // Réglages écrits avant la note 42 (sans « knownKinds ») : le nouveau type est activé par défaut.
+        let old = NotificationSettings.decoded(Data(#"{"enabledKinds":["probeDown"]}"#.utf8))
+        try expect(old.isEnabled(.reportReady), "nouveau type activé")
+        try expect(!old.isEnabled(.probeWarning), "choix existants gardés")
+        // Désactivé par l'utilisateur après coup : reste désactivé.
+        var settings = NotificationSettings()
+        settings.set(.reportReady, enabled: false)
+        try expect(!NotificationSettings.decoded(settings.encoded()).isEnabled(.reportReady), "choix respecté")
+    }
+
     suite.add("Rapports planifiés : textes, nom de fichier daté, âge du scan et fichier tolérant") {
         let cal = ReportScheduler.calendar(TimeZone(identifier: "America/Toronto")!)
         func at(_ y: Int, _ m: Int, _ d: Int, _ h: Int = 0, _ min: Int = 0) -> Date {

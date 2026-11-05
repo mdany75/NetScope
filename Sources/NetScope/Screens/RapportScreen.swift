@@ -11,15 +11,20 @@ struct RapportScreen: View {
     @ObservedObject private var scope = SiteScopeStore.shared
 
     var body: some View {
-        let document = model.document(state: state)
+        let inputs = model.siteInputs(state: state)
+        let document = model.document(for: inputs)
         let pages = model.pages(for: document)
+        let first = inputs.first
         let current = min(max(model.page, 1), pages.count)
 
         HStack(alignment: .top, spacing: 14) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     siteRow
-                    RapportConfigPanel(model: model, startPages: ReportPaginator.startPageRuns(pages), totalPages: pages.count)
+                    RapportConfigPanel(model: model, startPages: ReportPaginator.startPageRuns(pages), totalPages: pages.count,
+                                       followUpKey: first?.key ?? SiteModel.shared.activeKey,
+                                       followUpSite: first?.site.name ?? SiteModel.shared.activeName,
+                                       followUp: first?.site.input.followUp, multisite: inputs.count > 1)
                 }
                     .padding(.vertical, 16)
                     .padding(.leading, Theme.contentPadding)

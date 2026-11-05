@@ -132,6 +132,8 @@ public struct NotificationSettings: Codable, Equatable, Sendable {
     // Lecture tolérante : clé absente → valeur par défaut ; type inconnu (version plus récente) ignoré.
     private enum CodingKeys: String, CodingKey {
         case bannersEnabled, enabledKinds, sound, quietHours, criticalBypassQuietHours, grouping, groupBurst, groupWindow
+        /// Types connus de la version qui a écrit le fichier (un type plus récent prend sa valeur par défaut).
+        case knownKinds
     }
 
     public init(from decoder: Decoder) throws {
@@ -140,6 +142,12 @@ public struct NotificationSettings: Codable, Equatable, Sendable {
         bannersEnabled = (try? c.decodeIfPresent(Bool.self, forKey: .bannersEnabled)) ?? defaults.bannersEnabled
         if let raw = try? c.decodeIfPresent([String].self, forKey: .enabledKinds) {
             enabledKinds = Set(raw.compactMap(NetScopeEventKind.init(rawValue:)))
+            // Type apparu depuis l'écriture du fichier : activé s'il l'est par défaut.
+            let known = (try? c.decodeIfPresent([String].self, forKey: .knownKinds)).map { Set($0.compactMap(NetScopeEventKind.init(rawValue:))) }
+                ?? Set(NetScopeEventKind.configurable).subtracting(NetScopeEventKind.introducedLater)
+            for kind in NetScopeEventKind.configurable where !known.contains(kind) && kind.enabledByDefault {
+                enabledKinds.insert(kind)
+            }
         } else {
             enabledKinds = defaults.enabledKinds
         }
@@ -155,6 +163,7 @@ public struct NotificationSettings: Codable, Equatable, Sendable {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(bannersEnabled, forKey: .bannersEnabled)
         try c.encode(enabledKinds.map(\.rawValue).sorted(), forKey: .enabledKinds)
+        try c.encode(NetScopeEventKind.configurable.map(\.rawValue).sorted(), forKey: .knownKinds)
         try c.encode(sound.rawValue, forKey: .sound)
         try c.encode(quietHours, forKey: .quietHours)
         try c.encode(criticalBypassQuietHours, forKey: .criticalBypassQuietHours)
