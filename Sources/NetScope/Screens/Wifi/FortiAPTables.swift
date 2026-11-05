@@ -583,7 +583,20 @@ struct FortiAPClientTable: View {
                 .customizationID("snr")
 
                 TableColumn(StandardTableHeading("BORNE"), sortUsing: table.sort("borne")) { row in
-                    WifiCell(row.client.apName ?? "—", mono: 11, dimmed: row.client.apName == nil)
+                    // Note 80 : un clic sur la borne ouvre l'onglet Bornes sur elle (Retour ‹ ramène ici).
+                    if let name = row.client.apName, let ap = store.ap(for: row.client) {
+                        Button {
+                            state.navigate(NavDestination(.wifi, focus: .accessPoint(store.shownAPID(for: ap.id) ?? ap.id),
+                                                          sites: .include(store.siteKey(forLabel: ap.site))))
+                        } label: {
+                            Text(name).font(Theme.mono(11)).foregroundStyle(Theme.accentStrong).lineLimit(1).underline()
+                                .frame(height: 20)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Ouvrir la borne \(name) dans l’onglet Bornes")
+                    } else {
+                        WifiCell(row.client.apName ?? "—", mono: 11, dimmed: row.client.apName == nil)
+                    }
                 }
                 .width(min: 80, ideal: 100)
                 .customizationID("borne")

@@ -12,6 +12,7 @@ final class FortiAPStore: ObservableObject {
     static let shared = FortiAPStore()
 
     private static let thresholdsKey = "NetScope.fortiap.seuils"
+    private static let tabKey = "NetScope.fortiap.onglet"
 
     /// Lectures réussies de la dernière relecture, une par site.
     @Published private(set) var sites: [FortiWifiSiteReport] = []
@@ -47,6 +48,14 @@ final class FortiAPStore: ObservableObject {
     var viewedAP: FortiManagedAP.ID?
     /// Demande d'ouvrir la partie FortiAP de l'écran Wi-Fi (fiche d'un client, SSID).
     @Published var openFortiAPPart = false
+    /// Note 80 : onglet affiché (Bornes, Clients, SSID, Canaux, Voisins, Conseils), retenu d'une
+    /// visite et d'un lancement à l'autre (captures : NETSCOPE_WIFI_ONGLET).
+    @Published var tab: FortiAPTab = .bornes {
+        didSet {
+            guard tab != oldValue, !isDemo else { return }
+            UserDefaults.standard.set(tab.rawValue, forKey: Self.tabKey)
+        }
+    }
     var viewedSSID: String?
     /// Note 46 : historique du signal des clients, un par site (fichier sites/<site>/wifi-signal.json).
     @Published private(set) var signal = FortiWifiSignalBook()
@@ -67,6 +76,9 @@ final class FortiAPStore: ObservableObject {
 
     init(demo: Bool = Launcher.isDemo || RegEnvironment.isSnapshot) {
         isDemo = demo
+        if !demo, let raw = UserDefaults.standard.string(forKey: Self.tabKey), let saved = FortiAPTab(rawValue: raw) {
+            tab = saved
+        }
         if !demo, let data = UserDefaults.standard.data(forKey: Self.thresholdsKey),
            let saved = try? JSONDecoder().decode(FortiWifiThresholds.self, from: data) {
             thresholds = saved
@@ -173,6 +185,7 @@ final class FortiAPStore: ObservableObject {
     func showClient(_ id: FortiWifiClient.ID) {
         let resolved = client(id: id)?.id ?? id
         openClientID = resolved
+        tab = .clients
         if let c = client(id: resolved), let ap = ap(for: c) { viewedAP = shownAPID(for: ap.id) ?? ap.id }
     }
 
@@ -189,6 +202,7 @@ final class FortiAPStore: ObservableObject {
         clientsBySSID = true
         expandedSSIDs.insert(id)
         viewedSSID = id
+        tab = .clients
     }
 
     /// Ce que montre la partie FortiAP, pour l'historique Retour / Avancer.

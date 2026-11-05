@@ -124,7 +124,8 @@ struct FortiAPChannelMap: View {
                     // Étiquette à côté du bloc (à droite, ou à gauche près du bord droit) : un bloc de
                     // 20 MHz est trop étroit pour son nom.
                     let toLeft = left > width * 0.55
-                    Button { selectedAP = lane.ap.id } label: {
+                    // Note 80 : un clic sur une borne ouvre l'onglet Bornes sur elle.
+                    Button { selectedAP = lane.ap.id; store.tab = .bornes } label: {
                         ZStack {
                             RoundedRectangle(cornerRadius: 4).fill(fill.opacity(selected ? 0.95 : 0.75))
                             RoundedRectangle(cornerRadius: 4).strokeBorder(selected ? Theme.text : Color.clear, lineWidth: 1.5)

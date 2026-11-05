@@ -86,27 +86,12 @@ struct FortiAPView: View {
                 } else {
                     FortiAPBanner()
                 }
-                if let client = store.openClient {
-                    // Note 46 : fiche complète du client (‹ ramène à la borne ou au SSID d'origine).
-                    FortiAPClientDetailView(client: client)
-                } else if !store.shownOverview.isEmpty {
-                    tiles
-                    SidePanelSplit(sideWidth: 320, collapse: .below) {
-                        VStack(spacing: 14) {
-                            FortiAPTable(selection: $selectedAP)
-                            // Note 46 : clients de la borne choisie, par radio et par SSID.
-                            FortiAPClientsOfAP(apID: selectedAP)
-                            FortiAPChannelMap(band: $band, selectedAP: $selectedAP)
-                            FortiAPClientTable()
-                            FortiAPSSIDTable()
-                            FortiAPRogueTable()
-                        }
-                    } side: {
-                        VStack(spacing: 14) {
-                            FortiAPAdvicePanel(selectedAP: $selectedAP, band: $band)
-                            FortiAPDetailPanel(apID: selectedAP)
-                        }
-                    }
+                if !store.shownOverview.isEmpty || store.openClient != nil {
+                    // Note 80 : tuiles de résumé, puis un onglet par sujet (Bornes, Clients, SSID,
+                    // Canaux, Voisins, Conseils).
+                    if !store.shownOverview.isEmpty { tiles }
+                    FortiAPTabBar()
+                    FortiAPTabContent(selectedAP: $selectedAP, band: $band)
                 } else if store.scopeKeys == nil {
                     noData
                 }
@@ -134,6 +119,8 @@ struct FortiAPView: View {
         if let id = store.shownAPID(for: wanted) {
             selectedAP = id
             if let b = store.focusBand { band = b }
+            // Note 80 : une borne demandée (fiche d'un appareil, Retour, lien) ouvre l'onglet Bornes.
+            store.tab = .bornes
         }
         store.focusAP = nil
         store.focusBand = nil
@@ -173,24 +160,33 @@ struct FortiAPView: View {
         let critical = d.advice.filter { $0.severity == .critique }.count
         return LazyVGrid(columns: [GridItem(.adaptive(minimum: 128), spacing: 10)], spacing: 10) {
             tile("Bornes en ligne", "\(o.onlineAPs.count) / \(o.aps.count)",
-                 sub: o.isMultiSite ? "\(o.sites.count) sites" : (o.sites.first ?? ""), color: Theme.success)
+                 sub: o.isMultiSite ? "\(o.sites.count) sites" : (o.sites.first ?? ""), color: Theme.success, tab: .bornes)
             tile("Hors ligne", "\(o.offlineAPs.count)", sub: o.offlineAPs.first.map { $0.name + (o.offlineAPs.count > 1 ? "…" : "") } ?? "aucune",
-                 color: o.offlineAPs.isEmpty ? Theme.text : Theme.critical)
+                 color: o.offlineAPs.isEmpty ? Theme.text : Theme.critical, tab: .bornes)
             tile("Clients Wi-Fi", "\(o.clients.count)",
-                 sub: "\(d.weakClients.count) à signal faible", color: Theme.text)
-            tile("SSID", "\(o.distinctSSIDs.count)", sub: o.distinctSSIDs.prefix(2).joined(separator: ", "), color: Theme.text)
+                 sub: "\(d.weakClients.count) à signal faible", color: Theme.text, tab: .clients)
+            tile("SSID", "\(o.distinctSSIDs.count)", sub: o.distinctSSIDs.prefix(2).joined(separator: ", "), color: Theme.text, tab: .ssid)
             tile("Alertes", "\(d.alertCount)", sub: critical > 0 ? "dont \(critical) critique\(critical > 1 ? "s" : "")" : "aucune critique",
-                 color: critical > 0 ? Theme.critical : (d.alertCount > 0 ? Theme.warning : Theme.success))
+                 color: critical > 0 ? Theme.critical : (d.alertCount > 0 ? Theme.warning : Theme.success), tab: .conseils)
         }
     }
 
-    private func tile(_ title: String, _ value: String, sub: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
-            Text(value).font(Theme.mono(18, weight: .bold)).foregroundStyle(color).lineLimit(1)
-            Text(sub).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
+    /// Note 80 : un clic sur une tuile ouvre l'onglet correspondant.
+    private func tile(_ title: String, _ value: String, sub: String, color: Color, tab: FortiAPTab) -> some View {
+        Button {
+            store.closeClient()
+            store.tab = tab
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                Text(value).font(Theme.mono(18, weight: .bold)).foregroundStyle(color).lineLimit(1)
+                Text(sub).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            }
+            .modifier(WifiTileStyle())
+            .contentShape(Rectangle())
         }
-        .modifier(WifiTileStyle())
+        .buttonStyle(.plain)
+        .help("Ouvrir l’onglet \(tab.label)")
     }
 }
 
@@ -324,7 +320,10 @@ struct FortiAPAdvicePanel: View {
                         .help("Seuils du signal faible et de la surcharge")
                 }
                 diagnoseMenu
-                ForEach(advice) { item in card(item) }
+                // Note 80 : onglet Conseils sur toute la largeur, cartes en colonnes.
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 10, alignment: .top)], alignment: .leading, spacing: 10) {
+                    ForEach(advice) { item in card(item) }
+                }
             }
         }
     }
@@ -385,6 +384,8 @@ struct FortiAPAdvicePanel: View {
                     Button("Voir la borne") {
                         selectedAP = ap.id
                         if let b = item.band { band = b }
+                        // Note 80 : la borne s'ouvre dans l'onglet Bornes.
+                        store.tab = .bornes
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
