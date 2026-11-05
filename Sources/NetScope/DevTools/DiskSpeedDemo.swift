@@ -4,7 +4,7 @@ import NetScopeCore
 /// Démonstration de l'outil « Vitesse des disques » (`--demo`) : emplacements fictifs (SSD interne,
 /// disque USB, partage SMB du NAS, OneDrive), un test terminé et un historique. Rien n'est écrit sur
 /// le disque ni envoyé sur le réseau ; « Lancer » rejoue une mesure fictive.
-/// NETSCOPE_DISQUE_DEMO=interne|usb|nas|nuage choisit le test terminé affiché (nas par défaut) ;
+/// NETSCOPE_DISQUE_DEMO=interne|usb|nas|nuage|sftp choisit le test terminé affiché (nas par défaut) ;
 /// NETSCOPE_OUTIL_DEMO=disques ouvre l'outil pour la capture.
 @MainActor
 enum DiskSpeedDemo {
@@ -47,6 +47,21 @@ enum DiskSpeedDemo {
         return location
     }
 
+    /// Note 78 : le même NAS mesuré en SFTP (rien n'est monté).
+    static let sftpShareID = UUID(uuidString: "D15C0055-0004-4E55-9A11-00000000B004")!
+
+    static var sftpShare: DiskShareLocation {
+        DiskShareLocation(id: sftpShareID, siteKey: siegeKey, name: "NAS Bureau – SFTP", kind: .sftp, server: "nas-bureau.local",
+                          share: "/volume1/essais", user: "technicien", hasPassword: true,
+                          created: Date(timeIntervalSince1970: 1_790_200_000))
+    }
+
+    static var sftp: DiskLocation {
+        DiskLocation(name: sftpShare.displayName, path: sftpShare.address, testParent: "", kind: .reseau, fileSystem: "SFTP",
+                     server: sftpShare.server, share: "volume1/essais", networkProtocol: .sftp,
+                     savedID: sftpShare.locationID, isMounted: false)
+    }
+
     static var backup: DiskLocation {
         DiskLocation(name: backupShare.displayName, path: backupShare.address, testParent: "", kind: .reseau, fileSystem: "SMB",
                      server: backupShare.server, share: backupShare.share, networkProtocol: .smb,
@@ -79,6 +94,9 @@ enum DiskSpeedDemo {
     /// (modification du NAS) dessine la feuille par-dessus l'outil.
     static var snapshotDraft: DiskShareDraft? {
         guard RegEnvironment.isSnapshot, let raw = ProcessInfo.processInfo.environment["NETSCOPE_DISQUE_FEUILLE"] else { return nil }
+        if raw == "sftp" {
+            return DiskShareDraft(share: sftpShare, isNew: false)
+        }
         if raw == "nas" {
             return DiskShareDraft(share: nasShare, isNew: false, report: serverReport(host: nasShare.server))
         }
@@ -109,6 +127,9 @@ enum DiskSpeedDemo {
             return DiskBenchmarkResult(sizeBytes: size, passes: passes, writePasses: spread(818, passes), readPasses: spread(904, passes),
                                        randomRead: DiskRandomResult(operations: 18_600, seconds: 3, iops: 6_200, meanMs: 0.16, p95Ms: 0.24),
                                        randomWrite: DiskRandomResult(operations: 14_700, seconds: 3, iops: 4_900, meanMs: 0.2, p95Ms: 0.41))
+        case .reseau where location.networkProtocol?.isFileTransfer == true:
+            // SFTP : chiffrement SSH, un peu sous le SMB, pas d'accès aléatoires.
+            return DiskBenchmarkResult(sizeBytes: size, passes: passes, writePasses: spread(58.6, passes), readPasses: spread(74.3, passes))
         case .reseau:
             return DiskBenchmarkResult(sizeBytes: size, passes: passes, writePasses: spread(71.2, passes), readPasses: spread(82.4, passes),
                                        randomRead: DiskRandomResult(operations: 4_350, seconds: 3, iops: 1_450, meanMs: 0.68, p95Ms: 1.9),
@@ -133,10 +154,11 @@ enum DiskSpeedDemo {
             case "usb": return usb
             case "nuage": return onedrive
             case "sauvegardes": return backup
+            case "sftp": return sftp
             default: return nas
             }
         }()
-        model.loadDemoLocations([internalSSD, usb, nasMount, onedrive], shares: [nasShare, backupShare], selected: choice.id)
+        model.loadDemoLocations([internalSSD, usb, nasMount, onedrive], shares: [nasShare, backupShare, sftpShare], selected: choice.id)
         // NETSCOPE_DISQUE_SERVEUR=1 : résultat de « Tester le serveur » sur le partage choisi.
         if ProcessInfo.processInfo.environment["NETSCOPE_DISQUE_SERVEUR"] != nil {
             for share in [nasShare, backupShare] where share.locationID == choice.id {
@@ -146,7 +168,9 @@ enum DiskSpeedDemo {
         model.setDemo(history: history(now: now))
         // Sauvegardes : ajouté, jamais mesuré, pas encore monté.
         if choice.id == backup.id { return }
-        let config = DiskBenchmarkConfig(sizeBytes: choice.kind == .nuage ? 256 << 20 : 1 << 30, passes: choice.kind == .nuage ? 1 : 2)
+        let transfer = choice.networkProtocol?.isFileTransfer == true
+        let config = DiskBenchmarkConfig(sizeBytes: choice.kind == .nuage ? 256 << 20 : 1 << 30, passes: choice.kind == .nuage ? 1 : 2,
+                                         random: !transfer)
         let result = result(for: choice, size: config.sizeBytes, passes: config.passes)
         let context = context(for: choice)
         let verdict = DiskAdvisor.verdict(kind: choice.kind, result: result, context: context ?? DiskNetworkContext())

@@ -55,19 +55,24 @@ public enum DiskShareKind: String, Codable, CaseIterable, Sendable, Identifiable
     /// Partage monté par NetFS (SMB, NFS, AFP, WebDAV).
     public var isMountable: Bool { networkProtocol != nil }
 
-    /// Faux pour FTP, FTPS et SFTP : le test de vitesse ne s'applique pas à ces protocoles (ils
-    /// s'ouvrent dans Accès distant › Transférer des fichiers).
-    public var isAvailable: Bool {
+    /// Tous les types se mesurent (note 78 : FTP, FTPS et SFTP par le client de transfert).
+    public var isAvailable: Bool { true }
+
+    /// Note 78 : FTP, FTPS ou SFTP, mesuré par envoi et réception d'un fichier (rien n'est monté).
+    public var isFileTransfer: Bool { self == .ftp || self == .ftps || self == .sftp }
+
+    /// Protocole du client de transfert (FTP, FTPS, SFTP), nil pour les autres types.
+    public var transferProtocol: RemoteProtocol? {
         switch self {
-        case .ftp, .ftps, .sftp: return false
-        default: return true
+        case .ftp: return .ftp
+        case .ftps: return .ftps
+        case .sftp: return .sftp
+        default: return nil
         }
     }
 
-    /// Pourquoi le choix est grisé.
-    public static let ftpPending = "FTP, FTPS et SFTP\u{00A0}: utilisez Accès distant › Transférer des fichiers (le test de vitesse ne s’applique pas à ces protocoles)."
-
-    public var networkProtocol: DiskNetworkProtocol? {
+    /// Partage monté par NetFS (SMB, NFS, AFP, WebDAV).
+    public var mountProtocol: DiskNetworkProtocol? {
         switch self {
         case .smb: return .smb
         case .nfs: return .nfs
@@ -76,6 +81,19 @@ public enum DiskShareKind: String, Codable, CaseIterable, Sendable, Identifiable
         default: return nil
         }
     }
+
+    /// Protocole affiché sur la carte de l'emplacement.
+    public var locationProtocol: DiskNetworkProtocol? {
+        switch self {
+        case .ftp: return .ftp
+        case .ftps: return .ftps
+        case .sftp: return .sftp
+        default: return mountProtocol
+        }
+    }
+
+    /// Ancien nom de `mountProtocol` (montage NetFS).
+    public var networkProtocol: DiskNetworkProtocol? { mountProtocol }
 
     /// Le serveur demande un compte (NFS s'appuie sur l'adresse du Mac et l'identifiant Unix).
     public var usesCredentials: Bool {
@@ -172,6 +190,8 @@ public struct DiskShareLocation: Codable, Hashable, Sendable, Identifiable {
     /// Un mot de passe est rangé au Trousseau pour cet emplacement.
     public var hasPassword: Bool
     public var created: Date
+    /// Note 78 : empreinte SHA-256 du certificat FTPS accepté par l'utilisateur (certificat autosigné).
+    public var trustedCertificateSHA256: String?
 
     public init(id: UUID = UUID(), siteKey: String, name: String = "", kind: DiskShareKind, server: String = "",
                 share: String = "", user: String = "", port: Int? = nil, secure: Bool = true, deviceName: String? = nil,
@@ -190,6 +210,20 @@ public struct DiskShareLocation: Codable, Hashable, Sendable, Identifiable {
         self.deviceHost = deviceHost
         self.hasPassword = hasPassword
         self.created = created
+    }
+
+    /// Note 78 : connexion du client de transfert (FTP, FTPS, SFTP) ; nil pour un autre type. Sans
+    /// mot de passe, SFTP passe par les clés de ~/.ssh et l'agent SSH ; FTP sans compte : anonyme.
+    /// FTPS sur le port 990 : TLS implicite, sinon explicite (AUTH TLS).
+    public func transferEndpoint(secret: String?, acceptNewHostKey: Bool = false, timeout: TimeInterval = 20) -> FileTransferEndpoint? {
+        guard let proto = kind.transferProtocol else { return nil }
+        let hasSecret = !(secret ?? "").isEmpty
+        var settings = FileTransferSettings(dataMode: .passive, tlsMode: port == FTPSMode.implicit.defaultPort ? .implicit : .explicit,
+                                            sftpAuth: hasSecret ? .password : .agent)
+        settings.trustedCertificateSHA256 = trustedCertificateSHA256
+        return FileTransferEndpoint(proto: proto, host: trimmedServer, port: port ?? proto.defaultPort, user: trimmedUser,
+                                    secret: hasSecret ? secret : nil, settings: settings, timeout: timeout,
+                                    acceptNewHostKey: acceptNewHostKey)
     }
 
     /// Service du Trousseau des mots de passe des partages (compte : l'UUID de l'emplacement).
@@ -425,6 +459,15 @@ public enum DiskShareCatalog {
                                            freeBytes: volume?.freeBytes, server: volume?.server, share: volume?.share,
                                            networkProtocol: volume?.networkProtocol, isReadOnly: volume?.isReadOnly ?? false,
                                            savedID: share.locationID, isMounted: exists))
+                continue
+            }
+            if share.kind.isFileTransfer {
+                // Note 78 : serveur FTP, FTPS ou SFTP, mesuré sans montage.
+                result.append(DiskLocation(name: share.displayName, path: share.address, testParent: "", kind: .reseau,
+                                           fileSystem: share.kind.label, server: share.trimmedServer,
+                                           share: Optional(share.trimmedShare.trimmingCharacters(in: CharacterSet(charactersIn: "/"))).flatMap { $0.isEmpty ? nil : $0 },
+                                           networkProtocol: share.kind.locationProtocol, savedID: share.locationID,
+                                           isMounted: false))
                 continue
             }
             if let index = remaining.firstIndex(where: { matches(share, mounted: $0) }) {

@@ -79,6 +79,10 @@ final class DiskSpeedModel: ObservableObject {
     @Published private(set) var mountStatus: String?
     /// Le dernier échec de montage concerne le compte ou le mot de passe (« Modifier… » mis en avant).
     @Published private(set) var credentialsProblem = false
+    /// Note 78 : serveur SFTP inconnu ou certificat FTPS non reconnu, à accepter avant de mesurer.
+    @Published private(set) var pendingTrust: DiskTransferTrust?
+    /// Clé SSH acceptée par l'utilisateur pour le prochain test SFTP (emplacement concerné).
+    private var acceptHostKeyFor: UUID?
 
     let isDemo: Bool
     private let store: DiskHistoryStore?
@@ -131,6 +135,11 @@ final class DiskSpeedModel: ObservableObject {
     /// Commande équivalente (en-tête de l'outil).
     var command: String {
         guard let location = selected else { return "dd if=/dev/urandom of=<emplacement>/NetScope-test/essai bs=1m" }
+        if let share = share(for: location), share.kind.isFileTransfer {
+            // Note 78 : envoi puis réception d'un fichier d'essai par FTP, FTPS ou SFTP.
+            return "\(share.kind.rawValue) \(share.trimmedUser.isEmpty ? "" : share.trimmedUser + "@")\(share.trimmedServer)"
+                + " · put + get \(sizeBytes >> 20) Mio"
+        }
         if !location.isMounted, location.kind == .reseau {
             // Partage enregistré pas encore monté : NetFS le monte au lancement.
             return "dd if=/dev/urandom of=\"<\(location.path)>/NetScope-test/essai\" bs=1m count=\(sizeBytes >> 20) && sync"
@@ -292,7 +301,6 @@ final class DiskSpeedModel: ObservableObject {
     var blockingProblem: String? {
         guard let location = selected else { return "Choisissez un emplacement." }
         if let share = share(for: location) {
-            if !share.kind.isAvailable { return DiskShareKind.ftpPending }
             if share.kind == .dossier, !location.isMounted {
                 return "Dossier introuvable\u{00A0}: «\u{00A0}\(location.path)\u{00A0}» (disque éjecté, dossier déplacé ou renommé). Branchez le disque, puis Actualiser, ou choisissez un autre dossier dans «\u{00A0}Modifier…\u{00A0}»."
             }
@@ -333,6 +341,10 @@ final class DiskSpeedModel: ObservableObject {
         let run = generation
         reset()
         lastRecordID = nil
+        if let share = share(for: location), share.kind.isFileTransfer {
+            startTransfer(share, location: location, state: state, toolStore: toolStore, run: run)
+            return
+        }
         guard let share = share(for: location), share.kind.isMountable else {
             runBenchmark(location: location, state: state, toolStore: toolStore, run: run, unmountAfter: nil)
             return
@@ -405,6 +417,44 @@ final class DiskSpeedModel: ObservableObject {
         }
     }
 
+    /// Note 78 : serveur FTP, FTPS ou SFTP, mesuré par le client de transfert (mot de passe lu au
+    /// Trousseau juste avant la connexion). En démonstration, mesure fictive sans réseau.
+    private func startTransfer(_ share: DiskShareLocation, location: DiskLocation, state: AppState, toolStore: ToolStore, run: Int) {
+        pendingTrust = nil
+        var config = self.config
+        config.random = false
+        if isDemo {
+            runBenchmark(location: location, state: state, toolStore: toolStore, run: run, unmountAfter: nil,
+                         engine: DiskSpeedDemo.Engine(location: location, config: config))
+            return
+        }
+        let secret = share.hasPassword ? DiskShareMounter.keychain.string(for: share.keychainAccount) : nil
+        let accept = acceptHostKeyFor == share.id
+        acceptHostKeyFor = nil
+        guard let endpoint = share.transferEndpoint(secret: secret, acceptNewHostKey: accept) else { return }
+        let engine = DiskTransferBenchmark(location: location, config: config, remoteFolder: share.trimmedShare) {
+            try FileTransferClients.make(endpoint)
+        }
+        runBenchmark(location: location, state: state, toolStore: toolStore, run: run, unmountAfter: nil, engine: engine)
+    }
+
+    /// « Faire confiance et relancer » : clé SSH acceptée pour ce test, ou empreinte du certificat
+    /// FTPS retenue avec l'emplacement.
+    func acceptTrust(state: AppState, store toolStore: ToolStore) {
+        guard let trust = pendingTrust, let location = selected, var share = share(for: location) else { return }
+        pendingTrust = nil
+        switch trust {
+        case .hostKey:
+            acceptHostKeyFor = share.id
+        case .certificate(let sha256, _):
+            share.trustedCertificateSHA256 = sha256
+            shares = DiskShareStore.upsert(share, in: shares)
+            persistShares()
+        }
+        error = nil
+        start(state: state, store: toolStore)
+    }
+
     /// Montage ou vérification d'écriture en échec : message expliqué, rien n'est mesuré.
     private func failPreparation(_ problem: DiskShareProblem, share: DiskShareLocation, location: DiskLocation, toolStore: ToolStore) {
         isRunning = false
@@ -417,8 +467,10 @@ final class DiskSpeedModel: ObservableObject {
 
     /// Le test lui-même, sur un emplacement prêt (monté). `unmountAfter` : point de montage à
     /// démonter à la fin (partage monté par NetScope pour ce test).
-    private func runBenchmark(location: DiskLocation, state: AppState, toolStore: ToolStore, run: Int, unmountAfter: String?) {
-        let config = self.config.effective(for: location.kind)
+    private func runBenchmark(location: DiskLocation, state: AppState, toolStore: ToolStore, run: Int, unmountAfter: String?,
+                              engine customEngine: DiskBenchmarkEngine? = nil) {
+        var config = self.config.effective(for: location.kind)
+        if location.networkProtocol?.isFileTransfer == true { config.random = false }
         isRunning = true
         testedLocation = location
         testedConfig = config
@@ -447,8 +499,8 @@ final class DiskSpeedModel: ObservableObject {
                 }
             }
         }
-        let engine: DiskBenchmarkEngine = isDemo ? DiskSpeedDemo.Engine(location: location, config: config)
-                                                 : DiskBenchmark(location: location, config: config, pending: pending)
+        let engine: DiskBenchmarkEngine = customEngine ?? (isDemo ? DiskSpeedDemo.Engine(location: location, config: config)
+                                                                  : DiskBenchmark(location: location, config: config, pending: pending))
         task = Task { [weak self] in
             for await event in engine.run() {
                 guard let self, self.generation == run else { break }
@@ -510,6 +562,7 @@ final class DiskSpeedModel: ObservableObject {
         pass = 1
         mountStatus = nil
         credentialsProblem = false
+        pendingTrust = nil
     }
 
     /// Débit du lien actif et débit montant Internet connu (Speedtest), sans mesure réseau.
@@ -575,6 +628,12 @@ final class DiskSpeedModel: ObservableObject {
             isRunning = false
             stopped = true
             phase = nil
+        case .trustRequired(let trust):
+            isRunning = false
+            phase = nil
+            instant = nil
+            pendingTrust = trust
+            error = trust.message
         }
     }
 

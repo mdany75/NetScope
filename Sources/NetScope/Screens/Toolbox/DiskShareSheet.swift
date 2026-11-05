@@ -14,8 +14,8 @@ struct DiskShareDraft: Identifiable {
 
 /// Feuille d'ajout d'un NAS, d'un partage SMB, NFS, AFP ou WebDAV, ou d'un dossier quelconque :
 /// type, serveur (saisi ou appareil du Scanner ou de l'Inventaire), partage, compte et mot de passe
-/// (Trousseau), « Tester le serveur ». FTP, FTPS et SFTP sont visibles mais grisés (note 50). Rien
-/// n'est enregistré avant « Ajouter » ou « Enregistrer ».
+/// (Trousseau), « Tester le serveur ». Note 78 : FTP, FTPS et SFTP aussi (mesurés par le client
+/// de transfert, sans montage). Rien n'est enregistré avant « Ajouter » ou « Enregistrer ».
 struct DiskShareSheet: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var model: DiskSpeedModel
@@ -57,7 +57,7 @@ struct DiskShareSheet: View {
 
     private var current: DiskShareLocation {
         var share = draft
-        share.port = draft.kind == .webdav ? portValue : nil
+        share.port = draft.kind == .webdav || draft.kind.isFileTransfer ? portValue : nil
         return share
     }
 
@@ -105,14 +105,12 @@ struct DiskShareSheet: View {
             kindPicker
             if draft.kind == .dossier {
                 folderFields
-            } else if draft.kind.isAvailable {
+            } else {
                 pasteField
                 serverFields
                 if draft.kind.usesCredentials { credentialFields }
                 addressPreview
                 testBox
-            } else {
-                ToolNotice(tone: .accent, message: DiskShareKind.ftpPending)
             }
             if let error {
                 ToolNotice(tone: .critical, message: error)
@@ -131,16 +129,12 @@ struct DiskShareSheet: View {
                     ToolChoiceChip(label: kind == .dossier ? "Autre (dossier)" : kind.label, isSelected: draft.kind == kind, mono: false) {
                         choose(kind)
                     }
-                    .disabled(!kind.isAvailable)
-                    .opacity(kind.isAvailable ? 1 : 0.45)
-                    .help(kind.isAvailable ? kind.title : DiskShareKind.ftpPending)
+                    .help(kind.title)
                 }
             }
             Text(hint(for: draft.kind))
                 .font(Theme.caption).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(DiskShareKind.ftpPending)
-                .font(Theme.caption).foregroundStyle(Theme.textTertiary)
         }
     }
 
@@ -151,12 +145,14 @@ struct DiskShareSheet: View {
         case .afp: return "Ancien partage Apple (Time Capsule, vieux NAS)."
         case .webdav: return "Nextcloud, ownCloud, SharePoint ou NAS en WebDAV (HTTPS de préférence)."
         case .dossier: return "N’importe quel dossier visible dans le Finder\u{00A0}: sous-dossier d’un disque, d’un partage déjà monté, volume chiffré…"
-        case .ftp, .ftps, .sftp: return DiskShareKind.ftpPending
+        case .ftp: return "Serveur FTP (NAS, caméra, ancien serveur)\u{00A0}: fichier d’essai envoyé puis reçu, rien n’est monté. FTP en clair\u{00A0}: réseau local seulement."
+        case .ftps: return "FTP chiffré par TLS\u{00A0}: port 21 (TLS explicite) ou 990 (TLS implicite)."
+        case .sftp: return "Transfert par SSH (NAS, serveur Linux)\u{00A0}: mot de passe au Trousseau, ou clés de ~/.ssh sans mot de passe."
+
         }
     }
 
     private func choose(_ kind: DiskShareKind) {
-        guard kind.isAvailable else { return }
         if kind == .dossier, draft.kind != .dossier { draft.share = "" }
         if draft.kind == .dossier, kind != .dossier { draft.share = "" }
         if kind == .nfs, !draft.share.isEmpty, !draft.share.hasPrefix("/") { draft.share = "/" + draft.share }
@@ -168,7 +164,7 @@ struct DiskShareSheet: View {
     private var pasteField: some View {
         ToolLabeledField(label: "Coller une adresse (facultatif)") {
             HStack(spacing: 6) {
-                ToolTextField(placeholder: "smb://serveur/partage, \\\\serveur\\partage, serveur:/export", text: $pasted,
+                ToolTextField(placeholder: draft.kind.isFileTransfer ? "\(draft.kind.rawValue)://serveur/chemin" : "smb://serveur/partage, \\\\serveur\\partage, serveur:/export", text: $pasted,
                               invalid: pasteFailed, height: 28, onSubmit: applyPaste)
                     .onChange(of: pasted) { _, _ in pasteFailed = false }
                 Button("Remplir", action: applyPaste)
@@ -181,10 +177,6 @@ struct DiskShareSheet: View {
     private func applyPaste() {
         guard let address = DiskShareAddress.parse(pasted) else {
             pasteFailed = !pasted.trimmingCharacters(in: .whitespaces).isEmpty
-            return
-        }
-        guard address.kind.isAvailable else {
-            error = DiskShareKind.ftpPending
             return
         }
         error = nil
@@ -218,6 +210,13 @@ struct DiskShareSheet: View {
                     }
                 }
                 .frame(minWidth: 280)
+                if draft.kind.isFileTransfer {
+                    ToolLabeledField(label: "Port") {
+                        ToolTextField(placeholder: String(draft.kind.ports().first ?? 21), text: $portText,
+                                      invalid: portValue.map { !(1...65_535).contains($0) } ?? false, height: 28)
+                            .frame(width: 80)
+                    }
+                }
                 if draft.kind == .webdav {
                     ToolLabeledField(label: "Port") {
                         ToolTextField(placeholder: draft.secure ? "443" : "80", text: $portText,
@@ -306,7 +305,7 @@ struct DiskShareSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             ToolAdaptiveRow(spacing: 10) {
                 ToolLabeledField(label: "Utilisateur") {
-                    ToolTextField(placeholder: draft.kind == .smb ? "technicien ou BUREAU;technicien (vide\u{00A0}: invité)" : "technicien",
+                    ToolTextField(placeholder: userPlaceholder,
                                   text: $draft.user, height: 28)
                 }
                 .frame(minWidth: 220)
@@ -321,9 +320,7 @@ struct DiskShareSheet: View {
             }
             HStack(spacing: 6) {
                 Image(systemName: "key.fill").font(.system(size: 10)).foregroundStyle(Theme.textSecondary)
-                Text(draft.trimmedUser.isEmpty
-                     ? "Sans utilisateur, NetScope se connecte en invité."
-                     : "Mot de passe gardé dans le Trousseau de macOS, jamais en clair ni dans les fichiers de NetScope.")
+                Text(credentialNote)
                     .font(Theme.caption).foregroundStyle(Theme.textSecondary)
                 if draft.hasPassword && !passwordChanged {
                     Button("Effacer") { password = ""; passwordChanged = true }
@@ -333,9 +330,28 @@ struct DiskShareSheet: View {
         }
     }
 
+    private var userPlaceholder: String {
+        switch draft.kind {
+        case .smb: return "technicien ou BUREAU;technicien (vide\u{00A0}: invité)"
+        case .ftp, .ftps: return "technicien (vide\u{00A0}: anonyme)"
+        default: return "technicien"
+        }
+    }
+
+    private var credentialNote: String {
+        if draft.trimmedUser.isEmpty {
+            return draft.kind.isFileTransfer && draft.kind != .sftp ? "Sans utilisateur, NetScope se connecte en anonyme."
+                : "Sans utilisateur, NetScope se connecte en invité."
+        }
+        if draft.kind == .sftp {
+            return "Mot de passe gardé dans le Trousseau de macOS\u{00A0}; sans mot de passe, les clés de ~/.ssh et l’agent SSH."
+        }
+        return "Mot de passe gardé dans le Trousseau de macOS, jamais en clair ni dans les fichiers de NetScope."
+    }
+
     private var addressPreview: some View {
         HStack(spacing: 6) {
-            Text("Adresse de montage").font(Theme.caption).foregroundStyle(Theme.textSecondary)
+            Text(draft.kind.isFileTransfer ? "Adresse" : "Adresse de montage").font(Theme.caption).foregroundStyle(Theme.textSecondary)
             Text(current.mountURL?.absoluteString.removingPercentEncoding ?? "—")
                 .font(Theme.mono(12, weight: .medium)).foregroundStyle(Theme.text)
                 .textSelection(.enabled).lineLimit(1).truncationMode(.middle)
@@ -355,7 +371,7 @@ struct DiskShareSheet: View {
                 .buttonStyle(.secondary)
                 .disabled(testing || current.trimmedServer.isEmpty || !DiskShareAddress.isValidHost(current.trimmedServer))
                 if testing { ProgressView().controlSize(.small) }
-                Text("Ping et ports 445, 139, 2049, 548, 80 et 443")
+                Text("Ping et ports " + DiskServerCheck.portList(kind: current.kind, customPort: current.port))
                     .font(Theme.caption).foregroundStyle(Theme.textSecondary)
             }
             if let report = shownReport {
@@ -413,7 +429,7 @@ struct DiskShareSheet: View {
 
     private var footer: some View {
         HStack(spacing: 8) {
-            if let first = problems.first, draft.kind.isAvailable {
+            if let first = problems.first {
                 Text(first).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
             } else if !isNew, draft.hasPassword {
                 Text("Trousseau\u{00A0}: com.danymenard.netscope.partages").font(Theme.small).foregroundStyle(Theme.textTertiary)

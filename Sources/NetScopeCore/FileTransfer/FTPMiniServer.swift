@@ -468,7 +468,7 @@ final class FTPMiniSession: @unchecked Sendable {
         do {
             let stream = try await dataStream()
             if !data.isEmpty { try await stream.write(data, timeout: 30) }
-            stream.close()
+            await stream.finishSending(timeout: 30)
             try await reply(226, "Terminé")
         } catch {
             try await reply(425, "Connexion de données impossible.")
@@ -482,7 +482,8 @@ final class FTPMiniSession: @unchecked Sendable {
             while let chunk = try handle.read(upToCount: 64 * 1024), !chunk.isEmpty {
                 try await stream.write(chunk, timeout: 30)
             }
-            stream.close()
+            // Le client lit tout avant la fermeture (sinon les derniers octets pouvaient se perdre).
+            await stream.finishSending(timeout: 30)
             try await reply(226, "Transfert terminé")
         } catch {
             try await reply(426, "Transfert interrompu.")

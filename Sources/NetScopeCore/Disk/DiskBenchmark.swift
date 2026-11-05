@@ -202,6 +202,8 @@ public enum DiskEvent: Sendable {
     case failed(String)
     /// Test arrêté ; le fichier d'essai a été supprimé.
     case stopped
+    /// Note 78 : serveur SFTP inconnu ou certificat FTPS non reconnu ; rien n'a été mesuré.
+    case trustRequired(DiskTransferTrust)
 }
 
 public enum DiskBenchmarkError: Error, Equatable, LocalizedError {

@@ -134,10 +134,17 @@ struct DiskSpeedView: View {
         } else {
             if let name = share.deviceName { parts.append("Appareil\u{00A0}: \(name)") }
             if share.kind.usesCredentials {
-                parts.append(share.trimmedUser.isEmpty ? "invité"
-                             : "\(share.trimmedUser) · " + (share.hasPassword ? "mot de passe au Trousseau" : "sans mot de passe"))
+                let anonymous = share.kind == .sftp ? "compte de ce Mac" : (share.kind.isFileTransfer ? "anonyme" : "invité")
+                let noPassword = share.kind == .sftp ? "clés de ~/.ssh" : "sans mot de passe"
+                parts.append(share.trimmedUser.isEmpty ? anonymous
+                             : "\(share.trimmedUser) · " + (share.hasPassword ? "mot de passe au Trousseau" : noPassword))
             }
-            parts.append(location.isMounted ? "déjà monté, laissé tel quel" : "monté pour le test, puis démonté")
+            if share.kind.isFileTransfer {
+                // Note 78 : rien n'est monté, le fichier d'essai est envoyé puis reçu.
+                parts.append("fichier d’essai envoyé puis reçu, rien n’est monté")
+            } else {
+                parts.append(location.isMounted ? "déjà monté, laissé tel quel" : "monté pour le test, puis démonté")
+            }
         }
         parts.append("site «\u{00A0}\(sites.name(forKey: share.siteKey))\u{00A0}»")
         return parts.joined(separator: " · ")
@@ -158,7 +165,7 @@ struct DiskSpeedView: View {
                 .buttonStyle(.secondary)
                 .controlSize(.small)
                 .disabled(testing || model.isRunning)
-                .help("Ping et ports 445 (SMB), 139, 2049 (NFS), 548 (AFP), 80 et 443 (WebDAV)")
+                .help("Ping et ports " + DiskServerCheck.portList(kind: share.kind, customPort: share.port))
             }
             Button {
                 model.beginEdit(share)
@@ -198,7 +205,7 @@ struct DiskSpeedView: View {
                 .buttonStyle(.secondary)
                 .controlSize(.small)
                 .disabled(model.isRunning)
-                .help("NAS ou partage SMB, NFS, AFP, WebDAV, ou un dossier choisi dans le Finder (enregistré pour ce site)")
+                .help("NAS ou partage SMB, NFS, AFP, WebDAV, serveur FTP, FTPS ou SFTP, ou un dossier choisi dans le Finder (enregistré pour ce site)")
                 Button {
                     model.refreshLocations()
                 } label: {
@@ -229,7 +236,7 @@ struct DiskSpeedView: View {
                     .font(.system(size: 17, weight: .regular))
                     .foregroundStyle(isOn ? Theme.accentStrong : Theme.textSecondary)
                     .frame(width: 22, height: 22)
-                    .opacity(item.isMounted ? 1 : 0.6)
+                    .opacity(item.isMounted || item.networkProtocol?.isFileTransfer == true ? 1 : 0.6)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(item.name).font(Theme.bodySemibold).foregroundStyle(Theme.text)
@@ -356,9 +363,12 @@ struct DiskSpeedView: View {
     }
 
     private var randomToggle: some View {
-        ToolCheckbox(label: "Accès aléatoires 4\u{00A0}Kio (IOPS)", isOn: $model.random)
+        // Note 78 : FTP et SFTP ne transfèrent que des fichiers entiers (pas d'accès de 4 Kio).
+        let transfer = location?.networkProtocol?.isFileTransfer == true
+        return ToolCheckbox(label: "Accès aléatoires 4\u{00A0}Kio (IOPS)", isOn: transfer ? .constant(false) : $model.random)
             .fixedSize()
-            .disabled(model.isRunning)
+            .disabled(model.isRunning || transfer)
+            .help(transfer ? "Sans objet en FTP et SFTP\u{00A0}: seuls des fichiers entiers sont transférés" : "")
             .frame(height: 28)
     }
 
@@ -395,7 +405,14 @@ struct DiskSpeedView: View {
                        message: "La copie locale s’écrit vite, l’envoi réel se fait ensuite. NetScope mesure l’écriture dans le dossier, puis le temps jusqu’à «\u{00A0}envoyé\u{00A0}» quand le service le signale. Au-delà de 1\u{00A0}Gio, une confirmation est demandée (quota, forfait).")
         }
         if let error = model.error {
-            ToolNotice(tone: .critical, message: error) {
+            ToolNotice(tone: model.pendingTrust != nil ? .warning : .critical, message: error) {
+                if model.pendingTrust != nil {
+                    // Note 78 : serveur SFTP inconnu ou certificat FTPS non reconnu.
+                    Button("Faire confiance et relancer") { model.acceptTrust(state: state, store: store) }
+                        .buttonStyle(.secondary)
+                        .controlSize(.small)
+                        .fixedSize()
+                }
                 if model.credentialsProblem, let share = model.selectedShare {
                     Button("Modifier…") { model.beginEdit(share) }
                         .buttonStyle(.secondary)

@@ -425,8 +425,9 @@ public final class FTPClient: RemoteFileTransfer, @unchecked Sendable {
             stream = nil
             throw error
         }
-        // Fin de l'envoi : la fermeture de la connexion de données marque la fin du fichier.
-        data.close()
+        // Fin de l'envoi : la fermeture de la connexion de données marque la fin du fichier ; elle
+        // attend que le serveur ait tout lu (note 78).
+        await data.finishSending(timeout: max(timeout, 30))
         stream = nil
         progress(sent)
         let end = try await readReply(timeout: max(timeout, 60))
