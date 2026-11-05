@@ -62,7 +62,9 @@ final class RegBackupController: ObservableObject {
     /// Sauvegardes en cours (compteur : deux sauvegardes peuvent se chevaucher, sécurité comprise).
     @Published private var workCount = 0
     var isWorking: Bool { workCount > 0 }
-    @Published var message: (text: String, tone: Tone)?
+    @Published var message: (text: String, tone: Tone)? {
+        didSet { RegDiagnosticController.note(message, module: "Sauvegarde") }
+    }
     /// Comptes du Trousseau à ressaisir après une restauration ailleurs (noms seulement).
     @Published private(set) var keychainItems: [BackupKeychainItem] = []
     /// Restauration prête, en attente du redémarrage.

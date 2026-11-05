@@ -641,6 +641,8 @@ final class ScanController: ObservableObject {
     // MARK: Divers
 
     func show(_ text: String, tone: Tone = .success, place: ScanToast.Place = .ranges) {
+        // Note 35 : échecs et avertissements du Scanner au journal de l'app.
+        if tone == .critical { AppLog.shared.error("Scanner", text) } else if tone == .warning { AppLog.shared.warning("Scanner", text) }
         let toast = ScanToast(text: text, tone: tone, place: place)
         self.toast = toast
         toastTask?.cancel()

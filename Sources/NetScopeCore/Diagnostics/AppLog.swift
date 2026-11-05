@@ -165,7 +165,7 @@ public final class AppLog: @unchecked Sendable {
     public func log(_ level: AppLogLevel, _ module: String, _ message: String, date: Date? = nil) -> AppLogEntry {
         let entry = AppLogEntry(date: date ?? now(), level: level,
                                 module: SecretMasker.mask(module.trimmingCharacters(in: .whitespacesAndNewlines)),
-                                message: SecretMasker.mask(message.trimmingCharacters(in: .whitespacesAndNewlines)))
+                                message: AppLog.shortenHome(SecretMasker.mask(message.trimmingCharacters(in: .whitespacesAndNewlines))))
         lock.lock()
         appendLocked(entry)
         let file = self.file
@@ -173,6 +173,12 @@ public final class AppLog: @unchecked Sendable {
         file?.append(entry)
         notify(entry)
         return entry
+    }
+
+    /// Dossier de l'utilisateur abrégé en « ~ » : le nom du compte n'entre pas dans le journal.
+    static func shortenHome(_ text: String, home: String = NSHomeDirectory()) -> String {
+        guard home.count > 1, text.contains(home) else { return text }
+        return text.replacingOccurrences(of: home, with: "~")
     }
 
     /// Remet des entrées déjà connues (démonstration) : masquées elles aussi, jamais écrites.

@@ -62,7 +62,7 @@ final class RapportHistoryStore: ObservableObject {
         do {
             try history.save(forSite: snapshot.siteKey, in: directory)
         } catch {
-            NSLog("NetScope\u{00A0}: historique des rapports non enregistré\u{00A0}:\u{00A0}%@", error.localizedDescription)
+            AppLog.shared.error("Rapports", "Historique des rapports non enregistré\u{00A0}:\u{00A0}\(error.localizedDescription)")
         }
     }
 
@@ -163,7 +163,7 @@ final class RapportHistoryStore: ObservableObject {
         do {
             try FileManager.default.trashItem(at: url, resultingItemURL: nil)
         } catch {
-            NSLog("NetScope\u{00A0}: historique des rapports de %@ non retiré\u{00A0}: %@", key, error.localizedDescription)
+            AppLog.shared.error("Rapports", "Historique des rapports de \(key) non retiré\u{00A0}: \(error.localizedDescription)")
         }
     }
 
@@ -185,7 +185,7 @@ final class RapportHistoryStore: ObservableObject {
             try history.save(forSite: new, in: directory)
             try FileManager.default.removeItem(at: from)
         } catch {
-            NSLog("NetScope\u{00A0}: historique des rapports non déplacé\u{00A0}: %@", error.localizedDescription)
+            AppLog.shared.error("Rapports", "Historique des rapports non déplacé\u{00A0}: \(error.localizedDescription)")
         }
     }
 

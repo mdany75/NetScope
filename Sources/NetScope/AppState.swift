@@ -307,7 +307,7 @@ struct StateStore {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             try encoder.encode(snapshot).write(to: url, options: .atomic)
         } catch {
-            NSLog("NetScope : enregistrement impossible de %@ : %@", url.path, error.localizedDescription)
+            AppLog.shared.error("État", "Enregistrement impossible de \(url.path) : \(error.localizedDescription)")
         }
     }
 }

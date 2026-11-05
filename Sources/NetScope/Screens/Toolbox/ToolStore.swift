@@ -364,7 +364,7 @@ final class ToolStore: ObservableObject {
             encoder.dateEncodingStrategy = .iso8601
             try encoder.encode(Snapshot(commands: commands, recents: recents, wakeLog: wakeLog)).write(to: url, options: .atomic)
         } catch {
-            NSLog("NetScope\u{00A0}: enregistrement impossible de %@\u{00A0}: %@", url.path, error.localizedDescription)
+            AppLog.shared.error("Outils", "Enregistrement impossible de \(url.path)\u{00A0}: \(error.localizedDescription)")
         }
     }
 

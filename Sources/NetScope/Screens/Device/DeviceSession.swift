@@ -186,7 +186,7 @@ final class DeviceNotesStore: ObservableObject {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             try encoder.encode(notes).write(to: url, options: .atomic)
         } catch {
-            NSLog("NetScope : enregistrement impossible de %@ : %@", url.path, error.localizedDescription)
+            AppLog.shared.error("Appareil", "Enregistrement impossible de \(url.path)\u{00A0}: \(error.localizedDescription)")
         }
     }
 }

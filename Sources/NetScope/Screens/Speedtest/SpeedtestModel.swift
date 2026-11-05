@@ -372,7 +372,7 @@ final class SpeedtestModel: ObservableObject {
         do {
             try serverStore.save(serverPrefs)
         } catch {
-            NSLog("NetScope : enregistrement des serveurs Speedtest impossible : %@", error.localizedDescription)
+            AppLog.shared.error("Speedtest", "Enregistrement des serveurs Speedtest impossible : \(error.localizedDescription)")
         }
     }
 
@@ -569,7 +569,7 @@ final class SpeedtestModel: ObservableObject {
         do {
             try store.save(SpeedHistoryStore.Content(records: history, planDownMbps: planDown, planUpMbps: planUp))
         } catch {
-            NSLog("NetScope : enregistrement de l’historique Speedtest impossible : %@", error.localizedDescription)
+            AppLog.shared.error("Speedtest", "Enregistrement de l’historique Speedtest impossible : \(error.localizedDescription)")
         }
     }
 

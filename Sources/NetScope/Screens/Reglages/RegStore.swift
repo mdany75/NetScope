@@ -7,7 +7,7 @@ import ServiceManagement
 
 /// Sections de la colonne de gauche, dans l'ordre du croquis (docs/croquis/Reglages.dc.html).
 enum RegSection: String, CaseIterable, Identifiable {
-    case general, sites, profils, identifiants, switchs, notifications, alertes, interface, export, majs, raccourcis, apropos
+    case general, sites, profils, identifiants, switchs, notifications, alertes, interface, export, majs, raccourcis, diagnostic, apropos
 
     var id: String { rawValue }
 
@@ -24,6 +24,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .export: return "Export et sauvegarde"
         case .majs: return "Mises à jour"
         case .raccourcis: return "Raccourcis"
+        case .diagnostic: return "Journal et diagnostic"
         case .apropos: return "À propos"
         }
     }
@@ -41,6 +42,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .export: return "square.and.arrow.up"
         case .majs: return "arrow.triangle.2.circlepath"
         case .raccourcis: return "command"
+        case .diagnostic: return "stethoscope"
         case .apropos: return "info.circle"
         }
     }
@@ -59,6 +61,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .export: return "export sauvegarde csv json pdf restauration zip manifeste rotation icloud dossier chiffrement chiffrée mot de passe jetons secrets trousseau configuration importer exporter synchronisation synchroniser mac"
         case .raccourcis: return "raccourcis clavier touches commande menu conflit"
         case .majs: return "version github release bêta stable signature télécharger installer jeton"
+        case .diagnostic: return "journal log erreurs avertissements modules diagnostic exporter zip plantage crash rapport secrets masqués signalement"
         case .apropos: return "version licence oui journaux"
         }
     }
@@ -81,6 +84,7 @@ enum RegEnvironment {
             case "sauvegarde", "configuration": return .export
             case "identifiants": return .identifiants
             case "decouverte": return .profils
+            case "journal": return .diagnostic
             default: if let section = RegSection(rawValue: raw) { return section }
             }
         }

@@ -113,7 +113,7 @@ final class WifiDiagnosisStore: ObservableObject {
         do {
             try h.save(to: url)
         } catch {
-            NSLog("NetScope : historique des diagnostics Wi-Fi non enregistré : %@", error.localizedDescription)
+            AppLog.shared.error("Wi-Fi", "Historique des diagnostics Wi-Fi non enregistré\u{00A0}: \(error.localizedDescription)")
         }
     }
 

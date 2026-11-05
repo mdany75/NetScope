@@ -590,7 +590,7 @@ final class TFTPModel: ObservableObject {
             encoder.dateEncodingStrategy = .iso8601
             try encoder.encode(records).write(to: url, options: .atomic)
         } catch {
-            NSLog("NetScope\u{00A0}: enregistrement impossible de %@\u{00A0}: %@", url.path, error.localizedDescription)
+            AppLog.shared.error("TFTP", "Enregistrement impossible de \(url.path)\u{00A0}: \(error.localizedDescription)")
         }
     }
 

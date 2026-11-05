@@ -117,7 +117,7 @@ extension InvModel {
                         trashed.append(TrashedFolder(site: site, folder: folder, url: url))
                     }
                 } catch {
-                    NSLog("NetScope : pièces jointes de %@ non retirées : %@", record.displayName, error.localizedDescription)
+                    AppLog.shared.error("Inventaire", "Pièces jointes de \(record.displayName) non retirées\u{00A0}: \(error.localizedDescription)")
                 }
             }
         }
@@ -204,7 +204,7 @@ extension InvModel {
                 do {
                     try attachmentFiles.moveFolder(folder, from: source, to: destination)
                 } catch {
-                    NSLog("NetScope : pièces jointes de %@ non déplacées : %@", record.displayName, error.localizedDescription)
+                    AppLog.shared.error("Inventaire", "Pièces jointes de \(record.displayName) non déplacées\u{00A0}: \(error.localizedDescription)")
                     show("Pièces jointes de «\u{00A0}\(record.displayName)\u{00A0}» restées dans l’ancien site\u{00A0}: \(error.localizedDescription)")
                 }
             }
@@ -276,7 +276,7 @@ extension InvModel {
             do {
                 try attachmentFiles.remove(attachment, site: site, folder: folder)
             } catch {
-                NSLog("NetScope : pièce jointe %@ non retirée : %@", attachment.fileName, error.localizedDescription)
+                AppLog.shared.error("Inventaire", "Pièce jointe \(attachment.fileName) non retirée\u{00A0}: \(error.localizedDescription)")
             }
         }
         show("Pièce jointe retirée\u{00A0}: \(attachment.fileName)" + (isEphemeral ? "" : " (dans la corbeille)"))

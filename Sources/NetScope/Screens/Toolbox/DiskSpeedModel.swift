@@ -275,7 +275,7 @@ final class DiskSpeedModel: ObservableObject {
         do {
             try shareStore.save(shares)
         } catch {
-            NSLog("NetScope\u{00A0}: enregistrement des emplacements des disques impossible\u{00A0}: %@", error.localizedDescription)
+            AppLog.shared.error("Disques", "Enregistrement des emplacements des disques impossible\u{00A0}: \(error.localizedDescription)")
         }
     }
 
@@ -707,7 +707,7 @@ final class DiskSpeedModel: ObservableObject {
         do {
             try store.save(DiskHistoryStore.Content(records: history, lastLocation: lastLocation, config: config))
         } catch {
-            NSLog("NetScope\u{00A0}: enregistrement de l’historique des disques impossible\u{00A0}: %@", error.localizedDescription)
+            AppLog.shared.error("Disques", "Enregistrement de l’historique des disques impossible\u{00A0}: \(error.localizedDescription)")
         }
     }
 }

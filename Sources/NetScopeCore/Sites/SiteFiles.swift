@@ -132,7 +132,7 @@ public struct SiteFiles: Sendable, Hashable {
             encoder.dateEncodingStrategy = .iso8601
             try encoder.encode(results).write(to: url, options: .atomic)
         } catch {
-            NSLog("NetScope : résultats du site non enregistrés (%@) : %@", url.path, error.localizedDescription)
+            AppLog.shared.error("Sites", "Résultats du site non enregistrés (\(url.path))\u{00A0}: \(error.localizedDescription)")
         }
     }
 

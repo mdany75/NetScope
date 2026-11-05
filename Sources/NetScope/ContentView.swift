@@ -20,6 +20,8 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 190, ideal: Theme.sidebarWidth, max: 300)
         } detail: {
             VStack(spacing: 0) {
+                // Note 35 : plantage précédent, bannière discrète au lancement.
+                CrashBanner()
                 // Note 26 : étiquettes des critères de la recherche, sous la barre d'outils.
                 // Notes 31 et 33 : un filtre transmis (groupe de la Carte, port) s'affiche aussi ici.
                 if let schema = state.screen.searchSchema,
