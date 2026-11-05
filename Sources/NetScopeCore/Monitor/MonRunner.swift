@@ -29,6 +29,12 @@ public struct MonRunContext: Sendable {
     public var wanError: String?
     /// Lecture du WAN en échec pour certaines FortiGate seulement : erreur par site (nom du site).
     public var wanSiteErrors: [String: String] = [:]
+    /// Dernière lecture du firmware et des licences des FortiGate (note 41) ; nil : aucune.
+    public var firmware: FirmwareOverview?
+    /// Lecture du firmware tentée sans aucune FortiGate lue : son erreur.
+    public var firmwareError: String?
+    /// Lecture du firmware en échec pour certaines FortiGate seulement : erreur par site.
+    public var firmwareSiteErrors: [String: String] = [:]
     /// Dernière lecture du trafic des FortiGate (sondes de trafic, note 54) ; nil : aucune.
     public var traffic: TrafficOverview?
     /// Lecture du trafic tentée sans aucune FortiGate lue : son erreur.
@@ -115,6 +121,14 @@ public enum MonRunner {
                                             thresholds: probe.wanThresholds ?? .standard, now: context.now)
         case .linkSaturated, .heavyDevice, .newThreat:
             return MonTrafficChecks.run(probe, target: target, traffic: context.traffic, error: context.trafficError, now: context.now)
+        case .licenseExpiring:
+            return MonFirmwareChecks.licenseExpiring(target: target, overview: context.firmware, error: context.firmwareError,
+                                                     siteErrors: context.firmwareSiteErrors,
+                                                     days: Int(probe.resourceLimit ?? MonProbe.defaultResourceLimit(.licenseExpiring)),
+                                                     now: context.now)
+        case .firmwareOutdated:
+            return MonFirmwareChecks.firmwareOutdated(target: target, overview: context.firmware, error: context.firmwareError,
+                                                      siteErrors: context.firmwareSiteErrors, now: context.now)
         }
     }
 

@@ -191,6 +191,8 @@ public enum NavResolver {
             return .go(NavDestination(.outils, focus: .tool("dhcpscopes")))
         case .vpnTunnel, .wanLink:
             return .go(NavDestination(.outils, focus: .tool("wan")))
+        case .licenseExpiring, .firmwareOutdated:
+            return .go(NavDestination(.outils, focus: .tool("firmware")))
         case .linkSaturated, .newThreat:
             return .go(NavDestination(.trafic))
         case .heavyDevice:

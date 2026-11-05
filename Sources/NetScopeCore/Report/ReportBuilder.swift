@@ -161,6 +161,8 @@ public struct ReportInput: Sendable {
     /// WAN et VPN des FortiGate (note 39) ; nil : aucune lecture.
     public var wan: WANOverview?
     public var wanThresholds: WANThresholds = .standard
+    /// Firmware et licences du parc Fortinet (note 41) ; nil : aucune lecture.
+    public var firmware: FirmwareOverview?
     /// Diagnostics Wi-Fi retenus pour le rapport du site (section facultative « Diagnostic Wi-Fi »).
     public var wifiDiagnoses: [WifiDiagnosisResult] = []
     /// Trafic FortiView (section facultative « Trafic et analyse ») ; nil : aucune lecture.
@@ -390,6 +392,7 @@ public enum ReportBuilder {
             case .dhcp: blocks = dhcpScopeBlocks(input.dhcpScopes, thresholds: input.dhcpThresholds)
             case .wifiDiag: blocks = wifiDiagnosisBlocks(input.wifiDiagnoses, masked: config.maskMAC)
             case .wan: blocks = wanBlocks(input.wan, thresholds: input.wanThresholds)
+            case .firmware: blocks = firmwareBlocks(input.firmware)
             case .trafic: blocks = trafficBlocks(input.traffic, analysis: input.networkAnalysis, masked: config.maskMAC)
             case .suivi: blocks = ReportFollowUp.blocks(input.followUp, now: input.now)
             case .annexe: blocks = annex(input, masked: config.maskMAC)

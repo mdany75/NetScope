@@ -85,6 +85,14 @@ enum MonDemo {
         Row(name: "Liens WAN du Siège", kind: .wanLink, target: "Siège / *", sub: "FortiGate · Siège · wan1, wan2", iv: 300,
             state: .warning, value: "2 actifs sur 2 · 44\(s)ms · perte 4\(s)%", latency: nil, orange: [22, 23], red: [], dependsOnGateway: false,
             configure: { $0.wanThresholds = .standard; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
+        // Firmware et licences (note 41) : licence IPS du Siège dans 21 jours, FortiGate et une FortiAP à mettre à jour.
+        Row(name: "Licences FortiGuard", kind: .licenseExpiring, target: "*", sub: "FortiGate · Siège, Entrepôt Laval", iv: 3600,
+            state: .warning, value: "12 licences · min 21\(s)j", latency: nil, orange: [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23], red: [],
+            dependsOnGateway: false,
+            configure: { $0.resourceLimit = 30; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil, failures: 1) }),
+        Row(name: "Firmware du parc", kind: .firmwareOutdated, target: "*", sub: "FortiOS, FortiSwitch, FortiAP · 15 équipements", iv: 43_200,
+            state: .warning, value: "3 à mettre à jour sur 15", latency: nil, orange: [9, 21], red: [], dependsOnGateway: false,
+            configure: { $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil, failures: 1) }),
         // Trafic (note 54) : envoi du lien wan1 saturé par une sauvegarde OneDrive, menaces bloquées.
         Row(name: "Lien Internet du Siège", kind: .linkSaturated, target: "wan1", sub: "FortiView · Bell Fibre", iv: 300,
             state: .warning, value: "wan1 · 96\(s)%", latency: nil, orange: [13, 14], red: [], dependsOnGateway: false,

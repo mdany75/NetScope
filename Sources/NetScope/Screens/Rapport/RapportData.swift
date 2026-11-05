@@ -58,6 +58,11 @@ enum RapportData {
         // WAN et VPN (note 39) : dernière lecture des FortiGate du site actif.
         input.wan = WANStore.shared.reportOverview(state: state)
         input.wanThresholds = WANStore.shared.thresholds
+        // Firmware et licences (note 41) : drapeau « firmware à mettre à jour » des switchs relevés,
+        // problèmes (mise à jour disponible, licence bientôt expirée) et section facultative.
+        input.firmware = FirmwareStore.shared.reportOverview(state: state)
+        input.switches = ReportFirmware.flag(input.switches, with: input.firmware)
+        input.extraProblems += ReportFirmware.problems(input.firmware)
         // Note 54 : trafic des sites affichés par l'écran Trafic et dernière analyse complète.
         (input.traffic, input.networkAnalysis) = TrafficStore.shared.reportContent(state: state)
         // Diagnostic Wi-Fi (note 47) : diagnostics retenus pour le rapport du site actif.

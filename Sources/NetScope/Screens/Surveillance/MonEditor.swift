@@ -121,6 +121,7 @@ struct MonEditor: View {
                             MonServiceConditionFields.prepare(&draft.wrappedValue)
                             MonDHCPScopeConditionFields.prepare(&draft.wrappedValue)
                             MonWANConditionFields.prepare(&draft.wrappedValue)
+                            MonFirmwareConditionFields.prepare(&draft.wrappedValue)
                         }
                     }
                 }
@@ -395,6 +396,8 @@ private struct MonConditionFields: View {
             MonWANConditionFields(probe: $probe)
         case .linkSaturated, .heavyDevice, .newThreat:
             MonTrafficConditionFields(probe: $probe)
+        case .licenseExpiring, .firmwareOutdated:
+            MonFirmwareConditionFields(probe: $probe)
         }
     }
 
