@@ -171,6 +171,11 @@ public enum FirmwareStatus: Int, Codable, Sendable, Comparable {
         }
     }
 
+    /// Libellé court des puces (tableau, détail et rapport) : le même partout.
+    public var chipLabel: String {
+        self == .updateAvailable ? "À mettre à jour" : label
+    }
+
     public static func < (a: FirmwareStatus, b: FirmwareStatus) -> Bool { a.rawValue < b.rawValue }
 }
 

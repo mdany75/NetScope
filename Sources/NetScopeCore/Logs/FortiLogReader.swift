@@ -128,7 +128,11 @@ extension FortiGateReader {
                 }
                 storageAnswered = true
                 guard let body = fetched.response?.body else { continue }
-                found += FortiLogParser.messages(body, host: host, subtype: subtype)
+                let page = FortiLogParser.messages(body, host: host, subtype: subtype)
+                found += page
+                if FortiLogParser.rowCount(body) >= options.rows || page.count >= options.rows {
+                    report.notes.append("Au plus \(options.rows)\u{00A0}événements «\u{00A0}\(subtype)\u{00A0}» lus (\(storage))\u{00A0}: les plus anciens de la période peuvent manquer. Réduisez la période pour tout lire.")
+                }
             }
             answered = answered || storageAnswered
             if !found.isEmpty || (storageAnswered && options.storage != .auto) {
@@ -159,13 +163,18 @@ public enum FortiLogParser {
         return rows.compactMap { message($0, host: host, subtype: subtype, calendar: calendar) }
     }
 
+    /// Nombre de lignes de la réponse (lues ou non).
+    static func rowCount(_ data: Data) -> Int {
+        FortiJSON.objects(FortiJSON.results(FortiJSON.parse(data))).count
+    }
+
     static func message(_ row: FortiObject, host: String, subtype: String, calendar: Calendar) -> LogMessage? {
         var fields: [String: String] = [:]
         for (key, value) in row.raw {
             if let text = FortiJSON.string(value) { fields[key] = text }
         }
         if let metadata = row.object("_metadata"), let stamp = metadata.double("timestamp") {
-            fields["_metadata.timestamp"] = String(Int64(stamp))
+            if stamp.isFinite, let whole = Int64(exactly: stamp.rounded()) { fields["_metadata.timestamp"] = String(whole) }
         }
         let text = [fields["msg"], fields["logdesc"], fields["action"]].compactMap { $0 }.first { !$0.isEmpty }
         guard let text else { return nil }
@@ -176,8 +185,9 @@ public enum FortiLogParser {
         var date = SyslogParser.fortinetDate(fields, calendar: calendar)
         if date == nil, let stamp = fields["_metadata.timestamp"].flatMap(Double.init) {
             var seconds = stamp
-            while seconds > 1e11 { seconds /= 1000 }
-            date = Date(timeIntervalSince1970: seconds)
+            var steps = 0
+            while seconds > 1e11 && steps < 3 { seconds /= 1000; steps += 1 }
+            if seconds > 0, seconds < 1e11 { date = Date(timeIntervalSince1970: seconds) }
         }
         guard let date else { return nil }
         let severity = fields["level"].flatMap(LogSeverity.init(text:)) ?? .info

@@ -323,7 +323,7 @@ struct FirmwareLicensesView: View {
                         }
                         .width(min: 70, ideal: 90)
                         TableColumn("ÉTAT", sortUsing: deviceTable.sort("etat")) { row in
-                            Chip(text: row.device.status == .updateAvailable ? "À mettre à jour" : row.device.status.label,
+                            Chip(text: row.device.status.chipLabel,
                                  tone: FirmwareTone.tone(row.device.status))
                         }
                         .width(min: 80, ideal: 110)
@@ -376,7 +376,7 @@ struct FirmwareLicensesView: View {
                         .width(min: 60, ideal: 80)
                         .customizationID("disponible")
                         TableColumn("ÉTAT", sortUsing: deviceTable.sort("etat")) { row in
-                            Chip(text: row.device.status == .updateAvailable ? "À mettre à jour" : row.device.status.label,
+                            Chip(text: row.device.status.chipLabel,
                                  tone: FirmwareTone.tone(row.device.status))
                                 .help(row.device.status.label)
                         }
@@ -412,7 +412,8 @@ struct FirmwareLicensesView: View {
             HStack(spacing: 8) {
                 ToolFieldLabel("Détail · \(device.name)" + (overview.isMultiSite ? " · \(device.site)" : ""))
                 Spacer(minLength: 8)
-                Chip(text: device.status.label, tone: FirmwareTone.tone(device.status))
+                Chip(text: device.status.chipLabel, tone: FirmwareTone.tone(device.status))
+                    .help(device.status.label)
             }
             ToolCellGrid(cells: cells, columns: 3, valueSize: 13, minCellWidth: 140)
             if device.status == .updateAvailable {

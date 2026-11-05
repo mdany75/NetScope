@@ -76,7 +76,8 @@ final class LogStore: ObservableObject {
     static func saveOnQuitIfLoaded() {
         guard loaded, !shared.isDemo else { return }
         shared.stop(reason: nil)
-        guard shared.saveScheduled else { return }
+        // Journal enregistré pas encore relu : ne pas l'écraser.
+        guard shared.saveScheduled, shared.loadFinished else { return }
         try? FileManager.default.createDirectory(at: shared.url.deletingLastPathComponent(), withIntermediateDirectories: true)
         if let data = try? JSONEncoder().encode(shared.journal) { try? data.write(to: shared.url, options: .atomic) }
         shared.saveScheduled = false
@@ -144,6 +145,13 @@ final class LogStore: ObservableObject {
     private let inbox = LogInbox()
     private var flushTimer: Timer?
     private var saveScheduled = false
+    /// Vrai une fois le journal enregistré relu (ou absent) : rien n'est écrit avant.
+    private var loadFinished = false
+    /// Compte les « Vider » : un vidage pendant la lecture écarte le journal relu.
+    private var clearCount = 0
+    /// Accusés d'inform SNMP envoyés par adresse (fenêtre d'une seconde) : pas de réflexion massive.
+    private var replyWindow: (start: Date, counts: [IPv4Address: Int]) = (Date.distantPast, [:])
+    static let replyLimitPerSecond = 10
     private let url: URL
     weak var appState: AppState?
 
@@ -166,6 +174,7 @@ final class LogStore: ObservableObject {
             ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
         url = base.appendingPathComponent("NetScope", isDirectory: true).appendingPathComponent("journaux.json")
         if isDemo {
+            loadFinished = true
             let demo = JournauxDemo.make()
             demoNow = demo.now
             journal = LogJournal(messages: demo.messages)
@@ -270,6 +279,8 @@ final class LogStore: ObservableObject {
             lastStopReason = reason
             return
         }
+        // Derniers datagrammes d'abord, sockets encore ouverts : les informs reçoivent leur accusé.
+        flush()
         syslogListener?.stop()
         trapListener?.stop()
         syslogListener = nil
@@ -279,7 +290,6 @@ final class LogStore: ObservableObject {
         trapListening = false
         stopAt = nil
         if wasListening { lastStopReason = reason }
-        flush()
     }
 
     private func listenerStopped(_ source: LogSource, reason: String) {
@@ -337,7 +347,7 @@ final class LogStore: ObservableObject {
             case .message(let message, let reply):
                 messages.append(message.attached(siteKey: siteKey, siteName: siteName))
                 receivedCount[message.source, default: 0] += 1
-                if let reply { trapListener?.reply(reply, to: datagram.from, port: datagram.fromPort) }
+                if let reply, allowReply(to: datagram.from) { trapListener?.reply(reply, to: datagram.from, port: datagram.fromPort) }
             case .rejected(let reason):
                 rejectedCount += 1
                 lastRejection = reason
@@ -352,6 +362,16 @@ final class LogStore: ObservableObject {
         changed()
     }
 
+    /// Au plus `replyLimitPerSecond` accusés par seconde vers une même adresse (adresse usurpée).
+    private func allowReply(to address: IPv4Address) -> Bool {
+        let date = Date()
+        if date.timeIntervalSince(replyWindow.start) >= 1 { replyWindow = (date, [:]) }
+        let count = replyWindow.counts[address, default: 0]
+        guard count < Self.replyLimitPerSecond else { return false }
+        replyWindow.counts[address] = count + 1
+        return true
+    }
+
     /// Envoie un message Syslog et une trap d'essai à ce Mac (127.0.0.1 seulement).
     func sendTest() {
         if isDemo {
@@ -361,7 +381,7 @@ final class LogStore: ObservableObject {
         var sent: [String] = []
         if syslogListening {
             let bytes = SyslogParser.encode5424(severity: .notice, date: Date(), hostname: Host.current().localizedName ?? "NetScope",
-                                                app: "NetScope", msgID: "ESSAI", message: "Message d’essai de NetScope : le récepteur Syslog fonctionne.")
+                                                app: "NetScope", msgID: "ESSAI", message: "Message d’essai de NetScope\u{00A0}: le récepteur Syslog fonctionne.")
             if LogUDPListener.sendToSelf(bytes, port: syslogListener?.boundPort ?? syslogPort) { sent.append("un message Syslog") }
         }
         if trapListening {
@@ -384,6 +404,7 @@ final class LogStore: ObservableObject {
 
     func clear(siteKeys: Set<String>?) {
         journal.removeAll(siteKeys: siteKeys)
+        clearCount += 1
         changed()
     }
 
@@ -394,17 +415,38 @@ final class LogStore: ObservableObject {
 
     private func load() {
         let url = self.url
+        let clears = clearCount
         Task.detached(priority: .utility) {
-            guard let data = try? Data(contentsOf: url),
-                  let loaded = try? JSONDecoder().decode(LogJournal.self, from: data) else { return }
+            var loaded: LogJournal?
+            var unreadable: String?
+            if let data = try? Data(contentsOf: url) {
+                loaded = try? JSONDecoder().decode(LogJournal.self, from: data)
+                if loaded == nil {
+                    // Illisible : mis de côté avant toute sauvegarde, pour ne pas l'écraser.
+                    let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+                    let aside = url.deletingLastPathComponent().appendingPathComponent(url.lastPathComponent + ".illisible-" + stamp)
+                    try? FileManager.default.moveItem(at: url, to: aside)
+                    unreadable = aside.lastPathComponent
+                }
+            }
+            let result = loaded
+            let asideName = unreadable
             await MainActor.run {
                 let store = LogStore.shared
-                // Messages reçus pendant la lecture : gardés, mêlés au journal enregistré.
-                var merged = loaded
-                merged.append(store.journal.messages, retention: store.retention, now: Date())
-                merged.prune(retention: store.retention, now: Date())
-                store.journal = merged
-                store.version &+= 1
+                store.loadFinished = true
+                if let asideName {
+                    store.toast = "Journal enregistré illisible\u{00A0}: mis de côté sous «\u{00A0}\(asideName)\u{00A0}», un nouveau journal commence."
+                }
+                // Vidé pendant la lecture : le journal relu n'est pas remis.
+                if let result, store.clearCount == clears {
+                    // Messages reçus pendant la lecture : gardés, mêlés au journal enregistré.
+                    var merged = result
+                    merged.append(store.journal.messages, retention: store.retention, now: Date())
+                    merged.prune(retention: store.retention, now: Date())
+                    store.journal = merged
+                    store.version &+= 1
+                }
+                if store.saveScheduled { store.saveScheduled = false; store.scheduleSave() }
             }
         }
     }
@@ -418,6 +460,7 @@ final class LogStore: ObservableObject {
     }
 
     func saveNow() {
+        guard loadFinished else { return }
         saveScheduled = false
         guard !isDemo else { return }
         let snapshot = journal
@@ -432,7 +475,7 @@ final class LogStore: ObservableObject {
 
     private var rowsMemo: (key: String, rows: [LogRow])?
     private var nameMemo: [String: (String, NavDeviceRef?)] = [:]
-    private var nameMemoVersion = -1
+    private var nameMemoVersion: Int?
 
     /// Nom et appareil d'un message : Scanner (site actif), sinon inventaire du site du message.
     func device(for message: LogMessage) -> (name: String, ref: NavDeviceRef?) {
@@ -460,11 +503,22 @@ final class LogStore: ObservableObject {
     }
 
     func rows(filter: LogFilter, search: SearchQuery, grouped: Bool) -> [LogRow] {
-        if nameMemoVersion != (appState?.devices.count ?? 0) {
-            nameMemo = [:]
-            nameMemoVersion = appState?.devices.count ?? 0
+        // Noms : à refaire si les appareils du Scanner, le site actif ou l'inventaire changent.
+        var hasher = Hasher()
+        hasher.combine(SiteModel.shared.activeKey)
+        hasher.combine(InvModel.shared.inventory(for: SiteModel.shared.activeKey).records.count)
+        for device in appState?.devices ?? [] {
+            hasher.combine(device.ip.value)
+            hasher.combine(device.displayName)
         }
-        let key = [String(version), filter.from.map { String($0.timeIntervalSince1970) } ?? "", filter.to.map { String($0.timeIntervalSince1970) } ?? "",
+        let devicesVersion = hasher.finalize()
+        if nameMemoVersion != devicesVersion {
+            nameMemo = [:]
+            nameMemoVersion = devicesVersion
+        }
+        // Bornes arrondies à 5 s : une période relative (« 1 h ») recalculée à chaque rendu garde la même clé.
+        func rounded(_ date: Date?) -> String { date.map { String(Int(($0.timeIntervalSince1970 / 5).rounded(.down))) } ?? "" }
+        let key = [String(version), rounded(filter.from), rounded(filter.to),
                    String(filter.minimumSeverity.rawValue), filter.sources.map(\.rawValue).sorted().joined(separator: ","),
                    filter.siteKeys?.sorted().joined(separator: ",") ?? "*", search.text, grouped ? "g" : "", SiteModel.shared.activeKey].joined(separator: "|")
         if let memo = rowsMemo, memo.key == key { return memo.rows }

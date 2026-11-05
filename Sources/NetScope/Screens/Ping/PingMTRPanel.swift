@@ -55,11 +55,11 @@ struct PingMTRPanel: View {
         StandardColumn(id: "perdus", title: "Perdus", isDefaultVisible: false),
     ]
 
-    /// Largeurs idéales (0.21.0) : resserrées pour que les neuf colonnes par défaut tiennent dans
-    /// une fenêtre normale ; plus étroit, le tableau défile à gauche et à droite.
+    /// Largeurs idéales : l'hôte (nom PTR du saut) garde la place, prise sur les colonnes
+    /// numériques (4 ou 5 caractères, en-têtes lisibles) ; plus étroit, le tableau défile à gauche et à droite.
     static let widths: [String: CGFloat] = [
-        "numero": 20, "hote": 72, "ip": 110, "perte": 46, "envoyes": 58, "dernier": 62, "moyenne": 36,
-        "meilleur": 70, "pire": 34, "ecartType": 84, "recus": 46, "perdus": 52,
+        "numero": 20, "hote": 112, "ip": 110, "perte": 46, "envoyes": 58, "dernier": 56, "moyenne": 36,
+        "meilleur": 68, "pire": 34, "ecartType": 80, "recus": 46, "perdus": 52,
     ]
 
     static let sortKeys: [String: KeyPathComparator<PingHopLine>] = [
@@ -217,7 +217,7 @@ private struct PingHopTable: View {
                         .truncationMode(.tail)
                         .help(line.hop.isDestination ? "\(line.host) · destination" : line.host)
                 }
-                .width(min: 64, ideal: PingMTRPanel.widths["hote"]!)
+                .width(min: 90, ideal: PingMTRPanel.widths["hote"]!)
                 .customizationID("hote")
 
                 TableColumn(StandardTableHeading("IP"), sortUsing: table.sort("ip")) { line in

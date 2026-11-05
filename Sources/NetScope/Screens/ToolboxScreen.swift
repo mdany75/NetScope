@@ -315,7 +315,7 @@ private struct ToolMainPanel: View {
         case .tftp: return tftp.command
         case .cloud: return SvcStore.shared.command
         case .wan: return "GET virtual-wan/health-check · vpn/ipsec"
-        case .firmware: return "GET system/firmware · license/status (lecture seule)"
+        case .firmware: return "GET system/firmware · license/status"
         case .mailSuper: return mailSuper.command
         case .mailHealth: return mailHealth.command
         case .mx: return mx.command

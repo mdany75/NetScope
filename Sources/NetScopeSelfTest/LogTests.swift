@@ -528,6 +528,68 @@ func registerLogTests(_ suite: TestSuite) {
         }
         try expect(LogBindError(code: EACCES, port: 514).errorDescription?.contains("5514") == true, "port 514 refusé : 5514 proposé")
     }
+
+    // MARK: Robustesse (datagrammes hostiles, horloges décalées)
+
+    suite.add("Journaux : datagrammes hostiles (mois sans heure, eventtime infini, horodatage énorme)") {
+        // Commence par un nom de mois anglais sans heure : aucune lecture hors limites.
+        for text in ["<13>Marking interface down now", "<13>Mar  x", "<14>May the force be with you",
+                     "<13>Nov 4 hello world", "Dec .xxxxxxxxxxxx", "<14>Decoding failed on port 3"] {
+            let m = SyslogParser.parse(text, from: "10.0.0.9", received: received, calendar: calendar)
+            try expect(!m.message.isEmpty, "« \(text) » : message rendu")
+            try expectEqual(m.date, received, "« \(text) » : heure de réception")
+        }
+        // eventtime infini ou démesuré : pas de boucle sans fin.
+        for value in ["inf", "infinity", "1e400", "-inf", "nan", "1e300"] {
+            let m = SyslogParser.parse("<13>logid=1 eventtime=\(value) msg=essai", from: "10.0.0.9", received: received, calendar: calendar)
+            try expect(m.date.timeIntervalSince1970.isFinite, "eventtime=\(value) : date finie")
+        }
+        try expectEqual(SyslogParser.fortinetDate(["eventtime": "inf"], calendar: calendar), nil, "eventtime infini : écarté")
+        // Réponse de la FortiGate avec un _metadata.timestamp hors de Int64 : pas de plantage.
+        let json = #"{"results":[{"msg":"x","logid":"1","eventtime":"1e19","_metadata":{"timestamp":1e19}},{"msg":"y","date":"2026-11-04","time":"14:00:00","_metadata":{"timestamp":1.0e30}}]}"#
+        let rows = FortiLogParser.messages(Data(json.utf8), host: "10.0.0.1", subtype: "system", calendar: calendar)
+        try expect(rows.allSatisfy { $0.fields["_metadata.timestamp"] == nil }, "horodatage hors plage : ignoré")
+        try expect(rows.contains { $0.message == "y" }, "date et heure lues à la place")
+    }
+
+    suite.add("Journaux : horloge de l'équipement décalée (2001) : gardé, daté de sa réception, sonde déclenchée") {
+        var old = LogMessage(date: date(2001, 1, 1, 0, 0, 5), received: received, source: .syslog, severity: .error,
+                             host: "10.0.0.7", message: "port 3 down", siteKey: "siege", siteName: "Siège")
+        old.fields["x"] = "1"
+        var journal = LogJournal()
+        try expectEqual(journal.append([old], retention: .standard, now: received), 1, "ajouté")
+        try expectEqual(journal.count, 1, "pas élagué")
+        let kept = try logValue(journal.messages.first, "message gardé")
+        try expectEqual(kept.date, received, "daté de la réception")
+        try expect(kept.fields[LogMessage.declaredDateField]?.hasPrefix("2001-01-01") == true, "heure déclarée gardée")
+        // Heure proche (moins d'un jour d'écart) : gardée telle quelle.
+        let close = LogMessage(date: received.addingTimeInterval(-3_600), received: received, source: .syslog, severity: .info,
+                               host: "10.0.0.7", message: "ok")
+        try expectEqual(close.withTrustedClock().date, close.date, "écart d'une heure : heure déclarée")
+        // La sonde voit le message même si l'heure déclarée était fausse (filtre sur la réception).
+        let probe = MonProbe(name: "Erreurs", kind: .syslogSeverity, target: "*", interval: 60)
+        let outcome = MonLogChecks.run(probe, target: "*", logs: [old], listening: [.syslog], now: received)
+        try expect(outcome.result.problem != nil, "sonde déclenchée")
+        try expectEqual(journal.messages(since: received.addingTimeInterval(-60)).count, 1, "messages récents : par la réception")
+    }
+
+    suite.add("Journaux : journal enregistré par une autre version (champs absents ou inconnus)") {
+        let json = #"{"messages":[{"date":800000000,"source":"syslog","host":"10.0.0.1","message":"a"},{"date":800000001,"source":"inconnue","host":"x"},{"date":800000002,"source":"trap","host":"10.0.0.2","severity":99,"nouveau":true}]}"#
+        let journal = try JSONDecoder().decode(LogJournal.self, from: Data(json.utf8))
+        try expectEqual(journal.count, 2, "message illisible écarté, les autres gardés")
+        try expectEqual(journal.messages.last?.severity, .info, "gravité inconnue : Info")
+        try expectEqual(journal.messages.last?.message, "", "texte absent : vide")
+    }
+
+    suite.add("Journaux : doublons FortiGate au-delà de 20 000 messages récents") {
+        var journal = LogJournal()
+        let forti = message(600, "10.0.0.1", .error, "IPsec down", source: .fortigate, event: "0101037131")
+        journal.append([forti], retention: .standard, now: received)
+        journal.append((0..<21_000).map { message(Double($0) / 100, "10.0.0.2", .info, "m\($0)") }, retention: .standard, now: received)
+        var again = forti
+        again.id = UUID()
+        try expectEqual(journal.append([again], retention: .standard, now: received), 0, "relu : toujours ignoré")
+    }
 }
 
 /// Valeur présente, sinon échec du test.

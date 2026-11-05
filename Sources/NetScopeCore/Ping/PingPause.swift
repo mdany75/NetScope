@@ -66,11 +66,12 @@ public struct PingPausePeriods: Equatable, Sendable {
     }
 
     /// Réinitialisation des statistiques : on oublie les pauses passées, mais une pause en cours
-    /// continue (à partir de `date`).
+    /// continue, avec son début réel (le journal annonce la vraie durée à la reprise ; les mesures
+    /// antérieures sont de toute façon effacées). `date` est gardé pour la compatibilité des appels.
     public mutating func reset(at date: Date) {
-        let paused = isPaused
+        let open = isPaused ? periods.last?.start : nil
         periods.removeAll()
-        if paused { periods.append(Period(start: date)) }
+        if let open { periods.append(Period(start: min(open, date))) }
     }
 
     /// Les mesures hors des pauses (une mesure arrivée en retard pendant une pause est ignorée).

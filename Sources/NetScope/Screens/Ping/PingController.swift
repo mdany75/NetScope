@@ -153,6 +153,8 @@ final class PingController: ObservableObject {
         describe(&target)
         if let name { target.name = name }
         if let role { target.role = role }
+        // Première cible : la session commence au premier ping, pas à l'ouverture de l'écran.
+        if targets.isEmpty { sessionStart = Date() }
         targets.append(target)
         if selectedID == nil { selectedID = target.id }
         if shouldLog { log(.info, input, "cible ajoutée à la surveillance") }
@@ -354,6 +356,11 @@ final class PingController: ObservableObject {
         }
         log(.info, target.addressLabel,
             PingPausePeriods.journalMessage(paused: paused, duration: since.map { now.timeIntervalSince($0) }))
+    }
+
+    /// Toutes les cibles en pause une à une : les reprend toutes.
+    func resumeAllTargets() {
+        for id in targets.filter(\.isPaused).map(\.id) { togglePause(id) }
     }
 
     func reset() {

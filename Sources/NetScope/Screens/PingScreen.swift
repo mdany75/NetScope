@@ -85,6 +85,7 @@ struct PingScreen: View {
     }
 
     private func sessionInfo(now: Date) -> String {
+        guard !controller.targets.isEmpty else { return "Aucune cible" }
         let elapsed = max(0, Int(now.timeIntervalSince(controller.sessionStart)))
         let clock = String(format: "%02d:%02d:%02d", elapsed / 3600, elapsed / 60 % 60, elapsed % 60)
         let count = controller.targets.count
@@ -197,6 +198,11 @@ struct PingScreen: View {
             if controller.isPaused {
                 Button(action: controller.togglePause) { Label("Reprendre", systemImage: "play.fill") }
                     .buttonStyle(.primary)
+            } else if isAllPaused {
+                // Chaque cible a sa propre pause : la pause globale n'aurait rien à reprendre.
+                Button(action: controller.resumeAllTargets) { Label("Tout reprendre", systemImage: "play.fill") }
+                    .buttonStyle(.primary)
+                    .help("Reprendre toutes les cibles mises en pause une à une")
             } else {
                 Button(action: controller.togglePause) { Label("Pause", systemImage: "pause.fill") }
                     .buttonStyle(.secondary)
@@ -204,6 +210,7 @@ struct PingScreen: View {
             }
             Button(action: controller.reset) { Label("Réinitialiser", systemImage: "arrow.counterclockwise") }
                 .buttonStyle(.secondary)
+                .disabled(controller.targets.isEmpty)
         }
         .fixedSize()
     }

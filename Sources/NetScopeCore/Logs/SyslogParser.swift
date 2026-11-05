@@ -149,7 +149,7 @@ public enum SyslogParser {
             let dayText = afterMonth.prefix { $0.isNumber }
             let afterDay = afterMonth.dropFirst(dayText.count).drop { $0 == " " }
             let clock = afterDay.prefix { $0.isNumber || $0 == ":" || $0 == "." }
-            let parts = clock.split(separator: ".")[0].split(separator: ":").compactMap { Int($0) }
+            let parts = clock.prefix { $0 != "." }.split(separator: ":").compactMap { Int($0) }
             if let day = Int(dayText), parts.count == 3 {
                 var c = calendar.dateComponents([.year], from: received)
                 c.month = month + 1
@@ -297,9 +297,11 @@ public enum SyslogParser {
     /// Heure FortiOS : `eventtime` (secondes, millisecondes, microsecondes ou nanosecondes selon la
     /// version), sinon `date` + `time` (+ `tz` « -0500 »).
     public static func fortinetDate(_ fields: [String: String], calendar: Calendar) -> Date? {
-        if let text = fields["eventtime"], let value = Double(text), value > 0 {
+        if let text = fields["eventtime"], let value = Double(text), value.isFinite, value > 0 {
             var seconds = value
-            while seconds > 1e11 { seconds /= 1000 }
+            // Au plus trois divisions : millisecondes, microsecondes, nanosecondes.
+            var steps = 0
+            while seconds > 1e11 && steps < 3 { seconds /= 1000; steps += 1 }
             if seconds > 946_684_800 { return Date(timeIntervalSince1970: seconds) }
         }
         guard let day = fields["date"], let clock = fields["time"] else { return nil }

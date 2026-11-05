@@ -15,6 +15,8 @@ struct LogReceiversPanel: View {
     @State private var trapText = ""
     @State private var example = 0
     @State private var exampleKind = 0
+    /// Une communauté SNMP est enregistrée (Trousseau) ; lue à l'apparition, pas à chaque rendu.
+    @State private var hasCommunity = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -26,6 +28,7 @@ struct LogReceiversPanel: View {
         .onAppear {
             syslogText = String(store.syslogPort)
             trapText = String(store.trapPort)
+            hasCommunity = store.isDemo || !(RegSNMPCredentials.load()?.community ?? "").isEmpty
         }
     }
 
@@ -47,9 +50,11 @@ struct LogReceiversPanel: View {
             receiverRow(title: "Traps SNMP", detail: "v1 et v2c, informs acquittés", enabled: $store.trapsEnabled,
                         text: $trapText, listening: store.trapListening, error: store.trapError,
                         count: store.receivedCount[.trap] ?? 0, standard: 162) { store.trapPort = $0 }
-            ToolCheckbox(label: "N’accepter que la communauté des Identifiants", isOn: $store.checkCommunity)
-                .disabled(store.isListening)
-                .help("La communauté reste au Trousseau (Réglages › Identifiants) et n’est jamais écrite dans le journal.")
+            ToolCheckbox(label: "N’accepter que les traps de la communauté SNMP enregistrée", isOn: $store.checkCommunity)
+                .disabled(store.isListening || !hasCommunity)
+                .help(hasCommunity
+                      ? "Communauté de Réglages › Identifiants · conservée au Trousseau, jamais écrite dans le journal."
+                      : "Aucune communauté SNMP enregistrée\u{00A0}: ajoutez-la dans Réglages › Identifiants (conservée au Trousseau).")
             HStack(spacing: 6) {
                 Text("Arrêt automatique").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
                 Picker("Arrêt automatique", selection: $store.autoStopMinutes) {

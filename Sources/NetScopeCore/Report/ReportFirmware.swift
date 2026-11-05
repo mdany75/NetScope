@@ -107,7 +107,7 @@ extension ReportBuilder {
                           ReportCell(d.serial.isEmpty ? "—" : d.serial, tone: .muted),
                           ReportCell(d.versionLabel, tone: d.status == .updateAvailable ? .warning : .normal),
                           ReportCell(d.availableLabel),
-                          ReportCell(d.status == .updateAvailable ? "À mettre à jour" : d.status.label, badge: d.status.reportTone)]
+                          ReportCell(d.status.chipLabel, badge: d.status.reportTone)]
                 return ReportRow(cells)
             }
             var columns = [ReportColumn("Équipement", weight: 1.6)]

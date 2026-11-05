@@ -17,7 +17,7 @@ public enum MonLogChecks {
         }
         // Fenêtre : l'intervalle de la sonde (et quelques secondes, pour ne rien laisser entre deux passages).
         let since = now.addingTimeInterval(-TimeInterval(probe.interval) - 5)
-        var found = logs.filter { wanted.contains($0.source) && $0.date >= since && $0.date <= now.addingTimeInterval(5) }
+        var found = logs.filter { wanted.contains($0.source) && $0.arrival >= since && $0.arrival <= now.addingTimeInterval(5) }
         if !MonTrafficChecks.isAll(target) {
             let host = SearchText.fold(target.trimmingCharacters(in: .whitespaces))
             found = found.filter { SearchText.fold($0.host) == host || SearchText.fold($0.hostname ?? "") == host }

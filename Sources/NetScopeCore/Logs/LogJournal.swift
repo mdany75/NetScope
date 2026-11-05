@@ -31,6 +31,20 @@ public struct LogJournal: Codable, Sendable {
         self.messages = messages.sorted { $0.date < $1.date }
     }
 
+    private enum CodingKeys: String, CodingKey { case messages }
+
+    /// Un message illisible est écarté sans perdre les autres.
+    private struct LossyMessage: Decodable {
+        var message: LogMessage?
+        init(from decoder: Decoder) throws { message = try? LogMessage(from: decoder) }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let list = try c.decode([LossyMessage].self, forKey: .messages).compactMap(\.message)
+        messages = list.sorted { $0.date < $1.date }
+    }
+
     public var isEmpty: Bool { messages.isEmpty }
     public var count: Int { messages.count }
 
@@ -45,9 +59,14 @@ public struct LogJournal: Codable, Sendable {
     @discardableResult
     public mutating func append(_ list: [LogMessage], retention: LogRetention, now: Date) -> Int {
         guard !list.isEmpty else { return 0 }
-        var known = Set(messages.suffix(20_000).compactMap(Self.duplicateKey))
+        // Doublons FortiGate : seuls les messages à partir de la plus ancienne date reçue peuvent l'être.
+        var known = Set<String>()
+        if let oldest = list.lazy.filter({ $0.source == .fortigate }).map(\.date).min() {
+            let start = LogFilter.firstIndex(messages, atOrAfter: oldest)
+            known = Set(messages[start...].compactMap(Self.duplicateKey))
+        }
         var fresh: [LogMessage] = []
-        for message in list {
+        for message in list.map({ $0.withTrustedClock() }) {
             if let key = Self.duplicateKey(message) {
                 guard known.insert(key).inserted else { continue }
             }
@@ -96,7 +115,7 @@ public struct LogJournal: Codable, Sendable {
 
     /// Messages reçus depuis `date` (sondes de la Surveillance).
     public func messages(since date: Date) -> ArraySlice<LogMessage> {
-        let start = messages.firstIndex { $0.date >= date } ?? messages.endIndex
+        let start = messages.firstIndex { $0.arrival >= date } ?? messages.endIndex
         return messages[start...]
     }
 

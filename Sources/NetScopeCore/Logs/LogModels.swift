@@ -148,10 +148,53 @@ public struct LogMessage: Codable, Identifiable, Hashable, Sendable {
         self.raw = raw
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case id, date, received, source, severity, facility, host, hostname, app, eventID, message, siteKey, siteName, fields, raw
+    }
+
+    /// Lecture tolérante (journal enregistré par une autre version) : seuls la date, la source et
+    /// l'adresse sont exigés, le reste prend une valeur par défaut.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = (try? c.decodeIfPresent(UUID.self, forKey: .id)) ?? UUID()
+        date = try c.decode(Date.self, forKey: .date)
+        received = try? c.decodeIfPresent(Date.self, forKey: .received)
+        source = try c.decode(LogSource.self, forKey: .source)
+        severity = (try? c.decodeIfPresent(LogSeverity.self, forKey: .severity)) ?? .info
+        facility = try? c.decodeIfPresent(Int.self, forKey: .facility)
+        host = try c.decode(String.self, forKey: .host)
+        hostname = try? c.decodeIfPresent(String.self, forKey: .hostname)
+        app = try? c.decodeIfPresent(String.self, forKey: .app)
+        eventID = try? c.decodeIfPresent(String.self, forKey: .eventID)
+        message = (try? c.decodeIfPresent(String.self, forKey: .message)) ?? ""
+        siteKey = (try? c.decodeIfPresent(String.self, forKey: .siteKey)) ?? ""
+        siteName = (try? c.decodeIfPresent(String.self, forKey: .siteName)) ?? ""
+        fields = (try? c.decodeIfPresent([String: String].self, forKey: .fields)) ?? [:]
+        raw = (try? c.decodeIfPresent(String.self, forKey: .raw)) ?? ""
+    }
+
     /// Nom de l'appareil tel que le message le donne (son nom, sinon son adresse).
     public var deviceLabel: String {
         if let hostname, !hostname.isEmpty, hostname != "-" { return hostname }
         return host
+    }
+
+    /// Clé de `fields` qui garde l'heure déclarée par l'équipement quand elle a été écartée.
+    public static let declaredDateField = "heure_declaree"
+    /// Écart au-delà duquel l'heure déclarée n'est plus crue (horloge sans NTP, 1970 ou 2000 après un redémarrage).
+    public static let clockSkewLimit: TimeInterval = 86_400
+
+    /// Heure de référence pour la fenêtre des sondes : la réception, sinon l'heure retenue.
+    public var arrival: Date { received ?? date }
+
+    /// Le même message, daté de sa réception si l'horloge de l'équipement est décalée de plus d'un
+    /// jour ; l'heure déclarée reste dans `fields` (ISO 8601). Sans effet sur un message lu sur la FortiGate.
+    public func withTrustedClock() -> LogMessage {
+        guard let received, abs(date.timeIntervalSince(received)) > Self.clockSkewLimit else { return self }
+        var copy = self
+        copy.fields[Self.declaredDateField] = LogFormat.iso(date)
+        copy.date = received
+        return copy
     }
 
     /// Le même message, rattaché à un site.

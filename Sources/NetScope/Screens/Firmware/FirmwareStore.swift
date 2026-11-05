@@ -35,6 +35,7 @@ final class FirmwareStore: ObservableObject {
     let isDemo: Bool
     private var generation: [UUID: Int] = [:]
     private var monitoringTask: Task<Void, Never>?
+    private var monitoringGeneration = 0
 
     init(demo: Bool = Launcher.isDemo || RegEnvironment.isSnapshot) {
         isDemo = demo
@@ -205,7 +206,8 @@ final class FirmwareStore: ObservableObject {
     /// Sonde de la Surveillance : relit les FortiGate dont la lecture date de plus de `maxAge`
     /// secondes, et attend la fin de la lecture.
     func refreshForMonitoring(maxAge: TimeInterval) async {
-        if let running = monitoringTask { await running.value }
+        // Attendre toute lecture en cours (une autre sonde a pu en lancer une pendant l'attente).
+        while let running = monitoringTask { await running.value }
         let now = Date()
         let stale = monitoredIDs.filter { id in
             guard !reading.contains(id) else { return false }
@@ -215,8 +217,11 @@ final class FirmwareStore: ObservableObject {
         guard !stale.isEmpty, !isDemo else { return }
         let next: Task<Void, Never> = Task { [weak self] in await self?.perform(stale) }
         monitoringTask = next
+        monitoringGeneration &+= 1
+        let generation = monitoringGeneration
         await next.value
-        monitoringTask = nil
+        // Ne retirer que sa propre tâche.
+        if monitoringGeneration == generation { monitoringTask = nil }
     }
 
     // MARK: Rapport

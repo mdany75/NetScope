@@ -41,7 +41,7 @@ func registerPingPauseTests(_ suite: TestSuite) {
         try expect(pauses.periods.isEmpty, "réinitialisation : pauses passées oubliées")
         pauses.pause(at: at(7))
         pauses.reset(at: at(9))
-        try expect(pauses.isPaused && pauses.pausedSince == at(9), "réinitialisation : la pause en cours continue")
+        try expect(pauses.isPaused && pauses.pausedSince == at(7), "réinitialisation : la pause en cours continue, début réel gardé")
 
         try expect(PingPausePeriods.isSending(globalPaused: false, targetPaused: false), "ni pause : envoi")
         try expect(!PingPausePeriods.isSending(globalPaused: false, targetPaused: true), "cible en pause : rien")
