@@ -52,6 +52,17 @@ enum RemoteDemo {
         + RustDeskDemo.connections(now: now)
     }()
 
+    /// Capture NETSCOPE_REMOTE_VIEW=ssh-seul (correctif 0.27.2) : carnet d'un site neuf, une seule
+    /// connexion SSH non vérifiée dont le dossier a un nom long, aucun onglet ouvert ni lancement
+    /// RustDesk. C'est le cas où le panneau de détails débordait de sa colonne et recouvrait la session.
+    static var isSoloView: Bool {
+        ProcessInfo.processInfo.environment["NETSCOPE_REMOTE_VIEW"] == "ssh-seul"
+    }
+
+    static let soloConnection = RemoteConnection(
+        name: "10.182.122.32", proto: .ssh, host: "10.182.122.32", username: "administrator",
+        folder: "St-Georges GM / St-Georges Toyota", lastConnected: Date().addingTimeInterval(-2 * 3_600))
+
     static func reachability(for connections: [RemoteConnection]) -> [UUID: RemoteReachability] {
         var result: [UUID: RemoteReachability] = [:]
         for connection in connections {

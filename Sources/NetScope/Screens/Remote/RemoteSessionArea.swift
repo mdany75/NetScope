@@ -131,7 +131,8 @@ struct RemoteSessionArea: View {
             RustDeskQuickBox(model: model).padding(.top, 4)
 
             SectionHeader("Ouvrir une connexion enregistrée").padding(.top, 6)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 8)], alignment: .leading, spacing: 8) {
+            // 280 : le nom et l’adresse d’une connexion nommée par son IP tiennent sans « … ».
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 8)], alignment: .leading, spacing: 8) {
                 ForEach(recent) { connection in
                     Button {
                         model.selectedID = connection.id

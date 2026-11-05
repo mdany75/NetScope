@@ -114,6 +114,9 @@ struct Chip: View {
     var tone: Tone = .neutral
     var mono: Bool = false
     var systemImage: String? = nil
+    /// Texte long (nom de dossier, de site…) : la puce peut se rétrécir et l'abréger au milieu
+    /// au lieu d'imposer sa largeur (et de faire déborder une colonne étroite).
+    var truncates: Bool = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -122,12 +125,14 @@ struct Chip: View {
             }
             Text(text)
                 .font(mono ? Theme.mono(11, weight: .semibold) : Theme.captionSemibold)
+                .lineLimit(1)
+                .truncationMode(.middle)
         }
         .foregroundStyle(tone.foreground)
         .padding(.horizontal, 6)
         .frame(height: 18)
         .background(RoundedRectangle(cornerRadius: Theme.chipRadius).fill(tone.background))
-        .fixedSize()
+        .fixedSize(horizontal: !truncates, vertical: true)
     }
 }
 
