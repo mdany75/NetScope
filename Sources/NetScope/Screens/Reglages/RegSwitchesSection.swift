@@ -27,6 +27,7 @@ struct RegSwitchesSection: View {
             snmpPanel
             // Note 73 : cycle PoE et redémarrage d'un port (désactivés par défaut).
             RegPortActionsPanel()
+                .id(RegFocus.portActions)
         }
     }
 

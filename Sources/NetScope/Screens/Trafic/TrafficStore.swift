@@ -57,6 +57,8 @@ final class TrafficStore: ObservableObject {
     /// Périmètre de l'analyse : sites montrés, période et présence du trafic au moment où elle a
     /// été faite (une analyse ne vaut que pour ce périmètre).
     private var analysisScope: (keys: [String], period: TrafficPeriod, withTraffic: Bool)?
+    /// Sites (clés) pour lesquels l'analyse a été établie ; nil sans analyse.
+    var analysisKeys: [String]? { analysis == nil ? nil : analysisScope?.keys }
     @Published var toast: String?
 
     /// Temps réel du site actif, pour les sondes (même si l'écran montre une autre période).

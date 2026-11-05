@@ -213,6 +213,10 @@ func registerSNMPv3WalkTests(_ suite: TestSuite) {
         let csv = SNMPBrowserFormat.csv(rows)
         try expect(csv.hasPrefix("OID;Nom;MIB;Type;Valeur;Hexadécimal\r\n"), "en-tête CSV")
         try expect(csv.contains("1.3.6.1.2.1.1.1.0;sysDescr.0;SNMPv2-MIB;OCTET STRING;\"Cisco; IOS \"\"XE\"\"\";"), "champ protégé")
+        let hostile = SNMPBrowserFormat.csv([SNMPBrowserRow(position: 0, bind: SNMPVarBind(oid: SNMPOIDs.sysContact,
+                                                                                         value: text("=HYPERLINK(\"http://x\")")))])
+        try expect(hostile.contains(";\"'=HYPERLINK(\"\"http://x\"\")\";"), "formule neutralisée")
+        try expect(!hostile.contains(";=HYPERLINK"), "aucune cellule ne commence par =")
         try expectEqual(SNMPBrowserFormat.text([rows[1]]), "sysUpTime.0\tTimeTicks\t(100) 0\u{00A0}min 01\u{00A0}s", "copie")
         try expect(rows[0].oidSort < rows[1].oidSort, "tri numérique des OID")
         try expect(SNMPBrowserRow(position: 0, bind: SNMPVarBind(oid: "1.3.6.1.2.1.2.2.1.2.10", value: .null)).oidSort

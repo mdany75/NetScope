@@ -114,12 +114,21 @@ struct RegPortActionsPanel: View {
                     .regDisabled(!model.hasWriteCredentials)
                 Button(action: save) { Label("Enregistrer dans le Trousseau", systemImage: "lock") }
                     .buttonStyle(.primary)
-                    .regDisabled(draft.problem() != nil)
+                    // Grisé seulement sans saisie : sinon save() explique ce qui ne va pas
+                    // (communauté « public », mot de passe trop court…).
+                    .regDisabled(draftIsEmpty)
             }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+    }
+
+    /// Rien de saisi pour la version choisie.
+    private var draftIsEmpty: Bool {
+        draft.version == .v2c
+            ? draft.community.isEmpty
+            : draft.v3User.isEmpty && draft.v3AuthPassword.isEmpty && draft.v3PrivPassword.isEmpty
     }
 
     private var v3Fields: some View {

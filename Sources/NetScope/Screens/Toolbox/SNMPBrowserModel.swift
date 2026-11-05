@@ -18,7 +18,7 @@ final class SNMPBrowserModel: ObservableObject {
     enum Source: String, CaseIterable, Identifiable {
         case saved, typed
         var id: String { rawValue }
-        var label: String { self == .saved ? "Identifiants enregistrés" : "Saisir pour cette lecture" }
+        var label: String { self == .saved ? "Identifiants enregistrés" : "Saisir pour cette session" }
     }
 
     /// Bilan de la dernière lecture.
@@ -63,6 +63,8 @@ final class SNMPBrowserModel: ObservableObject {
     let isDemo: Bool
     private var task: Task<Void, Never>?
     private var generation = 0
+    /// Lots du parcours en cours (ordre garanti).
+    private var collector: SNMPBrowserCollector?
     private var startedAt = Date()
 
     private init() {
@@ -182,6 +184,10 @@ final class SNMPBrowserModel: ObservableObject {
         let mode = walkMode
         let limit = self.limit
         let host = cleanHost
+        // Lots reçus, dans l'ordre du parcours (le rappel est synchrone) : les tâches qui les
+        // remettent à l'écran peuvent s'exécuter dans le désordre, les lignes non.
+        let collector = SNMPBrowserCollector()
+        self.collector = collector
         isRunning = true
         rows = []
         lastRun = nil
@@ -193,7 +199,10 @@ final class SNMPBrowserModel: ObservableObject {
             task = Task { [weak self] in
                 let agent = SNMPBrowserDemo.agent
                 let result = try? await SNMPBrowse.run(oid, operation: operation, mode: mode, limit: limit,
-                                                       onBatch: { batch in Task { @MainActor in self?.append(batch, run: run) } }) { pdu in
+                                                       onBatch: { batch in
+                                                           collector.add(batch)
+                                                           Task { @MainActor in self?.sync(collector, run: run) }
+                                                       }) { pdu in
                     try await Task.sleep(nanoseconds: 35_000_000)
                     return agent.answer(pdu)
                 }
@@ -225,7 +234,10 @@ final class SNMPBrowserModel: ObservableObject {
             let label = target.versionLabel
             do {
                 let result = try await SNMPClient(target: target).browse(oid, operation: operation, mode: mode, limit: limit,
-                                                                         onBatch: { batch in Task { @MainActor in self.append(batch, run: run) } })
+                                                                         onBatch: { batch in
+                                                                             collector.add(batch)
+                                                                             Task { @MainActor in self.sync(collector, run: run) }
+                                                                         })
                 self.finish(result: result, error: nil, oid: oid, operation: operation, mode: mode, host: host, versionLabel: label,
                             run: run, store: store)
             } catch is CancellationError {
@@ -243,10 +255,11 @@ final class SNMPBrowserModel: ObservableObject {
         task?.cancel()
     }
 
-    private func append(_ batch: [SNMPVarBind], run: Int) {
+    /// Ajoute à l'écran les lignes reçues depuis la dernière mise à jour, dans l'ordre du parcours.
+    private func sync(_ collector: SNMPBrowserCollector, run: Int) {
         guard run == generation, isRunning else { return }
         let start = rows.count
-        rows += batch.enumerated().map { SNMPBrowserRow(position: start + $0.offset, bind: $0.element) }
+        rows += collector.binds(from: start).enumerated().map { SNMPBrowserRow(position: start + $0.offset, bind: $0.element) }
     }
 
     private func finish(result: SNMPWalkResult?, error: String?, oid: SNMPOID, operation: SNMPBrowserOperation, mode: SNMPWalkMode,
@@ -268,10 +281,14 @@ final class SNMPBrowserModel: ObservableObject {
             lastRun = nil
             store.record(ToolRecent(tool: .snmp, target: host, summary: "\(operation.label) \(name) · \(error)", status: .failure))
         } else {
-            // Arrêt demandé : les lignes déjà reçues restent.
+            // Arrêt demandé : toutes les lignes reçues restent, même celles pas encore affichées.
+            if let collector {
+                let start = rows.count
+                rows += collector.binds(from: start).enumerated().map { SNMPBrowserRow(position: start + $0.offset, bind: $0.element) }
+            }
             lastRun = RunInfo(oid: oid, operation: operation, mode: mode, count: rows.count, duration: duration, end: .limit,
                               requests: 0, versionLabel: versionLabel, wasCancelled: true)
-            store.record(ToolRecent(tool: .snmp, target: host, summary: "Interrompu · \(name) · \(rows.count) lignes", status: .info))
+            store.record(ToolRecent(tool: .snmp, target: host, summary: "Interrompu · \(name) · \(rows.count) ligne\(rows.count > 1 ? "s" : "")", status: .info))
         }
     }
 
@@ -297,5 +314,24 @@ final class SNMPBrowserModel: ObservableObject {
         } catch {
             notice = ("Export impossible\u{00A0}: \(error.localizedDescription)", .critical)
         }
+    }
+}
+
+/// Lots d'un parcours, gardés dans l'ordre où le moteur les remet (rappel synchrone, verrou).
+final class SNMPBrowserCollector: @unchecked Sendable {
+    private let lock = NSLock()
+    private var all: [SNMPVarBind] = []
+
+    func add(_ batch: [SNMPVarBind]) {
+        lock.lock()
+        defer { lock.unlock() }
+        all += batch
+    }
+
+    /// Lignes reçues à partir de la position `start`.
+    func binds(from start: Int) -> [SNMPVarBind] {
+        lock.lock()
+        defer { lock.unlock() }
+        return start < all.count ? Array(all[start...]) : []
     }
 }

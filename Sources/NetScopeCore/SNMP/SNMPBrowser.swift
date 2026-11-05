@@ -199,13 +199,13 @@ public enum SNMPMIB {
     /// Raccourcis proposés dans le Navigateur SNMP.
     public static let presets: [SNMPBrowserPreset] = [
         SNMPBrowserPreset("system", "1.3.6.1.2.1.1", "Nom, description, uptime, contact et emplacement"),
-        SNMPBrowserPreset("ifTable", "1.3.6.1.2.1.2.2", "Interfaces : état, vitesse, compteurs (IF-MIB)"),
+        SNMPBrowserPreset("ifTable", "1.3.6.1.2.1.2.2", "Interfaces\u{00A0}: état, vitesse, compteurs (IF-MIB)"),
         SNMPBrowserPreset("ifXTable", "1.3.6.1.2.1.31.1.1", "Noms courts, alias, compteurs 64 bits (IF-MIB)"),
         SNMPBrowserPreset("ENTITY-MIB", "1.3.6.1.2.1.47.1.1.1", "Châssis, modules, numéros de série, versions"),
-        SNMPBrowserPreset("LLDP-MIB", "1.0.8802.1.1.2.1.4.1", "Voisins LLDP : nom, port, description"),
+        SNMPBrowserPreset("LLDP-MIB", "1.0.8802.1.1.2.1.4.1", "Voisins LLDP\u{00A0}: nom, port, description"),
         SNMPBrowserPreset("BRIDGE-MIB", "1.3.6.1.2.1.17.4.3", "Table MAC (sans VLAN)"),
         SNMPBrowserPreset("Q-BRIDGE-MIB", "1.3.6.1.2.1.17.7.1.2.2", "Table MAC par VLAN"),
-        SNMPBrowserPreset("POWER-ETHERNET-MIB", "1.3.6.1.2.1.105.1", "PoE : ports, classes, budget"),
+        SNMPBrowserPreset("POWER-ETHERNET-MIB", "1.3.6.1.2.1.105.1", "PoE\u{00A0}: ports, classes, budget"),
         SNMPBrowserPreset("HOST-RESOURCES", "1.3.6.1.2.1.25", "Processeur, mémoire, disques, logiciels"),
     ]
 }
@@ -385,10 +385,9 @@ public enum SNMPBrowserFormat {
 
     /// Export CSV (séparateur « ; », comme Excel en français) : OID, nom, MIB, type, valeur, hexadécimal.
     public static func csv(_ rows: [SNMPBrowserRow]) -> String {
-        func field(_ text: String) -> String {
-            guard text.contains(";") || text.contains("\"") || text.contains("\n") || text.contains("\r") else { return text }
-            return "\"" + text.replacingOccurrences(of: "\"", with: "\"\"") + "\""
-        }
+        // Valeurs fournies par l'agent interrogé : protégées contre l'injection de formule
+        // (= + - @ en tête) comme les autres exports, puis mises entre guillemets au besoin.
+        func field(_ text: String) -> String { MonJournal.csvField(text) }
         var lines = ["OID;Nom;MIB;Type;Valeur;Hexadécimal"]
         for row in rows {
             lines.append([row.oidText, row.name, row.mib, row.typeLabel, row.valueText, row.hexText].map(field).joined(separator: ";"))

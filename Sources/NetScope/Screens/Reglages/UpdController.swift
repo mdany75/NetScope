@@ -376,11 +376,19 @@ struct UpdCommands: Commands {
     }
 }
 
+/// Panneau d'une section des Réglages vers lequel on peut défiler à l'ouverture.
+enum RegFocus: Hashable {
+    /// Réglages › Switchs › Actions sur les ports.
+    case portActions
+}
+
 /// Section affichée dans Réglages (gardée d'une ouverture à l'autre de l'écran).
 @MainActor
 final class RegNavigation: ObservableObject {
     static let shared = RegNavigation()
     @Published var section: RegSection
+    /// Panneau à montrer en ouvrant la section (défilement jusqu'à lui), puis remis à nil.
+    @Published var focus: RegFocus?
     /// La section Mises à jour a déjà été proposée d'office pendant cette session.
     var didPromoteUpdates = false
 

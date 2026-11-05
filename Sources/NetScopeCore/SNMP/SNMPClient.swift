@@ -58,9 +58,9 @@ public enum SNMPError: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .emptyCommunity: return "Saisissez la communauté SNMP (lecture seule) ou un utilisateur SNMP v3 avant d’interroger."
-        case .timeout(let host): return "Pas de réponse SNMP de \(host) (identifiants incorrects, SNMP désactivé ou filtré ?)."
-        case .unreachable(let host): return "\(host) refuse le port UDP 161 : SNMP n’est pas actif."
-        case .socket(let message): return "Erreur réseau : \(message)."
+        case .timeout(let host): return "Pas de réponse SNMP de \(host) (identifiants incorrects, SNMP désactivé ou filtré\u{00A0}?)."
+        case .unreachable(let host): return "\(host) refuse le port UDP 161\u{00A0}: SNMP n’est pas actif."
+        case .socket(let message): return "Erreur réseau\u{00A0}: \(message)."
         case .agent(let status, _):
             let label = SNMPErrorStatus(rawValue: status)?.label ?? "erreur \(status)"
             return "L’agent SNMP a répondu par une erreur : \(label)."

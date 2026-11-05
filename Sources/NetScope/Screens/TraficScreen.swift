@@ -73,6 +73,8 @@ struct TraficScreen: View {
     @ObservedObject private var screen = TrafficScreenState.shared
     @ObservedObject private var scope = SiteScopeStore.shared
     @ObservedObject private var sites = SiteModel.shared
+    /// Historique des ports (secours SNMP) : lu hors du fil principal, l'écran se redessine ensuite.
+    @ObservedObject private var portHistory = PortHistoryStore.shared
     @ObservedObject private var fortigate = FortiGateStore.shared
     /// Observé pour que « Ajouter au rapport » passe tout de suite à « Dans le rapport ».
     @ObservedObject private var rapport = RapportModel.shared
@@ -133,6 +135,7 @@ struct TraficScreen: View {
             store.setScope(scope.keys(for: .trafic))
             store.loadDemoNow()
             store.refreshIfNeeded()
+            preloadPortHistory()
             if store.isDemo, screen.part == .analyse || TrafficDemo.requestedView == nil, store.analysis == nil {
                 store.runAnalysis(state: state)
             }
@@ -140,12 +143,22 @@ struct TraficScreen: View {
         .onChange(of: scope.keys(for: .trafic)) { _, keys in
             store.setScope(keys)
             store.loadDemoNow()
+            preloadPortHistory()
         }
-        .onChange(of: sites.activeKey) { _, _ in store.setScope(scope.keys(for: .trafic)) }
+        .onChange(of: sites.activeKey) { _, _ in
+            store.setScope(scope.keys(for: .trafic))
+            preloadPortHistory()
+        }
         .fileExporter(isPresented: $exporting, document: exportDocument, contentType: .commaSeparatedText,
                       defaultFilename: exportName) { result in
             if case .success(let url) = result { store.toast = "CSV enregistré\u{00A0}: \(url.lastPathComponent)" }
         }
+    }
+
+    /// Historique des ports des sites montrés, lu hors du fil principal (secours SNMP).
+    private func preloadPortHistory() {
+        let keys = store.shownKeys
+        Task { await portHistory.preload(siteKeys: keys) }
     }
 
     /// Note 78 : FortiView non lu et historique des ports disponible : le secours SNMP est montré.

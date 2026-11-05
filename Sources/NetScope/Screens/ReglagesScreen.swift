@@ -27,10 +27,14 @@ struct ReglagesScreen: View {
             }
             .scrollBounceBehavior(.basedOnSize)
             .frame(width: 248)
-            ScrollView {
-                content
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .padding(.bottom, 20)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    content
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .padding(.bottom, 20)
+                }
+                .onAppear { scrollToFocus(proxy) }
+                .onChange(of: navigation.focus) { _, _ in scrollToFocus(proxy) }
             }
             .id(navigation.section)
         }
@@ -55,6 +59,15 @@ struct ReglagesScreen: View {
             // Marge avant le champ de recherche de la barre d'outils.
             .padding(.trailing, 10)
             .help("Chaque modification est enregistrée aussitôt ; les secrets vont dans le Trousseau macOS.")
+        }
+    }
+
+    /// Défile jusqu'au panneau demandé (par exemple « Actions sur les ports »), une fois la page posée.
+    private func scrollToFocus(_ proxy: ScrollViewProxy) {
+        guard let focus = navigation.focus else { return }
+        DispatchQueue.main.async {
+            withAnimation { proxy.scrollTo(focus, anchor: .top) }
+            navigation.focus = nil
         }
     }
 

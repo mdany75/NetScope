@@ -26,6 +26,8 @@ final class PortHistoryStore: ObservableObject {
     private var dirty: Set<String> = []
     private var saveTask: Task<Void, Never>?
     private var demoHistory: PortTrafficHistory?
+    /// Sites dont l'historique est en cours de lecture hors du fil principal.
+    private var loading: Set<String> = []
     private static let saveDelay: UInt64 = 120_000_000_000
 
     init(demo: Bool = Launcher.isDemo || RegEnvironment.isSnapshot, files: SiteFiles = .standard) {
@@ -57,6 +59,46 @@ final class PortHistoryStore: ObservableObject {
         }
         histories[siteKey] = history
         return history
+    }
+
+    /// Historique déjà en mémoire (nil : pas encore lu). Ne lit jamais le disque : sûr dans le
+    /// corps d'une vue.
+    func loadedHistory(siteKey: String) -> PortTrafficHistory? {
+        if isDemo { return demo() }
+        return histories[siteKey]
+    }
+
+    /// Lit hors du fil principal les historiques des sites pas encore en mémoire (plusieurs Mo pour
+    /// une centaine de ports), puis prévient les vues.
+    func preload(siteKeys: [String]) async {
+        guard !isDemo else { return }
+        let missing = siteKeys.filter { histories[$0] == nil && !loading.contains($0) }
+        guard !missing.isEmpty else { return }
+        loading.formUnion(missing)
+        let files = self.files
+        let results = await Task.detached(priority: .userInitiated) { () -> [(key: String, history: PortTrafficHistory, aside: String?)] in
+            missing.map { key in
+                let url = PortHistoryFile.url(in: files, siteKey: key)
+                switch PortHistoryFile.load(from: url) {
+                case .loaded(let loaded):
+                    return (key, loaded, nil)
+                case .unreadable:
+                    let aside = PortHistoryFile.setAside(url)
+                    return (key, PortTrafficHistory(), aside?.lastPathComponent ?? url.lastPathComponent)
+                case .missing:
+                    return (key, PortTrafficHistory(), nil)
+                }
+            }
+        }.value
+        loading.subtract(missing)
+        for result in results {
+            if let aside = result.aside {
+                AppLog.shared.warning("Historique des ports", "Fichier illisible mis de côté\u{00A0}: \(aside)")
+            }
+            // Un relevé arrivé pendant la lecture a déjà chargé (et complété) l'historique.
+            if histories[result.key] == nil { histories[result.key] = result.history }
+        }
+        revision &+= 1
     }
 
     /// Historique d'un switch dans son site.

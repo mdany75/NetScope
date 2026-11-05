@@ -216,17 +216,27 @@ public final class FortiURLSessionWriter: FortiWriteTransport, @unchecked Sendab
 
 /// Retrouve, dans les lectures des FortiGate, le FortiSwitch d'un relevé « via FortiGate ».
 public enum FortiPortLocator {
-    /// FortiSwitch nommé `switchName` dans les lectures des sites ; le site (`controllerName` du
-    /// relevé) départage deux switchs de même nom sur deux FortiGate.
+    /// FortiSwitch nommé `switchName` (nom, switch-id ou numéro de série) dans les lectures des
+    /// sites. Site connu (`controllerName` du relevé) : seules ses lectures comptent ; nil si le
+    /// switch n'y est pas (jamais celui d'un autre réseau qui porterait le même nom). Site inconnu :
+    /// la correspondance doit être unique sur toutes les lectures, sinon nil. Une correspondance par
+    /// switch-id ou numéro de série l'emporte sur une correspondance par nom.
     public static func reference(switchName: String, site: String?, in sites: [FortiSiteReport]) -> FortiPortRef? {
         let wanted = switchName.lowercased()
-        let ordered = sites.filter { site == nil || $0.label == site } + sites.filter { site != nil && $0.label != site }
-        for report in ordered {
-            if let sw = report.report.switches.first(where: { $0.name.lowercased() == wanted || $0.switchID.lowercased() == wanted
-                || (!$0.serial.isEmpty && $0.serial.lowercased() == wanted) }) {
-                return FortiPortRef(controllerID: report.controllerID, controllerName: report.label, switchID: sw.switchID, serial: sw.serial)
+        let scoped = site.map { label in sites.filter { $0.label == label } } ?? sites
+        var byID: [FortiPortRef] = []
+        var byName: [FortiPortRef] = []
+        for report in scoped {
+            for sw in report.report.switches {
+                let ref = FortiPortRef(controllerID: report.controllerID, controllerName: report.label, switchID: sw.switchID, serial: sw.serial)
+                if sw.switchID.lowercased() == wanted || (!sw.serial.isEmpty && sw.serial.lowercased() == wanted) {
+                    byID.append(ref)
+                } else if sw.name.lowercased() == wanted {
+                    byName.append(ref)
+                }
             }
         }
-        return nil
+        let candidates = byID.isEmpty ? byName : byID
+        return candidates.count == 1 ? candidates[0] : nil
     }
 }

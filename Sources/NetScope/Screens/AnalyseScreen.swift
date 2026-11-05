@@ -82,7 +82,7 @@ struct AnalyseScreen: View {
             VStack(alignment: .leading, spacing: 14) {
                 filters(networks: networks, chosen: chosen, inventories: inventories, now: now, since: since)
                 // Note 79 : le bilan de santé (Trafic) en tête, quand il existe.
-                AnaHealthBanner()
+                AnaHealthBanner(siteKeys: inventories.map(\.key))
                 if let scopeLabel {
                     Label("Indicateurs\u{00A0}: " + scopeLabel, systemImage: "mappin.and.ellipse")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)

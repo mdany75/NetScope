@@ -48,6 +48,10 @@ public enum PortActionReturn: Codable, Equatable, Sendable {
     case notBack(after: Int)
     /// Pas d'adresse IP connue : seul le lien du port a pu être suivi.
     case notFollowed
+    /// L'appareil ne répondait déjà pas au ping avant l'action : seul le lien a pu être suivi.
+    case noPingReply
+    /// Ping indisponible sur ce Mac : seul le lien a pu être suivi.
+    case pingUnavailable
 
     public var label: String {
         switch self {
@@ -55,6 +59,8 @@ public enum PortActionReturn: Codable, Equatable, Sendable {
         case .neverLost: return "toujours joignable (aucune coupure vue)"
         case .notBack(let after): return "pas revenu après \(PortActionFormat.seconds(after))"
         case .notFollowed: return "retour non suivi (adresse IP inconnue)"
+        case .noPingReply: return "retour non suivi (l’appareil ne répondait pas au ping avant l’action)"
+        case .pingUnavailable: return "retour non suivi (ping indisponible)"
         }
     }
 
@@ -110,22 +116,28 @@ public enum PortActionRunner {
     /// Suit le retour de l'appareil : un ping toutes les `interval` secondes (et l'état du lien
     /// toutes les trois sondes) jusqu'à ce qu'il réponde après avoir cessé de répondre. Sans
     /// aucune perte pendant `graceSeconds`, l'appareil est déclaré « toujours joignable ».
+    /// `respondedBefore` : réponse au ping juste avant l'action (false : l'appareil filtre l'ICMP,
+    /// son silence ne dit rien ; seul le lien est alors suivi).
     public static func followUp(ip: IPv4Address?, pinger: ScanPinging?, linkProbe: (@Sendable () async -> Bool?)?,
                                 start: Date, limitSeconds: Int, interval: Double = 2, graceSeconds: Int = 20,
+                                respondedBefore: Bool? = nil,
                                 now: @escaping @Sendable () -> Date, sleep: @escaping @Sendable (Double) async -> Void,
                                 progress: @escaping @Sendable (Int, Bool?) async -> Void) async -> PortActionReturn {
+        let unfollowed: PortActionReturn = ip == nil ? .notFollowed : (pinger == nil ? .pingUnavailable : .noPingReply)
+        let pingIP = respondedBefore == false ? nil : ip
+        let pingTool = pingIP == nil ? nil : pinger
         var lostSeen = false
         var linkUp: Bool?
         var iteration = 0
         while true {
             let elapsed = Int(now().timeIntervalSince(start).rounded())
-            if Task.isCancelled { return ip == nil ? .notFollowed : .notBack(after: elapsed) }
-            if ip != nil, pinger != nil, elapsed >= limitSeconds { return .notBack(after: elapsed) }
+            if Task.isCancelled { return pingIP == nil || pingTool == nil ? unfollowed : .notBack(after: elapsed) }
+            if pingIP != nil, pingTool != nil, elapsed >= limitSeconds { return .notBack(after: elapsed) }
             if iteration % 3 == 0, let linkProbe { linkUp = await linkProbe() }
             iteration += 1
             await progress(elapsed, linkUp)
-            if let ip, let pinger {
-                let reply = await pinger.ping(ip, timeout: .seconds(1))
+            if let pingIP, let pingTool {
+                let reply = await pingTool.ping(pingIP, timeout: .seconds(1))
                 let after = Int(now().timeIntervalSince(start).rounded())
                 if reply != nil {
                     if lostSeen { return .returned(seconds: after) }
@@ -136,8 +148,8 @@ public enum PortActionRunner {
                 if after >= limitSeconds { return .notBack(after: after) }
             } else {
                 // Sans adresse : on suit le lien seulement, jusqu'à ce qu'il revienne.
-                guard linkProbe != nil else { return .notFollowed }
-                if (linkUp == true && elapsed >= 2) || elapsed >= limitSeconds { return .notFollowed }
+                guard linkProbe != nil else { return unfollowed }
+                if (linkUp == true && elapsed >= 2) || elapsed >= limitSeconds { return unfollowed }
             }
             await sleep(interval)
         }

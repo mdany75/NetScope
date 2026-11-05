@@ -69,6 +69,7 @@ struct PortActionsDisabledNotice: View {
     private var button: some View {
         Button("Réglages…") {
             RegNavigation.shared.section = .switchs
+            RegNavigation.shared.focus = .portActions
             state.open(.reglages)
         }
         .buttonStyle(.secondary)

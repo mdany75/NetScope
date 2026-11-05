@@ -146,7 +146,8 @@ final class PortActionModel: ObservableObject {
         return PortActionTarget(switchName: snapshot.displayName, switchHost: snapshot.isViaController ? nil : snapshot.host,
                                 portName: iface.name, ifIndex: iface.index, isUplink: snapshot.locatedUplinks.contains(iface.index),
                                 isThisMacPort: thisMac, deviceName: name, deviceIP: ip, deviceMAC: firstMAC,
-                                macCount: entries.count, poe: snapshot.poePort(iface.index), fortiGate: forti)
+                                macCount: entries.count, poe: snapshot.poePort(iface.index), fortiGate: forti,
+                                viaFortiGate: snapshot.isViaController)
     }
 
     /// Port d'un appareil localisé (fiche Appareil) ; nil si le switch ou le port n'est pas relevé.
@@ -277,6 +278,17 @@ final class PortActionModel: ObservableObject {
         }
         var start = Date()
         var linkProbe: (@Sendable () async -> Bool?)?
+        // Un ou deux pings avant l'envoi : un appareil qui filtre l'ICMP n'est pas déclaré
+        // « pas revenu » après une action réussie.
+        let pinger = try? ICMPPinger()
+        var respondedBefore: Bool?
+        if let ip = target.deviceIP, let pinger {
+            var answered = false
+            for _ in 0..<2 where !answered {
+                answered = await pinger.ping(ip, timeout: .seconds(1)) != nil
+            }
+            respondedBefore = answered
+        }
         do {
             switch channel {
             case .fortiGate(let id, _, let switchID, let portName):
@@ -299,11 +311,12 @@ final class PortActionModel: ObservableObject {
                 let writer = SNMPPoEPortWriter(host: host, group: group, port: port, credentials: credentials)
                 start = Date()
                 try await PortActionRunner.snmpPoECycle(writer: writer, offSeconds: settings.poeOffSeconds, sleep: sleep, phase: phase)
-                let community = SwitchStore.shared.community(for: host.description)
+                // Suivi du lien par les identifiants de lecture du switch : utilisateur v3 du site (ou de
+                // tous les sites) d'abord, communauté seulement en repli (note 59).
                 let ifIndex = target.ifIndex
-                if !community.isEmpty {
+                if let readTarget = SwitchStore.shared.snmpTarget(for: host.description, timeout: 1.5, retries: 0) {
                     linkProbe = {
-                        let client = SNMPClient(target: SNMPTarget(host: host, community: community, timeout: 1.5, retries: 0))
+                        let client = SNMPClient(target: readTarget)
                         guard let bind = try? await client.get([SNMPOIDs.ifOperStatus.appending(UInt32(ifIndex))]).first,
                               let value = bind.value.intValue else { return nil }
                         return value == 1
@@ -315,9 +328,9 @@ final class PortActionModel: ObservableObject {
             return PortActionRecord(date: start, kind: kind, target: target, channel: channel.label, success: false, errorMessage: message)
         }
         // Suivi : relevé du lien (SNMP) et ping de l'appareil jusqu'à son retour.
-        let pinger = try? ICMPPinger()
         let returned = await PortActionRunner.followUp(
             ip: target.deviceIP, pinger: pinger, linkProbe: linkProbe, start: start, limitSeconds: settings.followUpSeconds,
+            respondedBefore: respondedBefore,
             now: { Date() }, sleep: sleep,
             progress: { elapsed, link in await phase(.waitingReturn(elapsed: elapsed, linkUp: link)) })
         return PortActionRecord(date: start, kind: kind, target: target, channel: channel.label, success: true, returned: returned)

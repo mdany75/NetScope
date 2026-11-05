@@ -57,6 +57,11 @@ final class SNMPAccessVault: ObservableObject {
     @Published private(set) var perSite: [UUID: SNMPv3Credentials] = [:]
 
     private var loadTask: Task<Void, Never>?
+    /// Numéro de la lecture en cours : le résultat d'une lecture remplacée (reload) est ignoré.
+    private var generation = 0
+    /// Modifiés par `update(...)` pendant la lecture en cours : leur valeur l'emporte sur celle lue.
+    private var updatedGlobal = false
+    private var updatedSites: Set<UUID> = []
     private let isDemo: Bool
 
     private init() {
@@ -74,6 +79,9 @@ final class SNMPAccessVault: ObservableObject {
         guard !RegEnvironment.isSandboxed else { return }
         if loadTask == nil {
             let ids = SiteModel.shared.sites.map(\.id)
+            let current = generation
+            updatedGlobal = false
+            updatedSites = []
             loadTask = Task { [weak self] in
                 let (global, sites) = await Task.detached(priority: .userInitiated) { () -> (SNMPv3Credentials?, [UUID: SNMPv3Credentials]) in
                     let saved = RegSNMPCredentials.load()
@@ -84,8 +92,7 @@ final class SNMPAccessVault: ObservableObject {
                     }
                     return (global, sites)
                 }.value
-                self?.global = global
-                self?.perSite = sites
+                self?.apply(global: global, sites: sites, generation: current)
             }
         }
         await loadTask?.value
@@ -93,10 +100,22 @@ final class SNMPAccessVault: ObservableObject {
 
     /// Identifiants modifiés dans les Réglages : relecture, et oubli des moteurs et versions retenus.
     func reload() {
+        loadTask?.cancel()
         loadTask = nil
+        generation += 1
         SNMPv3Session.reset()
         SNMPVersionMemo.shared.reset()
         Task { await load() }
+    }
+
+    /// Résultat d'une lecture : ignoré s'il vient d'une lecture remplacée ; ce qui a été enregistré
+    /// pendant la lecture (update) n'est pas écrasé par des valeurs plus anciennes.
+    private func apply(global loaded: SNMPv3Credentials?, sites loadedSites: [UUID: SNMPv3Credentials], generation current: Int) {
+        guard current == generation else { return }
+        if !updatedGlobal { global = loaded }
+        var merged = loadedSites
+        for id in updatedSites { merged[id] = perSite[id] }
+        perSite = merged
     }
 
     /// Identifiant v3 d'un agent : celui de son site, sinon celui de tous les sites.
@@ -138,12 +157,14 @@ final class SNMPAccessVault: ObservableObject {
     /// Mise à jour après un enregistrement dans les Réglages (sans attendre la relecture).
     func update(global credentials: SNMPv3Credentials?) {
         global = credentials
+        updatedGlobal = true
         SNMPv3Session.reset()
         SNMPVersionMemo.shared.reset()
     }
 
     func update(site id: UUID, credentials: SNMPv3Credentials?) {
         perSite[id] = credentials
+        updatedSites.insert(id)
         SNMPv3Session.reset()
         SNMPVersionMemo.shared.reset()
     }

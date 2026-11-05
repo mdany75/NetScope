@@ -485,7 +485,15 @@ final class SiteModel: ObservableObject {
                 AppLog.shared.error("Sites", "Pièces jointes du site non retirées\u{00A0}: \(error.localizedDescription)")
             }
             RapportHistoryStore.shared.discardSite(key)
+            // Utilisateur SNMP v3 propre au site : retiré du Trousseau (sinon secret orphelin,
+            // ni visible ni effaçable depuis l'app).
+            do {
+                try RegSNMPSiteVault.erase(id)
+            } catch {
+                AppLog.shared.error("Sites", "Utilisateur SNMP v3 du site non retiré du Trousseau\u{00A0}: \(error.localizedDescription)")
+            }
         }
+        SNMPAccessVault.shared.update(site: id, credentials: nil)
         save()
         if wasActive {
             ScanController.shared.show("Site supprimé\u{00A0}: aucun site actif. Les plages du Scanner restent celles du site supprimé, sans être enregistrées.", tone: .neutral)

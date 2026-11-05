@@ -77,7 +77,7 @@ struct TrafficAnalysisView: View {
                 Text("Bilan de santé").font(Theme.captionSemibold).foregroundStyle(Theme.textSecondary)
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("\(analysis.score)").font(.system(size: 34, weight: .bold)).foregroundStyle(tone.foreground)
-                    Text("/ 100").font(Theme.mono(13)).foregroundStyle(Theme.textSecondary)
+                    Text("/\u{00A0}100").font(Theme.mono(13)).foregroundStyle(Theme.textSecondary)
                 }
                 ProgressBar(fraction: Double(analysis.score) / 100, color: tone.foreground)
                 Text(analysis.grade).font(Theme.bodySemibold)

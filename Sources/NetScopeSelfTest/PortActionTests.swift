@@ -188,6 +188,21 @@ func registerPortActionTests(_ suite: TestSuite) {
         try expectEqual(ref.mkey, "S124FFTF21001234", "mkey = switch-id (numéro de série)")
         try expectEqual(ref.controllerName, "Siège", "site")
         try expectEqual(FortiPortLocator.reference(switchName: "SW-CORE-01", site: nil, in: [site]), nil, "switch SNMP : aucun")
+        // Autre client, switch du même nom : jamais pris pour celui du site du relevé.
+        let otherReport = FortiGateReport(system: FortiGateSystem(hostname: "FGT-CLIENT", model: "FortiGate-60F", serial: "FG60F", version: "v7.4.4"),
+                                          switches: [FortiManagedSwitch(switchID: "S108FTF99", serial: "S108FTF99", name: "FSW-QUAI")])
+        let other = FortiSiteReport(controllerID: UUID(), site: "Client B", report: otherReport)
+        try expectEqual(FortiPortLocator.reference(switchName: "FSW-QUAI", site: "Siège", in: [other, site])?.mkey, "S124FFTF21001234",
+                        "site du relevé seulement")
+        try expectEqual(FortiPortLocator.reference(switchName: "FSW-QUAI", site: "Entrepôt", in: [other, site]), nil,
+                        "site sans ce switch : aucun (pas celui d'un autre site)")
+        try expectEqual(FortiPortLocator.reference(switchName: "FSW-QUAI", site: nil, in: [other, site]), nil, "sans site, nom ambigu : aucun")
+        try expectEqual(FortiPortLocator.reference(switchName: "S108FTF99", site: nil, in: [other, site])?.mkey, "S108FTF99",
+                        "sans site, numéro de série unique")
+        let lost = PortActionTarget(switchName: "FSW-QUAI", switchHost: nil, portName: "port3", ifIndex: 3, viaFortiGate: true)
+        let decision = PortActionGuard.decide(.portRestart, target: lost, settings: PortActionSettings(enabled: true),
+                                              hasWriteCredentials: true, fortiGateProblem: nil)
+        try expectEqual(decision.refusals, [.fortiSwitchNotFound], "FortiSwitch introuvable : refus clair")
     }
 
     suite.add("Actions sur les ports : SET SNMP de pethPsePortAdminEnable encodé en BER") {
@@ -275,6 +290,18 @@ func registerPortActionTests(_ suite: TestSuite) {
         let none = await PortActionRunner.followUp(ip: nil, pinger: nil, linkProbe: nil, start: Date(), limitSeconds: 60,
                                                    now: { Date() }, sleep: { _ in }, progress: { _, _ in })
         try expectEqual(none, .notFollowed, "sans adresse ni lien : non suivi")
+        // Appareil qui ne répondait pas au ping avant l'action : jamais « pas revenu ».
+        let silentClock = VirtualClock()
+        let silentStart = silentClock.now()
+        let silent = ScriptedPinger(clock: silentClock, start: silentStart, silentFrom: 0, silentUntil: 10_000)
+        let filtered = await PortActionRunner.followUp(ip: ip, pinger: silent, linkProbe: nil, start: silentStart, limitSeconds: 60,
+                                                       respondedBefore: false, now: { silentClock.now() },
+                                                       sleep: { silentClock.advance($0) }, progress: { _, _ in })
+        try expectEqual(filtered, .noPingReply, "ICMP filtré : non suivi, pas une erreur")
+        try expect(!filtered.isProblem, "pas un problème")
+        let noPing = await PortActionRunner.followUp(ip: ip, pinger: nil, linkProbe: nil, start: Date(), limitSeconds: 60,
+                                                     now: { Date() }, sleep: { _ in }, progress: { _, _ in })
+        try expectEqual(noPing, .pingUnavailable, "ping indisponible : cas distinct")
     }
 
     suite.add("Actions sur les ports : journal et chronologie de l'inventaire") {

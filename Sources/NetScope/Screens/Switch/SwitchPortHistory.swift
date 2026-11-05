@@ -173,9 +173,16 @@ struct SwitchBusiestPorts: View {
         }
     }
 
+    /// Sans relevés en direct (FortiSwitch), « En direct » gardé pour les autres switchs vaut 24 h :
+    /// le segment 24 h est alors mis en évidence, comme le tableau.
+    private var pickerSelection: Binding<PortHistoryRange?> {
+        guard monitor == nil else { return $periods.tableRange }
+        return Binding(get: { periods.tableRange ?? .day }, set: { periods.tableRange = $0 })
+    }
+
     /// En direct, 1 h, 24 h, 7 j, 30 j.
     private var picker: some View {
-        Picker("Période", selection: $periods.tableRange) {
+        Picker("Période", selection: pickerSelection) {
             if monitor != nil { Text("En direct").tag(PortHistoryRange?.none) }
             ForEach(PortHistoryRange.allCases) { Text($0.label).tag(PortHistoryRange?.some($0)) }
         }

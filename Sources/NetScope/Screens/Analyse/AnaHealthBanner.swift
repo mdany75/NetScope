@@ -3,24 +3,38 @@ import SwiftUI
 
 /// Note 79 : le « Bilan de santé » (note sur 100, établi dans Trafic) rappelé en tête de l'écran
 /// Historique et adressage quand il existe, avec un lien vers le détail. Rien n'est calculé ni lu
-/// sur le réseau ici : le bilan est celui de l'écran Trafic ; en démonstration, celui du site actif
-/// (même calcul que la section du rapport, sans rien modifier).
+/// sur le réseau ici : le bilan est celui de l'écran Trafic, montré seulement s'il a été établi pour
+/// les mêmes sites que ceux de l'écran ; en démonstration, celui du site actif (même calcul que la
+/// section du rapport, sans rien modifier).
 struct AnaHealthBanner: View {
+    /// Sites (clés `SiteFiles.key`) montrés par l'écran.
+    let siteKeys: [String]
     @EnvironmentObject private var state: AppState
     @ObservedObject private var traffic = TrafficStore.shared
+    @ObservedObject private var sites = SiteModel.shared
 
     var body: some View {
-        if let analysis = traffic.analysis ?? demoAnalysis {
+        if let analysis = shownAnalysis ?? demoAnalysis {
             content(analysis)
         }
     }
 
-    /// Démonstration : bilan du site actif, calculé une seule fois (rien n'est modifié ni lu sur le réseau).
+    /// Bilan de Trafic, s'il porte exactement sur les sites de l'écran (jamais celui d'un autre site).
+    private var shownAnalysis: NetworkAnalysisResult? {
+        guard let analysis = traffic.analysis, let keys = traffic.analysisKeys,
+              !keys.isEmpty, Set(keys) == Set(siteKeys) else { return nil }
+        return analysis
+    }
+
+    /// Démonstration : bilan du site actif, calculé une fois par site (rien n'est modifié ni lu sur
+    /// le réseau) ; montré seulement si l'écran montre ce site.
     private var demoAnalysis: NetworkAnalysisResult? {
-        guard traffic.isDemo else { return nil }
-        if let cached = AnaHealthDemoCache.analysis { return cached }
+        guard traffic.isDemo, traffic.analysis == nil else { return nil }
+        let key = sites.activeKey
+        guard siteKeys.contains(key) else { return nil }
+        if let cached = AnaHealthDemoCache.analyses[key] { return cached }
         let analysis = traffic.reportContent(state: state).analysis
-        AnaHealthDemoCache.analysis = analysis
+        AnaHealthDemoCache.analyses[key] = analysis
         return analysis
     }
 
@@ -58,7 +72,7 @@ struct AnaHealthBanner: View {
         return VStack(spacing: 2) {
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text("\(analysis.score)").font(.system(size: 24, weight: .bold)).foregroundStyle(tone.foreground)
-                Text("/100").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
+                Text("/\u{00A0}100").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
             }
             ProgressBar(fraction: Double(analysis.score) / 100, color: tone.foreground)
                 .frame(width: 64)
@@ -104,8 +118,8 @@ struct AnaHealthBanner: View {
     }
 }
 
-/// Bilan de démonstration calculé une fois pour toute la session (captures et --demo).
+/// Bilans de démonstration, calculés une fois par site actif (captures et --demo).
 @MainActor
 enum AnaHealthDemoCache {
-    static var analysis: NetworkAnalysisResult?
+    static var analyses: [String: NetworkAnalysisResult] = [:]
 }

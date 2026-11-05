@@ -16,7 +16,12 @@ final class TraficSNMPState: ObservableObject {
         didSet { if !isDemo { UserDefaults.standard.set(range.rawValue, forKey: Self.key) } }
     }
     @Published var selection: String?
-    private let isDemo: Bool
+    /// Lignes calculées (hors démonstration) : recalculées hors du fil principal quand les sites,
+    /// la période ou l'historique changent, jamais à chaque évaluation de la vue.
+    @Published private(set) var rows: [PortHistoryRow] = []
+    let isDemo: Bool
+    private var rowsTask: Task<Void, Never>?
+    private var rowsKeys: [String] = []
     private static let key = "NetScope.trafic.snmp.periode"
 
     init(demo: Bool = Launcher.isDemo || RegEnvironment.isSnapshot) {
@@ -25,6 +30,27 @@ final class TraficSNMPState: ObservableObject {
             range = ProcessInfo.processInfo.environment["NETSCOPE_TRAFIC_PERIODE"].flatMap(SwitchHistoryState.range(capture:)) ?? .day
         } else {
             range = UserDefaults.standard.string(forKey: Self.key).flatMap(PortHistoryRange.init(rawValue:)) ?? .day
+        }
+    }
+
+    /// Relit (au besoin) l'historique des sites hors du fil principal et recalcule les lignes.
+    func refreshRows(keys: [String]) {
+        rowsTask?.cancel()
+        // Autres sites : pas de lignes d'un autre site le temps du calcul.
+        if keys != rowsKeys { rows = [] }
+        rowsKeys = keys
+        let range = self.range
+        rowsTask = Task { [weak self] in
+            let store = PortHistoryStore.shared
+            await store.preload(siteKeys: keys)
+            guard !Task.isCancelled else { return }
+            let histories = keys.compactMap { store.loadedHistory(siteKey: $0) }
+            let now = store.now
+            let rows = await Task.detached(priority: .userInitiated) {
+                TraficSNMPFallback.rows(histories: histories, range: range, now: now)
+            }.value
+            guard !Task.isCancelled else { return }
+            self?.rows = rows
         }
     }
 }
@@ -42,15 +68,13 @@ struct TraficSNMPFallback: View {
     /// Captures : NETSCOPE_TRAFIC_VUE=snmp montre le secours même si FortiView est lu.
     static var forced: Bool { TrafficDemo.requestedView == "snmp" }
 
-    /// Lignes de tous les switchs des sites montrés, sur la période.
-    @MainActor
-    static func rows(keys: [String], range: PortHistoryRange) -> [PortHistoryRow] {
-        let store = PortHistoryStore.shared
-        let now = store.now
+    /// Lignes de tous les switchs des historiques donnés, sur la période (calcul pur, hors du fil
+    /// principal possible).
+    nonisolated static func rows(histories: [PortTrafficHistory], range: PortHistoryRange, now: Date) -> [PortHistoryRow] {
         var seen = Set<String>()
         var summaries: [PortHistorySummary] = []
-        for key in keys {
-            for switchHistory in store.history(siteKey: key).switches.values {
+        for history in histories {
+            for switchHistory in history.switches.values {
                 for summary in PortHistoryRanking.summaries(switchHistory, range: range, now: now) where seen.insert(summary.id).inserted {
                     summaries.append(summary)
                 }
@@ -59,16 +83,28 @@ struct TraficSNMPFallback: View {
         return PortHistoryRanking.busiest(summaries).map(PortHistoryRow.init(summary:))
     }
 
-    /// Vrai si un des sites montrés a un historique de ports (sur 30 jours).
+    /// Vrai si un des sites montrés a un historique de ports (sur 30 jours) déjà en mémoire ; ne
+    /// lit jamais le disque (l'écran Trafic lance la lecture par `PortHistoryStore.preload`).
     @MainActor
     static func hasData(keys: [String]) -> Bool {
         let store = PortHistoryStore.shared
-        return keys.contains { !store.history(siteKey: $0).isEmpty }
+        return keys.contains { store.loadedHistory(siteKey: $0).map { !$0.isEmpty } ?? false }
+    }
+
+    /// Ce qui oblige à recalculer les lignes.
+    private struct RowsKey: Hashable {
+        let keys: [String]
+        let range: PortHistoryRange
+        let revision: Int
     }
 
     var body: some View {
         let range = model.range
-        let rows = Self.rows(keys: keys, range: range)
+        // Démonstration : historique fictif en mémoire, calculé sur place (les captures n'attendent
+        // pas de tâche). Sinon : lignes mises en cache par TraficSNMPState.
+        let rows = model.isDemo
+            ? Self.rows(histories: keys.compactMap { history.loadedHistory(siteKey: $0) }, range: range, now: history.now)
+            : model.rows
         let switches = Set(rows.map(\.host)).count
         VStack(alignment: .leading, spacing: 14) {
             ToolNotice(tone: .accent, title: "Trafic d’après les compteurs des switchs",
@@ -109,6 +145,9 @@ struct TraficSNMPFallback: View {
             .buttonStyle(.secondary)
             .fixedSize()
             .help("Bilan de la santé (ports saturés ou en erreur, WAN, Wi-Fi, DHCP) et de l’inventaire")
+        }
+        .task(id: RowsKey(keys: keys, range: range, revision: history.revision)) {
+            if !model.isDemo { model.refreshRows(keys: keys) }
         }
     }
 

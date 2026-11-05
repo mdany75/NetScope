@@ -280,7 +280,7 @@ struct RegCredentialsSection: View {
             }
             .labelsHidden()
             .frame(maxWidth: 280)
-            .help("Un site peut avoir son propre utilisateur SNMP v3 ; les autres utilisent celui de tous les sites.")
+            .help("Un site peut avoir son propre utilisateur SNMP v3\u{00A0}; les autres utilisent celui de tous les sites.")
             Spacer(minLength: 0)
         }
         .onChange(of: scope) { _, _ in selectScope() }
