@@ -356,6 +356,9 @@ public struct InvEvent: Codable, Hashable, Identifiable, Sendable {
     public var baseline: Bool
     public var status: InvEventStatus
     public var statusDate: Date?
+    /// Note 84 : vrai pour un changement de port classé Wi-Fi ou filaire à l'émission (0.27.1 et
+    /// après) ; nil pour un ancien événement, que `InvWireless.isWirelessMove` peut écarter.
+    public var mediumChecked: Bool?
 
     public init(id: UUID = UUID(), date: Date, kind: InvEventKind, severity: InvSeverity, key: String,
                 ip: IPv4Address, title: String, detail: String, baseline: Bool = false,

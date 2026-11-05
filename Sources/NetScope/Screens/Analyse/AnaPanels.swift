@@ -140,7 +140,7 @@ struct AnaAlertsPanel: View {
         let matching = alerts.filter { matches($0) }
         let shown = matching.filter { filter.includes($0.event) }
         // Note 84 : un ancien changement de port d'un appareil Wi-Fi (itinérance) n'est plus « à traiter ».
-        let pending = alerts.filter { $0.event.status == .aTraiter && !$0.isWirelessMove }.count
+        let pending = alerts.filter(\.isPending).count
         // Plusieurs sites : alertes regroupées par site (ordre du choix), triées dans chaque site ;
         // un clic sur l'en-tête SITE inverse l'ordre des groupes.
         let siteFirst = table.sortOrder.first.flatMap { $0.keyPath == \AnaAlertRow.siteName ? $0.order : nil }

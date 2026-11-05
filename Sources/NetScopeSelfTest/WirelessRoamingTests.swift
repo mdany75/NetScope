@@ -158,12 +158,22 @@ func registerWirelessRoamingTests(_ suite: TestSuite) {
         try expect(InvWireless.isPending(move(wiredRecord), record: wiredRecord), "poste filaire : compté")
         var phone = wiredRecord
         phone.detectedType = .telephone
-        try expect(InvWireless.isWirelessMove(move(phone), record: phone), "téléphone mobile : itinérance")
+        try expect(!InvWireless.isWirelessMove(move(phone), record: phone), "téléphone mobile sans preuve du Wi-Fi : compté")
         var ap = wifiRecord
         ap.detectedType = .pointAcces
         try expect(!InvWireless.isWirelessMove(move(ap), record: ap), "borne déplacée : comptée")
         let scoped = SiteScopedEvent(siteKey: "s", siteName: "Siège", event: move(wifiRecord), record: wifiRecord)
         try expect(scoped.isWirelessMove && !scoped.isPending, "événement d'un site")
+        // Alerte vieille de 60 jours, fiche vue en Wi-Fi hier : le déplacement date d'avant le Wi-Fi.
+        var oldMove = move(wifiRecord)
+        oldMove.date = now.addingTimeInterval(-60 * 86_400)
+        var seenYesterday = wifiRecord
+        seenYesterday.wireless = InvWirelessLink(apName: "AP-ACCUEIL", seen: now.addingTimeInterval(-86_400))
+        try expect(InvWireless.isPending(oldMove, record: seenYesterday), "alerte de 60 jours, Wi-Fi d'hier : à traiter")
+        // Changement de port émis depuis la 0.27.1 (déjà classé filaire) : jamais masqué.
+        var checked = move(wifiRecord)
+        checked.mediumChecked = true
+        try expect(InvWireless.isPending(checked, record: wifiRecord), "changement de port classé à l'émission : à traiter")
 
         // Un ancien fichier (sans association Wi-Fi) se relit ; l'association est enregistrée.
         let data = try JSONEncoder().encode(wifiRecord)
@@ -176,6 +186,70 @@ func registerWirelessRoamingTests(_ suite: TestSuite) {
         let decoded = try JSONDecoder().decode(InvEvent.self, from: JSONEncoder().encode(event))
         try expectEqual(decoded.kind, .itineranceWifi, "type d'événement enregistré")
         try expectEqual(InvEventKind.itineranceWifi.label, "Itinérance Wi-Fi", "libellé de la chronologie")
+    }
+
+    suite.add("Wi-Fi ou filaire : borne sans type, ancien port de borne, mémoire contredite, MAC privée, titres") {
+        // FortiAP sans nom d'hôte (type inconnu), reconnue par son adresse lue sur la FortiGate.
+        let unnamedAP = Device(ip: ip("10.0.0.102"), mac: mac("70:4C:A5:1E:22:9A"), switchName: "SW-CORE", switchPort: "Gi1/0/12")
+        let context = InvWirelessContext(overview: overview(clientAP: "AP-ACCUEIL"), devices: [unnamedAP])
+        try expect(context.isAccessPoint(ip: ip("10.0.0.102"), mac: nil), "adresse de la borne")
+        let moved = InvWireless.classify(type: .inconnu, mac: unnamedAP.mac, ip: unnamedAP.ip, from: "SW-CORE · Gi1/0/12",
+                                         to: "SW-CORE · Gi1/0/13", remembered: nil, context: context, now: now)
+        try expect(!moved.isWireless, "borne sans type qui change de port : filaire")
+
+        var store = InventoryStore()
+        store.merge([unnamedAP], at: now.addingTimeInterval(-86_400), wireless: context)
+        var replugged = unnamedAP
+        replugged.switchPort = "Gi1/0/13"
+        let produced = store.merge([replugged], at: now,
+                                   wireless: InvWirelessContext(overview: overview(clientAP: "AP-ACCUEIL"), devices: [replugged]))
+        let event = produced.first { $0.key == InventoryStore.key(mac: unnamedAP.mac!) }
+        try expect(event?.kind == .changementPort && event?.severity == .alerte, "borne déplacée : alerte gardée")
+        try expect(event.map { InvWireless.isPending($0, record: store.record($0.key)) } == true, "comptée à traiter")
+
+        // Poste filaire déplacé depuis le port qu'occupe aujourd'hui une borne : pas une itinérance.
+        let portOnly = InvWirelessContext(overview: nil, devices: apDevices)
+        try expect(!InvWireless.classify(type: .poste, mac: desktopMAC, ip: ip("10.0.0.117"), from: "SW-CORE · Gi1/0/12",
+                                         to: "SW-CORE · Gi1/0/30", remembered: nil, context: portOnly, now: now).isWireless,
+                   "ancien port de borne seul : filaire")
+
+        // Fiche vue en Wi-Fi il y a 2 jours, mais absente des clients de la FortiGate lue : filaire.
+        let recent = InvWirelessLink(apName: "AP-ETG2", seen: now.addingTimeInterval(-2 * 86_400))
+        try expect(!InvWireless.classify(type: .poste, mac: desktopMAC, ip: ip("10.0.0.60"), from: "A · 1", to: "B · 2",
+                                         remembered: recent, context: context, now: now).isWireless,
+                   "mémoire contredite par la FortiGate")
+
+        // MAC administrée localement, port filaire changé, sans borne ni client : l'alerte reste.
+        let privateMAC = mac("F2:6A:19:C4:0E:57")
+        let verdict = InvWireless.classify(type: .poste, mac: privateMAC, ip: ip("10.0.0.62"), from: "A · 1", to: "B · 2",
+                                           remembered: nil, context: .none, now: now)
+        try expect(verdict.isWireless && !verdict.isProvenWireless, "MAC privée : supposée Wi-Fi, pas prouvée")
+        var wiredStore = InventoryStore()
+        let vm = Device(ip: ip("10.0.0.62"), mac: privateMAC, hostname: "VM-LINUX", switchName: "SW-CORE", switchPort: "Gi1/0/5",
+                        deviceType: .poste)
+        wiredStore.merge([vm], at: now.addingTimeInterval(-86_400))
+        var vmMoved = vm
+        vmMoved.switchPort = "Gi1/0/6"
+        let vmEvent = wiredStore.merge([vmMoved], at: now).first { $0.key == InventoryStore.key(mac: privateMAC) }
+        try expect(vmEvent?.kind == .changementPort && vmEvent?.severity == .alerte, "MAC privée déplacée : alerte")
+        try expect(vmEvent?.detail.contains("probablement Wi-Fi (adresse MAC privée)") == true, "mention de l'indice")
+        try expect(wiredStore.record(InventoryStore.key(mac: privateMAC))?.wireless == nil, "aucune association Wi-Fi créée")
+
+        // Déduction (port d'une borne) : l'association n'est ni créée ni rafraîchie.
+        var deduced = InventoryStore()
+        let laptop = Device(ip: ip("10.0.0.153"), mac: laptopMAC, switchName: "SW-ETG2", switchPort: "1/20", deviceType: .poste)
+        deduced.merge(apDevices + [laptop], at: now.addingTimeInterval(-86_400), wireless: portOnly)
+        var roamed = laptop
+        roamed.switchName = "SW-CORE"
+        roamed.switchPort = "Gi1/0/12"
+        let roam = deduced.merge(apDevices + [roamed], at: now, wireless: portOnly).first { $0.key == InventoryStore.key(mac: laptopMAC) }
+        try expectEqual(roam?.kind, .itineranceWifi, "port d'une borne : itinérance")
+        try expect(deduced.record(InventoryStore.key(mac: laptopMAC))?.wireless == nil, "déduction : pas d'association créée")
+
+        try expectEqual(InvWireless.roamingTitle(name: "PF4L03M23", from: nil, to: nil, apBefore: nil, apAfter: nil),
+                        "Itinérance Wi-Fi\u{00A0}: PF4L03M23 vu derrière emplacement inconnu", "emplacements inconnus")
+        try expectEqual(InvWireless.roamingTitle(name: "PF4L03M23", from: "A · 1", to: "B · 2", apBefore: nil, apAfter: nil),
+                        "Itinérance Wi-Fi\u{00A0}: PF4L03M23 vu derrière B 2 (avant\u{00A0}: A 1)", "emplacements connus")
     }
 
     suite.add("Sonde « Port de switch » : itinérance Wi-Fi sans alerte, port filaire changé en alerte") {
@@ -191,6 +265,21 @@ func registerWirelessRoamingTests(_ suite: TestSuite) {
                                                   wireless: context, now: now)
         try expect(wired.result.problem != nil, "poste filaire déplacé : alerte")
         try expectEqual(NetScopeEventKind.forProbe(.switchPort, severity: .warning), .deviceMoved, "alerte « appareil déplacé »")
+        // MAC privée seule : l'alerte reste.
+        let privateDevice = Device(ip: ip("10.0.0.62"), mac: mac("F2:6A:19:C4:0E:57"), switchName: "SW-CORE", switchPort: "Gi1/0/6",
+                                   deviceType: .poste)
+        let privateCheck = MonInventoryChecks.switchPort(mac: "F2:6A:19:C4:0E:57", expected: "SW-CORE · Gi1/0/5",
+                                                         devices: devices + [privateDevice], wireless: context, now: now)
+        try expect(privateCheck.result.problem != nil, "MAC privée déplacée : alerte")
+        // Type « borne » choisi à la main sur la fiche : un appareil vu derrière le port d'une borne reste en alerte.
+        var record = InvRecord(key: InventoryStore.key(mac: laptopMAC), mac: laptopMAC, ip: ip("10.0.0.153"), detectedType: .poste,
+                               firstSeen: now, lastSeen: now)
+        record.annotations.customType = .pointAcces
+        let manual = InvWirelessContext(overview: nil, devices: devices, records: [record])
+        try expectEqual(manual.manualTypes[laptopMAC], .pointAcces, "type de la fiche retenu")
+        let asAP = MonInventoryChecks.switchPort(mac: laptopMAC.description, expected: "SW-ETG2 · 1/20", devices: devices,
+                                                 wireless: manual, now: now)
+        try expect(asAP.result.problem != nil, "type choisi à la main : alerte")
     }
 
     suite.add("Carte d'occupation : filaire, Wi-Fi, bail DHCP, réservation, adresse fixe et légende") {
@@ -232,6 +321,15 @@ func registerWirelessRoamingTests(_ suite: TestSuite) {
         // Sans lecture DHCP : attribution inconnue.
         let unread = AddressPlan(block: try Subnet(parsing: "10.0.0.0/24"), records: records, now: now, wireless: context)
         try expect(unread.cell(ip("10.0.0.20")).assignment == nil, "aucune étendue lue : attribution inconnue")
+        // Hors de toute étendue lue, bail d'une autre MAC, conflit.
+        let extra = records + [record("10.0.1.20", mac("00:1B:C5:0A:12:F4"), type: .iot),
+                               record("10.0.0.170", mac("00:1B:C5:0A:12:F5")),
+                               record("10.0.0.153", mac("00:1B:C5:0A:12:F6"))]
+        let wide = AddressPlan(block: try Subnet(parsing: "10.0.0.0/23"), records: extra, dhcp: dhcp, now: now, wireless: context)
+        try expect(wide.cell(ip("10.0.1.20")).assignment == nil, "sous-réseau sans étendue lue : pas « fixe »")
+        try expect(wide.cell(ip("10.0.0.170")).assignment == nil, "bail d'une autre MAC : attribution incertaine")
+        let conflict = wide.cell(ip("10.0.0.153"))
+        try expect(conflict.state == .conflit && conflict.marker == nil, "case en conflit : sans repère")
 
         let page = plan.pages[0]
         try expectEqual(page.count(.enLigneWifi), 1, "une adresse Wi-Fi")

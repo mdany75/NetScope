@@ -21,7 +21,7 @@ public enum AddressPlanState: String, Sendable, CaseIterable {
 
     public var label: String {
         switch self {
-        case .enLigne: return "En ligne · filaire"
+        case .enLigne: return "En ligne · filaire ou accès inconnu"
         case .enLigneWifi: return "En ligne · Wi-Fi"
         case .horsLigne: return "Hors ligne (vu récemment)"
         case .conflit: return "Conflit IP"
@@ -109,7 +109,8 @@ public struct AddressPlanCell: Hashable, Sendable, Identifiable {
     /// Repère de la carte : bail DHCP ou réservation d'un appareil de l'inventaire (rien pour une
     /// adresse fixe, ni pour une case qui montre déjà le bail ou la réservation par sa couleur).
     public var marker: AddressAssignment? {
-        guard state.hasRecord, let assignment, assignment != .fixe else { return nil }
+        // Pas de repère sur une case en conflit : illisible sur le rouge, et l'attribution y est douteuse.
+        guard state.hasRecord, state != .conflit, let assignment, assignment != .fixe else { return nil }
         return assignment
     }
 }
@@ -202,6 +203,8 @@ public struct AddressPlan: Sendable {
     public let pages: [AddressPlanPage]
     private let byIP: [UInt32: [InvRecord]]
     private let dhcp: AddressPlanDHCP
+    /// Au moins une étendue DHCP lue (légende : repère DHCP expliqué).
+    public var dhcpRead: Bool { dhcp.isRead }
     private let reservations: [UInt32: DHCPReservation]
     private let gateways: Set<UInt32>
     /// Adresses de réseau et de diffusion du bloc et des sous-réseaux connus qu'il contient.
@@ -314,8 +317,9 @@ public struct AddressPlan: Sendable {
     }
 
     /// Attribution d'une adresse (note 84) : réservation (ou bail marqué réservé), bail actif de la
-    /// même MAC, sinon fixe quand le DHCP a été lu ; nil : rien à dire (aucune étendue lue, adresse
-    /// sans appareil ni bail).
+    /// même MAC, sinon fixe quand une étendue lue couvre l'adresse et qu'aucun bail ni aucune
+    /// réservation ne la porte ; nil : rien à dire (DHCP de ce sous-réseau non lu, adresse sans
+    /// appareil ni bail, ou bail ou réservation d'une autre MAC : attribution incertaine).
     static func assignment(at ip: IPv4Address, state: AddressPlanState, record: InvRecord?, dhcp: AddressPlanDHCP,
                            reservations: [UInt32: DHCPReservation]) -> AddressAssignment? {
         func sameDevice(_ mac: MACAddress?) -> Bool { mac == nil || record?.mac == nil || mac == record?.mac }
@@ -323,7 +327,8 @@ public struct AddressPlan: Sendable {
         if let lease = dhcp.leases[ip.value], sameDevice(lease.mac) { return lease.reserved ? .reservee : .dhcp }
         if state == .bail { return .dhcp }
         if state == .reservee { return .reservee }
-        guard state.hasRecord, dhcp.isRead else { return nil }
+        guard state.hasRecord, dhcp.scope(containing: ip) != nil,
+              dhcp.leases[ip.value] == nil, reservations[ip.value] == nil else { return nil }
         return .fixe
     }
 
@@ -512,7 +517,7 @@ public enum AddressPlanLegend {
         let reserved = cells.filter { $0.marker == .reservee }.count
         if dhcp > 0 || dhcpRead {
             result.append(AddressPlanLegendItem(kind: .marker(.dhcp), label: "Repère DHCP", count: dhcp,
-                                                help: "Triangle dans le coin d’une case\u{00A0}: adresse de l’appareil attribuée par un bail DHCP de la FortiGate (sans repère\u{00A0}: adresse fixe)"))
+                                                help: "Triangle dans le coin d’une case\u{00A0}: adresse de l’appareil attribuée par un bail DHCP de la FortiGate (sans repère\u{00A0}: adresse fixe, ou attribution inconnue)"))
         }
         if reserved > 0 {
             result.append(AddressPlanLegendItem(kind: .marker(.reservee), label: "Repère réservation", count: reserved,

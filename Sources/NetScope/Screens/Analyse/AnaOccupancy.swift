@@ -262,7 +262,7 @@ struct AnaOccupancyPanel: View {
 
     private func legend(_ page: AddressPlanPage, cells: [AddressPlanCell]) -> some View {
         InvFlowLayout(spacing: 10) {
-            ForEach(AddressPlanLegend.items(page: page, cells: cells, dhcpRead: dhcpReadAt != nil)) { item in
+            ForEach(AddressPlanLegend.items(page: page, cells: cells, dhcpRead: plan.dhcpRead)) { item in
                 HStack(spacing: 5) {
                     switch item.kind {
                     case .state(let state):
@@ -384,7 +384,7 @@ struct AnaOccupancyPanel: View {
         let medium = cell.medium ?? .wired
         if medium.isWireless {
             row("Accès", "Wi-Fi" + (medium.reason.map { " (\($0.label))" } ?? ""))
-            row("Borne", medium.apAfter ?? record.wireless?.apName ?? "inconnue")
+            row("Borne", medium.apAfter ?? record.wireless?.apName ?? "—")
             if let ssid = medium.ssid ?? record.wireless?.ssid {
                 row("SSID", ssid + (medium.band.map { " · \($0.label)" } ?? ""))
             }
@@ -392,10 +392,21 @@ struct AnaOccupancyPanel: View {
                 row("Port", location, mono: true)
             }
         } else {
-            row("Accès", "Filaire")
-            row("Port", record.switchLocation ?? "—", mono: true)
+            if let location = record.switchLocation {
+                row("Accès", "Filaire")
+                row("Port", location, mono: true)
+            } else {
+                // En ligne sans port de switch relevé (derrière un routeur, un VPN…) : accès inconnu.
+                row("Accès", "Inconnu (aucun port de switch relevé)")
+            }
         }
-        row("Adresse", cell.assignment.map(Self.assignmentText) ?? "Inconnue (aucune étendue DHCP lue)")
+        row("Adresse", cell.assignment.map(Self.assignmentText) ?? unknownAssignment(cell))
+    }
+
+    /// Attribution inconnue : pourquoi (DHCP non lu, ou bail ou réservation d'une autre MAC).
+    private func unknownAssignment(_ cell: AddressPlanCell) -> String {
+        if cell.lease != nil || cell.reservation != nil { return "Incertaine (bail ou réservation d’une autre MAC)" }
+        return plan.dhcpRead ? "Inconnue (DHCP de ce sous-réseau non lu)" : "Inconnue (aucune étendue DHCP lue)"
     }
 
     static func assignmentText(_ assignment: AddressAssignment) -> String {

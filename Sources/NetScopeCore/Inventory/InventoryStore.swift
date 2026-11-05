@@ -121,8 +121,11 @@ public struct InventoryStore: Codable, Sendable {
         var produced: [InvEvent] = []
         func emit(_ kind: InvEventKind, _ severity: InvSeverity, key: String, ip: IPv4Address, date eventDate: Date? = nil,
                   title: String, detail: String) {
-            produced.append(InvEvent(date: eventDate ?? date, kind: kind, severity: severity, key: key, ip: ip,
-                                     title: title, detail: detail, baseline: baseline))
+            var event = InvEvent(date: eventDate ?? date, kind: kind, severity: severity, key: key, ip: ip,
+                                 title: title, detail: detail, baseline: baseline)
+            // Note 84 : un changement de port émis ici a été classé Wi-Fi ou filaire.
+            if kind == .changementPort { event.mediumChecked = true }
+            produced.append(event)
         }
 
         // 1. Clé de chaque appareil reçu (une fiche connue par IP gagne sa MAC dès qu'elle apparaît).
@@ -343,7 +346,7 @@ public struct InventoryStore: Codable, Sendable {
                     let verdict = InvWireless.classify(type: type, mac: device.mac ?? record.mac, ip: device.ip, from: from, to: to,
                                                        remembered: record.wireless, context: wireless, now: date)
                     let vlan = (device.vlan ?? record.vlan).map { " · VLAN \($0)" } ?? ""
-                    if verdict.isWireless {
+                    if verdict.isProvenWireless {
                         // Note 84 : itinérance d'un client Wi-Fi (nouvelle borne), sans alerte. Plusieurs
                         // itinérances rapprochées : la borne de départ reste celle de la première.
                         let previous = record.wireless
@@ -354,14 +357,22 @@ public struct InventoryStore: Codable, Sendable {
                              InvWireless.roamingTitle(name: record.displayName, from: from, to: to, apBefore: apBefore, apAfter: verdict.apAfter),
                              "\(device.ip) · \(from) → \(to)" + vlan + " · Wi-Fi\u{00A0}: " + (verdict.reason?.label ?? "")
                              + (verdict.ssid.map { " · SSID \($0)" } ?? ""))
-                        record.wireless = InvWirelessLink(apName: verdict.apAfter ?? previous?.apName, ssid: verdict.ssid ?? previous?.ssid,
-                                                          band: verdict.band ?? previous?.band, seen: date,
-                                                          roamedFrom: apBefore, roamedAt: date)
+                        // Seule une lecture directe (FortiGate, ce Mac, port « Wi-Fi ») crée l'association ou
+                        // rafraîchit sa date : une déduction (port d'une borne, déjà vu) ne se nourrit pas
+                        // d'elle-même.
+                        let direct = verdict.reason?.isDirect ?? false
+                        if direct || previous != nil {
+                            record.wireless = InvWirelessLink(apName: verdict.apAfter ?? previous?.apName, ssid: verdict.ssid ?? previous?.ssid,
+                                                              band: verdict.band ?? previous?.band, seen: direct ? date : (previous?.seen ?? date),
+                                                              roamedFrom: apBefore, roamedAt: date)
+                        }
                     } else {
+                        // Filaire, ou Wi-Fi seulement supposé (téléphone, MAC privée) : l'alerte reste.
                         let sameSwitch = oldSwitch == newSwitch
+                        let guess = verdict.isWireless ? " · probablement Wi-Fi (" + (verdict.reason?.label ?? "") + ")" : ""
                         emit(.changementPort, .alerte, key, device.ip, nil,
                              "Changement de port : \(record.displayName) de \(oldSwitch) \(oldPort) à " + (sameSwitch ? newPort : "\(newSwitch) \(newPort)"),
-                             "\(device.ip) · \(from) → \(to)" + vlan)
+                             "\(device.ip) · \(from) → \(to)" + vlan + guess)
                     }
                 }
             } else {

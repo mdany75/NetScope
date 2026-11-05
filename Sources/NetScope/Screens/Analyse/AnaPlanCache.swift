@@ -43,6 +43,10 @@ struct AnaPlanInputs: Hashable, Sendable {
             hasher.combine(record.hasConflict)
             hasher.combine(record.lastSeen)
             hasher.combine(record.wireless?.seen)
+            hasher.combine(record.wireless?.apName)
+            // Type (choisi à la main ou détecté) et MAC : ils décident du classement filaire ou Wi-Fi.
+            hasher.combine(record.type)
+            hasher.combine(record.mac)
             hasher.combine(record.switchName)
             hasher.combine(record.switchPort)
             digest = digest &+ hasher.finalize()
@@ -57,6 +61,7 @@ struct AnaPlanInputs: Hashable, Sendable {
             hasher.combine(client)
             wifi = wifi &+ hasher.finalize()
         }
+        for ip in addressing.wireless.accessPointIPs { wifi = wifi &+ Int(ip.value) }
         for (location, ap) in addressing.wireless.accessPointPorts {
             var hasher = Hasher()
             hasher.combine(location)

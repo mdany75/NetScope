@@ -101,7 +101,8 @@ enum Theme {
     static let wifi = Color(light: 0x0E7490, dark: 0x67E8F9)
     static let wifiSoft = Color(light: 0xCFFAFE, dark: 0x113A44)
     static let wifiFill = Color(light: 0x0891B2, dark: 0x0E95B0)
-    /// Note 84 : repères des cases (bail DHCP, réservation), lisibles sur toutes les couleurs de case.
+    /// Note 84 : repères des cases (bail DHCP, réservation), lisibles sur toutes les couleurs de case
+    /// d'appareil (une case en conflit, rouge, n'en porte pas).
     static let dhcpMarker = Color(light: 0x172554, dark: 0xF1F5F9)
     static let reservedMarker = Color(light: 0x6D28D9, dark: 0xE9D5FF)
 

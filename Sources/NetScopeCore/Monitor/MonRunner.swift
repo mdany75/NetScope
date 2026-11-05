@@ -355,9 +355,12 @@ public enum MonInventoryChecks {
         }
         var problem: String?
         if location != expected {
-            let verdict = InvWireless.classify(type: device.deviceType, mac: device.mac, ip: device.ip, from: expected, to: location,
+            // Type choisi à la main sur la fiche, sinon celui du scan. Téléphone ou MAC privée ne
+            // suffisent pas : seule une preuve du Wi-Fi efface l'alerte.
+            let type = wireless.manualTypes[mac] ?? device.deviceType
+            let verdict = InvWireless.classify(type: type, mac: device.mac, ip: device.ip, from: expected, to: location,
                                                remembered: nil, context: wireless, now: now)
-            if verdict.isWireless {
+            if verdict.isProvenWireless {
                 let ap = verdict.apAfter.map { "borne \($0)" } ?? value
                 return MonRunOutcome(result: MonResult(date: now, reachable: true, value: "Wi-Fi · " + ap))
             }
