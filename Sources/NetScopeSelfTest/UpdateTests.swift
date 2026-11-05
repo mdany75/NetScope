@@ -65,6 +65,69 @@ private final class FakeTransport: @unchecked Sendable {
 }
 
 func registerUpdateTests(_ suite: TestSuite) {
+    suite.add("Mises à jour : notes de version lues dans le CHANGELOG") {
+        let text = """
+        # Changements
+
+        ## 0.23.0 — 2026-11-05
+
+        Une version de fiabilité : NetScope tient un journal
+        de ses erreurs.
+
+        ### Ajouté
+        - **Journal de NetScope** (Réglages) : les erreurs
+          de chaque module sont gardées.
+        - **« Exporter un diagnostic… »** : une archive .zip.
+
+        ### Corrigé
+        - Le ping continu ne se figeait plus après une mise en veille. Autre phrase.
+
+        ## 0.2.1 — 2026-11-03
+
+        ### Corrigé
+        - `oui.tsv` lu au bon endroit.
+
+        ## Brouillon sans numéro
+        - ignoré
+        """
+        let versions = ChangelogNotes.parse(text)
+        try expectEqual(versions.map(\.version), ["0.23.0", "0.2.1"], "deux versions, l'en-tête sans numéro ignoré")
+        let first = versions[0]
+        try expectEqual(first.summary, "Une version de fiabilité : NetScope tient un journal de ses erreurs.", "paragraphe d'introduction sur deux lignes")
+        try expectEqual(first.sections.map(\.title), ["Ajouté", "Corrigé"], "rubriques")
+        try expectEqual(first.sections[0].items, ["Journal de NetScope", "« Exporter un diagnostic… »"], "titres en gras des points")
+        try expectEqual(first.sections[1].items, ["Le ping continu ne se figeait plus après une mise en veille"], "sans gras : première phrase")
+        try expectEqual(first.itemCount, 3, "trois points")
+        try expect(first.date != nil, "date lue")
+        try expectEqual(versions[1].summary, "", "pas d'introduction")
+        try expectEqual(versions[1].shortSummary, "oui.tsv lu au bon endroit", "résumé repris des points, sans code Markdown")
+    }
+
+    suite.add("Mises à jour : historique complet des versions avec les dates d'installation") {
+        let day = Date(timeIntervalSince1970: 1_800_000_000)
+        let notes = ["0.23.0", "0.22.0", "0.21.0", "0.20.0"].map { ChangelogVersion(version: $0, date: nil, summary: "r", sections: []) }
+        let history = [UpdHistoryEntry(version: "0.22.0", channel: .stable, date: day.addingTimeInterval(3_600)),
+                       UpdHistoryEntry(version: "0.20.0", channel: .stable, date: day),
+                       UpdHistoryEntry(version: "0.22.0", channel: .stable, date: day.addingTimeInterval(-60))]
+        let rows = UpdTimeline.rows(changelog: notes, history: history, running: "0.22.0")
+        try expectEqual(rows.map(\.version), ["0.23.0", "0.22.0", "0.21.0", "0.20.0"], "toutes les versions, la plus récente d'abord")
+        try expectEqual(rows.map(\.state), [.newer, .running, .notInstalled, .previous], "états")
+        try expectEqual(rows[1].installedAt, day.addingTimeInterval(-60), "première installation retenue")
+        try expectEqual(rows[2].installedAt, nil, "jamais installée sur ce Mac")
+        let orphan = UpdTimeline.rows(changelog: [], history: [], running: "1.0.0-beta.1")
+        try expectEqual(orphan.map(\.version), ["1.0.0-beta.1"], "version en cours même sans CHANGELOG")
+        try expectEqual(orphan.first?.channel, .beta, "préversion : canal Bêta")
+        var prefs = UpdPreferences()
+        for n in 0..<150 { prefs.recordRunning(version: "0.\(n).0", now: day) }
+        try expectEqual(prefs.history.count, 150, "historique gardé au-delà de 20 versions")
+    }
+
+    suite.add("Mises à jour : le CHANGELOG du projet se lit en entier") {
+        let versions = ChangelogNotes.bundled()
+        try expect(versions.count >= 25, "au moins 25 versions lues (\(versions.count))")
+        try expect(versions.allSatisfy { $0.itemCount > 0 || !$0.summary.isEmpty }, "chaque version a un résumé ou des points")
+    }
+
     suite.add("Mise à jour : comparaison des versions sémantiques") {
         // Une version illisible devient -1.0.0 : la comparaison échoue alors visiblement.
         func v(_ text: String) -> UpdVersion { UpdVersion(text) ?? UpdVersion(major: -1) }

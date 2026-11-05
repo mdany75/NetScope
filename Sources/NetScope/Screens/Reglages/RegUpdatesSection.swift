@@ -50,7 +50,7 @@ struct RegUpdatesSection: View {
                      if showCard, let release = updates.release {
                          releaseCard(release).padding(.top, 14)
                      }
-                     history.padding(.top, 16)
+                     RegUpdatesHistory(updates: updates).padding(.top, 16)
                      tokenBox.padding(.top, 14)
                  })
     }
@@ -278,50 +278,6 @@ struct RegUpdatesSection: View {
                 }
             }
             ProgressBar(fraction: fraction, color: phase == .ready ? Theme.success : Theme.accent)
-        }
-    }
-
-    // MARK: Historique
-
-    private var history: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            RegLabel("Historique des versions installées")
-            VStack(spacing: 0) {
-                TableHeader(columns: [
-                    .init(title: "Version", width: 150),
-                    .init(title: "Canal", width: 90),
-                    .init(title: "Installée le"),
-                    .init(title: "État", width: 120, alignment: .trailing),
-                ])
-                let entries = updates.prefs.history.isEmpty
-                    ? [UpdHistoryEntry(version: UpdController.currentVersionText, channel: .stable, date: Date())]
-                    : updates.prefs.history
-                ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
-                    HStack(spacing: 0) {
-                        Text(entry.version).font(Theme.mono(12, weight: .semibold)).padding(.horizontal, 12)
-                            .frame(width: 150, alignment: .leading)
-                        Text(entry.channel.label).font(Theme.small).foregroundStyle(Theme.textSecondary).padding(.horizontal, 8)
-                            .frame(width: 90, alignment: .leading)
-                        Text(RegFormat.day(entry.date)).font(Theme.small).lineLimit(1).padding(.horizontal, 8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        RegPill(text: index == 0 ? "Installée" : "Précédente", tone: index == 0 ? .success : .neutral)
-                            .padding(.horizontal, 12)
-                            .frame(width: 120, alignment: .trailing)
-                    }
-                    .frame(height: 36)
-                    .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
-            .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
-            HStack(spacing: 10) {
-                Button {} label: { Label("Revenir à la version précédente", systemImage: "arrow.uturn.backward") }
-                    .buttonStyle(.secondary)
-                    .regDisabled(true)
-                Text("Retour arrière : bientôt. En attendant, réinstallez l’image disque d’une version précédente depuis GitHub.")
-                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
-            }
-            .padding(.top, 2)
         }
     }
 

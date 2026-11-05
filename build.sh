@@ -219,6 +219,10 @@ cp "${ICON_FILE}" "${CONTENTS_DIR}/Resources/AppIcon.icns"
 cp "${OUI_FILE}" "${CONTENTS_DIR}/Resources/oui.tsv"
 [[ -s "${CONTENTS_DIR}/Resources/oui.tsv" ]] || die "oui.tsv absent de l'application"
 
+# Notes de version (Réglages › Mises à jour : historique complet et résumé de chaque version).
+cp "${ROOT_DIR}/CHANGELOG.md" "${CONTENTS_DIR}/Resources/CHANGELOG.md"
+[[ -s "${CONTENTS_DIR}/Resources/CHANGELOG.md" ]] || die "CHANGELOG.md absent de l'application"
+
 # fr.lproj : sa présence suffit pour que les panneaux système s'affichent en français.
 if [[ -d "${LPROJ_DIR}" ]]; then
     find "${LPROJ_DIR}" -maxdepth 1 -type f ! -name '.*' \
