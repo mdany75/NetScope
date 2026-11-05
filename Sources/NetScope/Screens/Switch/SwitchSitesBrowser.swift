@@ -266,6 +266,8 @@ struct SwitchSitesBrowser: View {
             state.navigate(NavDestination(.switchs, focus: .switchPort(host: entry.snapshot.id, port: nil), sites: .only([entry.siteKey])))
             scopes.set(.active, for: .switchs, persist: false)
             store.select(host: entry.snapshot.id)
+            // Note 83 : la façade est dans l'onglet Switchs.
+            SwitchTabState.shared.tab = .switchs
         } else {
             selection = [entry.id]
         }

@@ -106,6 +106,8 @@ registerRustDeskServerTests(suite)
 registerDeviceLookupTests(suite)
 // Note 78 (0.27.0) : Wi-Fi de ce Mac (meilleur canal, historique d'une heure, relevé par pièce).
 registerWifiLocalTests(suite)
+// Note 83 (0.27.0) : Switchs et ports en onglets.
+registerSwitchPageTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

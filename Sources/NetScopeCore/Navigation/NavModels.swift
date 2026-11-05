@@ -272,14 +272,18 @@ public struct NavLocation: Hashable, Sendable {
     public var sites: SiteSelection?
     /// Ce qui était montré (port du switch, fiche d'inventaire, borne…).
     public var focus: NavFocus?
+    /// Note 83 : onglet de l'écran (Switchs et ports : `SwitchPageTab.rawValue`) ; nil pour un
+    /// écran sans onglets retenus par l'historique.
+    public var tab: String?
 
     public init(_ module: NavModule, search: String = "", filter: NavFilter? = nil, deviceID: String? = nil,
-                sites: SiteSelection? = nil, focus: NavFocus? = nil) {
+                sites: SiteSelection? = nil, focus: NavFocus? = nil, tab: String? = nil) {
         self.module = module
         self.search = search
         self.filter = filter
         self.deviceID = deviceID
         self.sites = sites
         self.focus = focus
+        self.tab = tab
     }
 }

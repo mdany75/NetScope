@@ -761,6 +761,8 @@ final class SwitchStore: ObservableObject {
     func find(_ query: String, devices: [Device]) {
         let raw = query.trimmingCharacters(in: .whitespaces)
         findQuery = raw
+        // Note 83 : le résultat s'affiche sous la façade, dans l'onglet Switchs.
+        SwitchTabState.shared.tab = .switchs
         guard !raw.isEmpty else {
             findResult = nil
             return

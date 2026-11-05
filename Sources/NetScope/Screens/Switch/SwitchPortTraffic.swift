@@ -246,19 +246,5 @@ struct SwitchTopPorts: View {
     }
 }
 
-/// Branche les relevés de ressources du switch affiché : ils tournent tant que l'écran est visible.
-struct SwitchResourceLifecycle: ViewModifier {
-    let monitor: SNMPResourceMonitor
-
-    func body(content: Content) -> some View {
-        // Une tâche par switch : changer de switch arrête les relevés du précédent.
-        content.task(id: monitor.host) {
-            let current = monitor
-            current.retain(autoStart: true)
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 3_600_000_000_000)
-            }
-            current.release()
-        }
-    }
-}
+// Note 83 : les relevés du switch affiché sont branchés par SwitchTrafficLifecycle
+// (SwitchScreen.swift), quel que soit l'onglet.

@@ -51,7 +51,9 @@ extension AppState {
         NavLocation(screen.navModule, search: searchTexts[screen] ?? "", filter: navFilters[screen],
                     deviceID: selectedDeviceID,
                     sites: SiteScopeStore.screens.contains(screen) ? SiteScopeStore.shared.selection(for: screen) : nil,
-                    focus: currentFocus(of: screen))
+                    focus: currentFocus(of: screen),
+                    // Note 83 : l'onglet de Switchs et ports revient avec Retour / Avancer.
+                    tab: screen == .switchs ? SwitchTabState.shared.tab.rawValue : nil)
     }
 
     /// Ce que l'écran montre en ce moment (port du switch, sonde, connexion, outil…).
@@ -175,6 +177,10 @@ extension AppState {
         var siteKey: String?
         if case .sites(let keys)? = location.sites, keys.count == 1 { siteKey = keys[0] }
         if let focus = location.focus { apply(focus, on: target, siteKey: siteKey) }
+        // Note 83 : l'onglet quitté (Retour), après le port qui choisirait sinon l'onglet Ports.
+        if target == .switchs, let raw = location.tab, let tab = SwitchPageTab(rawValue: raw) {
+            SwitchTabState.shared.tab = tab
+        }
         screen = target
     }
 
@@ -205,6 +211,7 @@ extension AppState {
                 if split.site == active, activeView {
                     let index = port.flatMap { name in store.snapshots[split.key]?.interfaces.first { $0.name == name }?.index }
                     store.select(host: split.key, port: index)
+                    SwitchTabState.shared.tab = index == nil ? .switchs : .ports
                 } else {
                     store.browseFocus = SwitchBrowseFocus(siteKey: split.site, hostOrName: split.key, port: port)
                 }
@@ -223,6 +230,8 @@ extension AppState {
             }
             let index = port.flatMap { name in store.snapshots[host]?.interfaces.first { $0.name == name }?.index }
             store.select(host: host, port: index)
+            // Note 83 : le port demandé s'ouvre dans l'onglet Ports, le switch seul dans Switchs.
+            SwitchTabState.shared.tab = index == nil ? .switchs : .ports
         case .accessPoint(let id):
             FortiAPStore.shared.closeClient()
             FortiAPStore.shared.viewedSSID = nil
