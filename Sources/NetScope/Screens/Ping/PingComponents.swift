@@ -10,6 +10,45 @@ extension PingTargetStatus {
         case .enLigne: return .success
         case .perte: return .warning
         case .horsLigne: return .critical
+        case .enPause: return .neutral
+        }
+    }
+}
+
+/// Petit bouton rond pause / reprise d'une cible (cartes, à côté de la pastille d'état).
+struct PingPauseButton: View {
+    let isPaused: Bool
+    let action: () -> Void
+    /// Couleurs de la carte Terminal (sombre dans les deux apparences).
+    var console = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: isPaused ? "play.fill" : "pause.fill")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(console ? Theme.consoleText : isPaused ? Theme.accentStrong : Theme.textSecondary)
+                .frame(width: 20, height: 20)
+                .background(Circle().fill(console ? Color.white.opacity(0.12) : isPaused ? Theme.accentSoft : Theme.neutralSoft))
+                .overlay(Circle().strokeBorder(console ? Color.white.opacity(0.18) : Theme.border))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(isPaused ? "Reprendre cette cible" : "Mettre cette cible en pause (les autres continuent)")
+        .accessibilityLabel(isPaused ? "Reprendre la cible" : "Mettre la cible en pause")
+    }
+}
+
+/// Entrées communes du clic droit sur une carte (à l'endroit ou retournée).
+struct PingTargetMenu: View {
+    let target: PingTarget
+    let onTogglePause: () -> Void
+    let onRemove: () -> Void
+
+    var body: some View {
+        Button(target.isPaused ? "Reprendre la cible" : "Mettre la cible en pause", action: onTogglePause)
+        Button("Copier l’adresse") {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(target.addressLabel, forType: .string)
         }
     }
 }
@@ -154,6 +193,7 @@ struct PingTargetCard: View {
     let target: PingTarget
     let isSelected: Bool
     let onSelect: () -> Void
+    let onTogglePause: () -> Void
     let onRemove: () -> Void
 
     var body: some View {
@@ -161,25 +201,30 @@ struct PingTargetCard: View {
         let stats = PingStatistics(values: values)
         let status = target.status
         let last = target.history.last
-        Button(action: onSelect) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .top, spacing: 8) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(target.name)
-                            .font(Theme.bodySemibold)
-                            .foregroundStyle(Theme.text)
-                            .lineLimit(1)
-                        (Text(target.addressLabel).font(Theme.mono(12)).foregroundColor(Theme.text)
-                            + Text(target.role.isEmpty ? "" : " · \(target.role)").font(Theme.small).foregroundColor(Theme.textSecondary))
-                            .lineLimit(1)
-                    }
-                    Spacer(minLength: 4)
-                    if target.error != nil {
+        let paused = target.isPaused
+        // Pas un Button : le petit bouton pause de l'en-tête doit recevoir son propre clic.
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(target.name)
+                        .font(Theme.bodySemibold)
+                        .foregroundStyle(Theme.text)
+                        .lineLimit(1)
+                    (Text(target.addressLabel).font(Theme.mono(12)).foregroundColor(Theme.text)
+                        + Text(target.role.isEmpty ? "" : " · \(target.role)").font(Theme.small).foregroundColor(Theme.textSecondary))
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                HStack(spacing: 6) {
+                    if target.error != nil, !paused {
                         PingStatusPill(text: "Erreur", tone: .critical)
                     } else {
                         PingStatusPill(text: status.label, tone: status.tone)
                     }
+                    PingPauseButton(isPaused: paused, action: onTogglePause)
                 }
+            }
+            Group {
                 HStack(alignment: .center, spacing: 12) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(latencyText(last))
@@ -214,21 +259,24 @@ struct PingTargetCard: View {
                 }
                 .font(Theme.caption)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius)
-                .strokeBorder(isSelected ? Theme.accent : Theme.border, lineWidth: isSelected ? 2 : 1))
-            .contentShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
+            // Cible en pause : mesures figées, atténuées.
+            .opacity(paused ? 0.45 : 1)
         }
-        .buttonStyle(.plain)
-        .help(target.error ?? "Analyser \(target.addressLabel)")
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(paused ? Theme.panelMuted : Theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius)
+            .strokeBorder(isSelected ? Theme.accent : Theme.border,
+                          style: StrokeStyle(lineWidth: isSelected ? 2 : 1, dash: paused && !isSelected ? [4, 3] : [])))
+        .contentShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
+        .onTapGesture(perform: onSelect)
+        .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction(named: "Analyser", onSelect)
+        .help(paused ? "\(target.addressLabel) en pause · statistiques figées" : target.error ?? "Analyser \(target.addressLabel)")
         .contextMenu {
-            Button("Copier l’adresse") {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(target.addressLabel, forType: .string)
-            }
+            PingTargetMenu(target: target, onTogglePause: onTogglePause, onRemove: onRemove)
             Divider()
             Button("Retirer la cible", role: .destructive, action: onRemove)
         }
@@ -241,6 +289,7 @@ struct PingTargetCard: View {
     }
 
     private func unitText(_ last: PingSample?) -> String {
+        if target.isPaused { return "en pause" }
         if let error = target.error { return error.contains("introuvable") ? "nom introuvable" : "socket refusée" }
         guard let last else { return target.address == nil ? "résolution…" : "en attente" }
         return last.failure?.label ?? "ms"

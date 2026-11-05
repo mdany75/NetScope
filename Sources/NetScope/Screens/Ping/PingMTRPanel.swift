@@ -55,6 +55,13 @@ struct PingMTRPanel: View {
         StandardColumn(id: "perdus", title: "Perdus", isDefaultVisible: false),
     ]
 
+    /// Largeurs idéales (0.21.0) : resserrées pour que les neuf colonnes par défaut tiennent dans
+    /// une fenêtre normale ; plus étroit, le tableau défile à gauche et à droite.
+    static let widths: [String: CGFloat] = [
+        "numero": 20, "hote": 72, "ip": 110, "perte": 46, "envoyes": 58, "dernier": 62, "moyenne": 36,
+        "meilleur": 70, "pire": 34, "ecartType": 84, "recus": 46, "perdus": 52,
+    ]
+
     static let sortKeys: [String: KeyPathComparator<PingHopLine>] = [
         "numero": KeyPathComparator(\PingHopLine.sortTTL),
         "hote": KeyPathComparator(\PingHopLine.sortHost),
@@ -113,8 +120,12 @@ struct PingMTRPanel: View {
             if let report, !report.hops.isEmpty {
                 let rows = report.hops.map { PingHopLine(hop: $0, host: hostname(for: $0)) }
                     .sorted(using: table.sortOrder)
-                PingHopTable(rows: rows, controller: controller, table: table)
-                    .standardTableHeight(rows: rows.count, rowHeight: Self.rowHeight, maxRows: Self.maxRows)
+                StandardTableHorizontalScroll(
+                    minWidth: table.contentWidth(Self.widths),
+                    height: StandardTableMetrics.height(rows: rows.count, rowHeight: Self.rowHeight, maxRows: Self.maxRows)) {
+                    PingHopTable(rows: rows, controller: controller, table: table)
+                        .standardTableHeight(rows: rows.count, rowHeight: Self.rowHeight, maxRows: Self.maxRows)
+                }
             } else {
                 Text(placeholder)
                     .font(Theme.small)
@@ -193,7 +204,7 @@ private struct PingHopTable: View {
                     PingCell("\(line.hop.ttl)", color: Theme.textSecondary)
                         .frame(height: Self.cellHeight)
                 }
-                .width(min: 24, ideal: 28, max: 40)
+                .width(min: 20, ideal: PingMTRPanel.widths["numero"]!, max: 40)
                 .customizationID("numero")
                 .disabledCustomizationBehavior(.visibility)
 
@@ -206,57 +217,57 @@ private struct PingHopTable: View {
                         .truncationMode(.tail)
                         .help(line.hop.isDestination ? "\(line.host) · destination" : line.host)
                 }
-                .width(min: 80, ideal: 94)
+                .width(min: 64, ideal: PingMTRPanel.widths["hote"]!)
                 .customizationID("hote")
 
                 TableColumn(StandardTableHeading("IP"), sortUsing: table.sort("ip")) { line in
                     PingCell(line.hop.address?.description ?? "—", mono: true, size: 11)
                 }
-                .width(min: 100, ideal: 110)
+                .width(min: 90, ideal: PingMTRPanel.widths["ip"]!)
                 .customizationID("ip")
 
                 TableColumn(StandardTableHeading("PERTE"), sortUsing: table.sort("perte")) { line in
                     let loss = line.stats.lossPercent
                     PingCell(PingFormat.percent(loss), mono: true, color: pingLossColor(loss), bold: loss > 0, trailing: true)
                 }
-                .width(min: 46, ideal: 52)
+                .width(min: 44, ideal: PingMTRPanel.widths["perte"]!)
                 .customizationID("perte")
 
                 TableColumn(StandardTableHeading("ENVOYÉS"), sortUsing: table.sort("envoyes")) { line in
                     PingCell("\(line.stats.sent)", mono: true, color: Theme.textSecondary, trailing: true)
                 }
-                .width(min: 56, ideal: 64)
+                .width(min: 50, ideal: PingMTRPanel.widths["envoyes"]!)
                 .customizationID("envoyes")
                 .defaultVisibility(.hidden)
 
                 TableColumn(StandardTableHeading("DERNIER"), sortUsing: table.sort("dernier")) { line in
                     PingCell(PingFormat.decimal(line.stats.last), mono: true, trailing: true)
                 }
-                .width(min: 54, ideal: 60)
+                .width(min: 46, ideal: PingMTRPanel.widths["dernier"]!)
                 .customizationID("dernier")
 
                 TableColumn(StandardTableHeading("MOY"), sortUsing: table.sort("moyenne")) { line in
                     PingCell(PingFormat.decimal(line.stats.average), mono: true, bold: true, trailing: true)
                 }
-                .width(min: 38, ideal: 42)
+                .width(min: 32, ideal: PingMTRPanel.widths["moyenne"]!)
                 .customizationID("moyenne")
 
                 TableColumn(StandardTableHeading("MEILLEUR"), sortUsing: table.sort("meilleur")) { line in
                     PingCell(PingFormat.decimal(line.stats.best), mono: true, trailing: true)
                 }
-                .width(min: 60, ideal: 68)
+                .width(min: 52, ideal: PingMTRPanel.widths["meilleur"]!)
                 .customizationID("meilleur")
 
                 TableColumn(StandardTableHeading("PIRE"), sortUsing: table.sort("pire")) { line in
                     PingCell(PingFormat.decimal(line.stats.worst), mono: true, trailing: true)
                 }
-                .width(min: 38, ideal: 42)
+                .width(min: 32, ideal: PingMTRPanel.widths["pire"]!)
                 .customizationID("pire")
 
                 TableColumn(StandardTableHeading("ÉCART-TYPE"), sortUsing: table.sort("ecartType")) { line in
                     PingCell(PingFormat.decimal(line.stats.standardDeviation), mono: true, trailing: true)
                 }
-                .width(min: 70, ideal: 80)
+                .width(min: 60, ideal: PingMTRPanel.widths["ecartType"]!)
                 .customizationID("ecartType")
             }
 
@@ -264,7 +275,7 @@ private struct PingHopTable: View {
                 TableColumn(StandardTableHeading("REÇUS"), sortUsing: table.sort("recus")) { line in
                     PingCell("\(line.stats.received)", mono: true, trailing: true)
                 }
-                .width(min: 48, ideal: 56)
+                .width(min: 40, ideal: PingMTRPanel.widths["recus"]!)
                 .customizationID("recus")
                 .defaultVisibility(.hidden)
 
@@ -272,7 +283,7 @@ private struct PingHopTable: View {
                     PingCell("\(line.stats.lost)", mono: true,
                              color: line.stats.lost > 0 ? pingLossColor(line.stats.lossPercent) : Theme.text, trailing: true)
                 }
-                .width(min: 50, ideal: 60)
+                .width(min: 44, ideal: PingMTRPanel.widths["perdus"]!)
                 .customizationID("perdus")
                 .defaultVisibility(.hidden)
             }

@@ -16,14 +16,18 @@ struct PingTarget: Identifiable {
     var error: String?
     var history = PingHistory()
     var thresholdMs: Double
+    /// Pause propre à la cible (0.21.0) : plus aucun envoi, statistiques figées.
+    var pauses = PingPausePeriods()
 
-    var status: PingTargetStatus { PingTargetStatus.of(history) }
+    var isPaused: Bool { pauses.isPaused }
+    var status: PingTargetStatus { PingTargetStatus.of(history, isPaused: isPaused) }
     var addressLabel: String { address?.description ?? input }
 }
 
 /// Moteur de l'écran Ping continu : cibles, mesures, journal et MTR. Une seule instance, qui
 /// survit aux changements d'écran : le ping continue en arrière-plan une fois démarré.
-/// Aucun paquet n'est envoyé avant la première ouverture de l'écran.
+/// L'écran s'ouvre vide (0.21.0) : aucune cible d'office ; elles viennent du champ, du Scanner,
+/// de la fiche Appareil et des autres écrans (AppState.pingTargets).
 @MainActor
 final class PingController: ObservableObject {
     static let shared = PingController()
@@ -84,34 +88,29 @@ final class PingController: ObservableObject {
     }
 
     var totalSent: Int { targets.reduce(0) { $0 + $1.history.totalSent } }
+    var pausedCount: Int { targets.filter(\.isPaused).count }
     var totalLost: Int { targets.reduce(0) { $0 + $1.history.totalSent - $1.history.totalReceived } }
 
     // MARK: Démarrage
 
-    /// Appelé à l'ouverture de l'écran : démarre la session la première fois, puis reprend les
-    /// cibles envoyées par les autres écrans (AppState.pingTargets).
+    /// Captures : NETSCOPE_PING_VIDE=1 montre l'écran tel qu'à la première ouverture (vide).
+    private var demoEmpty: Bool {
+        isSimulated && ProcessInfo.processInfo.environment["NETSCOPE_PING_VIDE"] == "1"
+    }
+
+    /// Appelé à l'ouverture de l'écran : ouvre la session la première fois, sans aucune cible
+    /// d'office ni journal, puis reprend les cibles envoyées par les autres écrans
+    /// (AppState.pingTargets).
     func activate(with state: AppState) {
         appState = state
         if !hasStarted {
             hasStarted = true
             sessionStart = Date()
-            if isSimulated {
-                loadDemo(state: state)
-            } else {
-                Task { await startLive(state: state) }
-                return
-            }
+            if demoEmpty { return }
+            if isSimulated { loadDemo(state: state) }
         }
+        guard !demoEmpty else { return }
         sync(with: state.pingTargets)
-    }
-
-    private func startLive(state: AppState) async {
-        if let gateway = await PingResolver.defaultGatewayAsync() {
-            add(gateway.description, name: "Passerelle", role: "Passerelle par défaut", log: false)
-        }
-        add("1.1.1.1", log: false)
-        sync(with: state.pingTargets, log: false)
-        log(.info, "Session", "surveillance démarrée · \(targets.count) cibles · ICMP · \(payloadSize) octets · \(PingFormat.duration(interval))")
     }
 
     /// Ajoute les cibles reçues des autres écrans.
@@ -222,7 +221,8 @@ final class PingController: ObservableObject {
 
     private func startMonitor(_ id: PingTarget.ID) {
         guard !isSimulated, !isPaused, monitors[id] == nil,
-              let address = targets.first(where: { $0.id == id })?.address else { return }
+              let target = targets.first(where: { $0.id == id }), !target.isPaused,
+              let address = target.address else { return }
         let monitor = PingMonitor(address: address, options: options) { sample in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated { PingController.shared.enqueue(id, sample) }
@@ -257,6 +257,8 @@ final class PingController: ObservableObject {
 
     private func apply(_ sample: PingSample, to id: PingTarget.ID) {
         guard let index = targets.firstIndex(where: { $0.id == id }) else { return }
+        // Mesure envoyée pendant une pause (arrivée en retard) : ignorée, les statistiques restent figées.
+        guard !targets[index].pauses.covers(sample.date) else { return }
         let previous = targets[index].history.consecutiveLosses
         let wasAbove = (targets[index].history.last?.rttMs).map { $0 > targets[index].thresholdMs } ?? false
         targets[index].history.append(sample)
@@ -313,7 +315,8 @@ final class PingController: ObservableObject {
             simulationTimer?.invalidate()
             simulationTimer = nil
         } else {
-            for (id, monitor) in monitors {
+            // Les cibles mises en pause une à une restent en pause.
+            for (id, monitor) in monitors where targets.first(where: { $0.id == id })?.isPaused == false {
                 do {
                     monitor.update(options)
                     try monitor.start()
@@ -327,8 +330,38 @@ final class PingController: ObservableObject {
         log(.info, "Session", isPaused ? "surveillance en pause" : "surveillance reprise")
     }
 
+    /// Pause ou reprise d'une seule cible : les autres continuent. La pause globale reste
+    /// prioritaire (une cible reprise pendant la pause globale repart avec elle).
+    func togglePause(_ id: PingTarget.ID) {
+        guard let index = targets.firstIndex(where: { $0.id == id }) else { return }
+        let now = Date()
+        let since = targets[index].pauses.pausedSince
+        let paused = targets[index].pauses.toggle(at: now)
+        let target = targets[index]
+        if paused {
+            monitors[id]?.stop()
+        } else if PingPausePeriods.isSending(globalPaused: isPaused, targetPaused: false) {
+            if let monitor = monitors[id] {
+                do {
+                    monitor.update(options)
+                    try monitor.start()
+                } catch {
+                    update(id) { $0.error = error.localizedDescription }
+                }
+            } else {
+                startMonitor(id)
+            }
+        }
+        log(.info, target.addressLabel,
+            PingPausePeriods.journalMessage(paused: paused, duration: since.map { now.timeIntervalSince($0) }))
+    }
+
     func reset() {
-        for index in targets.indices { targets[index].history.reset() }
+        let now = Date()
+        for index in targets.indices {
+            targets[index].history.reset()
+            targets[index].pauses.reset(at: now)
+        }
         sessionStart = Date()
         events = [PingEvent(level: .info, subject: "Session", message: "statistiques réinitialisées")]
         if let report = mtrReport { mtrReport = PingMTRReport(destination: report.destination) }
@@ -348,29 +381,12 @@ final class PingController: ObservableObject {
     // MARK: Export
 
     /// Toutes les mesures en CSV (séparateur « ; », virgule décimale, comme Excel en français).
-    func csv() -> String {
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        var lines = ["horodatage;cible;adresse;seq;rtt_ms;perdu;raison"]
-        for target in targets {
-            for sample in target.history.samples {
-                let rtt = sample.rttMs.map { PingFormat.decimal($0, digits: 3) } ?? ""
-                lines.append([iso.string(from: sample.date), Self.csvField(target.name),
-                              Self.csvField(target.addressLabel), "\(sample.sequence)", rtt, sample.isLost ? "1" : "0",
-                              Self.csvField(sample.failure?.label ?? "")].joined(separator: ";"))
-            }
-        }
-        return lines.joined(separator: "\n") + "\n"
+    /// Aucune mesure n'est comptée pendant la pause d'une cible (NetScopeCore.PingCSV).
+    private var csvTargets: [PingCSV.Target] {
+        targets.map { PingCSV.Target(name: $0.name, address: $0.addressLabel, samples: $0.history.samples, pauses: $0.pauses) }
     }
 
-    /// Champ texte sûr : ni séparateur ni saut de ligne, et pas de formule interprétée par le tableur.
-    static func csvField(_ text: String) -> String {
-        var clean = text.replacingOccurrences(of: ";", with: ",")
-            .replacingOccurrences(of: "\r", with: " ")
-            .replacingOccurrences(of: "\n", with: " ")
-        if let first = clean.first, "=+-@".contains(first) { clean = "'" + clean }
-        return clean
-    }
+    func csv() -> String { PingCSV.make(csvTargets) }
 
     func exportCSV() {
         let panel = NSSavePanel()
@@ -382,7 +398,7 @@ final class PingController: ObservableObject {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try csv().write(to: url, atomically: true, encoding: .utf8)
-            let count = targets.reduce(0) { $0 + $1.history.samples.count }
+            let count = PingCSV.count(csvTargets)
             log(.info, "Export", "CSV enregistré : \(targets.count) cibles, \(count) mesures (\(url.lastPathComponent))")
         } catch {
             log(.alerte, "Export", "échec de l’enregistrement : \(error.localizedDescription)")
@@ -479,6 +495,14 @@ final class PingController: ObservableObject {
                                     thresholdMs: profile?.threshold ?? PingEventDetector.defaultThreshold(for: address))
             if profile == nil { describe(&target) }
             if let profile { target.history = PingDemo.prefill(profile, now: now) }
+            if input == PingDemo.pausedInput {
+                // Cible en pause : plus aucune mesure depuis la mise en pause.
+                let start = PingDemo.date(of: PingDemo.pausedIndex, now: now)
+                target.pauses.pause(at: start)
+                var history = PingHistory()
+                for sample in target.history.samples where sample.date < start { history.append(sample) }
+                target.history = history
+            }
             targets.append(target)
         }
         sessionStart = now.addingTimeInterval(-121)
@@ -503,7 +527,7 @@ final class PingController: ObservableObject {
 
     private func simulateTick() {
         let now = Date()
-        for target in targets {
+        for target in targets where !target.isPaused {
             let profile = PingDemo.profile(for: target.input) ?? PingDemo.genericProfile(for: target.input, address: target.address)
             let sequence = (target.history.last?.sequence ?? 0) + 1
             apply(PingSample(sequence: sequence, date: now, rttMs: PingDemo.sample(for: profile, payloadSize: payloadSize)), to: target.id)

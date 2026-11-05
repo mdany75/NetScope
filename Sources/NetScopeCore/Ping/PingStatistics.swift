@@ -148,6 +148,8 @@ public struct PingHistory: Sendable {
 /// État d'une cible, d'après ses dernières mesures.
 public enum PingTargetStatus: String, Sendable {
     case attente, enLigne, perte, horsLigne
+    /// Cible mise en pause par l'utilisateur : plus aucun envoi, statistiques figées.
+    case enPause
 
     /// Pertes consécutives à partir desquelles la cible est « hors ligne ».
     public static let offlineThreshold = 3
@@ -158,11 +160,14 @@ public enum PingTargetStatus: String, Sendable {
         case .enLigne: return "En ligne"
         case .perte: return "Perte"
         case .horsLigne: return "Hors ligne"
+        case .enPause: return "En pause"
         }
     }
 
-    /// Hors ligne après 3 pertes consécutives ; « Perte » s'il manque une réponse parmi les 10 dernières.
-    public static func of(_ history: PingHistory) -> PingTargetStatus {
+    /// Hors ligne après 3 pertes consécutives ; « Perte » s'il manque une réponse parmi les 10 dernières ;
+    /// « En pause » l'emporte sur tout le reste.
+    public static func of(_ history: PingHistory, isPaused: Bool = false) -> PingTargetStatus {
+        if isPaused { return .enPause }
         if history.isEmpty { return .attente }
         if history.consecutiveLosses >= offlineThreshold { return .horsLigne }
         if history.samples.suffix(10).contains(where: \.isLost) { return .perte }
