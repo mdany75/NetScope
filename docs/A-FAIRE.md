@@ -5,9 +5,9 @@
 
 ## Priorités (revues le 4 novembre 2026, réorganisées avec les notes 45 à 56)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0.
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0 ; notes 42 et 10 dans la 0.20.0 (la 0.19.0, notes 40 et 41, reste à faire).
 
-1. **0.13.x à 0.17.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP ; 0.17.0 : relecture automatique, WAN et VPN, Trafic FortiView et analyse complète à essayer sur de vraies FortiGate ; 0.18.0 : FTP, FTPS, SFTP, TFTP, « Bloqué ici », NAS dans Vitesse des disques, export, import et synchronisation à essayer sur de vrais appareils et deux Mac) : essais réels de la 0.3.x (localisation, DHCP, capture,
+1. **0.13.x à 0.17.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP ; 0.17.0 : relecture automatique, WAN et VPN, Trafic FortiView et analyse complète à essayer sur de vraies FortiGate ; 0.18.0 : FTP, FTPS, SFTP, TFTP, « Bloqué ici », NAS dans Vitesse des disques, export, import et synchronisation à essayer sur de vrais appareils et deux Mac ; 0.20.0 : rapport de suivi, rapports planifiés et Inventaire repensé à essayer sur les vrais sites) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
    des 0.5.0 à 0.8.0 (voir ci-dessous) ; 0.13.1 au besoin.
 2. ~~**0.5.0, diagnostic du poste et du réseau local**~~ : livrée le 4 novembre 2026
@@ -58,7 +58,14 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
     état « Bloqué ici » ; 55 : NAS et partages dans Vitesse des disques ; 56 : export, import et
     synchronisation de la configuration par iCloud Drive) ; essai réel à faire sur de vrais
     serveurs, switchs, téléphones IP, le NAS et deux Mac de Dany.
-16. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany ;
+16. ~~**0.20.0, rapports et Inventaire**~~ : livrée le 4 novembre 2026, avant la 0.19.0
+    (notes 42 : section « Depuis le dernier rapport », rapports passés par site, rapports
+    planifiés par site avec rattrapage unique au lancement et notification ; 10 : Inventaire
+    phase 3, ajout à la main et rapprochement par MAC ou IP, ajout automatique au choix par site,
+    archivage et « Ne plus réajouter », déplacement entre sites, fiche matériel et garantie,
+    pièces jointes, étiquettes et filtres) ; essai réel à faire sur les sites de Dany (rapports
+    planifiés sur plusieurs jours, rapprochement par un vrai scan, reprise des inventaires).
+17. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany ;
     réorganisé le même jour pour placer les notes 45 à 53, ordre accepté par Dany) :
     - **0.13.1** : essais réels (sites, FortiGate, FortiAP, navigation) et correctifs ; note 35
       (journal et diagnostic).
@@ -76,7 +83,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       disques), 56 (export, import et synchronisation de la configuration).
     - **0.19.0, parc Fortinet** : notes 40 (sauvegarde des configurations), 41 (firmware et
       licences).
-    - **0.20.0, rapports et Inventaire** : notes 42 (rapport de suivi), 10 (Inventaire phase 3).
+    - ~~**0.20.0, rapports et Inventaire**~~ (livrée) : notes 42 (rapport de suivi), 10 (Inventaire phase 3).
     - **0.21.0, journaux et aide** : notes 43 (Syslog et traps), 44 (aide et accueil).
     - **Plus tard** : notes 11 (Ping continu), 6 (RustDesk), anglais ; idées d’un cran en dessous :
       navigateur SNMP, toner des imprimantes, test de câble, qualité VoIP (MOS), scan d’un VLAN
@@ -92,12 +99,12 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 | Switchs et ports, Fortinet | 12, 24, 25, 29, 39, 54 | 40 et 41 (0.19.0) |
 | Wi-Fi | 1, 27, 46, 47 | — |
 | Carte du réseau | 32 | — |
-| Inventaire | 8, 30 | 10 (0.20.0) |
+| Inventaire | 8, 10, 30 | — |
 | Ping continu | — | 11 (plus tard) |
 | Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22, 37, 51, 53, 55 | — |
 | Accès distant | 5, 50, 52 | 6 (plus tard) |
 | Surveillance et alertes | 3, 23 | 43 (0.21.0) |
-| Rapports | 4 | 42 (0.20.0) |
+| Rapports | 4, 42 | — |
 | Réglages, sauvegarde, aide | 9, 13, 38, 56 | 35 (0.13.1), 44 (0.21.0) |
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
@@ -266,6 +273,8 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 - À faire après la note 8 (mêmes fichiers d'interface).
 
 ## 10. Repenser le module Inventaire — PHASE 3 (demande de Dany)
+
+**Livrée dans la 0.20.0** (4 novembre 2026) ; essai réel à faire sur un vrai scan et les sites de Dany.
 
 - Reporté en phase 3 : revoir le module Inventaire en entier (rôle, disposition, données,
   usage au quotidien). À préciser avec Dany avant de commencer : ce qui ne lui convient pas
@@ -763,6 +772,8 @@ entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 3
   rapport enfin rempli ; alertes avant expiration.
 
 ## 42. Rapport de suivi et rapports planifiés — 0.20.0 (analyse, retenue par Dany)
+
+**Livrée dans la 0.20.0** (4 novembre 2026) ; essai réel à faire sur un vrai scan et les sites de Dany.
 
 - « Depuis le dernier rapport » : nouveaux appareils, disparus, problèmes réglés ou nouveaux
   (réutilise la comparaison de l’Analyse) ; rapports produits à date fixe par site.

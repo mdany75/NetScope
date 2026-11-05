@@ -1,5 +1,77 @@
 # Changements
 
+## 0.20.0 — 2026-11-04
+
+Les rapports de suivi et un Inventaire repensé : NetScope dit ce qui a changé depuis le dernier
+rapport d’un site, produit des rapports à date fixe, et l’Inventaire devient un vrai registre
+du parc, avec les appareils ajoutés à la main, l’archivage, les sites, les garanties et les
+pièces jointes.
+
+### Ajouté
+- **Rapports, « Depuis le dernier rapport »** : nouvelle section qui compare l’état actuel au
+  dernier rapport du même site, ou au dernier produit à une date choisie : appareils nouveaux,
+  disparus et changés (IP, nom, type, port), problèmes réglés et nouveaux (Surveillance, ports
+  en erreur, WAN, Wi-Fi, DHCP).
+- Chaque rapport produit garde un instantané léger de son site ; liste des rapports passés par
+  site, avec Ouvrir, Afficher dans le Finder, Comparer à ce rapport et Supprimer (le fichier va
+  dans la Corbeille).
+- **Rapports planifiés**, par site (un fichier par site) : chaque jour, chaque semaine tel jour
+  ou chaque mois tel jour, à l’heure choisie, avec les sections, le format, le dossier et un
+  nom de fichier daté.
+- Notification « Rapport planifié produit » à la fin (Réglages › Notifications). L’option
+  « Préparer le courriel » ouvre un brouillon dans Mail, pour relecture.
+- **Inventaire, ajout à la main** d’un appareil absent des scans (imprimante hors réseau,
+  matériel en stock) avec tous ses champs ; il est marqué « Ajouté à la main » et rapproché
+  automatiquement de l’appareil que le scan du même site verra ensuite (même MAC, sinon même
+  IP), sans perdre ce que vous avez saisi. On peut le modifier et le dupliquer.
+- Option par site « Ajouter automatiquement les appareils scannés », activée par défaut.
+  Désactivée, vous choisissez vous-même ce qui entre dans l’inventaire avec « Ajouter à
+  l’inventaire » dans le Scanner (clic droit, aussi sur plusieurs appareils).
+- Déplacer un ou plusieurs appareils vers un autre site (clic droit, « Déplacer vers un autre
+  site ») : fiche, notes, garantie, historique et pièces jointes suivent l’appareil. Une même
+  MAC vue sur deux sites est signalée.
+- Fiche matériel : date d’achat, fin de garantie, fournisseur, numéro de série et prix
+  facultatif, avec une alerte « garantie bientôt échue » (60 jours ou moins) dans la fiche et
+  dans les alertes d’inventaire.
+- Pièces jointes sur chaque fiche (factures, contrats, photos) : ajouter ou glisser des
+  fichiers, les ouvrir, les retirer (vers la Corbeille).
+- Étiquettes libres et nouveau menu « Filtrer » (par étiquette, garantie bientôt échue,
+  appareils ajoutés à la main, MAC vue sur un autre site) ; nouvelles colonnes facultatives :
+  fin de garantie, n° de série, fournisseur, pièces jointes, origine.
+- Réglages › Sites et plages : nouvel encadré « Inventaire du site » pour l’ajout automatique,
+  la liste « Ne plus réajouter » (retirer une entrée, ajouter une MAC) et le nombre d’appareils
+  archivés.
+
+### Modifié
+- Inventaire : retirer un appareil propose maintenant **Archiver** (par défaut, restaurable
+  depuis la nouvelle vue « Archivés ») ou **Supprimer définitivement**, avec la case « Ne plus
+  réajouter cet appareil » ; le message qui suit a un bouton « Annuler ».
+- Les inventaires de deux sites ne sont jamais fusionnés : un déplacement garde chaque site
+  séparé.
+- Les inventaires existants sont repris sans perte.
+
+### Corrigé
+- Rapports planifiés : un rapport n’est plus produit deux fois après une modification de sa
+  planification ; un rapport qui n’a rien pu produire est indiqué « en échec ».
+- Suivi : plus de faux « Réglé » ou « Nouveau » sur les problèmes d’un rapport à l’autre.
+- Noms des rapports planifiés : la date n’est jamais coupée.
+- Inventaire : « Dernière vue » vide et pastille « Non scanné » pour une fiche jamais scannée ;
+  un appareil archivé n’est plus rapproché d’un ajout à la main ; « Modifier… » ne fige plus le
+  type ni le fabricant venus du scan.
+- Petite fenêtre : l’aperçu des Rapports ne défile plus horizontalement.
+
+### Limites
+- Les rapports planifiés ne sont produits que lorsque NetScope est ouvert ; une échéance
+  manquée est rattrapée une seule fois au lancement suivant, sans rafale.
+- Aucun scan n’est lancé pour un rapport planifié : il reprend le dernier scan du site et
+  indique son âge.
+- Rien n’est envoyé par courriel : « Préparer le courriel » ouvre seulement un brouillon dans
+  Mail, à relire et envoyer vous-même.
+- Le rapprochement d’un appareil ajouté à la main se fait seulement par MAC ou par IP, et
+  seulement avec un scan du même site.
+- Rien de tout cela n’a encore été essayé sur de vrais sites (rapports planifiés sur plusieurs
+  jours, rapprochement des ajouts à la main par un vrai scan).
+
 ## 0.18.0 — 2026-11-04
 
 Les transferts de fichiers et la configuration partagée : NetScope ouvre maintenant des
