@@ -84,7 +84,7 @@ struct InvDetectedHardwareBlock: View {
     private var readButton: some View {
         HStack(spacing: 6) {
             if isReading { ProgressView().controlSize(.small) }
-            Button(isReading ? "Lecture…" : "Lire la fiche matériel") { feed.read(record, site: siteKey, state: state) }
+            Button(isReading ? "Lecture…" : (detected == nil ? "Lire la fiche matériel" : "Relire la fiche matériel")) { feed.read(record, site: siteKey, state: state) }
                 .buttonStyle(.ghost)
                 .disabled(isReading || !canRead)
                 .help(canRead ? "Lire le modèle, le numéro de série et le firmware de cet appareil (SNMP, ou la FortiGate pour un appareil Fortinet)"
