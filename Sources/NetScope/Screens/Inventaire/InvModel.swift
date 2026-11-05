@@ -47,7 +47,7 @@ final class InvModel: ObservableObject {
     private(set) var unreadableSites: Set<String> = []
     /// Note 36 : écritures différées et regroupées, sur une file de fond (toujours atomiques).
     private let writer = InventoryWriter(onError: { url, error in
-        NSLog("NetScope : enregistrement impossible de %@ : %@", url.path, error.localizedDescription)
+        AppLog.shared.error("Inventaire", "Enregistrement impossible de \(url.path) : \(error.localizedDescription)")
     })
 
     init() {
@@ -67,7 +67,7 @@ final class InvModel: ObservableObject {
             let aside = url.deletingPathExtension()
                 .appendingPathExtension("illisible-\(Int(Date().timeIntervalSince1970)).json")
             try? FileManager.default.moveItem(at: url, to: aside)
-            NSLog("NetScope : inventaire illisible, mis de côté dans %@ : %@", aside.path, error.localizedDescription)
+            AppLog.shared.warning("Inventaire", "Inventaire illisible, mis de côté dans \(aside.path)\u{00A0}: \(error.localizedDescription)")
             return InventoryStore()
         }
     }
@@ -175,7 +175,7 @@ final class InvModel: ObservableObject {
         // Site changé entre-temps (le changement de site fusionne d'abord) : jamais dans
         // l'inventaire d'un autre site.
         guard site == siteKey else {
-            NSLog("NetScope : fusion ignorée, appareils d’un autre site (%@)", site)
+            AppLog.shared.warning("Inventaire", "Fusion ignorée, appareils d’un autre site (\(site))")
             return
         }
         let signature = Self.signature(devices)
@@ -245,7 +245,7 @@ final class InvModel: ObservableObject {
             loaded = try InventoryStore.load(from: fileURL)
             unreadableSites.remove(key)
         } catch {
-            NSLog("NetScope : inventaire du site %@ illisible : %@", key, error.localizedDescription)
+            AppLog.shared.warning("Inventaire", "Inventaire du site \(key) illisible\u{00A0}: \(error.localizedDescription)")
             loaded = InventoryStore()
             unreadableSites.insert(key)
         }
@@ -273,7 +273,7 @@ final class InvModel: ObservableObject {
                 unreadableSites.remove(item.key)
                 readCache[item.key] = (item.date, loaded)
             case .failure(let error):
-                NSLog("NetScope : inventaire du site %@ illisible : %@", item.key, error.localizedDescription)
+                AppLog.shared.warning("Inventaire", "Inventaire du site \(item.key) illisible\u{00A0}: \(error.localizedDescription)")
                 unreadableSites.insert(item.key)
                 readCache[item.key] = (item.date, InventoryStore())
             }
@@ -312,7 +312,7 @@ final class InvModel: ObservableObject {
                 other = try InventoryStore.load(from: fileURL)
             } catch {
                 // Fichier illisible : on n'écrit rien par-dessus.
-                NSLog("NetScope : inventaire du site %@ illisible, rien n’est modifié : %@", key, error.localizedDescription)
+                AppLog.shared.warning("Inventaire", "Inventaire du site \(key) illisible, rien n’est modifié\u{00A0}: \(error.localizedDescription)")
                 show("Inventaire de «\u{00A0}\(name)\u{00A0}» illisible\u{00A0}: rien n’est modifié")
                 return nil
             }
@@ -323,7 +323,7 @@ final class InvModel: ObservableObject {
             do {
                 try changed.save(to: fileURL)
             } catch {
-                NSLog("NetScope : enregistrement impossible de %@ : %@", fileURL.path, error.localizedDescription)
+                AppLog.shared.error("Inventaire", "Enregistrement impossible de \(fileURL.path)\u{00A0}: \(error.localizedDescription)")
                 show("Enregistrement impossible de l’inventaire de «\u{00A0}\(name)\u{00A0}»\u{00A0}: rien n’est modifié")
                 return nil
             }

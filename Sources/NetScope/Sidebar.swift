@@ -9,6 +9,8 @@ import SwiftUI
 /// est basse. En petite fenêtre, la carte laisse place à la seule mise à jour disponible.
 struct Sidebar: View {
     @EnvironmentObject private var state: AppState
+    /// Note 35 : erreurs récentes du journal pas encore consultées, en pastille sur Réglages.
+    @ObservedObject private var diagnostics = RegDiagnosticController.shared
 
     /// Hauteur de la barre latérale (sous la barre de titre) à partir de laquelle la carte
     /// « Interface active » s'affiche entière au-dessus de Réglages : logo, quatre groupes d'écrans,
@@ -121,6 +123,9 @@ struct Sidebar: View {
             Divider().padding(.horizontal, 16)
             List(selection: settingsSelection) {
                 Label(Screen.reglages.title, systemImage: Screen.reglages.symbol)
+                    .badge(diagnostics.unseenErrorCount)
+                    .help(diagnostics.unseenErrorCount > 0
+                          ? "\(diagnostics.unseenErrorCount) erreur\(diagnostics.unseenErrorCount > 1 ? "s" : "") récente\(diagnostics.unseenErrorCount > 1 ? "s" : "") dans le journal (Réglages › Journal et diagnostic)" : "")
                     .tag(Screen.reglages)
             }
             .listStyle(.sidebar)

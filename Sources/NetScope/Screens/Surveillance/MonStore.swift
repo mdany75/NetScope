@@ -493,7 +493,7 @@ final class MonStore: ObservableObject {
             let archive = try MonArchive.decode(data)
             if archive.skipped > 0 || archive.version > MonArchive.currentVersion {
                 // Écrit par une autre version (valeurs inconnues écartées) : copie intacte gardée de côté.
-                NSLog("NetScope : %d élément(s) illisible(s) écarté(s) de %@", archive.skipped, url.path)
+                AppLog.shared.warning("Surveillance", "\(archive.skipped) élément(s) illisible(s) écarté(s) de \(url.path)")
                 try? FileManager.default.copyItem(at: url, to: backupURL("autre-version"))
             }
             probes = archive.probes
@@ -507,7 +507,7 @@ final class MonStore: ObservableObject {
             journal = archive.journal
             selectedID = probes.first?.id
         } catch {
-            NSLog("NetScope : lecture impossible de %@ : %@", url.path, error.localizedDescription)
+            AppLog.shared.error("Surveillance", "Lecture impossible de \(url.path)\u{00A0}: \(error.localizedDescription)")
             // Fichier illisible : on le garde de côté plutôt que de l'écraser.
             try? FileManager.default.moveItem(at: url, to: backupURL("illisible"))
         }
@@ -537,7 +537,7 @@ final class MonStore: ObservableObject {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try archive.encoded().write(to: url, options: .atomic)
         } catch {
-            NSLog("NetScope : enregistrement impossible de %@ : %@", url.path, error.localizedDescription)
+            AppLog.shared.error("Surveillance", "Enregistrement impossible de \(url.path)\u{00A0}: \(error.localizedDescription)")
         }
     }
 

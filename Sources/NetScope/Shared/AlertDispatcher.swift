@@ -149,6 +149,10 @@ final class AlertDispatcher: ObservableObject {
     }
 
     private func record(_ entry: AlertLogEntry, channel: AlertChannel, isTest: Bool) {
+        // Note 35 : un envoi en échec (SMTP refusé, webhook en erreur) va aussi au journal de l'app.
+        if entry.outcome == .failed {
+            AppLog.shared.error("Alertes", "\(entry.channelName)\(isTest ? " (essai)" : "")\u{00A0}: \(entry.detail)")
+        }
         journal.insert(entry, at: 0)
         if journal.count > AlertLogEntry.limit { journal.removeLast(journal.count - AlertLogEntry.limit) }
         saveJournal()

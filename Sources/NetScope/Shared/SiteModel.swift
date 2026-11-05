@@ -90,7 +90,7 @@ final class SiteModel: ObservableObject {
             } catch {
                 // Rien n'est écrit tant que la migration n'a pas réussi : elle sera refaite au
                 // prochain lancement, avec le même site (l'ancien inventaire est toujours là).
-                NSLog("NetScope : migration des sites impossible : %@", error.localizedDescription)
+                AppLog.shared.error("Sites", "Migration des sites impossible\u{00A0}: \(error.localizedDescription)")
                 saveBlocked = true
                 list = SiteList()
                 migrationMessage = "La migration vers les sites a échoué (\(error.localizedDescription)). Votre inventaire n’est pas touché\u{00A0}; elle sera refaite au prochain lancement."
@@ -102,7 +102,7 @@ final class SiteModel: ObservableObject {
             do {
                 try SiteMigration.migrateDeviceNotes(files: files, into: SiteFiles.key(for: target))
             } catch {
-                NSLog("NetScope : notes des appareils non reprises : %@", error.localizedDescription)
+                AppLog.shared.error("Sites", "Notes des appareils non reprises\u{00A0}: \(error.localizedDescription)")
             }
         }
     }
@@ -253,7 +253,7 @@ final class SiteModel: ObservableObject {
                 do {
                     try InvAttachmentFiles.standard.moveSite(from: SiteFiles.noSiteKey, to: newKey)
                 } catch {
-                    NSLog("NetScope\u{00A0}: pièces jointes des plages libres non déplacées\u{00A0}: %@", error.localizedDescription)
+                    AppLog.shared.error("Sites", "Pièces jointes des plages libres non déplacées\u{00A0}: \(error.localizedDescription)")
                 }
                 RapportHistoryStore.shared.renameSite(from: SiteFiles.noSiteKey, to: newKey)
             }
@@ -482,7 +482,7 @@ final class SiteModel: ObservableObject {
             do {
                 try InvAttachmentFiles.standard.trashSite(key)
             } catch {
-                NSLog("NetScope\u{00A0}: pièces jointes du site non retirées\u{00A0}: %@", error.localizedDescription)
+                AppLog.shared.error("Sites", "Pièces jointes du site non retirées\u{00A0}: \(error.localizedDescription)")
             }
             RapportHistoryStore.shared.discardSite(key)
         }
@@ -540,7 +540,7 @@ final class SiteModel: ObservableObject {
         do {
             try files.saveList(list)
         } catch {
-            NSLog("NetScope : enregistrement impossible de sites.json : %@", error.localizedDescription)
+            AppLog.shared.error("Sites", "Enregistrement impossible de sites.json\u{00A0}: \(error.localizedDescription)")
         }
     }
 

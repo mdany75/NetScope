@@ -90,6 +90,7 @@ final class ToolSMTPModel: ObservableObject {
             } catch {
                 guard run == self.generation else { return }
                 self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                AppLog.shared.warning("SMTP", "Diagnostic SMTP de \(text)\u{00A0}: \(self.error ?? "échec")")
                 store.record(ToolRecent(tool: .smtp, target: text, summary: self.error ?? "Échec", status: .failure))
             }
         }

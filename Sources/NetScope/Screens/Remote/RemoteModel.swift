@@ -592,7 +592,7 @@ final class RemoteModel: ObservableObject {
         do {
             try store.save(connections)
         } catch {
-            NSLog("NetScope : enregistrement des connexions impossible : %@", error.localizedDescription)
+            AppLog.shared.error("Accès distant", "Enregistrement des connexions impossible : \(error.localizedDescription)")
         }
     }
 }

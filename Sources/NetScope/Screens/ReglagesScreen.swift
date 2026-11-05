@@ -14,6 +14,8 @@ struct ReglagesScreen: View {
     @ObservedObject private var shortcuts = RegShortcutStore.shared
     /// Pastille « Export et sauvegarde » : nombre de sauvegardes, suivi après chaque sauvegarde ou rotation.
     @ObservedObject private var backupStore = RegBackupController.shared
+    /// Pastille « Journal et diagnostic » : erreurs récentes pas encore consultées (note 35).
+    @ObservedObject private var diagnostics = RegDiagnosticController.shared
     @State private var query = ""
 
     var body: some View {
@@ -163,6 +165,11 @@ struct ReglagesScreen: View {
                     .font(.system(size: 11)).foregroundStyle(Theme.critical)
                     .help("Notifications refusées par macOS")
             }
+        case .diagnostic:
+            if diagnostics.unseenErrorCount > 0 {
+                CountBadge(count: diagnostics.unseenErrorCount, color: Theme.criticalBadge)
+                    .help("Erreurs récentes pas encore consultées")
+            }
         case .export:
             if !backupStore.backups.isEmpty {
                 Text("\(backupStore.backups.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
@@ -187,6 +194,7 @@ struct ReglagesScreen: View {
         case .alertes: RegAlertsSection()
         case .notifications: RegNotificationsSection()
         case .raccourcis: RegShortcutsSection()
+        case .diagnostic: RegDiagnosticSection()
         case .export:
             // Note 56 : configuration (export, import) et synchronisation entre Mac, après les sauvegardes
             // (en premier pour les captures « NETSCOPE_REGLAGES_SECTION=configuration »).

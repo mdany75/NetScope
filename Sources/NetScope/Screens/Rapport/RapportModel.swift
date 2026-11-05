@@ -409,7 +409,7 @@ final class RapportModel: ObservableObject {
         do {
             try library.save(to: directory)
         } catch {
-            NSLog("NetScope\u{00A0}: index des rapports non enregistré\u{00A0}:\u{00A0}%@", error.localizedDescription)
+            AppLog.shared.error("Rapports", "Index des rapports non enregistré\u{00A0}:\u{00A0}\(error.localizedDescription)")
         }
     }
 

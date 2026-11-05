@@ -13,6 +13,8 @@ enum Launcher {
         if arguments.contains("--snapshot") {
             Snapshots.run(arguments: arguments)
         }
+        // Note 35 : journal de l'app dans ~/Library/Logs/NetScope, avant tout autre module.
+        RegDiagnosticController.installLogFile()
         // Restauration d'une sauvegarde demandée avant le redémarrage : appliquée avant que les
         // écrans ne lisent leurs fichiers (jamais en démonstration ni pendant une capture).
         if !RegEnvironment.isSandboxed { RegBackupController.applyPendingRestore() }
@@ -91,6 +93,8 @@ struct NetScopeApp: App {
                     // Base des fabricants (registre IEEE) : chargée en arrière-plan dès le lancement.
                     Task.detached(priority: .utility) { _ = OUIDatabase.builtIn.count }
                     guard !Launcher.isDemo else { return }
+                    // Note 35 : plantage récent de NetScope (bannière) et rapports des 30 derniers jours.
+                    RegDiagnosticController.shared.start()
                     // Vitesse des disques : fichiers d'essai restés après un arrêt brutal, supprimés.
                     Task.detached(priority: .utility) { DiskPendingCleanup.standard.cleanAll() }
                     // Note 28 : résultats du dernier scan du site actif.

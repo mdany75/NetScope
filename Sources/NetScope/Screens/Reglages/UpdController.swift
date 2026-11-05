@@ -24,7 +24,12 @@ enum UpdPhase: Equatable {
 final class UpdController: ObservableObject {
     static let shared = UpdController()
 
-    @Published private(set) var phase: UpdPhase = .idle
+    @Published private(set) var phase: UpdPhase = .idle {
+        didSet {
+            // Note 35 : les échecs de vérification, de téléchargement ou d'installation vont au journal.
+            if case .failed(let why) = phase, !RegEnvironment.isSandboxed { AppLog.shared.error("Mises à jour", why) }
+        }
+    }
     @Published private(set) var release: UpdRelease?
     /// Dernière version connue du canal (même quand NetScope est à jour).
     @Published private(set) var latestKnown: UpdRelease?

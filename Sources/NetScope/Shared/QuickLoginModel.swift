@@ -213,7 +213,7 @@ final class QuickLoginModel: ObservableObject {
         do {
             try memory.save(to: url)
         } catch {
-            NSLog("NetScope : enregistrement des noms d’utilisateur SSH impossible : %@", error.localizedDescription)
+            AppLog.shared.error("Connexion SSH", "Enregistrement des noms d’utilisateur SSH impossible\u{00A0}: \(error.localizedDescription)")
         }
     }
 }

@@ -522,6 +522,7 @@ final class FortiGateStore: ObservableObject {
             return TestOutcome(report: report, interfaces: interfaces, calls: calls)
         case .failure(let error, let calls):
             let (message, pending) = Self.describe(error, token: token, host: target.0, port: target.1)
+            AppLog.shared.warning("FortiGate", "Essai de \(target.0):\(target.1) en échec\u{00A0}: \(message)")
             return TestOutcome(error: message, pending: pending, calls: calls)
         case .cancelled:
             return TestOutcome(error: "Essai annulé.")
@@ -586,6 +587,9 @@ final class FortiGateStore: ObservableObject {
         case .failure(let error, let calls):
             let c = job.controller.config
             let (message, pending) = Self.describe(error, token: job.token, host: c.cleanHost.lowercased(), port: c.effectivePort)
+            // Note 35 : l'échec va au journal (message déjà sans jeton, masqué une seconde fois), une
+            // fois tant qu'il se répète à l'identique d'une relecture à l'autre.
+            if r.error != message { AppLog.shared.error("FortiGate", "\(job.controller.displayName) (\(c.cleanHost):\(c.effectivePort))\u{00A0}: \(message)") }
             r.error = message
             r.pending = pending
             r.calls = calls

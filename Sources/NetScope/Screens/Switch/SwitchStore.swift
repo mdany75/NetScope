@@ -426,7 +426,13 @@ final class SwitchStore: ObservableObject {
                 case .failure(let error):
                     // « Arrêter » n'est pas une panne du switch.
                     if error is CancellationError || Task.isCancelled { break }
+                    let previous = errors[host]
                     errors[host] = (error as? LocalizedError)?.errorDescription ?? "Relevé SNMP impossible."
+                    // Note 35 : l'échec du relevé va au journal (jamais la communauté ni la réponse),
+                    // une fois tant qu'il se répète à l'identique.
+                    if errors[host] != previous {
+                        AppLog.shared.error("SNMP", "\(host)\u{00A0}: \(errors[host] ?? "relevé SNMP impossible.")")
+                    }
                 }
                 pollingHost = host
                 if !Task.isCancelled { launch() }

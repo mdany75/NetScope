@@ -58,7 +58,9 @@ final class RegSyncController: ObservableObject {
     @Published private(set) var pendingCount = 0
     /// Résumé du dernier passage (« 3 reçus de MacBook Air, 1 envoyé »).
     @Published private(set) var lastSummary: String?
-    @Published var message: (text: String, tone: Tone)?
+    @Published var message: (text: String, tone: Tone)? {
+        didSet { RegDiagnosticController.note(message, module: "Synchronisation") }
+    }
     @Published var passwordSheet = false
     /// Heure affichée (« il y a… »), rafraîchie chaque minute.
     @Published private(set) var now = Date()
