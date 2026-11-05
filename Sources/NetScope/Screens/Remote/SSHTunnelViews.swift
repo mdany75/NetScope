@@ -364,7 +364,7 @@ struct SSHTunnelDetailSection: View {
                 }
             }
             .labelsHidden()
-            .help("ssh passe d’abord par cet hôte (-J, ProxyJump) : terminal, tunnels et « Ouvrir dans Terminal »")
+            .help("ssh passe d’abord par cet hôte (-J, ProxyJump)\u{00A0}: terminal, tunnels et « Ouvrir dans Terminal »")
         }
     }
 }

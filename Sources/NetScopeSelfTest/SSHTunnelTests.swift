@@ -382,3 +382,40 @@ func registerSSHTunnelDiagnosisTests(_ suite: TestSuite) {
         try expectEqual(SSHTunnelDiagnosis.pendingPrompt("Last login: Tue"), nil, "pas une demande")
     }
 }
+
+func registerSSHTunnelProcessTests(_ suite: TestSuite) {
+    suite.add("Tunnels SSH : vrai /usr/bin/ssh (-L, -D, -J) vers un port fermé de 127.0.0.1") {
+        guard FileManager.default.isExecutableFile(atPath: SSHTerminalCommand.sshPath) else {
+            throw TestSkipped(reason: "ssh absent")
+        }
+        let closed = Int(try LocalTCPServer.unusedPort())
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("netscope-tunnel-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let askpass = try SSHTerminalCommand.writeAskpass(in: folder)
+        let environment = SSHTerminalCommand.environment(base: ["PATH": "/usr/bin:/bin", "HOME": NSHomeDirectory()],
+                                                         askpass: askpass.path, secretPipe: nil, expect: "essai@127.0.0.1",
+                                                         flag: folder.appendingPathComponent("drapeau").path)
+        let cases: [(SSHTunnelSpec, String)] = [
+            (SSHTunnelSpec(kind: .local, remoteHost: "127.0.0.1", remotePort: 9), ""),
+            (SSHTunnelSpec(kind: .dynamic), ""),
+            (SSHTunnelSpec(kind: .local, remoteHost: "127.0.0.1", remotePort: 9), "essai@localhost:\(closed)"),
+        ]
+        for (spec, jump) in cases {
+            guard let local = LocalPortPicker.choose(preferred: 0) else { throw TestSkipped(reason: "aucun port local libre") }
+            let target = SSHTarget(user: "essai", host: "127.0.0.1", port: closed, jump: jump)
+            // -F /dev/null : la configuration de l'utilisateur n'intervient pas ; les options fixes de
+            // NetScope sont ainsi vérifiées par le vrai ssh (une option inconnue serait refusée).
+            let arguments = ["-F", "/dev/null"] + (try SSHTunnelCommand.arguments(target: target, tunnel: spec, localPort: local))
+            let recorder = TerminalRecorder()
+            let ssh = PTYProcess(executable: SSHTerminalCommand.sshPath, arguments: arguments, environment: environment)
+            ssh.start { recorder.handle($0) }
+            try await expectWait({ recorder.closure != nil }, "ssh terminé (\(spec.kind.rawValue), rebond « \(jump) »)", timeout: 10)
+            var filter = TerminalLogFilter()
+            let text = filter.feed(recorder.data) + filter.pendingLine
+            try expect(!text.lowercased().contains("bad configuration option") && !text.contains("usage:"),
+                       "options acceptées par ssh : \(text)")
+            try expectEqual(SSHTunnelDiagnosis.scan(text), .connectionRefused, "refus reconnu : \(text)")
+            try expect(LocalPortPicker.isFree(local), "le port local n'est jamais resté ouvert")
+        }
+    }
+}
