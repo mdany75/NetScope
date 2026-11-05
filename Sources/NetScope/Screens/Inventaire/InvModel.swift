@@ -16,6 +16,8 @@ final class InvModel: ObservableObject {
     @Published var selectedSite: String?
     /// Message bref affiché sous la barre d'outils (« Fiche enregistrée »).
     @Published var toast: String?
+    /// Note 10 : le message porte un bouton « Annuler » (dernier retrait, déplacement).
+    @Published var toastUndo = false
     /// Types choisis à la main pour des appareils sans MAC et encore sans fiche, par IP, pour cette
     /// session seulement (note 20 ; voir Shared/DeviceTypeMenu.swift).
     @Published var sessionTypes: [String: DeviceType] = [:]
@@ -34,7 +36,7 @@ final class InvModel: ObservableObject {
     private var toastTask: Task<Void, Never>?
     /// Suppressions de la session, par site : les appareils du Scanner vus avant la suppression ne
     /// recréent pas la fiche (`InvRemoval.holds`) ; un scan qui les revoit les remet.
-    private var held: [String: [InvRemoval]] = [:]
+    var held: [String: [InvRemoval]] = [:]
     /// Renommages de site (plages libres enregistrées comme site), pour qu'une annulation
     /// enregistrée avant aille au nouveau site : (génération, ancienne clé, nouvelle clé).
     private var renames: [(generation: Int, from: String, to: String)] = []
@@ -341,12 +343,13 @@ final class InvModel: ObservableObject {
     }
 
     /// Supprime les appareils désignés par leurs identifiants composés (« site|fiche ») : chaque
-    /// site n'est touché que pour ses propres fiches. `exclude` : les appareils ne sont plus suivis.
-    func remove(_ ids: [String], exclude: Bool) -> Removal {
+    /// site n'est touché que pour ses propres fiches. `exclude` : les appareils ne sont plus suivis ;
+    /// `archive` (note 10) : ils vont dans les archives de leur site au lieu d'être supprimés.
+    func remove(_ ids: [String], exclude: Bool, archive: Bool = false) -> Removal {
         var parts: [(String, InvRemoval)] = []
         for group in SiteScope.grouped(ids) {
             let site = group.site
-            guard let removal = mutate(site: site, { $0.removeRecords(group.keys, exclude: exclude) }) else { continue }
+            guard let removal = mutate(site: site, { $0.removeRecords(group.keys, exclude: exclude, archive: archive) }) else { continue }
             if !removal.isEmpty {
                 parts.append((site, removal))
                 if !exclude { held[site, default: []].append(removal) }
@@ -460,13 +463,15 @@ final class InvModel: ObservableObject {
         }
     }
 
-    func show(_ message: String) {
+    func show(_ message: String, undo: Bool = false) {
         toast = message
+        toastUndo = undo
         toastTask?.cancel()
         toastTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 6_000_000_000)
             guard !Task.isCancelled else { return }
             self?.toast = nil
+            self?.toastUndo = false
         }
     }
 

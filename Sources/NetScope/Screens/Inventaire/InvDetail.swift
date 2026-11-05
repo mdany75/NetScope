@@ -11,8 +11,14 @@ struct InvDetail: View {
     let now: Date
     /// Site de la fiche (nil : site actif) : l'enregistrement va dans l'inventaire de ce site seulement.
     var siteKey: String?
+    /// Sites où la même MAC est aussi vue (note 10 : signalée, jamais fusionnée).
+    var otherSites: [String] = []
+    /// Fiche créée par « Dupliquer » (site, clé) : l'écran la choisit.
+    var onCreated: (String, String) -> Void = { _, _ in }
 
     @State private var draft: InvAnnotations?
+    @State private var editing: InvManualMode?
+    @State private var newTag = ""
 
     private var current: InvAnnotations { draft ?? record.annotations }
     private var isDirty: Bool { draft != nil && draft != record.annotations }
@@ -23,7 +29,19 @@ struct InvDetail: View {
     private static let timelineWidth: CGFloat = 290
     private static let historiesWidth: CGFloat = 430
 
+    private var site: String { siteKey ?? model.siteKey }
+
     var body: some View {
+        VStack(spacing: 14) {
+            layouts
+            InvAttachmentsPanel(record: record, siteKey: site)
+        }
+        .sheet(item: $editing) { mode in
+            InvManualSheet(mode: mode, onDone: { key, site in onCreated(site, key) }, dismiss: { editing = nil })
+        }
+    }
+
+    private var layouts: some View {
         ViewThatFits(in: .horizontal) {
             // Grande fenêtre : fiche, chronologie et historiques côte à côte.
             HStack(alignment: .top, spacing: 14) {
@@ -77,9 +95,14 @@ struct InvDetail: View {
                         Text(record.displayName).font(Theme.panelTitle).lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            let status = record.status(now: now)
-                            let colors = InvStyle.status(status)
-                            InvPill(text: status.label, foreground: colors.0, background: colors.1)
+                            if record.isAwaitingScan {
+                                InvPill(text: "Jamais scanné", foreground: Theme.textSecondary, background: Theme.neutralSoft)
+                                    .help("Ajouté à la main\u{00A0}: il sera rapproché de l’appareil qu’un scan de ce site verra (même MAC, sinon même IP)")
+                            } else {
+                                let status = record.status(now: now)
+                                let colors = InvStyle.status(status)
+                                InvPill(text: status.label, foreground: colors.0, background: colors.1)
+                            }
                             // Fabricant et nom d'hôte sur deux lignes au besoin plutôt que coupés.
                             Text([record.vendorLabel, record.hostname].compactMap { $0 }.joined(separator: " · "))
                                 .font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(2)
@@ -87,6 +110,29 @@ struct InvDetail: View {
                         }
                     }
                     Spacer(minLength: 4)
+                }
+                if record.isManual || !otherSites.isEmpty {
+                    InvFlowLayout(spacing: 6) {
+                        if let manual = record.manual {
+                            InvPill(text: "AJOUTÉ À LA MAIN", foreground: Theme.accentStrong, background: InvStyle.infoSoft, size: 9.5)
+                                .help("Ajouté à la main le \(InvFormat.day(manual.created))"
+                                      + (manual.matched.map { ", rapproché d’un appareil scanné le \(InvFormat.day($0))" } ?? ", pas encore vu par un scan"))
+                        }
+                        if !otherSites.isEmpty {
+                            InvPill(text: "MÊME MAC\u{00A0}: " + otherSites.joined(separator: ", "), foreground: Theme.warning,
+                                    background: Theme.warningSoft, size: 9.5)
+                                .help("Cette MAC est aussi dans l’inventaire de «\u{00A0}\(otherSites.joined(separator: "\u{00A0}», «\u{00A0}"))\u{00A0}»\u{00A0}: fiches distinctes, jamais fusionnées.")
+                        }
+                    }
+                    .padding(.top, -6)
+                }
+                if let state = current.hardware?.warranty(now: now), state.isAlert {
+                    Label(state.label + (current.hardware?.warrantyEnd.map { " · fin le \(InvFormat.day($0))" } ?? ""),
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(Theme.small.weight(.semibold)).foregroundStyle(Theme.warning)
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.warningSoft))
                 }
                 // « Fiche complète » sur la ligne de l'adresse : le nom garde toute la largeur.
                 ViewThatFits(in: .horizontal) {
@@ -121,6 +167,12 @@ struct InvDetail: View {
                     }
                 }
 
+                InvWarrantyFields(hardware: Binding(get: { current.hardware ?? InvHardware() }, set: { value in
+                    var updated = current
+                    updated.hardware = value
+                    draft = updated
+                }), now: now)
+
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Étiquettes").font(Theme.captionSemibold).foregroundStyle(Theme.textSecondary)
                     InvFlowLayout(spacing: 6) {
@@ -134,6 +186,20 @@ struct InvDetail: View {
                             }))
                             .toggleStyle(.button)
                             .controlSize(.small)
+                        }
+                        // Étiquette libre : ajoutée au brouillon (filtrable dans l'Inventaire).
+                        HStack(spacing: 4) {
+                            TextField("Nouvelle étiquette", text: $newTag, prompt: Text("Nouvelle…"))
+                                .labelsHidden()
+                                .textFieldStyle(.roundedBorder)
+                                .controlSize(.small)
+                                .frame(width: 96)
+                                .onSubmit(addTag)
+                            Button(action: addTag) { Image(systemName: "plus") }
+                                .controlSize(.small)
+                                .disabled(newTag.trimmingCharacters(in: .whitespaces).isEmpty)
+                                .help("Ajouter cette étiquette à la fiche")
+                                .accessibilityLabel("Ajouter l’étiquette")
                         }
                     }
                 }
@@ -151,11 +217,12 @@ struct InvDetail: View {
 
                 HStack(spacing: 8) {
                     Button {
-                        guard let draft, isDirty else {
+                        guard var draft, isDirty else {
                             model.show("Aucune modification à enregistrer")
                             return
                         }
                         let site = siteKey ?? model.siteKey
+                        draft.hardware = draft.hardware?.cleaned
                         model.setAnnotations(draft, for: record.key, site: site)
                         // Le nom saisi suit l'appareil dans les autres écrans (appareils du site actif seulement).
                         if site == model.siteKey, state.device(withID: record.ip.description)?.mac == record.mac {
@@ -175,16 +242,38 @@ struct InvDetail: View {
         }
     }
 
+    private func addTag() {
+        let tag = newTag.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !tag.isEmpty else { return }
+        var updated = current
+        if !updated.tags.contains(where: { $0.lowercased() == tag.lowercased() }) { updated.tags.append(tag) }
+        draft = updated
+        newTag = ""
+    }
+
     private var addressLine: some View {
-        Text("\(record.ip.description) · \(record.mac?.formatted(.upperColon) ?? "MAC inconnue")")
+        Text("\(record.hasAddress ? record.ip.description : "Sans adresse IP") · \(record.mac?.formatted(.upperColon) ?? "MAC inconnue")")
             .font(Theme.mono(12)).foregroundStyle(Theme.neutralText).textSelection(.enabled)
     }
 
     @ViewBuilder
     private var fullSheetButton: some View {
-        // Fiche complète : appareils du scan du site actif seulement (la même IP d'un autre site n'est pas lui).
-        if (siteKey ?? model.siteKey) == model.siteKey, state.device(withID: record.ip.description) != nil {
-            Button("Fiche complète") { state.showDevice(record.ip.description) }.buttonStyle(.ghost)
+        HStack(spacing: 0) {
+            if record.isManual {
+                Button("Modifier…") { editing = .edit(site: site, key: record.key) }.buttonStyle(.ghost)
+                    .help("Modifier l’appareil ajouté à la main (IP, MAC, switch et port tant qu’aucun scan ne l’a vu)")
+            }
+            Button("Dupliquer") {
+                guard let copy = model.duplicate(record.key, site: site) else { return }
+                model.show("Copie créée\u{00A0}: \(model.inventory(for: site).record(copy)?.displayName ?? "")")
+                onCreated(site, copy)
+            }
+            .buttonStyle(.ghost)
+            .help("Créer une fiche «\u{00A0}Ajouté à la main\u{00A0}» avec les mêmes champs, sans IP ni MAC")
+            // Fiche complète : appareils du scan du site actif seulement (la même IP d'un autre site n'est pas lui).
+            if record.hasAddress, (siteKey ?? model.siteKey) == model.siteKey, state.device(withID: record.ip.description) != nil {
+                Button("Fiche complète") { state.showDevice(record.ip.description) }.buttonStyle(.ghost)
+            }
         }
     }
 
@@ -207,7 +296,7 @@ struct InvDetail: View {
 
     private var availableTags: [String] {
         var tags = InvStyle.defaultTags
-        let used = model.store.records.values.flatMap(\.annotations.tags) + current.tags
+        let used = model.inventory(for: site).allTags + current.tags
         for tag in used where !tags.contains(tag) { tags.append(tag) }
         return tags
     }
@@ -278,10 +367,16 @@ struct InvDetail: View {
         Panel(padding: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 SectionHeader("Historique des IP")
+                if record.ipHistory.isEmpty {
+                    Text("Aucune adresse\u{00A0}: appareil ajouté à la main sans IP. Elle sera relevée par le scan qui le reconnaîtra.")
+                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
                 InvIPHistoryTable(rows: record.ipHistory.enumerated().map { index, span in
                     InvIPHistoryRow(id: index, ip: span.ip, from: span.from, until: untilDate(span.to),
                                     untilLabel: until(span.to))
                 })
+                }
             }
         }
     }
@@ -302,7 +397,9 @@ struct InvDetail: View {
                 }
                 HStack(spacing: 4) {
                     Button("Voir le port actuel") { state.showSwitchPort(switchName: record.switchName, port: record.switchPort) }.buttonStyle(.ghost)
-                    Button("Ping continu") { state.sendToPing(record.ip.description) }.buttonStyle(.ghost)
+                    if record.hasAddress {
+                        Button("Ping continu") { state.sendToPing(record.ip.description) }.buttonStyle(.ghost)
+                    }
                 }
                 .padding(.leading, -8)
             }

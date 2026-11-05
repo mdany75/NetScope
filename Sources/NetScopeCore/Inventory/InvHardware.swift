@@ -142,9 +142,18 @@ public struct InvAttachment: Codable, Hashable, Sendable, Identifiable {
 
     /// « 184 Ko », « 2,4 Mo »
     public var sizeLabel: String {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: size)
+        // Unités françaises (Ko, Mo, Go), base 1000 comme le Finder.
+        let value = Double(size)
+        if value < 1_000 { return "\(size)\u{00A0}octet\(size > 1 ? "s" : "")" }
+        let units = ["Ko", "Mo", "Go", "To"]
+        var scaled = value / 1_000
+        var index = 0
+        while scaled >= 1_000 && index < units.count - 1 {
+            scaled /= 1_000
+            index += 1
+        }
+        let text = scaled >= 100 ? String(format: "%.0f", scaled) : String(format: "%.1f", scaled).replacingOccurrences(of: ".", with: ",")
+        return text + "\u{00A0}" + units[index]
     }
 }
 
@@ -225,6 +234,28 @@ public struct InvAttachmentFiles: Sendable {
         let url = folderURL(site: site, folder: folder)
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         try discard(url)
+    }
+
+    /// Dossier d'un appareil supprimé pour de bon : à la corbeille de macOS ; renvoie son adresse
+    /// dans la corbeille (pour « Annuler »), nil s'il n'y avait rien (ou pendant les essais).
+    public func trashFolder(site: String, folder: String) throws -> URL? {
+        let url = folderURL(site: site, folder: folder)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        guard useTrash else {
+            try FileManager.default.removeItem(at: url)
+            return nil
+        }
+        var trashed: NSURL?
+        try FileManager.default.trashItem(at: url, resultingItemURL: &trashed)
+        return trashed as URL?
+    }
+
+    /// Remet un dossier sorti de la corbeille (« Annuler » une suppression définitive).
+    public func recoverFolder(_ trashed: URL, site: String, folder: String) throws {
+        let url = folderURL(site: site, folder: folder)
+        guard FileManager.default.fileExists(atPath: trashed.path), !FileManager.default.fileExists(atPath: url.path) else { return }
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.moveItem(at: trashed, to: url)
     }
 
     /// Déplace le dossier d'un appareil vers un autre site (l'appareil change de site). Un dossier

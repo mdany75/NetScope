@@ -158,6 +158,9 @@ struct RegSitesSection: View {
                                 RegSiteNotesBox(site: site)
                             }
                             .padding(.top, 12)
+                            // Note 10 : ajout automatique et liste d'exclusion de l'inventaire du site.
+                            RegSiteInventoryBox(site: site)
+                                .padding(.top, 12)
                             soonBox(title: "Plages exclues",
                                     text: "Jamais sondées, même si elles font partie d’une plage du site (passerelle, contrôleur de domaine…).")
                                 .padding(.top, 12)

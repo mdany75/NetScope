@@ -37,6 +37,12 @@ public struct InvTransferRefusal: Hashable, Sendable, Identifiable {
     public var key: String
     public var name: String
     public var reason: String
+
+    public init(key: String, name: String, reason: String) {
+        self.key = key
+        self.name = name
+        self.reason = reason
+    }
 }
 
 public extension InventoryStore {
