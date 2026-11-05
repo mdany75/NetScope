@@ -5,7 +5,7 @@ import SwiftUI
 // indices de détection, switchs SNMP associés, notes.
 
 /// Encadré commun : titre 11 pt majuscules, contenu, bordure fine.
-private struct RegSiteBox<Content: View>: View {
+struct RegSiteBox<Content: View>: View {
     let title: String
     @ViewBuilder var content: Content
 

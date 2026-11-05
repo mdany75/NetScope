@@ -584,6 +584,8 @@ struct ScanDeviceMenu: View {
         }
         ScanPortPresetMenu(devices: devices, scan: scan)
         DeviceTypeMenu(devices: devices) { scan.show($0, place: .actions) }
+        // Note 10 : ajout choisi (utile quand l'ajout automatique du site est désactivé).
+        ScanInventoryAddButton(devices: devices) { scan.show($0, place: .actions) }
         if devices.count == 1, let device = devices.first {
             Button("Wake-on-LAN") { scan.wake(device, state: state) }.disabled(device.mac == nil)
             // Note 51 : client TFTP prérempli avec cet appareil.
@@ -591,6 +593,25 @@ struct ScanDeviceMenu: View {
             Divider()
             Button("Voir la fiche complète") { state.showDevice(device.id) }
         }
+    }
+}
+
+/// « Ajouter à l'inventaire » (note 10) : appareils choisis pas encore dans l'inventaire du site actif.
+struct ScanInventoryAddButton: View {
+    @ObservedObject private var inventory = InvModel.shared
+    let devices: [Device]
+    var report: (String) -> Void = { _ in }
+
+    var body: some View {
+        let missing = inventory.store.notInInventory(devices)
+        let excluded = devices.filter { inventory.store.existingKey(for: $0) == nil && inventory.store.isExcluded($0) }
+        let wanted = missing + excluded
+        Button(wanted.isEmpty ? "Déjà dans l’inventaire"
+               : devices.count > 1 ? "Ajouter \(wanted.count) appareil\(wanted.count > 1 ? "s" : "") à l’inventaire" : "Ajouter à l’inventaire") {
+            inventory.addToInventory(wanted)
+            if let message = inventory.toast { report(message) }
+        }
+        .disabled(wanted.isEmpty)
     }
 }
 

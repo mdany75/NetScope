@@ -5,6 +5,8 @@ import SwiftUI
 /// Vues sauvegardées de l'inventaire.
 enum InvView: String, CaseIterable, Hashable {
     case tous, nonIdentifies, disparus, favoris
+    /// Note 10 : appareils archivés (restaurables).
+    case archives
 
     var label: String {
         switch self {
@@ -12,6 +14,7 @@ enum InvView: String, CaseIterable, Hashable {
         case .nonIdentifies: return "Non identifiés"
         case .disparus: return "Disparus > 30 j"
         case .favoris: return "Favoris"
+        case .archives: return "Archivés"
         }
     }
 
@@ -21,8 +24,47 @@ enum InvView: String, CaseIterable, Hashable {
         case .nonIdentifies: return record.isUnidentified
         case .disparus: return record.isGone(now: now)
         case .favoris: return record.annotations.isFavorite
+        case .archives: return true
         }
     }
+}
+
+/// Note 10 : filtres du menu « Filtrer » (étiquettes libres, garantie, origine, même MAC ailleurs).
+struct InvFilter: Equatable {
+    var tags: Set<String> = []
+    /// Garantie bientôt échue.
+    var warranty = false
+    /// Ajoutés à la main.
+    var manual = false
+    /// Même MAC dans un autre site.
+    var shared = false
+
+    var count: Int { tags.count + (warranty ? 1 : 0) + (manual ? 1 : 0) + (shared ? 1 : 0) }
+    var isActive: Bool { count > 0 }
+
+    func matches(_ row: SiteScopedRecord, now: Date, shared sharedMACs: [MACAddress: [String]]) -> Bool {
+        let record = row.record
+        if !tags.isEmpty {
+            let own = Set(record.annotations.tags.map { $0.lowercased() })
+            guard tags.contains(where: { own.contains($0.lowercased()) }) else { return false }
+        }
+        if warranty, record.annotations.hardware?.warranty(now: now).isAlert != true { return false }
+        if manual, !record.isManual { return false }
+        if shared, record.mac.flatMap({ sharedMACs[$0] }) == nil { return false }
+        return true
+    }
+}
+
+/// Élément de la tuile « Alertes d'inventaire » : conflit IP, garantie bientôt échue, même MAC sur deux sites.
+private struct InvAlertItem: Identifiable {
+    enum Kind { case conflict, warranty, shared }
+    let kind: Kind
+    let site: String
+    let siteName: String
+    let key: String?
+    let text: String
+    let detail: String
+    var id: String { "\(kind)|" + site + "|" + (key ?? text) }
 }
 
 /// Conflit IP d'un site (tuile « Alertes d'inventaire »).
@@ -63,6 +105,11 @@ struct InventaireScreen: View {
     @State private var importing = false
     @State private var exportDocument: InvCSVDocument?
     @State private var exporting = false
+    /// Note 10 : filtres, feuille d'ajout à la main, MAC vues sur plusieurs sites (clés des sites).
+    @State private var filter = InvFilter()
+    @State private var manualMode: InvManualMode?
+    @State private var shared: [MACAddress: [String]] = [:]
+    @State private var demoApplied = false
 
     private var conflictChip: some View {
         Text("CONFLIT IP").font(.system(size: 10, weight: .bold))
@@ -94,14 +141,25 @@ struct InventaireScreen: View {
         let now = Date()
         let inventories = scope.inventories(for: .inventaire)
         let multiple = inventories.count > 1
+        let archiveMode = view == .archives
         let all = SiteScope.records(inventories)
         let records = all.map(\.record)
+        // Note 10 : vue « Archivés » : les fiches archivées des sites affichés.
+        let archived = archiveMode ? inventories.flatMap { inventory in
+            inventory.store.archived.map { SiteScopedRecord(siteKey: inventory.key, siteName: inventory.name, record: $0.record) }
+        } : []
+        let archiveDates = archiveMode ? Dictionary(inventories.flatMap { inventory in
+            inventory.store.archived.map { (SiteScope.id(site: inventory.key, key: $0.record.key), $0.date) }
+        }, uniquingKeysWith: { a, _ in a }) : [:]
+        let sharedNames = shared.mapValues { $0.map { sites.name(forKey: $0) } }
         // Note 26 : recherche multiple, analysée une fois pour toutes les fiches (préfixe site:).
         let query = state.searchQuery(for: .inventaire)
         // Notes 31 et 33 : filtre transmis (groupe de la Carte, port de switch), ensemble exact d'appareils.
         let navFilter = state.navFilters[.inventaire]
-        let rows = InvTable.sorted(all.filter {
-            view.includes($0.record, now: now) && query.matches($0) && (navFilter?.matches($0.record, site: $0.siteKey) ?? true)
+        let rows = InvTable.sorted((archiveMode ? archived : all).filter {
+            view.includes($0.record, now: now) && query.matches($0)
+                && (archiveMode || (navFilter?.matches($0.record, site: $0.siteKey) ?? true))
+                && filter.matches($0, now: now, shared: shared)
         }, by: table.sortOrder)
         let duplicates = inventories.flatMap { inventory in
             inventory.store.probableDuplicates().map { InvSiteDuplicate(site: inventory.key, pair: $0) }
@@ -117,17 +175,25 @@ struct InventaireScreen: View {
                 header(now: now, inventories: inventories)
                 tiles(records, now: now, inventories: inventories)
                 if mergeOpen { mergePanel(duplicates, inventories: inventories) }
-                InvTable(rows: rows, total: records.count, selection: selectionBinding(rows), table: table, now: now,
+                InvTable(rows: rows, total: archiveMode ? archived.count : records.count, selection: selectionBinding(rows), table: table, now: now,
                          inventoryEmpty: records.isEmpty, siteNames: inventories.map(\.name),
                          unreadableNames: inventories.filter { model.unreadableSites.contains($0.key) }.map(\.name), excluded: excluded,
-                         onFavorite: { model.toggleFavorite($0.record.key, site: $0.siteKey) },
-                         onDelete: { confirmDelete($0, rows: rows) })
+                         actions: rowActions(rows), archiveMode: archiveMode, archiveDates: archiveDates, sharedSites: sharedNames,
+                         accessory: AnyView(tableAccessory(inventories: inventories)))
                 if selectedRows.count > 1 {
-                    selectionPanel(selectedRows, rows: rows)
+                    selectionPanel(selectedRows, rows: rows, archiveMode: archiveMode)
                 } else if let row = selectedRows.first {
-                    InvDetail(record: row.record, events: model.inventory(for: row.siteKey).events(for: row.record.key), now: now,
-                              siteKey: row.siteKey)
-                        .id(row.id)
+                    if archiveMode, let entry = model.inventory(for: row.siteKey).archivedEntry(row.record.key) {
+                        InvArchivePanel(entry: entry, siteName: row.siteName, now: now,
+                                        onRestore: { restore([row.id]) }, onPurge: { confirmPurge([row.id], rows: rows) })
+                            .id(row.id)
+                    } else {
+                        InvDetail(record: row.record, events: model.inventory(for: row.siteKey).events(for: row.record.key), now: now,
+                                  siteKey: row.siteKey,
+                                  otherSites: row.record.mac.flatMap { sharedNames[$0] }?.filter { $0 != row.siteName } ?? [],
+                                  onCreated: { site, key in select(site: site, key: key) })
+                            .id(row.id)
+                    }
                 } else if !rows.isEmpty {
                     Text("Choisissez un appareil dans le tableau pour ouvrir sa fiche.")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
@@ -142,13 +208,17 @@ struct InventaireScreen: View {
         .standardSiteColumn(table, multiple: multiple)
         .screenToolbar {
             StandardColumnsMenu(model: table)
+            addMenu(inventories: inventories)
             // Icône seule (comme la corbeille du Finder) : la barre d'outils tient en petite fenêtre.
-            Button { confirmDelete(Array(chosen), rows: rows) } label: { Label("Supprimer", systemImage: "trash").labelStyle(.iconOnly) }
+            Button {
+                if archiveMode { confirmPurge(Array(chosen), rows: rows) } else { confirmRemove(Array(chosen), rows: rows) }
+            } label: { Label("Retirer", systemImage: "trash").labelStyle(.iconOnly) }
                 .buttonStyle(.secondary)
-                .accessibilityLabel("Supprimer de l’inventaire")
+                .accessibilityLabel(archiveMode ? "Supprimer définitivement" : "Retirer de l’inventaire")
                 .disabled(chosen.isEmpty)
-                .help(chosen.count > 1 ? "Supprimer les \(chosen.count) appareils sélectionnés de l’inventaire (⌫)"
-                      : "Supprimer l’appareil sélectionné de l’inventaire (⌫)")
+                .help(archiveMode ? "Supprimer définitivement les appareils archivés sélectionnés (⌫)"
+                      : chosen.count > 1 ? "Retirer les \(chosen.count) appareils sélectionnés de l’inventaire\u{00A0}: archiver ou supprimer (⌫)"
+                      : "Retirer l’appareil sélectionné de l’inventaire\u{00A0}: archiver ou supprimer (⌫)")
             Button { importing = true } label: { Label("Importer CSV", systemImage: "square.and.arrow.down") }
                 .buttonStyle(.secondary)
                 .help("Importer un CSV dans l’inventaire du site actif «\u{00A0}\(sites.activeName)\u{00A0}»")
@@ -176,6 +246,28 @@ struct InventaireScreen: View {
         .onAppear {
             adoptRequestedSelection()
             pickFirstRowIfNeeded(rows)
+            refreshShared()
+            applyDemoView()
+        }
+        .onChange(of: model.store.lastMerge) { _, _ in refreshShared() }
+        .onChange(of: model.siteKey) { _, _ in refreshShared() }
+        .onChange(of: view) { _, _ in selection = [] }
+        .sheet(item: $manualMode) { mode in
+            InvManualSheet(mode: mode, onDone: { key, site in select(site: site, key: key) }, dismiss: { manualMode = nil })
+        }
+        // Captures (NETSCOPE_INV_VUE=feuille) : la feuille d'ajout dessinée dans la page (une vraie
+        // feuille ne se capture pas hors écran).
+        .overlay(alignment: .top) {
+            if InvManualDemo.view == "feuille" {
+                ZStack(alignment: .top) {
+                    Color(nsColor: .shadowColor).opacity(0.18).ignoresSafeArea()
+                    InvManualSheet(mode: .add(site: model.siteKey), inline: true, dismiss: {})
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+                        .shadow(color: Color(nsColor: .shadowColor).opacity(0.3), radius: 18, y: 8)
+                        .padding(.top, 8)
+                }
+            }
         }
         .onChange(of: rows.first?.id) { _, _ in pickFirstRowIfNeeded(rows) }
         .onChange(of: model.selectedKey) { _, _ in adoptRequestedSelection() }
@@ -217,7 +309,7 @@ struct InventaireScreen: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(width: 452)
+            .frame(width: 520)
             .fixedSize()
             // Petite fenêtre : seule la date de fusion reste, sinon rien (jamais une phrase coupée ;
             // la légende complète reste au survol).
@@ -230,7 +322,9 @@ struct InventaireScreen: View {
             .foregroundStyle(Theme.textSecondary)
             .help(caption + " · " + mergeCaption(now: now, inventories: inventories))
             Spacer(minLength: 0)
-            if let toast = model.toast { InvToast(text: toast) }
+            if let toast = model.toast {
+                InvToast(text: toast, undo: model.toastUndo ? { undoManager?.undo() } : nil)
+            }
         }
     }
 
@@ -245,16 +339,21 @@ struct InventaireScreen: View {
 
     private func tiles(_ records: [InvRecord], now: Date, inventories: [SiteInventory]) -> some View {
         let today = Calendar.current.startOfDay(for: now)
-        let seenToday = records.filter { $0.lastSeen >= today }.count
+        let seenToday = records.filter { $0.lastSeen >= today && !$0.isAwaitingScan }.count
+        let manual = records.filter(\.isManual).count
         let online = records.filter(\.isOnline).count
         let unidentified = records.filter(\.isUnidentified).count
         let gone = records.filter { $0.isGone(now: now) }.count
         // Conflits de chaque site (jamais une IP d'un site comparée à celle d'un autre).
         let conflicts = inventories.flatMap { inventory in inventory.store.conflictIPs.sorted().map { InvSiteConflict(site: inventory.key, siteName: inventory.name, ip: $0, key: inventory.store.record(forIP: $0)?.key) } }
         let multiple = inventories.count > 1
+        // Note 10 : garanties bientôt échues et MAC vues sur plusieurs sites, après les conflits.
+        let others = otherAlerts(inventories, now: now)
+        let room = max(0, 3 - min(conflicts.count, 3))
 
         return HStack(alignment: .top, spacing: 12) {
-            InvTile(title: "Appareils connus", value: "\(records.count)", subtitle: "Toutes plages confondues") { view = .tous }
+            InvTile(title: "Appareils connus", value: "\(records.count)",
+                    subtitle: manual > 0 ? "Toutes plages confondues ·\u{00A0}\(manual)\u{00A0}ajouté\(manual > 1 ? "s" : "")\u{00A0}à la main" : "Toutes plages confondues") { view = .tous }
             InvTile(title: "Vus aujourd’hui", value: "\(seenToday)", // Plusieurs sites : chaque site a son propre dernier scan (pas forcément aujourd'hui).
                     subtitle: multiple ? "\(online) en ligne au dernier scan de chaque site" : "\(online) en ligne au dernier scan",
                     valueColor: Theme.success)
@@ -264,7 +363,7 @@ struct InventaireScreen: View {
                     valueColor: Theme.textSecondary) { view = .disparus }
             InvTile(title: "Alertes d’inventaire", value: "") {
                 VStack(alignment: .leading, spacing: 5) {
-                    if conflicts.isEmpty {
+                    if conflicts.isEmpty && others.isEmpty {
                         Text("Aucun conflit IP actif").font(Theme.small).foregroundStyle(Theme.textSecondary)
                     }
                     ForEach(Array(conflicts.prefix(3))) { conflict in
@@ -283,6 +382,22 @@ struct InventaireScreen: View {
                         }
                         .buttonStyle(.plain)
                         .help(site.map { "Conflit IP \(ip.description) sur le site «\u{00A0}\($0)\u{00A0}»" } ?? "Conflit IP \(ip.description)")
+                    }
+                    ForEach(Array(others.prefix(room))) { item in
+                        Button {
+                            if let key = item.key { selection = [SiteScope.id(site: item.site, key: key)] }
+                        } label: {
+                            ViewThatFits(in: .horizontal) {
+                                HStack(spacing: 6) { alertChip(item.kind); Text(item.text).font(Theme.small).foregroundStyle(Theme.text).lineLimit(1) }
+                                VStack(alignment: .leading, spacing: 2) { alertChip(item.kind); Text(item.text).font(Theme.small).foregroundStyle(Theme.text).lineLimit(1) }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .help(item.detail)
+                    }
+                    if conflicts.count + others.count > 3 {
+                        Text("+\(conflicts.count + others.count - 3) autre\(conflicts.count + others.count - 3 > 1 ? "s" : "")")
+                            .font(Theme.caption).foregroundStyle(Theme.textSecondary)
                     }
                 }
                 .padding(.top, 4)
@@ -378,88 +493,239 @@ struct InventaireScreen: View {
     }
 
     /// Plusieurs lignes choisies : leur nombre, leurs sites et « Supprimer de l'inventaire ».
-    private func selectionPanel(_ chosen: [SiteScopedRecord], rows: [SiteScopedRecord]) -> some View {
+    private func selectionPanel(_ chosen: [SiteScopedRecord], rows: [SiteScopedRecord], archiveMode: Bool) -> some View {
         Panel(padding: 16) {
             HStack(spacing: 14) {
                 Image(systemName: "checklist").font(.system(size: 20)).foregroundStyle(Theme.accentStrong)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("\(chosen.count) appareils sélectionnés").font(Theme.bodySemibold)
-                    Text((Set(chosen.map(\.siteKey)).count > 1 ? "" : "Site ") + Self.siteSummary(chosen) + " · ⌘-clic ou ⇧-clic pour changer la sélection, ⌘A pour tout choisir")
+                    Text((Set(chosen.map(\.siteKey)).count > 1 ? "" : "Site ") + InvDialogs.siteSummary(chosen) + " · ⌘-clic ou ⇧-clic pour changer la sélection, ⌘A pour tout choisir")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 8)
                 Button("Tout désélectionner") { selection = [] }.buttonStyle(.secondary)
-                Button(role: .destructive) { confirmDelete(chosen.map(\.id), rows: rows) } label: {
-                    Label("Supprimer de l’inventaire…", systemImage: "trash")
+                if archiveMode {
+                    Button { restore(chosen.map(\.id)) } label: { Label("Restaurer", systemImage: "arrow.uturn.backward") }
+                        .buttonStyle(.secondary)
+                    Button(role: .destructive) { confirmPurge(chosen.map(\.id), rows: rows) } label: {
+                        Label("Supprimer définitivement…", systemImage: "trash")
+                    }
+                    .buttonStyle(.secondary)
+                } else {
+                    InvMoveMenu(rows: chosen) { site in move(chosen.map(\.id), to: site, rows: rows) }
+                        .menuStyle(.button)
+                        .fixedSize()
+                    Button(role: .destructive) { confirmRemove(chosen.map(\.id), rows: rows) } label: {
+                        Label("Retirer de l’inventaire…", systemImage: "trash")
+                    }
+                    .buttonStyle(.secondary)
                 }
-                .buttonStyle(.secondary)
             }
         }
     }
 
-    /// « « Siège » », ou « Siège (2), Entrepôt Laval (1) »
-    private static func siteSummary(_ rows: [SiteScopedRecord]) -> String {
-        var order: [String] = []
-        var counts: [String: Int] = [:]
-        for row in rows {
-            if counts[row.siteName] == nil { order.append(row.siteName) }
-            counts[row.siteName, default: 0] += 1
+    // MARK: Note 10 : ajout, filtres, alertes
+
+    private func rowActions(_ rows: [SiteScopedRecord]) -> InvRowActions {
+        InvRowActions(favorite: { model.toggleFavorite($0.record.key, site: $0.siteKey) },
+                      delete: { confirmRemove($0, rows: rows) },
+                      restore: { restore($0) },
+                      purge: { confirmPurge($0, rows: rows) },
+                      move: { ids, site in move(ids, to: site, rows: rows) },
+                      edit: { manualMode = .edit(site: $0.siteKey, key: $0.record.key) },
+                      duplicate: { row in
+                          guard let copy = model.duplicate(row.record.key, site: row.siteKey) else { return }
+                          model.show("Copie créée\u{00A0}: \(model.inventory(for: row.siteKey).record(copy)?.displayName ?? "")")
+                          select(site: row.siteKey, key: copy)
+                      })
+    }
+
+    /// Site visé par « Ajouter » et l'option d'ajout automatique : le site affiché s'il est seul,
+    /// sinon le site actif.
+    private func targetSite(_ inventories: [SiteInventory]) -> SiteInventory? {
+        inventories.count == 1 ? inventories.first : inventories.first { $0.key == model.siteKey } ?? inventories.first
+    }
+
+    /// Bouton « Ajouter » : un appareil à la main (clic), ou le menu (appareils du dernier scan,
+    /// ajout automatique du site).
+    private func addMenu(inventories: [SiteInventory]) -> some View {
+        let target = targetSite(inventories)
+        let site = target?.key ?? model.siteKey
+        let name = target?.name ?? sites.activeName
+        let missing = model.notInInventory(state.devices)
+        let auto = target?.store.autoAdd ?? true
+        return Menu {
+            Button("Ajouter un appareil à la main…") { manualMode = .add(site: site) }
+            Button(missing.isEmpty ? "Appareils du dernier scan\u{00A0}: tous dans l’inventaire"
+                   : "Ajouter les \(missing.count) appareil\(missing.count > 1 ? "s" : "") du dernier scan hors inventaire") {
+                model.addToInventory(missing)
+            }
+            .disabled(missing.isEmpty)
+            Divider()
+            Toggle("Ajouter automatiquement les appareils scannés («\u{00A0}\(name)\u{00A0}»)", isOn: Binding(get: { auto }, set: { model.setAutoAdd($0, site: site) }))
+        } label: {
+            Label("Ajouter", systemImage: "plus")
+        } primaryAction: {
+            manualMode = .add(site: site)
         }
-        if order.count == 1 { return "«\u{00A0}\(order[0])\u{00A0}»" }
-        return order.map { "\($0) (\(counts[$0] ?? 0))" }.joined(separator: ", ")
+        .menuStyle(.button)
+        .fixedSize()
+        .help("Ajouter un appareil à la main (absent des scans)\u{00A0}; flèche\u{00A0}: appareils du dernier scan et ajout automatique")
     }
 
-    // MARK: Suppression
+    /// Accessoire de l'en-tête du tableau : ajout automatique désactivé, menu « Filtrer ».
+    @ViewBuilder
+    private func tableAccessory(inventories: [SiteInventory]) -> some View {
+        let manualOff = inventories.filter { !$0.store.autoAdd }
+        HStack(spacing: 8) {
+            if !manualOff.isEmpty, view != .archives {
+                let missing = model.notInInventory(state.devices).count
+                Label(manualOff.count == 1 && inventories.count == 1 ? "Ajout manuel" + (missing > 0 && manualOff.contains { $0.key == model.siteKey } ? " · \(missing) hors inventaire" : "")
+                      : "Ajout manuel\u{00A0}: \(manualOff.map(\.name).joined(separator: ", "))", systemImage: "hand.raised")
+                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
+                    .help("Ajout automatique des appareils scannés désactivé\u{00A0}: «\u{00A0}Ajouter à l’inventaire\u{00A0}» depuis le Scanner (clic droit), ou Ajouter ▾ › appareils du dernier scan.")
+            }
+            filterMenu(inventories: inventories)
+        }
+    }
 
-    /// Confirmation (combien d'appareils, quels sites, « Ne plus suivre ces appareils »), puis
-    /// suppression dans l'inventaire de chaque site concerné seulement ; ⌘Z l'annule.
-    private func confirmDelete(_ ids: [String], rows: [SiteScopedRecord]) {
+    private func filterMenu(inventories: [SiteInventory]) -> some View {
+        var tags: [String] = []
+        for inventory in inventories {
+            for tag in inventory.store.allTags where !tags.contains(where: { $0.lowercased() == tag.lowercased() }) { tags.append(tag) }
+        }
+        tags.sort { $0.localizedStandardCompare($1) == .orderedAscending }
+        return Menu {
+            Section("Étiquettes") {
+                if tags.isEmpty { Text("Aucune étiquette dans ces fiches") }
+                ForEach(tags, id: \.self) { tag in
+                    Toggle(tag, isOn: Binding(get: { filter.tags.contains(tag) }, set: { on in
+                        if on { filter.tags.insert(tag) } else { filter.tags.remove(tag) }
+                    }))
+                }
+            }
+            Section("Fiche") {
+                Toggle("Garantie bientôt échue (\(InvHardware.warrantySoonDays)\u{00A0}j)", isOn: $filter.warranty)
+                Toggle("Ajoutés à la main", isOn: $filter.manual)
+                Toggle("Même MAC sur un autre site", isOn: $filter.shared)
+            }
+            Divider()
+            Button("Retirer les filtres") { filter = InvFilter() }.disabled(!filter.isActive)
+        } label: {
+            Label(filter.isActive ? "Filtrer (\(filter.count))" : "Filtrer", systemImage: filter.isActive ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                .font(Theme.small)
+        }
+        .menuStyle(.button)
+        .buttonStyle(.ghost)
+        .fixedSize()
+        .help("Filtrer par étiquette, garantie bientôt échue, origine ou MAC vue sur un autre site")
+    }
+
+    private func otherAlerts(_ inventories: [SiteInventory], now: Date) -> [InvAlertItem] {
+        var items: [InvAlertItem] = []
+        for inventory in inventories {
+            for record in inventory.store.expiringWarranties(now: now) {
+                let state = record.annotations.hardware?.warranty(now: now) ?? .unknown
+                items.append(InvAlertItem(kind: .warranty, site: inventory.key, siteName: inventory.name, key: record.key,
+                                          text: record.displayName + " · " + InvWarrantyPill.shortLabel(state).lowercased(),
+                                          detail: state.label + " · " + record.displayName + (inventories.count > 1 ? " (\(inventory.name))" : "")))
+            }
+        }
+        for inventory in inventories {
+            for record in inventory.store.sortedRecords {
+                guard let mac = record.mac, let keys = shared[mac] else { continue }
+                let others = keys.filter { $0 != inventory.key }.map { sites.name(forKey: $0) }
+                guard !others.isEmpty else { continue }
+                items.append(InvAlertItem(kind: .shared, site: inventory.key, siteName: inventory.name, key: record.key,
+                                          text: record.displayName + " · aussi à " + others.joined(separator: ", "),
+                                          detail: "Même MAC \(mac.formatted(.upperColon)) dans l’inventaire de «\u{00A0}\(others.joined(separator: "\u{00A0}», «\u{00A0}"))\u{00A0}»\u{00A0}: fiches distinctes, jamais fusionnées"))
+            }
+        }
+        return items
+    }
+
+    private func alertChip(_ kind: InvAlertItem.Kind) -> some View {
+        let (text, fg, bg): (String, Color, Color) = {
+            switch kind {
+            case .conflict: return ("CONFLIT IP", Theme.critical, Theme.criticalSoft)
+            case .warranty: return ("GARANTIE", Theme.warning, Theme.warningSoft)
+            case .shared: return ("2 SITES", Theme.warning, Theme.warningSoft)
+            }
+        }()
+        return Text(text).font(.system(size: 10, weight: .bold))
+            .foregroundStyle(fg)
+            .padding(.horizontal, 5).padding(.vertical, 1)
+            .background(RoundedRectangle(cornerRadius: 4).fill(bg))
+            .fixedSize()
+    }
+
+    private func refreshShared() {
+        shared = model.sharedMACs()
+    }
+
+    /// Choisit une fiche (après un ajout ou une copie) : vue « Tous », son site affiché.
+    private func select(site: String, key: String) {
+        scope.include(site, in: .inventaire)
+        if view == .archives || !view.includes(model.inventory(for: site).record(key) ?? InvRecord(key: key, mac: nil, ip: IPv4Address(0), firstSeen: Date(), lastSeen: Date()), now: Date()) {
+            view = .tous
+        }
+        DispatchQueue.main.async { selection = [SiteScope.id(site: site, key: key)] }
+    }
+
+    /// Captures (NETSCOPE_INV_VUE) : vue « Archivés », filtre des garanties, fiche ajoutée à la main.
+    private func applyDemoView() {
+        guard !demoApplied, let wanted = InvManualDemo.view else { return }
+        demoApplied = true
+        switch wanted {
+        case "archives":
+            view = .archives
+            DispatchQueue.main.async {
+                if let first = model.store.archived.first { selection = [SiteScope.id(site: model.siteKey, key: first.record.key)] }
+            }
+        case "garanties":
+            filter.warranty = true
+        case "manuel":
+            if let manual = model.store.sortedRecords.first(where: \.isManual) {
+                DispatchQueue.main.async { selection = [SiteScope.id(site: model.siteKey, key: manual.key)] }
+            }
+        default:
+            break
+        }
+    }
+
+    // MARK: Retirer : archiver ou supprimer définitivement
+
+    /// Confirmation (combien d'appareils, quels sites, archiver ou supprimer, « Ne plus réajouter »),
+    /// puis retrait dans l'inventaire de chaque site concerné seulement ; ⌘Z ou « Annuler » l'annule.
+    private func confirmRemove(_ ids: [String], rows: [SiteScopedRecord]) {
         let chosen = rows.filter { ids.contains($0.id) }
-        guard !chosen.isEmpty else { return }
-        let count = chosen.count
-        let names = chosen.prefix(3).map(\.record.displayName).joined(separator: ", ") + (count > 3 ? "…" : "")
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = count > 1 ? "Supprimer \(count) appareils de l’inventaire\u{00A0}?" : "Supprimer «\u{00A0}\(names)\u{00A0}» de l’inventaire\u{00A0}?"
-        alert.informativeText = (count > 1 ? names + "\n\n" : "")
-            + (Set(chosen.map(\.siteKey)).count > 1 ? "Sites touchés\u{00A0}: " : "Site touché\u{00A0}: ") + Self.siteSummary(chosen)
-            + " (les autres sites ne changent pas).\n\n"
-            + "La fiche, ses notes et son historique d’événements sont retirés. Sans «\u{00A0}Ne plus suivre\u{00A0}», "
-            + (count > 1 ? "ces appareils reviendront si un prochain scan de leur site les revoit"
-               : "l’appareil reviendra si un prochain scan de son site le revoit") + ".\n\n"
-            + "Vous pourrez annuler juste après (⌘Z ou Édition › Annuler)."
-        alert.showsSuppressionButton = true
-        alert.suppressionButton?.title = count > 1 ? "Ne plus suivre ces appareils (un scan ne les remettra pas)"
-            : "Ne plus suivre cet appareil (un scan ne le remettra pas)"
-        alert.suppressionButton?.state = .off
-        let deleteButton = alert.addButton(withTitle: "Supprimer")
-        deleteButton.hasDestructiveAction = true
-        alert.addButton(withTitle: "Annuler")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let exclude = alert.suppressionButton?.state == .on
+        guard !chosen.isEmpty, let answer = InvDialogs.confirmRemove(chosen) else { return }
         let several = Set(chosen.map(\.siteKey)).count > 1
-        delete(ids: chosen.map(\.id), exclude: exclude,
-               summary: several ? "(" + Self.siteSummary(chosen) + ")" : "du site " + Self.siteSummary(chosen))
+        remove(ids: chosen.map(\.id), exclude: answer.exclude, archive: answer.archive,
+               summary: several ? "(" + InvDialogs.siteSummary(chosen) + ")" : "du site " + InvDialogs.siteSummary(chosen))
     }
 
-    private func delete(ids: [String], exclude: Bool, summary: String) {
-        let removal = model.remove(ids, exclude: exclude)
+    private func remove(ids: [String], exclude: Bool, archive: Bool, summary: String) {
+        let removal = model.remove(ids, exclude: exclude, archive: archive)
         guard removal.count > 0 else { return }
+        let trashed = archive ? [] : removal.parts.flatMap { model.discardAttachments(of: $0.removal.records, site: $0.site) }
         selection = []
-        Self.registerUndo(undoManager, removal: removal, ids: ids, exclude: exclude, summary: summary)
+        Self.registerUndo(undoManager, removal: removal, ids: ids, exclude: exclude, archive: archive, trashed: trashed, summary: summary)
         let count = removal.count
-        model.show("\(count) appareil\(count > 1 ? "s" : "") supprimé\(count > 1 ? "s" : "") \(summary)"
-                   + (exclude ? ", plus suivi\(count > 1 ? "s" : "")" : "") + " · ⌘Z pour annuler")
+        let verb = (archive ? "archivé" : "supprimé") + (count > 1 ? "s" : "") + (archive ? "" : " définitivement")
+        model.show("\(count) appareil\(count > 1 ? "s" : "") \(verb) \(summary)"
+                   + (exclude ? ", plus jamais réajouté\(count > 1 ? "s" : "")" : ""), undo: true)
         model.updateBadge(state)
     }
 
     /// Message d'annulation : ce qui a vraiment été remis (une fiche recréée entre-temps par un
     /// scan reçoit ses notes et son historique ; un site supprimé ne reçoit rien).
     private static func restoreMessage(_ result: InvRestoreResult, expected: Int, summary: String) -> String {
-        guard result.total > 0 else { return "Suppression non annulée\u{00A0}: l’inventaire du site n’est plus disponible" }
+        guard result.total > 0 else { return "Retrait non annulé\u{00A0}: l’inventaire du site n’est plus disponible" }
         let place = summary.hasPrefix("du site ") ? "dans le site " + summary.dropFirst("du site ".count) : summary
-        var text = "Suppression annulée\u{00A0}: \(result.total) appareil\(result.total > 1 ? "s" : "") remis \(place)"
+        var text = "Retrait annulé\u{00A0}: \(result.total) appareil\(result.total > 1 ? "s" : "") remis \(place)"
         if result.merged > 0 {
             text += " · \(result.merged) revenu\(result.merged > 1 ? "s" : "") entre-temps, notes et historique repris"
         }
@@ -467,24 +733,104 @@ struct InventaireScreen: View {
         return text
     }
 
-    /// Édition › Annuler « Supprimer de l'inventaire » (⌘Z), puis Rétablir (⇧⌘Z).
-    private static func registerUndo(_ manager: UndoManager?, removal: InvModel.Removal, ids: [String], exclude: Bool, summary: String) {
+    /// Édition › Annuler « Retirer de l'inventaire » (⌘Z), puis Rétablir (⇧⌘Z).
+    private static func registerUndo(_ manager: UndoManager?, removal: InvModel.Removal, ids: [String], exclude: Bool, archive: Bool,
+                                     trashed: [InvModel.TrashedFolder], summary: String) {
         guard let manager else { return }
         let model = InvModel.shared
+        let name = archive ? "Archiver" : "Supprimer de l’inventaire"
         manager.registerUndo(withTarget: model) { target in
             let result = target.restore(removal)
+            target.recoverAttachments(trashed)
             target.show(restoreMessage(result, expected: removal.count, summary: summary))
             guard result.total > 0 else { return }
             manager.registerUndo(withTarget: target) { again in
                 let current = again.currentIDs(ids, since: removal)
-                let redone = again.remove(current, exclude: exclude)
-                again.show("\(redone.count) appareil\(redone.count > 1 ? "s" : "") supprimé\(redone.count > 1 ? "s" : "") de nouveau")
+                let redone = again.remove(current, exclude: exclude, archive: archive)
+                let trashedAgain = archive ? [] : redone.parts.flatMap { again.discardAttachments(of: $0.removal.records, site: $0.site) }
+                again.show("\(redone.count) appareil\(redone.count > 1 ? "s" : "") retiré\(redone.count > 1 ? "s" : "") de nouveau", undo: true)
                 guard redone.count > 0 else { return }
-                registerUndo(manager, removal: redone, ids: current, exclude: exclude, summary: summary)
+                registerUndo(manager, removal: redone, ids: current, exclude: exclude, archive: archive, trashed: trashedAgain, summary: summary)
             }
-            manager.setActionName("Supprimer de l’inventaire")
+            manager.setActionName(name)
         }
-        manager.setActionName("Supprimer de l’inventaire")
+        manager.setActionName(name)
+    }
+
+    // MARK: Archives : restaurer, supprimer définitivement
+
+    private func restore(_ ids: [String]) {
+        let result = model.restoreArchived(ids)
+        guard result.total > 0 else { return }
+        selection = []
+        let manager = undoManager
+        manager?.registerUndo(withTarget: model) { target in
+            let again = target.remove(ids, exclude: false, archive: true)
+            target.show("\(again.count) appareil\(again.count > 1 ? "s" : "") de nouveau archivé\(again.count > 1 ? "s" : "")")
+        }
+        manager?.setActionName("Restaurer")
+        model.show("\(result.total) appareil\(result.total > 1 ? "s" : "") restauré\(result.total > 1 ? "s" : "") dans l’inventaire", undo: true)
+        if ids.count == 1, let parts = SiteScope.split(ids[0]) { select(site: parts.site, key: parts.key) }
+    }
+
+    private func confirmPurge(_ ids: [String], rows: [SiteScopedRecord]) {
+        let chosen = rows.filter { ids.contains($0.id) }
+        guard !chosen.isEmpty, InvDialogs.confirmPurge(chosen) else { return }
+        purge(chosen.map(\.id))
+    }
+
+    private func purge(_ ids: [String]) {
+        let parts = model.purgeArchived(ids)
+        let count = parts.reduce(0) { $0 + $1.entries.count }
+        guard count > 0 else { return }
+        let trashed = parts.flatMap { model.discardAttachments(of: $0.entries.map(\.record), site: $0.site) }
+        selection = []
+        let manager = undoManager
+        manager?.registerUndo(withTarget: model) { target in
+            target.putBackArchived(parts)
+            target.recoverAttachments(trashed)
+            target.show("Suppression annulée\u{00A0}: \(count) appareil\(count > 1 ? "s" : "") remis dans les archives")
+        }
+        manager?.setActionName("Supprimer définitivement")
+        model.show("\(count) appareil\(count > 1 ? "s" : "") archivé\(count > 1 ? "s" : "") supprimé\(count > 1 ? "s" : "") définitivement", undo: true)
+    }
+
+    // MARK: Déplacer vers un autre site
+
+    private func move(_ ids: [String], to destination: String, rows: [SiteScopedRecord]) {
+        let chosen = rows.filter { ids.contains($0.id) && $0.siteKey != destination }
+        guard !chosen.isEmpty else { return }
+        let name = sites.name(forKey: destination)
+        let target = model.inventory(for: destination)
+        let refusals = target.transferRefusals(for: chosen.map(\.record))
+        guard InvDialogs.confirmMove(chosen, to: name, refusals: refusals) else { return }
+        let result = model.move(chosen.map(\.id), to: destination)
+        refreshShared()
+        guard result.count > 0 else {
+            model.show("Rien n’a été déplacé vers «\u{00A0}\(name)\u{00A0}» (jamais de fusion entre sites)")
+            return
+        }
+        selection = []
+        Self.registerMoveUndo(undoManager, move: result, name: name)
+        let left = result.refusals.count
+        model.show("\(result.count) appareil\(result.count > 1 ? "s" : "") déplacé\(result.count > 1 ? "s" : "") vers «\u{00A0}\(name)\u{00A0}»"
+                   + (left > 0 ? " · \(left) resté\(left > 1 ? "s" : "") (déjà là-bas)" : ""), undo: true)
+    }
+
+    private static func registerMoveUndo(_ manager: UndoManager?, move: InvModel.Move, name: String) {
+        guard let manager else { return }
+        manager.registerUndo(withTarget: InvModel.shared) { target in
+            let back = target.undoMove(move)
+            target.show("Déplacement annulé\u{00A0}: \(back) appareil\(back > 1 ? "s" : "") revenu\(back > 1 ? "s" : "") dans leur site")
+            manager.registerUndo(withTarget: target) { again in
+                let ids = move.moved.flatMap { part in part.keys.map { SiteScope.id(site: part.site, key: $0) } }
+                let redone = again.move(ids, to: move.destination)
+                again.show("\(redone.count) appareil\(redone.count > 1 ? "s" : "") déplacé\(redone.count > 1 ? "s" : "") de nouveau vers «\u{00A0}\(name)\u{00A0}»", undo: true)
+                if redone.count > 0 { registerMoveUndo(manager, move: redone, name: name) }
+            }
+            manager.setActionName("Déplacer vers un autre site")
+        }
+        manager.setActionName("Déplacer vers un autre site")
     }
 
     // MARK: Aide

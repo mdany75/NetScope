@@ -233,11 +233,21 @@ extension InvPanelTitle where Accessory == EmptyView {
 /// Message d'état (vert) sous la barre d'outils.
 struct InvToast: View {
     let text: String
+    /// Note 10 : bouton « Annuler » (dernier retrait, déplacement), comme ⌘Z.
+    var undo: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "checkmark.circle.fill").font(.system(size: 11))
             Text(text).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                .help(text)
+            if let undo {
+                Button("Annuler", action: undo)
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.accentStrong)
+                    .help("Annuler (⌘Z)")
+            }
         }
         .foregroundStyle(Theme.success)
         .padding(.horizontal, 10)
@@ -311,15 +321,15 @@ struct InvExcludedButton: View {
         Button {
             open.toggle()
         } label: {
-            Label("\(rows.count) non suivi\(rows.count > 1 ? "s" : "")", systemImage: "eye.slash")
+            Label("\(rows.count) exclu\(rows.count > 1 ? "s" : "")", systemImage: "eye.slash")
                 .font(Theme.small)
         }
         .buttonStyle(.ghost)
         .fixedSize()
-        .help("Appareils supprimés avec «\u{00A0}Ne plus suivre\u{00A0}»\u{00A0}: un scan ne les remet pas dans l’inventaire")
+        .help("Liste d’exclusion\u{00A0}: appareils retirés avec «\u{00A0}Ne plus réajouter\u{00A0}»\u{00A0}; un scan ne les remet pas dans l’inventaire (aussi dans Réglages › Sites et plages)")
         .popover(isPresented: $open, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Appareils non suivis").font(Theme.bodySemibold)
+                Text("Ne plus réajouter").font(Theme.bodySemibold)
                 Text("Un scan ne les remet pas dans l’inventaire de leur site.")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 ScrollView {
@@ -339,7 +349,7 @@ struct InvExcludedButton: View {
                                     }
                                 }
                                 Spacer(minLength: 8)
-                                Button("Suivre de nouveau") {
+                                Button("Retirer de la liste") {
                                     guard InvModel.shared.include(row.exclusion.key, site: row.site) else { return }
                                     InvModel.shared.show("\(row.exclusion.name) sera remis dans l’inventaire au prochain scan de «\u{00A0}\(row.siteName)\u{00A0}».")
                                 }

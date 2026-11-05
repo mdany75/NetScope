@@ -26,13 +26,18 @@ public struct InventoryStore: Codable, Sendable {
     /// ne les remet pas dans l'inventaire. Optionnel pour relire les fichiers d'avant la 0.12.0.
     /// Voir InvRemoval.swift.
     var exclusions: [String: InvExclusion]?
+    /// Réglages de l'inventaire du site (note 10 : ajout automatique) ; nil : valeurs par défaut.
+    /// Optionnel pour relire les fichiers d'avant la 0.20.0. Voir InvArchive.swift.
+    var settings: InvSettings?
+    /// Appareils archivés, par clé (note 10 : restaurables, vue « Archivés »). Voir InvArchive.swift.
+    var archive: [String: InvArchiveEntry]?
     /// Calculs gardés tant que les fiches et les événements ne changent pas (note 36 : les écrans
     /// relisent l'inventaire à chaque rendu). Jamais enregistré ; une copie modifiée repart d'une
     /// mémoire vide, les autres copies gardent la leur.
     var memo = InvMemo()
 
     enum CodingKeys: String, CodingKey {
-        case version, records, events, snapshots, lastMerge, exclusions
+        case version, records, events, snapshots, lastMerge, exclusions, settings, archive
     }
 
     public init() {}
@@ -96,7 +101,21 @@ public struct InventoryStore: Codable, Sendable {
             }
         }
         let devices = tracked
-        let baseline = records.isEmpty
+        // Premier scan : aucune fiche, ou seulement des fiches ajoutées à la main pas encore vues.
+        let baseline = records.values.allSatisfy(\.isAwaitingScan)
+        let adding = autoAdd
+        // Note 10 : fiche ajoutée à la main rapprochée de l'appareil scanné (même MAC, sinon même IP),
+        // puis appareil archivé revu par le scan (remis avec sa fiche d'avant, si l'ajout est automatique).
+        // Rien à rapprocher ni à restaurer (cas courant) : aucun parcours par appareil (note 36).
+        var waiting = records.values.filter(\.isAwaitingScan)
+        for device in devices where !waiting.isEmpty || (adding && archive?.isEmpty == false) {
+            if !waiting.isEmpty, let manual = manualMatch(for: device, among: waiting),
+               adoptManual(manual, for: device, at: date) != nil {
+                waiting.removeAll { $0.key == manual }
+            } else if adding, let key = archivedKey(for: device), existingKey(for: device) == nil {
+                restoreArchived([key], at: date, reason: "Revu par un scan\u{00A0}: fiche restaurée depuis les archives")
+            }
+        }
         var produced: [InvEvent] = []
         func emit(_ kind: InvEventKind, _ severity: InvSeverity, key: String, ip: IPv4Address, date eventDate: Date? = nil,
                   title: String, detail: String) {
@@ -119,6 +138,13 @@ public struct InventoryStore: Codable, Sendable {
                 seenKeys[key] = resolved.count
                 resolved.append((key, device))
             }
+        }
+        // Ajout automatique désactivé : un appareil sans fiche n'en reçoit pas ; il compte quand même
+        // pour les conflits IP et les adresses reprises, comme un appareil exclu.
+        if !adding {
+            let known = resolved.filter { records[$0.key] != nil }
+            for item in resolved where records[item.key] == nil { ignored.append(item) }
+            resolved = known
         }
         let incomingKeys = Set(resolved.map(\.key))
 
@@ -174,7 +200,7 @@ public struct InventoryStore: Codable, Sendable {
             other.conflictWith = []
             records[otherKey] = other
             let takerName = records[taker.key]?.displayName ?? exclusions?[taker.key].map { "\($0.name) (non suivi)" }
-                ?? taker.by.ip.description
+                ?? (taker.by.hostname.map { "\($0) (hors inventaire)" }) ?? taker.by.ip.description
             emit(.horsLigne, severityForOffline(other), key: otherKey, ip: other.ip,
                  title: "Hors ligne : \(other.displayName)",
                  detail: "Adresse \(other.ip) reprise par \(takerName)" + (taker.by.mac.map { " (\($0.formatted(.upperColon)))" } ?? ""))
@@ -263,7 +289,7 @@ public struct InventoryStore: Codable, Sendable {
         return Self.key(ip: device.ip)
     }
 
-    private func makeRecord(key: String, device: Device, at date: Date) -> InvRecord {
+    func makeRecord(key: String, device: Device, at date: Date) -> InvRecord {
         let first = min(device.firstSeen, date)
         var record = InvRecord(key: key, mac: device.mac, ip: device.ip, hostname: device.hostname,
                                vendor: device.vendor, detectedType: device.deviceType, isOnline: device.isOnline,
@@ -279,7 +305,7 @@ public struct InventoryStore: Codable, Sendable {
         return record
     }
 
-    private func update(_ record: inout InvRecord, with device: Device, at date: Date,
+    func update(_ record: inout InvRecord, with device: Device, at date: Date,
                         emit: (InvEventKind, InvSeverity, String, IPv4Address, Date?, String, String) -> Void) {
         let key = record.key
         // Adresse IP
@@ -350,7 +376,7 @@ public struct InventoryStore: Codable, Sendable {
         }
     }
 
-    private func describe(_ record: InvRecord) -> String {
+    func describe(_ record: InvRecord) -> String {
         var parts = [record.ip.description]
         if let location = record.switchLocation { parts.append(location) }
         if let vlan = record.vlan { parts.append("VLAN \(vlan)") }
@@ -559,7 +585,15 @@ public struct InventoryStore: Codable, Sendable {
         if notes.assetNumber.isEmpty { notes.assetNumber = extra.assetNumber }
         if notes.notes.isEmpty { notes.notes = extra.notes }
         notes.isFavorite = notes.isFavorite || extra.isFavorite
+        if (notes.customVendor ?? "").isEmpty { notes.customVendor = extra.customVendor }
+        if notes.hardware == nil { notes.hardware = extra.hardware }
         keep.annotations = notes
+        // Pièces jointes : celles de la fiche rattachée s'ajoutent (son dossier reste le sien).
+        if !other.attachmentList.isEmpty, keep.attachmentFolder == nil || keep.attachmentFolder == other.attachmentFolder {
+            keep.attachmentFolder = keep.attachmentFolder ?? other.attachmentFolder
+            keep.attachments = keep.attachmentList + other.attachmentList
+        }
+        if keep.manual == nil { keep.manual = other.manual }
         records[keepKey] = keep
         records[absorbKey] = nil
         for index in events.indices where events[index].key == absorbKey { events[index].key = keepKey }

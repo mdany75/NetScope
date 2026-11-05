@@ -58,11 +58,15 @@ enum InvDemo {
                   name: "Macmini-de-Dany (Ethernet)"))
         put(extra("10.182.122.171", "9C:93:4E:21:0A:5B", "XRX-9C934E21", "Xerox", "SW-CORE-01", "Gi1/0/30", 30, .imprimante,
                   name: "Imprimante locataire"))
+        // Note 10 : deux appareils retirés du parc depuis (archivés à la fin, InvManualDemo).
+        for retired in InvManualDemo.retiredDevices(at: at(90)) { put(retired) }
         scan(at(90))
 
         change("10.182.122.158") { $0.isOnline = false }
+        change("10.182.122.150") { $0.isOnline = false }
         scan(at(81))
         change("10.182.122.87") { $0.ip = IPv4Address("10.182.122.111")! }
+        change("10.182.122.159") { $0.isOnline = false }
         scan(at(60))
         change("10.182.122.171") { $0.isOnline = false }
         scan(at(36))
@@ -129,5 +133,7 @@ enum InvDemo {
             annotations.isFavorite = favorite
             store.setAnnotations(annotations, for: record.key, at: at(89), recordEvent: false)
         }
+        // Note 10 : appareil ajouté à la main, archives, garanties, pièce jointe.
+        InvManualDemo.seed(&store, now: now)
     }
 }

@@ -43,6 +43,9 @@ public struct InvRemoval: Hashable, Sendable {
     public var events: [InvEvent]
     /// Exclusions ajoutées par cette suppression (retirées à l'annulation).
     public var addedExclusions: [String]
+    /// Note 10 : fiches archivées par ce retrait (retirées des archives à l'annulation). Vide :
+    /// suppression définitive.
+    public var addedArchives: [String] = []
     /// Place de chaque événement retiré dans le journal d'origine, et taille du journal restant :
     /// une annulation immédiate remet chaque événement exactement à sa place.
     var eventPositions: [Int] = []
@@ -60,6 +63,8 @@ public struct InvRemoval: Hashable, Sendable {
     }
 
     public var isEmpty: Bool { records.isEmpty && addedExclusions.isEmpty }
+    /// Retrait par archivage (restaurable depuis la vue « Archivés »).
+    public var isArchive: Bool { !addedArchives.isEmpty }
     public var count: Int { records.count }
 
     /// Appareil du Scanner vu au plus tard à la suppression (résultats déjà affichés, fusion en
@@ -160,10 +165,11 @@ public extension InventoryStore {
 
     // MARK: Suppression
 
-    /// Supprime des fiches et leurs événements ; `exclude` : les appareils ne sont plus suivis.
+    /// Supprime des fiches et leurs événements ; `exclude` : les appareils ne sont plus suivis ;
+    /// `archive` (note 10) : la fiche et ses événements vont dans les archives du site (restaurables).
     /// Les clés inconnues sont ignorées. Renvoie de quoi annuler.
     @discardableResult
-    mutating func removeRecords(_ keys: [String], exclude: Bool, at date: Date = Date()) -> InvRemoval {
+    mutating func removeRecords(_ keys: [String], exclude: Bool, archive toArchive: Bool = false, at date: Date = Date()) -> InvRemoval {
         var removal = InvRemoval()
         removal.date = date
         var seen: Set<String> = []
@@ -186,6 +192,14 @@ public extension InventoryStore {
             removal.eventPositions.append(index)
         }
         events.removeAll { removed.contains($0.key) }
+        if toArchive {
+            var list = archive ?? [:]
+            for record in removal.records {
+                list[record.key] = InvArchiveEntry(record: record, events: removal.events.filter { $0.key == record.key }, date: date)
+                removal.addedArchives.append(record.key)
+            }
+            archive = list
+        }
         removal.remainingEvents = events.count
         removal.remainingFirst = events.first?.id
         removal.remainingLast = events.last?.id
@@ -199,6 +213,8 @@ public extension InventoryStore {
     mutating func restore(_ removal: InvRemoval) -> InvRestoreResult {
         var result = InvRestoreResult()
         for key in removal.addedExclusions { include(key) }
+        for key in removal.addedArchives { archive?[key] = nil }
+        if archive?.isEmpty == true { archive = nil }
         var recreated: Set<String> = []
         for record in removal.records {
             if let current = records[record.key] {
@@ -233,11 +249,14 @@ public extension InventoryStore {
 
     /// Fiche d'avant la suppression complétée par ce que le scan a vu depuis (adresse, état,
     /// ports, switch) ; les champs saisis à la main sont ceux d'avant.
-    private static func reunite(old: InvRecord, recreated new: InvRecord) -> InvRecord {
+    internal static func reunite(old: InvRecord, recreated new: InvRecord) -> InvRecord {
         var record = new
         record.annotations = old.annotations
         record.firstSeen = min(old.firstSeen, new.firstSeen)
         record.isImported = old.isImported && new.isImported
+        if record.manual == nil { record.manual = old.manual }
+        if record.attachments == nil { record.attachments = old.attachments }
+        if record.attachmentFolder == nil { record.attachmentFolder = old.attachmentFolder }
         var ips = old.ipHistory
         if let last = ips.indices.last, ips[last].to == nil, ips[last].ip != new.ip { ips[last].to = new.firstSeen }
         for span in new.ipHistory where !(ips.last?.ip == span.ip && ips.last?.to == nil) { ips.append(span) }

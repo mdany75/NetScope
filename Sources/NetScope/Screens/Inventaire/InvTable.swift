@@ -30,6 +30,25 @@ extension InvRecord {
     var invSortAsset: String { annotations.assetNumber }
     var invSortNotes: String { annotations.notes }
     var invSortIPHistory: Int { ipHistory.count }
+    var invSortWarranty: Date { annotations.hardware?.warrantyEnd ?? .distantFuture }
+    var invSortSerial: String { annotations.hardware?.serialNumber ?? "" }
+    var invSortSupplier: String { annotations.hardware?.supplier ?? "" }
+    var invSortAttachments: Int { attachmentList.count }
+    var invOrigin: String { isManual ? "À la main" : (isImported ? "Import CSV" : "Scan") }
+}
+
+/// Note 10 : actions des lignes de l'Inventaire (menu contextuel, ⌫, panneau de sélection).
+struct InvRowActions {
+    var favorite: (SiteScopedRecord) -> Void = { _ in }
+    /// Retirer (archiver ou supprimer) : confirmation d'abord.
+    var delete: ([String]) -> Void = { _ in }
+    /// Vue « Archivés » : restaurer, supprimer définitivement.
+    var restore: ([String]) -> Void = { _ in }
+    var purge: ([String]) -> Void = { _ in }
+    /// Déplacer vers un autre site (identifiants, site d'arrivée).
+    var move: ([String], String) -> Void = { _, _ in }
+    var edit: (SiteScopedRecord) -> Void = { _ in }
+    var duplicate: (SiteScopedRecord) -> Void = { _ in }
 }
 
 /// Tableau des fiches de l'inventaire : tableau standard (note 8), une ligne par fiche ET par site
@@ -54,8 +73,14 @@ struct InvTable: View {
     var unreadableNames: [String] = []
     /// Appareils qu'on ne suit plus, dans les sites affichés.
     var excluded: [InvExcludedRow] = []
-    let onFavorite: (SiteScopedRecord) -> Void
-    let onDelete: ([String]) -> Void
+    var actions = InvRowActions()
+    /// Vue « Archivés » (note 10) : date d'archivage de chaque ligne.
+    var archiveMode = false
+    var archiveDates: [String: Date] = [:]
+    /// MAC vues dans plusieurs sites → noms des sites (signalées, jamais fusionnées).
+    var sharedSites: [MACAddress: [String]] = [:]
+    /// Accessoire de l'en-tête (menu « Filtrer », ajout automatique désactivé).
+    var accessory = AnyView(EmptyView())
 
     /// Hauteur d'une ligne (contenu 30 pt + marges du tableau) et de l'en-tête, pour donner au
     /// tableau une hauteur fixe dans l'écran qui défile.
@@ -90,6 +115,11 @@ struct InvTable: View {
         StandardColumn(id: "typeDetecte", title: "Type détecté", isDefaultVisible: false),
         StandardColumn(id: "hostname", title: "Nom d’hôte", isDefaultVisible: false),
         StandardColumn(id: "historiqueIP", title: "Historique d’IP", isDefaultVisible: false),
+        StandardColumn(id: "garantie", title: "Fin de garantie", isDefaultVisible: false),
+        StandardColumn(id: "serie", title: "N° de série", isDefaultVisible: false),
+        StandardColumn(id: "fournisseur", title: "Fournisseur", isDefaultVisible: false),
+        StandardColumn(id: "piecesJointes", title: "Pièces jointes", isDefaultVisible: false),
+        StandardColumn(id: "origine", title: "Origine", isDefaultVisible: false),
     ]
 
     static let sortKeys: [String: KeyPathComparator<SiteScopedRecord>] = [
@@ -117,6 +147,11 @@ struct InvTable: View {
         "typeDetecte": KeyPathComparator(\SiteScopedRecord.record.invSortDetectedType, comparator: .localizedStandard),
         "hostname": KeyPathComparator(\SiteScopedRecord.record.invSortHostname, comparator: .localizedStandard),
         "historiqueIP": KeyPathComparator(\SiteScopedRecord.record.invSortIPHistory),
+        "garantie": KeyPathComparator(\SiteScopedRecord.record.invSortWarranty),
+        "serie": KeyPathComparator(\SiteScopedRecord.record.invSortSerial, comparator: .localizedStandard),
+        "fournisseur": KeyPathComparator(\SiteScopedRecord.record.invSortSupplier, comparator: .localizedStandard),
+        "piecesJointes": KeyPathComparator(\SiteScopedRecord.record.invSortAttachments, order: .reverse),
+        "origine": KeyPathComparator(\SiteScopedRecord.record.invOrigin, comparator: .localizedStandard),
     ]
 
     /// Premier lancement : dernière détection, la plus récente d'abord (comme le croquis).
@@ -143,8 +178,9 @@ struct InvTable: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
-                Text("APPAREILS").font(Theme.captionSemibold).kerning(0.5).foregroundStyle(Theme.textSecondary)
-                Text("\(rows.count) affiché\(rows.count > 1 ? "s" : "") · \(total) appareil\(total > 1 ? "s" : "") connu\(total > 1 ? "s" : "")")
+                Text(archiveMode ? "APPAREILS ARCHIVÉS" : "APPAREILS").font(Theme.captionSemibold).kerning(0.5).foregroundStyle(Theme.textSecondary)
+                Text(archiveMode ? "\(rows.count) affiché\(rows.count > 1 ? "s" : "") · \(total) archivé\(total > 1 ? "s" : "") · restaurables à tout moment"
+                     : "\(rows.count) affiché\(rows.count > 1 ? "s" : "") · \(total) appareil\(total > 1 ? "s" : "") connu\(total > 1 ? "s" : "")")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
                 if selection.count > 1 {
@@ -152,7 +188,8 @@ struct InvTable: View {
                         .foregroundStyle(Theme.accentStrong).fixedSize()
                 }
                 Spacer(minLength: 8)
-                if !excluded.isEmpty { InvExcludedButton(rows: excluded) }
+                accessory
+                if !excluded.isEmpty, !archiveMode { InvExcludedButton(rows: excluded) }
             }
             .padding(.horizontal, 14)
             .frame(height: 40)
@@ -168,7 +205,13 @@ struct InvTable: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Rectangle().fill(Theme.border).frame(height: 1)
             }
-            if rows.isEmpty, inventoryEmpty, !siteNames.isEmpty, unreadableNames.count < siteNames.count, SiteModel.shared.activeSite != nil || siteNames.count > 1 {
+            if rows.isEmpty, archiveMode {
+                EmptyState(systemImage: "archivebox", title: "Aucun appareil archivé",
+                           message: "Un appareil retiré avec «\u{00A0}Archiver\u{00A0}» garde ici sa fiche, ses notes, sa garantie et son historique\u{00A0}; «\u{00A0}Restaurer\u{00A0}» le remet dans l’inventaire.") {
+                    EmptyView()
+                }
+                .frame(minHeight: 160)
+            } else if rows.isEmpty, inventoryEmpty, !siteNames.isEmpty, unreadableNames.count < siteNames.count, SiteModel.shared.activeSite != nil || siteNames.count > 1 {
                 // Inventaire propre au site : vide tant que ce site n'a pas été scanné.
                 EmptyState(systemImage: "tray",
                            title: siteNames.count > 1 ? "Inventaires de ces \(siteNames.count) sites vides"
@@ -201,11 +244,20 @@ struct InvTable: View {
                 Text("Tri\u{00A0}: \(Self.sortLabel(table.sortOrder))")
                 Spacer()
                 // Petite fenêtre : version courte plutôt qu'une phrase coupée.
-                ViewThatFits(in: .horizontal) {
-                    Text("Cliquez une ligne pour ouvrir sa fiche · ⌘-clic\u{00A0}: plusieurs · ⌫\u{00A0}: supprimer · double-clic\u{00A0}: fiche complète")
-                        .fixedSize()
-                    Text("⌘-clic\u{00A0}: plusieurs · ⌫\u{00A0}: supprimer · double-clic\u{00A0}: fiche complète").fixedSize()
-                    Text("⌫\u{00A0}: supprimer").fixedSize()
+                if archiveMode {
+                    ViewThatFits(in: .horizontal) {
+                        Text("Clic droit\u{00A0}: restaurer ou supprimer définitivement · ⌘-clic\u{00A0}: plusieurs · ⌫\u{00A0}: supprimer définitivement")
+                            .fixedSize()
+                        Text("Clic droit\u{00A0}: restaurer · ⌫\u{00A0}: supprimer définitivement").fixedSize()
+                        Text("Clic droit\u{00A0}: restaurer").fixedSize()
+                    }
+                } else {
+                    ViewThatFits(in: .horizontal) {
+                        Text("Cliquez une ligne pour ouvrir sa fiche · ⌘-clic\u{00A0}: plusieurs · ⌫\u{00A0}: retirer · double-clic\u{00A0}: fiche complète")
+                            .fixedSize()
+                        Text("⌘-clic\u{00A0}: plusieurs · ⌫\u{00A0}: retirer · double-clic\u{00A0}: fiche complète").fixedSize()
+                        Text("⌫\u{00A0}: retirer").fixedSize()
+                    }
                 }
             }
             .font(Theme.small)
@@ -241,8 +293,7 @@ struct InvTable: View {
                 .defaultVisibility(.hidden)
 
                 TableColumn("NOM", sortUsing: table.sort("nom")) { row in
-                    let record = row.record
-                    nameCell(record)
+                    nameCell(row)
                 }
                 .width(min: 110, ideal: 175)
                 .customizationID("nom")
@@ -263,7 +314,9 @@ struct InvTable: View {
 
                 TableColumn("IP ACTUELLE", sortUsing: table.sort("ip")) { row in
                     let record = row.record
-                    Text(record.ip.description).font(Theme.mono(12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
+                    Text(record.addressLabel).font(Theme.mono(12, weight: .semibold))
+                        .foregroundStyle(record.hasAddress ? Theme.text : Theme.textTertiary).lineLimit(1)
+                        .help(record.hasAddress ? record.ip.description : "Ajouté à la main sans adresse IP")
                 }
                 // Largeur d'une adresse complète (255.255.255.255) : jamais tronquée.
                 .width(min: 116, ideal: 116)
@@ -302,10 +355,7 @@ struct InvTable: View {
                 .customizationID("derniereVue")
 
                 TableColumn("STATUT", sortUsing: table.sort("statut")) { row in
-                    let record = row.record
-                    let status = record.status(now: now)
-                    let colors = InvStyle.status(status)
-                    InvPill(text: status.label, foreground: colors.0, background: colors.1)
+                    statusCell(row)
                 }
                 .width(min: 70, ideal: 76)
                 .customizationID("statut")
@@ -426,6 +476,47 @@ struct InvTable: View {
                 .width(min: 60, ideal: 100)
                 .customizationID("historiqueIP")
                 .defaultVisibility(.hidden)
+
+                TableColumn("FIN DE GARANTIE", sortUsing: table.sort("garantie")) { row in
+                    warrantyCell(row.record)
+                }
+                .width(min: 90, ideal: 150)
+                .customizationID("garantie")
+                .defaultVisibility(.hidden)
+
+                TableColumn("N° DE SÉRIE", sortUsing: table.sort("serie")) { row in
+                    textCell(row.record.annotations.hardware?.serialNumber ?? "", mono: true)
+                }
+                .width(min: 70, ideal: 110)
+                .customizationID("serie")
+                .defaultVisibility(.hidden)
+
+                TableColumn("FOURNISSEUR", sortUsing: table.sort("fournisseur")) { row in
+                    textCell(row.record.annotations.hardware?.supplier ?? "")
+                }
+                .width(min: 70, ideal: 130)
+                .customizationID("fournisseur")
+                .defaultVisibility(.hidden)
+            }
+
+            Group {
+                TableColumn("PIÈCES JOINTES", sortUsing: table.sort("piecesJointes")) { row in
+                    let count = row.record.attachmentList.count
+                    Label("\(count)", systemImage: "paperclip")
+                        .font(Theme.small)
+                        .foregroundStyle(count > 0 ? Theme.text : Theme.textTertiary)
+                        .help(row.record.attachmentList.map(\.fileName).joined(separator: ", "))
+                }
+                .width(min: 50, ideal: 70)
+                .customizationID("piecesJointes")
+                .defaultVisibility(.hidden)
+
+                TableColumn("ORIGINE", sortUsing: table.sort("origine")) { row in
+                    textCell(row.record.invOrigin)
+                }
+                .width(min: 60, ideal: 90)
+                .customizationID("origine")
+                .defaultVisibility(.hidden)
             }
         }
         .standardTableStyle()
@@ -441,10 +532,11 @@ struct InvTable: View {
             let chosen = rows.filter { ids.contains($0.id) }
             if !chosen.isEmpty { menu(chosen) }
         }
-        // Touche Suppr (⌫) et Édition › Supprimer.
+        // Touche Suppr (⌫) et Édition › Supprimer : retirer (archives : supprimer définitivement).
         .onDeleteCommand {
             let chosen = rows.filter { selection.contains($0.id) }.map(\.id)
-            if !chosen.isEmpty { onDelete(chosen) }
+            guard !chosen.isEmpty else { return }
+            if archiveMode { actions.purge(chosen) } else { actions.delete(chosen) }
         }
         // Note 45 : au retour, la ligne choisie est ramenée en vue (même position dans la liste).
         .revealRow(id: rows.first { selection.contains($0.id) }?.id) { rows.firstIndex { selection.contains($0.id) } }
@@ -455,10 +547,43 @@ struct InvTable: View {
 
     // MARK: Cellules
 
+    @ViewBuilder
+    private func statusCell(_ row: SiteScopedRecord) -> some View {
+        let record = row.record
+        if archiveMode {
+            let date = archiveDates[row.id]
+            InvPill(text: "Archivé", foreground: Theme.textSecondary, background: Theme.neutralSoft)
+                .help(date.map { "Archivé le \(InvFormat.stamp($0))" } ?? "Archivé")
+        } else if record.isAwaitingScan {
+            InvPill(text: "Jamais scanné", foreground: Theme.textSecondary, background: Theme.neutralSoft)
+                .help("Ajouté à la main\u{00A0}: rapproché dès qu’un scan de ce site le verra (même MAC, sinon même IP)")
+        } else {
+            let status = record.status(now: now)
+            let colors = InvStyle.status(status)
+            InvPill(text: status.label, foreground: colors.0, background: colors.1)
+        }
+    }
+
+    @ViewBuilder
+    private func warrantyCell(_ record: InvRecord) -> some View {
+        if let hardware = record.annotations.hardware, let end = hardware.warrantyEnd {
+            let state = hardware.warranty(now: now)
+            HStack(spacing: 6) {
+                Text(InvFormat.day(end)).font(Theme.mono(11.5)).foregroundStyle(Theme.neutralText).lineLimit(1)
+                if state.isAlert || { if case .expired = state { return true } else { return false } }() {
+                    InvWarrantyPill(state: state, short: true)
+                }
+            }
+            .help(state.label)
+        } else {
+            ScanCellText("—", dimmed: true)
+        }
+    }
+
     private func favoriteButton(_ row: SiteScopedRecord) -> some View {
         let record = row.record
         let favorite = record.annotations.isFavorite
-        return Button { onFavorite(row) } label: {
+        return Button { actions.favorite(row) } label: {
             Image(systemName: favorite ? "star.fill" : "star")
                 .font(.system(size: 12))
                 .foregroundStyle(favorite ? Theme.warning : Theme.textTertiary)
@@ -466,15 +591,27 @@ struct InvTable: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(archiveMode)
         .help(favorite ? "Retirer \(record.displayName) des favoris" : "Ajouter \(record.displayName) aux favoris")
     }
 
-    private func nameCell(_ record: InvRecord) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
+    private func nameCell(_ row: SiteScopedRecord) -> some View {
+        let record = row.record
+        let others = record.mac.flatMap { sharedSites[$0] }?.filter { $0 != row.siteName } ?? []
+        return VStack(alignment: .leading, spacing: 1) {
             HStack(spacing: 6) {
                 Text(record.displayName).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
+                    .layoutPriority(1)
                 if record.isUnidentified {
                     InvPill(text: "NON IDENTIFIÉ", foreground: Theme.warning, background: Theme.warningSoft, size: 9.5)
+                }
+                if record.isManual {
+                    InvPill(text: "À LA MAIN", foreground: Theme.accentStrong, background: InvStyle.infoSoft, size: 9.5)
+                        .help(record.isAwaitingScan ? "Ajouté à la main, pas encore vu par un scan" : "Ajouté à la main, rapproché d’un appareil scanné")
+                }
+                if !others.isEmpty {
+                    InvPill(text: "\(others.count + 1) SITES", foreground: Theme.warning, background: Theme.warningSoft, size: 9.5)
+                        .help("Même MAC aussi dans l’inventaire de «\u{00A0}\(others.joined(separator: "\u{00A0}», «\u{00A0}"))\u{00A0}»\u{00A0}: fiches distinctes, jamais fusionnées")
                 }
             }
             if let host = record.hostname, host != record.displayName {
@@ -492,40 +629,73 @@ struct InvTable: View {
 
     @ViewBuilder
     private func menu(_ chosen: [SiteScopedRecord]) -> some View {
-        if chosen.count == 1, let row = chosen.first {
-            let record = row.record
-            Button(record.annotations.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris") { onFavorite(row) }
-            Divider()
-            Button("Copier l’IP") { copy(record.ip.description, label: "IP") }
+        if archiveMode {
+            archiveMenu(chosen)
+        } else {
+            recordMenu(chosen)
+        }
+    }
+
+    /// Vue « Archivés » : restaurer ou supprimer définitivement.
+    @ViewBuilder
+    private func archiveMenu(_ chosen: [SiteScopedRecord]) -> some View {
+        if chosen.count > 1 { Text("\(chosen.count) appareils archivés sélectionnés") }
+        Button(chosen.count > 1 ? "Restaurer ces \(chosen.count) appareils" : "Restaurer dans l’inventaire") { actions.restore(chosen.map(\.id)) }
+        Divider()
+        if chosen.count == 1, let record = chosen.first?.record {
+            Button("Copier l’IP") { copy(record.ip.description, label: "IP") }.disabled(!record.hasAddress)
             Button("Copier la MAC") { if let mac = record.mac { copy(mac.formatted(.upperColon), label: "MAC") } }
                 .disabled(record.mac == nil)
             Divider()
+        }
+        Button(chosen.count > 1 ? "Supprimer définitivement ces \(chosen.count) appareils…" : "Supprimer définitivement…",
+               role: .destructive) { actions.purge(chosen.map(\.id)) }
+    }
+
+    @ViewBuilder
+    private func recordMenu(_ chosen: [SiteScopedRecord]) -> some View {
+        if chosen.count == 1, let row = chosen.first {
+            let record = row.record
+            Button(record.annotations.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris") { actions.favorite(row) }
+            Divider()
+            Button("Copier l’IP") { copy(record.ip.description, label: "IP") }
+                .disabled(!record.hasAddress)
+            Button("Copier la MAC") { if let mac = record.mac { copy(mac.formatted(.upperColon), label: "MAC") } }
+                .disabled(record.mac == nil)
+            Divider()
+            if record.isManual {
+                Button("Modifier l’appareil…") { actions.edit(row) }
+            }
+            Button("Dupliquer") { actions.duplicate(row) }
+            Divider()
             Button("Fiche complète") { state.showDevice(record.ip.description) }
-                .disabled(!isActive(row) || state.device(withID: record.ip.description) == nil)
+                .disabled(!isActive(row) || !record.hasAddress || state.device(withID: record.ip.description) == nil)
             // Autre site : la même IP sur le réseau du site actif serait un autre appareil.
             Button("Ping continu") { state.sendToPing(record.ip.description) }
-                .disabled(!isActive(row))
+                .disabled(!isActive(row) || !record.hasAddress)
             // Note 52 : utilisateur demandé (ou retenu pour cet appareil) avant ssh user@ip.
             Button("Se connecter en SSH…") {
                 QuickLoginModel.shared.ask(QuickLoginTarget(name: record.displayName,
                                                             device: QuickLoginDevice(host: record.ip.description, mac: record.mac?.formatted(.upperColon),
                                                                                      siteID: SiteModel.shared.list.activeID)))
             }
-            .disabled(!isActive(row))
+            .disabled(!isActive(row) || !record.hasAddress)
             // Note 50 : ports du dernier relevé de cet appareil ; autre site : grisé (autre réseau).
             FileTransferOpenMenu(host: record.ip.description, name: record.displayName,
                                  openPorts: isActive(row) ? record.openPorts : [],
                                  deviceID: state.device(withID: record.ip.description)?.id)
-                .disabled(!isActive(row))
+                .disabled(!isActive(row) || !record.hasAddress)
         } else {
             Text("\(chosen.count) appareils sélectionnés")
             Button("Copier les IP") {
-                copy(chosen.map(\.record.ip.description).joined(separator: "\n"), label: "Liste d’IP")
+                copy(chosen.map(\.record).filter(\.hasAddress).map(\.ip.description).joined(separator: "\n"), label: "Liste d’IP")
             }
         }
         Divider()
-        Button(chosen.count > 1 ? "Supprimer ces \(chosen.count) appareils de l’inventaire…" : "Supprimer de l’inventaire…",
-               role: .destructive) { onDelete(chosen.map(\.id)) }
+        InvMoveMenu(rows: chosen) { site in actions.move(chosen.map(\.id), site) }
+        Divider()
+        Button(chosen.count > 1 ? "Retirer ces \(chosen.count) appareils de l’inventaire…" : "Retirer de l’inventaire…",
+               role: .destructive) { actions.delete(chosen.map(\.id)) }
     }
 
     private func copy(_ text: String, label: String) {

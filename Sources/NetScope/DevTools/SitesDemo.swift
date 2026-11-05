@@ -86,6 +86,8 @@ enum SitesDemo {
             return copy
         }, at: first)
         store.merge(devices, at: now.addingTimeInterval(-2 * 86_400 - 3_600))
+        // Note 10 : ce Mac vu aussi à Laval (même MAC sur deux sites, signalée).
+        InvManualDemo.seedLaval(&store, now: now)
         return store
     }
 
