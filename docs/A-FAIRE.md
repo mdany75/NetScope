@@ -84,7 +84,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
     - **0.19.0, parc Fortinet** : notes 40 (sauvegarde des configurations), 41 (firmware et
       licences).
     - ~~**0.20.0, rapports et Inventaire**~~ (livrée) : notes 42 (rapport de suivi), 10 (Inventaire phase 3).
-    - **0.21.0, journaux et aide** : notes 43 (Syslog et traps), 44 (aide et accueil).
+    - **0.21.0, journaux et aide** : note 43 (Syslog et traps) ; la note 44 (aide et accueil) est retirée.
     - **Plus tard** : notes 11 (Ping continu), 6 (RustDesk), anglais ; idées d’un cran en dessous :
       navigateur SNMP, toner des imprimantes, test de câble, qualité VoIP (MOS), scan d’un VLAN
       tagué, relevé Wi-Fi sur plan, retour à la version
@@ -105,7 +105,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 | Accès distant | 5, 50, 52 | 6 (plus tard) |
 | Surveillance et alertes | 3, 23 | 43 (0.21.0) |
 | Rapports | 4, 42 | — |
-| Réglages, sauvegarde, aide | 9, 13, 38, 56 | 35 (0.13.1), 44 (0.21.0) |
+| Réglages, sauvegarde, aide | 9, 13, 38, 56 | 35 (0.13.1) |
 
 ## 1. Wi-Fi : « Autoriser la localisation » n'ouvre pas la fenêtre d'autorisation
 
@@ -301,6 +301,9 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 
 ## 11. Repenser le module Ping continu — PHASE 4 (demande de Dany)
 
+- **Constat de Dany** (4 novembre 2026) : « j'aime pas la fenêtre de ping en continu, je sais
+  pas pourquoi ». Avant de coder, proposer des croquis de dispositions différentes et choisir
+  avec lui (voir aussi ce qui gêne : densité, graphe, place des cibles, journal).
 - Reporté en phase 4 : revoir le module Ping continu en entier (disposition, graphes, journal,
   multi-cibles, traceroute/MTR). À préciser avec Dany avant de commencer : ce qui ne lui
   convient pas aujourd'hui et ce qu'il attend.
@@ -783,7 +786,9 @@ entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 3
 - Réception Syslog et traps SNMP sur le Mac, journaux de la FortiGate par l’API ; recherche
   par heure, appareil et gravité, pour comprendre une coupure intermittente.
 
-## 44. Aide intégrée et accueil au premier lancement — 0.21.0 (analyse, retenue par Dany)
+## 44. Aide intégrée et accueil au premier lancement — retirée (analyse, retirée par Dany)
+
+**Retirée à la demande de Dany** (4 novembre 2026) : ne pas la réaliser.
 
 - Accueil au premier lancement (autorisations, premier site, FortiGate), bouton « ? » dans
   chaque écran, menu Aide rempli (aujourd’hui vide).
