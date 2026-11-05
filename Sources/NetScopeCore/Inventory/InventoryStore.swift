@@ -434,7 +434,7 @@ public struct InventoryStore: Codable, Sendable {
         records[key] = record
         if recordEvent && !changed.isEmpty {
             events.append(InvEvent(date: date, kind: .fiche, severity: .info, key: key, ip: record.ip,
-                                   title: "Fiche modifiée", detail: "Champs mis à jour : " + changed.joined(separator: ", ")))
+                                   title: "Fiche modifiée", detail: "Champs mis à jour\u{00A0}: " + changed.joined(separator: ", ")))
         }
     }
 
@@ -588,11 +588,8 @@ public struct InventoryStore: Codable, Sendable {
         if (notes.customVendor ?? "").isEmpty { notes.customVendor = extra.customVendor }
         if notes.hardware == nil { notes.hardware = extra.hardware }
         keep.annotations = notes
-        // Pièces jointes : celles de la fiche rattachée s'ajoutent (son dossier reste le sien).
-        if !other.attachmentList.isEmpty, keep.attachmentFolder == nil || keep.attachmentFolder == other.attachmentFolder {
-            keep.attachmentFolder = keep.attachmentFolder ?? other.attachmentFolder
-            keep.attachments = keep.attachmentList + other.attachmentList
-        }
+        // Pièces jointes : celles de la fiche rattachée s'ajoutent, chacune dans son dossier d'origine.
+        keep.takeAttachments(of: other)
         if keep.manual == nil { keep.manual = other.manual }
         records[keepKey] = keep
         records[absorbKey] = nil

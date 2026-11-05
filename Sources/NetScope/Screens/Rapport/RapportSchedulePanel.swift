@@ -192,10 +192,11 @@ struct RapportScheduleEditor: View {
                             }))
                         }
                     } label: {
-                        Text("\(draft.wrappedValue.config.sections.count) sections").font(Theme.small)
+                        let count = draft.wrappedValue.config.sections.count
+                        Text("\(count) section\(count > 1 ? "s" : "")").font(Theme.small)
                     }
                     .fixedSize()
-                    .help("Sections du rapport ; «\u{00A0}Depuis le dernier rapport\u{00A0}» compare au rapport précédent du même site.")
+                    .help("Sections du rapport\u{00A0}; «\u{00A0}Depuis le dernier rapport\u{00A0}» compare au rapport précédent du même site.")
                 }
             }
             field("Format") {
@@ -252,9 +253,10 @@ struct RapportScheduleEditor: View {
             HStack(spacing: 6) {
                 Spacer()
                 Button("Annuler") { store.draft = nil }
+                    .buttonStyle(.secondary)
                     .keyboardShortcut(.cancelAction)
                 Button(store.isNewDraft ? "Planifier" : "Enregistrer") { store.saveDraft() }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.primary)
                     .keyboardShortcut(.defaultAction)
                     .disabled(draft.wrappedValue.siteKeys.isEmpty)
             }

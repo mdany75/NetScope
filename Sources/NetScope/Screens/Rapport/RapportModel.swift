@@ -315,7 +315,7 @@ final class RapportModel: ObservableObject {
                           now: Date = Date()) -> Result<URL, ScheduledReportError> {
         let sites = SiteModel.shared
         guard siteKey == sites.activeKey || sites.site(forKey: siteKey) != nil else {
-            return .failure(ScheduledReportError("site introuvable (supprimé ?)"))
+            return .failure(ScheduledReportError("site introuvable (supprimé\u{00A0}?)"))
         }
         let name = sites.name(forKey: siteKey)
         var input = siteKey == sites.activeKey

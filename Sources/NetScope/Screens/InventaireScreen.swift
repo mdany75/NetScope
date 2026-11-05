@@ -64,6 +64,8 @@ private struct InvAlertItem: Identifiable {
     let key: String?
     let text: String
     let detail: String
+    /// Même MAC sur plusieurs sites : nombre de sites (puce « 3 SITES »).
+    var siteCount = 2
     var id: String { "\(kind)|" + site + "|" + (key ?? text) }
 }
 
@@ -178,7 +180,8 @@ struct InventaireScreen: View {
                 InvTable(rows: rows, total: archiveMode ? archived.count : records.count, selection: selectionBinding(rows), table: table, now: now,
                          inventoryEmpty: records.isEmpty, siteNames: inventories.map(\.name),
                          unreadableNames: inventories.filter { model.unreadableSites.contains($0.key) }.map(\.name), excluded: excluded,
-                         actions: rowActions(rows), archiveMode: archiveMode, archiveDates: archiveDates, sharedSites: sharedNames,
+                         actions: rowActions(rows), archiveMode: archiveMode, archiveDates: archiveDates,
+                         filterActive: filter.isActive, clearFilters: { filter = InvFilter() }, sharedSites: sharedNames,
                          accessory: AnyView(tableAccessory(inventories: inventories)))
                 if selectedRows.count > 1 {
                     selectionPanel(selectedRows, rows: rows, archiveMode: archiveMode)
@@ -244,6 +247,7 @@ struct InventaireScreen: View {
         }
         .feedsInventory(state)
         .onAppear {
+            adoptRequestedArchives()
             adoptRequestedSelection()
             pickFirstRowIfNeeded(rows)
             refreshShared()
@@ -252,6 +256,7 @@ struct InventaireScreen: View {
         .onChange(of: model.store.lastMerge) { _, _ in refreshShared() }
         .onChange(of: model.siteKey) { _, _ in refreshShared() }
         .onChange(of: view) { _, _ in selection = [] }
+        .onChange(of: model.requestedArchives) { _, _ in adoptRequestedArchives() }
         .sheet(item: $manualMode) { mode in
             InvManualSheet(mode: mode, onDone: { key, site in select(site: site, key: key) }, dismiss: { manualMode = nil })
         }
@@ -309,7 +314,7 @@ struct InventaireScreen: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(width: 520)
+            .frame(width: 590)
             .fixedSize()
             // Petite fenêtre : seule la date de fusion reste, sinon rien (jamais une phrase coupée ;
             // la légende complète reste au survol).
@@ -353,7 +358,7 @@ struct InventaireScreen: View {
 
         return HStack(alignment: .top, spacing: 12) {
             InvTile(title: "Appareils connus", value: "\(records.count)",
-                    subtitle: manual > 0 ? "Toutes plages confondues ·\u{00A0}\(manual)\u{00A0}ajouté\(manual > 1 ? "s" : "")\u{00A0}à la main" : "Toutes plages confondues") { view = .tous }
+                    subtitle: manual > 0 ? "Toutes plages confondues\u{00A0}· \(manual)\u{00A0}ajouté\(manual > 1 ? "s" : "")\u{00A0}à la main" : "Toutes plages confondues") { view = .tous }
             InvTile(title: "Vus aujourd’hui", value: "\(seenToday)", // Plusieurs sites : chaque site a son propre dernier scan (pas forcément aujourd'hui).
                     subtitle: multiple ? "\(online) en ligne au dernier scan de chaque site" : "\(online) en ligne au dernier scan",
                     valueColor: Theme.success)
@@ -387,9 +392,15 @@ struct InventaireScreen: View {
                         Button {
                             if let key = item.key { selection = [SiteScope.id(site: item.site, key: key)] }
                         } label: {
+                            // Petite fenêtre : le texte passe sous la puce, puis sur deux lignes (jamais coupé).
                             ViewThatFits(in: .horizontal) {
-                                HStack(spacing: 6) { alertChip(item.kind); Text(item.text).font(Theme.small).foregroundStyle(Theme.text).lineLimit(1) }
-                                VStack(alignment: .leading, spacing: 2) { alertChip(item.kind); Text(item.text).font(Theme.small).foregroundStyle(Theme.text).lineLimit(1) }
+                                HStack(spacing: 6) { alertChip(item.kind, sites: item.siteCount); Text(item.text).font(Theme.small).foregroundStyle(Theme.text).lineLimit(1) }
+                                VStack(alignment: .leading, spacing: 2) { alertChip(item.kind, sites: item.siteCount); Text(item.text).font(Theme.small).foregroundStyle(Theme.text).lineLimit(1) }
+                                VStack(alignment: .leading, spacing: 2) {
+                                    alertChip(item.kind, sites: item.siteCount)
+                                    Text(item.text).font(Theme.small).foregroundStyle(Theme.text)
+                                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                                }
                             }
                         }
                         .buttonStyle(.plain)
@@ -557,11 +568,17 @@ struct InventaireScreen: View {
         let auto = target?.store.autoAdd ?? true
         return Menu {
             Button("Ajouter un appareil à la main…") { manualMode = .add(site: site) }
-            Button(missing.isEmpty ? "Appareils du dernier scan\u{00A0}: tous dans l’inventaire"
-                   : "Ajouter les \(missing.count) appareil\(missing.count > 1 ? "s" : "") du dernier scan hors inventaire") {
-                model.addToInventory(missing)
+            // Le dernier scan est celui du site actif : ses appareils vont dans l'inventaire du site actif.
+            if site != model.siteKey {
+                Button("Appareils du dernier scan\u{00A0}: seulement pour le site actif «\u{00A0}\(sites.activeName)\u{00A0}»") {}
+                    .disabled(true)
+            } else {
+                Button(missing.isEmpty ? "Appareils du dernier scan\u{00A0}: tous dans l’inventaire"
+                       : "Ajouter les \(missing.count) appareil\(missing.count > 1 ? "s" : "") du dernier scan hors inventaire") {
+                    model.addToInventory(missing)
+                }
+                .disabled(missing.isEmpty)
             }
-            .disabled(missing.isEmpty)
             Divider()
             Toggle("Ajouter automatiquement les appareils scannés («\u{00A0}\(name)\u{00A0}»)", isOn: Binding(get: { auto }, set: { model.setAutoAdd($0, site: site) }))
         } label: {
@@ -640,18 +657,19 @@ struct InventaireScreen: View {
                 guard !others.isEmpty else { continue }
                 items.append(InvAlertItem(kind: .shared, site: inventory.key, siteName: inventory.name, key: record.key,
                                           text: record.displayName + " · aussi à " + others.joined(separator: ", "),
-                                          detail: "Même MAC \(mac.formatted(.upperColon)) dans l’inventaire de «\u{00A0}\(others.joined(separator: "\u{00A0}», «\u{00A0}"))\u{00A0}»\u{00A0}: fiches distinctes, jamais fusionnées"))
+                                          detail: "Même MAC \(mac.formatted(.upperColon)) dans l’inventaire de «\u{00A0}\(others.joined(separator: "\u{00A0}», «\u{00A0}"))\u{00A0}»\u{00A0}: fiches distinctes, jamais fusionnées",
+                                          siteCount: others.count + 1))
             }
         }
         return items
     }
 
-    private func alertChip(_ kind: InvAlertItem.Kind) -> some View {
+    private func alertChip(_ kind: InvAlertItem.Kind, sites: Int = 2) -> some View {
         let (text, fg, bg): (String, Color, Color) = {
             switch kind {
             case .conflict: return ("CONFLIT IP", Theme.critical, Theme.criticalSoft)
             case .warranty: return ("GARANTIE", Theme.warning, Theme.warningSoft)
-            case .shared: return ("2 SITES", Theme.warning, Theme.warningSoft)
+            case .shared: return ("\(sites)\u{00A0}SITES", Theme.warning, Theme.warningSoft)
             }
         }()
         return Text(text).font(.system(size: 10, weight: .bold))
@@ -672,6 +690,13 @@ struct InventaireScreen: View {
             view = .tous
         }
         DispatchQueue.main.async { selection = [SiteScope.id(site: site, key: key)] }
+    }
+
+    /// « Voir les archives » demandé ailleurs (Réglages › Inventaire du site).
+    private func adoptRequestedArchives() {
+        guard model.requestedArchives else { return }
+        model.requestedArchives = false
+        view = .archives
     }
 
     /// Captures (NETSCOPE_INV_VUE) : vue « Archivés », filtre des garanties, fiche ajoutée à la main.

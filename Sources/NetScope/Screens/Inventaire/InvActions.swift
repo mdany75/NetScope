@@ -15,10 +15,12 @@ extension InvModel {
     /// Crée une fiche « Ajouté à la main » dans l'inventaire du site ; renvoie sa clé, ou l'erreur à afficher.
     func addManual(_ draft: InvManualDraft, site: String) -> Result<String, Error> {
         var failure: Error?
-        let key = mutate(site: site) { store -> String? in
+        let outcome = mutate(site: site) { store -> String? in
             do { return try store.addManual(draft) } catch { failure = error; return nil }
-        } ?? nil
-        if let key { return .success(key) }
+        }
+        // Inventaire du site introuvable ou illisible : le dire dans la feuille, pas dans un toast caché.
+        guard let outcome else { return .failure(InvManualError.siteUnavailable(name: SiteModel.shared.name(forKey: site))) }
+        if let key = outcome { return .success(key) }
         return .failure(failure ?? InvManualError.notEditable)
     }
 
@@ -27,7 +29,8 @@ extension InvModel {
         let done = mutate(site: site) { store -> Bool in
             do { try store.updateManual(key, with: draft); return true } catch { failure = error; return false }
         }
-        return done == true ? nil : (failure ?? InvManualError.notEditable)
+        guard let done else { return InvManualError.siteUnavailable(name: SiteModel.shared.name(forKey: site)) }
+        return done ? nil : (failure ?? InvManualError.notEditable)
     }
 
     /// Duplique une fiche en appareil ajouté à la main ; renvoie la clé de la copie.
@@ -39,10 +42,13 @@ extension InvModel {
 
     func autoAdd(site: String) -> Bool { inventory(for: site).autoAdd }
 
-    func setAutoAdd(_ on: Bool, site: String) {
-        guard mutate(site: site, { $0.setAutoAdd(on) }) != nil else { return }
+    /// Faux si l'inventaire du site est introuvable ou illisible (rien n'est changé).
+    @discardableResult
+    func setAutoAdd(_ on: Bool, site: String) -> Bool {
+        guard mutate(site: site, { $0.setAutoAdd(on) }) != nil else { return false }
         show(on ? "Ajout automatique activé\u{00A0}: les prochains scans de «\u{00A0}\(SiteModel.shared.name(forKey: site))\u{00A0}» rempliront l’inventaire"
              : "Ajout automatique désactivé\u{00A0}: «\u{00A0}Ajouter à l’inventaire\u{00A0}» depuis le Scanner (clic droit)")
+        return true
     }
 
     /// Appareils du Scanner (site actif) ajoutés à l'inventaire, même si l'ajout automatique est
@@ -105,13 +111,14 @@ extension InvModel {
         guard !isEphemeral else { return [] }
         var trashed: [TrashedFolder] = []
         for record in records {
-            guard let folder = record.attachmentFolder, !record.attachmentList.isEmpty else { continue }
-            do {
-                if let url = try attachmentFiles.trashFolder(site: site, folder: folder) {
-                    trashed.append(TrashedFolder(site: site, folder: folder, url: url))
+            for folder in record.attachmentFolders {
+                do {
+                    if let url = try attachmentFiles.trashFolder(site: site, folder: folder) {
+                        trashed.append(TrashedFolder(site: site, folder: folder, url: url))
+                    }
+                } catch {
+                    NSLog("NetScope : pièces jointes de %@ non retirées : %@", record.displayName, error.localizedDescription)
                 }
-            } catch {
-                NSLog("NetScope : pièces jointes de %@ non retirées : %@", record.displayName, error.localizedDescription)
             }
         }
         return trashed
@@ -193,12 +200,13 @@ extension InvModel {
     private func moveAttachments(of records: [InvRecord], from source: String, to destination: String) {
         guard !isEphemeral else { return }
         for record in records {
-            guard let folder = record.attachmentFolder, !record.attachmentList.isEmpty else { continue }
-            do {
-                try attachmentFiles.moveFolder(folder, from: source, to: destination)
-            } catch {
-                NSLog("NetScope : pièces jointes de %@ non déplacées : %@", record.displayName, error.localizedDescription)
-                show("Pièces jointes de «\u{00A0}\(record.displayName)\u{00A0}» restées dans l’ancien site\u{00A0}: \(error.localizedDescription)")
+            for folder in record.attachmentFolders {
+                do {
+                    try attachmentFiles.moveFolder(folder, from: source, to: destination)
+                } catch {
+                    NSLog("NetScope : pièces jointes de %@ non déplacées : %@", record.displayName, error.localizedDescription)
+                    show("Pièces jointes de «\u{00A0}\(record.displayName)\u{00A0}» restées dans l’ancien site\u{00A0}: \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -244,7 +252,7 @@ extension InvModel {
     }
 
     func open(_ attachment: InvAttachment, of record: InvRecord, site: String) {
-        guard !isEphemeral, let folder = record.attachmentFolder else {
+        guard !isEphemeral, let folder = record.folder(of: attachment) else {
             show("Démonstration\u{00A0}: «\u{00A0}\(attachment.fileName)\u{00A0}» n’est pas sur ce Mac")
             return
         }
@@ -257,14 +265,14 @@ extension InvModel {
     }
 
     func revealAttachments(of record: InvRecord, site: String) {
-        guard !isEphemeral, let folder = record.attachmentFolder else { return }
+        guard !isEphemeral, let folder = record.attachmentFolder ?? record.attachmentFolders.first else { return }
         NSWorkspace.shared.activateFileViewerSelecting([attachmentFiles.folderURL(site: site, folder: folder)])
     }
 
     /// Retire une pièce jointe de la fiche ; le fichier va à la corbeille de macOS.
     func removeAttachment(_ attachment: InvAttachment, of record: InvRecord, site: String) {
         guard mutate(site: site, { $0.removeAttachment(attachment.id, from: record.key) }) != nil else { return }
-        if !isEphemeral, let folder = record.attachmentFolder {
+        if !isEphemeral, let folder = record.folder(of: attachment) {
             do {
                 try attachmentFiles.remove(attachment, site: site, folder: folder)
             } catch {

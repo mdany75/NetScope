@@ -103,7 +103,8 @@ final class RapportScheduleStore: ObservableObject {
         let folderName = schedule.folder.map { ($0 as NSString).lastPathComponent } ?? "Application Support/NetScope/rapports"
         NetScopeEventCenter.shared.publish(NetScopeEvent(
             kind: .reportReady, severity: errors.isEmpty ? .info : .warning,
-            title: (errors.isEmpty ? "Rapport planifié prêt\u{00A0}: " : "Rapport planifié incomplet\u{00A0}: ") + schedule.name,
+            title: (errors.isEmpty ? "Rapport planifié prêt\u{00A0}: "
+                    : (files.isEmpty ? "Rapport planifié en échec\u{00A0}: " : "Rapport planifié incomplet\u{00A0}: ")) + schedule.name,
             detail: files.isEmpty ? text + "." : text + " dans «\u{00A0}\(folderName)\u{00A0}»\u{00A0}: "
                 + files.map(\.lastPathComponent).joined(separator: ", ") + ".",
             link: .screen(Screen.rapports.rawValue), source: "rapport-planifie-" + schedule.id.uuidString))
@@ -142,11 +143,18 @@ final class RapportScheduleStore: ObservableObject {
         var config = ReportConfig(template: .audit, sections: [.resume, .suivi, .problemes], client: template.client,
                                   technician: template.technician, format: .pdf)
         config.maskMAC = template.maskMAC
+        editedFrom = nil
         draft = ReportSchedule(name: "Suivi hebdomadaire — " + SiteModel.shared.name(forKey: key), siteKeys: [key],
                                cadence: .weekly, weekday: 2, hour: 7, minute: 0, config: config, activeSince: now)
     }
 
-    func edit(_ id: UUID) { draft = book.schedules.first { $0.id == id } }
+    func edit(_ id: UUID) {
+        draft = book.schedules.first { $0.id == id }
+        editedFrom = draft
+    }
+
+    /// Version de l'entrée au moment où l'éditeur s'est ouvert (pour savoir ce que l'éditeur a changé).
+    private var editedFrom: ReportSchedule?
 
     var isNewDraft: Bool { draft.map { d in !book.schedules.contains { $0.id == d.id } } ?? false }
 
@@ -157,6 +165,16 @@ final class RapportScheduleStore: ObservableObject {
         if draft.name.isEmpty { draft.name = "Rapport planifié" }
         if let index = book.schedules.firstIndex(where: { $0.id == draft.id }) {
             let old = book.schedules[index]
+            // L'éditeur ne touche qu'à la configuration : l'état d'exécution (échéance produite
+            // pendant que l'éditeur était ouvert, interrupteur de la liste) reste celui d'aujourd'hui.
+            draft.lastSlot = old.lastSlot
+            draft.lastProduced = old.lastProduced
+            draft.lastStatus = old.lastStatus
+            draft.lastMessage = old.lastMessage
+            draft.lastFiles = old.lastFiles
+            if let opened = editedFrom, opened.id == draft.id, opened.isEnabled == draft.isEnabled {
+                draft.isEnabled = old.isEnabled
+            }
             if old.cadence != draft.cadence || old.weekday != draft.weekday || old.monthDay != draft.monthDay
                 || old.hour != draft.hour || old.minute != draft.minute || (!old.isEnabled && draft.isEnabled) {
                 draft.activeSince = now
@@ -167,6 +185,7 @@ final class RapportScheduleStore: ObservableObject {
             book.schedules.append(draft)
         }
         self.draft = nil
+        editedFrom = nil
         save()
         show("«\u{00A0}\(draft.name)\u{00A0}» enregistré. Prochain\u{00A0}: " + nextLabel(draft) + ".", tone: .success)
     }
@@ -200,9 +219,13 @@ final class RapportScheduleStore: ObservableObject {
     }
 
     func revealFolder(_ schedule: ReportSchedule) {
-        if isDemo { return }
+        if isDemo {
+            show("Démonstration\u{00A0}: aucun dossier sur le disque.", tone: .neutral)
+            return
+        }
         let folder = schedule.folder.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? directory
-        let file = schedule.lastFiles.first.map { folder.appendingPathComponent($0) }
+        // Nom relu du disque : on n'en garde que le dernier composant (jamais « .. » ni un chemin).
+        let file = schedule.lastFiles.first.flatMap { RapportHistoryStore.safeFileName($0) }.map { folder.appendingPathComponent($0) }
         if let file, FileManager.default.fileExists(atPath: file.path) {
             NSWorkspace.shared.activateFileViewerSelecting([file])
         } else if FileManager.default.fileExists(atPath: folder.path) {

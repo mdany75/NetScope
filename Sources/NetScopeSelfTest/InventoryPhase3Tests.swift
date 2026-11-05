@@ -267,7 +267,7 @@ func registerInventoryPhase3Tests(_ suite: TestSuite) {
                                    serialNumber: "E78123K4N", price: 1249.99)
         try expectEqual(hardware.warranty(now: now), .expiringSoon(days: 24), "bientôt échue")
         try expect(hardware.warranty(now: now).isAlert, "alerte")
-        try expect(hardware.warranty(now: now).label.contains("24 j"), "libellé")
+        try expect(hardware.warranty(now: now).label.contains("24\u{00A0}j"), "libellé")
         hardware.warrantyEnd = day("2028-06-30")
         try expect(!hardware.warranty(now: now).isAlert, "active")
         hardware.warrantyEnd = day("2026-10-01")
@@ -333,6 +333,58 @@ func registerInventoryPhase3Tests(_ suite: TestSuite) {
         try expect(!FileManager.default.fileExists(atPath: files.folderURL(site: "laval", folder: folder).path), "dossier retiré")
         try expectEqual(InvAttachmentFiles(base: base, useTrash: false).url(of: InvAttachment(fileName: "x", storedName: "../../etc", size: 0, added: p0),
                                                                         site: "s", folder: "f").lastPathComponent, "-..-etc", "nom sûr")
+    }
+
+    suite.add("Inventaire phase 3 : dossier de pièces jointes d'un site supprimé ou adopté") {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("netscope-pj-site-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: base) }
+        let files = InvAttachmentFiles(base: base, useTrash: false)
+        let source = base.appendingPathComponent("source/contrat.pdf")
+        try FileManager.default.createDirectory(at: source.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("contrat".utf8).write(to: source)
+        let piece = try files.add(source, site: "aucun-site", folder: "Imprimante-1", at: p0)
+        try files.moveSite(from: "aucun-site", to: "nouveau")
+        try expect(FileManager.default.fileExists(atPath: files.url(of: piece, site: "nouveau", folder: "Imprimante-1").path), "suit le nouveau site")
+        try expect(!FileManager.default.fileExists(atPath: files.siteURL("aucun-site").path), "plus aux plages libres")
+        // Arrivée déjà occupée : rien n'est écrasé.
+        _ = try files.add(source, site: "aucun-site", folder: "Imprimante-1", at: p0)
+        _ = try files.add(source, site: "aucun-site", folder: "Camera-2", at: p0)
+        try files.moveSite(from: "aucun-site", to: "nouveau")
+        try expect(FileManager.default.fileExists(atPath: files.folderURL(site: "nouveau", folder: "Camera-2").path), "dossier libre déplacé")
+        try expect(FileManager.default.fileExists(atPath: files.folderURL(site: "aucun-site", folder: "Imprimante-1").path), "homonyme laissé au départ")
+        try files.trashSite("nouveau")
+        try expect(!FileManager.default.fileExists(atPath: files.siteURL("nouveau").path), "site supprimé : dossier retiré")
+        try files.trashSite("inexistant")
+    }
+
+    suite.add("Inventaire phase 3 : brouillon de la fiche posé sur une version modifiée entre-temps") {
+        let base = InvAnnotations(customName: "Imprimante", location: "Accueil")
+        var draft = base
+        draft.tags = ["Stock"]
+        var latest = base
+        latest.customName = "Imprimante quai 2"
+        latest.location = "Quai 2"
+        let merged = draft.rebased(from: base, onto: latest)
+        try expectEqual(merged.customName, "Imprimante quai 2", "nom changé par « Modifier… » gardé")
+        try expectEqual(merged.location, "Quai 2", "local gardé")
+        try expectEqual(merged.tags, ["Stock"], "étiquette du brouillon appliquée")
+    }
+
+    suite.add("Inventaire phase 3 : fusion de deux fiches qui ont chacune leurs pièces jointes") {
+        var store = InventoryStore()
+        store.merge([device("10.0.0.2", m1, host: "SW-CORE-01"), device("10.0.0.3", m2, host: "SW-2")], at: p0)
+        let keep = InventoryStore.key(mac: MACAddress(m1)!)
+        let other = InventoryStore.key(mac: MACAddress(m2)!)
+        let a = InvAttachment(fileName: "a.pdf", storedName: "a.pdf", size: 1, added: p0)
+        let b = InvAttachment(fileName: "b.pdf", storedName: "b.pdf", size: 1, added: p0)
+        store.addAttachment(a, folder: "dossier-A", to: keep)
+        store.addAttachment(b, folder: "dossier-B", to: other)
+        store.absorb(other, into: keep, at: p0)
+        let record = store.record(keep)!
+        try expectEqual(record.attachmentList.map(\.fileName), ["a.pdf", "b.pdf"], "aucune pièce perdue")
+        try expectEqual(record.folder(of: record.attachmentList[0]), "dossier-A", "pièce gardée dans son dossier")
+        try expectEqual(record.folder(of: record.attachmentList[1]), "dossier-B", "pièce absorbée dans son dossier d'origine")
+        try expectEqual(record.attachmentFolders, ["dossier-A", "dossier-B"], "deux dossiers à déplacer ou retirer")
     }
 
     suite.add("Inventaire phase 3 : migration sans perte d'un inventaire de la 0.18") {

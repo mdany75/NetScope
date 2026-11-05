@@ -81,7 +81,7 @@ struct InvManualSheet: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(isEdit ? "Modifier l’appareil ajouté à la main" : "Ajouter un appareil à la main").font(Theme.panelTitle)
                     Text(isEdit && addressLocked
-                         ? "Déjà rapproché d’un appareil scanné\u{00A0}: son IP et sa MAC viennent du scan."
+                         ? "Déjà rapproché d’un appareil scanné\u{00A0}: son IP, sa MAC, son switch et son port viennent du scan."
                          : "Appareil absent des scans (hors réseau, éteint, en stock). Il sera rapproché de l’appareil que le scan de ce site verra ensuite (même MAC, sinon même IP), sans perdre ces champs.")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)

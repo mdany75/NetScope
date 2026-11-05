@@ -17,6 +17,9 @@ struct InvDetail: View {
     var onCreated: (String, String) -> Void = { _, _ in }
 
     @State private var draft: InvAnnotations?
+    /// Fiche telle qu'elle était au premier changement du brouillon : à l'enregistrement, seuls les
+    /// champs changés depuis sont appliqués (« Modifier… » a pu changer les autres entre-temps).
+    @State private var draftBase: InvAnnotations?
     @State private var editing: InvManualMode?
     @State private var newTag = ""
 
@@ -31,6 +34,11 @@ struct InvDetail: View {
 
     private var site: String { siteKey ?? model.siteKey }
 
+    private func setDraft(_ updated: InvAnnotations) {
+        if draft == nil { draftBase = record.annotations }
+        draft = updated
+    }
+
     var body: some View {
         VStack(spacing: 14) {
             layouts
@@ -38,6 +46,13 @@ struct InvDetail: View {
         }
         .sheet(item: $editing) { mode in
             InvManualSheet(mode: mode, onDone: { key, site in onCreated(site, key) }, dismiss: { editing = nil })
+        }
+        // Fiche changée ailleurs (« Modifier… ») pendant une modification : le brouillon garde
+        // seulement ses propres changements, posés sur la nouvelle version.
+        .onChange(of: record.annotations) { _, latest in
+            guard let draft, let base = draftBase else { return }
+            self.draft = draft.rebased(from: base, onto: latest)
+            draftBase = latest
         }
     }
 
@@ -76,7 +91,7 @@ struct InvDetail: View {
         Binding(get: { current[keyPath: path] }, set: { value in
             var updated = current
             updated[keyPath: path] = value
-            draft = updated
+            setDraft(updated)
         })
     }
 
@@ -153,7 +168,7 @@ struct InvDetail: View {
                         InvField(label: "Nom", text: Binding(get: { current.customName ?? "" }, set: { value in
                             var updated = current
                             updated.customName = value
-                            draft = updated
+                            setDraft(updated)
                         }), placeholder: record.hostname ?? "")
                         typePicker
                     }
@@ -170,7 +185,7 @@ struct InvDetail: View {
                 InvWarrantyFields(hardware: Binding(get: { current.hardware ?? InvHardware() }, set: { value in
                     var updated = current
                     updated.hardware = value
-                    draft = updated
+                    setDraft(updated)
                 }), now: now)
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -182,7 +197,7 @@ struct InvDetail: View {
                                 var updated = current
                                 updated.tags.removeAll { $0 == tag }
                                 if on { updated.tags.append(tag) }
-                                draft = updated
+                                setDraft(updated)
                             }))
                             .toggleStyle(.button)
                             .controlSize(.small)
@@ -223,6 +238,8 @@ struct InvDetail: View {
                         }
                         let site = siteKey ?? model.siteKey
                         draft.hardware = draft.hardware?.cleaned
+                        let latest = model.inventory(for: site).record(record.key)?.annotations ?? record.annotations
+                        draft = draft.rebased(from: draftBase ?? record.annotations, onto: latest)
                         model.setAnnotations(draft, for: record.key, site: site)
                         // Le nom saisi suit l'appareil dans les autres écrans (appareils du site actif seulement).
                         if site == model.siteKey, state.device(withID: record.ip.description)?.mac == record.mac {
@@ -231,9 +248,10 @@ struct InvDetail: View {
                         let name = model.inventory(for: site).record(record.key)?.displayName ?? record.displayName
                         model.show("Fiche enregistrée\u{00A0}: \(name)" + (site == model.siteKey ? "" : " (site «\u{00A0}\(SiteModel.shared.name(forKey: site))\u{00A0}»)"))
                         self.draft = nil
+                        draftBase = nil
                     } label: { Label("Enregistrer", systemImage: "checkmark") }
                         .buttonStyle(.primary)
-                    Button("Annuler") { draft = nil }.buttonStyle(.secondary).disabled(!isDirty)
+                    Button("Annuler") { draft = nil; draftBase = nil }.buttonStyle(.secondary).disabled(!isDirty)
                     Text(isDirty ? "Modifications non enregistrées" : "Fiche à jour")
                         .font(.system(size: 12, weight: isDirty ? .semibold : .regular))
                         .foregroundStyle(isDirty ? Theme.warning : Theme.textSecondary)
@@ -247,7 +265,7 @@ struct InvDetail: View {
         guard !tag.isEmpty else { return }
         var updated = current
         if !updated.tags.contains(where: { $0.lowercased() == tag.lowercased() }) { updated.tags.append(tag) }
-        draft = updated
+        setDraft(updated)
         newTag = ""
     }
 
@@ -283,7 +301,7 @@ struct InvDetail: View {
             Picker("", selection: Binding(get: { current.customType ?? record.detectedType }, set: { value in
                 var updated = current
                 updated.customType = value == record.detectedType ? nil : value
-                draft = updated
+                setDraft(updated)
             })) {
                 ForEach(DeviceType.allCases, id: \.self) { type in
                     Text(type.label).tag(type)

@@ -28,7 +28,7 @@ struct InvWarrantyPill: View {
     /// « 24 j », « Échue », « OK ».
     static func shortLabel(_ state: InvWarrantyState) -> String {
         switch state {
-        case .expiringSoon(let days): return days == 0 ? "Aujourd’hui" : "Dans \(days) j"
+        case .expiringSoon(let days): return days == 0 ? "Aujourd’hui" : "Dans \(days)\u{00A0}j"
         case .expired: return "Échue"
         case .active: return "Active"
         case .unknown: return "—"

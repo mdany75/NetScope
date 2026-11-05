@@ -343,7 +343,8 @@ public enum ReportScheduler {
                                 calendar: Calendar) -> String {
         var pattern = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
         if pattern.isEmpty { pattern = ReportSchedule.defaultPattern }
-        if !pattern.contains("{date}") { pattern += "-{date}" }
+        // Repères reconnus sans tenir compte de la casse : « {DATE} » compte comme « {date} ».
+        if !pattern.lowercased().contains("{date}") { pattern += "-{date}" }
         let p = calendar.dateComponents([.hour, .minute], from: slot)
         let values: [String: String] = [
             "{site}": ReportText.slug(siteName.isEmpty ? "site" : siteName),
@@ -372,7 +373,14 @@ public enum ReportScheduler {
             }
         }
         while result.hasPrefix(".") || result.hasPrefix("-") || result.hasPrefix(" ") { result.removeFirst() }
-        result = String(result.prefix(120)).trimmingCharacters(in: .whitespaces)
+        // Nom trop long : on coupe avant la date, jamais la date elle-même (deux échéances
+        // donneraient sinon le même nom, et l'historique effacerait l'instantané précédent).
+        if result.count > 120, let day = values["{date}"] {
+            let cut = String(result.prefix(120))
+            result = cut.contains(day) ? cut
+                : String(result.prefix(120 - day.count - 1)).trimmingCharacters(in: CharacterSet(charactersIn: " -")) + "-" + day
+        }
+        result = result.trimmingCharacters(in: .whitespaces)
         if result.isEmpty { result = "rapport-" + ReportText.isoDay(slot, calendar: calendar) }
         return result + "." + format.fileExtension
     }

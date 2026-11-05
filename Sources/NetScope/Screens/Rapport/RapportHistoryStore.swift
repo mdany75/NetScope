@@ -68,28 +68,40 @@ final class RapportHistoryStore: ObservableObject {
 
     // MARK: Rapports passés
 
-    func url(of snapshot: ReportSnapshot) -> URL {
+    /// Nom de fichier relu du disque, réduit à son dernier composant ; nil : vide, « . » ou « .. ».
+    /// Un instantané modifié ou abîmé ne peut ainsi jamais viser un fichier hors de son dossier.
+    nonisolated static func safeFileName(_ name: String) -> String? {
+        let last = (name as NSString).lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !last.isEmpty, last != ".", last != "..", last != "/" else { return nil }
+        return last
+    }
+
+    /// Fichier d'un rapport passé ; nil si le nom relu n'est pas un nom de fichier sûr.
+    func url(of snapshot: ReportSnapshot) -> URL? {
+        guard let name = Self.safeFileName(snapshot.fileName) else { return nil }
         let folder = snapshot.folder.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? directory
-        return folder.appendingPathComponent(snapshot.fileName)
+        return folder.appendingPathComponent(name)
     }
 
     func fileExists(_ snapshot: ReportSnapshot) -> Bool {
-        isDemo || FileManager.default.fileExists(atPath: url(of: snapshot).path)
+        isDemo || url(of: snapshot).map { FileManager.default.fileExists(atPath: $0.path) } == true
     }
 
     /// Ouvre le fichier du rapport ; renvoie le message à afficher en cas d'échec.
     func open(_ snapshot: ReportSnapshot) -> String? {
         if isDemo { return "Démonstration\u{00A0}: aucun fichier n’est ouvert." }
-        let url = url(of: snapshot)
-        guard FileManager.default.fileExists(atPath: url.path) else { return "Fichier introuvable\u{00A0}: \(snapshot.fileName)" }
+        guard let url = url(of: snapshot), FileManager.default.fileExists(atPath: url.path) else {
+            return "Fichier introuvable\u{00A0}: \(snapshot.fileName)"
+        }
         NSWorkspace.shared.open(url)
         return nil
     }
 
     func reveal(_ snapshot: ReportSnapshot) -> String? {
         if isDemo { return "Démonstration\u{00A0}: aucun fichier sur le disque." }
-        let url = url(of: snapshot)
-        guard FileManager.default.fileExists(atPath: url.path) else { return "Fichier introuvable\u{00A0}: \(snapshot.fileName)" }
+        guard let url = url(of: snapshot), FileManager.default.fileExists(atPath: url.path) else {
+            return "Fichier introuvable\u{00A0}: \(snapshot.fileName)"
+        }
         NSWorkspace.shared.activateFileViewerSelecting([url])
         return nil
     }
@@ -104,13 +116,76 @@ final class RapportHistoryStore: ObservableObject {
         RapportModel.shared.forgetRecent(fileName: snapshot.fileName)
         guard !isDemo else { return "Rapport retiré de la liste (démonstration\u{00A0}: aucun fichier touché)." }
         try? history.save(forSite: snapshot.siteKey, in: directory)
-        let url = url(of: snapshot)
+        guard let url = url(of: snapshot) else { return "Rapport retiré de la liste (nom de fichier invalide\u{00A0}: aucun fichier touché)." }
         guard FileManager.default.fileExists(atPath: url.path) else { return "Rapport retiré de la liste (fichier déjà absent)." }
+        // Le fichier doit être dans le dossier noté pour ce rapport (jamais ailleurs sur le disque).
+        let expected = (snapshot.folder.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? directory).standardizedFileURL
+        guard url.standardizedFileURL.deletingLastPathComponent().path == expected.path else {
+            return "Rapport retiré de la liste (fichier hors du dossier des rapports\u{00A0}: non touché)."
+        }
+        // Rapport multisite : un seul fichier pour plusieurs instantanés ; il reste tant qu'un autre y renvoie.
+        if isShared(snapshot) {
+            return "Rapport retiré de la liste de ce site\u{00A0}; le fichier \(snapshot.fileName) reste, car il couvre aussi d’autres sites."
+        }
         do {
             try FileManager.default.trashItem(at: url, resultingItemURL: nil)
             return "Rapport supprimé\u{00A0}: \(snapshot.fileName) est dans la Corbeille."
         } catch {
             return "Rapport retiré de la liste, mais le fichier n’a pas pu aller à la Corbeille\u{00A0}: \(error.localizedDescription)"
+        }
+    }
+
+    /// Un autre instantané (tous sites confondus) renvoie-t-il au même fichier ?
+    private func isShared(_ snapshot: ReportSnapshot) -> Bool {
+        var keys = Set(histories.keys)
+        let suivi = ReportHistory.directory(in: directory)
+        if let names = try? FileManager.default.contentsOfDirectory(atPath: suivi.path) {
+            for name in names where name.hasSuffix(".json") { keys.insert(String(name.dropLast(5))) }
+        }
+        let folder = snapshot.folder ?? ""
+        for key in keys {
+            let others = (histories[key] ?? ReportHistory.load(forSite: key, in: directory)).snapshots
+            if others.contains(where: { $0.id != snapshot.id && $0.fileName == snapshot.fileName && ($0.folder ?? "") == folder }) {
+                return true
+            }
+        }
+        return false
+    }
+
+    // MARK: Sites supprimés ou renommés
+
+    /// Site supprimé : son historique de suivi va à la corbeille (instantanés : appareils, IP, MAC).
+    func discardSite(_ key: String) {
+        histories[key] = nil
+        guard !isDemo else { return }
+        let url = ReportHistory.url(forSite: key, in: directory)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        do {
+            try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+        } catch {
+            NSLog("NetScope\u{00A0}: historique des rapports de %@ non retiré\u{00A0}: %@", key, error.localizedDescription)
+        }
+    }
+
+    /// Plages libres enregistrées comme site : l'historique suit la nouvelle clé (jamais écrasé).
+    func renameSite(from old: String, to new: String) {
+        histories[old] = nil
+        histories[new] = nil
+        guard !isDemo else { return }
+        let from = ReportHistory.url(forSite: old, in: directory)
+        let to = ReportHistory.url(forSite: new, in: directory)
+        guard FileManager.default.fileExists(atPath: from.path), !FileManager.default.fileExists(atPath: to.path) else { return }
+        do {
+            // Les instantanés notent leur site : ils prennent la nouvelle clé.
+            let history = ReportHistory(snapshots: ReportHistory.load(forSite: old, in: directory).snapshots.map { snapshot in
+                var copy = snapshot
+                copy.siteKey = new
+                return copy
+            })
+            try history.save(forSite: new, in: directory)
+            try FileManager.default.removeItem(at: from)
+        } catch {
+            NSLog("NetScope\u{00A0}: historique des rapports non déplacé\u{00A0}: %@", error.localizedDescription)
         }
     }
 

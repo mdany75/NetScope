@@ -255,7 +255,8 @@ public extension InventoryStore {
         record.firstSeen = min(old.firstSeen, new.firstSeen)
         record.isImported = old.isImported && new.isImported
         if record.manual == nil { record.manual = old.manual }
-        if record.attachments == nil { record.attachments = old.attachments }
+        // Pièces jointes des deux fiches réunies, chacune dans son dossier d'origine.
+        record.takeAttachments(of: old)
         if record.attachmentFolder == nil { record.attachmentFolder = old.attachmentFolder }
         var ips = old.ipHistory
         if let last = ips.indices.last, ips[last].to == nil, ips[last].ip != new.ip { ips[last].to = new.firstSeen }

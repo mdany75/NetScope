@@ -248,6 +248,15 @@ final class SiteModel: ObservableObject {
             // Écriture différée de l'inventaire faite avant de déplacer le dossier (note 36).
             inventory.flushPendingWrites()
             files?.adoptNoSiteFolder(into: newKey)
+            if files != nil {
+                // Pièces jointes et historique des rapports suivent les fiches dans le nouveau site.
+                do {
+                    try InvAttachmentFiles.standard.moveSite(from: SiteFiles.noSiteKey, to: newKey)
+                } catch {
+                    NSLog("NetScope\u{00A0}: pièces jointes des plages libres non déplacées\u{00A0}: %@", error.localizedDescription)
+                }
+                RapportHistoryStore.shared.renameSite(from: SiteFiles.noSiteKey, to: newKey)
+            }
             shelf.forget(oldKey)
             shelf.shelve(current, for: newKey)
             inventory.renameSite(to: newKey, url: files?.inventoryURL(for: newKey))
@@ -468,6 +477,15 @@ final class SiteModel: ObservableObject {
         list.remove(id)
         shelf.forget(key)
         files?.removeFolder(for: key)
+        if files != nil {
+            // Pièces jointes (factures, contrats) et historique des rapports du site : à la corbeille.
+            do {
+                try InvAttachmentFiles.standard.trashSite(key)
+            } catch {
+                NSLog("NetScope\u{00A0}: pièces jointes du site non retirées\u{00A0}: %@", error.localizedDescription)
+            }
+            RapportHistoryStore.shared.discardSite(key)
+        }
         save()
         if wasActive {
             ScanController.shared.show("Site supprimé\u{00A0}: aucun site actif. Les plages du Scanner restent celles du site supprimé, sans être enregistrées.", tone: .neutral)

@@ -84,6 +84,8 @@ public enum InvManualError: Error, Equatable, LocalizedError {
     case archivedMAC(key: String, name: String)
     /// Fiche introuvable, ou fiche vue par un scan (son IP et sa MAC viennent du scan).
     case notEditable
+    /// Inventaire du site introuvable ou illisible (nom du site) : rien n'est ajouté ni modifié.
+    case siteUnavailable(name: String)
 
     public var errorDescription: String? {
         switch self {
@@ -91,6 +93,7 @@ public enum InvManualError: Error, Equatable, LocalizedError {
         case .duplicateMAC(_, let name): return "Cette MAC est déjà dans l’inventaire du site («\u{00A0}\(name)\u{00A0}»)."
         case .archivedMAC(_, let name): return "Cette MAC est celle d’un appareil archivé («\u{00A0}\(name)\u{00A0}»)\u{00A0}: restaurez-le plutôt."
         case .notEditable: return "Seule une fiche ajoutée à la main et pas encore vue par un scan peut changer d’IP ou de MAC."
+        case .siteUnavailable(let name): return "L’inventaire de «\u{00A0}\(name)\u{00A0}» est introuvable ou illisible\u{00A0}: rien n’est enregistré."
         }
     }
 }
@@ -153,7 +156,7 @@ public extension InventoryStore {
         events.append(InvEvent(date: date, kind: .fiche, severity: .info, key: key, ip: record.ip,
                                title: "Fiche modifiée",
                                detail: changed.isEmpty ? "Adresse, MAC ou port de switch mis à jour"
-                                   : "Champs mis à jour : " + changed.joined(separator: ", ")))
+                                   : "Champs mis à jour\u{00A0}: " + changed.joined(separator: ", ")))
     }
 
     /// Duplique une fiche (n'importe laquelle) en appareil ajouté à la main : mêmes champs saisis,
@@ -188,9 +191,13 @@ public extension InventoryStore {
         var notes = record.annotations
         let name = clean(draft.name)
         notes.customName = name.isEmpty ? nil : name
-        notes.customType = draft.type == .inconnu ? nil : draft.type
+        // Le type et le fabricant vus par le scan, repris tels quels dans le formulaire, ne deviennent
+        // pas des champs saisis (figés) : les scans suivants continuent de les mettre à jour.
+        let keepsDetectedType = notes.customType == nil && draft.type == record.detectedType
+        notes.customType = draft.type == .inconnu || keepsDetectedType ? nil : draft.type
         let vendor = clean(draft.vendor)
-        notes.customVendor = vendor.isEmpty ? nil : vendor
+        let keepsDetectedVendor = (notes.customVendor ?? "").isEmpty && vendor == (record.vendor ?? "")
+        notes.customVendor = vendor.isEmpty || keepsDetectedVendor ? nil : vendor
         notes.location = clean(draft.location)
         notes.wallJack = clean(draft.wallJack)
         notes.owner = clean(draft.owner)
@@ -239,6 +246,8 @@ public extension InventoryStore {
         } else if existingKey(for: device) != nil {
             return nil
         }
+        // Appareil archivé : la fusion le restaure depuis les archives, il n'adopte aucune fiche.
+        if let mac = device.mac, archive?[Self.key(mac: mac)] != nil { return nil }
         return waiting.filter { $0.hasAddress && $0.ip == device.ip && ($0.mac == nil || device.mac == nil) }
             .min { ($0.manual?.created ?? .distantPast, $0.key) < ($1.manual?.created ?? .distantPast, $1.key) }?.key
     }
@@ -249,7 +258,8 @@ public extension InventoryStore {
     mutating func adoptManual(_ manualKey: String, for device: Device, at date: Date = Date()) -> String? {
         guard var record = records[manualKey], record.isAwaitingScan else { return nil }
         let newKey = device.mac.map { Self.key(mac: $0) } ?? record.mac.map { Self.key(mac: $0) } ?? Self.key(ip: device.ip)
-        guard newKey == manualKey || records[newKey] == nil else { return nil }
+        // Une fiche archivée sous la même clé est restaurée par la fusion : pas de doublon vivant/archivé.
+        guard newKey == manualKey || (records[newKey] == nil && archive?[newKey] == nil) else { return nil }
         let byMAC = device.mac != nil && record.mac == device.mac
         records[manualKey] = nil
         record.key = newKey

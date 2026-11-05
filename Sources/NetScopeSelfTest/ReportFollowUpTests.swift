@@ -92,6 +92,21 @@ func registerReportFollowUpTests(_ suite: TestSuite) {
         try expect(issues.contains { $0.category == .appareil && $0.title.contains("WKS341") }, "hors ligne suivi")
         try expectEqual(issues.filter { $0.key == probeIssue.key }.count, 1, "clé unique")
 
+        // Clés fournies par le moteur : les nombres et l'accord du titre ne changent pas le problème.
+        func keys(_ devices: [Device]) -> Set<String> { Set(ReportFollowUp.issues(ReportInput(devices: devices, now: f0)).map(\.key)) }
+        var few = baseDevices()
+        for i in few.indices { few[i].isOnline = true; few[i].openPorts = [] }
+        var many = few
+        few[0].openPorts = [3389]
+        many[0].openPorts = [3389]
+        many[1].openPorts = [3389]
+        for i in 0..<min(3, few.count) { few[i].isOnline = false }
+        for i in many.indices { many[i].isOnline = false }
+        let fewKeys = keys(few), manyKeys = keys(many)
+        try expect(fewKeys.contains("pb|rdp") && manyKeys.contains("pb|rdp"), "RDP : même clé pour 1 ou 2 postes")
+        try expect(fewKeys.contains("pb|hors-ligne") && manyKeys.contains("pb|hors-ligne"), "hors ligne : même clé listés ou comptés")
+        try expectEqual(fewKeys.filter { $0.hasPrefix("pb|hors-ligne") }.count, 1, "un seul problème hors ligne suivi")
+
         // Ports en erreur (même seuil que la face avant).
         let sw = SNMPSwitchSnapshot(host: IPv4Address("10.0.0.2")!, system: SNMPSystemInfo(name: "SW-CORE-01", descr: "Cisco"),
                                     interfaces: [SNMPInterface(index: 1, name: "Gi1/0/1", operStatus: .up, inErrors: 1284),
@@ -298,6 +313,11 @@ func registerReportFollowUpTests(_ suite: TestSuite) {
                         "rapport-audit-site-2026-11-09.json", "motif vide")
         try expectEqual(ReportScheduler.fileName(pattern: "{SITE}-{inconnu}-{date}", siteName: "Siège", config: config, slot: slot,
                                                  format: .pdf, calendar: cal), "siege-inconnu-2026-11-09.pdf", "jeton inconnu gardé sans accolades")
+        try expectEqual(ReportScheduler.fileName(pattern: "{site}-{DATE}", siteName: "Siège", config: config, slot: slot,
+                                                 format: .pdf, calendar: cal), "siege-2026-11-09.pdf", "« {DATE} » : pas de date en double")
+        let long = ReportScheduler.fileName(pattern: String(repeating: "x", count: 150), siteName: "Siège", config: config, slot: slot,
+                                            format: .pdf, calendar: cal)
+        try expect(long.hasSuffix("-2026-11-09.pdf") && long.count <= 124, "nom long : la date reste")
 
         let now = at(2026, 11, 9, 7)
         let fresh = ReportScheduler.scanNote(scanDate: at(2026, 11, 6, 9, 12), now: now, calendar: cal)

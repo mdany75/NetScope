@@ -102,10 +102,10 @@ public enum InvWarrantyState: Hashable, Sendable {
     public var label: String {
         switch self {
         case .unknown: return "Garantie non renseignée"
-        case .active(let days): return days > 365 ? "Sous garantie (\(days / 365) an\(days >= 730 ? "s" : "") et plus)" : "Sous garantie (\(days) j)"
+        case .active(let days): return days > 365 ? "Sous garantie (\(days / 365)\u{00A0}an\(days >= 730 ? "s" : "") et plus)" : "Sous garantie (\(days)\u{00A0}j)"
         case .expiringSoon(let days):
-            return days == 0 ? "Garantie échue aujourd’hui" : "Garantie bientôt échue (dans \(days) j)"
-        case .expired(let days): return "Garantie échue depuis \(days) j"
+            return days == 0 ? "Garantie échue aujourd’hui" : "Garantie bientôt échue (dans \(days)\u{00A0}j)"
+        case .expired(let days): return "Garantie échue depuis \(days)\u{00A0}j"
         }
     }
 
@@ -131,13 +131,17 @@ public struct InvAttachment: Codable, Hashable, Sendable, Identifiable {
     public var storedName: String
     public var size: Int64
     public var added: Date
+    /// Dossier de la pièce quand il n'est pas celui de la fiche (pièce venue d'une fiche fusionnée
+    /// ou réunie) ; nil : dossier de la fiche (`InvRecord.attachmentFolder`).
+    public var folder: String?
 
-    public init(id: UUID = UUID(), fileName: String, storedName: String, size: Int64, added: Date) {
+    public init(id: UUID = UUID(), fileName: String, storedName: String, size: Int64, added: Date, folder: String? = nil) {
         self.id = id
         self.fileName = fileName
         self.storedName = storedName
         self.size = size
         self.added = added
+        self.folder = folder
     }
 
     /// « 184 Ko », « 2,4 Mo »
@@ -269,6 +273,33 @@ public struct InvAttachmentFiles: Sendable {
         try manager.moveItem(at: from, to: to)
     }
 
+    /// Site supprimé : tout son dossier de pièces jointes à la corbeille de macOS (récupérable ;
+    /// supprimé pendant les essais). Rien à faire s'il n'existe pas.
+    public func trashSite(_ site: String) throws {
+        let url = siteURL(site)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        try discard(url)
+    }
+
+    /// Plages libres enregistrées comme site : leur dossier de pièces jointes prend la clé du
+    /// nouveau site. Un dossier déjà présent à l'arrivée n'est jamais écrasé : chaque dossier
+    /// d'appareil y est alors déplacé un par un (ceux d'un même nom restent au départ).
+    public func moveSite(from source: String, to destination: String) throws {
+        let manager = FileManager.default
+        let from = siteURL(source)
+        guard source != destination, manager.fileExists(atPath: from.path) else { return }
+        let to = siteURL(destination)
+        guard manager.fileExists(atPath: to.path) else {
+            try manager.createDirectory(at: base, withIntermediateDirectories: true)
+            try manager.moveItem(at: from, to: to)
+            return
+        }
+        for name in try manager.contentsOfDirectory(atPath: from.path) where !manager.fileExists(atPath: to.appendingPathComponent(name).path) {
+            try manager.moveItem(at: from.appendingPathComponent(name), to: to.appendingPathComponent(name))
+        }
+        if (try? manager.contentsOfDirectory(atPath: from.path))?.isEmpty == true { try? manager.removeItem(at: from) }
+    }
+
     private func discard(_ url: URL) throws {
         if useTrash {
             try FileManager.default.trashItem(at: url, resultingItemURL: nil)
@@ -283,6 +314,37 @@ public struct InvAttachmentFiles: Sendable {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         while cleaned.hasPrefix(".") { cleaned.removeFirst() }
         return cleaned.isEmpty ? "fichier" : cleaned
+    }
+}
+
+// MARK: - Dossiers des pièces jointes d'une fiche
+
+public extension InvRecord {
+    /// Dossier où se trouve le fichier d'une pièce jointe (le sien, sinon celui de la fiche).
+    func folder(of attachment: InvAttachment) -> String? { attachment.folder ?? attachmentFolder }
+
+    /// Tous les dossiers où la fiche a des pièces jointes, sans doublon (celui de la fiche d'abord).
+    var attachmentFolders: [String] {
+        var result: [String] = []
+        for attachment in attachmentList {
+            if let folder = folder(of: attachment), !result.contains(folder) { result.append(folder) }
+        }
+        return result
+    }
+
+    /// Ajoute les pièces jointes d'une autre fiche (fusion, réunion) : chaque pièce garde son dossier
+    /// d'origine, rien n'est déplacé ni perdu.
+    mutating func takeAttachments(of other: InvRecord) {
+        guard !other.attachmentList.isEmpty else { return }
+        if attachmentFolder == nil, attachmentList.isEmpty { attachmentFolder = other.attachmentFolder }
+        let known = Set(attachmentList.map(\.id))
+        let extra = other.attachmentList.filter { !known.contains($0.id) }.map { attachment -> InvAttachment in
+            var copy = attachment
+            let origin = other.folder(of: attachment)
+            copy.folder = origin == attachmentFolder ? nil : origin
+            return copy
+        }
+        attachments = attachmentList + extra
     }
 }
 

@@ -10,6 +10,8 @@ struct RegSiteInventoryBox: View {
     @State private var newMAC = ""
     @State private var newName = ""
     @State private var error: String?
+    /// Retour des actions de la boîte, affiché ici (le message de l'Inventaire n'est visible que dans son écran).
+    @State private var message: (text: String, isError: Bool)?
 
     private var key: String { SiteFiles.key(for: site.id) }
 
@@ -17,7 +19,11 @@ struct RegSiteInventoryBox: View {
         let store = inventory.inventory(for: key)
         let excluded = store.excluded
         RegSiteBox(title: "Inventaire du site") {
-            Toggle(isOn: Binding(get: { store.autoAdd }, set: { inventory.setAutoAdd($0, site: key) })) {
+            Toggle(isOn: Binding(get: { store.autoAdd }, set: { on in
+                message = inventory.setAutoAdd(on, site: key)
+                    ? (on ? "Ajout automatique activé pour «\u{00A0}\(site.displayName)\u{00A0}»." : "Ajout automatique désactivé pour «\u{00A0}\(site.displayName)\u{00A0}».", false)
+                    : ("Inventaire de «\u{00A0}\(site.displayName)\u{00A0}» introuvable ou illisible\u{00A0}: rien n’est modifié.", true)
+            })) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Ajouter automatiquement les appareils scannés").font(Theme.small)
                     Text(store.autoAdd ? "Chaque scan de ce site ajoute les nouveaux appareils à son inventaire."
@@ -45,8 +51,11 @@ struct RegSiteInventoryBox: View {
                     }
                     Spacer(minLength: 8)
                     Button("Retirer de la liste") {
-                        guard inventory.include(exclusion.key, site: key) else { return }
-                        inventory.show("\(exclusion.name) sera ajouté au prochain scan de «\u{00A0}\(site.displayName)\u{00A0}»")
+                        guard inventory.include(exclusion.key, site: key) else {
+                            message = ("Inventaire de «\u{00A0}\(site.displayName)\u{00A0}» introuvable ou illisible\u{00A0}: rien n’est modifié.", true)
+                            return
+                        }
+                        message = (Self.includedText(exclusion.name, siteName: site.displayName, autoAdd: store.autoAdd), false)
                     }
                     .controlSize(.small)
                 }
@@ -64,16 +73,28 @@ struct RegSiteInventoryBox: View {
             if let error {
                 Text(error).font(Theme.caption).foregroundStyle(Theme.critical)
             }
+            if let message {
+                Text(message.text).font(Theme.caption)
+                    .foregroundStyle(message.isError ? Theme.critical : Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             HStack(spacing: 6) {
                 Text("\(store.archivedCount) appareil\(store.archivedCount > 1 ? "s" : "") archivé\(store.archivedCount > 1 ? "s" : "")")
                     .font(Theme.caption).foregroundStyle(Theme.textTertiary)
-                Button("Ouvrir l’Inventaire") {
+                Button("Voir les archives") {
                     SiteScopeStore.shared.include(key, in: .inventaire)
+                    inventory.requestedArchives = true
                     state.open(.inventaire)
                 }
                 .buttonStyle(.ghost)
             }
         }
+    }
+
+    /// Appareil retiré de la liste d'exclusion : ce qui se passera ensuite, selon l'ajout automatique.
+    static func includedText(_ name: String, siteName: String, autoAdd: Bool) -> String {
+        autoAdd ? "\(name) sera ajouté au prochain scan de «\u{00A0}\(siteName)\u{00A0}»."
+            : "\(name) n’est plus exclu\u{00A0}: ajoutez-le depuis le Scanner (clic droit › Ajouter à l’inventaire)."
     }
 
     private func add() {

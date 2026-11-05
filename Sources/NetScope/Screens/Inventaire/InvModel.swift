@@ -18,6 +18,8 @@ final class InvModel: ObservableObject {
     @Published var toast: String?
     /// Note 10 : le message porte un bouton « Annuler » (dernier retrait, déplacement).
     @Published var toastUndo = false
+    /// « Voir les archives » (Réglages) : l'écran Inventaire s'ouvre sur la vue « Archivés ».
+    @Published var requestedArchives = false
     /// Types choisis à la main pour des appareils sans MAC et encore sans fiche, par IP, pour cette
     /// session seulement (note 20 ; voir Shared/DeviceTypeMenu.swift).
     @Published var sessionTypes: [String: DeviceType] = [:]

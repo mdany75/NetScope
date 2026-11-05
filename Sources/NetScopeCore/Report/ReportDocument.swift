@@ -185,11 +185,15 @@ public struct ReportProblem: Codable, Hashable, Sendable {
     public var title: String
     public var severity: ReportSeverity
     public var recommendation: String
+    /// Clé stable du problème d'un rapport à l'autre (« telnet|10.0.0.5 », « rdp », « hors-ligne »),
+    /// indépendante des nombres et de l'accord du titre ; nil : déduite du titre (suivi des rapports).
+    public var key: String?
 
-    public init(title: String, severity: ReportSeverity, recommendation: String) {
+    public init(title: String, severity: ReportSeverity, recommendation: String, key: String? = nil) {
         self.title = title
         self.severity = severity
         self.recommendation = recommendation
+        self.key = key
     }
 }
 

@@ -243,6 +243,9 @@ public enum ReportBuilder {
     /// Problèmes constatés, du plus grave au moins grave : conflits IP, problèmes fournis (DHCP non
     /// autorisé, Wi-Fi, firmware), Telnet, appareils hors ligne, appareils non identifiés.
     /// `masked` : MAC masquées (« 8C:16:45:xx:xx:xx »), comme dans l'inventaire et l'annexe.
+    /// Clé commune des appareils hors ligne (listés un par un ou comptés) : le suivi n'y voit qu'un problème.
+    public static let offlineKey = "hors-ligne"
+
     public static func problems(_ input: ReportInput, masked: Bool = false) -> [ReportProblem] {
         var result: [ReportProblem] = []
         // Conflits IP (inventaire).
@@ -251,7 +254,8 @@ public enum ReportBuilder {
             let who = conflict.location.map { " L’appareil connu est sur \($0)." } ?? ""
             result.append(ReportProblem(
                 title: "Conflit IP sur \(conflict.ip)", severity: .critique,
-                recommendation: "Deux MAC répondent (\(macs.joined(separator: " et "))).\(who) Réserver une adresse fixe pour l’appareil légitime et la sortir de l’étendue DHCP."))
+                recommendation: "Deux MAC répondent (\(macs.joined(separator: " et "))).\(who) Réserver une adresse fixe pour l’appareil légitime et la sortir de l’étendue DHCP.",
+                key: "conflit|\(conflict.ip)"))
         }
         result += input.extraProblems
         // Telnet.
@@ -259,7 +263,8 @@ public enum ReportBuilder {
             let name = device.hostnameLabel ?? device.displayName
             let http = device.openPorts.contains(80) ? " et l’interface HTTP" : ""
             result.append(ReportProblem(title: "Telnet ouvert sur \(name)", severity: .eleve,
-                                        recommendation: "Désactiver Telnet\(http), utiliser SSH et HTTPS uniquement."))
+                                        recommendation: "Désactiver Telnet\(http), utiliser SSH et HTTPS uniquement.",
+                                        key: "telnet|\(device.ip)"))
         }
         let rdp = input.devices.filter { $0.openPorts.contains(3389) }
         if !rdp.isEmpty {
@@ -267,25 +272,29 @@ public enum ReportBuilder {
             let more = rdp.count > 4 ? " et \(rdp.count - 4) autres" : ""
             result.append(ReportProblem(title: rdp.count > 1 ? "RDP ouvert sur \(rdp.count) postes" : "RDP ouvert sur \(names)",
                                         severity: .moyen,
-                                        recommendation: "Limiter le bureau à distance (\(names)\(more)) au VLAN d’administration ou au VPN, avec NLA."))
+                                        recommendation: "Limiter le bureau à distance (\(names)\(more)) au VLAN d’administration ou au VPN, avec NLA.",
+                                        key: "rdp"))
         }
         // Hors ligne.
         let offline = offlineDevices(input)
         if offline.count > 3 {
             result.append(ReportProblem(title: "\(offline.count) appareils hors ligne", severity: .moyen,
                                         recommendation: "Vérifier l’alimentation et le câblage\u{00A0}: " + offline.prefix(5).map(\.name).joined(separator: ", ")
-                                            + (offline.count > 5 ? " et \(offline.count - 5) autres." : ".")))
+                                            + (offline.count > 5 ? " et \(offline.count - 5) autres." : "."),
+                                        key: offlineKey))
         } else {
             for item in offline {
                 let place = item.location.map { "Vérifier l’alimentation et le câble sur \($0)." } ?? "Vérifier l’alimentation et le câblage."
-                result.append(ReportProblem(title: "\(item.name) (\(item.ip)) hors ligne", severity: .moyen, recommendation: place))
+                result.append(ReportProblem(title: "\(item.name) (\(item.ip)) hors ligne", severity: .moyen, recommendation: place,
+                                            key: offlineKey))
             }
         }
         // Firmware signalé.
         for sw in input.switches where sw.firmwareOutdated {
             if !result.contains(where: { $0.title.contains("Firmware") && $0.title.contains(sw.name) }) {
                 result.append(ReportProblem(title: "Firmware \(sw.name) \(sw.firmware ?? "")".trimmingCharacters(in: .whitespaces),
-                                            severity: .faible, recommendation: "Mettre à jour lors d’une fenêtre de maintenance."))
+                                            severity: .faible, recommendation: "Mettre à jour lors d’une fenêtre de maintenance.",
+                                            key: "firmware|\(sw.name)"))
             }
         }
         // Appareils non identifiés.
@@ -294,7 +303,8 @@ public enum ReportBuilder {
             result.append(ReportProblem(title: unknown.count > 1 ? "\(unknown.count) appareils non identifiés" : "1 appareil non identifié",
                                         severity: .faible,
                                         recommendation: "Identifier et nommer\u{00A0}: " + unknown.prefix(4).map { $0.ip.description }.joined(separator: ", ")
-                                            + (unknown.count > 4 ? "…" : ".")))
+                                            + (unknown.count > 4 ? "…" : "."),
+                                        key: "non-identifies"))
         }
         return result.enumerated().sorted { ($0.element.severity, $0.offset) < ($1.element.severity, $1.offset) }.map(\.element)
     }

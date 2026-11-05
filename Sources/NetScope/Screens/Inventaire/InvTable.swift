@@ -34,6 +34,8 @@ extension InvRecord {
     var invSortSerial: String { annotations.hardware?.serialNumber ?? "" }
     var invSortSupplier: String { annotations.hardware?.supplier ?? "" }
     var invSortAttachments: Int { attachmentList.count }
+    /// Dernière vue ; une fiche ajoutée à la main jamais scannée vient en dernier (aucune vue).
+    var invSortLastSeen: Date { isAwaitingScan ? .distantPast : lastSeen }
     var invOrigin: String { isManual ? "À la main" : (isImported ? "Import CSV" : "Scan") }
 }
 
@@ -77,6 +79,9 @@ struct InvTable: View {
     /// Vue « Archivés » (note 10) : date d'archivage de chaque ligne.
     var archiveMode = false
     var archiveDates: [String: Date] = [:]
+    /// Menu « Filtrer » actif (étiquettes, garantie, origine…) et de quoi le retirer.
+    var filterActive = false
+    var clearFilters: () -> Void = {}
     /// MAC vues dans plusieurs sites → noms des sites (signalées, jamais fusionnées).
     var sharedSites: [MACAddress: [String]] = [:]
     /// Accessoire de l'en-tête (menu « Filtrer », ajout automatique désactivé).
@@ -132,7 +137,7 @@ struct InvTable: View {
         "fabricant": KeyPathComparator(\SiteScopedRecord.record.vendorLabel, comparator: .localizedStandard),
         "switch": KeyPathComparator(\SiteScopedRecord.record.invSortSwitch, comparator: .localizedStandard),
         // Dates : la plus récente d'abord au premier clic.
-        "derniereVue": KeyPathComparator(\SiteScopedRecord.record.lastSeen, order: .reverse),
+        "derniereVue": KeyPathComparator(\SiteScopedRecord.record.invSortLastSeen, order: .reverse),
         "statut": KeyPathComparator(\SiteScopedRecord.record.invSortStatus),
         "local": KeyPathComparator(\SiteScopedRecord.record.invSortLocation, comparator: .localizedStandard),
         "prise": KeyPathComparator(\SiteScopedRecord.record.invSortWallJack, comparator: .localizedStandard),
@@ -205,7 +210,17 @@ struct InvTable: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Rectangle().fill(Theme.border).frame(height: 1)
             }
-            if rows.isEmpty, archiveMode {
+            if rows.isEmpty, archiveMode, total > 0 {
+                VStack(spacing: 8) {
+                    Text("Aucun appareil archivé ne correspond à la recherche ou aux filtres.")
+                        .font(Theme.body).foregroundStyle(Theme.textSecondary)
+                        .multilineTextAlignment(.center)
+                    if filterActive {
+                        Button("Retirer les filtres", action: clearFilters).buttonStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 80)
+            } else if rows.isEmpty, archiveMode {
                 EmptyState(systemImage: "archivebox", title: "Aucun appareil archivé",
                            message: "Un appareil retiré avec «\u{00A0}Archiver\u{00A0}» garde ici sa fiche, ses notes, sa garantie et son historique\u{00A0}; «\u{00A0}Restaurer\u{00A0}» le remet dans l’inventaire.") {
                     EmptyView()
@@ -232,9 +247,16 @@ struct InvTable: View {
                 }
                 .frame(maxWidth: .infinity, minHeight: 80)
             } else if rows.isEmpty {
-                Text("Aucun appareil ne correspond à cette vue ou à la recherche.")
-                    .font(Theme.body).foregroundStyle(Theme.textSecondary)
-                    .frame(maxWidth: .infinity, minHeight: 80)
+                VStack(spacing: 8) {
+                    Text(filterActive ? "Aucun appareil ne correspond à cette vue, à la recherche ou aux filtres (étiquettes, garantie, origine, sites)."
+                                      : "Aucun appareil ne correspond à cette vue ou à la recherche.")
+                        .font(Theme.body).foregroundStyle(Theme.textSecondary)
+                        .multilineTextAlignment(.center)
+                    if filterActive {
+                        Button("Retirer les filtres", action: clearFilters).buttonStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 80)
             } else {
                 tableView
                     .frame(height: Self.headerHeight + CGFloat(min(rows.count, Self.maxVisibleRows)) * Self.rowHeight)
@@ -348,8 +370,13 @@ struct InvTable: View {
 
                 TableColumn("DERNIÈRE VUE", sortUsing: table.sort("derniereVue")) { row in
                     let record = row.record
-                    ScanCellText(InvFormat.relative(record.lastSeen, now: now), secondary: true)
-                        .help(InvFormat.stamp(record.lastSeen))
+                    if record.isAwaitingScan {
+                        ScanCellText("—", dimmed: true)
+                            .help("Jamais vu par un scan")
+                    } else {
+                        ScanCellText(InvFormat.relative(record.lastSeen, now: now), secondary: true)
+                            .help(InvFormat.stamp(record.lastSeen))
+                    }
                 }
                 .width(min: 80, ideal: 120)
                 .customizationID("derniereVue")
@@ -357,7 +384,7 @@ struct InvTable: View {
                 TableColumn("STATUT", sortUsing: table.sort("statut")) { row in
                     statusCell(row)
                 }
-                .width(min: 70, ideal: 76)
+                .width(min: 70, ideal: 86)
                 .customizationID("statut")
             }
 
@@ -555,8 +582,9 @@ struct InvTable: View {
             InvPill(text: "Archivé", foreground: Theme.textSecondary, background: Theme.neutralSoft)
                 .help(date.map { "Archivé le \(InvFormat.stamp($0))" } ?? "Archivé")
         } else if record.isAwaitingScan {
-            InvPill(text: "Jamais scanné", foreground: Theme.textSecondary, background: Theme.neutralSoft)
-                .help("Ajouté à la main\u{00A0}: rapproché dès qu’un scan de ce site le verra (même MAC, sinon même IP)")
+            // Libellé court dans le tableau ; « Jamais scanné » dans l'infobulle et la fiche.
+            InvPill(text: "Non scanné", foreground: Theme.textSecondary, background: Theme.neutralSoft)
+                .help("Jamais scanné. Ajouté à la main\u{00A0}: rapproché dès qu’un scan de ce site le verra (même MAC, sinon même IP)")
         } else {
             let status = record.status(now: now)
             let colors = InvStyle.status(status)

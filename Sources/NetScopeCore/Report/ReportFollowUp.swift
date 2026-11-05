@@ -299,8 +299,21 @@ public enum ReportFollowUp {
             seen.insert(issue.key)
             result.append(issue)
         }
-        for problem in ReportBuilder.problems(input) {
-            add(ReportIssue(key: "pb|" + normalizedKey(problem.title), category: category(of: problem.title),
+        let problems = ReportBuilder.problems(input)
+        // Hors ligne : un seul problème suivi, qu'ils soient listés un par un ou comptés.
+        let offline = problems.filter { $0.key == ReportBuilder.offlineKey }
+        let offlineCount = offline.reduce(0) { total, problem in
+            total + (problem.title.first?.isNumber == true ? (Int(problem.title.prefix { $0.isNumber }) ?? 1) : 1)
+        }
+        for problem in problems {
+            if problem.key == ReportBuilder.offlineKey {
+                guard let first = offline.first else { continue }
+                add(ReportIssue(key: "pb|" + ReportBuilder.offlineKey, category: .appareil,
+                                title: offlineCount > 1 ? "\(offlineCount) appareils hors ligne" : first.title,
+                                severity: first.severity))
+                continue
+            }
+            add(ReportIssue(key: "pb|" + (problem.key ?? normalizedKey(problem.title)), category: category(of: problem.title),
                             title: problem.title, severity: problem.severity))
         }
         if let wan = input.wan {
@@ -334,7 +347,7 @@ public enum ReportFollowUp {
         return result.sorted { ($0.severity, $0.category.rawValue, $0.title) < ($1.severity, $1.category.rawValue, $1.title) }
     }
 
-    /// Clé stable d'un titre : sans le nombre de tête (« 4 appareils hors ligne » et « 5 appareils
+    /// Clé de secours d'un titre (problème sans clé fournie par le moteur) : sans le nombre de tête (« 4 appareils hors ligne » et « 5 appareils
     /// hors ligne » sont le même problème), en minuscules.
     public static func normalizedKey(_ title: String) -> String {
         var text = title.trimmingCharacters(in: .whitespaces)

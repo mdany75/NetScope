@@ -37,6 +37,25 @@ public struct InvAnnotations: Codable, Hashable, Sendable {
     }
 
     /// Libellés des champs qui diffèrent (pour la chronologie : « nom, local, notes »).
+    /// Champs changés entre `base` (l'état au début de la modification) et `self` (le brouillon),
+    /// appliqués sur `latest` (l'état actuel de la fiche) : ce qu'un autre formulaire a changé
+    /// entre-temps sur les autres champs est gardé.
+    public func rebased(from base: InvAnnotations, onto latest: InvAnnotations) -> InvAnnotations {
+        var result = latest
+        if customName != base.customName { result.customName = customName }
+        if customType != base.customType { result.customType = customType }
+        if tags != base.tags { result.tags = tags }
+        if location != base.location { result.location = location }
+        if wallJack != base.wallJack { result.wallJack = wallJack }
+        if owner != base.owner { result.owner = owner }
+        if assetNumber != base.assetNumber { result.assetNumber = assetNumber }
+        if notes != base.notes { result.notes = notes }
+        if isFavorite != base.isFavorite { result.isFavorite = isFavorite }
+        if customVendor != base.customVendor { result.customVendor = customVendor }
+        if hardware != base.hardware { result.hardware = hardware }
+        return result
+    }
+
     public func changedFields(from old: InvAnnotations) -> [String] {
         var fields: [String] = []
         if (customName ?? "") != (old.customName ?? "") { fields.append("nom") }

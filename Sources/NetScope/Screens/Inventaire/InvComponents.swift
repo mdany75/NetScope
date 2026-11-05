@@ -351,7 +351,8 @@ struct InvExcludedButton: View {
                                 Spacer(minLength: 8)
                                 Button("Retirer de la liste") {
                                     guard InvModel.shared.include(row.exclusion.key, site: row.site) else { return }
-                                    InvModel.shared.show("\(row.exclusion.name) sera remis dans l’inventaire au prochain scan de «\u{00A0}\(row.siteName)\u{00A0}».")
+                                    InvModel.shared.show(RegSiteInventoryBox.includedText(row.exclusion.name, siteName: row.siteName,
+                                                                                          autoAdd: InvModel.shared.autoAdd(site: row.site)))
                                 }
                                 .controlSize(.small)
                             }
