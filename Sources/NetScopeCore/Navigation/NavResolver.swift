@@ -193,6 +193,12 @@ public enum NavResolver {
             return .go(NavDestination(.outils, focus: .tool("wan")))
         case .linkSaturated, .newThreat:
             return .go(NavDestination(.trafic))
+        case .syslogSeverity, .trapReceived:
+            // Les messages de l'appareil visé (ou tous) dans l'écran Journaux.
+            let host = probe.target.trimmingCharacters(in: .whitespaces)
+            let source = probe.kind == .trapReceived ? "source:trap" : "-source:trap"
+            let device = MonTrafficChecks.isAll(host) ? "" : " appareil:" + (host.contains(" ") ? "\"\(host)\"" : host)
+            return .go(NavDestination(.journaux, search: source + device))
         case .heavyDevice:
             // Un appareil précis (son IP) : sa fiche ; sinon l'écran Trafic.
             let ip = probe.target.trimmingCharacters(in: .whitespaces)

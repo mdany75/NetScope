@@ -395,6 +395,8 @@ private struct MonConditionFields: View {
             MonWANConditionFields(probe: $probe)
         case .linkSaturated, .heavyDevice, .newThreat:
             MonTrafficConditionFields(probe: $probe)
+        case .syslogSeverity, .trapReceived:
+            MonLogConditionFields(probe: $probe)
         }
     }
 

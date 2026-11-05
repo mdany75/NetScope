@@ -5,7 +5,8 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
     case scanner, carte, inventaire, appareil
     case ping, switchs, wifi, outils
     /// Note 54 : « Trafic » (FortiView et analyse complète), entre Surveillance et Analyse.
-    case surveillance, trafic, analyse, rapports
+    /// Note 43 : « Journaux » (Syslog, traps SNMP, journaux de la FortiGate), après Surveillance.
+    case surveillance, journaux, trafic, analyse, rapports
     case acces, speedtest
     case reglages
 
@@ -24,6 +25,7 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
         case .outils: return "Outils"
         case .surveillance: return "Surveillance"
         case .trafic: return "Trafic"
+        case .journaux: return "Journaux"
         case .analyse: return "Analyse"
         case .rapports: return "Rapports"
         case .acces: return "Accès distant"
@@ -39,6 +41,7 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
         case .outils: return "Boîte à outils"
         case .analyse: return "Analyse et alertes"
         case .trafic: return "Trafic et analyse"
+        case .journaux: return "Journaux et traps"
         default: return title
         }
     }
@@ -56,6 +59,7 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
         case .outils: return "wrench.and.screwdriver"
         case .surveillance: return "eye"
         case .trafic: return "arrow.up.arrow.down.circle"
+        case .journaux: return "list.bullet.rectangle.portrait"
         case .analyse: return "chart.bar.xaxis"
         case .rapports: return "doc.text"
         case .acces: return "terminal"
@@ -69,7 +73,7 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .scanner, .carte, .inventaire, .appareil: return .decouverte
         case .ping, .switchs, .wifi, .outils: return .diagnostic
-        case .surveillance, .trafic, .analyse, .rapports: return .suivi
+        case .surveillance, .journaux, .trafic, .analyse, .rapports: return .suivi
         case .acces: return .acces
         // Speedtest est un outil de la Boîte à outils : hors de la barre latérale.
         case .speedtest, .reglages: return nil
@@ -91,6 +95,8 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
         case .analyse: return "Analyse.dc.html"
         // Pas de croquis propre : disposition de l'Analyse.
         case .trafic: return "Analyse.dc.html"
+        // Pas de croquis propre : disposition de la Surveillance (journal des alertes) et du Trafic.
+        case .journaux: return "Surveillance.dc.html"
         case .rapports: return "Rapport.dc.html"
         case .acces: return "Remote.dc.html"
         case .speedtest: return "Speedtest.dc.html"

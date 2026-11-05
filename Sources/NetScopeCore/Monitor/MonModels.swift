@@ -18,6 +18,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
     case vpnTunnel, wanLink
     /// Trafic lu par FortiView (note 54) : lien WAN saturé, appareil qui consomme trop, nouvelle menace.
     case linkSaturated, heavyDevice, newThreat
+    /// Journaux (note 43) : message Syslog (ou de la FortiGate) de gravité ≥ X, trap SNMP reçue.
+    case syslogSeverity, trapReceived
 
     public var id: String { rawValue }
 
@@ -43,6 +45,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .linkSaturated: return "Lien saturé"
         case .heavyDevice: return "Appareil qui consomme trop"
         case .newThreat: return "Nouvelle menace"
+        case .syslogSeverity: return "Message Syslog de gravité ≥ X"
+        case .trapReceived: return "Trap SNMP reçue"
         }
     }
 
@@ -68,6 +72,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .linkSaturated: return "Lien WAN"
         case .heavyDevice: return "Trafic"
         case .newThreat: return "Menace"
+        case .syslogSeverity: return "Syslog"
+        case .trapReceived: return "Trap"
         }
     }
 
@@ -91,6 +97,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .linkSaturated: return "Interface WAN (wan1), ou «\u{00A0}*\u{00A0}» pour tous les liens"
         case .heavyDevice: return "Adresse IP de l’appareil, ou «\u{00A0}*\u{00A0}» pour tous"
         case .newThreat: return "Site, ou «\u{00A0}*\u{00A0}» pour tous les sites lus"
+        case .syslogSeverity, .trapReceived: return "Adresse ou nom de l’appareil, ou «\u{00A0}*\u{00A0}» pour tous"
         }
     }
 
@@ -231,6 +238,10 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
     public var wanThresholds: WANThresholds?
     /// Nouvelle menace (note 54) : menaces déjà vues (clés « site|menace|adresse »), apprises au premier passage.
     public var knownThreats: [String]?
+    /// Message Syslog (note 43) : gravité minimale qui déclenche l'alerte (nil : erreur).
+    public var logSeverity: LogSeverity?
+    /// Trap reçue (note 43) : nom ou OID de la trap attendue (nil ou vide : toutes).
+    public var trapFilter: String?
 
     public init(id: UUID = UUID(), name: String, kind: MonProbeKind, target: String, subtitle: String = "",
                 isEnabled: Bool = true, interval: Int = 60, thresholds: MonThresholds = MonThresholds(),
@@ -315,6 +326,11 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
             return "Alerte si un appareil dépasse \(MonFormat.number(resourceLimit ?? MonProbe.defaultResourceLimit(.heavyDevice)))\u{00A0}Mb/s"
         case .newThreat:
             return "Alerte à chaque nouvelle menace vue par FortiView" + (knownThreats.map { " (\($0.count) connues)" } ?? "")
+        case .syslogSeverity:
+            return "Alerte à chaque message de gravité \((logSeverity ?? .error).atLeastLabel) reçu"
+        case .trapReceived:
+            let filter = trapFilter?.trimmingCharacters(in: .whitespaces) ?? ""
+            return filter.isEmpty ? "Alerte à chaque trap reçue" : "Alerte à chaque trap «\(nbsp)\(filter)\(nbsp)» reçue"
         }
     }
 
@@ -387,6 +403,8 @@ extension MonProbe {
         dhcpThresholds = try? c.decodeIfPresent(DHCPScopeThresholds.self, forKey: .dhcpThresholds)
         wanThresholds = try? c.decodeIfPresent(WANThresholds.self, forKey: .wanThresholds)
         knownThreats = try? c.decodeIfPresent([String].self, forKey: .knownThreats)
+        logSeverity = try? c.decodeIfPresent(LogSeverity.self, forKey: .logSeverity)
+        trapFilter = try? c.decodeIfPresent(String.self, forKey: .trapFilter)
     }
 }
 

@@ -33,6 +33,10 @@ public struct MonRunContext: Sendable {
     public var traffic: TrafficOverview?
     /// Lecture du trafic tentée sans aucune FortiGate lue : son erreur.
     public var trafficError: String?
+    /// Journaux (note 43) : messages reçus ou lus récemment ; nil : aucun récepteur ni lecture.
+    public var logs: [LogMessage]?
+    /// Récepteurs de ce Mac en écoute (Syslog, traps).
+    public var logsListening: Set<LogSource> = []
 
     public init(pinger: ScanPinging?, snmpCommunity: String?, devices: [Device], inventoryReady: Bool = true,
                 now: Date = Date()) {
@@ -115,6 +119,8 @@ public enum MonRunner {
                                             thresholds: probe.wanThresholds ?? .standard, now: context.now)
         case .linkSaturated, .heavyDevice, .newThreat:
             return MonTrafficChecks.run(probe, target: target, traffic: context.traffic, error: context.trafficError, now: context.now)
+        case .syslogSeverity, .trapReceived:
+            return MonLogChecks.run(probe, target: target, logs: context.logs, listening: context.logsListening, now: context.now)
         }
     }
 

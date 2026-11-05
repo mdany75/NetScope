@@ -10,7 +10,8 @@ public enum NavModule: String, CaseIterable, Codable, Hashable, Sendable {
     case scanner, carte, inventaire, appareil
     case ping, switchs, wifi, outils
     /// Note 54 : « Trafic » (FortiView et analyse complète), entre Surveillance et Analyse.
-    case surveillance, trafic, analyse, rapports
+    /// Note 43 : « Journaux » (Syslog, traps SNMP, journaux de la FortiGate), après Surveillance.
+    case surveillance, journaux, trafic, analyse, rapports
     case acces, speedtest
     case reglages
 
@@ -27,6 +28,7 @@ public enum NavModule: String, CaseIterable, Codable, Hashable, Sendable {
         case .outils: return "Outils"
         case .surveillance: return "Surveillance"
         case .trafic: return "Trafic"
+        case .journaux: return "Journaux"
         case .analyse: return "Analyse"
         case .rapports: return "Rapports"
         case .acces: return "Accès distant"
