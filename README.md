@@ -4,7 +4,7 @@
 sur plusieurs plages, dit sur quel switch et quel port chacun est branché, puis diagnostique,
 surveille, documente et ouvre une session à distance, site par site, dans une seule fenêtre.
 
-[![Version](https://img.shields.io/badge/version-0.27.2-blue)](https://github.com/mdany75/NetScope/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.27.3-blue)](https://github.com/mdany75/NetScope/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-lightgrey?logo=apple)](#installation)
 [![Licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
@@ -43,7 +43,9 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   XMODEM/YMODEM en console série ; depuis la 0.27.1, plus d’alerte « Appareil déplacé » quand
   un appareil Wi-Fi passe d’une borne à l’autre, et une carte d’occupation qui distingue Wi-Fi,
   filaire et adresses DHCP ; la 0.27.2 garde le panneau de détails de l’Accès distant
-  dans sa colonne et corrige une fermeture de l’app à l’enregistrement d’une connexion.
+  dans sa colonne et corrige une fermeture de l’app à l’enregistrement d’une connexion ; la
+  0.27.3 donne à l’assistance RustDesk son propre onglet, avec l’historique complet des
+  sessions dans un tableau.
 
 > **État du projet** : NetScope est en développement actif (0.x). Les fonctions réseau
 > (FortiGate, FortiAP, SNMP, Syslog, sessions SSH, Telnet, série et VNC) sont testées sur des
@@ -126,6 +128,9 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
 - **Session VNC intégrée** : qualité adaptative, mise à l’échelle, plein écran, Ctrl-Alt-Suppr,
   observation seule, presse-papiers texte. RDP s’ouvre dans Windows App.
 - Navigateur de fichiers en deux volets (FTP, FTPS, SFTP) et serveur FTP temporaire.
+- **Assistance RustDesk** dans son propre onglet : ID de l’usager, ajout au carnet, lien
+  d’assistance à copier et historique complet des sessions (recherche, reconnexion) ; onglet
+  **Serveur RustDesk** pour suivre le serveur auto-hébergé.
 
 ### Rapports
 

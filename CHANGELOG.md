@@ -1,5 +1,48 @@
 # Changements
 
+## 0.27.3 — 2026-11-05
+
+L’assistance RustDesk quitte la page « Sessions » d’Accès distant pour son propre onglet,
+« Assistance RustDesk », à côté de « Serveur RustDesk », avec l’historique complet des sessions
+dans un tableau.
+
+### Ajouté
+- **Onglet « Assistance RustDesk »** (Accès distant) : entre « Sessions » et « Serveur
+  RustDesk », toujours présent. Sa pastille compte les sessions lancées aujourd’hui (elle se
+  remet à zéro à minuit, même si l’app reste ouverte).
+- **Aider un usager en trois étapes** : grand champ pour l’ID RustDesk de l’usager (espaces
+  acceptés ; une adresse IPv4 ouvre l’accès IP direct), ajout au carnet avec le nom du poste et
+  l’usager, marche à suivre en trois étapes et copie du lien d’assistance à envoyer à l’usager.
+- **Historique complet des sessions** dans un tableau standard : recherche par poste, ID (même
+  dicté par groupes, « 263 418 ») ou usager, tri et colonnes réglables ; reconnexion en un clic
+  ou par double-clic, ajout au carnet d’un poste qui n’y est pas encore (puce « Hors carnet ») et
+  copie de l’ID.
+- **Accès direct à l’assistance** depuis Réglages › RustDesk (« Ouvrir l’assistance »), le menu
+  Aller, le panneau d’un poste RustDesk (« Toutes les sessions ») et, par clic droit sur
+  « Connecter par RustDesk », depuis la fiche d’un appareil ou de l’inventaire, avec l’ID déjà
+  saisi.
+
+### Modifié
+- **Page « Sessions » allégée** : le bloc d’assistance RustDesk et la liste des derniers
+  lancements passent dans le nouvel onglet.
+- **Barre d’onglets en petite fenêtre** : sous une largeur étroite, les onglets fixes
+  deviennent « Assistance » et « Serveur » (nom complet en bulle d’aide), pour ne plus chevaucher
+  la liste des connexions.
+- **Ajout au carnet d’un ID déjà connu** : le nom automatique et l’usager vide du poste sont
+  complétés par la saisie ; sinon, un message dit ce qui n’a pas été repris.
+
+### Corrigé
+- **Touche Retour** : elle ne lance plus « Connecter » depuis la recherche ou le tableau de
+  l’historique, seulement depuis le champ de l’ID.
+- **Recherche par chiffres** : une adresse IP se compare telle quelle (« 1821 » ne trouve plus
+  10.182.122.177), et un numéro trouve aussi un nom de poste (« 11 » trouve LAVAL-POSTE-11).
+
+Limites : RustDesk ne prévient pas NetScope de la fin d’une session ; l’historique note
+seulement l’heure de lancement (une session refusée ou qui a échoué y figure aussi), est gardé
+sur ce Mac seulement et se limite aux 300 derniers lancements. Le client RustDesk doit être
+installé sur ce Mac. Vérifié sur les données de démonstration ; l’essai réel sur le serveur de
+Groupe Couture reste à faire.
+
 ## 0.27.2 — 2026-11-05
 
 Correctif de l’Accès distant : le panneau de détails reste dans sa colonne et ne cache plus la
