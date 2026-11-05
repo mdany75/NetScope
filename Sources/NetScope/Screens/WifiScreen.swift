@@ -54,6 +54,7 @@ struct WifiScreen: View {
                     VStack(spacing: 14) {
                         WifiChannelPanel(store: store)
                         WifiNetworksTable(store: store)
+                        WifiBeaconPanel(store: store)
                     }
                 } side: {
                     VStack(spacing: 14) {

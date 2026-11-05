@@ -62,9 +62,12 @@ public struct WifiNetwork: Identifiable, Hashable, Sendable {
     /// Norme (« 802.11ax »), si connue.
     public var standard: String?
     public var isConnected: Bool
+    /// Note 71 : éléments de la balise (nil sans autorisation de localisation ou sans données).
+    public var beacon: WifiBeaconInfo?
 
     public init(id: String? = nil, ssid: String?, bssid: MACAddress?, channel: Int, band: WifiBand? = nil, widthMHz: Int = 20,
-                rssi: Int, noise: Int? = nil, security: WifiSecurity = .unknown, standard: String? = nil, isConnected: Bool = false) {
+                rssi: Int, noise: Int? = nil, security: WifiSecurity = .unknown, standard: String? = nil, isConnected: Bool = false,
+                beacon: WifiBeaconInfo? = nil) {
         let resolvedBand = band ?? WifiBand.guess(channel: channel)
         self.id = id ?? bssid?.description ?? "\(ssid ?? "?")-\(resolvedBand.rawValue)-\(channel)"
         self.ssid = ssid
@@ -77,6 +80,7 @@ public struct WifiNetwork: Identifiable, Hashable, Sendable {
         self.security = security
         self.standard = standard
         self.isConnected = isConnected
+        self.beacon = beacon
     }
 
     public var isHidden: Bool { (ssid ?? "").isEmpty }
@@ -349,6 +353,9 @@ public enum WifiAdvisor {
                 detail: "Le plus fort\(bssid) émet à \(WifiQuality.dbm(strongest.rssi)). Un SSID caché n’apporte aucune sécurité réelle.",
                 networkID: strongest.id, band: strongest.band))
         }
+
+        // Note 71 : constats tirés des balises (itinérance, charge, WPA3).
+        result += WifiBeaconAdvisor.recommendations(networks: networks, connected: connected)
 
         return result.sorted { $0.severity < $1.severity }
     }
