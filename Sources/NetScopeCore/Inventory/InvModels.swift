@@ -14,10 +14,15 @@ public struct InvAnnotations: Codable, Hashable, Sendable {
     public var assetNumber: String
     public var notes: String
     public var isFavorite: Bool
+    /// Fabricant saisi à la main (note 10 : appareil ajouté à la main) ; nil : celui du scan ou de l'OUI.
+    /// Optionnel pour relire les fichiers d'avant la 0.20.0.
+    public var customVendor: String?
+    /// Fiche matériel : achat, garantie, fournisseur, numéro de série, prix (note 10, 0.20.0).
+    public var hardware: InvHardware?
 
     public init(customName: String? = nil, customType: DeviceType? = nil, tags: [String] = [],
                 location: String = "", wallJack: String = "", owner: String = "", assetNumber: String = "",
-                notes: String = "", isFavorite: Bool = false) {
+                notes: String = "", isFavorite: Bool = false, customVendor: String? = nil, hardware: InvHardware? = nil) {
         self.customName = customName
         self.customType = customType
         self.tags = tags
@@ -27,6 +32,8 @@ public struct InvAnnotations: Codable, Hashable, Sendable {
         self.assetNumber = assetNumber
         self.notes = notes
         self.isFavorite = isFavorite
+        self.customVendor = customVendor
+        self.hardware = hardware
     }
 
     /// Libellés des champs qui diffèrent (pour la chronologie : « nom, local, notes »).
@@ -40,6 +47,8 @@ public struct InvAnnotations: Codable, Hashable, Sendable {
         if owner != old.owner { fields.append("responsable") }
         if assetNumber != old.assetNumber { fields.append("n° d’actif") }
         if notes != old.notes { fields.append("notes") }
+        if (customVendor ?? "") != (old.customVendor ?? "") { fields.append("fabricant") }
+        if (hardware ?? InvHardware()) != (old.hardware ?? InvHardware()) { fields.append("garantie") }
         return fields
     }
 }
@@ -120,13 +129,23 @@ public struct InvRecord: Codable, Hashable, Identifiable, Sendable {
     public var portHistory: [InvPortSpan]
     /// Fiche créée par un import CSV, jamais vue par un scan.
     public var isImported: Bool
+    /// Appareil ajouté à la main (note 10) ; nil : vu par un scan ou importé. Optionnel (fichiers
+    /// d'avant la 0.20.0).
+    public var manual: InvManualEntry?
+    /// Pièces jointes (factures, contrats, photos), copiées dans
+    /// Application Support/NetScope/Inventaire/<site>/<dossier>/ (voir InvHardware.swift).
+    public var attachments: [InvAttachment]?
+    /// Dossier des pièces jointes, choisi à la première pièce et gardé ensuite (la clé de la fiche
+    /// change quand une MAC apparaît, le dossier non).
+    public var attachmentFolder: String?
 
     public init(key: String, mac: MACAddress?, ip: IPv4Address, hostname: String? = nil, vendor: String? = nil,
                 detectedType: DeviceType = .inconnu, isOnline: Bool = true, latencyMs: Double? = nil,
                 openPorts: [UInt16] = [], switchName: String? = nil, switchPort: String? = nil, vlan: Int? = nil,
                 rangeLabel: String? = nil, firstSeen: Date, lastSeen: Date, offlineSince: Date? = nil,
                 conflictWith: [MACAddress] = [], annotations: InvAnnotations = InvAnnotations(),
-                ipHistory: [InvIPSpan] = [], portHistory: [InvPortSpan] = [], isImported: Bool = false) {
+                ipHistory: [InvIPSpan] = [], portHistory: [InvPortSpan] = [], isImported: Bool = false,
+                manual: InvManualEntry? = nil) {
         self.key = key
         self.mac = mac
         self.ip = ip
@@ -148,18 +167,37 @@ public struct InvRecord: Codable, Hashable, Identifiable, Sendable {
         self.ipHistory = ipHistory
         self.portHistory = portHistory
         self.isImported = isImported
+        self.manual = manual
     }
 
-    /// Nom à afficher : nom saisi, sinon nom d'hôte, sinon l'IP.
+    /// Nom à afficher : nom saisi, sinon nom d'hôte, sinon l'IP (sinon la MAC, pour un appareil
+    /// ajouté à la main sans adresse).
     public var displayName: String {
         if let name = annotations.customName, !name.isEmpty { return name }
         if let name = hostname, !name.isEmpty { return name }
+        if !hasAddress { return mac?.formatted(.upperColon) ?? "Appareil sans adresse" }
         return ip.description
     }
+
+    /// Faux pour un appareil ajouté à la main sans adresse IP (matériel en stock, hors réseau) :
+    /// son adresse vaut alors 0.0.0.0, jamais vue par un scan.
+    public var hasAddress: Bool { ip.value != 0 }
+
+    /// « 10.0.0.5 », ou « — » sans adresse.
+    public var addressLabel: String { hasAddress ? ip.description : "—" }
+
+    /// Ajouté à la main (rapproché ou non d'un appareil scanné depuis).
+    public var isManual: Bool { manual != nil }
+
+    /// Ajouté à la main et jamais vu par un scan depuis.
+    public var isAwaitingScan: Bool { manual != nil && manual?.matched == nil }
+
+    public var attachmentList: [InvAttachment] { attachments ?? [] }
 
     public var type: DeviceType { annotations.customType ?? detectedType }
 
     public var vendorLabel: String {
+        if let custom = annotations.customVendor, !custom.isEmpty { return custom }
         if let vendor, !vendor.isEmpty { return vendor }
         guard let mac else { return OUIDatabase.unknownLabel }
         return OUIDatabase.builtIn.label(for: mac)
@@ -168,6 +206,7 @@ public struct InvRecord: Codable, Hashable, Identifiable, Sendable {
     /// MAC aléatoire, ou ni fabricant ni nom saisi : un technicien doit confirmer la fiche.
     public var isUnidentified: Bool {
         if let name = annotations.customName, !name.isEmpty { return false }
+        if isManual { return false }
         guard let mac else { return true }
         if mac.isRandomized { return true }
         return (vendor ?? "").isEmpty && OUIDatabase.builtIn.vendor(for: mac) == nil
@@ -185,8 +224,9 @@ public struct InvRecord: Codable, Hashable, Identifiable, Sendable {
     }
 
     /// Hors ligne depuis plus de `days` jours.
+    /// Un appareil ajouté à la main et jamais scanné n'est pas « disparu ».
     public func isGone(now: Date = Date(), days: Double = 30) -> Bool {
-        !isOnline && now.timeIntervalSince(lastSeen) > days * 86_400
+        !isOnline && !isAwaitingScan && now.timeIntervalSince(lastSeen) > days * 86_400
     }
 
     public func status(now: Date = Date()) -> InvStatus {
