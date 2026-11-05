@@ -11,6 +11,12 @@ struct RemoteSessionTabBar: View {
     @ObservedObject private var server = RustDeskServerModel.shared
     /// Correctif 0.27.3 : onglet fixe « Assistance RustDesk » (ID de l'usager, sessions récentes).
     @ObservedObject private var rustdesk = RustDeskModel.shared
+    /// Largeur de la barre : en petite fenêtre (liste des connexions affichée), les onglets fixes
+    /// prennent un titre court pour ne pas élargir la colonne et chevaucher la liste.
+    @State private var barWidth: CGFloat = 0
+
+    /// Titres courts des onglets fixes (« Assistance », « Serveur ») sous cette largeur.
+    private var shortTitles: Bool { barWidth > 0 && barWidth < 620 }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 2) {
@@ -37,7 +43,12 @@ struct RemoteSessionTabBar: View {
         }
         .padding(.horizontal, 6)
         .padding(.top, 6)
+        // Prend la largeur proposée, même si les onglets fixes la dépassent : la colonne des
+        // sessions ne s'élargit pas au-delà de sa place.
+        .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: 38, alignment: .bottom)
+        .clipped()
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { barWidth = $0 }
         .background(Theme.neutralSoft)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
     }
@@ -92,7 +103,7 @@ struct RemoteSessionTabBar: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: RemoteProtocol.rustdesk.symbol).font(.system(size: 12))
-                Text("Assistance RustDesk").font(.system(size: 12, weight: selected ? .semibold : .medium)).lineLimit(1)
+                Text(shortTitles ? "Assistance" : "Assistance RustDesk").font(.system(size: 12, weight: selected ? .semibold : .medium)).lineLimit(1)
                 // Recalculée chaque minute : la pastille se vide après minuit, app ouverte. Pastille
                 // neutre, pour ne pas la confondre avec les sessions en cours du « Serveur RustDesk ».
                 TimelineView(.periodic(from: .now, by: 60)) { context in
@@ -137,7 +148,7 @@ struct RemoteSessionTabBar: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "server.rack").font(.system(size: 12))
-                Text("Serveur RustDesk").font(.system(size: 12, weight: selected ? .semibold : .medium)).lineLimit(1)
+                Text(shortTitles ? "Serveur" : "Serveur RustDesk").font(.system(size: 12, weight: selected ? .semibold : .medium)).lineLimit(1)
                 if let status = server.status, status.relayConsole == .ok, !status.relaySessions.isEmpty {
                     CountBadge(count: status.relaySessions.count, color: RemoteProtocol.rustdesk.tint)
                         .help("Sessions relayées en cours")
