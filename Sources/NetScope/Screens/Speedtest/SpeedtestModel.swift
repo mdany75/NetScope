@@ -6,6 +6,8 @@ import SwiftUI
 /// Onglets de l'écran Speedtest.
 enum SpeedTab: String, CaseIterable, Identifiable {
     case internet, serveurs, lan, historique
+    /// Note 78 : débit Internet planifié par site.
+    case planifie
 
     var id: String { rawValue }
 
@@ -15,6 +17,7 @@ enum SpeedTab: String, CaseIterable, Identifiable {
         case .serveurs: return "Serveurs"
         case .lan: return "Réseau local (iperf3)"
         case .historique: return "Historique"
+        case .planifie: return "Planifié"
         }
     }
 
@@ -24,6 +27,7 @@ enum SpeedTab: String, CaseIterable, Identifiable {
         case .serveurs: return "Serveurs de test : latence mesurée, favoris et serveurs personnalisés"
         case .lan: return "Débit entre ce Mac et un serveur iperf3 du réseau"
         case .historique: return "Résultats conservés 90 jours sur ce Mac"
+        case .planifie: return "Un test par jour et par site, à l’heure choisie, avec seuil d’alerte et courbe sur 30 jours"
         }
     }
 }
@@ -168,6 +172,8 @@ final class SpeedtestModel: ObservableObject {
     // MARK: Test Internet
 
     func startInternet(interface: LocalInterface?) {
+        // Note 78 : un test planifié remplacé par un nouveau test se termine en échec.
+        finishPlanned(.failure(.interrupted))
         internetTask?.cancel()
         resetResults()
         runState = .running(.latency)
@@ -190,6 +196,7 @@ final class SpeedtestModel: ObservableObject {
             self.testedServer = server
             guard let engine = self.engine(for: server, streams: streams) else {
                 self.runState = .failed("Le CLI d’Ookla n’est pas installé : installez-le ou choisissez un autre serveur.")
+                self.finishPlanned(.failure(.failed("CLI d’Ookla absent")))
                 return
             }
             for await event in engine.run() {
@@ -200,6 +207,7 @@ final class SpeedtestModel: ObservableObject {
             if !Task.isCancelled, self.runState.isRunning {
                 self.runState = .failed("Test interrompu sans résultat.")
                 self.gaugeValue = 0
+                self.finishPlanned(.failure(.failed("Test interrompu sans résultat.")))
             }
         }
     }
@@ -234,6 +242,7 @@ final class SpeedtestModel: ObservableObject {
         runState = .stopped
         gaugeValue = 0
         preparingServer = false
+        finishPlanned(.failure(.interrupted))
     }
 
     // MARK: Serveurs de test
@@ -444,6 +453,7 @@ final class SpeedtestModel: ObservableObject {
             fraction = 1
             runState = .done
             let tested = testedServer ?? .cloudflare
+            let site = plannedRun.map { ($0.siteID, $0.siteName) } ?? (SiteModel.shared.activeID, SiteModel.shared.activeSite?.displayName)
             // Toujours le serveur de ce test (jamais celui du précédent), comme dans l'historique.
             server = result.server ?? SpeedServerInfo(city: tested.city, country: tested.country,
                                                       source: tested.source.label, serverName: tested.name,
@@ -453,14 +463,22 @@ final class SpeedtestModel: ObservableObject {
                 interfaceName: interface?.name ?? "—", interfaceKind: interface?.kind.label ?? "",
                 downMbps: result.downMbps, upMbps: result.upMbps, latencyMs: result.idleLatencyMs,
                 loadedLatencyMs: result.loadedLatencyMs, jitterMs: result.jitterMs, streams: result.streams,
-                serverSource: tested.source, serverID: Self.recordServerID(result.server, tested: tested))
-            addToHistory(record)
-            toast = "Test terminé et ajouté à l’historique"
+                serverSource: tested.source, serverID: Self.recordServerID(result.server, tested: tested),
+                siteID: site.0, siteName: site.1)
+            var saved = record
+            if plannedRun != nil { saved.origin = SpeedTestRecord.plannedOrigin }
+            addToHistory(saved)
+            toast = plannedRun != nil ? "Test planifié terminé et ajouté à l’historique" : "Test terminé et ajouté à l’historique"
+            finishPlanned(.success(saved))
         case .failed(let message):
             runState = .failed(message)
             gaugeValue = 0
+            finishPlanned(.failure(.failed(message)))
         }
     }
+
+    /// Note 78 : test planifié en cours (site, et suite à donner au résultat).
+    var plannedRun: SpeedPlannedRun?
 
     private var latencyDuration: Double = 0
 

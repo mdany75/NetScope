@@ -1,8 +1,11 @@
 import Foundation
 
-/// Mise à jour de la base des fabricants depuis le registre IEEE, à la demande de l'utilisateur
-/// seulement (jamais automatique) : téléchargement des trois fichiers CSV, vérification,
-/// conversion, écriture atomique de `OUIDatabase.userFileURL`, rechargement de `OUIDatabase.builtIn`.
+/// Mise à jour de la base des fabricants depuis le registre IEEE : téléchargement des trois
+/// fichiers CSV, vérification, conversion, écriture atomique de `OUIDatabase.userFileURL`,
+/// rechargement de `OUIDatabase.builtIn`. Lancée à la demande (Réglages › Base des fabricants)
+/// ou automatiquement (note 81), au plus une fois par mois et seulement quand
+/// `OUIAutoUpdatePolicy` le permet (base de plus de 30 jours, ni scan en cours, ni connexion
+/// limitée, jamais en démonstration). Si quelque chose échoue, l'ancienne base reste en place.
 public struct OUIUpdater: Sendable {
     /// Avancement : fichier en cours et fraction globale (0…1).
     public struct Progress: Sendable, Equatable {
@@ -45,6 +48,17 @@ public struct OUIUpdater: Sendable {
     /// Télécharge, vérifie, convertit, écrit, puis recharge `database`. Renvoie la nouvelle provenance.
     public func update(database: OUIDatabase = .builtIn,
                        progress: @escaping @Sendable (Progress) -> Void = { _ in }) async throws -> OUIDatabase.Source {
+        let downloaded = try await download(progress: progress)
+        try Task.checkCancellation()
+        progress(Progress(fileName: "", fraction: 1, step: "Conversion du registre…"))
+        let source = try install(csv: downloaded)
+        database.reload()
+        return source
+    }
+
+    /// Télécharge les trois fichiers du registre, sans rien écrire (la conversion et l'écriture
+    /// passent par `install(csv:)`).
+    public func download(progress: @escaping @Sendable (Progress) -> Void = { _ in }) async throws -> [String: Data] {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = timeout
         configuration.timeoutIntervalForResource = timeout * 5
@@ -63,11 +77,7 @@ public struct OUIUpdater: Sendable {
                                   step: "Téléchargement de \(file.name)…"))
             }
         }
-        try Task.checkCancellation()
-        progress(Progress(fileName: "", fraction: 1, step: "Conversion du registre…"))
-        let source = try install(csv: downloaded)
-        database.reload()
-        return source
+        return downloaded
     }
 
     /// Vérifie et convertit les trois fichiers, puis écrit la base de façon atomique.

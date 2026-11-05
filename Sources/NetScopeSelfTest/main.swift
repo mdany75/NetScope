@@ -108,6 +108,10 @@ registerDeviceLookupTests(suite)
 registerWifiLocalTests(suite)
 // Note 83 (0.27.0) : Switchs et ports en onglets.
 registerSwitchPageTests(suite)
+// Note 81 (0.27.0) : mise à jour automatique de la base des fabricants.
+registerOUIAutoUpdateTests(suite)
+// Note 78 (0.27.0) : débit Internet planifié par site.
+registerSpeedScheduleTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

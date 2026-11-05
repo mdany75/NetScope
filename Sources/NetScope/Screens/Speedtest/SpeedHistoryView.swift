@@ -20,9 +20,18 @@ struct SpeedHistoryView: View {
 
     // MARK: Évolution
 
+    /// Tests Internet des 30 derniers jours du site actif (note 78 : les tests faits sur un autre
+    /// site ne se mélangent pas à la courbe ; les anciens tests, sans site, restent).
     private var recentInternet: [SpeedTestRecord] {
         let limit = Date().addingTimeInterval(-30 * 86_400)
-        return model.history.filter { $0.kind == .internet && $0.date >= limit }.sorted { $0.date < $1.date }
+        let site = SiteModel.shared.activeID
+        return model.history.filter { $0.kind == .internet && $0.date >= limit && ($0.siteID == nil || $0.siteID == site) }
+            .sorted { $0.date < $1.date }
+    }
+
+    private var evolutionTitle: String {
+        guard let name = SiteModel.shared.activeSite?.displayName else { return "Évolution sur 30 jours · Internet" }
+        return "Évolution sur 30 jours · Internet · \(name)"
     }
 
     private var evolutionPanel: some View {
@@ -32,7 +41,7 @@ struct SpeedHistoryView: View {
         return Panel(padding: 16) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 12) {
-                    SectionHeader("Évolution sur 30 jours · Internet").fixedSize()
+                    SectionHeader(evolutionTitle).fixedSize()
                     legend("Descente", color: Theme.accent)
                     legend("Montée", color: speedUpColor)
                     legend("Forfait", color: Color(hex: 0x9CA3AF), dashed: true)
@@ -193,23 +202,19 @@ struct SpeedHistoryView: View {
             }
 
             HStack(spacing: 12) {
-                Toggle("", isOn: .constant(false))
-                    .toggleStyle(.switch)
-                    .labelsHidden()
-                    .disabled(true)
+                let schedule = SpeedScheduleStore.shared.schedule(for: SiteModel.shared.activeID)
+                Image(systemName: "calendar.badge.clock").font(.system(size: 16)).foregroundStyle(Theme.accent)
                 VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text("Planifier un test toutes les heures").font(Theme.bodySemibold)
-                        Chip(text: "Bientôt", tone: .neutral)
-                    }
-                    Text("Les tests planifiés passeront par l’écran Surveillance et s’ajouteront à cet historique.")
+                    Text(schedule.isEnabled ? "Test planifié chaque jour à \(schedule.time.text)" : "Aucun test planifié pour ce site")
+                        .font(Theme.bodySemibold)
+                    Text("Un test par jour et par site, avec seuil d’alerte et courbe sur 30 jours (onglet Planifié).")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 }
                 Spacer()
                 Button {
-                    state.open(.surveillance)
+                    model.tab = .planifie
                 } label: {
-                    Label("Ouvrir Surveillance", systemImage: "arrow.right").labelStyle(SpeedTrailingIconLabelStyle())
+                    Label("Régler la planification", systemImage: "arrow.right").labelStyle(SpeedTrailingIconLabelStyle())
                 }
                 .buttonStyle(.ghost)
             }
@@ -242,6 +247,7 @@ struct SpeedHistoryView: View {
         StandardColumn(id: "flux", title: "Flux", isDefaultVisible: false),
         StandardColumn(id: "origine", title: "Origine", isDefaultVisible: false),
         StandardColumn(id: "source", title: "Source", isDefaultVisible: false),
+        StandardColumn(id: "site", title: "Site", isDefaultVisible: false),
     ]
 
     /// « ordre » : ordre de l'historique (le plus récent d'abord), sans colonne. Les débits et
@@ -260,6 +266,7 @@ struct SpeedHistoryView: View {
         "flux": KeyPathComparator(\SpeedHistoryLine.sortStreams),
         "origine": KeyPathComparator(\SpeedHistoryLine.sortOrigin),
         "source": KeyPathComparator(\SpeedHistoryLine.sortSource),
+        "site": KeyPathComparator(\SpeedHistoryLine.sortSite),
     ]
 }
 
@@ -284,6 +291,7 @@ struct SpeedHistoryLine: Identifiable {
     var sortStreams: Int { record.streams }
     var sortOrigin: String { record.origin }
     var sortSource: String { record.sourceLabel }
+    var sortSite: String { record.siteName ?? "" }
 }
 
 /// Tableau des tests enregistrés : le test qui vient de se terminer est sélectionné.
@@ -336,7 +344,9 @@ private struct SpeedHistoryTable: View {
                 .customizationID("interface")
 
                 TableColumn(StandardTableHeading("DESCENTE"), sortUsing: table.sort("descente")) { line in
-                    let plan = line.record.kind == .internet ? model.planDown : nil
+                    // Le forfait est celui du site actif : un test fait sur un autre site n'y est pas comparé.
+                    let sameSite = line.record.siteID == nil || line.record.siteID == SiteModel.shared.activeID
+                    let plan = line.record.kind == .internet && sameSite ? model.planDown : nil
                     let low = plan.map { line.record.downMbps < $0 * SpeedMath.planThreshold } ?? false
                     SpeedNumberCell("\(SpeedFormat.rate(line.record.downMbps)) Mb/s", bold: true,
                                     color: low ? Theme.warning : Theme.text)
@@ -394,6 +404,15 @@ private struct SpeedHistoryTable: View {
                 }
                 .width(min: 70, ideal: 90)
                 .customizationID("source")
+                .defaultVisibility(.hidden)
+
+                // Note 78 : site actif au moment du test (tests planifiés par site).
+                TableColumn(StandardTableHeading("SITE"), sortUsing: table.sort("site")) { line in
+                    Text(line.record.siteName ?? "—").font(Theme.small)
+                        .foregroundStyle(line.record.siteName == nil ? Theme.textTertiary : Theme.neutralText).lineLimit(1)
+                }
+                .width(min: 80, ideal: 120)
+                .customizationID("site")
                 .defaultVisibility(.hidden)
             }
         }

@@ -42,6 +42,10 @@ public enum NetScopeEventKind: String, Codable, CaseIterable, Sendable, Identifi
     case pingTargetDown
     /// Cible du ping continu revenue en ligne.
     case pingTargetUp
+    /// Note 78 : débit Internet planifié sous le seuil du site (Speedtest › Planifié).
+    case internetSpeedLow
+    /// Note 81 : base des fabricants mise à jour automatiquement depuis le registre IEEE.
+    case ouiUpdated
     /// Notification de test (Réglages › Notifications).
     case test
 
@@ -70,6 +74,8 @@ public enum NetScopeEventKind: String, Codable, CaseIterable, Sendable, Identifi
         case .wanDown: return "WAN en panne"
         case .pingTargetDown: return "Cible du ping continu hors ligne"
         case .pingTargetUp: return "Cible du ping continu rétablie"
+        case .internetSpeedLow: return "Débit Internet sous le seuil"
+        case .ouiUpdated: return "Base des fabricants mise à jour"
         case .test: return "Notification de test"
         }
     }
@@ -94,6 +100,8 @@ public enum NetScopeEventKind: String, Codable, CaseIterable, Sendable, Identifi
         case .wanDown: return "Sondes «\u{00A0}WAN\u{00A0}» et «\u{00A0}VPN\u{00A0}»\u{00A0}: lien Internet ou tunnel tombé."
         case .pingTargetDown: return "Ping continu\u{00A0}: 3 paquets perdus de suite sur une cible."
         case .pingTargetUp: return "Ping continu\u{00A0}: retour en ligne d’une cible tombée."
+        case .internetSpeedLow: return "Test de débit planifié (Speedtest)\u{00A0}: descente ou montée sous le seuil du site."
+        case .ouiUpdated: return "Mise à jour automatique du registre IEEE, avec le nombre de préfixes ajoutés."
         case .test: return "Envoyée depuis Réglages › Notifications."
         }
     }
@@ -102,16 +110,17 @@ public enum NetScopeEventKind: String, Codable, CaseIterable, Sendable, Identifi
     public var defaultSeverity: NetScopeEventSeverity {
         switch self {
         case .probeDown, .ipConflict, .rogueDHCP, .wanDown, .pingTargetDown: return .critical
-        case .probeWarning, .serviceIncident, .licenseExpiring, .firmwareOutdated, .syslogSevere: return .warning
+        case .probeWarning, .serviceIncident, .licenseExpiring, .firmwareOutdated, .syslogSevere, .internetSpeedLow: return .warning
         case .probeRecovered, .pingTargetUp: return .success
-        case .newDevice, .deviceMoved, .updateAvailable, .scanFinished, .reportReady, .test: return .info
+        case .newDevice, .deviceMoved, .updateAvailable, .scanFinished, .reportReady, .ouiUpdated, .test: return .info
         }
     }
 
     /// Types ajoutés après la première version des réglages : absents d'un fichier enregistré avant
     /// eux, ils prennent leur valeur par défaut au lieu d'être pris pour désactivés.
     public static let introducedLater: Set<NetScopeEventKind> = [.reportReady, .licenseExpiring, .firmwareOutdated,
-                                                                  .syslogSevere, .wanDown, .pingTargetDown, .pingTargetUp]
+                                                                  .syslogSevere, .wanDown, .pingTargetDown, .pingTargetUp,
+                                                                  .internetSpeedLow, .ouiUpdated]
 
     /// Activé tant que l'utilisateur n'a rien changé.
     public var enabledByDefault: Bool {

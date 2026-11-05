@@ -1,8 +1,9 @@
 import NetScopeCore
 import SwiftUI
 
-/// Pilote la base des fabricants (OUI) : provenance, mise à jour depuis l'IEEE (sur demande de
-/// l'utilisateur seulement), retour à la base fournie avec l'application.
+/// Pilote la base des fabricants (OUI) : provenance, mise à jour depuis l'IEEE à la demande,
+/// retour à la base fournie avec l'application. La mise à jour automatique (note 81) passe par
+/// `OUIAutoController`.
 @MainActor
 final class OUIController: ObservableObject {
     static let shared = OUIController()
@@ -47,7 +48,7 @@ final class OUIController: ObservableObject {
             phase = .failed("Mise à jour indisponible en mode démonstration.")
             return
         }
-        guard task == nil else { return }
+        guard task == nil, !OUIAutoController.shared.isChecking else { return }
         generation += 1
         let current = generation
         phase = .working(step: "Connexion à standards-oui.ieee.org…", fraction: 0)
@@ -91,7 +92,7 @@ final class OUIController: ObservableObject {
             phase = .failed("Indisponible en mode démonstration.")
             return
         }
-        guard task == nil else { return }
+        guard task == nil, !OUIAutoController.shared.isChecking else { return }
         generation += 1
         let current = generation
         phase = .working(step: "Retour à la base fournie avec l’application…", fraction: 1)
@@ -119,6 +120,7 @@ final class OUIController: ObservableObject {
 struct RegOUISection: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var controller = OUIController.shared
+    @ObservedObject private var autoController = OUIAutoController.shared
 
     var body: some View {
         RegPanel(title: "Base des fabricants",
@@ -128,6 +130,9 @@ struct RegOUISection: View {
                 RegTile("Préfixes", controller.source.map { "\($0.count.formatted(.number.locale(Locale(identifier: "fr_CA"))))" } ?? "—")
                 RegTile("Emplacement", controller.source?.place ?? "—")
             }
+
+            // Note 81 : mise à jour automatique (activée par défaut).
+            RegOUIAutoBox().padding(.top, 12)
 
             if case .working(let step, let fraction) = controller.phase {
                 VStack(alignment: .leading, spacing: 6) {
@@ -147,8 +152,8 @@ struct RegOUISection: View {
                         controller.update(state: state)
                     } label: { Label("Mettre à jour depuis l’IEEE", systemImage: "arrow.down.circle") }
                         .buttonStyle(.primary)
-                        .disabled(RegEnvironment.isSandboxed)
-                        .opacity(RegEnvironment.isSandboxed ? 0.5 : 1)
+                        .disabled(RegEnvironment.isSandboxed || autoController.isChecking)
+                        .opacity(RegEnvironment.isSandboxed || autoController.isChecking ? 0.5 : 1)
                     let canRevert = !RegEnvironment.isSandboxed && controller.hasUserFile
                     Button("Revenir à la base intégrée") { controller.revert(state: state) }
                         .buttonStyle(.secondary)
@@ -174,7 +179,7 @@ struct RegOUISection: View {
             if RegEnvironment.isSandboxed {
                 RegNotice("Mode démonstration : la mise à jour depuis l’IEEE est désactivée.", tone: .neutral)
             } else {
-                RegNotice("La mise à jour télécharge trois fichiers du registre IEEE (environ 5 Mo) depuis standards-oui.ieee.org, seulement quand vous cliquez. La base mise à jour est enregistrée dans ~/Library/Application Support/NetScope/oui.tsv.", tone: .neutral)
+                RegNotice("La mise à jour télécharge trois fichiers du registre IEEE (environ 5\u{00A0}Mo) depuis standards-oui.ieee.org, quand vous cliquez ou automatiquement si l’option est activée. La base mise à jour est enregistrée dans ~/Library/Application Support/NetScope/oui.tsv.", tone: .neutral)
             }
         }
     }

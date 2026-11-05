@@ -34,12 +34,22 @@ public struct SpeedTestRecord: Identifiable, Codable, Hashable, Sendable {
     public var serverSource: SpeedServerSource?
     /// Identifiant du serveur (`SpeedServer.id`), pour comparer par serveur.
     public var serverID: String?
+    /// Note 78 : site actif au moment du test (courbe par site du débit planifié) ; nil pour
+    /// les anciens tests et sans site.
+    public var siteID: UUID?
+    public var siteName: String?
+
+    /// Origine d'un test lancé par la planification (Speedtest › Planifié).
+    public static let plannedOrigin = "planifié"
+    public var isPlanned: Bool { origin == SpeedTestRecord.plannedOrigin }
 
     public init(id: UUID = UUID(), date: Date = Date(), kind: SpeedTestKind, origin: String = "manuel",
                 server: String, interfaceName: String, interfaceKind: String, downMbps: Double,
                 upMbps: Double? = nil, latencyMs: Double? = nil, loadedLatencyMs: Double? = nil,
                 jitterMs: Double? = nil, streams: Int = 1, serverSource: SpeedServerSource? = nil,
-                serverID: String? = nil) {
+                serverID: String? = nil, siteID: UUID? = nil, siteName: String? = nil) {
+        self.siteID = siteID
+        self.siteName = siteName
         self.serverSource = serverSource
         self.serverID = serverID
         self.id = id
@@ -185,13 +195,13 @@ public struct SpeedHistoryStore: Sendable {
             guard text.contains(";") || text.contains("\"") || text.contains("\n") else { return text }
             return "\"" + text.replacingOccurrences(of: "\"", with: "\"\"") + "\""
         }
-        var lines = ["Date;Type;Origine;Serveur;Interface;Descente (Mb/s);Montée (Mb/s);Latence (ms);Latence en charge (ms);Gigue (ms);Flux;Source"]
+        var lines = ["Date;Type;Origine;Serveur;Interface;Descente (Mb/s);Montée (Mb/s);Latence (ms);Latence en charge (ms);Gigue (ms);Flux;Source;Site"]
         for record in records {
             lines.append([
                 formatter.string(from: record.date), record.kind.label, field(record.origin), field(record.server),
                 field(record.interfaceLabel), number(record.downMbps), number(record.upMbps),
                 number(record.latencyMs), number(record.loadedLatencyMs), number(record.jitterMs), String(record.streams),
-                field(record.sourceLabel),
+                field(record.sourceLabel), field(record.siteName ?? ""),
             ].joined(separator: ";"))
         }
         return lines.joined(separator: "\r\n") + "\r\n"

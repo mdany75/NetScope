@@ -114,6 +114,10 @@ struct NetScopeApp: App {
                     RegBackupController.shared.startSchedule()
                     // Note 56 : synchronisation par iCloud Drive (si activée), puis toutes les 15 minutes.
                     RegSyncController.shared.startIfEnabled()
+                    // Note 81 : base des fabricants mise à jour automatiquement (au plus une fois par mois).
+                    OUIAutoController.shared.start()
+                    // Note 78 : débit Internet planifié du site actif (une fois par jour).
+                    SpeedScheduleStore.shared.attach(to: state)
                 }
                 .task {
                     // Changement d'interface ou de réseau (lecture locale, toutes les 15 s) : le bilan

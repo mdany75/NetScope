@@ -284,7 +284,7 @@ func registerSpeedServerTests(_ suite: TestSuite) {
         let loaded = SpeedHistoryStore(url: url).load(now: Date(timeIntervalSince1970: 1_793_000_000))
         try expectEqual(loaded.records.count, 1, "ancien historique relu")
         try expectEqual(loaded.records.first?.serverSource, nil, "sans source")
-        try expect(SpeedHistoryStore.csv(loaded.records).components(separatedBy: "\r\n")[1].hasSuffix(";8;Cloudflare"), "CSV : colonne Source")
+        try expect(SpeedHistoryStore.csv(loaded.records).components(separatedBy: "\r\n")[1].hasSuffix(";8;Cloudflare;"), "CSV : colonne Source (puis Site, vide)")
     }
 
     suite.add("Serveurs : description du serveur testé") {

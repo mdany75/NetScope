@@ -10,7 +10,7 @@ struct SpeedtestToolView: View {
 
     /// Onglets de l'outil : Speedtest (Internet, serveurs, historique) ou iperf3 (réseau local,
     /// historique).
-    private var tabs: [SpeedTab] { tool == .iperf ? [.lan, .historique] : [.internet, .serveurs, .historique] }
+    private var tabs: [SpeedTab] { tool == .iperf ? [.lan, .historique] : [.internet, .serveurs, .historique, .planifie] }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -21,6 +21,7 @@ struct SpeedtestToolView: View {
                 case .serveurs: SpeedServersView(model: model)
                 case .lan: SpeedLanView(model: model)
                 case .historique: SpeedHistoryView(model: model)
+                case .planifie: SpeedScheduleView(model: model)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -53,46 +54,65 @@ struct SpeedtestToolView: View {
                                pulsing: pulsing || model.lanRunning)
     }
 
+    /// Une ligne ; en petite fenêtre, l'état et l'export passent sous les onglets (note 78 : le
+    /// quatrième onglet « Planifié » ne doit pas élargir la page).
     private var tabBar: some View {
-        HStack(spacing: 10) {
-            // Onglets : contrôle segmenté natif (le nombre de tests suit « Historique »).
-            Picker("Onglet", selection: $model.tab) {
-                ForEach(tabs) { tab in
-                    Text(tab == .historique ? "\(tab.label) (\(model.history.count))" : tab.label).tag(tab)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                tabPicker
+                Spacer(minLength: 0)
+                tabTools
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                tabPicker
+                HStack(spacing: 10) {
+                    Spacer(minLength: 0)
+                    tabTools
                 }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .fixedSize()
-            .help(model.tab.hint)
-            // La phrase d'aide de l'onglet passe en info-bulle : le titre de l'outil la donne déjà.
-            Spacer(minLength: 0)
-            if let toast = model.toast {
-                HStack(spacing: 6) {
-                    Text(toast).font(Theme.small)
-                    Button {
-                        model.toast = nil
-                    } label: {
-                        Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
-                    }
-                    .buttonStyle(.plain)
-                    .help("Fermer le message")
-                }
-                .foregroundStyle(Theme.success)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 5)
-                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.successSoft))
-            }
-            // iperf3 : l'état du dernier test Internet n'a pas sa place, sauf iperf3 en cours.
-            if tool == .speedtest || model.lanRunning { statusPill }
-            Button {
-                model.exportCSV()
-            } label: {
-                Label("Exporter CSV", systemImage: "square.and.arrow.down")
-                    .fixedSize()
-            }
-            .buttonStyle(.secondary)
-            .speedDisabled(model.history.isEmpty)
         }
+    }
+
+    private var tabPicker: some View {
+        // Onglets : contrôle segmenté natif (le nombre de tests suit « Historique »).
+        Picker("Onglet", selection: $model.tab) {
+            ForEach(tabs) { tab in
+                Text(tab == .historique ? "\(tab.label) (\(model.history.count))" : tab.label).tag(tab)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .fixedSize()
+        // La phrase d'aide de l'onglet passe en info-bulle : le titre de l'outil la donne déjà.
+        .help(model.tab.hint)
+    }
+
+    @ViewBuilder private var tabTools: some View {
+        if let toast = model.toast {
+            HStack(spacing: 6) {
+                Text(toast).font(Theme.small)
+                Button {
+                    model.toast = nil
+                } label: {
+                    Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
+                }
+                .buttonStyle(.plain)
+                .help("Fermer le message")
+            }
+            .foregroundStyle(Theme.success)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.successSoft))
+        }
+        // iperf3 : l'état du dernier test Internet n'a pas sa place, sauf iperf3 en cours.
+        if tool == .speedtest || model.lanRunning { statusPill }
+        Button {
+            model.exportCSV()
+        } label: {
+            Label("Exporter CSV", systemImage: "square.and.arrow.down")
+                .fixedSize()
+        }
+        .buttonStyle(.secondary)
+        .speedDisabled(model.history.isEmpty)
     }
 }
