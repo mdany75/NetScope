@@ -29,9 +29,10 @@ enum RustDeskDemo {
         ]
     }
 
-    /// ID RustDesk saisis dans l'inventaire (mêmes postes que le carnet).
+    /// ID RustDesk saisis dans l'inventaire (mêmes postes que le carnet : Poste réception de Julie
+    /// Gagnon, Portable Marc de Marc Tremblay).
     static func seed(_ store: inout InventoryStore, now: Date) {
-        for (ip, id) in [("10.182.122.146", "184352907"), ("10.182.122.117", "263418095")] {
+        for (ip, id) in [("10.182.122.146", "184352907"), ("10.182.122.113", "263418095")] {
             guard let record = store.records.values.first(where: { $0.ip.description == ip && $0.hostname != "MacBook-Air-Accueil" }) else { continue }
             var annotations = record.annotations
             annotations.rustdeskID = id

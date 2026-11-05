@@ -321,15 +321,24 @@ struct InvDetail: View {
     }
 
     /// Note 6 : « Connecter par RustDesk » (ID enregistré ou en cours de saisie).
+    /// Colonne étroite (panneau de détail) : « Connecter » seul plutôt qu'un libellé tronqué.
     private var rustDeskButton: some View {
+        ViewThatFits(in: .horizontal) {
+            rustDeskButton("Connecter par RustDesk")
+            rustDeskButton("Connecter")
+        }
+    }
+
+    private func rustDeskButton(_ title: String) -> some View {
         let id = current.validRustDeskID
         return Button {
             guard let id else { return }
             model.showRustDesk(RemoteModel.shared.connectRustDesk(id: id, name: record.displayName))
         } label: {
-            Label("Connecter par RustDesk", systemImage: RemoteProtocol.rustdesk.symbol)
+            Label(title, systemImage: RemoteProtocol.rustdesk.symbol)
         }
         .buttonStyle(.secondary)
+        .fixedSize()
         .disabled(id == nil)
         .help(id.map { "Ouvrir RustDesk sur l’ID \(RustDeskID.grouped($0))" } ?? "Indiquez l’ID RustDesk du poste")
     }

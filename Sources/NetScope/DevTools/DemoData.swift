@@ -73,7 +73,7 @@ enum DemoData {
         Row(ip: "10.182.122.113", name: "Portable Marc", host: "PF4L8M20", vendor: "Lenovo", mac: "8C:16:45:2B:9E:03", latency: 5.2, ports: [135, 445], sw: "SW-ETG2-01", port: "1/3", vlan: 1, minutesAgo: 1, type: .poste, online: true, range: "Bureau"),
         Row(ip: "10.182.122.117", name: "Poste comptabilité", host: "WKS346", vendor: "Dell", mac: "B0:7B:25:44:A1:6C", latency: 1.9, ports: [135, 445, 3389], sw: "SW-CORE-01", port: "Gi1/0/22", vlan: 1, minutesAgo: 0, type: .poste, online: true, range: "Bureau"),
         // Note 6 : poste Windows avec l'accès IP direct de RustDesk (21118).
-        Row(ip: "10.182.122.126", name: "Poste direction", host: "WKS352", vendor: "Dell", mac: "B0:7B:25:44:B2:26", latency: 2.2, ports: [135, 445, 21118], sw: "SW-ETG2-01", port: "1/5", vlan: 1, minutesAgo: 0, type: .poste, online: true, range: "Bureau"),
+        Row(ip: "10.182.122.126", name: "Poste direction", host: "WKS355", vendor: "Dell", mac: "B0:7B:25:44:B2:26", latency: 2.2, ports: [135, 445, 21118], sw: "SW-ETG2-01", port: "1/5", vlan: 1, minutesAgo: 0, type: .poste, online: true, range: "Bureau"),
         // Note 30 : téléphones IP Yealink sur SW-ETG2-01, VLAN voix 20 (annoncés « téléphone » par LLDP-MED).
         Row(ip: "10.182.122.121", name: "Téléphone accueil", host: "SIP-T54W", vendor: "Yealink", mac: "80:5E:C0:3A:61:21", latency: 2.1, ports: [80, 443, 5060], sw: "SW-ETG2-01", port: "1/10", vlan: 20, minutesAgo: 0, type: .telephoneIP, online: true, range: "Bureau"),
         Row(ip: "10.182.122.122", name: nil, host: "SIP-T46U", vendor: "Yealink", mac: "80:5E:C0:3A:61:22", latency: 2.4, ports: [80, 443, 5060], sw: "SW-ETG2-01", port: "1/15", vlan: 20, minutesAgo: 0, type: .telephoneIP, online: true, range: "Bureau"),

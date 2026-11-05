@@ -742,6 +742,12 @@ struct InventaireScreen: View {
             if let record = model.store.record(forIP: ip) {
                 DispatchQueue.main.async { selection = [SiteScope.id(site: model.siteKey, key: record.key)] }
             }
+        case "rustdesk":
+            // Note 6 : fiche d'un poste avec son ID RustDesk (Poste réception, ou NETSCOPE_INV_IP).
+            let ip = ProcessInfo.processInfo.environment["NETSCOPE_INV_IP"].flatMap(IPv4Address.init) ?? IPv4Address("10.182.122.146")!
+            if let record = model.store.record(forIP: ip) {
+                DispatchQueue.main.async { selection = [SiteScope.id(site: model.siteKey, key: record.key)] }
+            }
         case "manuel":
             // Filtre « Ajoutés à la main » : la ligne choisie reste visible (jamais scannée, elle
             // serait tout en bas du tri par dernière vue, hors de la partie visible du tableau).

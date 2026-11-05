@@ -420,7 +420,8 @@ struct ScanDetailActions: View {
         Button(action: perform) {
             HStack(spacing: 8) {
                 Image(systemName: symbol).font(.system(size: 13)).frame(width: 16)
-                Text(title).lineLimit(1)
+                // Colonne étroite : « Scanner les ports » réduit un peu plutôt que tronqué.
+                Text(title).lineLimit(1).minimumScaleFactor(0.8)
             }
         }
         .buttonStyle(ScanOutlineButtonStyle(height: 34, font: .system(size: 12, weight: .medium), fullWidth: true))

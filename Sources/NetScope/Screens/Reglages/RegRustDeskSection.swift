@@ -145,10 +145,11 @@ struct RegRustDeskSection: View {
         RegPanel(title: "Client RustDesk de ce Mac",
                  subtitle: "Lecture seule de ~/Library/Preferences/com.carriez.RustDesk/RustDesk2.toml\u{00A0}: serveur d’ID, relais et clé du client de bureau.",
                  accessory: {
-                     Button {
-                         rustdesk.checkClient()
-                     } label: { Label("Vérifier le client RustDesk de ce Mac", systemImage: "checkmark.shield") }
-                         .buttonStyle(.secondary)
+                     // Petite fenêtre : libellé court plutôt qu'un bouton tronqué (le titre nomme déjà ce Mac).
+                     ViewThatFits(in: .horizontal) {
+                         clientCheckButton("Vérifier le client RustDesk de ce Mac")
+                         clientCheckButton("Vérifier le client")
+                     }
                  }, content: {
                      VStack(alignment: .leading, spacing: 8) {
                          HStack(spacing: 8) {
@@ -180,20 +181,10 @@ struct RegRustDeskSection: View {
         RegPanel(title: "Tester le serveur",
                  subtitle: "Seulement sur clic\u{00A0}: connexion TCP aux ports 21115, 21116 et 21117 avec le temps de réponse, échange du protocole RustDesk sur 21115 (test NAT) et sur UDP 21116.",
                  accessory: {
-                     HStack(spacing: 8) {
-                         if rustdesk.hasFortiGate {
-                             Button {
-                                 rustdesk.checkVIPs()
-                             } label: { Label("Vérifier les VIP", systemImage: "shield.lefthalf.filled") }
-                                 .buttonStyle(.secondary)
-                                 .disabled(rustdesk.checkingVIPs)
-                                 .help("Lit les VIP de chaque FortiGate (GET /api/v2/cmdb/firewall/vip, aucune écriture)")
-                         }
-                         Button {
-                             rustdesk.testServer()
-                         } label: { Label("Tester le serveur", systemImage: "bolt.horizontal") }
-                             .buttonStyle(.primary)
-                             .disabled(rustdesk.testing || rustdesk.settings.idEndpoint == nil)
+                     // Petite fenêtre : boutons l'un sous l'autre plutôt que tronqués.
+                     ViewThatFits(in: .horizontal) {
+                         HStack(spacing: 8) { testButtons }.fixedSize()
+                         VStack(alignment: .trailing, spacing: 6) { testButtons }.fixedSize()
                      }
                  }, content: {
                      VStack(alignment: .leading, spacing: 10) {
@@ -236,6 +227,30 @@ struct RegRustDeskSection: View {
                          }
                      }
                  })
+    }
+
+    private func clientCheckButton(_ title: String) -> some View {
+        Button {
+            rustdesk.checkClient()
+        } label: { Label(title, systemImage: "checkmark.shield") }
+            .buttonStyle(.secondary)
+            .fixedSize()
+    }
+
+    @ViewBuilder private var testButtons: some View {
+        if rustdesk.hasFortiGate {
+            Button {
+                rustdesk.checkVIPs()
+            } label: { Label("Vérifier les VIP", systemImage: "shield.lefthalf.filled") }
+                .buttonStyle(.secondary)
+                .disabled(rustdesk.checkingVIPs)
+                .help("Lit les VIP de chaque FortiGate (GET /api/v2/cmdb/firewall/vip, aucune écriture)")
+        }
+        Button {
+            rustdesk.testServer()
+        } label: { Label("Tester le serveur", systemImage: "bolt.horizontal") }
+            .buttonStyle(.primary)
+            .disabled(rustdesk.testing || rustdesk.settings.idEndpoint == nil)
     }
 
     private func probeRow(_ probe: RustDeskProbe) -> some View {

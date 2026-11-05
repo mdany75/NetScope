@@ -264,6 +264,8 @@ struct PortResultsTable: View {
     /// Heure du scan qui a produit les lignes (nil : scan en cours ou ports connus de l'inventaire).
     var probedAt: Date? = nil
     var emptyText = "Aucun port ouvert pour l’instant."
+    /// Note 6 : retour de « RustDesk » (adresse invalide, démonstration), montré dans une bulle.
+    @State private var rustDeskNote: String?
 
     /// Colonnes ; `showProto` rend la colonne Proto visible par défaut (fiche appareil, comme le croquis).
     static func columns(showProto: Bool) -> [StandardColumn] {
@@ -390,6 +392,20 @@ struct PortResultsTable: View {
                 QuickLoginModel.shared.ask(target)
             }
             .buttonStyle(.ghost)
+        } else if result.state == .open, result.port == RustDeskPorts.direct,
+                  RustDeskPorts.role(openPorts: results.filter { $0.state == .open }.map(\.port)) == .client {
+            // Note 6 : accès IP direct d'un poste (21118), comme la pastille du Scanner.
+            Button("RustDesk") {
+                RustDeskOpen.direct(host: host) { text, _ in rustDeskNote = text }
+            }
+            .buttonStyle(.ghost)
+            .help("Session RustDesk directe vers \(host) (accès IP direct, port 21118)")
+            .popover(isPresented: Binding(get: { rustDeskNote != nil }, set: { if !$0 { rustDeskNote = nil } }), arrowEdge: .bottom) {
+                Text(rustDeskNote ?? "").font(Theme.small).foregroundStyle(Theme.text)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(width: 280, alignment: .leading)
+                    .padding(12)
+            }
         } else {
             Text("—").font(Theme.small).foregroundStyle(Theme.textTertiary)
         }
