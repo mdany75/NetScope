@@ -20,6 +20,7 @@ extension RemoteConnection {
         case .ftp: return "Non sécurisé"
         case .ftps: return "Chiffré (TLS)"
         case .sftp: return "Chiffré (SSH)"
+        case .rustdesk: return "Chiffré (RustDesk)"
         }
     }
 
@@ -46,7 +47,7 @@ extension RemoteConnection {
             return display.mode.label + " · " + display.vncScale.label
         case .ftp, .ftps, .sftp:
             return fileTransferModeLabel
-        case .ssh, .telnet, .serie:
+        case .ssh, .telnet, .serie, .rustdesk:
             return ""
         }
     }

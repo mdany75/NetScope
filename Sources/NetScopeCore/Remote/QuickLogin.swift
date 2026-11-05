@@ -219,7 +219,7 @@ public enum QuickLogin {
             return .terminal(command: sshCommand(user: c.user, host: c.host, port: c.port, auth: c.auth, keyPath: c.keyPath, home: home))
         case .telnet, .rdp, .vnc:
             return try RemoteLauncher.plan(for: connection(for: c, name: name), telnetPath: telnetPath)
-        case .serie, .ftp, .ftps, .sftp:
+        case .serie, .ftp, .ftps, .sftp, .rustdesk:
             throw QuickLoginError.unsupportedProtocol(c.proto)
         }
     }

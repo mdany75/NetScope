@@ -94,6 +94,8 @@ struct RemoteScreen: View {
             }
             .buttonStyle(.secondary)
         }
+        // Note 6 : RustDesk absent au moment de « Connecter ».
+        .rustDeskInstallAlert()
         .confirmationDialog("Supprimer la connexion « \(model.pendingDeletion?.name ?? "") » ?",
                             isPresented: Binding(get: { model.pendingDeletion != nil },
                                                  set: { if !$0 { model.pendingDeletion = nil } }),

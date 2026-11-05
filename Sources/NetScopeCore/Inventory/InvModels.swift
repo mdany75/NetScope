@@ -19,10 +19,14 @@ public struct InvAnnotations: Codable, Hashable, Sendable {
     public var customVendor: String?
     /// Fiche matériel : achat, garantie, fournisseur, numéro de série, prix (note 10, 0.20.0).
     public var hardware: InvHardware?
+    /// Note 6 : ID RustDesk du poste (9 ou 10 chiffres, sans espaces) ; nil : aucun. Optionnel
+    /// pour relire les fichiers d'avant la 0.26.1.
+    public var rustdeskID: String?
 
     public init(customName: String? = nil, customType: DeviceType? = nil, tags: [String] = [],
                 location: String = "", wallJack: String = "", owner: String = "", assetNumber: String = "",
-                notes: String = "", isFavorite: Bool = false, customVendor: String? = nil, hardware: InvHardware? = nil) {
+                notes: String = "", isFavorite: Bool = false, customVendor: String? = nil, hardware: InvHardware? = nil,
+                rustdeskID: String? = nil) {
         self.customName = customName
         self.customType = customType
         self.tags = tags
@@ -34,6 +38,12 @@ public struct InvAnnotations: Codable, Hashable, Sendable {
         self.isFavorite = isFavorite
         self.customVendor = customVendor
         self.hardware = hardware
+        self.rustdeskID = rustdeskID
+    }
+
+    /// Note 6 : ID RustDesk valide de la fiche (chiffres seuls), nil s'il est vide ou mal saisi.
+    public var validRustDeskID: String? {
+        rustdeskID.flatMap { RustDeskID.parse($0) }
     }
 
     /// Libellés des champs qui diffèrent (pour la chronologie : « nom, local, notes »).
@@ -53,6 +63,7 @@ public struct InvAnnotations: Codable, Hashable, Sendable {
         if isFavorite != base.isFavorite { result.isFavorite = isFavorite }
         if customVendor != base.customVendor { result.customVendor = customVendor }
         if hardware != base.hardware { result.hardware = hardware }
+        if rustdeskID != base.rustdeskID { result.rustdeskID = rustdeskID }
         return result
     }
 
@@ -68,6 +79,7 @@ public struct InvAnnotations: Codable, Hashable, Sendable {
         if notes != old.notes { fields.append("notes") }
         if (customVendor ?? "") != (old.customVendor ?? "") { fields.append("fabricant") }
         if (hardware ?? InvHardware()) != (old.hardware ?? InvHardware()) { fields.append("garantie") }
+        if (rustdeskID ?? "") != (old.rustdeskID ?? "") { fields.append("ID RustDesk") }
         return fields
     }
 }

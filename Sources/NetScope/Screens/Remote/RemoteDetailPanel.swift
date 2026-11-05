@@ -15,6 +15,10 @@ struct RemoteDetailPanel: View {
                 if connection.proto == .ssh {
                     SSHTunnelDetailSection(model: model, connection: connection)
                 }
+                // Note 6 : ID groupé, copies, lien d'assistance et lancements du poste.
+                if connection.proto == .rustdesk {
+                    RustDeskDetailSection(model: model, connection: connection)
+                }
                 actionsCard
             }
         }
@@ -46,7 +50,12 @@ struct RemoteDetailPanel: View {
                             Text(connection.note).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
                         }
                         HStack(spacing: 6) {
-                            Chip(text: reach.label, tone: reach.tone)
+                            if connection.isRustDeskByID {
+                                Chip(text: "Par ID", tone: .neutral)
+                                    .help("Joint par le serveur d’ID RustDesk (aucune sonde TCP)")
+                            } else {
+                                Chip(text: reach.label, tone: reach.tone)
+                            }
                             Chip(text: connection.folderLabel, tone: .neutral)
                         }
                         .padding(.top, 4)
@@ -64,6 +73,15 @@ struct RemoteDetailPanel: View {
                 if connection.proto.isInsecure {
                     SpeedBanner(text: "Protocole non chiffré : le mot de passe circule en clair.")
                 }
+                if connection.proto == .rustdesk {
+                    // Note 6 : poste RustDesk (ID ou IP directe, usager).
+                    VStack(spacing: 0) {
+                        KeyValueRow(key: "Protocole", value: connection.proto.fullName, keyWidth: 92)
+                        KeyValueRow(key: connection.isRustDeskByID ? "ID RustDesk" : "IP directe", value: connection.address, mono: true, keyWidth: 92)
+                        KeyValueRow(key: "Usager", value: connection.endUser.isEmpty ? "—" : connection.endUser, keyWidth: 92)
+                        KeyValueRow(key: "Dernière", value: RemoteFormat.relative(connection.lastConnected), keyWidth: 92)
+                    }
+                } else {
                 VStack(spacing: 0) {
                     KeyValueRow(key: "Protocole", value: connection.proto.fullName, keyWidth: 92)
                     KeyValueRow(key: connection.proto == .serie ? "Périphérique" : "Hôte", value: connection.host, mono: true, keyWidth: 92)
@@ -87,6 +105,7 @@ struct RemoteDetailPanel: View {
                     }
                     KeyValueRow(key: "Dernière", value: RemoteFormat.relative(connection.lastConnected), keyWidth: 92)
                 }
+                }
             }
         }
     }
@@ -108,7 +127,7 @@ struct RemoteDetailPanel: View {
 
     private var securityChip: (text: String, tone: Tone) {
         switch connection.proto {
-        case .ssh, .sftp, .ftps: return ("Chiffré", .success)
+        case .ssh, .sftp, .ftps, .rustdesk: return ("Chiffré", .success)
         case .telnet, .ftp, .vnc: return ("Non chiffré", .warning)
         case .serie: return ("Local", .neutral)
         default: return ("Application externe", .neutral)
@@ -128,6 +147,9 @@ struct RemoteDetailPanel: View {
             return "Mot de passe au Trousseau macOS (service com.danymenard.netscope.vnc). VNC ne chiffre pas l’image\u{00A0}: réseau local, VPN ou tunnel SSH."
         }
         if connection.proto == .serie { return "Port ouvert seulement quand vous ouvrez la session, en accès exclusif." }
+        if connection.proto == .rustdesk {
+            return "Mot de passe permanent au Trousseau macOS, jamais dans le carnet ni dans une ligne de commande\u{00A0}: macOS le remet à RustDesk dans l’adresse d’ouverture."
+        }
         return "Identifiants demandés par l’application externe, jamais enregistrés par NetScope."
     }
 
@@ -161,6 +183,12 @@ struct RemoteDetailPanel: View {
             case .key: return "Clé \(connection.transfer.keyPath)\u{00A0}; clé du serveur comparée à ~/.ssh/known_hosts."
             case .agent: return "Clés de ~/.ssh et agent SSH, comme dans Terminal\u{00A0}; clé du serveur comparée à ~/.ssh/known_hosts."
             }
+        case .rustdesk:
+            let relay = connection.isRustDeskByID ? "par le serveur d’ID et, au besoin, le relais" : "en accès IP direct (port \(connection.port))"
+            return (RustDeskModel.shared.hasPassword(connection.id)
+                    ? "Mot de passe permanent du Trousseau, remis à RustDesk à l’ouverture"
+                    : "Mot de passe à usage unique donné par l’usager, demandé par RustDesk")
+                + "\u{00A0}; session chiffrée de bout en bout, \(relay)."
         case .serie: return "Aucune\u{00A0}: accès physique par le port console (consoles Cisco et Fortinet\u{00A0}: 9600 8N1)."
         }
     }
@@ -177,12 +205,14 @@ struct RemoteDetailPanel: View {
                     Button("Dupliquer") { model.duplicateSelected() }.buttonStyle(RemoteSmallButtonStyle())
                 }
                 HStack(spacing: 6) {
-                    Button {
-                        model.checkReachability(only: connection.id)
-                    } label: {
-                        Label("Vérifier", systemImage: "dot.radiowaves.left.and.right").labelStyle(RemoteCompactLabelStyle())
+                    if !connection.isRustDeskByID {
+                        Button {
+                            model.checkReachability(only: connection.id)
+                        } label: {
+                            Label("Vérifier", systemImage: "dot.radiowaves.left.and.right").labelStyle(RemoteCompactLabelStyle())
+                        }
+                        .buttonStyle(.ghost)
                     }
-                    .buttonStyle(.ghost)
                     Spacer()
                     Button {
                         model.pendingDeletion = connection

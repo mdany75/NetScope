@@ -201,6 +201,7 @@ struct ReglagesScreen: View {
         case .profils: RegProfilesSection()
         case .identifiants: RegCredentialsSection()
         case .interface: RegInterfaceSection()
+        case .rustdesk: RegRustDeskSection()
         case .majs: RegUpdatesSection()
         case .apropos: RegAboutSection()
         case .switchs: RegSwitchesSection()

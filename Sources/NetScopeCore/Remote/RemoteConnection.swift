@@ -5,6 +5,8 @@ public enum RemoteProtocol: String, Codable, CaseIterable, Identifiable, Sendabl
     case ssh, telnet, rdp, vnc, serie
     /// Note 50 : transfert de fichiers (navigateur intégré à NetScope).
     case ftp, ftps, sftp
+    /// Note 6 : assistance à distance par le client RustDesk (ID ou IP directe).
+    case rustdesk
 
     public var id: String { rawValue }
 
@@ -19,6 +21,7 @@ public enum RemoteProtocol: String, Codable, CaseIterable, Identifiable, Sendabl
         case .ftp: return "FTP"
         case .ftps: return "FTPS"
         case .sftp: return "SFTP"
+        case .rustdesk: return "RustDesk"
         }
     }
 
@@ -36,6 +39,7 @@ public enum RemoteProtocol: String, Codable, CaseIterable, Identifiable, Sendabl
         case .ftp: return "FTP (non chiffré)"
         case .ftps: return "FTPS (FTP sur TLS)"
         case .sftp: return "SFTP (fichiers par SSH)"
+        case .rustdesk: return "RustDesk (assistance à distance)"
         }
     }
 
@@ -49,6 +53,7 @@ public enum RemoteProtocol: String, Codable, CaseIterable, Identifiable, Sendabl
         case .serie: return 9600
         case .ftp: return 21
         case .ftps: return 990
+        case .rustdesk: return RustDeskTarget.directPort
         }
     }
 
@@ -61,6 +66,8 @@ public enum RemoteProtocol: String, Codable, CaseIterable, Identifiable, Sendabl
     /// Protocoles proposés en premier (sessions), puis les transferts de fichiers.
     public static let sessionProtocols: [RemoteProtocol] = [.ssh, .telnet, .rdp, .vnc, .serie]
     public static let transferProtocols: [RemoteProtocol] = [.ftp, .ftps, .sftp]
+    /// Note 6 : assistance à distance (application externe RustDesk).
+    public static let assistanceProtocols: [RemoteProtocol] = [.rustdesk]
 
     /// Application externe utilisée par « Connecter ».
     public var externalApp: String {
@@ -69,6 +76,7 @@ public enum RemoteProtocol: String, Codable, CaseIterable, Identifiable, Sendabl
         case .rdp: return "Windows App"
         case .vnc: return "Partage d’écran"
         case .ftp, .ftps, .sftp: return "NetScope"
+        case .rustdesk: return "RustDesk"
         }
     }
 
@@ -81,6 +89,8 @@ public enum RemoteProtocol: String, Codable, CaseIterable, Identifiable, Sendabl
         case 5900: return .vnc
         case 21: return .ftp
         case 990: return .ftps
+        // Note 6 : accès IP direct de RustDesk (TCP 21118).
+        case 21118: return .rustdesk
         default: return nil
         }
     }
@@ -114,12 +124,14 @@ public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
     public var identityFile: String
     /// Note 66 : tunnels (-L, -D) ouverts par cette connexion SSH.
     public var tunnels: [SSHTunnelSpec]
+    /// Note 6 : usager du poste (RustDesk), texte libre d'une ligne ; vide ailleurs.
+    public var endUser: String
 
     public init(id: UUID = UUID(), name: String, proto: RemoteProtocol, host: String, port: Int? = nil,
                 username: String = "", folder: String = "", isFavorite: Bool = false, note: String = "",
                 lastConnected: Date? = nil, createdAt: Date = Date(), display: RemoteDisplaySettings? = nil,
                 transfer: FileTransferSettings = FileTransferSettings(), proxyJump: String = "",
-                identityFile: String = "", tunnels: [SSHTunnelSpec] = []) {
+                identityFile: String = "", tunnels: [SSHTunnelSpec] = [], endUser: String = "") {
         self.id = id
         self.name = name
         self.proto = proto
@@ -136,11 +148,12 @@ public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
         self.proxyJump = proxyJump
         self.identityFile = identityFile
         self.tunnels = tunnels
+        self.endUser = endUser
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, name, proto, host, port, username, folder, isFavorite, note, lastConnected, createdAt, display, transfer
-        case proxyJump, identityFile, tunnels
+        case proxyJump, identityFile, tunnels, endUser
     }
 
     /// Les connexions enregistrées avant les réglages d'affichage (sans « display ») se lisent
@@ -164,6 +177,14 @@ public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
         proxyJump = (try? c.decodeIfPresent(String.self, forKey: .proxyJump)) ?? ""
         identityFile = (try? c.decodeIfPresent(String.self, forKey: .identityFile)) ?? ""
         tunnels = (try? c.decodeIfPresent([SSHTunnelSpec].self, forKey: .tunnels)) ?? []
+        // Note 6 : absent des carnets d'avant la 0.26.1.
+        endUser = (try? c.decodeIfPresent(String.self, forKey: .endUser)) ?? ""
+    }
+
+    /// Note 6 : destination RustDesk (ID ou IP directe) ; nil pour un autre protocole ou un hôte invalide.
+    public var rustDeskTarget: RustDeskTarget? {
+        guard proto == .rustdesk else { return nil }
+        return try? RustDeskTarget.parse(host, port: port)
     }
 
     /// Note 66 : rebond, clé et tunnels n'ont de sens qu'en SSH.
@@ -175,6 +196,8 @@ public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
             let device = host.hasPrefix("/dev/") ? String(host.dropFirst(5)) : host
             return "\(device) · \(port) 8N1"
         }
+        // Note 6 : « 123 456 789 » ou « 10.0.0.5 (IP directe) ».
+        if proto == .rustdesk { return rustDeskTarget?.label ?? host }
         return host.contains(":") ? "[\(host)]:\(port)" : "\(host):\(port)"
     }
 
@@ -213,12 +236,19 @@ public struct RemoteConnection: Identifiable, Codable, Hashable, Sendable {
             copy.host = try RemoteValidator.validateSerialDevice(host)
             guard RemoteValidator.baudRates.contains(port) else { throw RemoteValidationError.invalidBaud(port) }
             copy.username = ""
+        } else if proto == .rustdesk {
+            // Note 6 : ID RustDesk (espaces acceptés, enregistré en chiffres) ou IP directe.
+            let target = try RustDeskTarget.parse(host, port: port)
+            copy.host = target.hostValue
+            try RemoteValidator.validatePort(port)
+            copy.username = ""
         } else {
             copy.host = try RemoteValidator.validateHost(host)
             try RemoteValidator.validatePort(port)
             copy.username = try RemoteValidator.validateUser(username, allowDomain: proto == .rdp)
         }
         copy.folder = folder.trimmingCharacters(in: .whitespacesAndNewlines)
+        copy.endUser = proto == .rustdesk ? RemoteShell.sanitizedTitle(endUser, limit: 80) : ""
         if proto == .ssh {
             copy.proxyJump = try SSHJumpChain.normalized(proxyJump)
             let key = identityFile.trimmingCharacters(in: .whitespaces)

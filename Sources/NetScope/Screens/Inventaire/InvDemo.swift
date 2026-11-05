@@ -139,5 +139,7 @@ enum InvDemo {
         HardwareDetectDemo.seed(&store, now: now)
         // Note 78 : MAC aléatoires à rapprocher (proposé, jamais fusionné d’office).
         InventoryRandomMACDemo.seed(&store, now: now)
+        // Note 6 : ID RustDesk des postes de la réception et de la comptabilité.
+        RustDeskDemo.seed(&store, now: now)
     }
 }

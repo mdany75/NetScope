@@ -32,6 +32,11 @@ public enum RemoteProbe {
     public static func check(_ connection: RemoteConnection, timeout: TimeInterval = 2,
                              fileManager: FileManager = .default) async -> Bool {
         if connection.proto == .serie { return fileManager.fileExists(atPath: connection.host) }
+        // Note 6 : un ID RustDesk passe par le serveur d'ID (rien à sonder) ; l'IP directe, sur 21118.
+        if connection.proto == .rustdesk {
+            guard case .direct(let host, let port)? = connection.rustDeskTarget else { return false }
+            return await tcp(host: host, port: port, timeout: timeout)
+        }
         return await tcp(host: connection.host, port: connection.port, timeout: timeout)
     }
 }
