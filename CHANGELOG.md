@@ -2,15 +2,28 @@
 
 ## 0.27.2 — 2026-11-05
 
-Deux corrections dans l’Accès distant.
+Correctif de l’Accès distant : le panneau de détails reste dans sa colonne et ne cache plus la
+session, et NetScope ne se ferme plus en enregistrant une connexion ou un tunnel.
+
+### Ajouté
+- **Nom de dossier en bulle d’aide** : dans le panneau de détails, un nom de dossier abrégé
+  s’affiche en entier au survol.
+
+### Modifié
+- **Panneau de détails, nom de dossier** : un nom de dossier long passe sous la pastille d’état
+  de la connexion, sur toute la largeur du panneau, abrégé au milieu seulement s’il ne tient pas.
+- **« Ouvrir une connexion enregistrée »** : les cases sont un peu plus larges, pour que le nom et
+  l’adresse s’affichent sans être coupés.
 
 ### Corrigé
 - **Accès distant, panneau de détails** : avec un nom de dossier long (« St-Georges GM /
-  St-Georges Toyota »), le panneau débordait de sa colonne, recouvrait la session et sortait de
-  la fenêtre. La puce du dossier passe maintenant sous la pastille d’état et s’abrège au besoin ;
-  la colonne garde sa largeur et le bouton de repli reste visible.
+  St-Georges Toyota »), le panneau débordait de sa colonne, recouvrait la session (bouton
+  « Connecter », assistance RustDesk, tunnels) et sortait de la fenêtre. Il reste maintenant dans
+  sa colonne à droite, même en très grande fenêtre, et son bouton de repli reste visible. Limite :
+  un contenu exceptionnellement large est coupé au bord de la colonne plutôt que de la déborder.
 - **Accès distant, enregistrement** : NetScope ne se ferme plus en enregistrant une connexion ou
-  un tunnel SSH.
+  un tunnel SSH (rapports de plantage des 3, 4 et 5 novembre). Vérifié sur les données de
+  démonstration ; l’essai sur de vraies connexions reste à faire.
 
 ## 0.27.1 — 2026-11-05
 
