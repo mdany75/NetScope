@@ -7,7 +7,7 @@
 
 ## Priorités (revues le 5 novembre 2026, réorganisées avec les notes 45 à 79 après l’analyse du marché)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0 ; notes 42 et 10 dans la 0.20.0 ; notes 41 et 43, et la note 11 en partie (pause par cible, tableau MTR, écran vide), dans la 0.21.0 ; note 57 dans la 0.22.0 ; notes 35 et 60 dans la 0.23.0 ; erreurs récentes des ports dans la 0.23.1 ; notes 59, 73, 74 et 79, la partie « Trafic » de la note 78 et le navigateur SNMP dans la 0.25.0 ; notes 58, 65, 66 et 71, et les parties « Test MTU », « Ping continu », « Inventaire », « Wake-on-LAN », « Alertes » et « Accès distant » de la note 78 dans la 0.26.0 ; note 6 (RustDesk) dans la 0.26.1 ; tableau de bord du serveur RustDesk (note 6) dans la 0.26.2 (la 0.24.0, notes 40 et 61, reste à faire).
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0 ; notes 42 et 10 dans la 0.20.0 ; notes 41 et 43, et la note 11 en partie (pause par cible, tableau MTR, écran vide), dans la 0.21.0 ; note 57 dans la 0.22.0 ; notes 35 et 60 dans la 0.23.0 ; erreurs récentes des ports dans la 0.23.1 ; notes 59, 73, 74 et 79, la partie « Trafic » de la note 78 et le navigateur SNMP dans la 0.25.0 ; notes 58, 65, 66 et 71, et les parties « Test MTU », « Ping continu », « Inventaire », « Wake-on-LAN », « Alertes » et « Accès distant » de la note 78 dans la 0.26.0 ; note 6 (RustDesk) dans la 0.26.1 ; tableau de bord du serveur RustDesk (note 6) dans la 0.26.2 (la 0.24.0, notes 40, 61 et 82, reste à faire).
 
 1. **0.13.x à 0.22.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP ; 0.17.0 : relecture automatique, WAN et VPN, Trafic FortiView et analyse complète à essayer sur de vraies FortiGate ; 0.18.0 : FTP, FTPS, SFTP, TFTP, « Bloqué ici », NAS dans Vitesse des disques, export, import et synchronisation à essayer sur de vrais appareils et deux Mac ; 0.20.0 : rapport de suivi, rapports planifiés et Inventaire repensé à essayer sur les vrais sites ; 0.21.0 : firmware et licences, Syslog, traps SNMP, journaux de la FortiGate et pause par cible du Ping à essayer sur de vrais équipements ; 0.22.0 : terminal intégré SSH, Telnet et série, et session VNC intégrée à essayer sur de vrais équipements, câbles console et serveurs VNC ; 0.23.0 : journal de l’app, « Exporter un diagnostic » et fiche matériel automatique à essayer sur de vrais switchs, imprimantes et FortiGate ; 0.25.0 : SNMP v3, navigateur SNMP, graphes des ports et cycle PoE à essayer sur de vrais switchs, FortiSwitch et FortiGate, d’abord sur un port sans risque) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
@@ -175,7 +175,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 
 | Module | Livrées | À venir |
 | --- | --- | --- |
-| Scanner et sites | 18, 19, 20, 26, 28, 48, 49 | 63 et 81 : base IEEE automatique (0.28.0), IPv6 (0.29.0), 68, 69, 72 (plus tard) |
+| Scanner et sites | 18, 19, 20, 26, 28, 48, 49 | 82 : plages exclues (0.24.0), 63 et 81 : base IEEE automatique (0.28.0), IPv6 (0.29.0), 68, 69, 72 (plus tard) |
 | Navigation entre les modules | 31, 33, 34, 36, 45 | — |
 | Switchs et ports, Fortinet | 12, 24, 25, 29, 39, 41, 54, 59, 73, 74, navigateur SNMP / MIB walk (0.25.0) | 40 (0.24.0), 75, 77 (plus tard) |
 | Wi-Fi | 1, 27, 46, 47, 71 (0.26.0) | 78 : meilleur canal, relevé ; 80 : FortiAP en onglets (0.30.0) |
@@ -1494,3 +1494,18 @@ Outils inutiles ou redondants dans NetScope, et ce qu’il vaut mieux ne pas fai
   téléphone, NWPath « expensive » ou « constrained »).
 - Tests sans réseau : décision « faut-il vérifier ? » (date, intervalle, connexion limitée),
   échec sans perte de la base en place.
+
+## 82. Sites et plages : plages exclues — 0.24.0 (demande de Dany, 5 novembre 2026)
+
+- Dans Réglages › Sites et plages, pour chaque site, une liste « Plages exclues » à côté des
+  plages scannées : adresses seules (10.93.226.254), intervalles (10.93.226.1-50) ou sous-réseaux
+  (10.255.1.0/24), avec une note facultative (« automates », « FortiLink », « caméras fragiles »).
+- Les adresses exclues ne sont jamais sondées : ni ping, ni ARP actif, ni ports, ni SNMP, ni noms
+  (scan manuel, relecture automatique, scan planifié, Scan de ports et Ping continu d’une plage).
+  Le Scanner affiche « N adresses exclues » et l’infobulle dit pourquoi.
+- Un appareil exclu déjà connu reste dans l’inventaire (marqué « exclu du scan »), sans être
+  déclaré disparu.
+- Exclusions copiées avec le site (export, import, synchronisation iCloud) ; validation : une
+  exclusion qui couvre toute une plage est signalée.
+- Tests sans réseau : calcul des adresses à sonder (plages moins exclusions, chevauchements,
+  adresses de réseau et de diffusion), import et export.
