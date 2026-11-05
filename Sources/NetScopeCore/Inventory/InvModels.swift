@@ -172,6 +172,9 @@ public struct InvRecord: Codable, Hashable, Identifiable, Sendable {
     /// Note 60 : modèle, numéro de série et firmware lus par SNMP ou par la FortiGate, à part des
     /// champs saisis (jamais écrasés). Optionnel : fichiers d'avant la 0.23.0.
     public var detectedHardware: InvDetectedHardware?
+    /// Note 84 : dernière association Wi-Fi connue (borne, SSID) ; nil : jamais vu en Wi-Fi.
+    /// Optionnel : fichiers d'avant la 0.27.1.
+    public var wireless: InvWirelessLink?
 
     public init(key: String, mac: MACAddress?, ip: IPv4Address, hostname: String? = nil, vendor: String? = nil,
                 detectedType: DeviceType = .inconnu, isOnline: Bool = true, latencyMs: Double? = nil,
@@ -284,6 +287,8 @@ public enum InvEventKind: String, Codable, Sendable, CaseIterable {
     case dhcpNonAutorise
     /// Note 73 : action sur le port de l'appareil (cycle PoE, redémarrage du port).
     case actionPort
+    /// Note 84 : client Wi-Fi passé d'une borne à une autre (historique de l'appareil, sans alerte).
+    case itineranceWifi
 
     /// Libellé court de la chronologie.
     public var label: String {
@@ -297,13 +302,14 @@ public enum InvEventKind: String, Codable, Sendable, CaseIterable {
         case .importCSV: return "Import"
         case .dhcpNonAutorise: return "Serveur DHCP"
         case .actionPort: return "Action sur le port"
+        case .itineranceWifi: return "Itinérance Wi-Fi"
         }
     }
 
     /// Événement à présenter comme une alerte (les modifications de fiche n'en sont pas).
     public var isAlert: Bool {
         switch self {
-        case .fiche, .fusion, .importCSV, .actionPort: return false
+        case .fiche, .fusion, .importCSV, .actionPort, .itineranceWifi: return false
         default: return true
         }
     }

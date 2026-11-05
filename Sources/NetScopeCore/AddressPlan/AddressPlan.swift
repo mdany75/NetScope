@@ -9,14 +9,20 @@ import Foundation
 // ligne, hors ligne vu récemment (fiches) ; bail DHCP actif sans fiche ; réservation DHCP (ou
 // passerelle d'une étendue) ; plage exclue du scan (état inconnu) ; libre dans une étendue DHCP ;
 // libre. Seule une adresse « libre » (hors étendue, jamais .0 ni .255) est proposée pour une IP fixe.
+//
+// Note 84 (0.27.1) : un appareil en ligne est filaire ou Wi-Fi (`InvWireless`, clients des bornes
+// FortiAP lus sur la FortiGate) ; son adresse est attribuée par bail DHCP, réservée, ou fixe (hors
+// bail), d'après les baux et réservations de la FortiGate (`AddressAssignment`).
 
 /// État d'une adresse du plan.
 public enum AddressPlanState: String, Sendable, CaseIterable {
-    case enLigne, horsLigne, conflit, bail, reservee, exclue, libreDHCP, libre, reseau
+    /// `enLigne` : appareil filaire (ou d'accès inconnu) ; `enLigneWifi` : client Wi-Fi (note 84).
+    case enLigne, enLigneWifi, horsLigne, conflit, bail, reservee, exclue, libreDHCP, libre, reseau
 
     public var label: String {
         switch self {
-        case .enLigne: return "En ligne"
+        case .enLigne: return "En ligne · filaire"
+        case .enLigneWifi: return "En ligne · Wi-Fi"
         case .horsLigne: return "Hors ligne (vu récemment)"
         case .conflit: return "Conflit IP"
         case .bail: return "Bail DHCP (pas vu au scan)"
@@ -31,7 +37,8 @@ public enum AddressPlanState: String, Sendable, CaseIterable {
     /// Libellé court de la légende.
     public var shortLabel: String {
         switch self {
-        case .enLigne: return "En ligne"
+        case .enLigne: return "Filaire"
+        case .enLigneWifi: return "Wi-Fi"
         case .horsLigne: return "Hors ligne"
         case .conflit: return "Conflit"
         case .bail: return "Bail DHCP"
@@ -46,8 +53,32 @@ public enum AddressPlanState: String, Sendable, CaseIterable {
     /// Adresse prise (comptée dans l'occupation).
     public var isUsed: Bool {
         switch self {
-        case .enLigne, .horsLigne, .conflit, .bail, .reservee: return true
+        case .enLigne, .enLigneWifi, .horsLigne, .conflit, .bail, .reservee: return true
         case .exclue, .libreDHCP, .libre, .reseau: return false
+        }
+    }
+
+    /// Appareil vu en ligne (filaire ou Wi-Fi).
+    public var isOnline: Bool { self == .enLigne || self == .enLigneWifi }
+
+    /// Adresse d'une fiche d'inventaire (en ligne, hors ligne récent ou en conflit).
+    public var hasRecord: Bool { isOnline || self == .horsLigne || self == .conflit }
+}
+
+/// Note 84 : comment l'adresse d'un appareil est attribuée.
+public enum AddressAssignment: String, Sendable, CaseIterable {
+    /// Bail DHCP actif de la FortiGate (distribuée dynamiquement).
+    case dhcp
+    /// Réservation DHCP (toujours la même adresse pour cette MAC).
+    case reservee
+    /// Ni bail ni réservation : adresse fixe, saisie sur l'appareil.
+    case fixe
+
+    public var label: String {
+        switch self {
+        case .dhcp: return "Bail DHCP"
+        case .reservee: return "Réservation DHCP"
+        case .fixe: return "Adresse fixe"
         }
     }
 }
@@ -69,6 +100,18 @@ public struct AddressPlanCell: Hashable, Sendable, Identifiable {
     public let isGateway: Bool
     /// Plage exclue du site qui couvre l'adresse.
     public let exclusion: ExcludedRange?
+    /// Note 84 : accès de l'appareil de la fiche (filaire ou Wi-Fi, borne, SSID) ; nil sans fiche.
+    public let medium: InvMediumVerdict?
+    /// Note 84 : attribution de l'adresse (bail, réservation, fixe) ; nil : inconnue (aucune
+    /// étendue DHCP lue) ou adresse sans appareil.
+    public let assignment: AddressAssignment?
+
+    /// Repère de la carte : bail DHCP ou réservation d'un appareil de l'inventaire (rien pour une
+    /// adresse fixe, ni pour une case qui montre déjà le bail ou la réservation par sa couleur).
+    public var marker: AddressAssignment? {
+        guard state.hasRecord, let assignment, assignment != .fixe else { return nil }
+        return assignment
+    }
 }
 
 /// Résumé d'une page (/24) du bloc.
@@ -105,6 +148,9 @@ public struct AddressPlanDHCP: Sendable {
     public var scopes: [Scope]
     /// Baux actifs, par adresse.
     public var leases: [UInt32: DHCPLeaseEntry]
+
+    /// Au moins une étendue DHCP lue : une adresse sans bail ni réservation y est dite fixe.
+    public var isRead: Bool { !scopes.isEmpty }
 
     public init(scopes: [Scope] = [], leases: [UInt32: DHCPLeaseEntry] = [:]) {
         self.scopes = scopes
@@ -163,13 +209,16 @@ public struct AddressPlan: Sendable {
     private let exclusions: AddressExclusions
     private let now: Date
     private let recentWindow: TimeInterval
+    private let wireless: InvWirelessContext
 
     /// - `block` : ramené entre /16 et /24 (un /25 devient son /24, un /12 son premier /16).
     /// - `subnets` : sous-réseaux connus (plages, étendues) ; leurs adresses de réseau et de
     ///   diffusion ne sont jamais libres, même dans un bloc plus grand.
     /// - `recentWindow` : un appareil hors ligne vu depuis moins longtemps occupe encore l'adresse.
+    /// - `wireless` : clients Wi-Fi et ports des bornes (note 84), pour séparer filaire et Wi-Fi.
     public init(block wanted: Subnet, records: [InvRecord], dhcp: AddressPlanDHCP = .none, exclusions: AddressExclusions = .none,
-                subnets: [Subnet] = [], now: Date = Date(), recentWindow: TimeInterval = 7 * 86_400) {
+                subnets: [Subnet] = [], now: Date = Date(), recentWindow: TimeInterval = 7 * 86_400,
+                wireless: InvWirelessContext = .none) {
         let prefix = min(24, max(Self.minPrefix, wanted.prefix))
         let block = Subnet(address: wanted.network, prefix: prefix)
         self.block = block
@@ -198,6 +247,7 @@ public struct AddressPlan: Sendable {
         self.exclusions = exclusions
         self.now = now
         self.recentWindow = recentWindow
+        self.wireless = wireless
 
         // Résumé de chaque page : un passage sur toutes les adresses du bloc (65 536 au plus).
         var pages: [AddressPlanPage] = []
@@ -211,7 +261,7 @@ public struct AddressPlan: Sendable {
             for offset in 0..<UInt32(256) {
                 let state = Self.state(at: IPv4Address(base + offset), boundaries: boundaries, byIP: byIP, dhcp: dhcp,
                                        reservations: reservations, gateways: gateways, exclusions: exclusions,
-                                       now: now, recentWindow: recentWindow)
+                                       now: now, recentWindow: recentWindow, wireless: wireless)
                 counts[state, default: 0] += 1
                 if state != .reseau { hosts += 1 }
             }
@@ -251,13 +301,30 @@ public struct AddressPlan: Sendable {
     /// Détail d'une adresse.
     public func cell(_ ip: IPv4Address) -> AddressPlanCell {
         let state = Self.state(at: ip, boundaries: boundaries, byIP: byIP, dhcp: dhcp, reservations: reservations, gateways: gateways,
-                               exclusions: exclusions, now: now, recentWindow: recentWindow)
+                               exclusions: exclusions, now: now, recentWindow: recentWindow, wireless: wireless)
         let here = byIP[ip.value] ?? []
         let record = here.first(where: \.isOnline) ?? here.max { $0.lastSeen < $1.lastSeen }
         let scope = dhcp.scope(containing: ip)
+        let shown = state.hasRecord ? record : nil
         return AddressPlanCell(ip: ip, state: state, recordKey: record?.key, inPool: scope?.pool.contains(ip) ?? false,
                                scopeName: scope?.name, lease: dhcp.leases[ip.value], reservation: reservations[ip.value],
-                               isGateway: gateways.contains(ip.value), exclusion: exclusions.reason(for: ip))
+                               isGateway: gateways.contains(ip.value), exclusion: exclusions.reason(for: ip),
+                               medium: shown.map { InvWireless.medium(of: $0, context: wireless, now: now) },
+                               assignment: Self.assignment(at: ip, state: state, record: shown, dhcp: dhcp, reservations: reservations))
+    }
+
+    /// Attribution d'une adresse (note 84) : réservation (ou bail marqué réservé), bail actif de la
+    /// même MAC, sinon fixe quand le DHCP a été lu ; nil : rien à dire (aucune étendue lue, adresse
+    /// sans appareil ni bail).
+    static func assignment(at ip: IPv4Address, state: AddressPlanState, record: InvRecord?, dhcp: AddressPlanDHCP,
+                           reservations: [UInt32: DHCPReservation]) -> AddressAssignment? {
+        func sameDevice(_ mac: MACAddress?) -> Bool { mac == nil || record?.mac == nil || mac == record?.mac }
+        if let reservation = reservations[ip.value], sameDevice(reservation.mac) { return .reservee }
+        if let lease = dhcp.leases[ip.value], sameDevice(lease.mac) { return lease.reserved ? .reservee : .dhcp }
+        if state == .bail { return .dhcp }
+        if state == .reservee { return .reservee }
+        guard state.hasRecord, dhcp.isRead else { return nil }
+        return .fixe
     }
 
     /// Adresses libres hors étendue DHCP (candidates pour une IP fixe) d'un sous-réseau du bloc
@@ -275,7 +342,7 @@ public struct AddressPlan: Sendable {
             if last != 0, last != 255, value != area.network.value, value != area.broadcast.value {
                 let ip = IPv4Address(value)
                 if Self.state(at: ip, boundaries: boundaries, byIP: byIP, dhcp: dhcp, reservations: reservations, gateways: gateways,
-                              exclusions: exclusions, now: now, recentWindow: recentWindow) == .libre {
+                              exclusions: exclusions, now: now, recentWindow: recentWindow, wireless: wireless) == .libre {
                     result.append(ip)
                     if result.count >= limit { break }
                 }
@@ -293,12 +360,14 @@ public struct AddressPlan: Sendable {
 
     static func state(at ip: IPv4Address, boundaries: Set<UInt32>, byIP: [UInt32: [InvRecord]], dhcp: AddressPlanDHCP,
                       reservations: [UInt32: DHCPReservation], gateways: Set<UInt32>, exclusions: AddressExclusions,
-                      now: Date, recentWindow: TimeInterval) -> AddressPlanState {
+                      now: Date, recentWindow: TimeInterval, wireless: InvWirelessContext = .none) -> AddressPlanState {
         if boundaries.contains(ip.value) { return .reseau }
         let here = byIP[ip.value] ?? []
         if !here.isEmpty {
             if here.contains(where: \.hasConflict) || here.filter(\.isOnline).count > 1 { return .conflit }
-            if here.contains(where: \.isOnline) { return .enLigne }
+            if let online = here.first(where: \.isOnline) {
+                return InvWireless.medium(of: online, context: wireless, now: now).isWireless ? .enLigneWifi : .enLigne
+            }
             if let latest = here.max(by: { $0.lastSeen < $1.lastSeen }), now.timeIntervalSince(latest.lastSeen) <= recentWindow {
                 return .horsLigne
             }
@@ -399,5 +468,56 @@ public struct AddressPlanSubnet: Hashable, Sendable, Identifiable {
     public static func enclosingBlock(of page: IPv4Address, in subnets: [AddressPlanSubnet]) -> Subnet? {
         subnets.map(\.subnet).filter { (AddressPlan.minPrefix...23).contains($0.prefix) && $0.contains(page) }
             .max { $0.prefix < $1.prefix }
+    }
+}
+
+// MARK: - Légende de la carte (note 84)
+
+/// Une entrée de la légende sous la carte d'occupation : un état (couleur de case) ou un repère
+/// (bail DHCP, réservation) dans le coin d'une case.
+public struct AddressPlanLegendItem: Hashable, Sendable, Identifiable {
+    public enum Kind: Hashable, Sendable {
+        case state(AddressPlanState)
+        case marker(AddressAssignment)
+    }
+
+    public var kind: Kind
+    public var label: String
+    public var count: Int
+    /// Explication (infobulle).
+    public var help: String
+
+    public var id: String {
+        switch kind {
+        case .state(let state): return "etat:" + state.rawValue
+        case .marker(let assignment): return "repere:" + assignment.rawValue
+        }
+    }
+}
+
+public enum AddressPlanLegend {
+    /// Ordre des états dans la légende.
+    public static let states: [AddressPlanState] = [.enLigne, .enLigneWifi, .horsLigne, .conflit, .bail, .reservee, .exclue,
+                                                   .libreDHCP, .libre, .reseau]
+
+    /// Légende d'une page : filaire, Wi-Fi et libre toujours (les deux couleurs d'appareils en
+    /// ligne restent expliquées même à zéro), les autres états présents ; puis les repères des
+    /// appareils de la page : bail DHCP (dès qu'une étendue est lue) et réservation (si présente).
+    public static func items(page: AddressPlanPage, cells: [AddressPlanCell], dhcpRead: Bool) -> [AddressPlanLegendItem] {
+        var result: [AddressPlanLegendItem] = []
+        for state in states where page.count(state) > 0 || [.enLigne, .enLigneWifi, .libre].contains(state) {
+            result.append(AddressPlanLegendItem(kind: .state(state), label: state.shortLabel, count: page.count(state), help: state.label))
+        }
+        let dhcp = cells.filter { $0.marker == .dhcp }.count
+        let reserved = cells.filter { $0.marker == .reservee }.count
+        if dhcp > 0 || dhcpRead {
+            result.append(AddressPlanLegendItem(kind: .marker(.dhcp), label: "Repère DHCP", count: dhcp,
+                                                help: "Triangle dans le coin d’une case\u{00A0}: adresse de l’appareil attribuée par un bail DHCP de la FortiGate (sans repère\u{00A0}: adresse fixe)"))
+        }
+        if reserved > 0 {
+            result.append(AddressPlanLegendItem(kind: .marker(.reservee), label: "Repère réservation", count: reserved,
+                                                help: "Point dans le coin d’une case\u{00A0}: adresse de l’appareil gardée par une réservation DHCP"))
+        }
+        return result
     }
 }

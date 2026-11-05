@@ -310,6 +310,11 @@ final class MonStore: ObservableObject {
         // Sondes FortiAP (note 27) : lecture Wi-Fi des FortiGate, relue si plus vieille que l'intervalle.
         let isFortiAP = probe.kind == .fortiAPOffline || probe.kind == .fortiAPOverload
         let appState = self.appState
+        // Note 84 : sonde « Port de switch » : clients Wi-Fi et ports des bornes déjà lus (sans relecture).
+        let wireless = probe.kind == .switchPort
+            ? WirelessContextFeed.current(devices: devices, records: Array(InvModel.shared.store.records.values),
+                                          interface: appState?.activeInterface)
+            : nil
         Task {
             var fortiWifi: FortiWifiOverview?
             var fortiWifiError: String?
@@ -393,6 +398,7 @@ final class MonStore: ObservableObject {
             context.trafficError = trafficError
             context.logs = logs
             context.logsListening = logsListening
+            context.wireless = wireless
             let outcome = await MonRunner.run(probe, context: context)
             MonStore.shared.finish(probe.id, outcome: outcome, manual: manual)
         }

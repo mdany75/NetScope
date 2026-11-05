@@ -126,6 +126,8 @@ registerTopoLinksTests(suite)
 registerIperfServerTests(suite)
 registerDiskTransferTests(suite)
 registerSerialFileTransferTests(suite)
+// Note 84 (0.27.1) : appareils Wi-Fi (itinérance sans alerte) et repères Wi-Fi / filaire / DHCP.
+registerWirelessRoamingTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

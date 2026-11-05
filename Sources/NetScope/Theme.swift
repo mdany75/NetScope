@@ -97,6 +97,13 @@ enum Theme {
     static let neutralSoft = Color(light: 0xF0F1F3, dark: 0x333336)
     static let neutralText = Color(light: 0x374151, dark: 0xD4D4D8)
     static let neutralDot = Color(light: 0x9CA3AF, dark: 0x7C7C82)
+    /// Note 84 : appareils Wi-Fi (carte d'occupation : case cyan, distincte du vert des filaires).
+    static let wifi = Color(light: 0x0E7490, dark: 0x67E8F9)
+    static let wifiSoft = Color(light: 0xCFFAFE, dark: 0x113A44)
+    static let wifiFill = Color(light: 0x0891B2, dark: 0x0E95B0)
+    /// Note 84 : repères des cases (bail DHCP, réservation), lisibles sur toutes les couleurs de case.
+    static let dhcpMarker = Color(light: 0x172554, dark: 0xF1F5F9)
+    static let reservedMarker = Color(light: 0x6D28D9, dark: 0xE9D5FF)
 
     // MARK: Polices
 

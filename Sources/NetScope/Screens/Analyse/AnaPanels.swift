@@ -45,6 +45,8 @@ struct AnaAlertRow: Identifiable {
     /// Nom de la fiche (« — » si la fiche n'existe plus).
     let device: String
     let mac: String
+    /// Note 84 : ancien changement de port d'un appareil reconnu depuis comme Wi-Fi.
+    var wirelessMove = false
 
     var id: String { siteKey + "|" + event.id.uuidString }
     var date: Date { event.date }
@@ -137,7 +139,8 @@ struct AnaAlertsPanel: View {
     var body: some View {
         let matching = alerts.filter { matches($0) }
         let shown = matching.filter { filter.includes($0.event) }
-        let pending = alerts.filter { $0.event.status == .aTraiter }.count
+        // Note 84 : un ancien changement de port d'un appareil Wi-Fi (itinérance) n'est plus « à traiter ».
+        let pending = alerts.filter { $0.event.status == .aTraiter && !$0.isWirelessMove }.count
         // Plusieurs sites : alertes regroupées par site (ordre du choix), triées dans chaque site ;
         // un clic sur l'en-tête SITE inverse l'ordre des groupes.
         let siteFirst = table.sortOrder.first.flatMap { $0.keyPath == \AnaAlertRow.siteName ? $0.order : nil }
@@ -183,7 +186,7 @@ struct AnaAlertsPanel: View {
     private func row(_ item: SiteScopedEvent) -> AnaAlertRow {
         AnaAlertRow(event: item.event, siteKey: item.siteKey, siteName: item.siteName,
                     siteRank: siteOrder.firstIndex(of: item.siteKey) ?? 0, device: item.record?.displayName ?? "—",
-                    mac: item.record?.mac?.formatted(.upperColon) ?? "")
+                    mac: item.record?.mac?.formatted(.upperColon) ?? "", wirelessMove: item.isWirelessMove)
     }
 
     private func matches(_ item: SiteScopedEvent) -> Bool {
@@ -258,8 +261,14 @@ struct AnaAlertsPanel: View {
                 .customizationID("ip")
 
                 TableColumn("TITRE", sortUsing: table.sort("titre")) { row in
-                    Text(row.title).font(Theme.small).fontWeight(.semibold).foregroundStyle(Theme.text).lineLimit(1)
-                        .help(row.title + "\n" + row.detail)
+                    HStack(spacing: 5) {
+                        if row.wirelessMove {
+                            Image(systemName: "wifi").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                        }
+                        Text(row.title).font(Theme.small).fontWeight(.semibold).foregroundStyle(Theme.text).lineLimit(1)
+                    }
+                    .help(row.title + "\n" + row.detail
+                          + (row.wirelessMove ? "\nAppareil Wi-Fi\u{00A0}: itinérance d’une borne à l’autre, hors alertes à traiter." : ""))
                 }
                 .width(min: 120, ideal: 290)
                 .customizationID("titre")

@@ -46,6 +46,9 @@ public struct MonRunContext: Sendable {
     public var logs: [LogMessage]?
     /// Récepteurs de ce Mac en écoute (Syslog, traps).
     public var logsListening: Set<LogSource> = []
+    /// Note 84 : clients Wi-Fi et ports des bornes (sonde « Port de switch ») ; nil : déduit de
+    /// `fortiWifi` et des appareils.
+    public var wireless: InvWirelessContext?
 
     public init(pinger: ScanPinging?, snmpCommunity: String?, devices: [Device], inventoryReady: Bool = true,
                 now: Date = Date()) {
@@ -112,8 +115,9 @@ public enum MonRunner {
         case .dns: return MonRunOutcome(result: await dns(probe, name: target, context: context))
         case .snmp: return MonRunOutcome(result: await snmp(probe, host: target, context: context))
         case .switchPort:
-            return MonInventoryChecks.switchPort(mac: target, expected: probe.expectedLocation,
-                                                 devices: context.devices, now: context.now)
+            return MonInventoryChecks.switchPort(mac: target, expected: probe.expectedLocation, devices: context.devices,
+                                                 wireless: context.wireless ?? InvWirelessContext(overview: context.fortiWifi, devices: context.devices),
+                                                 now: context.now)
         case .newDevices:
             return MonInventoryChecks.newDevices(range: target, known: probe.knownMACs,
                                                  devices: context.devices, now: context.now)
@@ -327,7 +331,10 @@ public enum MonRunner {
 /// Vérifications qui lisent l'inventaire déjà découvert (aucun trafic).
 public enum MonInventoryChecks {
     /// Port de switch : où est vu l'appareil de cette MAC ? Premier passage : l'emplacement est appris.
-    public static func switchPort(mac text: String, expected: String?, devices: [Device], now: Date) -> MonRunOutcome {
+    /// Note 84 : un appareil Wi-Fi qui change de port (itinérance d'une borne à l'autre) n'est pas
+    /// en alerte ; la valeur dit la borne.
+    public static func switchPort(mac text: String, expected: String?, devices: [Device], wireless: InvWirelessContext = .none,
+                                  now: Date) -> MonRunOutcome {
         guard let mac = MACAddress(text) else {
             return MonRunOutcome(result: .failure(now, error: "Adresse MAC invalide"))
         }
@@ -348,6 +355,12 @@ public enum MonInventoryChecks {
         }
         var problem: String?
         if location != expected {
+            let verdict = InvWireless.classify(type: device.deviceType, mac: device.mac, ip: device.ip, from: expected, to: location,
+                                               remembered: nil, context: wireless, now: now)
+            if verdict.isWireless {
+                let ap = verdict.apAfter.map { "borne \($0)" } ?? value
+                return MonRunOutcome(result: MonResult(date: now, reachable: true, value: "Wi-Fi · " + ap))
+            }
             problem = "\(device.displayName) vu sur \(value) au lieu de \(expected.replacingOccurrences(of: " · ", with: " "))"
         }
         return MonRunOutcome(result: MonResult(date: now, reachable: true, value: value, problem: problem))

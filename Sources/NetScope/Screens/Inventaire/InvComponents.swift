@@ -134,6 +134,8 @@ enum InvStyle {
         case .horsLigne, .conflitIP, .dhcpNonAutorise: return (Theme.critical, Theme.critical, Theme.criticalSoft)
         case .retour: return (Theme.success, Theme.success, Theme.successSoft)
         case .actionPort: return (Theme.accent, Theme.accentStrong, infoSoft)
+        // Note 84 : itinérance d'un client Wi-Fi, sans alerte.
+        case .itineranceWifi: return (Theme.textSecondary, Theme.accentStrong, infoSoft)
         case .fiche, .fusion, .importCSV: return (Theme.textSecondary, Theme.neutralText, Theme.neutralSoft)
         }
     }

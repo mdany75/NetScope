@@ -87,7 +87,7 @@ public enum NetScopeEventKind: String, Codable, CaseIterable, Sendable, Identifi
         case .probeWarning: return "Latence, perte ou seuil dépassé, réglés sonde par sonde."
         case .probeRecovered: return "Retour à la normale d’une sonde qui était en panne ou en alerte."
         case .newDevice: return "MAC jamais vue sur une plage suivie par une sonde « Nouveaux appareils »."
-        case .deviceMoved: return "Sonde « Port de switch »\u{00A0}: appareil vu sur un autre switch ou port."
+        case .deviceMoved: return "Sonde « Port de switch »\u{00A0}: appareil filaire vu sur un autre switch ou port."
         case .ipConflict: return "Deux adresses MAC pour une même IP, relevé par l’Inventaire après un scan."
         case .rogueDHCP: return "Offre reçue d’un serveur hors de la liste autorisée (Test DHCP)."
         case .serviceIncident: return "Panne, incident ou maintenance d’une page d’état, ou service injoignable d’ici."
