@@ -91,7 +91,13 @@ struct TraficScreen: View {
                 }
                 switch screen.part {
                 case .trafic:
-                    if overview.isEmpty {
+                    // Note 78 : sans FortiView, le trafic des ports relevé sur les switchs.
+                    if showsFallback {
+                        TraficSNMPFallback(keys: store.shownKeys, isReading: store.isBusy) {
+                            screen.part = .analyse
+                            store.runAnalysis(state: state)
+                        }
+                    } else if overview.isEmpty {
                         empty
                     } else {
                         TrafficSummaryTiles(overview: overview)
@@ -140,6 +146,11 @@ struct TraficScreen: View {
                       defaultFilename: exportName) { result in
             if case .success(let url) = result { store.toast = "CSV enregistré\u{00A0}: \(url.lastPathComponent)" }
         }
+    }
+
+    /// Note 78 : FortiView non lu et historique des ports disponible : le secours SNMP est montré.
+    private var showsFallback: Bool {
+        screen.part == .trafic && (TraficSNMPFallback.forced || (store.overview.isEmpty && TraficSNMPFallback.hasData(keys: store.shownKeys)))
     }
 
     // MARK: Barre d'outils
@@ -216,7 +227,7 @@ struct TraficScreen: View {
     }
 
     @ViewBuilder private var periodPicker: some View {
-        if screen.part == .trafic {
+        if screen.part == .trafic, !showsFallback {
             InvSegmented(options: TrafficPeriod.allCases.map { ($0, $0.label) }, selection: $store.period)
                 .help("Temps réel\u{00A0}: sessions en cours. 5\u{00A0}min à 7\u{00A0}j\u{00A0}: historique de FortiView (journalisation sur disque, FortiAnalyzer ou FortiGate Cloud).")
         }
@@ -236,12 +247,14 @@ struct TraficScreen: View {
     }
 
     private func sourceText(_ overview: TrafficOverview) -> String {
+        if showsFallback { return "Compteurs des ports des switchs · \(store.sitesLabel)" }
         guard !overview.sites.isEmpty else { return "Aucune FortiGate lue" }
         return "FortiView · \(store.sitesLabel)" + (overview.readAt.map { " · lu \(ToolText.relative($0))" } ?? "")
     }
 
     private func shortSourceText(_ overview: TrafficOverview) -> String {
-        overview.readAt.map { "Lu \(ToolText.relative($0))" } ?? ""
+        if showsFallback { return "Compteurs des switchs" }
+        return overview.readAt.map { "Lu \(ToolText.relative($0))" } ?? ""
     }
 
     // MARK: Contenu

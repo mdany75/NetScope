@@ -177,7 +177,10 @@ final class PortHistoryStore: ObservableObject {
 
     private func demo() -> PortTrafficHistory {
         if let demoHistory { return demoHistory }
-        let built = PortHistoryDemo.make(snapshots: Array(SwitchStore.shared.snapshots.values))
+        // Switchs du site de démonstration seulement (le switch masqué d'un autre site n'y est pas).
+        let switches = SwitchStore.shared
+        let shown = Set(switches.siteHosts)
+        let built = PortHistoryDemo.make(snapshots: switches.snapshots.values.filter { shown.contains($0.id) })
         demoHistory = built
         return built
     }

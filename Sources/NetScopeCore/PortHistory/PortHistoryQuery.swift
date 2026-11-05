@@ -290,10 +290,10 @@ public struct PortErrorRate: Hashable, Sendable {
         return PortErrorTracker.durationLabel(seconds)
     }
 
-    /// « 37/h », « 0,4/h », « 0 ».
+    /// « 37/h », « 0,4/h », « 0/h ».
     public static func label(_ perHour: Double?) -> String {
         guard let perHour else { return "—" }
-        if perHour == 0 { return "0" }
+        if perHour == 0 { return "0/h" }
         let text: String
         if perHour < 10 {
             text = String(format: "%.1f", perHour).replacingOccurrences(of: ".", with: ",")

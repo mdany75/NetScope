@@ -46,9 +46,9 @@ enum PortHistoryDemo {
                     let inRate = min(speed * 0.97, speed * max(0.0003, profile.inShare * shape * (1 + 0.16 * n1) + backup * 0.15))
                     let outRate = min(speed * 0.97, speed * max(0.0004, profile.outShare * shape * (1 + 0.16 * n2) + backup))
                     // Pointe dans la tranche : plus marquée sur une heure que sur 5 minutes.
-                    let burst = length > 300 ? 1.9 : 1.35
-                    let inPeak = min(speed * 0.985, inRate * (burst + 0.4 * abs(n2)))
-                    let outPeak = min(speed * 0.985, outRate * (burst + 0.4 * abs(n1)))
+                    let burst = length > 300 ? 1.45 : 1.12
+                    let inPeak = min(speed * 0.96, inRate * (burst + 0.22 * abs(n2)))
+                    let outPeak = min(speed * 0.96, outRate * (burst + 0.22 * abs(n1)))
                     var errors: UInt64 = 0
                     if profile.errorsPerHour > 0, middle > now.addingTimeInterval(-3 * 86_400) {
                         let expected = profile.errorsPerHour * (0.35 + shape) * length / 3600
@@ -88,11 +88,11 @@ enum PortHistoryDemo {
         if name == "SW-CORE-01" {
             switch i {
             case 1: p.inShare = 0.34; p.outShare = 0.40; p.backup = 0.18     // pare-feu : Internet
-            case 47: p.inShare = 0.26; p.outShare = 0.64; p.backup = 0.12    // uplink vers l'étage 2
-            case 40: p.inShare = 0.19; p.outShare = 0.28; p.backup = 0.58    // contrôleur de domaine, sauvegarde
+            case 47: p.inShare = 0.24; p.outShare = 0.52; p.backup = 0.12    // uplink vers l'étage 2
+            case 40: p.inShare = 0.19; p.outShare = 0.28; p.backup = 0.46    // contrôleur de domaine, sauvegarde
             case 12: p.inShare = 0.07; p.outShare = 0.12                     // borne Wi-Fi
             case 33, 34: p.inShare = 0.009; p.outShare = 0.01                // caméras
-            case 18: p.inShare = 0.66; p.outShare = 0.21                     // 100 Mb/s presque saturé
+            case 18: p.inShare = 0.62; p.outShare = 0.21                     // 100 Mb/s presque saturé
             default: break
             }
         } else if name == "SW-ETG2-01" {
@@ -103,7 +103,9 @@ enum PortHistoryDemo {
             default: break
             }
         } else if alias.contains("fortilink") || alias.contains("isl") || alias.contains("uplink") {
-            p.inShare = 0.18; p.outShare = 0.22; p.backup = 0.08
+            // Liens 10 Gb/s entre FortiSwitch et vers la FortiGate : quelques centaines de Mb/s le jour.
+            let fast = (iface.speedMbps ?? 1000) >= 10_000
+            p.inShare = fast ? 0.032 : 0.16; p.outShare = fast ? 0.041 : 0.2; p.backup = fast ? 0.012 : 0.06
         }
         if let rate = risingErrors[name], (iface.inErrors ?? 0) >= 100 { p.errorsPerHour = rate }
         // Caméras : flux constant jour et nuit (pas de forme de bureau).
