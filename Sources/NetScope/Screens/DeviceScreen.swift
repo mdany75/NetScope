@@ -227,6 +227,12 @@ private struct DeviceDetailView: View {
             Label(QuickLoginFormat.buttonTitle(entry), systemImage: "terminal")
         }
         .buttonStyle(.secondary)
+        // Note 51 : client TFTP prérempli (sauvegarde de configuration, firmware).
+        Button { TFTPModel.shared.prepareClient(for: device, state: state) } label: {
+            Label("TFTP", systemImage: ToolKind.tftp.symbol)
+        }
+        .buttonStyle(.secondary)
+        .help("Envoyer ou récupérer un fichier par TFTP avec cet appareil")
         Menu {
             Button("Adresse IP") { copy(device.ip.description, label: "IP copiée") }
             if let mac = device.mac {

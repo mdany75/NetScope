@@ -8,6 +8,8 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     /// Occupation des étendues DHCP (note 37), juste après le Test DHCP dans la liste.
     case dhcpScopes = "dhcpscopes"
     case lldp
+    /// Serveur et client TFTP (note 51).
+    case tftp
     /// État des grands services en ligne (note 15).
     case cloud
     /// WAN et VPN des FortiGate (note 39) : liens WAN, SD-WAN, tunnels IPsec.
@@ -37,6 +39,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .iperf, .speedtest: return .performance
         case .disques: return .performance
         case .wol, .dhcp, .lldp, .dhcpScopes: return .services
+        case .tftp: return .services
         case .cloud, .wan: return .internet
         case .mailSuper, .mailHealth, .mx, .blacklist, .mailRecords: return .courriel
         case .smtp, .headers: return .courriel
@@ -57,6 +60,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .dhcp: return "Test DHCP"
         case .dhcpScopes: return "Étendues DHCP"
         case .lldp: return "Capture LLDP/CDP"
+        case .tftp: return "TFTP"
         case .cloud: return "État des services"
         case .wan: return "WAN et VPN"
         case .mailSuper: return "Super outil courriel"
@@ -85,6 +89,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .dhcp: return "Détecte tous les serveurs DHCP qui répondent sur le segment."
         case .dhcpScopes: return "Occupation de chaque étendue DHCP de la FortiGate\u{00A0}: baux, réservations, adresses libres et alerte avant la saturation."
         case .lldp: return "Identifie le switch, le port et le VLAN où ce Mac est branché."
+        case .tftp: return "Serveur TFTP temporaire sur ce Mac et client TFTP\u{00A0}: configurations, firmwares et fichiers des téléphones IP."
         case .cloud: return "Microsoft 365, AWS, Google, GitHub…\u{00A0}: page d’état officielle et accès depuis ce réseau."
         case .wan: return "Liens WAN et SD-WAN de chaque FortiGate (état, débit, latence, perte, SLA) et tunnels VPN montés ou tombés, pour un site ou tous."
         case .mailSuper: return "Domaine, adresse courriel, IP ou nom d’hôte\u{00A0}: toutes les vérifications utiles d’un coup."
@@ -113,6 +118,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .dhcp: return "shield.lefthalf.filled"
         case .dhcpScopes: return "chart.bar.doc.horizontal"
         case .lldp: return "cable.connector"
+        case .tftp: return "arrow.up.arrow.down.square"
         case .cloud: return "cloud"
         case .wan: return "point.3.filled.connected.trianglepath.dotted"
         case .mailSuper: return "wand.and.stars"
@@ -139,7 +145,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     static let favorites: [ToolKind] = [.subnet, .ports, .dns, .wol]
 
     /// Outils qui prennent toute la largeur (sans le panneau des favoris et de l'historique).
-    var usesFullWidth: Bool { self == .capture || self == .dhcpScopes || self == .wan }
+    var usesFullWidth: Bool { self == .capture || self == .dhcpScopes || self == .wan || self == .tftp }
 
     /// Recherche multiple (note 26) : `nom:dns`, `groupe:courriel` ; un mot seul lit le nom, la
     /// clé et le résumé, comme avant.

@@ -584,6 +584,8 @@ struct ScanDeviceMenu: View {
         DeviceTypeMenu(devices: devices) { scan.show($0, place: .actions) }
         if devices.count == 1, let device = devices.first {
             Button("Wake-on-LAN") { scan.wake(device, state: state) }.disabled(device.mac == nil)
+            // Note 51 : client TFTP prérempli avec cet appareil.
+            Button("Transfert TFTP…") { TFTPModel.shared.prepareClient(for: device, state: state) }
             Divider()
             Button("Voir la fiche complète") { state.showDevice(device.id) }
         }

@@ -145,6 +145,7 @@ private struct ToolMainPanel: View {
     @ObservedObject private var headers = ToolStore.shared.headers
     @ObservedObject private var capture = ToolStore.shared.capture
     @ObservedObject private var disks = DiskSpeedModel.shared
+    @ObservedObject private var tftp = TFTPModel.shared
 
     var body: some View {
         let tool = store.selectedTool
@@ -228,6 +229,7 @@ private struct ToolMainPanel: View {
         case .dhcp: DHCPTestView(model: dhcp, store: store)
         case .dhcpScopes: DHCPScopesView(store: store)
         case .lldp: NeighborCaptureView(model: neighbors, store: store)
+        case .tftp: TFTPView(model: tftp, store: store)
         case .cloud: ServiceStatusView(store: store)
         case .wan: WANStatusView(scopeScreen: .outils)
         case .mailSuper: MailSuperToolView(model: mailSuper, store: store)
@@ -257,6 +259,7 @@ private struct ToolMainPanel: View {
         case .dhcp: return dhcp.command
         case .dhcpScopes: return "GET /api/v2/cmdb/system.dhcp/server · monitor/system/dhcp"
         case .lldp: return neighbors.command
+        case .tftp: return tftp.command
         case .cloud: return SvcStore.shared.command
         case .wan: return "GET virtual-wan/health-check · vpn/ipsec"
         case .mailSuper: return mailSuper.command
