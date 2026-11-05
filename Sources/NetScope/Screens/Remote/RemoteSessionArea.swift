@@ -448,8 +448,13 @@ struct RemoteForm: View {
     @ObservedObject var model: RemoteModel
 
     var body: some View {
-        if let binding = Binding($model.draft) {
-            content(binding)
+        // Jamais `Binding($model.draft)` : ce déballage forcé ferme l'app quand « Enregistrer »
+        // remet le brouillon à nil pendant qu'un interrupteur du formulaire le relit encore
+        // (plantage du 5 novembre 2026 en modifiant un mot de passe). Le dernier brouillon sert
+        // de repli, et une écriture tardive ne fait pas renaître un brouillon fermé.
+        if let current = model.draft {
+            content(Binding(get: { model.draft ?? current },
+                            set: { if model.draft != nil { model.draft = $0 } }))
         }
     }
 

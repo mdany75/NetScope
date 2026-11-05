@@ -477,8 +477,11 @@ struct SSHTunnelForm: View {
     @ObservedObject var model: RemoteModel
 
     var body: some View {
-        if let binding = Binding($model.tunnelDraft) {
-            content(binding)
+        // Jamais `Binding($model.tunnelDraft)` : même plantage que RemoteForm quand le brouillon
+        // est remis à nil (enregistrement ou annulation) pendant qu'un interrupteur le relit.
+        if let current = model.tunnelDraft {
+            content(Binding(get: { model.tunnelDraft ?? current },
+                            set: { if model.tunnelDraft != nil { model.tunnelDraft = $0 } }))
         }
     }
 
