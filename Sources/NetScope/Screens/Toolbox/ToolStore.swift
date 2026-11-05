@@ -92,7 +92,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .ports: return "Ports TCP ouverts et bannières des services texte (SSH, FTP, SMTP, HTTP)."
         case .dns: return "Résolution A, AAAA, MX, TXT, SOA, SRV, CAA, DNSSEC…\u{00A0}; comparaison de serveurs et propagation."
         case .whois: return "Propriétaire d’une adresse, d’un ASN ou d’un domaine."
-        case .mtu: return "Recherche de la MTU du chemin avec le bit Don’t Fragment."
+        case .mtu: return "MTU du chemin vers une cible, par dichotomie avec le bit Don’t Fragment\u{00A0}: PPPoE, tunnels, trames jumbo et historique des mesures."
         case .iperf: return "Débit réel entre ce Mac et un serveur iperf3 du réseau."
         case .speedtest: return "Débit Internet et latence sous charge."
         case .wol: return "Envoie un paquet magique pour réveiller un poste."
@@ -147,13 +147,8 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    /// Outils qui renvoient vers un autre écran.
-    var redirect: Screen? {
-        switch self {
-        case .mtu: return .ping
-        default: return nil
-        }
-    }
+    /// Outils qui renvoient vers un autre écran (aucun depuis le Test MTU réel de la 0.26.0).
+    var redirect: Screen? { nil }
 
     static let favorites: [ToolKind] = [.subnet, .ports, .dns, .wol]
 
