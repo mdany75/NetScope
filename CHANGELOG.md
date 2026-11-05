@@ -1,5 +1,61 @@
 # Changements
 
+## 0.23.0 — 2026-11-05
+
+Une version de fiabilité : NetScope tient maintenant un journal de ses erreurs, prépare un
+diagnostic à joindre à un signalement, et remplit tout seul le modèle, le numéro de série et le
+firmware des équipements de l'inventaire.
+
+### Ajouté
+- **Journal de NetScope** (Réglages › Journal et diagnostic) : les erreurs et avertissements de
+  chaque module (FortiGate, SNMP, alertes par courriel et webhooks, mises à jour, sauvegarde,
+  synchronisation, scan…) sont gardés avec leur date et leur module ; filtres par niveau et par
+  module, recherche, « Copier » et « Effacer le journal ».
+- **Secrets masqués** : jetons, mots de passe, communautés SNMP, clés d'API et en-têtes
+  d'autorisation sont masqués avant d'être écrits. Le journal est conservé dans
+  `~/Library/Logs/NetScope` (3 fichiers de 1 Mo au plus, les plus anciens sont remplacés).
+- **« Exporter un diagnostic… »** : une archive .zip à joindre à un signalement, avec le
+  journal, les versions de NetScope et de macOS, le modèle du Mac, les interfaces actives, les
+  sites et plages, les réglages et les rapports de plantage des 30 derniers jours. Aucun
+  identifiant ni secret n'y figure.
+- **Après une fermeture inattendue**, une bannière discrète le signale au lancement suivant,
+  avec « Exporter un diagnostic » ou « Ignorer ».
+- **Pastille sur Réglages** quand des erreurs récentes n'ont pas encore été consultées.
+- **Fiche matériel remplie automatiquement** : le modèle, le numéro de série et la version du
+  firmware des switchs, imprimantes, FortiGate, FortiSwitch et FortiAP sont lus par SNMP
+  (ENTITY-MIB et sysDescr) ou par l'inventaire de la FortiGate, sans jamais écraser ce que vous
+  avez saisi.
+- **Bloc « Matériel détecté »** dans la fiche Inventaire, avec la source et la date de lecture ;
+  « Reprendre » copie le numéro de série détecté quand aucun n'est saisi, et un numéro qui
+  diffère de celui saisi est signalé.
+- **« Lire la fiche matériel »** sur la fiche Inventaire et la fiche Appareil : lit un seul
+  appareil, par SNMP v2c ou v3, ou par la FortiGate pour un appareil Fortinet (« Relire la fiche
+  matériel » ensuite).
+
+### Modifié
+- **Fiche Appareil** : la carte Matériel affiche le modèle, le numéro de série, le firmware et
+  leur source.
+- **Inventaire** : colonnes « Modèle » et « Firmware » à cocher dans « Colonnes » ; l'export CSV
+  gagne les colonnes Modèle, N° de série et Firmware, et la recherche trouve ces valeurs.
+- **Rapports** : le modèle et la version des switchs viennent d'ENTITY-MIB quand l'équipement le
+  prend en charge, sinon de sysDescr comme avant.
+
+### Corrigé
+- Aucun défaut de la 0.22.0 n'a été signalé : les essais réels sur une vraie FortiGate, un
+  site et un scan, prévus pour cette version de fiabilité, n'ont pas encore eu lieu et leurs
+  correctifs suivront. Une même erreur répétée en arrière-plan (synchronisation, mises à jour
+  hors ligne) n'est notée qu'une fois au journal.
+
+### Limites connues
+- Pas encore essayé sur de vrais équipements : la lecture ENTITY-MIB, sysDescr et l'inventaire
+  de la FortiGate sont vérifiés sur des données de démonstration seulement. Certains appareils
+  (petits switchs, imprimantes) ne publient pas ENTITY-MIB ou n'y mettent pas de numéro de
+  série : le bloc reste alors partiel.
+- La fiche matériel ne se lit que si SNMP (ou le jeton de la FortiGate) est configuré pour le
+  site ; rien n'est lu sur un appareil qui ne répond pas.
+- Le journal ne garde que ce que NetScope écrit à partir de cette version ; les erreurs
+  antérieures à la mise à jour n'y figurent pas.
+
 ## 0.22.0 — 2026-11-05
 
 Les sessions à distance s'ouvrent maintenant dans NetScope : un terminal intégré pour SSH,

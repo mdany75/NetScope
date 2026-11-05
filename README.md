@@ -4,7 +4,7 @@
 sur plusieurs plages, dit sur quel switch et quel port chacun est branché, puis diagnostique,
 surveille, documente et ouvre une session à distance, site par site, dans une seule fenêtre.
 
-[![Version](https://img.shields.io/badge/version-0.22.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.23.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-lightgrey?logo=apple)](#installation)
 [![Licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
@@ -25,7 +25,8 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
 - **Fortinet en profondeur, en lecture seule** : FortiSwitch, bornes FortiAP, liens WAN et VPN,
   FortiView, firmware, licences et journaux, lus par l’API sans jamais rien modifier.
 - **Une seule fenêtre pour tout le travail** : scan, ping, Wi-Fi, outils de diagnostic,
-  rapports PDF, et depuis la 0.22.0 terminal SSH et Telnet, console série et VNC intégrés.
+  rapports PDF, terminal SSH et Telnet, console série et VNC intégrés, et depuis la 0.23.0 un
+  journal de l’app avec « Exporter un diagnostic » et une fiche matériel remplie toute seule.
 
 > **État du projet** : NetScope est en développement actif (0.x). Les fonctions réseau
 > (FortiGate, FortiAP, SNMP, Syslog, sessions SSH, Telnet, série et VNC) sont testées sur des
@@ -46,7 +47,8 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   dans tous les modules (`switch:`, `type:`, `ip:`, `vlan:`, `-mot`…).
 - **Carte du réseau** hiérarchique (Internet, passerelle, switchs, bornes, groupes d’appareils)
   et **Inventaire** permanent : chronologie des changements d’IP et de port, garantie, pièces
-  jointes, étiquettes, import et export CSV.
+  jointes, étiquettes, import et export CSV ; modèle, numéro de série et
+  firmware lus tout seuls (SNMP ENTITY-MIB, sysDescr, FortiGate).
 
 ### Diagnostic
 
@@ -56,6 +58,8 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   notes, et onglet **Ressources** (processeur, mémoire, disques et trafic par SNMP).
 - Capture **LLDP/CDP** : le switch, le port, le VLAN et le PoE où ce Mac est branché.
 - **Test DHCP** sans prendre de bail, avec alerte si un serveur n’est pas autorisé.
+- **Journal de l’app** (Réglages › Journal et diagnostic) : erreurs et avertissements de chaque
+  module, secrets masqués, et « Exporter un diagnostic… » en .zip à joindre à un signalement.
 
 ### Wi-Fi
 
@@ -194,8 +198,6 @@ vérifiée avant l’installation).
 La feuille de route complète est dans [docs/feuille-de-route.html](docs/feuille-de-route.html),
 et le détail des notes dans [docs/A-FAIRE.md](docs/A-FAIRE.md). Les prochaines versions prévues :
 
-- **0.23.0, fiabilité terrain** : journal de l’app et « Exporter un diagnostic », corrections
-  issues des essais sur une vraie FortiGate, fiche matériel remplie automatiquement.
 - **0.24.0, sauvegarde des configurations** : FortiGate par l’API, puis switchs en SSH ; export
   de la carte et section « Carte » du rapport.
 - **0.25.0, SNMP complet** : SNMP v3 partout, navigateur SNMP et graphes de bande passante par

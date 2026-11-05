@@ -6,11 +6,11 @@
 
 ## Priorités (revues le 5 novembre 2026, réorganisées avec les notes 45 à 79 après l’analyse du marché)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0 ; notes 42 et 10 dans la 0.20.0 ; notes 41 et 43, et la note 11 en partie (pause par cible, tableau MTR, écran vide), dans la 0.21.0 ; note 57 dans la 0.22.0 (la note 40 reste à faire).
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0 ; notes 42 et 10 dans la 0.20.0 ; notes 41 et 43, et la note 11 en partie (pause par cible, tableau MTR, écran vide), dans la 0.21.0 ; note 57 dans la 0.22.0 ; notes 35 et 60 dans la 0.23.0 (la note 40 reste à faire).
 
-1. **0.13.x à 0.22.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP ; 0.17.0 : relecture automatique, WAN et VPN, Trafic FortiView et analyse complète à essayer sur de vraies FortiGate ; 0.18.0 : FTP, FTPS, SFTP, TFTP, « Bloqué ici », NAS dans Vitesse des disques, export, import et synchronisation à essayer sur de vrais appareils et deux Mac ; 0.20.0 : rapport de suivi, rapports planifiés et Inventaire repensé à essayer sur les vrais sites ; 0.21.0 : firmware et licences, Syslog, traps SNMP, journaux de la FortiGate et pause par cible du Ping à essayer sur de vrais équipements ; 0.22.0 : terminal intégré SSH, Telnet et série, et session VNC intégrée à essayer sur de vrais équipements, câbles console et serveurs VNC) : essais réels de la 0.3.x (localisation, DHCP, capture,
+1. **0.13.x à 0.22.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP ; 0.17.0 : relecture automatique, WAN et VPN, Trafic FortiView et analyse complète à essayer sur de vraies FortiGate ; 0.18.0 : FTP, FTPS, SFTP, TFTP, « Bloqué ici », NAS dans Vitesse des disques, export, import et synchronisation à essayer sur de vrais appareils et deux Mac ; 0.20.0 : rapport de suivi, rapports planifiés et Inventaire repensé à essayer sur les vrais sites ; 0.21.0 : firmware et licences, Syslog, traps SNMP, journaux de la FortiGate et pause par cible du Ping à essayer sur de vrais équipements ; 0.22.0 : terminal intégré SSH, Telnet et série, et session VNC intégrée à essayer sur de vrais équipements, câbles console et serveurs VNC ; 0.23.0 : journal de l’app, « Exporter un diagnostic » et fiche matériel automatique à essayer sur de vrais switchs, imprimantes et FortiGate) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
-   des 0.5.0 à 0.8.0 (voir ci-dessous) ; ces retours sont repris dans la 0.23.0 (point 20).
+   des 0.5.0 à 0.8.0 (voir ci-dessous) ; la 0.23.0 n’a pas encore reçu ces retours : ils passent à la 0.23.x, avant la 0.24.0 (point 20).
 2. ~~**0.5.0, diagnostic du poste et du réseau local**~~ : livrée le 4 novembre 2026
    (notes 12, 21, 17 et 16) ; essais réels à faire (PoE sur une vraie switch, SNMP, M-Lab,
    LibreSpeed, Ookla, bouton Installer).
@@ -77,10 +77,14 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
     adaptative, mise à l'échelle, plein écran, observation seule et presse-papiers ; RDP reste
     dans Windows App) ; essai réel à faire sur de vrais équipements, câbles console USB-série
     et serveurs VNC (macOS, RealVNC, TightVNC, UltraVNC).
+    ~~**0.23.0, fiabilité terrain**~~ : livrée le 5 novembre 2026 (notes 35 : journal de l’app,
+    secrets masqués, « Exporter un diagnostic… », bannière après une fermeture inattendue ;
+    60 : modèle, numéro de série et firmware lus par ENTITY-MIB, sysDescr et la FortiGate) ;
+    essai réel à faire sur les switchs, imprimantes, FortiSwitch, FortiAP et FortiGate de Dany.
 19. **Ordre proposé pour la suite** (analyse du 4 novembre 2026, acceptée par Dany ;
     réorganisé le même jour pour placer les notes 45 à 53, ordre accepté par Dany) :
     - **0.13.1** : essais réels (sites, FortiGate, FortiAP, navigation) et correctifs ; note 35
-      (journal et diagnostic). Reprise dans la 0.23.0 (point 20).
+      (journal et diagnostic). Note 35 livrée dans la 0.23.0 ; les essais réels restent à faire.
     - ~~**0.14.0, Carte, VoIP, DHCP, sauvegarde**~~ (livrée) : notes 32 (recherche dans la
       Carte), 30 (Téléphonie IP), 37 (étendues DHCP), 38 (sauvegarde chiffrée).
     - ~~**0.15.0, sites et navigation**~~ (livrée) : notes 49 (site sous le logo), 48 (site dans
@@ -105,9 +109,10 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 20. **Feuille de route révisée** (analyse du marché du 5 novembre 2026, à valider par Dany ;
     notes 58 à 79, détails dans `docs/analyse-marche.md`). Principe : geler les grosses
     nouveautés tant que les essais réels n’ont pas commencé.
-    - **0.23.0, fiabilité terrain** (reprend la 0.13.1) : note 35 (journal et « Exporter un
-      diagnostic ») ; retours d’essai sur une vraie FortiGate, un site et un scan, corrigés au
-      fil de l’eau ; note 60 (fiche matériel remplie automatiquement).
+    - ~~**0.23.0, fiabilité terrain**~~ (livrée le 5 novembre 2026) : notes 35 (journal et
+      « Exporter un diagnostic ») et 60 (fiche matériel remplie automatiquement). Les retours
+      d’essai sur une vraie FortiGate, un site et un scan restent à faire et seront corrigés au
+      fil de l’eau en 0.23.x.
     - **0.24.0, sauvegarde des configurations** (reprend la 0.19.0) : note 40 (FortiGate par
       l’API, puis switchs en SSH grâce au terminal de la 0.22.0) ; note 61 (export de la carte et
       section « Carte » du rapport).
@@ -789,6 +794,8 @@ entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 3
 
 ## 35. Journal de l’app et « Exporter un diagnostic » — 0.23.0 (analyse, retenue par Dany)
 
+**Livrée dans la 0.23.0** (5 novembre 2026) : Réglages › Journal et diagnostic, secrets masqués, « Exporter un diagnostic… » en .zip, bannière après une fermeture inattendue et pastille sur Réglages ; essai réel à faire sur de vraies erreurs FortiGate et SNMP.
+
 - Journal interne consultable (erreurs, avertissements, appels FortiGate/SNMP en échec, avec date
   et module), visible dans l’app ; export .zip « diagnostic » sans aucun secret (jetons,
   communautés, mots de passe masqués) ; rapport des plantages précédents au lancement.
@@ -1155,6 +1162,8 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 - **Effort** : moyen.
 
 ## 60. Fiche matériel remplie automatiquement — 0.23.0 (analyse du marché, à valider par Dany)
+
+**Livrée dans la 0.23.0** (5 novembre 2026) : modèle, numéro de série et firmware lus par ENTITY-MIB, sysDescr et l’inventaire de la FortiGate, bloc « Matériel détecté », « Lire la fiche matériel », colonnes Modèle et Firmware ; essai réel à faire sur les switchs, imprimantes, FortiSwitch et FortiAP de Dany.
 
 - **Ce que ça apporte** : inventaire et rapports justes sans saisie à la main. Modèle, numéro
   de série et firmware lus par sysDescr et ENTITY-MIB, et par l’inventaire de la FortiGate pour
