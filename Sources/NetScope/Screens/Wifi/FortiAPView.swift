@@ -224,6 +224,8 @@ struct FortiAPBanner: View {
                                 .font(Theme.small).foregroundStyle(Theme.warning)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
+                        // Parties lues mais vides ou illisibles (clients, SSID, AP voisins) : jamais un 0 sans explication.
+                        FortiAPReadNotes(notes: store.shownOverview.notes)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -276,6 +278,24 @@ struct FortiAPBanner: View {
         }
         let read = "\(o.aps.count) borne\(o.aps.count > 1 ? "s" : ""), \(o.clients.count) client\(o.clients.count > 1 ? "s" : "") Wi-Fi"
         return "\(read) · lu à \(WifiText.timeSeconds(last)) (bornes, clients, SSID et AP voisins)."
+    }
+}
+
+// MARK: - Remarques de lecture
+
+/// Anomalies de la dernière lecture (« Site · Clients Wi-Fi : réponse illisible… ») mises en avant
+/// dans le bandeau : un 0 ne reste jamais sans explication. Toutes les remarques, simples absences
+/// comprises, restent listées dans « Conseils » (Lecture incomplète).
+struct FortiAPReadNotes: View {
+    let notes: [String]
+
+    var body: some View {
+        ForEach(FortiWifiNotes.unique(notes).filter(FortiWifiNotes.isAnomaly), id: \.self) { note in
+            Label(note, systemImage: "exclamationmark.triangle.fill")
+                .font(Theme.small)
+                .foregroundStyle(Theme.warning)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 

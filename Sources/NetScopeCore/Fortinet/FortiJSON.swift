@@ -46,10 +46,47 @@ public enum FortiJSON {
         String(key.lowercased().filter { $0 != "-" && $0 != "_" && $0 != " " })
     }
 
-    /// Décode le corps ; nil s'il n'est pas du JSON.
+    /// Décode le corps ; nil s'il n'est pas du JSON, même une fois réparé (`repaired`).
     public static func parse(_ data: Data) -> Any? {
         guard !data.isEmpty else { return nil }
-        return try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+        if let value = strict(data) { return value }
+        return repaired(data).flatMap(strict)
+    }
+
+    /// Vrai si le corps n'est lisible qu'une fois réparé (octets invalides ou triangulation_regions retirés).
+    public static func needsRepair(_ data: Data) -> Bool {
+        guard !data.isEmpty, strict(data) == nil, let fixed = repaired(data) else { return false }
+        return strict(fixed) != nil
+    }
+
+    private static func strict(_ data: Data) -> Any? {
+        try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+    }
+
+    /// Réparation d'une réponse que FortiOS a rendue invalide. Constat réel (FortiOS 7.4.13,
+    /// monitor/wifi/client) : des restes de mémoire dans « triangulation_regions » (octets hors
+    /// UTF-8, caractères de contrôle), qui font rejeter toute la réponse par JSONSerialization et
+    /// laissaient la liste des clients vide. 1) octets invalides remplacés par U+FFFD et caractères
+    /// de contrôle bruts par une espace (hors chaînes : simple blanc ; dans une chaîne : texte
+    /// abîmé de toute façon) ; 2) si ce n'est pas assez, les tableaux « triangulation_regions »,
+    /// inutiles à NetScope, sont retirés. nil si rien n'a changé.
+    static func repaired(_ data: Data) -> Data? {
+        let text = String(decoding: data, as: UTF8.self)
+        var scalars = String.UnicodeScalarView()
+        scalars.reserveCapacity(text.unicodeScalars.count)
+        for scalar in text.unicodeScalars {
+            scalars.append(scalar.value < 0x20 ? " " : scalar)
+        }
+        var cleaned = String(scalars)
+        if strict(Data(cleaned.utf8)) == nil {
+            // Clé précédée d'une virgule, ou première clé de l'objet (virgule qui suit retirée).
+            cleaned = cleaned.replacingOccurrences(of: #",\s*"triangulation_regions"\s*:\s*\[[^\]]*\]"#, with: "",
+                                                   options: .regularExpression)
+                .replacingOccurrences(of: #""triangulation_regions"\s*:\s*\[[^\]]*\]\s*,?"#, with: "",
+                                      options: .regularExpression)
+        }
+        let fixed = Data(cleaned.utf8)
+        return fixed == data ? nil : fixed
     }
 
     /// Contenu utile : la valeur de « results » si la réponse est enveloppée, sinon la réponse.
