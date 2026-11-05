@@ -154,6 +154,11 @@ public struct TopoExportScene: Sendable {
                               dimmed: options.dimmed.contains(link.child.id) || options.dimmed.contains(link.parent.id),
                               stacked: stacked, curved: free, verified: link.child.uplinkKind != nil))
         }
+        // Un lien vers un nœud en conflit partage souvent la descente des liens voisins : dessiné
+        // juste après les redondants, sous les autres, il ne teinte en rouge que son propre tronçon.
+        let firstTree = links.firstIndex { $0.style != .redundant } ?? links.endIndex
+        let tree = links[firstTree...]
+        links = Array(links[..<firstTree]) + tree.filter { $0.style == .critical } + tree.filter { $0.style != .critical }
         return TopoExportScene(nodes: nodes, links: links, width: layout.width, height: layout.height, nodeWidth: w, nodeHeight: h,
                                title: options.title, details: options.details, showLegend: options.showLegend)
     }

@@ -69,7 +69,10 @@ struct TopoCanvas: View {
     private static let space = "carte-dessin"
 
     var body: some View {
-        let links = graph.links.filter { layout.positions[$0.parent.id] != nil && layout.positions[$0.child.id] != nil }
+        // Liens vers un nœud en conflit d'abord (sous les autres) : leur descente partagée reste grise
+        // et seul leur dernier tronçon est rouge, comme dans l'export.
+        let placed = graph.links.filter { layout.positions[$0.parent.id] != nil && layout.positions[$0.child.id] != nil }
+        let links = placed.filter { $0.child.status == .critique } + placed.filter { $0.child.status != .critique }
         let related = search.map { $0.pathLinks(links) } ?? relatedLinks(links)
         let redundant = graph.redundantLinks.filter { layout.positions[$0.aID] != nil && layout.positions[$0.bID] != nil }
 

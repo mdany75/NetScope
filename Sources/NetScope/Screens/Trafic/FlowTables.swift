@@ -515,8 +515,8 @@ struct FlowExporterRow: Identifiable {
     static let columns: [StandardColumn] = [
         StandardColumn(id: "nom", title: "Exportateur", isRequired: true), StandardColumn(id: "ip", title: "Adresse"),
         StandardColumn(id: "formats", title: "Formats"), StandardColumn(id: "datagrammes", title: "Datagrammes"),
-        StandardColumn(id: "enregistrements", title: "Enregistrements"), StandardColumn(id: "rejetes", title: "Rejetés"),
-        StandardColumn(id: "gabarits", title: "Gabarits"), StandardColumn(id: "attente", title: "En attente", isDefaultVisible: false),
+        StandardColumn(id: "enregistrements", title: "Enregistrements"), StandardColumn(id: "rejetes", title: "Rejetés", isDefaultVisible: false),
+        StandardColumn(id: "gabarits", title: "Gabarits", isDefaultVisible: false), StandardColumn(id: "attente", title: "En attente", isDefaultVisible: false),
         StandardColumn(id: "echantillon", title: "Échantillonnage"), StandardColumn(id: "wan", title: "Lien Internet"),
         StandardColumn(id: "dernier", title: "Dernier reçu"),
     ]
@@ -585,14 +585,14 @@ struct FlowExporterTable: View {
                             ToolTableText(ToolFormat.integer(row.status.rejected), color: row.status.rejected > 0 ? Theme.warning : Theme.textTertiary,
                                           alignment: .trailing)
                         }
-                        .width(min: 44, ideal: 56).customizationID("rejetes")
+                        .width(min: 44, ideal: 56).customizationID("rejetes").defaultVisibility(.hidden)
                     }
                     Group {
                         TableColumn("GABARITS", sortUsing: table.sort("gabarits")) { row in
                             ToolTableText(row.status.kinds.contains(.netflow9) || row.status.kinds.contains(.ipfix) ? ToolFormat.integer(row.status.templates) : "—",
                                           alignment: .trailing)
                         }
-                        .width(min: 44, ideal: 60).customizationID("gabarits")
+                        .width(min: 44, ideal: 60).customizationID("gabarits").defaultVisibility(.hidden)
                         TableColumn("EN ATTENTE", sortUsing: table.sort("attente")) { row in
                             ToolTableText(row.status.waiting > 0 ? ToolFormat.integer(row.status.waiting) : "—",
                                           color: row.status.waiting > 0 ? Theme.warning : Theme.textTertiary, alignment: .trailing)
