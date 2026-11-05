@@ -50,6 +50,15 @@ public enum AlertEventKind: String, Codable, CaseIterable, Sendable, Identifiabl
     case serviceIncident = "service.incident"
     /// Fin d'un scan du réseau.
     case scanFinished = "scan.termine"
+    /// Note 78 (0.26.0) : événements dédiés des sondes, au lieu d'un « sonde en panne » générique.
+    /// Licence FortiGuard ou FortiCare bientôt expirée.
+    case licenseExpiring = "licence.expire"
+    /// Firmware à mettre à jour.
+    case firmwareOutdated = "firmware.maj"
+    /// Message Syslog (ou de la FortiGate) grave.
+    case syslogSevere = "syslog.grave"
+    /// Lien WAN ou tunnel VPN en panne.
+    case wanDown = "wan.panne"
     /// Message d'essai (bouton « Envoyer un test »).
     case test = "test"
 
@@ -67,6 +76,10 @@ public enum AlertEventKind: String, Codable, CaseIterable, Sendable, Identifiabl
         case .rogueDHCP: return "Serveur DHCP non autorisé"
         case .serviceIncident: return "Incident d’un service en ligne"
         case .scanFinished: return "Fin de scan"
+        case .licenseExpiring: return "Licence bientôt expirée"
+        case .firmwareOutdated: return "Firmware à mettre à jour"
+        case .syslogSevere: return "Message Syslog grave"
+        case .wanDown: return "WAN en panne"
         case .test: return "Message d’essai"
         }
     }
@@ -80,6 +93,10 @@ public enum AlertEventKind: String, Codable, CaseIterable, Sendable, Identifiabl
         case .rogueDHCP: return "Offre DHCP reçue d’un serveur hors de la liste autorisée."
         case .serviceIncident: return "Nouvel incident ou service injoignable d’ici (Microsoft 365, GitHub…)."
         case .scanFinished: return "Résumé du scan\u{00A0}: appareils en ligne et nouveaux."
+        case .licenseExpiring: return "Sonde «\u{00A0}Licence\u{00A0}»\u{00A0}: FortiGuard ou FortiCare à renouveler dans le délai réglé."
+        case .firmwareOutdated: return "Sonde «\u{00A0}Firmware\u{00A0}»\u{00A0}: une version plus récente est publiée."
+        case .syslogSevere: return "Sonde «\u{00A0}Syslog\u{00A0}»\u{00A0}: message de gravité égale ou supérieure au seuil."
+        case .wanDown: return "Sondes «\u{00A0}WAN\u{00A0}» et «\u{00A0}VPN\u{00A0}»\u{00A0}: lien Internet ou tunnel tombé."
         case .test: return "Bouton «\u{00A0}Envoyer un test\u{00A0}»."
         }
     }
@@ -87,8 +104,8 @@ public enum AlertEventKind: String, Codable, CaseIterable, Sendable, Identifiabl
     /// Gravité habituelle de ce type (affichée à côté de la règle).
     public var typicalSeverity: AlertSeverity {
         switch self {
-        case .probeDown, .rogueDHCP: return .critical
-        case .probeWarning, .serviceIncident: return .warning
+        case .probeDown, .rogueDHCP, .wanDown: return .critical
+        case .probeWarning, .serviceIncident, .licenseExpiring, .firmwareOutdated, .syslogSevere: return .warning
         case .probeRecovered, .newDevice, .scanFinished, .test: return .info
         }
     }
@@ -385,7 +402,7 @@ public struct AlertQuietHours: Codable, Equatable, Sendable {
 
 /// Règles d'envoi : quels événements, gravité minimale, anti-rafale, regroupement, silence.
 public struct AlertRules: Codable, Equatable, Sendable {
-    public var kinds: Set<AlertEventKind> = [.probeDown, .probeWarning, .probeRecovered, .newDevice, .rogueDHCP, .serviceIncident]
+    public var kinds: Set<AlertEventKind> = AlertRules.defaultKinds
     public var minimumSeverity: AlertSeverity = .info
     /// Au plus une alerte par événement (type + objet) et par intervalle, en minutes.
     public var throttleMinutes = 15
@@ -400,13 +417,42 @@ public struct AlertRules: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let defaults = AlertRules()
-        kinds = try c.decodeIfPresent(Set<AlertEventKind>.self, forKey: .kinds) ?? defaults.kinds
+        if let raw = try c.decodeIfPresent([String].self, forKey: .kinds) {
+            // Type inconnu (version plus récente) ignoré ; type apparu depuis l'écriture du fichier :
+            // il reprend l'état du type générique qui le portait avant (AlertEventKind.migrated).
+            let saved = Set(raw.compactMap(AlertEventKind.init(rawValue:)))
+            let known = try c.decodeIfPresent([String].self, forKey: .knownKinds).map { Set($0.compactMap(AlertEventKind.init(rawValue:))) }
+            kinds = AlertEventKind.migrated(saved, known: known)
+        } else {
+            kinds = defaults.kinds
+        }
         minimumSeverity = try c.decodeIfPresent(AlertSeverity.self, forKey: .minimumSeverity) ?? defaults.minimumSeverity
         throttleMinutes = try c.decodeIfPresent(Int.self, forKey: .throttleMinutes) ?? defaults.throttleMinutes
         groupingSeconds = try c.decodeIfPresent(Int.self, forKey: .groupingSeconds) ?? defaults.groupingSeconds
         quietHours = try c.decodeIfPresent(AlertQuietHours.self, forKey: .quietHours) ?? defaults.quietHours
         excludedProbes = try c.decodeIfPresent(Set<UUID>.self, forKey: .excludedProbes) ?? []
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case kinds, minimumSeverity, throttleMinutes, groupingSeconds, quietHours, excludedProbes
+        /// Types connus de la version qui a écrit le fichier (0.26.0) : un type plus récent prend sa valeur par défaut.
+        case knownKinds
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(kinds.map(\.rawValue).sorted(), forKey: .kinds)
+        try c.encode(AlertEventKind.configurable.map(\.rawValue).sorted(), forKey: .knownKinds)
+        try c.encode(minimumSeverity, forKey: .minimumSeverity)
+        try c.encode(throttleMinutes, forKey: .throttleMinutes)
+        try c.encode(groupingSeconds, forKey: .groupingSeconds)
+        try c.encode(quietHours, forKey: .quietHours)
+        try c.encode(excludedProbes, forKey: .excludedProbes)
+    }
+
+    /// Événements choisis au premier lancement.
+    public static let defaultKinds: Set<AlertEventKind> = [.probeDown, .probeWarning, .probeRecovered, .newDevice, .rogueDHCP,
+                                                           .serviceIncident, .licenseExpiring, .firmwareOutdated, .syslogSevere, .wanDown]
 
     public static let throttleChoices = [0, 5, 15, 30, 60, 240]
     public static let groupingChoices = [0, 30, 60, 300]
@@ -465,7 +511,7 @@ public struct AlertSettings: Codable, Equatable, Sendable {
     /// ou aucun canal) : indication de la Surveillance.
     public func channels(forProbe id: UUID) -> [AlertChannel] {
         guard isEnabled, !rules.excludedProbes.contains(id),
-              !rules.kinds.isDisjoint(with: [.probeDown, .probeWarning, .probeRecovered]) else { return [] }
+              !rules.kinds.isDisjoint(with: [.probeDown, .probeWarning, .probeRecovered, .licenseExpiring, .firmwareOutdated, .syslogSevere, .wanDown]) else { return [] }
         return enabledChannels
     }
 }

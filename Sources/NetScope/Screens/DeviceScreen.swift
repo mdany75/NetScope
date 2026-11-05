@@ -210,6 +210,7 @@ private struct DeviceDetailView: View {
         Button {
             let wol = store.wol
             if let mac = device.mac { wol.macText = mac.formatted(.upperColon) }
+            wol.selection = []
             if wol.broadcastText.isEmpty { wol.broadcastText = WakeOnLAN.defaultBroadcast(for: state.activeInterface).description }
             store.open(.wol, in: state)
         } label: {

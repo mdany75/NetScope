@@ -125,6 +125,8 @@ enum Snapshots {
         }
         if options.demo { ok = RapportPDFCheck.write(into: directory, state: state) && ok }
         if options.demo { ok = LinkCheckPDFCheck.write(into: directory) && ok }
+        // Note 78 : rapport « pour le fournisseur Internet » du ping continu.
+        if options.demo { ok = PingISPReportCheck.write(into: directory) && ok }
         return ok
     }
 

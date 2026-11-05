@@ -557,6 +557,15 @@ public struct InventoryStore: Codable, Sendable {
                 result.append(InvDuplicate(keep: keep.key, absorb: other.key, reason: reason))
             }
         }
+        // Note 78 : MAC aléatoires rapprochées par nom d'hôte ou numéro de série (proposées, jamais fusionnées d'office).
+        // Une paire déjà trouvée ci-dessus garde ses critères, complétés de la mention de la MAC aléatoire.
+        for match in InvRandomMAC.matches(in: Array(records.values)) {
+            if let index = result.firstIndex(where: { Set([$0.keep, $0.absorb]) == Set([match.keep, match.absorb]) }) {
+                result[index].randomMAC = match.randomMAC
+            } else {
+                result.append(match)
+            }
+        }
         return result.sorted { $0.id < $1.id }
     }
 

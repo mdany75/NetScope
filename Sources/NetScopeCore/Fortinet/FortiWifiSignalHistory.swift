@@ -166,8 +166,12 @@ public struct FortiWifiSignalHistory: Codable, Hashable, Sendable {
             series[k] = kept.isEmpty ? nil : kept
         }
         if series.count > limits.clients {
-            let byLast = series.map { ($0.key, $0.value.last?.date ?? .distantPast) }
-                .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0 < $1.0 }
+            let pairs: [(String, Date)] = series.map { (key: String, list: [FortiWifiSignalSample]) -> (String, Date) in
+                (key, list.last?.date ?? Date.distantPast)
+            }
+            let byLast = pairs.sorted { (a: (String, Date), b: (String, Date)) -> Bool in
+                a.1 != b.1 ? a.1 > b.1 : a.0 < b.0
+            }
             for (k, _) in byLast.dropFirst(limits.clients) { series[k] = nil }
         }
     }

@@ -1,92 +1,6 @@
 import NetScopeCore
 import SwiftUI
 
-@MainActor
-final class ToolWakeModel: ObservableObject {
-    enum PortChoice: String, CaseIterable, Identifiable {
-        case nine, seven, both
-        var id: String { rawValue }
-        var label: String {
-            switch self {
-            case .nine: return "9 (discard)"
-            case .seven: return "7 (echo)"
-            case .both: return "9 et 7"
-            }
-        }
-        var ports: [UInt16] {
-            switch self {
-            case .nine: return [9]
-            case .seven: return [7]
-            case .both: return [9, 7]
-            }
-        }
-    }
-
-    @Published var macText = ""
-    @Published var broadcastText = ""
-    @Published var port: PortChoice = .nine
-    @Published var error: String?
-    @Published private(set) var lastSent: String?
-
-    /// Délai de vérification après l'envoi.
-    static let verifyDuration: TimeInterval = 60
-
-    var command: String {
-        "wol \(macText.trimmingCharacters(in: .whitespaces).uppercased()) -b \(broadcastText) -p " + port.ports.map(String.init).joined(separator: ",")
-    }
-
-    /// Envoie le paquet magique ; si l'adresse IP du poste est connue, vérifie pendant 60 s qu'il répond.
-    func wake(state: AppState, store: ToolStore) {
-        guard let mac = MACAddress(macText) else {
-            error = "MAC invalide\u{00A0}: 12 caractères hexadécimaux attendus."
-            return
-        }
-        guard let broadcast = IPv4Address(broadcastText) else {
-            error = "Adresse de broadcast invalide (exemple\u{00A0}: 10.182.122.255)."
-            return
-        }
-        error = nil
-        let device = state.devices.first { $0.mac == mac }
-        let name = device?.hostnameLabel ?? device?.displayName ?? "Manuel"
-        store.record(command: command)
-        let destination = "\(broadcast):" + port.ports.map(String.init).joined(separator: ",")
-        do {
-            try WakeOnLAN.send(to: mac, broadcast: broadcast, ports: port.ports)
-        } catch {
-            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-            self.error = message
-            store.addWake(ToolWakeEntry(name: name, mac: mac.formatted(.upperColon), detail: message, status: .failed))
-            store.record(ToolRecent(tool: .wol, target: "\(name) · \(mac.formatted(.upperColon))", summary: message, status: .failure))
-            return
-        }
-        lastSent = "Paquet magique envoyé (102 octets) à \(destination)."
-        guard let ip = device?.ip.description else {
-            store.addWake(ToolWakeEntry(name: name, mac: mac.formatted(.upperColon),
-                                        detail: "Paquet magique envoyé (102 octets) à \(destination) · adresse IP inconnue, pas de vérification",
-                                        status: .sent))
-            store.record(ToolRecent(tool: .wol, target: "\(name) · \(mac.formatted(.upperColon))", summary: "Paquet envoyé à \(destination)", status: .info))
-            return
-        }
-        let id = store.addWake(ToolWakeEntry(name: name, mac: mac.formatted(.upperColon),
-                                             detail: "Paquet magique envoyé (102 octets) à \(destination) · vérification de \(ip) en cours",
-                                             status: .pending))
-        let start = Date()
-        Task {
-            while Date().timeIntervalSince(start) < ToolWakeModel.verifyDuration {
-                if await PortScanner.isHostUp(host: ip, timeout: 1.5) {
-                    let seconds = Int(Date().timeIntervalSince(start).rounded())
-                    store.updateWake(id, status: .awake, detail: "Paquet envoyé à \(destination) · \(ip) répond après \(seconds)\u{00A0}s")
-                    store.record(ToolRecent(tool: .wol, target: "\(name) · \(ip)", summary: "Réveillé après \(seconds)\u{00A0}s", status: .ok))
-                    return
-                }
-                try? await Task.sleep(nanoseconds: 4_000_000_000)
-            }
-            store.updateWake(id, status: .noReply, detail: "Aucune réponse de \(ip) après 60\u{00A0}s (WoL désactivé dans le BIOS\u{00A0}?)")
-            store.record(ToolRecent(tool: .wol, target: "\(name) · \(ip)", summary: "Aucune réponse après 60\u{00A0}s", status: .warning))
-        }
-    }
-}
-
 /// Wake-on-LAN : MAC, broadcast, port, postes connus, historique des réveils.
 struct WakeOnLANView: View {
     @EnvironmentObject private var state: AppState
@@ -103,10 +17,23 @@ struct WakeOnLANView: View {
                         .frame(minWidth: 180)
                 }
                 HStack(alignment: .bottom, spacing: 10) {
-                    ToolLabeledField(label: "Broadcast") {
-                        ToolTextField(placeholder: "10.182.122.255", text: $model.broadcastText,
-                                      invalid: !model.broadcastText.isEmpty && IPv4Address(model.broadcastText) == nil)
-                            .frame(minWidth: 150)
+                    // Note 78 : automatique = broadcast local, ou dirigé vers le sous-réseau d'un poste distant.
+                    ToolLabeledField(label: "Diffusion") {
+                        Picker("", selection: $model.broadcastMode) {
+                            ForEach(WakeBroadcastMode.allCases) { Text($0.label).tag($0) }
+                        }
+                        .labelsHidden()
+                        .controlSize(.large)
+                        .fixedSize()
+                        .help("Automatique\u{00A0}: broadcast du réseau local, ou broadcast dirigé vers le sous-réseau d’un poste distant")
+                    }
+                    // Automatique : l'adresse de chaque poste est dans la colonne « Diffusion » du tableau.
+                    if model.broadcastMode == .manual {
+                        ToolLabeledField(label: "Broadcast") {
+                            ToolTextField(placeholder: "10.182.122.255", text: $model.broadcastText,
+                                          invalid: !model.broadcastText.isEmpty && IPv4Address(model.broadcastText) == nil)
+                                .frame(minWidth: 130)
+                        }
                     }
                     ToolLabeledField(label: "Port UDP") {
                         Picker("", selection: $model.port) {
@@ -118,21 +45,25 @@ struct WakeOnLANView: View {
                     }
                 }
             }
+            let known = knownTargets
+            let chosen = known.filter { model.selection.contains($0.id) }.count
             HStack(alignment: .center, spacing: 12) {
-                Text("Postes connus\u{00A0}: choisissez une ligne ou saisissez la MAC.")
+                Text(chosen > 1 ? "\(chosen) postes choisis\u{00A0}: un paquet magique pour chacun, avec son suivi par ping."
+                     : "Postes connus\u{00A0}: choisissez une ligne (⌘-clic pour plusieurs) ou saisissez la MAC.")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 ToolColumnsMenu(model: table)
-                Button { model.wake(state: state, store: store) } label: {
-                    Label("Réveiller", systemImage: "power")
+                Button { model.wake(state: state, store: store, known: known) } label: {
+                    Label(chosen > 1 ? "Réveiller les \(chosen) postes" : "Réveiller", systemImage: "power")
                 }
                 .buttonStyle(.primary)
                 .fixedSize()
             }
-            WakeTargetTable(devices: knownTargets, macText: $model.macText, table: table)
+            WakeTargetTable(devices: known, macText: $model.macText, selection: $model.selection, table: table,
+                            local: state.activeInterface?.subnet)
             if let error = model.error { ToolNotice(tone: .critical, message: error) }
-            (Text("Paquet magique\u{00A0}: 6 × ") + Text("FF").font(Theme.mono(12)) + Text(" + 16 × MAC = 102 octets · un test de présence (connexion TCP) est fait pendant 60\u{00A0}s après l’envoi si l’adresse IP du poste est connue."))
+            (Text("Paquet magique\u{00A0}: 6 × ") + Text("FF").font(Theme.mono(12)) + Text(" + 16 × MAC = 102 octets · si l’adresse IP du poste est connue, il est suivi par ping (et un test TCP) pendant 2\u{00A0}min\u{00A0}: «\u{00A0}réveillé en N\u{00A0}s\u{00A0}». Un poste d’un autre sous-réseau reçoit un broadcast dirigé, que le routeur doit laisser passer (ip directed-broadcast)."))
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             history
@@ -142,6 +73,10 @@ struct WakeOnLANView: View {
                 model.broadcastText = WakeOnLAN.defaultBroadcast(for: state.activeInterface).description
             }
             if model.macText.isEmpty, let mac = knownTargets.first?.mac { model.macText = mac.formatted(.upperColon) }
+            // Captures : réveil groupé de trois postes (note 78).
+            if store.isEphemeral, WakeDemo.preselect, model.selection.isEmpty {
+                model.selection = Set(knownTargets.filter { WakeDemo.selectedIPs.contains($0.ip.description) }.map(\.id))
+            }
         }
     }
 
@@ -200,11 +135,16 @@ struct WakeOnLANView: View {
 struct WakeTargetTable: View {
     let devices: [Device]
     @Binding var macText: String
+    /// Note 78 : plusieurs postes choisis (⌘-clic) : réveil groupé.
+    @Binding var selection: Set<Device.ID>
     @ObservedObject var table: StandardTableModel<Device>
+    /// Sous-réseau de l'interface active : un poste hors de lui reçoit un broadcast dirigé.
+    var local: Subnet?
 
     static let columns: [StandardColumn] = [
         StandardColumn(id: "nom", title: "Nom", isRequired: true),
         StandardColumn(id: "ip", title: "IP"),
+        StandardColumn(id: "diffusion", title: "Diffusion", isDefaultVisible: false),
         StandardColumn(id: "mac", title: "MAC"),
         StandardColumn(id: "type", title: "Type"),
         StandardColumn(id: "etat", title: "État"),
@@ -219,6 +159,7 @@ struct WakeTargetTable: View {
         "mac": KeyPathComparator(\Device.scanSortMAC),
         "type": KeyPathComparator(\Device.scanSortType),
         "etat": KeyPathComparator(\Device.scanSortStatus),
+        "diffusion": KeyPathComparator(\Device.wakeSortSubnet),
         "fabricant": KeyPathComparator(\Device.scanSortVendor),
         "vlan": KeyPathComparator(\Device.scanSortVLAN),
         "switch": KeyPathComparator(\Device.scanSortSwitch),
@@ -229,12 +170,27 @@ struct WakeTargetTable: View {
         StandardTableModel(id: "outils.wol", columns: columns, sortKeys: sortKeys, defaultSort: "nom")
     }
 
+    /// Poste hors du sous-réseau de ce Mac : broadcast dirigé (mode automatique).
+    private func isDirected(_ device: Device) -> Bool {
+        local.map { !$0.contains(device.ip) } ?? false
+    }
+
+    private func directedHelp(_ device: Device) -> String {
+        "Autre sous-réseau\u{00A0}: broadcast dirigé vers \(WakeOnLAN.directedBroadcast(for: device.ip).description) en mode automatique (le routeur doit le laisser passer)"
+    }
+
     var body: some View {
         let rows = devices.sorted(using: table.sortOrder)
-        let selection = Binding<Device.ID?>(
-            get: { MACAddress(macText).flatMap { mac in rows.first { $0.mac == mac }?.id } },
-            set: { id in
-                if let id, let mac = rows.first(where: { $0.id == id })?.mac { macText = mac.formatted(.upperColon) }
+        let selection = Binding<Set<Device.ID>>(
+            get: {
+                if !self.selection.isEmpty { return self.selection }
+                return MACAddress(macText).flatMap { mac in rows.first { $0.mac == mac }?.id }.map { [$0] } ?? []
+            },
+            set: { ids in
+                self.selection = ids
+                if ids.count == 1, let id = ids.first, let mac = rows.first(where: { $0.id == id })?.mac {
+                    macText = mac.formatted(.upperColon)
+                }
             })
         ToolStandardTableFrame(rowCount: rows.count, maxRows: 6,
                                emptyText: "Aucun poste avec une adresse MAC dans l’inventaire.") {
@@ -247,10 +203,30 @@ struct WakeTargetTable: View {
                 .disabledCustomizationBehavior(.visibility)
 
                 TableColumn("IP", sortUsing: table.sort("ip")) { device in
-                    ToolTableText(device.ip.description, size: 11)
+                    // Note 78 : un poste d'un autre sous-réseau recevra un broadcast dirigé.
+                    HStack(spacing: 4) {
+                        ToolTableText(device.ip.description, size: 11)
+                        if isDirected(device) {
+                            Image(systemName: "arrow.triangle.branch")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(Theme.accentStrong)
+                                .help(directedHelp(device))
+                                .accessibilityLabel("Broadcast dirigé")
+                        }
+                    }
                 }
                 .width(min: 90, ideal: 100)
                 .customizationID("ip")
+
+                TableColumn("DIFFUSION", sortUsing: table.sort("diffusion")) { device in
+                    let directed = isDirected(device)
+                    ToolTableText(directed ? "dirigée" : "locale", size: 11, mono: false,
+                                  color: directed ? Theme.accentStrong : Theme.textSecondary)
+                        .help(directed ? directedHelp(device) : "Même sous-réseau que ce Mac\u{00A0}: broadcast local")
+                }
+                .width(min: 50, ideal: 64)
+                .customizationID("diffusion")
+                .defaultVisibility(.hidden)
 
                 TableColumn("MAC", sortUsing: table.sort("mac")) { device in
                     ToolTableText(device.mac?.formatted(.upperColon) ?? "—", size: 11)
@@ -307,4 +283,6 @@ struct WakeTargetTable: View {
 extension Device {
     /// Nom affiché dans la liste des postes réveillables (hostname, sinon nom affiché).
     var wakeSortName: String { hostnameLabel ?? displayName }
+    /// Tri de la colonne « Diffusion » : par sous-réseau (/24).
+    var wakeSortSubnet: UInt32 { ip.value >> 8 }
 }

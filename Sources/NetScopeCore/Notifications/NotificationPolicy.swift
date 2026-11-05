@@ -145,8 +145,10 @@ public struct NotificationSettings: Codable, Equatable, Sendable {
             // Type apparu depuis l'écriture du fichier : activé s'il l'est par défaut.
             let known = (try? c.decodeIfPresent([String].self, forKey: .knownKinds)).map { Set($0.compactMap(NetScopeEventKind.init(rawValue:))) }
                 ?? Set(NetScopeEventKind.configurable).subtracting(NetScopeEventKind.introducedLater)
-            for kind in NetScopeEventKind.configurable where !known.contains(kind) && kind.enabledByDefault {
-                enabledKinds.insert(kind)
+            // Note 78 : un type dédié (licence, WAN…) reprend l'état du type générique qui le portait.
+            let saved = enabledKinds
+            for kind in NetScopeEventKind.configurable where !known.contains(kind) {
+                if kind.formerGeneric.map(saved.contains) ?? kind.enabledByDefault { enabledKinds.insert(kind) }
             }
         } else {
             enabledKinds = defaults.enabledKinds

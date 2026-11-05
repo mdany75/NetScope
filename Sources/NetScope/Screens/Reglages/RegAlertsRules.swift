@@ -27,6 +27,17 @@ struct RegAlertRulesPanel: View {
             RegLabel("Événements")
                 .padding(.bottom, 4)
             ForEach(AlertEventKind.configurable) { kind in
+                // Note 78 : les événements dédiés des sondes, regroupés sous leur propre titre.
+                if kind == AlertEventKind.configurable.first(where: { AlertEventKind.introducedLater.contains($0) }) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        RegLabel("Événements dédiés des sondes")
+                        Text("Partent sous leur propre type au lieu de «\u{00A0}Sonde en panne\u{00A0}» ou «\u{00A0}Sonde en alerte\u{00A0}».")
+                            .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.top, 12)
+                    .padding(.bottom, 4)
+                }
                 HStack(alignment: .center, spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 8) {
@@ -88,7 +99,7 @@ struct RegAlertRulesPanel: View {
             }
             .regDisabled(!alerts.settings.rules.quietHours.isEnabled)
             Toggle(isOn: rules.quietHours.criticalBypass) {
-                Text("Les alertes critiques passent quand même (sonde hors ligne, DHCP non autorisé)")
+                Text("Les alertes critiques passent quand même (sonde hors ligne, WAN en panne, DHCP non autorisé)")
                     .font(Theme.small).foregroundStyle(Theme.text)
                     .fixedSize(horizontal: false, vertical: true)
             }

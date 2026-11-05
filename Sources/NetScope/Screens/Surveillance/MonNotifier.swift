@@ -43,24 +43,10 @@ final class MonNotifier: NSObject {
 
     /// Nouvelle alerte d'une sonde (regroupée par sonde), avec le son si la sonde le demande.
     func post(_ alert: MonAlert, probe: MonProbe) {
-        guard alert.severity != .success else { return }
-        let kind: NetScopeEventKind
-        let title: String
-        let severity: NetScopeEventSeverity
-        switch alert.severity {
-        case .critical:
-            kind = .probeDown
-            title = "\(probe.name) hors ligne"
-            severity = .critical
-        case .warning:
-            kind = probe.kind == .switchPort ? .deviceMoved : .probeWarning
-            title = "\(probe.name) en alerte"
-            severity = .warning
-        case .info, .success:
-            kind = probe.kind == .newDevices ? .newDevice : .probeWarning
-            title = probe.name
-            severity = .info
-        }
+        // Note 78 : licence, firmware, Syslog et WAN ont leur propre type (AlertDedicatedEvents.swift).
+        guard let kind = NetScopeEventKind.forProbe(probe.kind, severity: alert.severity) else { return }
+        let severity: NetScopeEventSeverity = alert.severity == .critical ? .critical : alert.severity == .warning ? .warning : .info
+        let title = NetScopeEventKind.probeTitle(kind, severity: alert.severity, probeName: probe.name)
         NetScopeEventCenter.shared.publish(NetScopeEvent(
             id: alert.id.uuidString, kind: kind, severity: severity, title: title, detail: alert.message, date: alert.date,
             link: .probe(probe.id), source: probe.id.uuidString,

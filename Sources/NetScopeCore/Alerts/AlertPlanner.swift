@@ -123,7 +123,7 @@ public struct AlertPlanner: Sendable, Equatable {
             return .skipped(.throttled)
         }
         lastQueued[key] = now
-        if event.kind == .probeDown || event.kind == .probeWarning { openDowns.insert(event.subject) }
+        if event.kind.opensIncident { openDowns.insert(event.subject) }
         pending.append(event)
         return .queued
     }

@@ -427,6 +427,8 @@ public struct InvDuplicate: Hashable, Sendable, Identifiable {
     /// Fiche à rattacher.
     public var absorb: String
     public var reason: String
+    /// Note 78 : rapprochement d'une MAC aléatoire (critère), nil pour un doublon ordinaire.
+    public var randomMAC: RandomMACCriterion? = nil
 }
 
 /// Quelles fiches absentes d'un scan doivent passer hors ligne.
