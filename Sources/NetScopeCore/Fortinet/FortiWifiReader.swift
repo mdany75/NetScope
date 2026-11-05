@@ -69,12 +69,13 @@ extension FortiGateReader {
         calls.append(clients.record)
         if let body = clients.response?.body, clients.error == nil, let list = FortiWifiParsers.clients(body, now: now) {
             report.clients = FortiWifiMerge.resolveAPNames(list, aps: parsed)
-        } else if let note = Self.note("Clients Wi-Fi", clients.error) ?? Self.unreadable("Clients Wi-Fi", clients.response) {
+            // Liste lue mais vide alors que les bornes annoncent des clients : jamais un 0 silencieux.
+            if report.clients.isEmpty, let note = Self.missingClients(parsed) { report.notes.append(note) }
+        } else if let note = Self.note("Clients Wi-Fi", clients.error) {
             report.notes.append(note)
-        }
-        // Les bornes annoncent des clients mais la liste est vide : jamais un 0 silencieux.
-        if report.clients.isEmpty, let note = Self.missingClients(parsed) {
-            report.notes.append(note)
+        } else if let note = Self.unreadable("Clients Wi-Fi", clients.response) {
+            // Réponse reçue mais illisible : l'écart avec les bornes dit ce qui manque.
+            report.notes.append(note + (Self.missingClients(parsed).map { " " + $0.replacingOccurrences(of: "Clients Wi-Fi\u{00A0}: l", with: "L") } ?? ""))
         }
 
         let vap = try await fetch(FortiWifiPaths.vap, query: [URLQueryItem(name: "format", value: FortiWifiPaths.vapFields)])
@@ -95,7 +96,7 @@ extension FortiGateReader {
             calls.append(interfering.record)
             if let body = interfering.response?.body, interfering.error == nil, let list = FortiWifiParsers.rogues(body, now: now) {
                 report.rogues = list
-            } else if let note = Self.note("AP voisins", rogue.error ?? interfering.error) ?? Self.unreadable("AP voisins", interfering.response ?? rogue.response) {
+            } else if let note = Self.neighboursNote(rogue: rogue, interfering: interfering) {
                 report.notes.append(note)
             }
         }
@@ -106,6 +107,19 @@ extension FortiGateReader {
 
         report.calls = calls
         return report
+    }
+
+    /// AP voisins : la cause la plus parlante des deux adresses (réponse illisible, puis droit
+    /// refusé, puis autre erreur, et seulement en dernier « adresse absente »).
+    static func neighboursNote(rogue: Fetched, interfering: Fetched) -> String? {
+        for fetched in [interfering, rogue] where fetched.error == nil {
+            if let note = unreadable("AP voisins", fetched.response) { return note }
+        }
+        let errors = [rogue.error, interfering.error].compactMap { $0 }
+        func isForbidden(_ e: FortiGateError) -> Bool { if case .forbidden = e { return true }; return false }
+        func isNotFound(_ e: FortiGateError) -> Bool { if case .notFound = e { return true }; return false }
+        let chosen = errors.first(where: isForbidden) ?? errors.first { !isNotFound($0) } ?? errors.first
+        return note("AP voisins", chosen)
     }
 
     /// Réponse reçue (HTTP 2xx) mais illisible : dit au lieu d'afficher une liste vide.

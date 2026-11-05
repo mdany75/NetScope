@@ -283,23 +283,19 @@ struct FortiAPBanner: View {
 
 // MARK: - Remarques de lecture
 
-/// Remarques de la dernière lecture (« Site · Clients Wi-Fi : … ») : les anomalies en avertissement,
-/// les simples absences (adresse inconnue de cette version de FortiOS) en texte discret.
+/// Anomalies de la dernière lecture (« Site · Clients Wi-Fi : réponse illisible… ») mises en avant
+/// dans le bandeau : un 0 ne reste jamais sans explication. Toutes les remarques, simples absences
+/// comprises, restent listées dans « Conseils » (Lecture incomplète).
 struct FortiAPReadNotes: View {
     let notes: [String]
 
     var body: some View {
-        ForEach(notes, id: \.self) { note in
-            let serious = FortiAPReadNotes.isSerious(note)
-            Label(note, systemImage: serious ? "exclamationmark.triangle.fill" : "info.circle")
+        ForEach(FortiWifiNotes.unique(notes).filter(FortiWifiNotes.isAnomaly), id: \.self) { note in
+            Label(note, systemImage: "exclamationmark.triangle.fill")
                 .font(Theme.small)
-                .foregroundStyle(serious ? Theme.warning : Theme.textSecondary)
+                .foregroundStyle(Theme.warning)
                 .fixedSize(horizontal: false, vertical: true)
         }
-    }
-
-    static func isSerious(_ note: String) -> Bool {
-        ["illisible", "annoncent", "refusé"].contains { note.contains($0) }
     }
 }
 

@@ -112,6 +112,37 @@ func registerFortiJSONRepairTests(_ suite: TestSuite) {
         let calm = try await FortiGateReader(transport: quiet).readWifi(now: now)
         try expect(!calm.notes.contains { $0.contains("annoncent") }, "aucun client annoncé : rien à signaler")
     }
+
+    suite.add("FortiAP : clients refusés ou absents, aucune fausse note « annoncent » ; AP voisins, cause la plus parlante") {
+        let ap = Data(FortiRepairFixtures.managedAP.utf8)
+        let refused = FortiByteTransport([FortiWifiPaths.managedAP: (200, ap), FortiWifiPaths.client: (403, Data())])
+        let r403 = try await FortiGateReader(transport: refused).readWifi(now: now)
+        try expect(r403.notes.contains { $0.contains("403") }, "droit refusé dit : \(r403.notes)")
+        try expect(!r403.notes.contains { $0.contains("annoncent") }, "pas de fausse note quand la liste n'a pas été reçue")
+
+        let neighbours = FortiByteTransport([FortiWifiPaths.managedAP: (200, ap), FortiWifiPaths.client: (200, Data(#"{"results":[]}"#.utf8)),
+                                              FortiWifiPaths.rogueAP: (200, Data([0x7B, 0xFF, 0x22])), FortiWifiPaths.interferingAP: (404, Data())])
+        let rn = try await FortiGateReader(transport: neighbours).readWifi(now: now)
+        try expect(rn.notes.contains { $0.hasPrefix("AP voisins") && $0.contains("illisible") }, "rogue_ap illisible plutôt que 404 : \(rn.notes)")
+
+        let forbidden = FortiByteTransport([FortiWifiPaths.managedAP: (200, ap), FortiWifiPaths.client: (200, Data(#"{"results":[]}"#.utf8)),
+                                             FortiWifiPaths.rogueAP: (404, Data()), FortiWifiPaths.interferingAP: (403, Data())])
+        let rf = try await FortiGateReader(transport: forbidden).readWifi(now: now)
+        try expect(rf.notes.contains { $0.hasPrefix("AP voisins") && $0.contains("403") }, "403 plutôt que 404 : \(rf.notes)")
+    }
+
+    suite.add("FortiOS : triangulation_regions en première clé ; remarques classées et sans doublon") {
+        var d = Data(#"{"results":[{"triangulation_regions":[{"wtp_id":"x"#.utf8)
+        d.append(contentsOf: [0x22, 0xFF, 0x22])
+        d.append(Data(#"","rssi":0}],"mac":"aa:92:eb:51:00:1f","signal":-61}]}"#.utf8))
+        let clients = try FortiWifiParsers.clients(d, now: now).unwrap("clé en première position")
+        try expectEqual(clients.first?.rssi, -61, "client lu")
+        try expect(FortiJSON.needsRepair(d), "réparation signalée")
+        try expect(!FortiWifiNotes.isAnomaly("Ford · AP voisins : adresse absente de cette version de FortiOS."), "absence discrète")
+        try expect(FortiWifiNotes.isAnomaly("Ford · Clients Wi-Fi : réponse de la FortiGate illisible"), "illisible en avant")
+        try expect(FortiWifiNotes.isAnomaly("Ford · Clients Wi-Fi : Erreur interne de la FortiGate (HTTP 500)."), "erreur 500 en avant")
+        try expectEqual(FortiWifiNotes.unique(["a", "b", "a"]), ["a", "b"], "doublons retirés")
+    }
 }
 
 private extension Optional {

@@ -53,6 +53,20 @@ public struct FortiWifiOverview: Hashable, Sendable {
     }
 }
 
+/// Remarques de lecture : anomalies (réponse illisible, droit refusé, erreur, clients annoncés
+/// absents de la liste) à mettre en avant, ou simples absences d'une adresse selon la version.
+public enum FortiWifiNotes {
+    public static func isAnomaly(_ note: String) -> Bool {
+        !["adresse absente", "Contrôleur Wi-Fi absent", "aucun contrôleur Wi-Fi"].contains { note.contains($0) }
+    }
+
+    /// Sans doublon, dans l'ordre (un site à deux FortiGate peut donner deux fois la même).
+    public static func unique(_ notes: [String]) -> [String] {
+        var seen = Set<String>()
+        return notes.filter { seen.insert($0).inserted }
+    }
+}
+
 public enum FortiWifiMerge {
     /// Remplace l'identifiant WTP d'un client par le nom de sa borne quand il est connu.
     public static func resolveAPNames(_ clients: [FortiWifiClient], aps: [FortiManagedAP]) -> [FortiWifiClient] {
@@ -90,7 +104,8 @@ public enum FortiWifiMerge {
             result.ssids += r.ssids.map { var s = $0; s.site = label; return s }
             result.rogues += r.rogues.map { var x = $0; x.site = label; return x }
             result.notes += r.notes.map { "\(label) · \($0)" }
-            if !r.available { result.notes.append("\(label) · aucun contrôleur Wi-Fi sur cette FortiGate.") }
+            // La note 404 du relecteur le dit déjà : pas de seconde phrase identique.
+            if !r.available, r.notes.isEmpty { result.notes.append("\(label) · aucun contrôleur Wi-Fi sur cette FortiGate.") }
             result.readAt = max(result.readAt ?? r.readAt, r.readAt)
         }
         return result

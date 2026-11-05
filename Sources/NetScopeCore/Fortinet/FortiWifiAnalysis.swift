@@ -304,8 +304,10 @@ public enum FortiWifiAnalysis {
             }
         }
 
-        for note in overview.notes {
-            advice.append(FortiWifiAdvice(id: "note|\(note)", kind: .note, severity: .info, title: "Lecture incomplète", detail: note))
+        for note in FortiWifiNotes.unique(overview.notes) {
+            // Une anomalie (réponse illisible, droit refusé, clients absents de la liste) est une alerte, pas une simple info.
+            advice.append(FortiWifiAdvice(id: "note|\(note)", kind: .note, severity: FortiWifiNotes.isAnomaly(note) ? .alerte : .info,
+                                          title: "Lecture incomplète", detail: note))
         }
 
         if advice.isEmpty, !overview.aps.isEmpty {

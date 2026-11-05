@@ -53,11 +53,8 @@ public enum FortiJSON {
         return repaired(data).flatMap(strict)
     }
 
-    /// Vrai si le corps n'est lisible qu'une fois réparé (octets invalides retirés).
+    /// Vrai si le corps n'est lisible qu'une fois réparé (octets invalides ou triangulation_regions retirés).
     public static func needsRepair(_ data: Data) -> Bool {
-        // Cas courant, sans second décodage JSON : UTF-8 valide et aucun caractère de contrôle brut.
-        if !data.contains(where: { $0 < 0x20 && $0 != 0x09 && $0 != 0x0A && $0 != 0x0D }),
-           String(data: data, encoding: .utf8) != nil { return false }
         guard !data.isEmpty, strict(data) == nil, let fixed = repaired(data) else { return false }
         return strict(fixed) != nil
     }
@@ -82,8 +79,11 @@ public enum FortiJSON {
         }
         var cleaned = String(scalars)
         if strict(Data(cleaned.utf8)) == nil {
+            // Clé précédée d'une virgule, ou première clé de l'objet (virgule qui suit retirée).
             cleaned = cleaned.replacingOccurrences(of: #",\s*"triangulation_regions"\s*:\s*\[[^\]]*\]"#, with: "",
                                                    options: .regularExpression)
+                .replacingOccurrences(of: #""triangulation_regions"\s*:\s*\[[^\]]*\]\s*,?"#, with: "",
+                                      options: .regularExpression)
         }
         let fixed = Data(cleaned.utf8)
         return fixed == data ? nil : fixed
