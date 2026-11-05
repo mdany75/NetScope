@@ -161,21 +161,27 @@ func registerRustDeskServerTests(_ suite: TestSuite) {
     suite.add("Serveur RustDesk : arguments ssh en tableau, sans secret, destination après « -- »") {
         let account = try RustDeskServerAccount.parse("admin@assistance.exemple.ca:2222")
         try expectEqual(account.port, 2222, "port lu")
-        let args = RustDeskServerSSH.arguments(account, hasSecret: true)
-        try expect(args.contains("BatchMode=no"), "askpass permis avec un secret")
-        try expect(args.contains("StrictHostKeyChecking=accept-new"), "clé changée refusée")
+        let args = RustDeskServerSSH.arguments(account)
+        try expect(args.contains("BatchMode=no"), "askpass permis")
+        try expect(args.contains("StrictHostKeyChecking=ask") && !args.contains("StrictHostKeyChecking=accept-new"),
+                   "serveur inconnu refusé sans accord")
+        try expect(RustDeskServerSSH.arguments(account, acceptNewHostKey: true).contains("StrictHostKeyChecking=accept-new"),
+                   "empreinte acceptée par l'utilisateur")
         try expect(args.contains("-T") && args.contains("RequestTTY=no"), "pas de terminal")
         let dash = try unwrap(args.firstIndex(of: "--"), "« -- » présent")
         try expectEqual(Array(args[(dash + 1)...]), ["admin@assistance.exemple.ca", RustDeskServerSSH.remoteCommand], "destination puis commande fixe")
         try expect(args[..<dash].contains("2222"), "port avant « -- »")
-        let keysOnly = RustDeskServerSSH.arguments(RustDeskServerAccount(user: "admin", host: "10.0.0.5", keyPath: "~/.ssh/id_rd"), hasSecret: false)
-        try expect(keysOnly.contains("BatchMode=yes"), "clés seulement sans secret")
+        let keysOnly = RustDeskServerSSH.arguments(RustDeskServerAccount(user: "admin", host: "10.0.0.5", keyPath: "~/.ssh/id_rd"))
         try expect(keysOnly.contains("IdentitiesOnly=yes") && keysOnly.contains { $0.hasSuffix("/.ssh/id_rd") }, "clé du carnet")
         try expect(!keysOnly.contains("-p"), "port 22 non écrit")
-        let env = RustDeskServerSSH.environment(askpass: URL(fileURLWithPath: "/tmp/x/askpass.sh"))
+        let env = RustDeskServerSSH.environment(askpass: URL(fileURLWithPath: "/tmp/x/askpass.sh"), secretPipe: "/tmp/x/secret-1",
+                                                expect: "admin@assistance.exemple.ca", flag: "/tmp/x/drapeau")
         try expectEqual(env["SSH_ASKPASS_REQUIRE"], "force", "askpass forcé")
-        try expect(env["NETSCOPE_SSH_SECRET"] == nil, "secret ajouté seulement au lancement")
-        try expect(RustDeskServerSSH.askpassScript.contains("echo no"), "jamais le mot de passe à la question d'empreinte")
+        try expect(env["NETSCOPE_SSH_SECRET"] == nil, "jamais de secret dans l'environnement")
+        try expectEqual(env["NETSCOPE_SSH_EXPECT"], "admin@assistance.exemple.ca", "invite attendue")
+        try expectEqual(env["NETSCOPE_SSH_FIFO"], "/tmp/x/secret-1", "tube, pas le secret")
+        try expect(RustDeskServerSSH.environment(askpass: URL(fileURLWithPath: "/tmp/x/askpass.sh"), secretPipe: nil,
+                                                 expect: "admin@srv", flag: "/tmp/x/drapeau")["NETSCOPE_SSH_FIFO"] == nil, "sans secret : pas de tube")
         // Valeurs refusées.
         for bad in ["-oProxyCommand=x@h", "admin@-oProxyCommand=x", "admin@hôte;rm", "assistance.exemple.ca", "admin@h:70000"] {
             try expect((try? RustDeskServerAccount.parse(bad)) == nil, "compte refusé : \(bad)")
@@ -187,13 +193,66 @@ func registerRustDeskServerTests(_ suite: TestSuite) {
         try expect(RustDeskServerSSH.displayCommand(account).hasSuffix("< collecte-rustdesk.sh"), "ligne affichée")
     }
 
+    suite.add("Serveur RustDesk : SSH_ASKPASS ne donne le secret qu'une fois, à l'invite du compte") {
+        let folder = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("nsrd-test-\(UUID().uuidString.prefix(8))")
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let script = try RustDeskServerSSH.writeAskpass(in: folder)
+        let flag = folder.appendingPathComponent("drapeau").path
+        let channel = try SSHSecretChannel(directory: folder, secret: "motdepasse")
+        defer { channel.cancel() }
+        func run(_ prompt: String) throws -> (output: String, errors: String) {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/sh")
+            process.arguments = [script.path, prompt]
+            process.environment = RustDeskServerSSH.environment(askpass: script, secretPipe: channel.path,
+                                                                expect: "admin@10.0.0.2", flag: flag)
+            let output = Pipe(), errors = Pipe()
+            process.standardOutput = output
+            process.standardError = errors
+            process.standardInput = FileHandle.nullDevice
+            try process.run()
+            process.waitUntilExit()
+            return (String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self),
+                    String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self))
+        }
+        let question = "The authenticity of host '10.0.0.2' can't be established.\nED25519 key fingerprint is SHA256:AbC123.\nAre you sure you want to continue connecting (yes/no/[fingerprint])? "
+        let unknown = try run(question)
+        try expectEqual(unknown.output, "no\n", "serveur inconnu : « no », jamais le mot de passe")
+        try expect(unknown.errors.contains("SHA256:AbC123"), "empreinte recopiée pour être montrée")
+        try expectEqual(try run("admin@rebond's password: ").output, "", "rebond (ProxyJump) : rien")
+        try expectEqual(try run("admin@10.0.0.20's password: ").output, "", "hôte voisin au nom plus long : rien")
+        try expectEqual(try run("Enter passphrase for key '/Users/x/.ssh/id_ed25519': ").output, "", "phrase secrète d'une clé : rien")
+        try expect(!FileManager.default.fileExists(atPath: flag), "aucune invite du compte encore : témoin non créé")
+        try expectEqual(try run("admin@10.0.0.2's password: ").output, "motdepasse\n", "invite du compte : le secret")
+        try expectEqual(try run("admin@10.0.0.2's password: ").output, "", "deuxième invite : chaîne vide")
+        try expectEqual(try run("(admin@10.0.0.2) Password: ").output, "", "jamais une deuxième fois")
+        try expect(((try? String(contentsOfFile: flag, encoding: .utf8)) ?? "x").isEmpty, "témoin vide (aucun secret)")
+        try expect(!RustDeskServerSSH.askpassScript.contains("NETSCOPE_SSH_SECRET"), "aucun secret attendu dans l'environnement")
+        let mode = (try FileManager.default.attributesOfItem(atPath: script.path)[.posixPermissions] as? NSNumber)?.intValue
+        try expectEqual(mode, 0o700, "script privé")
+    }
+
+    suite.add("Serveur RustDesk : adresses avec ou sans port, IPv4 vue en IPv6") {
+        func split(_ text: String) -> String { let r = RustDeskRelaySession.split(text); return r.ip + "|" + (r.port.map(String.init) ?? "-") }
+        try expectEqual(split("203.0.113.5:4100"), "203.0.113.5|4100", "IPv4 et port")
+        try expectEqual(split("203.0.113.5"), "203.0.113.5|-", "IPv4 seule")
+        try expectEqual(split("::ffff:192.0.2.14:5000"), "192.0.2.14|5000", "IPv4 en IPv6, avec port")
+        try expectEqual(split("::ffff:192.0.2.14"), "192.0.2.14|-", "IPv4 en IPv6, sans port")
+        try expectEqual(split("[::ffff:192.0.2.14]:5000"), "192.0.2.14|5000", "entre crochets")
+        try expectEqual(split("2001:db8::1234"), "2001:db8::1234|-", "IPv6 nue : le dernier groupe n'est pas un port")
+        try expectEqual(split("[2001:db8::1]:21116"), "2001:db8::1|21116", "IPv6 entre crochets")
+        let request = try unwrap(RustDeskPunchRequest.parse("2026-11-05T14:45:01Z ::ffff:198.51.100.24 -> 123456789@::ffff:203.0.113.77", id: 0), "demande")
+        try expectEqual(request.fromIP, "198.51.100.24", "demandeur sans préfixe")
+        try expectEqual(request.targetIP, "203.0.113.77", "poste sans préfixe")
+    }
+
     suite.add("Serveur RustDesk : compte repris d'une connexion SSH du carnet") {
         let ssh = RemoteConnection(name: "SRV-RUSTDESK", proto: .ssh, host: "10.20.0.5", port: 2200, username: "admin",
                                    proxyJump: "admin@10.20.0.1", identityFile: "~/.ssh/id_ed25519_rd")
         let account = try unwrap(RustDeskServerAccount(connection: ssh), "compte lu")
         try expectEqual(account.label, "admin@10.20.0.5:2200", "libellé")
         try expectEqual(account.jump, "admin@10.20.0.1", "rebond gardé")
-        let args = RustDeskServerSSH.arguments(account, hasSecret: false)
+        let args = RustDeskServerSSH.arguments(account)
         try expect(args.contains("-J") && args.contains("admin@10.20.0.1"), "-J transmis")
         try expect(RustDeskServerAccount(connection: RemoteConnection(name: "x", proto: .ssh, host: "10.0.0.1")) == nil, "sans utilisateur : refusé")
         try expect(RustDeskServerAccount(connection: RemoteConnection(name: "x", proto: .rdp, host: "10.0.0.1", username: "a")) == nil, "RDP refusé")
@@ -337,6 +396,14 @@ func registerRustDeskServerTests(_ suite: TestSuite) {
         try expectEqual(kind(255, "admin@srv: Permission denied (publickey,password)."), .authentication, "authentification")
         try expectEqual(kind(255, "ssh: connect to host srv port 22: Connection refused"), .unreachable, "refusée")
         try expectEqual(kind(255, "@@@ WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED! @@@"), .hostKey, "empreinte changée")
+        try expectEqual(kind(255, "@@@ WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED! @@@\nHost key verification failed."), .hostKey, "changée, pas inconnue")
+        if case .failure(let unknown) = RustDeskServerOutput.interpret(status: 255, stdout: "", stderr: "ED25519 key fingerprint is SHA256:q3VtXyZ0.\nAre you sure you want to continue connecting (yes/no/[fingerprint])? \nHost key verification failed.",
+                                                                       timedOut: false, host: "srv", readAt: readAt) {
+            try expectEqual(unknown.kind, .unknownHostKey, "serveur inconnu")
+            try expectEqual(unknown.fingerprint, "SHA256:q3VtXyZ0", "empreinte montrée")
+        } else {
+            throw TestFailure(message: "serveur inconnu non reconnu", file: #fileID, line: #line)
+        }
         try expectEqual(kind(255, "ssh: connect to host srv port 22: Operation timed out"), .timeout, "délai")
         try expectEqual(kind(0, "", timedOut: true), .timeout, "délai total")
         try expectEqual(kind(127, "fish: Unknown command: eval"), .script, "shell inattendu")
@@ -372,9 +439,28 @@ func registerRustDeskServerTests(_ suite: TestSuite) {
         try expectEqual(loaded.samples, samples, "échantillons relus")
         let text = try String(contentsOf: store.url, encoding: .utf8)
         try expect(!text.lowercased().contains("password") && !text.contains("secret"), "aucun secret dans le fichier")
+        try expectEqual(loaded.currentSamples, samples, "échantillons du même compte gardés")
+        var other = loaded
+        other.settings.manualAccount = "root@autre-serveur.exemple.ca"
+        try expect(other.currentSamples.isEmpty, "échantillons d'un autre serveur écartés")
+        try expect(RustDeskDashboardStore.Contents(settings: RustDeskDashboardSettings(connectionID: UUID()), samples: samples,
+                                                   samplesAccount: "saisi:admin@x").currentSamples.isEmpty, "compte du carnet différent")
         let old = try JSONDecoder().decode(RustDeskDashboardSettings.self, from: Data(#"{"refreshSeconds": 2}"#.utf8))
         try expectEqual(old.refreshSeconds, 10, "délai borné")
         try expect(!old.hasAccount, "sans compte")
+    }
+
+    suite.add("Serveur RustDesk : service en marche si sa console répond, même invisible pour ps") {
+        var status = RustDeskServerOutput.parse(full, readAt: readAt)
+        status.hbbs = nil
+        status.hbbr = nil
+        status.containers = []
+        try expect(status.hbbsRunning && status.hbbrRunning, "consoles lues : en marche")
+        try expect(!status.notices.contains { $0.title.contains("pas en marche") }, "aucune erreur « Arrêté »")
+        status.idConsole = .unreachable(code: 1)
+        try expect(!status.hbbsRunning, "ni ps, ni conteneur, ni console : arrêté")
+        try expect(status.notices.contains { $0.title == "hbbs n’est pas en marche" }, "erreur hbbs")
+        try expect(status.hbbrRunning, "hbbr toujours vu par sa console")
     }
 
     suite.add("Serveur RustDesk : mise en forme (débits, durées, volumes)") {

@@ -59,6 +59,29 @@ enum RustDeskServerDemo {
         return status
     }
 
+    /// Console de hbbs muette (demandes inconnues, pas « hbbs sans pr ») et processus invisibles
+    /// pour ps (/proc monté avec hidepid, compte hors du groupe docker) alors que la console de
+    /// hbbr répond : hbbr reste « En marche » (capture « rustdesk-serveur-console »).
+    static func consoleSilent(now: Date) -> RustDeskServerStatus {
+        var status = status(now: now)
+        status.hbbs = nil
+        status.hbbr = nil
+        status.containers = []
+        status.dockerSkipped = "groupe-docker"
+        status.idConsole = .unreachable(code: 1)
+        status.punchSupported = false
+        status.punchRequests = []
+        status.punchTotal = 0
+        status.relayServers = []
+        return status
+    }
+
+    /// Serveur SSH inconnu : empreinte à accepter (capture « rustdesk-serveur-empreinte »).
+    static let unknownHostKey = RustDeskServerReadError(
+        kind: .unknownHostKey,
+        detail: "Empreinte présentée par assistance.exemple.ca\u{00A0}: SHA256:q3VtXyZ0Lm8RkPbT2wHc9JdNfE4sAaU7iGoY1xKvB5M",
+        fingerprint: "SHA256:q3VtXyZ0Lm8RkPbT2wHc9JdNfE4sAaU7iGoY1xKvB5M")
+
     /// Demandes de connexion (« pr ») : celles de la journée, puis celles des deux jours d'avant.
     static func requests(now: Date) -> [RustDeskPunchRequest] {
         let wks = "184352907", compta = "263418095", laval = "1027554318"

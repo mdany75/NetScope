@@ -32,18 +32,44 @@ public struct RustDeskRelaySession: Equatable, Identifiable, Sendable {
         self.currentKbps = currentKbps
     }
 
-    /// « 1.2.3.4:5 » → (1.2.3.4, 5) ; « ::ffff:1.2.3.4:5 » (IPv6 sans crochets) → port après le dernier « : ».
-    static func split(_ address: String) -> (ip: String, port: Int?) {
-        var text = address
+    /// « 1.2.3.4:5 » → (1.2.3.4, 5) ; « [2001:db8::1]:5 » → (2001:db8::1, 5) ; « ::ffff:1.2.3.4:5 »
+    /// (IPv6 sans crochets) → port après le dernier « : ». Sans port : « ::ffff:1.2.3.4 » →
+    /// 1.2.3.4, « 2001:db8::1234 » reste entière (le dernier groupe n'est pas un port). Le préfixe
+    /// « ::ffff: » (IPv4 vue en IPv6 par un hbbs en double pile) est toujours retiré.
+    public static func split(_ address: String) -> (ip: String, port: Int?) {
+        let text = address
         if text.hasPrefix("["), let close = text.firstIndex(of: "]") {
             let ip = String(text[text.index(after: text.startIndex)..<close])
             let rest = text[text.index(after: close)...]
-            return (ip, rest.hasPrefix(":") ? Int(rest.dropFirst()) : nil)
+            return (unmapped(ip), rest.hasPrefix(":") ? Int(rest.dropFirst()) : nil)
         }
-        guard let colon = text.lastIndex(of: ":"), let port = Int(text[text.index(after: colon)...]) else { return (text, nil) }
-        text = String(text[..<colon])
-        if text.hasPrefix("::ffff:") { text = String(text.dropFirst(7)) }
-        return (text, port)
+        // Adresse entière valide (IPv4 ou IPv6 nue) : aucun port.
+        if isIPv4(text) || isIPv6(text) { return (unmapped(text), nil) }
+        // Le dernier « : » ne sépare un port que si la partie gauche est une adresse valide.
+        if let colon = text.lastIndex(of: ":"), let port = Int(text[text.index(after: colon)...]),
+           (0...65_535).contains(port) {
+            let left = String(text[..<colon])
+            if isIPv4(left) || isIPv6(left) { return (unmapped(left), port) }
+        }
+        return (unmapped(text), nil)
+    }
+
+    /// « ::ffff:1.2.3.4 » → « 1.2.3.4 » (insensible à la casse) ; le reste, inchangé.
+    static func unmapped(_ ip: String) -> String {
+        let prefix = "::ffff:"
+        guard ip.lowercased().hasPrefix(prefix) else { return ip }
+        let rest = String(ip.dropFirst(prefix.count))
+        return isIPv4(rest) ? rest : ip
+    }
+
+    static func isIPv4(_ text: String) -> Bool {
+        var address = in_addr()
+        return !text.isEmpty && inet_pton(AF_INET, text, &address) == 1
+    }
+
+    static func isIPv6(_ text: String) -> Bool {
+        var address = in6_addr()
+        return text.contains(":") && inet_pton(AF_INET6, text, &address) == 1
     }
 
     /// Ligne de « u » ; nil si la ligne ne suit pas le format.
@@ -200,6 +226,18 @@ public enum RustDeskPeerCount: Equatable, Sendable {
         return nil
     }
 
+    /// Raison courte (détail d'une tuile) ; l'explication complète va dans l'infobulle.
+    public var shortExplanation: String {
+        switch self {
+        case .count: return "base de hbbs"
+        case .notFound: return "base introuvable"
+        case .unreadable: return "lisible par root seulement"
+        case .missingTool: return "sqlite3 absent"
+        case .error: return "lecture impossible"
+        case .unknown: return "non lu"
+        }
+    }
+
     /// Pourquoi le nombre est inconnu.
     public var explanation: String {
         switch self {
@@ -350,16 +388,27 @@ public struct RustDeskServerStatus: Equatable, Sendable {
         return (count, truncated)
     }
 
+    /// hbbs en marche : vu par ps, conteneur en marche, ou console qui a répondu (ps peut ne pas
+    /// voir le processus : /proc monté avec hidepid, processus d'un autre utilisateur).
+    public var hbbsRunning: Bool {
+        hbbs != nil || containers.first(where: { $0.name.contains("hbbs") })?.isRunning == true || idConsole.isOK
+    }
+
+    /// hbbr en marche (mêmes règles, console de hbbr).
+    public var hbbrRunning: Bool {
+        hbbr != nil || containers.first(where: { $0.name.contains("hbbr") })?.isRunning == true || relayConsole.isOK
+    }
+
     /// Ce qui manque ou ne va pas, avec la marche à suivre (bandeaux du tableau de bord).
     public var notices: [RustDeskFinding] {
         var list: [RustDeskFinding] = []
         if !complete {
             list.append(RustDeskFinding(.warning, "Lecture incomplète", "La connexion SSH s’est terminée avant la fin du script\u{00A0}: certaines valeurs manquent."))
         }
-        if hbbs == nil, containers.first(where: { $0.name.contains("hbbs") })?.isRunning != true {
+        if !hbbsRunning {
             list.append(RustDeskFinding(.error, "hbbs n’est pas en marche", "Le serveur d’ID ne répond plus aux postes. Sur le serveur\u{00A0}: «\u{00A0}cd /opt/rustdesk && docker compose up -d\u{00A0}» (ou «\u{00A0}systemctl start rustdesk-hbbs\u{00A0}»)."))
         }
-        if hbbr == nil, containers.first(where: { $0.name.contains("hbbr") })?.isRunning != true {
+        if !hbbrRunning {
             list.append(RustDeskFinding(.error, "hbbr n’est pas en marche", "Les sessions relayées sont impossibles. Sur le serveur\u{00A0}: «\u{00A0}cd /opt/rustdesk && docker compose up -d\u{00A0}» (ou «\u{00A0}systemctl start rustdesk-hbbr\u{00A0}»)."))
         }
         switch relayConsole {
@@ -573,6 +622,14 @@ public enum RustDeskServerOutput {
             return .failure(RustDeskServerReadError(kind: .launch, detail: stderr.trimmingCharacters(in: .whitespacesAndNewlines)))
         }
         let lower = stderr.lowercased()
+        // Serveur inconnu, refusé par l'askpass (« no ») : l'empreinte est à montrer et à accepter.
+        if !lower.contains("remote host identification has changed"),
+           lower.contains("continue connecting") || lower.contains("host key verification failed") {
+            let fingerprint = SFTPOutput.fingerprint(in: stderr)
+            return .failure(RustDeskServerReadError(kind: .unknownHostKey,
+                                                    detail: "Empreinte présentée par \(host)\u{00A0}: \(fingerprint ?? "inconnue")",
+                                                    fingerprint: fingerprint))
+        }
         if status == 255 || lower.contains("permission denied") || lower.contains("host key") {
             let outcome = SSHCredentialTest.analyze(exitCode: 255, stdout: "", stderr: stderr, host: host, milliseconds: 0)
             var reason = outcome.message

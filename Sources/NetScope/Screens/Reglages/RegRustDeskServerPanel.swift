@@ -9,6 +9,10 @@ struct RegRustDeskServerPanel: View {
     @ObservedObject private var server = RustDeskServerModel.shared
     @State private var password = ""
     @State private var passwordSaved = false
+    /// Compte saisi, validé dans les réglages seulement à Retour ou à la sortie du champ (pas à
+    /// chaque frappe : chaque changement de compte oublie l'état, les échantillons et relance une lecture).
+    @State private var manualText: String?
+    @FocusState private var manualFocused: Bool
 
     /// Choix du compte : une connexion du carnet, ou « saisi » (nil).
     private var accountChoice: Binding<UUID?> {
@@ -42,9 +46,15 @@ struct RegRustDeskServerPanel: View {
                              if server.settings.connectionID == nil {
                                  RegField(label: "Utilisateur et hôte") {
                                      RegTextField(placeholder: "admin@assistance.exemple.ca[:22]",
-                                                  text: Binding(get: { server.settings.manualAccount },
-                                                                set: { server.settings.manualAccount = $0 }),
+                                                  text: Binding(get: { manualText ?? server.settings.manualAccount },
+                                                                set: { manualText = $0 }),
                                                   mono: true, invalid: manualInvalid)
+                                         .focused($manualFocused)
+                                         .onSubmit(commitManualAccount)
+                                         .onChange(of: manualFocused) { _, focused in
+                                             if !focused { commitManualAccount() }
+                                         }
+                                         .onDisappear(perform: commitManualAccount)
                                  }
                              }
                          }
@@ -57,12 +67,16 @@ struct RegRustDeskServerPanel: View {
                                  HStack(spacing: 8) {
                                      RegTextField(placeholder: server.hasManualPassword ? "Enregistré au Trousseau (inchangé)" : "Aucun\u{00A0}: clés de ~/.ssh et agent",
                                                   text: $password, secure: true)
-                                         .onSubmit(savePassword)
+                                         // Retour dans le champ vide n'efface rien : seul « Oublier » le fait.
+                                         .onSubmit { if !password.isEmpty { savePassword() } }
+                                         .disabled(!passwordAccountValid)
                                      Button(password.isEmpty && server.hasManualPassword ? "Oublier" : "Enregistrer", action: savePassword)
                                          .buttonStyle(.secondary)
-                                         .disabled(password.isEmpty && !server.hasManualPassword)
+                                         .disabled(!passwordAccountValid || (password.isEmpty && !server.hasManualPassword))
                                  }
-                                 Text(passwordSaved ? "Trousseau mis à jour." : "Au Trousseau macOS seulement, remis à ssh par SSH_ASKPASS (jamais dans la ligne de commande ni sur le disque).")
+                                 Text(passwordSaved ? "Trousseau mis à jour." : passwordAccountValid
+                                      ? "Au Trousseau macOS seulement, lié à ce compte\u{00A0}: remis par SSH_ASKPASS à la seule invite de «\u{00A0}\(server.accountLabel ?? "")\u{00A0}» (jamais à un autre hôte, ni dans la ligne de commande, ni sur le disque)."
+                                      : "Indiquez d’abord l’utilisateur et l’hôte (validés par Retour)\u{00A0}: le mot de passe est lié à ce compte.")
                                      .font(Theme.caption).foregroundStyle(passwordSaved ? Theme.success : Theme.textSecondary)
                                      .fixedSize(horizontal: false, vertical: true)
                              }
@@ -107,8 +121,19 @@ struct RegRustDeskServerPanel: View {
     }
 
     private var manualInvalid: Bool {
-        let text = server.settings.manualAccount.trimmingCharacters(in: .whitespaces)
+        let text = (manualText ?? server.settings.manualAccount).trimmingCharacters(in: .whitespaces)
         return !text.isEmpty && (try? RustDeskServerAccount.parse(text)) == nil
+    }
+
+    /// Le compte saisi validé est utilisable : le mot de passe peut lui être lié.
+    private var passwordAccountValid: Bool {
+        manualText == nil && RustDeskServerModel.manualPasswordAccount(for: server.settings.manualAccount) != nil
+    }
+
+    private func commitManualAccount() {
+        guard let text = manualText else { return }
+        manualText = nil
+        if text != server.settings.manualAccount { server.settings.manualAccount = text }
     }
 
     private var accountProblem: String? {

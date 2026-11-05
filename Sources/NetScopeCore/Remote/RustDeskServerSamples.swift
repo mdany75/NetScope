@@ -39,6 +39,14 @@ public struct RustDeskDashboardSettings: Codable, Equatable, Sendable {
         connectionID != nil || !manualAccount.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
+    /// Compte lu, pour rattacher les échantillons : « carnet:<UUID> » ou « saisi:<utilisateur@hôte> »
+    /// (nil sans compte).
+    public var accountKey: String? {
+        if let connectionID { return "carnet:" + connectionID.uuidString }
+        let text = manualAccount.trimmingCharacters(in: .whitespaces)
+        return text.isEmpty ? nil : "saisi:" + text.lowercased()
+    }
+
     /// « 30 s », « 2 min ».
     public static func refreshLabel(_ seconds: Int) -> String {
         seconds < 60 ? "\(seconds)\u{00A0}s" : "\(seconds / 60)\u{00A0}min"
@@ -90,19 +98,30 @@ public struct RustDeskDashboardStore: Sendable {
         public var version = 1
         public var settings: RustDeskDashboardSettings
         public var samples: [RustDeskServerSample]
+        /// Compte des échantillons (`RustDeskDashboardSettings.accountKey`) : ceux d'un autre serveur
+        /// sont écartés au chargement.
+        public var samplesAccount: String?
 
-        public init(settings: RustDeskDashboardSettings = RustDeskDashboardSettings(), samples: [RustDeskServerSample] = []) {
+        public init(settings: RustDeskDashboardSettings = RustDeskDashboardSettings(), samples: [RustDeskServerSample] = [],
+                    samplesAccount: String? = nil) {
             self.settings = settings
             self.samples = samples
+            self.samplesAccount = samplesAccount ?? settings.accountKey
         }
 
-        private enum CodingKeys: String, CodingKey { case version, settings, samples }
+        /// Échantillons du compte réglé seulement (fichier ancien sans compte : écartés aussi).
+        public var currentSamples: [RustDeskServerSample] {
+            samplesAccount != nil && samplesAccount == settings.accountKey ? samples : []
+        }
+
+        private enum CodingKeys: String, CodingKey { case version, settings, samples, samplesAccount }
 
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             version = (try? c.decodeIfPresent(Int.self, forKey: .version)) ?? 1
             settings = ((try? c.decodeIfPresent(RustDeskDashboardSettings.self, forKey: .settings)) ?? nil) ?? RustDeskDashboardSettings()
             samples = ((try? c.decodeIfPresent([RustDeskServerSample].self, forKey: .samples)) ?? nil) ?? []
+            samplesAccount = (try? c.decodeIfPresent(String.self, forKey: .samplesAccount)) ?? nil
         }
     }
 

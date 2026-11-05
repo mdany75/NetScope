@@ -10,18 +10,37 @@ import NetScopeCore
 final class RustDeskServerModel: ObservableObject {
     static let shared = RustDeskServerModel()
 
-    /// Mot de passe du compte saisi à la main (compte du carnet : celui de la connexion SSH).
-    nonisolated static let manualPasswordAccount = "tableau-serveur-ssh"
+    /// Mot de passe du compte saisi à la main, au Trousseau sous « tableau-serveur-ssh:<utilisateur@hôte[:port]> » :
+    /// lié au compte, il n'est jamais remis à un autre hôte (compte du carnet : celui de la connexion SSH).
+    nonisolated static let manualPasswordPrefix = "tableau-serveur-ssh:"
+    /// Ancien nom fixe (avant la liaison au compte) : effacé au lancement.
+    nonisolated static let legacyManualPasswordAccount = "tableau-serveur-ssh"
+
+    /// Nom du mot de passe au Trousseau pour un compte saisi (nil : compte absent ou invalide).
+    nonisolated static func manualPasswordAccount(for manualAccount: String) -> String? {
+        let text = manualAccount.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty, let account = try? RustDeskServerAccount.parse(text) else { return nil }
+        return manualPasswordPrefix + account.label.lowercased()
+    }
 
     @Published var settings: RustDeskDashboardSettings {
         didSet {
             guard settings != oldValue else { return }
-            save()
-            if settings.refreshSeconds != oldValue.refreshSeconds, loop != nil { restartLoop() }
-            if settings.connectionID != oldValue.connectionID || settings.manualAccount != oldValue.manualAccount {
+            if settings.accountKey != oldValue.accountKey {
+                // Autre serveur : l'état, l'erreur, l'empreinte acceptée et les échantillons de l'ancien
+                // sont oubliés ; une lecture encore en cours sera ignorée à son retour.
+                generation += 1
+                reading = false
                 status = nil
                 error = nil
+                acceptedHostKeyAccount = nil
+                samples = []
+                refreshManualPasswordFlag()
+                if !isAvailable { isShown = false }
             }
+            save()
+            if settings.refreshSeconds != oldValue.refreshSeconds, loop != nil { restartLoop() }
+            if settings.accountKey != oldValue.accountKey, loop != nil, settings.hasAccount { refresh() }
         }
     }
     @Published private(set) var samples: [RustDeskServerSample] = []
@@ -39,6 +58,12 @@ final class RustDeskServerModel: ObservableObject {
     }
     @Published var copied: String?
 
+    /// Lectures lancées pour le compte en cours : une lecture d'un compte précédent est ignorée.
+    private var generation = 0
+    /// Compte (libellé) dont l'utilisateur a accepté l'empreinte inconnue : la lecture suivante
+    /// l'ajoute à ~/.ssh/known_hosts (accept-new).
+    private var acceptedHostKeyAccount: String?
+
     private let store: RustDeskDashboardStore?
     private let sandboxed: Bool
     private var loop: Task<Void, Never>?
@@ -52,7 +77,9 @@ final class RustDeskServerModel: ObservableObject {
             status = RustDeskServerDemo.status(now: Date())
             // Captures : NETSCOPE_REMOTE_VIEW=rustdesk-serveur ouvre le tableau de bord ;
             // « rustdesk-serveur-erreur » : serveur injoignable par SSH (dernière lecture grisée) ;
-            // « rustdesk-serveur-ancien » : hbbs sans « pr », console hbbr fermée, base illisible.
+            // « rustdesk-serveur-ancien » : hbbs sans « pr », console hbbr fermée, base illisible ;
+            // « rustdesk-serveur-console » : console hbbs muette, processus invisibles pour ps ;
+            // « rustdesk-serveur-empreinte » : serveur SSH inconnu, empreinte à accepter.
             switch ProcessInfo.processInfo.environment["NETSCOPE_REMOTE_VIEW"] {
             case "rustdesk-serveur"?:
                 isShown = true
@@ -62,15 +89,27 @@ final class RustDeskServerModel: ObservableObject {
             case "rustdesk-serveur-ancien"?:
                 isShown = true
                 status = RustDeskServerDemo.degraded(now: Date())
+            case "rustdesk-serveur-console"?:
+                isShown = true
+                status = RustDeskServerDemo.consoleSilent(now: Date())
+            case "rustdesk-serveur-empreinte"?:
+                // Première lecture refusée : aucun état encore, l'empreinte à accepter.
+                isShown = true
+                status = nil
+                error = RustDeskServerDemo.unknownHostKey
             default:
                 break
             }
         } else {
             let contents = store?.load()
             settings = contents?.settings ?? RustDeskDashboardSettings()
-            samples = contents?.samples ?? []
+            // Échantillons d'un autre serveur (compte changé depuis) : écartés.
+            samples = contents?.currentSamples ?? []
             if !sandboxed {
-                hasManualPassword = RustDeskModel.keychain.string(for: Self.manualPasswordAccount) != nil
+                if RustDeskModel.keychain.string(for: Self.legacyManualPasswordAccount) != nil {
+                    try? RustDeskModel.keychain.set(nil, for: Self.legacyManualPasswordAccount)
+                }
+                refreshManualPasswordFlag()
             }
         }
     }
@@ -121,18 +160,30 @@ final class RustDeskServerModel: ObservableObject {
         if let id = settings.connectionID {
             return RemoteSessionStore.keychain.string(for: id.uuidString)
         }
-        return RustDeskModel.keychain.string(for: Self.manualPasswordAccount)
+        guard let key = Self.manualPasswordAccount(for: settings.manualAccount) else { return nil }
+        return RustDeskModel.keychain.string(for: key)
     }
 
-    /// Enregistre (ou efface, si vide) le mot de passe du compte saisi.
-    func setManualPassword(_ value: String) {
+    /// Un mot de passe est enregistré pour le compte saisi actuel.
+    private func refreshManualPasswordFlag() {
+        guard !sandboxed, !RegEnvironment.isDemo else { return }
+        hasManualPassword = Self.manualPasswordAccount(for: settings.manualAccount)
+            .map { RustDeskModel.keychain.string(for: $0) != nil } ?? false
+    }
+
+    /// Enregistre (ou efface, si vide) le mot de passe du compte saisi, lié à ce compte.
+    /// Faux si le compte saisi est absent ou invalide (rien n'est enregistré).
+    @discardableResult
+    func setManualPassword(_ value: String) -> Bool {
+        guard let key = Self.manualPasswordAccount(for: settings.manualAccount) else { return false }
         hasManualPassword = !value.isEmpty
-        guard !sandboxed else { return }
+        guard !sandboxed else { return true }
         do {
-            try RustDeskModel.keychain.set(value.isEmpty ? nil : value, for: Self.manualPasswordAccount)
+            try RustDeskModel.keychain.set(value.isEmpty ? nil : value, for: key)
         } catch {
             AppLog.shared.error("RustDesk", "Mot de passe du serveur non enregistré au Trousseau\u{00A0}: \(error.localizedDescription)")
         }
+        return true
     }
 
     /// Onglet proposé : compte choisi, ou serveur RustDesk déjà réglé.
@@ -185,9 +236,14 @@ final class RustDeskServerModel: ObservableObject {
         }
         reading = true
         let secret = secret()
+        let current = generation
+        let acceptNew = acceptedHostKeyAccount == account.label
         Task {
-            let result = await RustDeskServerSSH.run(account, secret: secret)
+            let result = await RustDeskServerSSH.run(account, secret: secret, acceptNewHostKey: acceptNew)
+            // Compte changé pendant la lecture : résultat d'un autre serveur, ignoré.
+            guard current == self.generation else { return }
             self.reading = false
+            if case .success = result, acceptNew { self.acceptedHostKeyAccount = nil }
             switch result {
             case .success(let value):
                 self.status = value
@@ -204,6 +260,19 @@ final class RustDeskServerModel: ObservableObject {
                 self.error = failure
             }
         }
+    }
+
+    /// « Accepter » l'empreinte d'un serveur inconnu : la lecture suivante l'ajoute à ~/.ssh/known_hosts.
+    func acceptHostKey() {
+        guard error?.kind == .unknownHostKey, let label = accountLabel else { return }
+        acceptedHostKeyAccount = label
+        error = nil
+        refresh()
+    }
+
+    /// Plus de compte ni de serveur RustDesk réglé : l'onglet disparaît, le tableau de bord aussi.
+    func hideIfUnavailable() {
+        if !isAvailable, isShown { isShown = false }
     }
 
     private func updateLoop() {
@@ -250,7 +319,7 @@ final class RustDeskServerModel: ObservableObject {
     private func save() {
         guard let store else { return }
         do {
-            try store.save(RustDeskDashboardStore.Contents(settings: settings, samples: samples))
+            try store.save(RustDeskDashboardStore.Contents(settings: settings, samples: samples, samplesAccount: settings.accountKey))
         } catch {
             AppLog.shared.error("RustDesk", "Tableau de bord du serveur non enregistré\u{00A0}: \(error.localizedDescription)")
         }

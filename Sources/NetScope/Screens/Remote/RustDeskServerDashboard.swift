@@ -38,7 +38,7 @@ struct RustDeskServerDashboard: View {
             .padding(.vertical, 18)
         }
         .onAppear {
-            if server.status == nil, server.settings.hasAccount { server.refresh() }
+            if server.status == nil, server.error == nil, server.settings.hasAccount { server.refresh() }
         }
     }
 
@@ -67,8 +67,9 @@ struct RustDeskServerDashboard: View {
     private var subtitle: String {
         var parts: [String] = [server.accountLabel ?? "Lecture seule par SSH"]
         if let status = server.status {
-            if !status.system.isEmpty { parts.append(status.system) }
-            if let version = status.version { parts.append("RustDesk Server \(version)") }
+            // Espaces insécables : la coupure de ligne ne tombe jamais au milieu d'un nom.
+            if !status.system.isEmpty { parts.append(status.system.replacingOccurrences(of: " ", with: "\u{00A0}")) }
+            if let version = status.version { parts.append("RustDesk\u{00A0}Server\u{00A0}\(version)") }
         }
         return parts.joined(separator: " · ")
     }
@@ -125,12 +126,13 @@ struct RustDeskServerDashboard: View {
 
     private func errorBanner(_ error: RustDeskServerReadError) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: error.kind == .account ? "person.crop.circle.badge.questionmark" : "exclamationmark.triangle.fill")
+            Image(systemName: error.kind == .account ? "person.crop.circle.badge.questionmark"
+                  : error.kind == .unknownHostKey ? "key.fill" : "exclamationmark.triangle.fill")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(error.kind == .account ? Theme.warning : Theme.critical)
+                .foregroundStyle(error.kind == .account || error.kind == .unknownHostKey ? Theme.warning : Theme.critical)
             VStack(alignment: .leading, spacing: 3) {
                 Text(error.title).font(Theme.bodySemibold).foregroundStyle(Theme.text)
-                Text(error.detail).font(Theme.small).foregroundStyle(Theme.text).textSelection(.enabled)
+                Text(error.detail).font(error.fingerprint == nil ? Theme.small : Theme.mono(11)).foregroundStyle(Theme.text).textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(error.advice).font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -142,10 +144,15 @@ struct RustDeskServerDashboard: View {
             Spacer(minLength: 4)
             if error.kind == .account {
                 Button("Réglages") { openSettings() }.buttonStyle(RemoteSmallButtonStyle())
+            } else if error.kind == .unknownHostKey {
+                Button("Accepter") { server.acceptHostKey() }
+                    .buttonStyle(RemoteSmallButtonStyle(primary: true))
+                    .disabled(server.reading)
+                    .help("Ajoute cette empreinte à ~/.ssh/known_hosts et relance la lecture (le mot de passe n’est envoyé qu’après)")
             }
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(error.kind == .account ? Theme.warningSoft : Theme.criticalSoft))
+        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(error.kind == .account || error.kind == .unknownHostKey ? Theme.warningSoft : Theme.criticalSoft))
     }
 
     // MARK: Contenu
@@ -163,14 +170,18 @@ struct RustDeskServerDashboard: View {
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionHeader("Sessions relayées en cours")
-                    Text("Inconnues\u{00A0}: la console de hbbr (127.0.0.1:21117) n’a pas répondu à cette lecture.")
+                    Text("Inconnues\u{00A0}: la console de hbbr (127.0.0.1:\(String(RustDeskConsoleCommand.relayPort))) n’a pas répondu à cette lecture.")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 }
             }
         }
         Panel {
             VStack(alignment: .leading, spacing: 8) {
-                if status.idConsole == .ok && !status.punchSupported {
+                if status.idConsole != .ok {
+                    SectionHeader("Demandes de connexion récentes")
+                    Text("Inconnues\u{00A0}: la console de hbbs (127.0.0.1:\(String(RustDeskConsoleCommand.idPort))) n’a pas répondu à cette lecture.")
+                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                } else if !status.punchSupported {
                     SectionHeader("Demandes de connexion récentes")
                     Text("Non disponible\u{00A0}: ce hbbs ne connaît pas la commande «\u{00A0}pr\u{00A0}». Mettez l’image rustdesk/rustdesk-server à jour.")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
@@ -212,26 +223,44 @@ struct RustDeskServerDashboard: View {
                                detail: status.relayConsole == .ok ? "en cours, par hbbr" : "console hbbr non lue",
                                tone: status.relayConsole == .ok ? nil : .warning)
             RustDeskServerTile(title: "Débit relayé", value: status.relayConsole == .ok ? RustDeskServerFormat.kbps(status.currentRelayKbps) : "—",
-                               detail: peak.map { "actuel · pointe \(RustDeskServerFormat.kbps($0))" } ?? "actuel")
-            RustDeskServerTile(title: "Demandes · 24 h",
-                               value: status.punchSupported ? (day.atLeast ? "\(day.count)+" : "\(day.count)") : "—",
-                               detail: status.punchSupported ? (relayed > 0 ? "dont \(relayed) relayée\(relayed > 1 ? "s" : "") en cours" : "relayées ou directes")
-                                   : "hbbs sans «\u{00A0}pr\u{00A0}»")
+                               detail: status.relayConsole == .ok ? (peak.map { "actuel · pointe \(RustDeskServerFormat.kbps($0))" } ?? "actuel")
+                                   : "console hbbr non lue",
+                               tone: status.relayConsole == .ok ? nil : .warning)
+            requestsTile(status, day: day, relayed: relayed)
             RustDeskServerTile(title: "Postes enregistrés", value: status.peers.value.map(String.init) ?? "—",
-                               detail: status.peers.value == nil ? status.peers.explanation : "base de hbbs")
-            processTile("hbbs", process: status.hbbs, container: status.containers.first { $0.name.contains("hbbs") })
-            processTile("hbbr", process: status.hbbr, container: status.containers.first { $0.name.contains("hbbr") })
+                               detail: status.peers.shortExplanation)
+                .help(status.peers.explanation)
+            processTile("hbbs", process: status.hbbs, container: status.containers.first { $0.name.contains("hbbs") },
+                        consoleAnswered: status.idConsole.isOK)
+            processTile("hbbr", process: status.hbbr, container: status.containers.first { $0.name.contains("hbbr") },
+                        consoleAnswered: status.relayConsole.isOK)
             diskTile(status.disk)
         }
     }
 
-    private func processTile(_ name: String, process: RustDeskServerProcess?, container: RustDeskContainer?) -> some View {
-        let running = process != nil || container?.isRunning == true
+    /// Demandes des dernières 24 h : console hbbs non lue, hbbs sans « pr », ou nombre lu.
+    private func requestsTile(_ status: RustDeskServerStatus, day: (count: Int, atLeast: Bool), relayed: Int) -> some View {
+        if status.idConsole != .ok {
+            return RustDeskServerTile(title: "Demandes · 24 h", value: "—", detail: "console hbbs non lue", tone: .warning)
+        }
+        if !status.punchSupported {
+            return RustDeskServerTile(title: "Demandes · 24 h", value: "—", detail: "hbbs sans «\u{00A0}pr\u{00A0}»")
+        }
+        return RustDeskServerTile(title: "Demandes · 24 h", value: day.atLeast ? "\(day.count)+" : "\(day.count)",
+                                  detail: relayed > 0 ? "dont \(relayed) relayée\(relayed > 1 ? "s" : "") en cours" : "relayées ou directes")
+    }
+
+    /// `consoleAnswered` : la console du service a répondu (en marche même si ps ne voit pas le processus).
+    private func processTile(_ name: String, process: RustDeskServerProcess?, container: RustDeskContainer?,
+                             consoleAnswered: Bool) -> some View {
+        let running = process != nil || container?.isRunning == true || consoleAnswered
         let detail: String
         if let process {
             detail = "depuis \(RustDeskServerFormat.duration(process.seconds)) · PID \(process.pid)"
         } else if let container {
-            detail = container.status
+            detail = RustDeskServerFormat.dockerStatus(container.status)
+        } else if consoleAnswered {
+            detail = "processus non visible par ps"
         } else {
             detail = "processus absent"
         }
@@ -244,8 +273,9 @@ struct RustDeskServerDashboard: View {
             return RustDeskServerTile(title: "Disque", value: "—", detail: "df non lu")
         }
         let percent = Int((disk.usedFraction * 100).rounded())
-        return RustDeskServerTile(title: "Disque · \(disk.mount)", value: "\(percent)\u{00A0}%",
-                                  detail: "\(RustDeskServerFormat.kilobytes(disk.availableKB)) libres"
+        // Le point de montage reste dans le détail : le titre est mis en majuscules (« /srv/data » ≠ « /SRV/DATA »).
+        return RustDeskServerTile(title: "Disque", value: "\(percent)\u{00A0}%",
+                                  detail: "\(disk.mount) · \(RustDeskServerFormat.kilobytes(disk.availableKB)) libres"
                                       + (disk.dataKB.map { " · data \(RustDeskServerFormat.kilobytes($0))" } ?? ""),
                                   tone: disk.usedFraction >= 0.9 ? .warning : nil, fraction: disk.usedFraction)
     }
@@ -385,7 +415,7 @@ struct RustDeskServerChart: View {
                 SectionHeader(title: "Six dernières heures", subtitle: "mesuré par ce Mac") {
                     HStack(spacing: 12) {
                         legend("Sessions relayées", color: RemoteProtocol.rustdesk.tint)
-                        legend("Débit relayé", color: Theme.accent)
+                        legend("Débit relayé", color: Theme.warning, dashed: true)
                     }
                 }
                 if samples.count < 2 {
@@ -410,15 +440,16 @@ struct RustDeskServerChart: View {
                                 LineMark(x: .value("Heure", sample.date),
                                          y: .value("Sessions", Double(sample.kbps) / 1_000 / maxMbps * Double(maxSessions)),
                                          series: .value("Suite", "d\(run.id)"))
-                                    .foregroundStyle(Theme.accent)
-                                    .lineStyle(StrokeStyle(lineWidth: 1.2, lineJoin: .round))
+                                    .foregroundStyle(Theme.warning)
+                                    .lineStyle(StrokeStyle(lineWidth: 1.4, lineJoin: .round, dash: [4, 2]))
                             }
                         }
                     }
                     .chartXScale(domain: now.addingTimeInterval(-6 * 3_600)...now)
                     .chartYScale(domain: 0...Double(maxSessions))
                     .chartYAxis {
-                        AxisMarks(position: .leading, values: Array(0...maxSessions).map(Double.init)) { value in
+                        // Au plus cinq graduations entières, quel que soit le nombre de sessions.
+                        AxisMarks(position: .leading, values: Array(stride(from: 0, through: maxSessions, by: max(1, Int((Double(maxSessions) / 4).rounded(.up))))).map(Double.init)) { value in
                             AxisGridLine().foregroundStyle(Theme.neutralSoft)
                             AxisValueLabel {
                                 if let count = value.as(Double.self) {
@@ -451,9 +482,14 @@ struct RustDeskServerChart: View {
         }
     }
 
-    private func legend(_ label: String, color: Color) -> some View {
+    private func legend(_ label: String, color: Color, dashed: Bool = false) -> some View {
         HStack(spacing: 5) {
-            RoundedRectangle(cornerRadius: 1).fill(color).frame(width: 12, height: 3)
+            Path { path in
+                path.move(to: CGPoint(x: 0, y: 1.5))
+                path.addLine(to: CGPoint(x: 12, y: 1.5))
+            }
+            .stroke(color, style: StrokeStyle(lineWidth: dashed ? 2 : 3, dash: dashed ? [4, 2] : []))
+            .frame(width: 12, height: 3)
             Text(label).font(Theme.caption).foregroundStyle(Theme.textSecondary)
         }
     }

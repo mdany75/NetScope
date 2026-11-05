@@ -12,6 +12,8 @@ struct RemoteSessionArea: View {
     @ObservedObject private var sessions = RemoteSessionStore.shared
     @ObservedObject private var tunnels = SSHTunnelStore.shared
     @ObservedObject private var server = RustDeskServerModel.shared
+    /// Serveur RustDesk réglé ou non : décide, avec le compte du tableau de bord, si l'onglet existe.
+    @ObservedObject private var rustdesk = RustDeskModel.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -59,6 +61,11 @@ struct RemoteSessionArea: View {
         .onChange(of: model.draft != nil || model.tunnelDraft != nil) { _, editing in
             if editing { server.isShown = false }
         }
+        // Compte retiré et serveur RustDesk non réglé : plus d'onglet, donc plus de tableau de bord.
+        .onChange(of: server.isAvailable) { _, available in
+            if !available { server.hideIfUnavailable() }
+        }
+        .onAppear { server.hideIfUnavailable() }
         .confirmationDialog("Fermer l’onglet «\u{00A0}\(sessions.pendingClose?.tunnelSession?.title ?? sessions.pendingClose?.connection.name ?? "")\u{00A0}»\u{00A0}?",
                             isPresented: Binding(get: { sessions.pendingClose != nil },
                                                  set: { if !$0 { sessions.pendingClose = nil } }),

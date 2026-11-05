@@ -292,15 +292,17 @@ public enum RustDeskServerSSH {
     public static let totalTimeout: TimeInterval = 60
 
     /// Arguments de ssh, en tableau (jamais une chaîne passée à un shell) : options, puis « -- »,
-    /// la destination et la commande distante fixe. Aucun secret : le mot de passe éventuel passe
-    /// par SSH_ASKPASS. `hasSecret` faux : clés et agent seulement (BatchMode=yes).
-    public static func arguments(_ account: RustDeskServerAccount, hasSecret: Bool,
+    /// la destination et la commande distante fixe. Aucun secret. BatchMode=no : SSH_ASKPASS
+    /// (toujours présent) répond à toutes les questions de ssh. Serveur inconnu : refusé
+    /// (StrictHostKeyChecking=ask, l'askpass répond « no ») tant que l'utilisateur n'a pas accepté
+    /// son empreinte (`acceptNewHostKey` : accept-new) ; clé changée : toujours refusée.
+    public static func arguments(_ account: RustDeskServerAccount, acceptNewHostKey: Bool = false,
                                  connectTimeout: Int = connectTimeout) -> [String] {
         var args = [
             "-T",
-            "-o", "BatchMode=\(hasSecret ? "no" : "yes")",
+            "-o", "BatchMode=no",
             "-o", "ConnectTimeout=\(max(1, connectTimeout))",
-            "-o", "StrictHostKeyChecking=accept-new",
+            "-o", "StrictHostKeyChecking=\(acceptNewHostKey ? "accept-new" : "ask")",
             "-o", "NumberOfPasswordPrompts=1",
             "-o", "ServerAliveInterval=10",
             "-o", "ServerAliveCountMax=2",
@@ -322,27 +324,61 @@ public enum RustDeskServerSSH {
         return args
     }
 
-    /// Environnement de ssh : script SSH_ASKPASS forcé quand un secret existe (le secret est ajouté
-    /// au lancement seulement, dans NETSCOPE_SSH_SECRET, jamais dans les arguments ni sur le disque).
-    public static func environment(askpass: URL?) -> [String: String] {
-        var env = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "HOME": NSHomeDirectory(), "LANG": "C"]
-        if let askpass {
-            env["SSH_ASKPASS"] = askpass.path
-            env["SSH_ASKPASS_REQUIRE"] = "force"
-            env["DISPLAY"] = ":0"
+    /// Environnement de ssh : script SSH_ASKPASS forcé, fichier témoin (`flag`) et, quand un mot
+    /// de passe existe, chemin du tube à usage unique (`secretPipe`, jamais le secret lui-même) et
+    /// invite attendue (`expect` : « utilisateur@hôte » du compte). Comme pour l'onglet SSH
+    /// (`SSHTerminalCommand`) : rien de secret dans l'environnement, hérité par ProxyJump et autres.
+    public static func environment(askpass: URL, secretPipe: String?, expect: String, flag: String) -> [String: String] {
+        var env = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "HOME": NSHomeDirectory(), "LANG": "C",
+                   "SSH_ASKPASS": askpass.path, "SSH_ASKPASS_REQUIRE": "force", "DISPLAY": ":0",
+                   "NETSCOPE_SSH_FLAG": flag]
+        if let secretPipe, !secretPipe.isEmpty, !expect.isEmpty {
+            env["NETSCOPE_SSH_FIFO"] = secretPipe
+            env["NETSCOPE_SSH_EXPECT"] = expect
         }
         return env
     }
 
-    /// Script SSH_ASKPASS (sans secret) : « no » à la question d'un serveur inconnu ou changé
-    /// (jamais le mot de passe), le secret sinon.
+    /// Script SSH_ASKPASS (aucun secret dedans), sans terminal :
+    /// - question d'un serveur inconnu : « no » (l'empreinte est recopiée sur la sortie d'erreur
+    ///   pour être montrée) ; jamais le mot de passe ;
+    /// - invite de mot de passe qui nomme exactement « utilisateur@hôte » du compte
+    ///   (« admin@srv's password: », « (admin@srv) Password: ») : le secret, lu dans le tube, une
+    ///   seule fois (le fichier témoin, vide, est créé à ce moment) ;
+    /// - toute autre invite (rebond d'un ProxyJump, phrase secrète d'une clé, deuxième demande) :
+    ///   rien, code 1 (ssh abandonne cette méthode).
     public static let askpassScript = """
     #!/bin/sh
+    # NetScope : réponses aux questions de ssh pour le tableau de bord du serveur RustDesk. Aucun secret ici.
     case "$1" in
-      *"continue connecting"*|*"(yes/no"*) echo no ;;
-      *) printf '%s\\n' "$NETSCOPE_SSH_SECRET" ;;
+      *"continue connecting"*|*"(yes/no"*) printf '%s\\n' "$1" >&2; echo no; exit 0 ;;
     esac
+    expected=0
+    if [ -n "$NETSCOPE_SSH_EXPECT" ]; then
+      case "$1" in
+        "$NETSCOPE_SSH_EXPECT's password"*|*"($NETSCOPE_SSH_EXPECT) "*[Pp]assword*) expected=1 ;;
+      esac
+    fi
+    if [ "$expected" = 1 ] && [ -n "$NETSCOPE_SSH_FIFO" ] && [ -p "$NETSCOPE_SSH_FIFO" ] \\
+       && [ -n "$NETSCOPE_SSH_FLAG" ] && [ ! -e "$NETSCOPE_SSH_FLAG" ]; then
+      : > "$NETSCOPE_SSH_FLAG"
+      IFS= read -r secret < "$NETSCOPE_SSH_FIFO"
+      printf '%s\\n' "$secret"
+      exit 0
+    fi
+    exit 1
     """ + "\n"
+
+    /// Écrit le script (0700) dans un dossier privé (0700) ; renvoie son chemin.
+    public static func writeAskpass(in directory: URL) throws -> URL {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+                                                attributes: [.posixPermissions: 0o700])
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
+        let url = directory.appendingPathComponent("askpass.sh")
+        try askpassScript.write(to: url, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
+        return url
+    }
 
     /// Ligne affichée, sans secret : « ssh -p 2222 -- admin@serveur 'sh -c …' < script ».
     public static func displayCommand(_ account: RustDeskServerAccount) -> String {
@@ -367,7 +403,9 @@ public enum RustDeskServerSSH {
     }
 
     /// Lit l'état du serveur : une connexion ssh, le script sur l'entrée standard, délai total borné.
-    public static func run(_ account: RustDeskServerAccount, secret: String?, timeout: TimeInterval = totalTimeout,
+    /// `acceptNewHostKey` : l'utilisateur a accepté l'empreinte d'un serveur inconnu.
+    public static func run(_ account: RustDeskServerAccount, secret: String?, acceptNewHostKey: Bool = false,
+                           timeout: TimeInterval = totalTimeout,
                            now: @escaping @Sendable () -> Date = { Date() }) async -> Result<RustDeskServerStatus, RustDeskServerReadError> {
         guard FileManager.default.isExecutableFile(atPath: executable) else {
             return .failure(RustDeskServerReadError(kind: .launch, detail: "/usr/bin/ssh introuvable sur ce Mac."))
@@ -378,25 +416,26 @@ public enum RustDeskServerSSH {
         } catch {
             return .failure(RustDeskServerReadError(kind: .account, detail: (error as? LocalizedError)?.errorDescription ?? "Compte SSH invalide."))
         }
-        var askpassURL: URL?
-        var temporary: URL?
-        if let secret, !secret.isEmpty {
-            let folder = FileManager.default.temporaryDirectory.appendingPathComponent("netscope-rd-\(UUID().uuidString)", isDirectory: true)
-            do {
-                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-                let script = folder.appendingPathComponent("askpass.sh")
-                try Data(askpassScript.utf8).write(to: script)
-                try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: script.path)
-                askpassURL = script
-                temporary = folder
-            } catch {
-                return .failure(RustDeskServerReadError(kind: .launch, detail: "Préparation impossible\u{00A0}: \(error.localizedDescription)"))
-            }
+        // Dossier privé (0700), chemin court : script, fichier témoin et tube du secret.
+        let folder = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("nsrd-" + UUID().uuidString.prefix(8), isDirectory: true)
+        let askpass: URL
+        let channel: SSHSecretChannel?
+        do {
+            askpass = try writeAskpass(in: folder)
+            channel = try secret.flatMap { $0.isEmpty ? nil : try SSHSecretChannel(directory: folder, secret: $0) }
+        } catch {
+            try? FileManager.default.removeItem(at: folder)
+            return .failure(RustDeskServerReadError(kind: .launch, detail: "Préparation impossible\u{00A0}: \(error.localizedDescription)"))
         }
-        defer { if let temporary { try? FileManager.default.removeItem(at: temporary) } }
-        var env = environment(askpass: askpassURL)
-        if let secret, askpassURL != nil { env["NETSCOPE_SSH_SECRET"] = secret }
-        let result = await ProcessRunner.run(executable, arguments(valid, hasSecret: askpassURL != nil), environment: env,
+        defer {
+            channel?.cancel()
+            try? FileManager.default.removeItem(at: folder)
+        }
+        let env = environment(askpass: askpass, secretPipe: channel?.path,
+                              expect: SSHTerminalCommand.expectedPrompt(user: valid.user, host: valid.host),
+                              flag: folder.appendingPathComponent("drapeau").path)
+        let result = await ProcessRunner.run(executable, arguments(valid, acceptNewHostKey: acceptNewHostKey), environment: env,
                                              timeout: timeout, input: Data(RustDeskServerScript.text.utf8),
                                              outputLimit: 2_000_000)
         return RustDeskServerOutput.interpret(status: result.status, stdout: result.stdout, stderr: result.stderr,
@@ -417,6 +456,9 @@ public struct RustDeskServerReadError: Error, Equatable, Sendable {
         case authentication
         /// Empreinte du serveur changée.
         case hostKey
+        /// Serveur inconnu (absent de ~/.ssh/known_hosts) : refusé tant que l'utilisateur n'a pas
+        /// accepté son empreinte.
+        case unknownHostKey
         /// Délai dépassé.
         case timeout
         /// Connexion ouverte, mais le script n'a pas abouti (shell inattendu).
@@ -425,10 +467,13 @@ public struct RustDeskServerReadError: Error, Equatable, Sendable {
 
     public var kind: Kind
     public var detail: String
+    /// Empreinte présentée par un serveur inconnu (« SHA256:… »).
+    public var fingerprint: String?
 
-    public init(kind: Kind, detail: String) {
+    public init(kind: Kind, detail: String, fingerprint: String? = nil) {
         self.kind = kind
         self.detail = detail
+        self.fingerprint = fingerprint
     }
 
     public var title: String {
@@ -438,6 +483,7 @@ public struct RustDeskServerReadError: Error, Equatable, Sendable {
         case .unreachable: return "Serveur injoignable par SSH"
         case .authentication: return "Connexion SSH refusée"
         case .hostKey: return "Empreinte du serveur changée"
+        case .unknownHostKey: return "Serveur SSH inconnu"
         case .timeout: return "Serveur injoignable par SSH (délai dépassé)"
         case .script: return "Lecture interrompue sur le serveur"
         }
@@ -456,6 +502,8 @@ public struct RustDeskServerReadError: Error, Equatable, Sendable {
             return "Vérifiez l’utilisateur et la clé, ou enregistrez le mot de passe du compte au Trousseau (connexion SSH du carnet ou Réglages › RustDesk)."
         case .hostKey:
             return "La clé SSH du serveur ne correspond plus à ~/.ssh/known_hosts. Vérifiez qu’il s’agit bien du même serveur, puis retirez l’ancienne empreinte («\u{00A0}ssh-keygen -R hôte\u{00A0}»)."
+        case .unknownHostKey:
+            return "Ce serveur n’est pas encore dans ~/.ssh/known_hosts. Vérifiez l’empreinte (sur le serveur\u{00A0}: «\u{00A0}ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub\u{00A0}») avant de l’accepter\u{00A0}: aucun mot de passe n’a été envoyé."
         case .script:
             return "Le compte doit avoir un shell POSIX (sh, bash). Essayez «\u{00A0}Copier la commande\u{00A0}» dans Terminal pour voir l’erreur."
         }
