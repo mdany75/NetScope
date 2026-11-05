@@ -10,6 +10,8 @@ struct PingScreen: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var controller = PingController.shared
     @State private var newTarget = ""
+    /// Port du mode TCP, tel que saisi (note 65).
+    @State private var portText = "443"
     /// Carte retournée (réponses façon Terminal) ; un second clic la remet à l'endroit.
     @State private var flippedID: PingTarget.ID?
 
@@ -105,7 +107,7 @@ struct PingScreen: View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 14) {
                 addField.frame(width: 340)
-                settingsGroup
+                settingsRow
                 Spacer(minLength: 0)
                 runButtons
             }
@@ -135,7 +137,7 @@ struct PingScreen: View {
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Theme.textSecondary)
                 TextField("", text: $newTarget,
-                          prompt: Text("Ajouter une cible (IP, hostname, plage)").foregroundStyle(Theme.textTertiary))
+                          prompt: Text(addPrompt).foregroundStyle(Theme.textTertiary))
                     .textFieldStyle(.plain)
                     .font(Theme.body)
                     .onSubmit(addTarget)
@@ -154,8 +156,34 @@ struct PingScreen: View {
         }
     }
 
-    private var settingsGroup: some View {
+    /// Réglages sur une ligne (fenêtre large).
+    private var settingsRow: some View {
         HStack(spacing: 14) {
+            intervalGroup
+            packetGroup
+            modeGroup
+            soundToggle
+        }
+        .fixedSize()
+    }
+
+    /// Réglages sous le champ : une ligne si possible, sinon le mode (et son port) passe dessous.
+    private var settingsGroup: some View {
+        ViewThatFits(in: .horizontal) {
+            settingsRow
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 14) {
+                    intervalGroup
+                    packetGroup
+                    soundToggle
+                }
+                .fixedSize()
+                modeGroup.fixedSize()
+            }
+        }
+    }
+
+    private var intervalGroup: some View {
             HStack(spacing: 6) {
                 Text("Intervalle").font(Theme.small).foregroundStyle(Theme.textSecondary)
                 Menu {
@@ -172,7 +200,9 @@ struct PingScreen: View {
                 .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panel))
                 .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.borderStrong))
             }
+    }
 
+    private var packetGroup: some View {
             HStack(spacing: 6) {
                 Text("Paquet").font(Theme.small).foregroundStyle(Theme.textSecondary)
                 PingSegmented(options: [.init(value: 56, title: "56 o"),
@@ -180,21 +210,40 @@ struct PingScreen: View {
                                               help: "1472 octets + 28 d’en-têtes = 1500 octets, bit DF activé")],
                               selection: controller.payloadSize) { controller.setPayloadSize($0) }
             }
+    }
 
+    private var modeGroup: some View {
             HStack(spacing: 6) {
                 Text("Mode").font(Theme.small).foregroundStyle(Theme.textSecondary)
-                PingSegmented(options: [.init(value: "ICMP", title: "ICMP"),
-                                        .init(value: "TCP", title: "TCP:443", enabled: false, help: "Bientôt : temps d’établissement TCP (SYN → SYN/ACK)"),
+                // Note 65 : protocole des cibles ajoutées sans préfixe (« hôte:port », tcp:// et
+                // http(s):// l'emportent toujours). ARP reste à venir.
+                PingSegmented(options: [.init(value: "icmp", title: "ICMP", help: "Écho ICMP (ping classique)"),
+                                        .init(value: "tcp", title: "TCP", help: "Temps d’établissement TCP (SYN → SYN/ACK) vers un port\u{00A0}: caméras et serveurs qui bloquent l’ICMP"),
+                                        .init(value: "http", title: "HTTP(S)", help: "Requête GET\u{00A0}: temps jusqu’au premier octet de la réponse et code HTTP"),
                                         .init(value: "ARP", title: "ARP", enabled: false, help: "Bientôt : sondage ARP du sous-réseau local")],
-                              selection: "ICMP") { _ in }
+                              selection: controller.probeMode.rawValue) { value in
+                    if let mode = PingProbeMode(rawValue: value) { controller.probeMode = mode }
+                }
+                if controller.probeMode == .tcp {
+                    Text("Port").font(Theme.small).foregroundStyle(Theme.textSecondary).padding(.leading, 4)
+                    TextField("", text: $portText, prompt: Text("443"))
+                        .textFieldStyle(.roundedBorder)
+                        .font(Theme.mono(12))
+                        .frame(width: 58)
+                        .help("Port TCP des cibles ajoutées en mode TCP")
+                        .onChange(of: portText) { _, text in
+                            if let port = UInt16(text.trimmingCharacters(in: .whitespaces)), port > 0 { controller.tcpPort = port }
+                        }
+                        .onAppear { portText = "\(controller.tcpPort)" }
+                }
             }
+    }
 
+    private var soundToggle: some View {
             Toggle(isOn: $controller.soundOnLoss) {
                 Text("Son à la perte").font(Theme.body)
             }
             .toggleStyle(.checkbox)
-        }
-        .fixedSize()
     }
 
     private var runButtons: some View {
@@ -226,7 +275,23 @@ struct PingScreen: View {
         newTarget = ""
     }
 
+    /// Texte d'aide du champ selon le mode choisi.
+    private var addPrompt: String {
+        switch controller.probeMode {
+        case .icmp: return "Ajouter une cible (IP, hostname, plage)"
+        case .tcp: return "Ajouter une cible TCP (IP ou nom, port \(controller.tcpPort))"
+        case .http: return "Ajouter une URL ou un nom (https://…)"
+        }
+    }
+
     private var modeNote: String? {
+        switch controller.probeMode {
+        case .icmp: break
+        case .tcp:
+            return "Ping TCP\u{00A0}: temps de la poignée de main (SYN → SYN/ACK) vers le port \(controller.tcpPort), connexion aussitôt fermée\u{00A0}; un port fermé (RST) compte comme une perte. «\u{00A0}hôte:port\u{00A0}» ou «\u{00A0}tcp://hôte:port\u{00A0}» marche dans tous les modes."
+        case .http:
+            return "Ping HTTP(S)\u{00A0}: une requête GET par mesure sur une connexion neuve (DNS, TCP et TLS compris), arrêtée au premier octet de la réponse\u{00A0}; code HTTP affiché, une erreur 5xx compte comme une perte. Les redirections ne sont pas suivies."
+        }
         guard controller.payloadSize > 1000 else { return nil }
         if controller.dontFragmentRefused {
             return "Test MTU : le système a refusé le bit DF, les paquets de 1500 octets peuvent être fragmentés ; le résultat n’est pas fiable."

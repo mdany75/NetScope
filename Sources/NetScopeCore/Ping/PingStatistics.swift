@@ -12,6 +12,12 @@ public enum PingFailure: Equatable, Sendable {
     case unreachable(code: UInt8, from: IPv4Address?)
     /// Échec d'envoi (errno).
     case sendFailed(errno: Int32)
+    /// Ping TCP (note 65) : port fermé, la cible a répondu par un RST.
+    case refused
+    /// Ping HTTP (note 65) : erreur du serveur (code 5xx).
+    case httpStatus(Int)
+    /// Ping TCP ou HTTP : autre erreur (TLS, nom introuvable…).
+    case failed(String)
 
     public var label: String {
         switch self {
@@ -30,6 +36,9 @@ public enum PingFailure: Equatable, Sendable {
             return reason
         case let .sendFailed(code):
             return "envoi impossible (\(String(cString: strerror(code))))"
+        case .refused: return "port fermé (RST)"
+        case let .httpStatus(code): return "erreur HTTP \(code)"
+        case let .failed(message): return message
         }
     }
 }
@@ -40,12 +49,18 @@ public struct PingSample: Equatable, Sendable {
     public let date: Date
     public let rttMs: Double?
     public let failure: PingFailure?
+    /// Ping HTTP (note 65) : code de la réponse.
+    public let statusCode: Int?
+    /// Ping TCP ou HTTP : détail du temps (« DNS 2 · TCP 11 · TLS 24 · attente 38 ms »).
+    public let detail: String?
 
-    public init(sequence: Int, date: Date, rttMs: Double?, failure: PingFailure? = nil) {
+    public init(sequence: Int, date: Date, rttMs: Double?, failure: PingFailure? = nil, statusCode: Int? = nil, detail: String? = nil) {
         self.sequence = sequence
         self.date = date
         self.rttMs = rttMs
         self.failure = rttMs == nil ? (failure ?? .timeout) : nil
+        self.statusCode = statusCode
+        self.detail = detail
     }
 
     public var isLost: Bool { rttMs == nil }

@@ -201,6 +201,7 @@ private struct ToolMainPanel: View {
     @ObservedObject private var speed = SpeedtestModel.shared
     @ObservedObject private var snmp = SNMPBrowserModel.shared
     @ObservedObject private var linkCheck = LinkCheckModel.shared
+    @ObservedObject private var mtu = PathMTUModel.shared
 
     var body: some View {
         let tool = store.selectedTool
@@ -289,7 +290,7 @@ private struct ToolMainPanel: View {
         case .ports: PortScanView(model: ports, store: store)
         case .dns: DNSLookupView(model: dns, store: store)
         case .whois: WhoisView(model: whois, store: store)
-        case .mtu: MTUToolView()
+        case .mtu: PathMTUView(model: mtu, store: store)
         case .iperf, .speedtest: SpeedtestToolView(model: speed, tool: tool)
         case .wol: WakeOnLANView(model: wol, store: store)
         case .dhcp: DHCPTestView(model: dhcp, store: store)
@@ -321,7 +322,7 @@ private struct ToolMainPanel: View {
         case .ports: return ports.command
         case .dns: return dns.command
         case .whois: return "whois \(whois.target)"
-        case .mtu: return "ping -D -s 1472 \(state.activeInterface?.gateway?.description ?? "<cible>")"
+        case .mtu: return mtu.command
         case .iperf: return "iperf3 -c <serveur> -P 4 -t 10"
         case .speedtest: return "speedtest"
         case .wol: return wol.command

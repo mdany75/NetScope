@@ -87,7 +87,8 @@ struct PingMTRPanel: View {
                         + Text(target.addressLabel).font(Theme.mono(12)).foregroundColor(Theme.text)
                         + Text(" · \(info(report))").foregroundColor(Theme.textSecondary))
                         .font(Theme.small)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .layoutPriority(1)
                 Spacer(minLength: 8)
@@ -103,6 +104,7 @@ struct PingMTRPanel: View {
                     .buttonStyle(PingSmallButtonStyle(prominent: true))
                     .disabled(target.address == nil)
                 }
+                protocolMenu
                 Toggle("Résolution DNS", isOn: $controller.resolveHopNames)
                     .toggleStyle(.checkbox)
                     .fixedSize()
@@ -152,6 +154,40 @@ struct PingMTRPanel: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
     }
 
+    /// Note 65 : traceroute ICMP (natif), UDP ou TCP vers un port (par /usr/sbin/traceroute).
+    private var protocolMenu: some View {
+        let port = target.kind.tcpPort ?? 443
+        var choices: [PingTraceProtocol] = [.icmp, .udp, .tcp(port: port)]
+        for common: UInt16 in [443, 80] where common != port { choices.append(.tcp(port: common)) }
+        return Menu {
+            ForEach(choices, id: \.self) { choice in
+                Button {
+                    controller.setMTRProtocol(choice)
+                } label: {
+                    if choice == controller.mtrProtocol {
+                        Label(Self.choiceLabel(choice), systemImage: "checkmark")
+                    } else {
+                        Text(Self.choiceLabel(choice))
+                    }
+                }
+            }
+        } label: {
+            Text(controller.mtrProtocol.label).font(.system(size: 12, weight: .medium))
+        }
+        .menuStyle(.button)
+        .controlSize(.small)
+        .fixedSize()
+        .help("Protocole des sondes\u{00A0}: ICMP (écho), UDP (ports hauts) ou TCP SYN vers un port, pour suivre un chemin qui filtre l’ICMP")
+    }
+
+    static func choiceLabel(_ choice: PingTraceProtocol) -> String {
+        switch choice {
+        case .icmp: return "ICMP (écho, comme mtr)"
+        case .udp: return "UDP (ports hauts, comme traceroute)"
+        case let .tcp(port): return "TCP SYN vers le port \(port)"
+        }
+    }
+
     private func hostname(for hop: PingMTRHop) -> String {
         guard let address = hop.address else { return "???" }
         if hop.isDestination, controller.resolveHopNames, controller.hostnames[address] == nil,
@@ -165,17 +201,41 @@ struct PingMTRPanel: View {
     private func info(_ report: PingMTRReport?) -> String {
         guard let report, report.cycles > 0 else { return controller.isMTRRunning ? "découverte du chemin…" : "pas encore lancé" }
         let hops = report.hops.count
-        return "\(hops) \(hops > 1 ? "sauts" : "saut") · \(report.cycles) cycles · ICMP"
+        return "\(hops) \(hops > 1 ? "sauts" : "saut") · \(report.cycles) cycles · \(controller.mtrProtocol.label)"
     }
 
     private var placeholder: String {
         if let error = controller.mtrError { return error }
-        if controller.isMTRRunning { return "Découverte du chemin en cours (TTL 1 à 30)…" }
+        if controller.isMTRRunning {
+            return controller.mtrProtocol.usesSystemTraceroute
+                ? "Découverte du chemin en \(controller.mtrProtocol.label) par /usr/sbin/traceroute (TTL 1 à 30, une seconde au plus par saut muet)…"
+                : "Découverte du chemin en cours (TTL 1 à 30)…"
+        }
         return "Cliquer sur « Lancer MTR » pour suivre chaque saut du chemin vers \(target.addressLabel) : perte, latence et écart-type par routeur."
     }
 
     private func note(_ report: PingMTRReport?) -> String {
+        if let prefix = protocolNote {
+            return prefix + " " + routeNote(report)
+        }
+        return routeNote(report)
+    }
+
+    /// Ce que font les sondes TCP et UDP, et pourquoi elles passent par le traceroute d'Apple.
+    private var protocolNote: String? {
+        switch controller.mtrProtocol {
+        case .icmp:
+            return nil
+        case .udp:
+            return "UDP\u{00A0}: sondes vers les ports hauts (33434 et suivants), la destination répond «\u{00A0}port inaccessible\u{00A0}». Une sonde UDP à TTL choisi demande des droits root\u{00A0}: NetScope passe par /usr/sbin/traceroute d’Apple (setuid root)."
+        case let .tcp(port):
+            return "TCP\u{00A0}: SYN vers le port \(port) à TTL croissant, la destination répond SYN/ACK ou RST — utile quand l’ICMP est filtré. Une sonde TCP brute demande des droits root\u{00A0}: NetScope passe par /usr/sbin/traceroute d’Apple (setuid root)."
+        }
+    }
+
+    private func routeNote(_ report: PingMTRReport?) -> String {
         guard let report, !report.hops.isEmpty else {
+            if controller.mtrProtocol != .icmp { return "Une sonde par saut et par cycle." }
             return "Le MTR envoie un Echo Request par saut et par cycle (TTL croissant)\u{00A0}; chaque routeur répond par « Time Exceeded »."
         }
         if report.hops.count == 1 {

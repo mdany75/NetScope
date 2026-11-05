@@ -48,7 +48,7 @@ struct PingTargetMenu: View {
         Button(target.isPaused ? "Reprendre la cible" : "Mettre la cible en pause", action: onTogglePause)
         Button("Copier l’adresse") {
             NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(target.addressLabel, forType: .string)
+            NSPasteboard.general.setString(target.kind.isICMP ? target.addressLabel : target.endpointLabel, forType: .string)
         }
     }
 }
@@ -206,11 +206,15 @@ struct PingTargetCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 8) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(target.name)
-                        .font(Theme.bodySemibold)
-                        .foregroundStyle(Theme.text)
-                        .lineLimit(1)
-                    (Text(target.addressLabel).font(Theme.mono(12)).foregroundColor(Theme.text)
+                    HStack(spacing: 6) {
+                        Text(target.name)
+                            .font(Theme.bodySemibold)
+                            .foregroundStyle(Theme.text)
+                            .lineLimit(1)
+                        // Note 65 : cible sondée en TCP ou en HTTP(S).
+                        if !target.kind.isICMP { Chip(text: target.kind.label, tone: .accent, mono: true) }
+                    }
+                    (Text(target.endpointLabel).font(Theme.mono(12)).foregroundColor(Theme.text)
                         + Text(target.role.isEmpty ? "" : " · \(target.role)").font(Theme.small).foregroundColor(Theme.textSecondary))
                         .lineLimit(1)
                 }
@@ -274,7 +278,8 @@ struct PingTargetCard: View {
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isButton)
         .accessibilityAction(named: "Analyser", onSelect)
-        .help(paused ? "\(target.addressLabel) en pause · statistiques figées" : target.error ?? "Analyser \(target.addressLabel)")
+        .help(paused ? "\(target.endpointLabel) en pause · statistiques figées"
+              : target.error ?? (target.history.last?.detail.map { "\(target.endpointLabel) · \($0)" } ?? "Analyser \(target.endpointLabel)"))
         .contextMenu {
             PingTargetMenu(target: target, onTogglePause: onTogglePause, onRemove: onRemove)
             Divider()
@@ -292,7 +297,8 @@ struct PingTargetCard: View {
         if target.isPaused { return "en pause" }
         if let error = target.error { return error.contains("introuvable") ? "nom introuvable" : "socket refusée" }
         guard let last else { return target.address == nil ? "résolution…" : "en attente" }
-        return last.failure?.label ?? "ms"
+        if let failure = last.failure { return failure.label }
+        return last.statusCode.map { "ms · HTTP \($0)" } ?? "ms"
     }
 
     private func sparkColor(_ status: PingTargetStatus) -> Color {
