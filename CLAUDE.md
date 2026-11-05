@@ -73,7 +73,8 @@ Dans cet ordre :
 
 - `Sources/NetScopeCore/` : moteur sans interface ; `Addressing/` (IPv4Address, IPRange,
   Subnet), `Hardware/` (MACAddress, OUIDatabase, OUIRegistry, OUIUpdater), `Models/` (Device, ScanRangeConfig,
-  ScanProfile), `System/` (interfaces locales)
+  ScanProfile), `System/` (interfaces locales), `Diagnostics/` (journal de l’app AppLog, masqueur de secrets,
+  rapports de plantage, diagnostic exporté)
 - `Sources/NetScope/` : application SwiftUI ; `NetScopeApp.swift` (lancement, `--snapshot`,
   `--demo`), `AppState.swift`, `Screen.swift`, `ContentView.swift`, `Sidebar.swift`,
   `Theme.swift`, `Shared/Components.swift`, `Screens/` (un fichier par écran), `DevTools/`

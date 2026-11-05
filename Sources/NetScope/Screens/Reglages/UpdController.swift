@@ -296,6 +296,9 @@ final class UpdController: ObservableObject {
 
     private func syncBadge() {
         guard let app else { return }
+        // Démonstration : la pastille de la barre latérale seulement sur demande (NETSCOPE_MAJ_DEMO=1),
+        // pour que les captures ne montrent pas une fausse version disponible.
+        if RegEnvironment.isDemo, ProcessInfo.processInfo.environment["NETSCOPE_MAJ_DEMO"] != "1" { return }
         if let release, let version = release.version, !prefs.isSkipped(release), phase != .upToDate {
             app.updateAvailable = version.description
         } else {

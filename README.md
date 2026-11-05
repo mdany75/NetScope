@@ -142,6 +142,8 @@ vrai réseau.
 | **Trafic, analyse complète** : note sur 100 et constats classés. | **Rapports** : modèle, choix des sections et aperçu du PDF. |
 | ![Terminal SSH](docs/captures/15-acces-terminal.png) | ![Session VNC](docs/captures/16-acces-vnc.png) |
 | **Terminal SSH intégré** : sortie en couleurs, extraits de commandes, onglets. | **Session VNC intégrée** : bureau distant, qualité et mise à l’échelle. |
+| ![Journal et diagnostic](docs/captures/17-reglages-journal.png) | |
+| **Journal et diagnostic** : erreurs des modules, secrets masqués, export .zip à joindre. | |
 | ![Scanner en mode sombre](docs/captures/20-scanner-sombre.png) | ![Carte en mode sombre](docs/captures/21-carte-sombre.png) |
 | **Mode sombre** : le Scanner. | **Mode sombre** : la Carte du réseau. |
 | ![Terminal en mode sombre](docs/captures/22-acces-terminal-sombre.png) | |
