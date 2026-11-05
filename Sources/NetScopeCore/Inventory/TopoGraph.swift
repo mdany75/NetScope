@@ -37,6 +37,11 @@ public struct TopoNode: Identifiable, Hashable, Sendable {
     public var status: TopoStatus
     /// Nœud déduit (switch connu seulement par son nom, ou regroupement par défaut).
     public var isInferred: Bool
+    /// Note 78 : nature du lien vers le parent quand il vient de LLDP ou de la FortiGate (nil :
+    /// rattachement déduit du champ « switch » des appareils, ou par défaut).
+    public var uplinkKind: TopoLinkKind? = nil
+    /// Comment un nœud déduit est connu (relevé de la FortiGate, voisin LLDP), pour le détail.
+    public var note: String? = nil
 
     public var isWireless: Bool { uplinkLabel == "Wi-Fi" }
 }
@@ -44,6 +49,21 @@ public struct TopoNode: Identifiable, Hashable, Sendable {
 public struct TopoGraph: Sendable {
     public private(set) var nodes: [TopoNode]
     public let rootID: String
+    /// Note 78 : liens entre équipements vus par LLDP ou la FortiGate (ceux de la hiérarchie et
+    /// les liens redondants), orientés parent → enfant pour ceux de la hiérarchie.
+    public private(set) var infraLinks: [TopoInfraLink] = []
+
+    /// Liens redondants : vus par LLDP mais hors de la hiérarchie (deuxième chemin, anneau).
+    public var redundantLinks: [TopoInfraLink] { infraLinks.filter { !$0.isTree } }
+
+    /// Lien LLDP entre deux nœuds, dans un sens ou dans l'autre (celui de la hiérarchie d'abord).
+    public func infraLink(_ a: String, _ b: String) -> TopoInfraLink? {
+        let pair = infraLinks.filter { ($0.aID == a && $0.bID == b) || ($0.aID == b && $0.bID == a) }
+        return pair.first(where: \.isTree) ?? pair.first
+    }
+
+    /// Liens LLDP d'un nœud.
+    public func infraLinks(of id: String) -> [TopoInfraLink] { infraLinks.filter { $0.touches(id) } }
 
     public func node(_ id: String) -> TopoNode? { nodes.first { $0.id == id } }
 
@@ -82,7 +102,10 @@ public struct TopoGraph: Sendable {
     private static let typeOrder: [DeviceType] = [.serveur, .poste, .telephoneIP, .telephone, .console, .imprimante, .camera, .domotique, .iot, .routeur, .inconnu, .switch, .pointAcces]
 
     /// Construit la carte. `gateway` : passerelle de l'interface active, si connue.
-    public static func build(devices input: [Device], gateway: IPv4Address?, conflictIPs: Set<IPv4Address> = []) -> TopoGraph {
+    /// `switches` (note 78) : relevés des switchs du site (SNMP et FortiGate) ; leurs voisins LLDP
+    /// donnent les liens entre équipements et la hiérarchie des switchs.
+    public static func build(devices input: [Device], gateway: IPv4Address?, conflictIPs: Set<IPv4Address> = [],
+                             switches: [SNMPSwitchSnapshot] = []) -> TopoGraph {
         // Un nœud par Device.id (l'IP) : en cas de doublon, on garde la vue en ligne la plus récente.
         var devices: [Device] = []
         var position: [String: Int] = [:]
@@ -122,6 +145,10 @@ public struct TopoGraph: Sendable {
             for name in names.compactMap({ $0?.lowercased() }) where !name.isEmpty && nameIndex[name] == nil {
                 nameIndex[name] = id
             }
+            // Nom sans domaine (« sw-core-01.siege.local » répond aussi à « sw-core-01 »).
+            for name in names.compactMap({ $0 }) {
+                for key in TopoLinkResolver.nameKeys(name).dropFirst() where nameIndex[key] == nil { nameIndex[key] = id }
+            }
         }
         if let gatewayDevice { register([gatewayDevice.hostname, gatewayDevice.customName], as: gatewayID) }
         for device in infra { register([device.hostname, device.customName], as: "dev:" + device.id) }
@@ -136,6 +163,34 @@ public struct TopoGraph: Sendable {
             inferred.append(name)
         }
 
+        // Note 78 : liens LLDP et FortiGate entre équipements, et switchs connus seulement par un relevé.
+        var learned: [TopoLearnedNode] = []
+        var infraLinks: [TopoInfraLink] = []
+        var snapshotByName: [String: SNMPSwitchSnapshot] = [:]
+        if !switches.isEmpty {
+            let infraIDs = Set(infra.map { "dev:" + $0.id })
+            var kinds: [String: TopoNodeKind] = [gatewayID: .passerelle]
+            for device in infra { kinds["dev:" + device.id] = device.deviceType == .switch ? .switch : .pointAcces }
+            let gatewayIP = gatewayDevice?.ip
+            let index = nameIndex
+            let resolved = TopoLinkResolver.resolve(
+                switches, gatewayID: gatewayID,
+                nodeForHost: { ip in
+                    if ip == gatewayIP { return gatewayID }
+                    return infraIDs.contains("dev:" + ip.description) ? "dev:" + ip.description : nil
+                },
+                resolve: { index[$0] },
+                kindOf: { kinds[$0] ?? .switch })
+            learned = resolved.learned
+            infraLinks = resolved.links
+            for node in learned {
+                for key in TopoLinkResolver.nameKeys(node.title) where nameIndex[key] == nil { nameIndex[key] = node.id }
+            }
+            for snapshot in switches {
+                for key in TopoLinkResolver.nameKeys(snapshot.displayName) where snapshotByName[key] == nil { snapshotByName[key] = snapshot }
+            }
+        }
+
         var parentOf: [String: String] = [:]
         for device in infra {
             let id = "dev:" + device.id
@@ -144,6 +199,14 @@ public struct TopoGraph: Sendable {
             } else {
                 parentOf[id] = gatewayID
             }
+        }
+        for name in inferred { parentOf["sw:" + name.lowercased()] = gatewayID }
+        for node in learned { parentOf[node.id] = gatewayID }
+        // La hiérarchie vue par LLDP l'emporte sur celle déduite des noms.
+        let tree = TopoLinkResolver.tree(infraLinks, gatewayID: gatewayID, nameParent: parentOf)
+        infraLinks = tree.links
+        for (child, parent) in tree.parent where child != gatewayID && parentOf[child] != nil {
+            parentOf[child] = parent
         }
         // Pas de boucle : un équipement qui remonterait jusqu'à lui-même est rattaché à la passerelle.
         for id in parentOf.keys {
@@ -156,19 +219,62 @@ public struct TopoGraph: Sendable {
             }
         }
 
+        // Lien de la hiérarchie vers chaque nœud (après le contrôle des boucles).
+        var treeLink: [String: TopoInfraLink] = [:]
+        for index in infraLinks.indices {
+            let link = infraLinks[index]
+            let isTree = link.isTree && parentOf[link.bID] == link.aID
+            infraLinks[index].isTree = isTree
+            if isTree { treeLink[link.bID] = link }
+        }
+        /// Ports du lien sur la descente : « Gi1/0/47 ↔ 1/25 », « FortiLink ↔ port49 ».
+        func uplinkLabel(_ link: TopoInfraLink) -> String? {
+            let top = link.aPort ?? (link.kind == .fortiLink ? "FortiLink" : nil)
+            switch (top, link.bPort) {
+            case let (a?, b?): return "\(a) ↔ \(b)"
+            case let (a?, nil): return a
+            case let (nil, b?): return b
+            default: return nil
+            }
+        }
+
         for device in infra {
             let id = "dev:" + device.id
-            nodes.append(TopoNode(id: id, kind: device.deviceType == .switch ? .switch : .pointAcces,
-                                  title: device.displayName, subtitle: device.ip.description, parentID: parentOf[id],
-                                  uplinkLabel: parentOf[id] == gatewayID && device.switchName == nil ? nil : device.switchPort,
-                                  deviceIDs: [device.id], deviceType: device.deviceType,
-                                  onlineCount: device.isOnline ? 1 : 0, status: status(of: device, conflicts: conflictIPs),
-                                  isInferred: false))
+            var node = TopoNode(id: id, kind: device.deviceType == .switch ? .switch : .pointAcces,
+                                title: device.displayName, subtitle: device.ip.description, parentID: parentOf[id],
+                                uplinkLabel: parentOf[id] == gatewayID && device.switchName == nil ? nil : device.switchPort,
+                                deviceIDs: [device.id], deviceType: device.deviceType,
+                                onlineCount: device.isOnline ? 1 : 0, status: status(of: device, conflicts: conflictIPs),
+                                isInferred: false)
+            if let link = treeLink[id] {
+                node.uplinkLabel = uplinkLabel(link)
+                node.uplinkKind = link.kind
+            }
+            nodes.append(node)
+        }
+        func knownBy(_ id: String, title: String, subtitle: String, note: String?) -> TopoNode {
+            var node = TopoNode(id: id, kind: .switch, title: title, subtitle: subtitle,
+                                parentID: parentOf[id] ?? gatewayID, uplinkLabel: nil, deviceIDs: [], deviceType: .switch,
+                                onlineCount: 0, status: .ok, isInferred: true)
+            node.note = note
+            if let link = treeLink[id] {
+                node.uplinkLabel = uplinkLabel(link)
+                node.uplinkKind = link.kind
+            }
+            return node
         }
         for name in inferred {
-            nodes.append(TopoNode(id: "sw:" + name.lowercased(), kind: .switch, title: name, subtitle: "Connu par son nom",
-                                  parentID: gatewayID, uplinkLabel: nil, deviceIDs: [], deviceType: .switch,
-                                  onlineCount: 0, status: .ok, isInferred: true))
+            // Switch nommé par les appareils et relevé (FortiGate, SNMP) : le relevé le décrit mieux.
+            let snapshot = TopoLinkResolver.nameKeys(name).lazy.compactMap { snapshotByName[$0] }.first
+            let subtitle = snapshot.map { $0.controllerName.map { "FortiSwitch · \($0)" } ?? $0.host.description } ?? "Connu par son nom"
+            let note = snapshot.map { snapshot in
+                snapshot.controllerName.map { "FortiSwitch relevé par la FortiGate \($0) (FortiLink)\u{00A0}; son adresse n’a pas été vue par le scan." }
+                    ?? "Switch relevé par SNMP (\(snapshot.host))\u{00A0}; son adresse n’a pas été vue par le scan."
+            }
+            nodes.append(knownBy("sw:" + name.lowercased(), title: name, subtitle: subtitle, note: note))
+        }
+        for item in learned {
+            nodes.append(knownBy(item.id, title: item.title, subtitle: item.subtitle, note: item.note))
         }
 
         // Appareils finaux : regroupés par type sous leur switch (ou sous « Switchs » si le port est inconnu).
@@ -221,7 +327,9 @@ public struct TopoGraph: Sendable {
             }
         }
         // Nœud « Switchs » vide (tous les switchs déduits sans enfant) : rien à retirer, il n'existe que s'il sert.
-        return TopoGraph(nodes: nodes, rootID: internet.id)
+        var graph = TopoGraph(nodes: nodes, rootID: internet.id)
+        graph.infraLinks = infraLinks
+        return graph
     }
 
     private static func split(_ groupKey: String) -> (String, DeviceType) {
@@ -237,9 +345,14 @@ public struct TopoGraph: Sendable {
 
     // MARK: Disposition
 
-    public struct Point: Hashable, Sendable {
+    public struct Point: Hashable, Sendable, Codable {
         public var x: Double
         public var y: Double
+
+        public init(x: Double, y: Double) {
+            self.x = x
+            self.y = y
+        }
     }
 
     public struct Layout: Sendable {
@@ -251,6 +364,8 @@ public struct TopoGraph: Sendable {
         public var height: Double
         public var nodeWidth: Double
         public var nodeHeight: Double
+        /// Note 78 : nœuds placés à la main (position retenue pour le site).
+        public var moved: Set<String> = []
     }
 
     /// Arbre rangé : un parent se centre sur ses enfants ; les feuilles d'un même parent sont empilées
