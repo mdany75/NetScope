@@ -762,10 +762,11 @@ struct WifiNetworksTable: View {
                 .customizationID("generation")
                 .defaultVisibility(.hidden)
 
-                TableColumn("11K/V/R", sortUsing: table.sort("itinerance")) { row in
+                // 802.11k/v/r s'écrivent en minuscules : l'en-tête en capitales dit « ITINÉRANCE ».
+                TableColumn("ITINÉRANCE", sortUsing: table.sort("itinerance")) { row in
                     if let beacon = row.network.beacon { WifiRoamingBadges(beacon: beacon) } else { WifiCell("—", dimmed: true) }
                 }
-                .width(min: 58, ideal: 60)
+                .width(min: 72, ideal: 80)
                 .customizationID("itinerance")
                 .defaultVisibility(.hidden)
 

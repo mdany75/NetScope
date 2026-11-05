@@ -26,6 +26,10 @@ final class PathMTUModel: ObservableObject {
     /// Mesure précédente vers la même adresse (pour signaler un changement).
     @Published private(set) var previous: PathMTUMeasurement?
     @Published var error: String?
+    /// Information neutre : mesure arrêtée par l'utilisateur, export réussi, mesures retirées.
+    @Published var notice: String?
+    /// Mesures retirées en dernier (bouton « Annuler » du bandeau).
+    @Published private(set) var removed: [PathMTUMeasurement] = []
 
     let isDemo: Bool
     private let isEphemeral: Bool
@@ -79,6 +83,8 @@ final class PathMTUModel: ObservableObject {
         generation += 1
         let run = generation
         error = nil
+        notice = nil
+        removed = []
         steps = []
         result = nil
         previous = nil
@@ -136,7 +142,8 @@ final class PathMTUModel: ObservableObject {
         task?.cancel()
         task = nil
         isRunning = false
-        if result == nil, !steps.isEmpty { error = "Mesure arrêtée." }
+        // Arrêt voulu : une information, pas une erreur.
+        if result == nil, !steps.isEmpty { notice = "Mesure arrêtée." }
     }
 
     /// Sonde réelle par la socket ICMP de NetScope ; /sbin/ping -D en dernier recours.
@@ -194,7 +201,20 @@ final class PathMTUModel: ObservableObject {
     }
 
     func remove(_ ids: Set<UUID>) {
+        let gone = history.filter { ids.contains($0.id) }
+        guard !gone.isEmpty else { return }
         history.removeAll { ids.contains($0.id) }
+        removed = gone
+        notice = gone.count > 1 ? "\(gone.count) mesures retirées de l’historique." : "Mesure retirée de l’historique."
+        save()
+    }
+
+    /// Remet les mesures retirées en dernier.
+    func undoRemove() {
+        guard !removed.isEmpty else { return }
+        history = Array((history + removed).sorted { $0.date > $1.date }.prefix(PathMTUHistory.capacity))
+        removed = []
+        notice = nil
         save()
     }
 

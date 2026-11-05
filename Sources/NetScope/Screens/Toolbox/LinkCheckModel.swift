@@ -30,6 +30,8 @@ final class LinkCheckModel: ObservableObject {
     @Published var onlyDifferences = true
     @Published var error: String?
     @Published var toast: String?
+    /// Bilan à retirer de l'historique, en attente de confirmation.
+    @Published var pendingRemoval: LinkCheckResult?
     /// Historique de chaque site (clé du site) ; `revision` annonce les changements.
     private var histories: [String: LinkCheckHistory] = [:]
     @Published private(set) var revision = 0
@@ -139,7 +141,18 @@ final class LinkCheckModel: ObservableObject {
         }
     }
 
+    /// « Retirer de l'historique » : confirmation quand le bilan est la référence « avant » ou
+    /// qu'il est retenu pour le rapport du site.
+    func requestRemove(_ result: LinkCheckResult) {
+        if history.referenceID == result.id || isReported(result) {
+            pendingRemoval = result
+        } else {
+            remove(result)
+        }
+    }
+
     func remove(_ result: LinkCheckResult) {
+        pendingRemoval = nil
         update(siteKey) { $0.remove(result.id) }
         if shownID == result.id { shownID = nil }
         if compareID == result.id { compareID = nil }
@@ -261,7 +274,7 @@ final class LinkCheckModel: ObservableObject {
 
     func exportPDF(_ result: LinkCheckResult) {
         guard let data = pdfData(result) else {
-            toast = "Rendu PDF impossible."
+            error = "Rendu PDF impossible."
             return
         }
         guard !isEphemeral else { return }
@@ -271,9 +284,11 @@ final class LinkCheckModel: ObservableObject {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try data.write(to: url, options: .atomic)
+            self.error = nil
             toast = "PDF enregistré\u{00A0}: \(url.lastPathComponent)."
         } catch {
-            toast = "Export impossible\u{00A0}: \(error.localizedDescription)"
+            toast = nil
+            self.error = "Export impossible\u{00A0}: \(error.localizedDescription)"
         }
     }
 }

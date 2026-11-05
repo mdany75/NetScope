@@ -18,6 +18,13 @@ struct PathMTUView: View {
         VStack(alignment: .leading, spacing: 14) {
             form
             if let error = model.error { ToolNotice(tone: .critical, message: error) }
+            if let notice = model.notice {
+                ToolNotice(tone: .neutral, message: notice) {
+                    if !model.removed.isEmpty {
+                        Button("Annuler") { model.undoRemove() }.buttonStyle(.secondary).controlSize(.small)
+                    }
+                }
+            }
             if model.isRunning {
                 MailProgressLine(text: model.progressText)
             }
@@ -236,7 +243,13 @@ struct PathMTUView: View {
         panel.nameFieldStringValue = "test-mtu.csv"
         panel.title = "Exporter l’historique du test MTU"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        try? PathMTUHistory.csv(model.history).write(to: url, atomically: true, encoding: .utf8)
+        do {
+            try PathMTUHistory.csv(model.history).write(to: url, atomically: true, encoding: .utf8)
+            model.error = nil
+            model.notice = "Historique exporté\u{00A0}: \(url.lastPathComponent)."
+        } catch {
+            model.error = "Export impossible\u{00A0}: \(error.localizedDescription)"
+        }
     }
 }
 
@@ -292,7 +305,7 @@ struct PathMTUStepsTable: View {
 
                 TableColumn("DONNÉES", sortUsing: table.sort("donnees")) { step in
                     ToolTableText("\(step.payload)", color: Theme.textSecondary, alignment: .trailing)
-                        .help("Données ICMP (ping -s) : taille − 28 octets d’en-têtes")
+                        .help("Données ICMP (ping -s)\u{00A0}: taille − 28\u{00A0}octets d’en-têtes")
                 }
                 .width(min: 70, ideal: 78)
                 .customizationID("donnees")

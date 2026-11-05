@@ -261,7 +261,7 @@ final class RemoteModel: ObservableObject {
             guard (try? connection.validated()) != nil else { return }
             connections.append(connection)
             save()
-            toast = "Connexion « \(connection.name) » ajoutée au carnet."
+            toast = "Connexion «\u{00A0}\(connection.name)\u{00A0}» ajoutée au carnet."
         }
         selectedID = connection.id
         draft = nil
@@ -392,6 +392,9 @@ final class RemoteModel: ObservableObject {
             self.draft = nil
             draftError = nil
             save()
+            // Les tunnels de cette connexion suivent le carnet : réglages SSH à jour au prochain
+            // démarrage ; plus de SSH (ou redirection retirée) : tunnel arrêté et onglet fermé.
+            syncTunnelSessions(with: connection)
             return connection
         } catch {
             draftError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -541,7 +544,7 @@ final class RemoteModel: ObservableObject {
         }
         if !inTerminalApp, mode == nil || connection.proto != .vnc, RemoteSessionStore.opensInTab(connection.proto) {
             guard let valid = try? connection.validated() else {
-                toast = "Connexion « \(connection.name) » à corriger avant de l’ouvrir."
+                toast = "Connexion «\u{00A0}\(connection.name)\u{00A0}» à corriger avant de l’ouvrir."
                 return
             }
             selectedID = connection.id
@@ -589,7 +592,7 @@ final class RemoteModel: ObservableObject {
                     guard !Task.isCancelled else { return }
                     self.fullScreenTasks[id] = nil
                     if outcome == .timedOut {
-                        self.toast = "Plein écran non appliqué à « \(name) »\u{00A0}: utilisez Présentation › Passer en plein écran dans Partage d’écran."
+                        self.toast = "Plein écran non appliqué à «\u{00A0}\(name)\u{00A0}»\u{00A0}: utilisez Présentation › Passer en plein écran dans Partage d’écran."
                     }
                 }
             }
@@ -670,7 +673,7 @@ final class RemoteModel: ObservableObject {
             save()
             self.tunnelDraft = nil
             tunnelDraftError = nil
-            toast = "Tunnel « \(spec.title) » enregistré dans \(updated.name)."
+            toast = "Tunnel «\u{00A0}\(spec.title)\u{00A0}» enregistré dans \(updated.name)."
             SSHTunnelStore.shared.session(for: spec.id)?.update(tunnel: spec, connection: updated)
             if open { openTunnel(spec, of: updated) }
         } catch {
@@ -683,14 +686,27 @@ final class RemoteModel: ObservableObject {
         SSHTunnelStore.shared.discard(id)
         let removed = connections.first { $0.id == connectionID }?.tunnels.first { $0.id == id }
         updateExisting(connectionID) { $0.tunnels.removeAll { $0.id == id } }
-        if let removed { toast = "Redirection « \(removed.title) » supprimée." }
+        if let removed { toast = "Redirection «\u{00A0}\(removed.title)\u{00A0}» supprimée." }
+    }
+
+    /// Aligne les sessions de tunnel ouvertes sur la connexion enregistrée.
+    private func syncTunnelSessions(with connection: RemoteConnection) {
+        let store = SSHTunnelStore.shared
+        for session in store.sessions(of: connection.id) {
+            if connection.proto == .ssh, let spec = connection.tunnels.first(where: { $0.id == session.id }) {
+                session.update(tunnel: spec, connection: connection)
+            } else {
+                if let tab = RemoteSessionStore.shared.tunnelTab(session.id) { RemoteSessionStore.shared.close(tab.id) }
+                store.discard(session.id)
+            }
+        }
     }
 
     /// Démarre le tunnel et montre son onglet de session.
     func openTunnel(_ tunnel: SSHTunnelSpec, of connection: RemoteConnection) {
         let current = connections.first { $0.id == connection.id } ?? connection
         guard let valid = try? current.validated() else {
-            toast = "Connexion « \(current.name) » à corriger avant d’ouvrir un tunnel."
+            toast = "Connexion «\u{00A0}\(current.name)\u{00A0}» à corriger avant d’ouvrir un tunnel."
             return
         }
         let spec = valid.tunnels.first { $0.id == tunnel.id } ?? tunnel

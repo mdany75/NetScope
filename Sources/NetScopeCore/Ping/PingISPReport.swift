@@ -59,11 +59,51 @@ public struct PingLongLog: Codable, Equatable, Sendable {
     private var lossRun = 0
     private var lossRunStart: Date?
     private var lastRTT: Double?
+    /// Première et dernière mesure reçues (la période commence à la première mesure, pas au début de l'heure).
+    public private(set) var firstSampleDate: Date?
+    public private(set) var lastSampleDate: Date?
+    /// Pause en cours et durée des pauses passées : exclues de la période et des pannes.
+    public private(set) var pausedSince: Date?
+    public private(set) var pausedTotal: TimeInterval?
 
     public init() {}
 
     public var isEmpty: Bool { buckets.isEmpty }
-    public var firstDate: Date? { buckets.first?.hourStart }
+    public var firstDate: Date? { firstSampleDate ?? buckets.first?.hourStart }
+
+    /// Durée mesurée jusqu'à `now`, sans les pauses.
+    public func activeSpan(until now: Date) -> TimeInterval {
+        guard let first = firstDate else { return 0 }
+        let end = Swift.min(pausedSince ?? now, now)
+        return Swift.max(0, end.timeIntervalSince(first) - (pausedTotal ?? 0))
+    }
+
+    /// Fin à retenir pour une panne encore ouverte : la dernière mesure reçue (jamais le temps de pause).
+    public func openOutageEnd(now: Date) -> Date {
+        Swift.min(lastSampleDate ?? now, now)
+    }
+
+    /// Mise en pause de la cible ou de la session : la panne ouverte se ferme à cette date et le
+    /// temps de pause ne compte ni dans la période ni comme une panne.
+    public mutating func pause(at date: Date) {
+        guard pausedSince == nil else { return }
+        if var open = outages.last, open.end == nil {
+            open.end = Swift.max(open.start, date)
+            outages[outages.count - 1] = open
+        }
+        lossRun = 0
+        lossRunStart = nil
+        lastRTT = nil
+        pausedSince = date
+    }
+
+    /// Reprise après `pause(at:)`.
+    public mutating func resume(at date: Date) {
+        guard let since = pausedSince else { return }
+        // Avant la première mesure, la pause ne raccourcit rien.
+        if firstSampleDate != nil { pausedTotal = (pausedTotal ?? 0) + Swift.max(0, date.timeIntervalSince(since)) }
+        pausedSince = nil
+    }
 
     /// Ajoute une mesure ; `thresholdMs` : seuil de lenteur de la cible au moment de la mesure.
     public mutating func record(_ sample: PingSample, thresholdMs: Double, calendar: Calendar = .current) {
@@ -83,6 +123,9 @@ public struct PingLongLog: Codable, Equatable, Sendable {
             buckets[index] = bucket
             lastRTT = previous
         }
+        if let since = pausedSince { resume(at: Swift.max(since, sample.date)) }
+        firstSampleDate = firstSampleDate.map { Swift.min($0, sample.date) } ?? sample.date
+        lastSampleDate = lastSampleDate.map { Swift.max($0, sample.date) } ?? sample.date
         trackOutage(sample)
     }
 
@@ -177,8 +220,10 @@ public struct PingISPReport: Equatable, Sendable {
         public var outages: [PingOutage]
         /// Somme des durées des pannes (bornées à la période du rapport).
         public var downtime: TimeInterval
-        /// Disponibilité sur la période couverte par les mesures, en %.
+        /// Disponibilité sur la période couverte par les mesures (pauses exclues), en %.
         public var availability: Double
+        /// Fin retenue pour une panne encore ouverte (dernière mesure reçue).
+        public var measuredUntil: Date
         /// Constats en phrases (« 3 pannes, 14 min au total »).
         public var findings: [String]
     }
@@ -211,9 +256,9 @@ public struct PingISPReport: Equatable, Sendable {
             HourRow(hourStart: $0.hourStart, sent: $0.sent, lossPercent: $0.lossPercent, average: $0.average, max: $0.max,
                     jitter: $0.jitter, slow: $0.slow)
         }
-        let start = buckets.first?.hourStart ?? now
-        let downtime = input.log.outages.reduce(0) { $0 + $1.duration(until: now) }
-        let span = Swift.max(1, now.timeIntervalSince(start))
+        let measuredUntil = input.log.openOutageEnd(now: now)
+        let downtime = input.log.outages.reduce(0) { $0 + $1.duration(until: measuredUntil) }
+        let span = Swift.max(1, input.log.activeSpan(until: now))
         let loss = sent == 0 ? 0 : Double(sent - received) / Double(sent) * 100
         var target = Target(name: input.name, address: input.address, role: input.role, thresholdMs: input.thresholdMs,
                             sent: sent, received: received, lossPercent: loss,
@@ -221,7 +266,8 @@ public struct PingISPReport: Equatable, Sendable {
                             min: buckets.compactMap(\.min).min(), max: buckets.compactMap(\.max).max(),
                             jitter: jitterCount == 0 ? nil : jitterSum / Double(jitterCount), slow: slow,
                             hours: hours, outages: input.log.outages, downtime: downtime,
-                            availability: Swift.max(0, Swift.min(100, (1 - downtime / span) * 100)), findings: [])
+                            availability: Swift.max(0, Swift.min(100, (1 - downtime / span) * 100)),
+                            measuredUntil: measuredUntil, findings: [])
         target.findings = findings(for: target, now: now, calendar: calendar)
         return target
     }
@@ -231,7 +277,7 @@ public struct PingISPReport: Equatable, Sendable {
         var list: [String] = []
         let outages = target.outages.count
         if outages > 0 {
-            let longest = target.outages.map { $0.duration(until: now) }.max() ?? 0
+            let longest = target.outages.map { $0.duration(until: target.measuredUntil) }.max() ?? 0
             list.append("\(outages) \(outages > 1 ? "pannes" : "panne") (3 paquets perdus de suite ou plus), \(PingFormat.duration(target.downtime)) au total, la plus longue de \(PingFormat.duration(longest)).")
         }
         if target.lossPercent >= lossNotice {
@@ -316,7 +362,7 @@ public struct PingISPReport: Equatable, Sendable {
             for finding in target.findings { lines.append("  - \(finding)") }
             for outage in target.outages {
                 let end = outage.end.map { Self.stamp($0, calendar: calendar) } ?? "en cours"
-                lines.append("  Panne\u{00A0}: \(Self.stamp(outage.start, calendar: calendar)) → \(end) (\(PingFormat.duration(outage.duration(until: periodEnd))), \(outage.lostPackets) paquets perdus)")
+                lines.append("  Panne\u{00A0}: \(Self.stamp(outage.start, calendar: calendar)) → \(end) (\(PingFormat.duration(outage.duration(until: target.measuredUntil))), \(outage.lostPackets) paquets perdus)")
             }
             lines.append("")
         }

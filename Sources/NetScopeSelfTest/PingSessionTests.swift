@@ -123,6 +123,45 @@ func registerPingSessionTests(_ suite: TestSuite) {
         try expect(log.isEmpty && log.outages.isEmpty, "réinitialisé")
     }
 
+    suite.add("Ping : rapport, période depuis la première mesure et pauses exclues") {
+        // Mesure lancée à 00:55, panne de 5 min, rapport à 01:05 : environ 50 % de disponibilité.
+        var late = PingLongLog()
+        let values: [Double?] = [5, nil, nil, nil, nil, nil, 5]
+        for (index, value) in values.enumerated() {
+            late.record(PingSample(sequence: index + 1, date: at(3300 + Double(index) * 60), rttMs: value), thresholdMs: 50, calendar: calendar)
+        }
+        let first = PingISPReport.make([.init(name: "A", address: "8.8.8.8", role: "", thresholdMs: 50, log: late)],
+                                       generatedAt: at(3900), calendar: calendar)
+        try expectEqual(first.periodStart, at(3300), "période depuis la première mesure, pas depuis le début de l'heure")
+        try expectEqual(first.targets[0].downtime, 300, "5 min de panne")
+        try expectEqual(first.targets[0].availability, 50, "50 % sur 10 min")
+
+        // Panne ouverte puis pause : la panne se ferme à la pause, le temps de pause ne compte pas.
+        var paused = PingLongLog()
+        let more: [Double?] = [5, nil, nil, nil]
+        for (index, value) in more.enumerated() {
+            paused.record(PingSample(sequence: index + 1, date: at(Double(index) * 60), rttMs: value), thresholdMs: 50, calendar: calendar)
+        }
+        paused.pause(at: at(200))
+        try expectEqual(paused.outages.first?.end, at(200), "panne fermée à la mise en pause")
+        let second = PingISPReport.make([.init(name: "B", address: "1.1.1.1", role: "", thresholdMs: 50, log: paused)],
+                                        generatedAt: at(3600), calendar: calendar)
+        try expectEqual(second.targets[0].downtime, 140, "panne bornée à la pause")
+        try expect(abs(second.targets[0].availability - 30) < 0.001, "période sans le temps de pause")
+        paused.resume(at: at(1200))
+        paused.record(PingSample(sequence: 5, date: at(1200), rttMs: 5), thresholdMs: 50, calendar: calendar)
+        try expectEqual(paused.activeSpan(until: at(1300)), 300, "1300 s moins 1000 s de pause")
+
+        // Panne encore ouverte sans pause : bornée à la dernière mesure, pas à l'heure du rapport.
+        var open = PingLongLog()
+        for (index, value) in more.enumerated() {
+            open.record(PingSample(sequence: index + 1, date: at(Double(index) * 60), rttMs: value), thresholdMs: 50, calendar: calendar)
+        }
+        let third = PingISPReport.make([.init(name: "C", address: "9.9.9.9", role: "", thresholdMs: 50, log: open)],
+                                       generatedAt: at(3600), calendar: calendar)
+        try expectEqual(third.targets[0].downtime, 120, "panne ouverte bornée à la dernière mesure")
+    }
+
     suite.add("Ping : rapport pour le fournisseur Internet (résumé, constats, pages)") {
         var bad = PingLongLog()
         var good = PingLongLog()

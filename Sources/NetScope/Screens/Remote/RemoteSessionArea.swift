@@ -48,7 +48,7 @@ struct RemoteSessionArea: View {
         .onChange(of: model.tunnelDraft != nil) { _, editing in
             if editing { sessions.select(nil) }
         }
-        .confirmationDialog("Fermer l’onglet « \(sessions.pendingClose?.connection.name ?? "") » ?",
+        .confirmationDialog("Fermer l’onglet «\u{00A0}\(sessions.pendingClose?.tunnelSession?.title ?? sessions.pendingClose?.connection.name ?? "")\u{00A0}»\u{00A0}?",
                             isPresented: Binding(get: { sessions.pendingClose != nil },
                                                  set: { if !$0 { sessions.pendingClose = nil } }),
                             titleVisibility: .visible) {
@@ -58,7 +58,7 @@ struct RemoteSessionArea: View {
             Button("Annuler", role: .cancel) { sessions.pendingClose = nil }
         } message: {
             if sessions.pendingClose?.tunnelSession != nil {
-                Text("Le tunnel SSH est arrêté\u{00A0}: les applications qui passent par lui sont déconnectées.")
+                Text("Le tunnel SSH sera arrêté\u{00A0}: les applications qui passent par lui seront déconnectées.")
             } else {
                 closeMessage
             }

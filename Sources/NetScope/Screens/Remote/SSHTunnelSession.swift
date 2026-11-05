@@ -210,6 +210,9 @@ final class SSHTunnelSession: ObservableObject, Identifiable {
             return
         }
         process?.close()
+        // Nettoyage tout de suite : si la session est oubliée (discard), l'événement de fin
+        // n'arrivera jamais jusqu'à finish(). finish() peut le refaire sans danger.
+        cleanup()
     }
 
     func restart(reserved: Set<Int>) {
@@ -299,7 +302,9 @@ final class SSHTunnelSession: ObservableObject, Identifiable {
         cleanup()
         hostKey = nil
         passwordPrompt = nil
-        let diagnosis = SSHTunnelDiagnosis.scan(recentText + filter.pendingLine)
+        var diagnosis = SSHTunnelDiagnosis.scan(recentText + filter.pendingLine)
+        // Tunnel déjà ouvert : un refus de redirection ne visait qu'un canal, pas la fermeture.
+        if phase == .open, diagnosis == .forwardingRefused { diagnosis = nil }
         if userStopped {
             phase = .stopped
             append("Tunnel arrêté.", tone: .neutral)
@@ -382,6 +387,11 @@ final class SSHTunnelStore: ObservableObject {
 
     func isActive(_ tunnelID: UUID) -> Bool { sessions[tunnelID]?.isActive ?? false }
 
+    /// Sessions des tunnels d'une connexion du carnet.
+    func sessions(of connectionID: UUID) -> [SSHTunnelSession] {
+        sessions.values.filter { $0.connection.id == connectionID }
+    }
+
     /// Session du tunnel (créée au besoin, mise à jour avec le carnet).
     func prepare(_ tunnel: SSHTunnelSpec, via connection: RemoteConnection) -> SSHTunnelSession {
         if let existing = sessions[tunnel.id] {
@@ -413,7 +423,7 @@ final class SSHTunnelStore: ObservableObject {
 
     /// Connexion supprimée : tous ses tunnels sont arrêtés.
     func discardAll(for connectionID: UUID) {
-        for session in sessions.values where session.connection.id == connectionID { discard(session.id) }
+        for session in sessions(of: connectionID) { discard(session.id) }
     }
 }
 

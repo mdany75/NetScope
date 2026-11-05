@@ -81,6 +81,8 @@ extension PingController {
     /// une session vidée n'efface pas la précédente).
     func autosave() {
         guard !isSimulated, !targets.isEmpty, let url = Self.lastSessionURL else { return }
+        // Tant que la dernière session n'a été ni rouverte ni écartée, elle reste intacte.
+        guard lastSessionSettled || lastSession == nil else { return }
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try sessionFile.encoded().write(to: url, options: .atomic)
@@ -89,9 +91,30 @@ extension PingController {
         }
     }
 
+    /// Rouvre la dernière session ; si des cibles sont déjà là, ajoute celles qui manquent.
     func reopenLastSession() {
         guard let file = lastSession else { return }
-        applySession(file, origin: "dernière session")
+        lastSessionSettled = true
+        guard !targets.isEmpty else {
+            applySession(file, origin: "dernière session")
+            return
+        }
+        var added = 0
+        for saved in file.targets {
+            guard add(saved.input, name: saved.name.isEmpty ? nil : saved.name, role: saved.role.isEmpty ? nil : saved.role, log: false),
+                  let target = targets.last else { continue }
+            if let threshold = saved.thresholdMs { update(target.id) { $0.thresholdMs = threshold } }
+            if saved.isPaused { togglePause(target.id) }
+            added += 1
+        }
+        log(.info, "Session", "dernière session ajoutée\u{00A0}: \(added) cible\(added > 1 ? "s" : "") de plus")
+        autosave()
+    }
+
+    /// Écarte la dernière session : la session actuelle la remplacera.
+    func discardLastSession() {
+        lastSessionSettled = true
+        autosave()
     }
 
     private static var sessionType: UTType {
@@ -121,6 +144,7 @@ extension PingController {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             let file = try PingSessionFile.decode(try Data(contentsOf: url))
+            lastSessionSettled = true
             applySession(file, origin: url.lastPathComponent)
         } catch {
             let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription

@@ -13,8 +13,13 @@ struct PingSessionMenu: View {
             Button("Ouvrir une session…") { controller.openSession() }
             Button("Enregistrer la session…") { controller.saveSessionAs() }
                 .disabled(controller.targets.isEmpty)
-            if let last = controller.lastSession, controller.targets.isEmpty {
-                Button("Rouvrir la dernière session (\(last.summary))") { controller.reopenLastSession() }
+            if let last = controller.lastSession, controller.targets.isEmpty || !controller.lastSessionSettled {
+                Button(controller.targets.isEmpty ? "Rouvrir la dernière session (\(last.summary))"
+                                                  : "Ajouter la dernière session (\(last.summary))") { controller.reopenLastSession() }
+                if !controller.targets.isEmpty {
+                    Button("Écarter la dernière session") { controller.discardLastSession() }
+                        .help("La session actuelle remplacera la dernière session enregistrée")
+                }
             }
             Divider()
             Toggle("Notifier quand une cible tombe ou revient", isOn: $controller.notifyChanges)

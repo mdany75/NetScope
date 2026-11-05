@@ -60,6 +60,9 @@ final class PingController: ObservableObject {
     @Published var notifyChanges = true
     /// Note 78 : cartes, tableau compact, ou automatique (tableau au-delà de 9 cibles).
     @Published var layoutChoice = PingLayoutChoice.automatic
+    /// La dernière session enregistrée a été rouverte ou écartée : l'enregistrement automatique
+    /// peut la remplacer. Avant, un premier ajout (Scanner, fiche, Inventaire) ne l'écrase pas.
+    @Published var lastSessionSettled = false
     @Published private(set) var isPaused = false
     @Published private(set) var hasStarted = false
     @Published private(set) var sessionStart = Date()
@@ -307,7 +310,7 @@ final class PingController: ObservableObject {
             let suffix = event.level == .coupure && soundOnLoss ? " · alerte sonore" : ""
             insert(PingEvent(date: event.date, level: event.level, subject: event.subject, message: event.message + suffix))
             // Note 78 : notification macOS à la coupure et au retour (Réglages › Notifications).
-            if notifyChanges, !isSimulated, let notice = PingNotification.event(for: event, name: target.name, address: target.addressLabel) {
+            if notifyChanges, !isSimulated, let notice = PingNotification.event(for: event, name: target.name, address: target.endpointLabel) {
                 NetScopeEventCenter.shared.publish(notice)
             }
         }
@@ -350,6 +353,11 @@ final class PingController: ObservableObject {
 
     func togglePause() {
         isPaused.toggle()
+        // Journal long : le temps de pause ne compte ni dans la période ni comme une panne.
+        let now = Date()
+        for index in targets.indices where !targets[index].isPaused {
+            if isPaused { targets[index].longLog.pause(at: now) } else { targets[index].longLog.resume(at: now) }
+        }
         if isPaused {
             // Les moniteurs sont gardés : la séquence reprend là où elle s'était arrêtée.
             monitors.values.forEach { $0.stop() }
@@ -378,6 +386,11 @@ final class PingController: ObservableObject {
         let now = Date()
         let since = targets[index].pauses.pausedSince
         let paused = targets[index].pauses.toggle(at: now)
+        if paused {
+            targets[index].longLog.pause(at: now)
+        } else if !isPaused {
+            targets[index].longLog.resume(at: now)
+        }
         let target = targets[index]
         if paused {
             monitors[id]?.stop()
@@ -408,6 +421,7 @@ final class PingController: ObservableObject {
             targets[index].history.reset()
             targets[index].longLog.reset()
             targets[index].pauses.reset(at: now)
+            if isPaused || targets[index].isPaused { targets[index].longLog.pause(at: now) }
         }
         sessionStart = Date()
         events = [PingEvent(level: .info, subject: "Session", message: "statistiques réinitialisées")]
@@ -593,6 +607,7 @@ final class PingController: ObservableObject {
                 // Cible en pause : plus aucune mesure depuis la mise en pause.
                 let start = PingDemo.date(of: PingDemo.pausedIndex, now: now)
                 target.pauses.pause(at: start)
+                target.longLog.pause(at: start)
                 var history = PingHistory()
                 for sample in target.history.samples where sample.date < start { history.append(sample) }
                 target.history = history

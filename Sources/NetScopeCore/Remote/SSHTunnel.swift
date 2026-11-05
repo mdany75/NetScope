@@ -439,7 +439,7 @@ public enum SSHTunnelDiagnosis: Equatable, Sendable {
     /// Explication montrée dans l'onglet.
     public var message: String {
         switch self {
-        case .localPortInUse: return "Le port local est déjà pris sur ce Mac\u{00A0}: choisissez « automatique » ou un autre port."
+        case .localPortInUse: return "Le port local est déjà pris sur ce Mac\u{00A0}: choisissez «\u{00A0}automatique\u{00A0}» ou un autre port."
         case .forwardingRefused: return "Le serveur SSH refuse les redirections (AllowTcpForwarding ou PermitOpen de sshd)."
         case .destinationUnreachable: return "La destination ne répond pas, vue du serveur SSH (hôte éteint, port fermé ou pare-feu)."
         case .authenticationFailed: return "Identification refusée\u{00A0}: vérifiez l’utilisateur, la clé ou le mot de passe du Trousseau."
@@ -453,8 +453,17 @@ public enum SSHTunnelDiagnosis: Equatable, Sendable {
     /// L'erreur arrête le tunnel (sinon, un avertissement : la destination peut revenir).
     public var isFatal: Bool { self != .destinationUnreachable }
 
-    /// Dernière cause reconnue dans la sortie de ssh.
+    /// Dernière cause reconnue dans la sortie de ssh : les lignes sont lues de la fin vers le
+    /// début, pour qu'un ancien message (refus d'un seul canal) ne masque pas la vraie cause.
     public static func scan(_ text: String) -> SSHTunnelDiagnosis? {
+        let lines = text.split(whereSeparator: \.isNewline)
+        for line in lines.reversed() {
+            if let found = scanLine(String(line)) { return found }
+        }
+        return nil
+    }
+
+    private static func scanLine(_ text: String) -> SSHTunnelDiagnosis? {
         let lower = text.lowercased()
         if lower.contains("remote host identification has changed") { return .hostKeyChanged }
         if lower.contains("address already in use") || lower.contains("could not request local forwarding")

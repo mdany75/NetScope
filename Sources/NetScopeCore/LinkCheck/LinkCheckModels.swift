@@ -64,7 +64,7 @@ public enum LinkCheckStepKind: String, Codable, Sendable, CaseIterable, Identifi
         case .vlan: return "VLAN natif (et VLAN voix) annoncés par le switch."
         case .poe: return "Alimentation PoE annoncée par le port du switch."
         case .dhcp: return "Serveurs DHCP qui répondent, temps d’obtention et options."
-        case .passerelle: return "Ping de la passerelle : perte et latence."
+        case .passerelle: return "Ping de la passerelle\u{00A0}: perte et latence."
         case .dns: return "Résolution de quelques noms par le serveur DNS du réseau."
         case .internet: return "Requête HTTP vers une adresse neutre."
         }

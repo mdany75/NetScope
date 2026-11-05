@@ -65,6 +65,8 @@ func registerPingProtocolTests(_ suite: TestSuite) {
         try expectEqual(PingTargetSpec.parse("10.0.0.5:99999"), nil, "port hors limite refusé")
         try expectEqual(PingTargetSpec.parse("a b"), nil, "espace refusé")
         try expectEqual(PingTargetSpec.parse("https://"), nil, "URL sans hôte refusée")
+        try expectEqual(PingTargetSpec.parse("https://admin:motdepasse@10.0.0.1/"), nil, "URL avec identifiants refusée")
+        try expectEqual(PingTargetSpec.parse("http://admin@10.0.0.1/"), nil, "URL avec utilisateur refusée")
         try expectEqual(PingTargetSpec.endpoint(kind: .tcp(port: 443), address: "10.0.0.5"), "10.0.0.5:443", "libellé TCP")
         try expectEqual(PingTargetSpec.endpoint(kind: .http(URL(string: "https://portail.exemple.ca/")!), address: "x"),
                         "portail.exemple.ca", "libellé HTTP sans schéma ni « / »")

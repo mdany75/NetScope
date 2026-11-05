@@ -224,6 +224,11 @@ struct PingScreen: View {
             }
     }
 
+    /// Le champ « Port » contient un port TCP valide (1 à 65535).
+    private var portTextValid: Bool {
+        UInt16(portText.trimmingCharacters(in: .whitespaces)).map { $0 > 0 } ?? false
+    }
+
     private var modeGroup: some View {
             HStack(spacing: 6) {
                 Text("Mode").font(Theme.small).foregroundStyle(Theme.textSecondary)
@@ -242,10 +247,15 @@ struct PingScreen: View {
                         .textFieldStyle(.roundedBorder)
                         .font(Theme.mono(12))
                         .frame(width: 58)
-                        .help("Port TCP des cibles ajoutées en mode TCP")
+                        // Saisie invalide : bordure rouge, et les cibles partent sur le dernier port valide.
+                        .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.critical, lineWidth: 1)
+                            .opacity(portTextValid ? 0 : 1).allowsHitTesting(false))
+                        .help(portTextValid ? "Port TCP des cibles ajoutées en mode TCP"
+                                            : "Port de 1 à 65535\u{00A0}: les cibles ajoutées partent sur le port \(controller.tcpPort)")
                         .onChange(of: portText) { _, text in
                             if let port = UInt16(text.trimmingCharacters(in: .whitespaces)), port > 0 { controller.tcpPort = port }
                         }
+                        .onSubmit { portText = "\(controller.tcpPort)" }
                         .onAppear { portText = "\(controller.tcpPort)" }
                 }
             }

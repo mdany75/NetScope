@@ -39,6 +39,14 @@ struct LinkCheckView: View {
                     .font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
             }
         }
+        .confirmationDialog("Retirer ce bilan de l’historique\u{00A0}?",
+                            isPresented: Binding(get: { model.pendingRemoval != nil }, set: { if !$0 { model.pendingRemoval = nil } }),
+                            titleVisibility: .visible) {
+            Button("Retirer", role: .destructive) { if let result = model.pendingRemoval { model.remove(result) } }
+            Button("Annuler", role: .cancel) { model.pendingRemoval = nil }
+        } message: {
+            Text("Ce bilan est la référence «\u{00A0}avant\u{00A0}» ou figure dans le rapport du site. Il sera effacé définitivement.")
+        }
         .task {
             await model.prepare(active: state.activeInterface)
             // Captures (--snapshot --demo) : NETSCOPE_BILAN_EN_COURS=1 montre un bilan en cours.
@@ -442,7 +450,7 @@ struct LinkCheckView: View {
                         Button("Exporter en PDF…") { model.exportPDF(result) }
                         Button("Copier le texte") { model.copyText(result) }
                         Divider()
-                        Button("Retirer de l’historique") { model.remove(result) }
+                        Button("Retirer de l’historique") { model.requestRemove(result) }
                     }
                 } primaryAction: { ids in
                     if let id = ids.first { model.shownID = id; model.compareID = nil }

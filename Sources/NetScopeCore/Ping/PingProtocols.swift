@@ -77,6 +77,8 @@ public struct PingTargetSpec: Equatable, Sendable {
         let lower = text.lowercased()
         if lower.hasPrefix("http://") || lower.hasPrefix("https://") {
             guard let url = URL(string: text), let host = url.host, !host.isEmpty else { return nil }
+            // Pas d'identifiants dans l'URL : ils finiraient en clair dans la session, le journal et l'export.
+            guard url.user == nil, url.password == nil else { return nil }
             return PingTargetSpec(kind: .http(normalized(url)), host: host)
         }
         if lower.hasPrefix("tcp://") {
@@ -282,6 +284,8 @@ public enum PingHTTP {
     // MARK: HTTPS par URLSession
 
     private static func secureProbe(_ url: URL, timeout: TimeInterval) async -> PingProbeResult {
+        // Tâche déjà annulée : ne rien créer (une session invalidée refuse toute nouvelle tâche).
+        if Task.isCancelled { return .lost(.failed("annulé")) }
         let delegate = PingHTTPDelegate()
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = timeout
@@ -289,10 +293,14 @@ public enum PingHTTP {
         configuration.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
         configuration.httpAdditionalHeaders = ["User-Agent": "NetScope"]
         configuration.httpMaximumConnectionsPerHost = 1
+        configuration.urlCredentialStorage = nil
         let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
         defer { session.invalidateAndCancel() }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
+        // La tâche est créée avant le gestionnaire d'annulation : onCancel l'annule sans invalider
+        // la session, et une tâche annulée avant resume() se termine aussitôt par une erreur.
+        let task = session.dataTask(with: request)
         let start = PingClock.nowMs()
         return await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
@@ -311,10 +319,10 @@ public enum PingHTTP {
                         continuation.resume(returning: failure(error))
                     }
                 }
-                session.dataTask(with: request).resume()
+                task.resume()
             }
         } onCancel: {
-            session.invalidateAndCancel()
+            task.cancel()
         }
     }
 
@@ -415,8 +423,13 @@ final class PingHTTPDelegate: NSObject, URLSessionDataDelegate, @unchecked Senda
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge,
                     completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
-        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
-              let trust = challenge.protectionSpace.serverTrust else {
+        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust else {
+            // Le certificat n'est pas vérifié : ne jamais remettre d'identifiants (401, certificat client).
+            // Le refus laisse arriver la réponse 401, qui prouve que le serveur répond.
+            completionHandler(.rejectProtectionSpace, nil)
+            return
+        }
+        guard let trust = challenge.protectionSpace.serverTrust else {
             completionHandler(.performDefaultHandling, nil)
             return
         }

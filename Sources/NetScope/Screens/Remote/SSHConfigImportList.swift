@@ -25,7 +25,7 @@ struct SSHConfigImportList: View {
                 VStack(spacing: 0) {
                     if candidates.isEmpty {
                         EmptyState(systemImage: "doc.text.magnifyingglass", title: "Aucun hôte dans ~/.ssh/config",
-                                   message: "Les blocs « Host nom » sans joker (*, ?, !) apparaîtront ici.")
+                                   message: "Les blocs «\u{00A0}Host nom\u{00A0}» sans joker (*, ?, !) apparaîtront ici.")
                             .frame(height: 180)
                     }
                     ForEach(candidates) { candidate in row(candidate) }
@@ -114,7 +114,7 @@ struct SSHConfigImportList: View {
                 } else {
                     Button("Ajouter") { model.addFromSSHConfig(candidate) }
                         .buttonStyle(RemoteSmallButtonStyle())
-                        .help("Ajouter \(candidate.alias) au dossier « \(SSHConfigImport.folder) »")
+                        .help("Ajouter \(candidate.alias) au dossier «\u{00A0}\(SSHConfigImport.folder)\u{00A0}»")
                 }
             }
             .padding(.horizontal, 8).frame(width: 130, alignment: .trailing)

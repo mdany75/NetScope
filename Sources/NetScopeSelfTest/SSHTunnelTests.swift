@@ -376,6 +376,8 @@ func registerSSHTunnelDiagnosisTests(_ suite: TestSuite) {
         try expectEqual(SSHTunnelDiagnosis.scan("ssh: Could not resolve hostname bastion: nodename nor servname provided"), .hostNotFound, "DNS")
         try expectEqual(SSHTunnelDiagnosis.scan("WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!"), .hostKeyChanged, "clé changée")
         try expectEqual(SSHTunnelDiagnosis.scan("Authenticated to 10.182.122.2 ([10.182.122.2]:22)."), nil, "rien d'anormal")
+        try expectEqual(SSHTunnelDiagnosis.scan("channel 2: open failed: administratively prohibited: open failed\r\nssh: connect to host 10.0.0.9 port 22: Operation timed out\r\n"),
+                        .timeout, "la dernière cause l'emporte sur un ancien refus de canal")
         try expectEqual(SSHTunnelDiagnosis.pendingPrompt("ops@203.0.113.10's password: "), "ops@203.0.113.10's password:", "mot de passe demandé")
         try expectEqual(SSHTunnelDiagnosis.pendingPrompt("(admin@10.0.0.2) Password:"), "(admin@10.0.0.2) Password:", "keyboard-interactive")
         try expect(SSHTunnelDiagnosis.pendingPrompt("Enter passphrase for key '/Users/dany/.ssh/id_bastion':") != nil, "phrase secrète")

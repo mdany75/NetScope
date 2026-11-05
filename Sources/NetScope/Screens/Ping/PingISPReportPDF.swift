@@ -182,7 +182,7 @@ struct PingISPReportPage: View {
                     ForEach(Array(listed.shown.enumerated()), id: \.offset) { _, outage in
                         tableRow([PingISPReport.stamp(outage.start),
                                   outage.end.map { PingISPReport.stamp($0) } ?? "en cours",
-                                  PingFormat.duration(outage.duration(until: report.periodEnd)),
+                                  PingFormat.duration(outage.duration(until: target.measuredUntil)),
                                   "\(outage.lostPackets)"], widths: [170, 170, 80, 90], mono: true, leading: 2)
                     }
                     if listed.hidden > 0 {

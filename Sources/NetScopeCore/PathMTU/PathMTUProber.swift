@@ -181,6 +181,10 @@ public enum PathMTULocal {
 public enum SystemCommand {
     public static func run(_ path: String, _ arguments: [String], timeout: TimeInterval) async throws -> String {
         guard FileManager.default.isExecutableFile(atPath: path) else { throw ToolError.toolMissing(path) }
+        try Task.checkCancellation()
+        // Le processus de cet appel seulement : l'annulation ne touche pas les autres commandes
+        // du même outil lancées en parallèle.
+        let running = ToolBox<Process?>(nil)
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
                 let process = Process()
@@ -209,7 +213,9 @@ public enum SystemCommand {
                     if once.claim() { continuation.resume(throwing: ToolError.processFailed(error.localizedDescription)) }
                     return
                 }
-                SystemCommandRegistry.shared.add(process)
+                running.mutate { $0 = process }
+                // Annulée pendant le lancement : onCancel a pu passer avant l'enregistrement.
+                if Task.isCancelled { process.terminate() }
                 DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
                     guard once.claim() else { return }
                     process.terminate()
@@ -217,28 +223,7 @@ public enum SystemCommand {
                 }
             }
         } onCancel: {
-            SystemCommandRegistry.shared.terminateAll(path: path)
+            running.value?.terminate()
         }
-    }
-}
-
-/// Processus en cours, pour les arrêter quand la tâche qui les attend est annulée.
-final class SystemCommandRegistry: @unchecked Sendable {
-    static let shared = SystemCommandRegistry()
-    private let lock = NSLock()
-    private var processes: [Process] = []
-
-    func add(_ process: Process) {
-        lock.lock()
-        defer { lock.unlock() }
-        processes.removeAll { !$0.isRunning }
-        processes.append(process)
-    }
-
-    func terminateAll(path: String) {
-        lock.lock()
-        let running = processes.filter { $0.isRunning && $0.executableURL?.path == path }
-        lock.unlock()
-        running.forEach { $0.terminate() }
     }
 }

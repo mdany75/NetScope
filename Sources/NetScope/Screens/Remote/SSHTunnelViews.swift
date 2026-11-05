@@ -168,7 +168,8 @@ struct SSHTunnelSessionView: View {
                         .disabled(session.phase != .open)
                         Spacer(minLength: 0)
                     }
-                    Text(verbatim: "curl --socks5-hostname 127.0.0.1:\(session.localPort ?? 1080) http://10.182.122.111/")
+                    // Exemple neutre ; l'adresse du croquis seulement en démonstration.
+                    Text(verbatim: "curl --socks5-hostname 127.0.0.1:\(session.localPort ?? 1080) " + (session.demo ? "http://10.182.122.111/" : "http://<adresse-interne>/"))
                         .font(Theme.mono(11)).foregroundStyle(Theme.textSecondary).textSelection(.enabled)
                 } else {
                     ViewThatFits(in: .horizontal) {
@@ -364,7 +365,7 @@ struct SSHTunnelDetailSection: View {
                 }
             }
             .labelsHidden()
-            .help("ssh passe d’abord par cet hôte (-J, ProxyJump)\u{00A0}: terminal, tunnels et « Ouvrir dans Terminal »")
+            .help("ssh passe d’abord par cet hôte (-J, ProxyJump)\u{00A0}: terminal, tunnels et «\u{00A0}Ouvrir dans Terminal\u{00A0}»")
         }
     }
 }
@@ -406,6 +407,7 @@ private struct SSHTunnelRowContent: View {
     let state: String
     let activePort: Int?
     let active: Bool
+    @State private var confirmDelete = false
 
     var body: some View {
         HStack(spacing: 6) {
@@ -440,7 +442,14 @@ private struct SSHTunnelRowContent: View {
                 Button("Ouvrir l’onglet du tunnel") { model.openTunnel(tunnel, of: connection) }
                 Button("Modifier…") { model.editTunnel(tunnel, of: connection) }
                 Divider()
-                Button("Supprimer la redirection", role: .destructive) { model.deleteTunnel(tunnel.id, from: connection.id) }
+                Button("Supprimer la redirection", role: .destructive) {
+                    // Tunnel ouvert : confirmation, comme la fermeture de son onglet.
+                    if SSHTunnelStore.shared.isActive(tunnel.id) {
+                        confirmDelete = true
+                    } else {
+                        model.deleteTunnel(tunnel.id, from: connection.id)
+                    }
+                }
             } label: {
                 Image(systemName: "ellipsis")
             }
@@ -448,6 +457,12 @@ private struct SSHTunnelRowContent: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .help("Modifier ou supprimer la redirection \(tunnel.spec())")
+        }
+        .confirmationDialog("Supprimer la redirection «\u{00A0}\(tunnel.title)\u{00A0}»\u{00A0}?", isPresented: $confirmDelete) {
+            Button("Supprimer", role: .destructive) { model.deleteTunnel(tunnel.id, from: connection.id) }
+            Button("Annuler", role: .cancel) {}
+        } message: {
+            Text("Le tunnel ouvert sera arrêté\u{00A0}: les applications qui passent par lui seront déconnectées.")
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
