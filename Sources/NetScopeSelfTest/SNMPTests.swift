@@ -6,6 +6,22 @@ import NetScopeCore
 // 127.0.0.1) et de l'analyse Wi-Fi. Aucun autre accès réseau.
 
 func registerSNMPTests(_ suite: TestSuite) {
+    suite.add("Switch : ports en erreur pour l'indicateur de la carte (seuil, ports inactifs, tri)") {
+        let ports = [
+            SNMPInterface(index: 1, name: "port1", operStatus: .up, inErrors: 0),
+            SNMPInterface(index: 2, name: "port2", operStatus: .up, inErrors: 99),
+            SNMPInterface(index: 3, name: "port3", operStatus: .up, inErrors: 100),
+            SNMPInterface(index: 4, name: "port4", operStatus: .up, inErrors: 1_284),
+            SNMPInterface(index: 5, name: "port5", operStatus: .down, inErrors: 5_000),
+            SNMPInterface(index: 6, name: "port6", adminUp: false, operStatus: .down, inErrors: 9_000),
+            SNMPInterface(index: 7, name: "port7", operStatus: .up),
+            SNMPInterface(index: 100, name: "Vlan1", operStatus: .up, inErrors: 7_000),
+        ]
+        let snapshot = SNMPSwitchSnapshot(host: IPv4Address("10.0.0.2")!, system: SNMPSystemInfo(name: "SW", descr: "x"), interfaces: ports)
+        try expectEqual(snapshot.erroredPorts.map(\.name), ["port4", "port3"], "actifs, physiques, au moins 100 erreurs, le plus touché d'abord")
+        let clean = SNMPSwitchSnapshot(host: IPv4Address("10.0.0.3")!, system: SNMPSystemInfo(name: "SW2", descr: "x"), interfaces: Array(ports.prefix(2)))
+        try expectEqual(clean.erroredPorts.count, 0, "aucun port en erreur sous le seuil")
+    }
     suite.add("SNMP BER : aller-retour de chaque type") {
         let values: [SNMPValue] = [
             .integer(0), .integer(127), .integer(128), .integer(255), .integer(256), .integer(-1), .integer(-128), .integer(-129),

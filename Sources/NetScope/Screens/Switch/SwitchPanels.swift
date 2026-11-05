@@ -193,6 +193,43 @@ struct SwitchSourcesPanel: View {
 
 // MARK: - Cartes des switchs
 
+/// Icône de la carte d'un switch ; avec des ports en erreur, elle passe en rouge avec une pastille
+/// du nombre de ports touchés (détail en infobulle).
+struct SwitchCardIcon: View {
+    let errored: [SNMPInterface]
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(errored.isEmpty ? Theme.neutralSoft : Theme.criticalSoft)
+            Image(systemName: "rectangle.connected.to.line.below").font(.system(size: 15))
+                .foregroundStyle(errored.isEmpty ? Theme.text : Theme.critical)
+        }
+        .frame(width: 34, height: 34)
+        .overlay(alignment: .topTrailing) {
+            if !errored.isEmpty {
+                Text("\(errored.count)")
+                    .font(.system(size: 10, weight: .bold).monospacedDigit())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 4)
+                    .frame(minWidth: 16, minHeight: 16)
+                    .background(Capsule().fill(Theme.critical))
+                    .overlay(Capsule().strokeBorder(Theme.panel, lineWidth: 1.5))
+                    .offset(x: 6, y: -6)
+            }
+        }
+        .help(helpText)
+        .accessibilityLabel(errored.isEmpty ? "Switch" : "Switch, \(errored.count) port\(errored.count > 1 ? "s" : "") en erreur")
+    }
+
+    private var helpText: String {
+        guard !errored.isEmpty else { return "" }
+        let count = errored.count
+        let list = errored.prefix(6).map { "\($0.name) (\(SwitchText.grouped($0.inErrors ?? 0)))" }.joined(separator: ", ")
+        let more = count > 6 ? ", et \(count - 6) autre\(count - 6 > 1 ? "s" : "")" : ""
+        return "\(count) port\(count > 1 ? "s" : "") en erreur (au moins \(SNMPSwitchSnapshot.portErrorThreshold) erreurs en entrée depuis le démarrage)\u{00A0}: \(list)\(more). Cliquez pour voir la façade."
+    }
+}
+
 struct SwitchCard: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var store: SwitchStore
@@ -204,11 +241,7 @@ struct SwitchCard: View {
         Button { store.select(host: host) } label: {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.neutralSoft)
-                        Image(systemName: "rectangle.connected.to.line.below").font(.system(size: 15)).foregroundStyle(Theme.text)
-                    }
-                    .frame(width: 34, height: 34)
+                    SwitchCardIcon(errored: snapshot?.erroredPorts ?? [])
                     VStack(alignment: .leading, spacing: 2) {
                         // Petite fenêtre : la puce d'origine disparaît avant que le nom ne se coupe.
                         ViewThatFits(in: .horizontal) {
@@ -458,10 +491,11 @@ struct SwitchFaceplatePanel: View {
     }
 
     @ViewBuilder private func stats(_ states: [SwitchPortState]) -> some View {
+        // Erreurs : même compte que l'indicateur de la carte (un uplink en erreur compte aussi).
         stat("Actifs", states.filter { $0 != .down && $0 != .disabled }.count, Theme.successSoft, Color(light: 0x14532D, dark: 0x9CE7BA))
         stat("PoE", states.filter { $0 == .poe }.count, Color(light: 0xDBEAFE, dark: 0x1B3250), Color(light: 0x1E40AF, dark: 0x97ABED))
         stat("Trunk", states.filter { $0 == .trunk }.count, Color(light: 0xE2E8F0, dark: 0x253347), Color(light: 0x0F172A, dark: 0xA5B6DF))
-        stat("Erreurs", states.filter { $0 == .err }.count, Theme.criticalSoft, Theme.critical)
+        stat("Erreurs", snapshot.erroredPorts.count, Theme.criticalSoft, Theme.critical)
         stat("Inactifs", states.filter { $0 == .down || $0 == .disabled }.count, Theme.neutralSoft, Theme.neutralText)
     }
 

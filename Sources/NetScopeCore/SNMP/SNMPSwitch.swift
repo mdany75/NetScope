@@ -364,6 +364,17 @@ public struct SNMPSwitchSnapshot: Hashable, Sendable, Codable, Identifiable {
         interfaces.filter(\.isPhysical).sorted { $0.index < $1.index }
     }
 
+    /// Seuil d'erreurs en entrée (ifInErrors depuis le démarrage) à partir duquel un port actif est
+    /// signalé en erreur : même seuil pour la façade et l'indicateur de la carte du switch.
+    public static let portErrorThreshold: UInt64 = 100
+
+    /// Ports physiques actifs en erreur (uplinks compris), du plus touché au moins touché.
+    public var erroredPorts: [SNMPInterface] {
+        physicalPorts
+            .filter { $0.isUp && ($0.inErrors ?? 0) >= Self.portErrorThreshold }
+            .sorted { ($0.inErrors ?? 0, $1.index) > ($1.inErrors ?? 0, $0.index) }
+    }
+
     public func interface(_ ifIndex: Int) -> SNMPInterface? {
         interfaces.first { $0.index == ifIndex }
     }
