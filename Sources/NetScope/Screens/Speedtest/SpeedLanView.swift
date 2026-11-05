@@ -9,7 +9,18 @@ struct SpeedLanView: View {
     /// Présence d'iperf3 : le bouton « Lancer » suit l'installation faite depuis l'encadré.
     @ObservedObject private var iperf = ToolInstallMonitor.shared(.iperf3)
 
+    @ObservedObject private var server = IperfServerModel.shared
+
     var body: some View {
+        // Note 78 : vue Serveur (serveur iperf3 intégré) ou Client (test vers un serveur).
+        if server.showServer {
+            IperfServerView(model: server)
+        } else {
+            clientView
+        }
+    }
+
+    private var clientView: some View {
         SidePanelSplit(sideWidth: 360, title: "Appareil cible, comparaison et chemin") {
             mainPanel
         } side: {
@@ -27,7 +38,7 @@ struct SpeedLanView: View {
         Panel(padding: 16) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 10) {
-                    SectionHeader("Test iperf3").fixedSize()
+                    IperfRolePicker(model: server)
                     Text(lanSummary).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
                     Spacer(minLength: 8)
                     Button {
@@ -36,7 +47,8 @@ struct SpeedLanView: View {
                         Label(model.lanRunning ? "Test en cours…" : "Lancer iperf3", systemImage: "play.fill")
                     }
                     .buttonStyle(.primary)
-                    .speedDisabled(model.lanRunning || model.iperfPath == nil || model.lanHost.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .speedDisabled(model.lanRunning || (model.lanEngine == .iperf3 && model.iperfPath == nil)
+                                   || model.lanHost.trimmingCharacters(in: .whitespaces).isEmpty)
                     Button {
                         model.stopLan()
                     } label: {
@@ -46,8 +58,10 @@ struct SpeedLanView: View {
                     .speedDisabled(!model.lanRunning)
                 }
 
-                InstallToolPanel(tool: .iperf3, note: "Lancez ensuite « iperf3 -s » sur l’appareil cible (colonne de droite).")
-                if let error = model.lanError, model.iperfPath != nil {
+                if model.lanEngine == .iperf3 {
+                    InstallToolPanel(tool: .iperf3, note: "Lancez ensuite « iperf3 -s » sur l’appareil cible (colonne de droite).")
+                }
+                if let error = model.lanError, model.iperfPath != nil || model.lanEngine == .integre {
                     SpeedBanner(text: error, tone: .critical, systemImage: "xmark.octagon")
                 }
 
@@ -95,6 +109,13 @@ struct SpeedLanView: View {
                     SpeedFieldLabel("Port")
                     SpeedTextField(placeholder: "5201", text: $model.lanPort).frame(width: 70)
                 }
+                // Note 78 : client intégré (rien à installer) ou iperf3 de Homebrew.
+                VStack(alignment: .leading, spacing: 4) {
+                    SpeedFieldLabel("Moteur")
+                    SpeedSegmentRow(options: IperfEngine.allCases.map { ($0, $0.label) }, selection: $model.lanEngine)
+                        .help("Intégré\u{00A0}: TCP, sens normal ou inverse, sans rien installer. iperf3\u{00A0}: UDP et bidirectionnel en plus.")
+                }
+                .frame(width: 160)
                 VStack(alignment: .leading, spacing: 4) {
                     SpeedFieldLabel("Durée")
                     SpeedSegmentRow(options: IperfOptions.durationChoices.map { ($0, "\($0) s") }, selection: $model.lanDuration)
@@ -109,12 +130,16 @@ struct SpeedLanView: View {
                 .frame(maxWidth: .infinity)
                 VStack(alignment: .leading, spacing: 4) {
                     SpeedFieldLabel("Transport")
-                    SpeedSegmentRow(options: IperfOptions.Transport.allCases.map { ($0, $0.label) }, selection: $model.lanTransport)
+                    SpeedSegmentRow(options: IperfOptions.Transport.allCases.map { ($0, $0.label) }, selection: $model.lanTransport,
+                                    disabled: model.lanEngine == .integre ? [.udp] : [],
+                                    disabledHelp: "UDP\u{00A0}: moteur iperf3 (Homebrew)")
                 }
                 .frame(maxWidth: .infinity)
                 VStack(alignment: .leading, spacing: 4) {
                     SpeedFieldLabel("Sens")
-                    SpeedSegmentRow(options: IperfOptions.Direction.allCases.map { ($0, $0.label) }, selection: $model.lanDirection)
+                    SpeedSegmentRow(options: IperfOptions.Direction.allCases.map { ($0, $0.label) }, selection: $model.lanDirection,
+                                    disabled: model.lanEngine == .integre ? [.bidir] : [],
+                                    disabledHelp: "Bidirectionnel\u{00A0}: moteur iperf3 (Homebrew)")
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -137,12 +162,14 @@ struct SpeedLanView: View {
         let host = model.lanHost.isEmpty ? "<serveur>" : model.lanHost
         return VStack(alignment: .leading, spacing: 2) {
             (Text("\(NSUserName())@\(speedLocalHostName) ~ % ").foregroundColor(Color(hex: 0x4ADE80))
-             + Text(model.lanOptions.commandLine))
-            Text("Connexion à \(host), port \(model.lanPort) · \(local)").foregroundStyle(Theme.consoleMuted)
+             + Text(model.lanEngine == .integre ? integratedCommand : model.lanOptions.commandLine))
+            Text((model.lanEngine == .integre ? "Moteur intégré de NetScope · " : "") + "Connexion à \(host), port \(model.lanPort) · \(local)")
+                .foregroundStyle(Theme.consoleMuted)
             if model.lanRunning {
                 TimelineView(.periodic(from: .now, by: 0.5)) { context in
                     let elapsed = model.lanStartedAt.map { context.date.timeIntervalSince($0) } ?? 0
-                    Text("Mesure en cours… \(SpeedFormat.number(min(elapsed, Double(model.lanDuration)), digits: 1)) s sur \(model.lanDuration) s (résultat JSON à la fin du test)")
+                    Text("Mesure en cours… \(SpeedFormat.number(min(elapsed, Double(model.lanDuration)), digits: 1)) s sur \(model.lanDuration) s"
+                         + (model.lanEngine == .integre ? " (intervalles en direct)" : " (résultat JSON à la fin du test)"))
                         .foregroundStyle(Theme.consoleText)
                 }
             }
@@ -157,13 +184,21 @@ struct SpeedLanView: View {
         .textSelection(.enabled)
     }
 
+    /// Commande équivalente du moteur intégré (sans -J ni --connect-timeout, propres à iperf3).
+    private var integratedCommand: String {
+        let options = model.lanOptions
+        let host = options.host.isEmpty ? "<serveur>" : options.host
+        return "iperf3 -c \(host) -p \(options.port) -t \(options.duration) -P \(options.streams)"
+            + (options.direction == .reverse ? " -R" : "")
+    }
+
     // MARK: Intervalles
 
     private var isUDP: Bool { model.lanResult?.isUDP ?? (model.lanTransport == .udp) }
 
     private var intervalTable: some View {
         let result = model.lanResult
-        let intervals = result?.intervals ?? []
+        let intervals = result?.intervals ?? (model.lanRunning ? model.lanLive : [])
         return VStack(spacing: 0) {
             TableHeader(columns: [
                 .init(title: "Intervalle", width: 92),
@@ -276,7 +311,7 @@ struct SpeedLanView: View {
         Panel {
             VStack(alignment: .leading, spacing: 8) {
                 SectionHeader("Sur l’appareil cible")
-                Text("iperf3 doit tourner en mode serveur sur l’autre appareil (port 5201) :")
+                Text("Un autre Mac\u{00A0}: démarrez le serveur iperf3 de NetScope (ci-dessus). Ailleurs, iperf3 en mode serveur (port 5201)\u{00A0}:")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 CopyableCommand(command: IperfServerHelp.serverCommand)

@@ -39,6 +39,8 @@ struct SpeedSegmentRow<Value: Hashable>: View {
     @Binding var selection: Value
     var disabled: Set<Value> = []
     var mono = false
+    /// Info-bulle d'un choix grisé.
+    var disabledHelp = "Bientôt"
 
     var body: some View {
         HStack(spacing: 4) {
@@ -46,7 +48,7 @@ struct SpeedSegmentRow<Value: Hashable>: View {
                 SpeedSegment(label: label, isOn: selection == value, isEnabled: !disabled.contains(value), mono: mono) {
                     selection = value
                 }
-                .help(disabled.contains(value) ? "Bientôt" : "")
+                .help(disabled.contains(value) ? disabledHelp : "")
             }
         }
     }
