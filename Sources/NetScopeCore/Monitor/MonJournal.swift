@@ -27,6 +27,9 @@ public struct MonAlert: Codable, Identifiable, Equatable, Sendable {
     public var resolution: String?
     public var acknowledgedAt: Date?
     public var acknowledgedBy: String?
+    /// Note 78 : dernier rappel d'une alerte non accusée, et nombre de rappels envoyés.
+    public var remindedAt: Date?
+    public var reminderCount: Int?
 
     public init(id: UUID = UUID(), date: Date, probeID: UUID?, probeName: String, severity: MonSeverity,
                 message: String, resolvedAt: Date? = nil, resolution: String? = nil,
@@ -119,6 +122,11 @@ public struct MonJournal: Codable, Equatable, Sendable {
                 let alert = MonAlert(date: date, probeID: probe.id, probeName: probe.name, severity: severity, message: event.message)
                 alerts.insert(alert, at: 0)
                 created.append(alert)
+            case .suppressed:
+                // Note 78 : maintenance en cours, l'alerte est seulement notée (aucune action requise,
+                // aucune notification).
+                alerts.insert(MonAlert(date: date, probeID: probe.id, probeName: probe.name, severity: .info,
+                                       message: event.message, acknowledgedAt: date), at: 0)
             case .recovered:
                 // Résout les alertes ouvertes de la sonde (les notes d'information restent telles quelles).
                 for index in alerts.indices where alerts[index].probeID == probe.id && !alerts[index].isResolved
@@ -161,6 +169,13 @@ public struct MonJournal: Codable, Equatable, Sendable {
         guard let index = alerts.firstIndex(where: { $0.id == id }), !alerts[index].isAcknowledged else { return }
         alerts[index].acknowledgedAt = date
         alerts[index].acknowledgedBy = user
+    }
+
+    /// Note 78 : rappel envoyé pour une alerte non accusée.
+    public mutating func markReminded(_ id: MonAlert.ID, at date: Date) {
+        guard let index = alerts.firstIndex(where: { $0.id == id }) else { return }
+        alerts[index].remindedAt = date
+        alerts[index].reminderCount = (alerts[index].reminderCount ?? 0) + 1
     }
 
     public mutating func acknowledgeAll(by user: String, at date: Date) {

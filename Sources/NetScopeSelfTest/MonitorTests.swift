@@ -281,11 +281,17 @@ func registerMonitorTests(_ suite: TestSuite) {
         try expectEqual(Array(slots.suffix(3)), [.ok, .down, .warning], "trois dernières heures")
         try expectEqual(slots.first, MonSlot.none, "aucune donnée il y a 23 h")
         try expectEqual(history.availability(probe: id, now: monDate(day: 3, 0, 30), calendar: monCalendar), 75, "3 sur 4")
-        // 30 h plus tard : tout est sorti de la fenêtre.
+        // 30 h plus tard : la barre de 24 h est vide, mais les heures restent 7 jours (graphe de 7 j, note 78).
         history.record(probe: id, result: .success(monDate(day: 4, 6)), state: .ok, calendar: monCalendar)
+        try expectEqual(history.slots(probe: id, now: monDate(day: 4, 6), calendar: monCalendar).filter { $0 != .none }.count, 1,
+                        "une seule heure dans la barre de 24 h")
+        try expectEqual(history.buckets[id.uuidString]?.count, 4, "heures gardées 7 jours")
+        // 8 jours plus tard : les heures sont sorties, les jours restent (90 jours).
+        history.record(probe: id, result: .success(monDate(day: 12, 6)), state: .ok, calendar: monCalendar)
         try expectEqual(history.buckets[id.uuidString]?.count, 1, "anciennes heures retirées")
-        history.prune(keeping: [], now: monDate(day: 4, 6), calendar: monCalendar)
-        try expect(history.buckets.isEmpty, "sonde supprimée")
+        try expectEqual(history.days[id.uuidString]?.count, 4, "jours gardés 90 jours")
+        history.prune(keeping: [], now: monDate(day: 12, 6), calendar: monCalendar)
+        try expect(history.buckets.isEmpty && history.days.isEmpty && history.fine.isEmpty, "sonde supprimée")
     }
 
     suite.add("Surveillance : encodage et décodage du modèle (surveillance.json)") {

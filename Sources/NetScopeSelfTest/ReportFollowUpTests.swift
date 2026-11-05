@@ -208,7 +208,7 @@ func registerReportFollowUpTests(_ suite: TestSuite) {
         try expectEqual(loaded.snapshots[0].devices, last.devices, "appareils relus")
         // Une entrée abîmée n'empêche pas de lire les autres.
         let raw = """
-        {"version":1,"snapshots":[{"id":"not-a-uuid"},{"id":"\(older.id.uuidString)","created":"2026-10-01T10:00:00Z","format":"docx",
+        {"version":1,"snapshots":[{"id":"not-a-uuid"},{"id":"\(older.id.uuidString)","created":"2026-10-01T10:00:00Z","format":"pptx",
         "devices":[{"key":"ip:10.0.0.1","ip":"10.0.0.1","type":"robot"}],"issues":[{"key":"k","category":"inconnue"}]}]}
         """
         try FileManager.default.createDirectory(at: ReportHistory.directory(in: folder), withIntermediateDirectories: true)

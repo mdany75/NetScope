@@ -341,7 +341,7 @@ struct RapportConfigPanel: View {
     private func formatColor(_ format: ReportFormat) -> (Color, Color) {
         switch format {
         case .pdf: return (Theme.critical, Theme.criticalSoft)
-        case .html: return (Theme.accentStrong, Theme.accentSoft)
+        case .html, .docx: return (Theme.accentStrong, Theme.accentSoft)
         case .csv, .json: return (Theme.success, Theme.successSoft)
         }
     }

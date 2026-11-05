@@ -68,6 +68,13 @@ public enum ReportExport {
             var repartition: [Indicator]?
             var tableaux: [Table]
             var brut: [String]?
+            var disponibilites: [Uptime]?
+        }
+        /// Note 78 : disponibilité de chaque sonde, jour par jour (null : aucune vérification).
+        struct Uptime: Codable {
+            var sonde: String
+            var periode: String
+            var jours: [Double?]
         }
         struct Problem: Codable {
             var titre: String
@@ -87,6 +94,7 @@ public enum ReportExport {
             var bars: [JSONReport.Indicator]?
             var tables: [JSONReport.Table] = []
             var raw: [String]?
+            var uptime: [JSONReport.Uptime]?
             for block in section.blocks {
                 switch block {
                 case .paragraph(let text), .note(let text): texts.append(text)
@@ -100,10 +108,14 @@ public enum ReportExport {
                         return object
                     }))
                 case .code(let lines): raw = lines
+                case .uptime(let chart):
+                    uptime = (uptime ?? []) + chart.rows.map {
+                        .init(sonde: $0.label, periode: $0.total, jours: $0.values.map { $0.map { ($0 * 100).rounded() / 100 } })
+                    }
                 }
             }
             return .init(id: section.id, titre: section.heading, textes: texts, indicateurs: kpis,
-                         repartition: bars, tableaux: tables, brut: raw)
+                         repartition: bars, tableaux: tables, brut: raw, disponibilites: uptime)
         }
         let report = JSONReport(
             rapport: .init(titre: document.title, modele: document.template.rawValue, client: document.client, site: document.site,
@@ -195,6 +207,13 @@ public enum ReportExport {
         .bar .track{flex:1;height:9px;background:#F3F4F6;border-radius:2px}
         .bar .fill{height:9px;border-radius:2px;background:#2563EB}
         pre{background:#F9FAFB;border:1px solid #E5E7EB;border-radius:4px;padding:8px 10px;font-size:11px;overflow-x:auto}
+        .uptime{font-size:11px;margin:4px 0}
+        .uptime .row{display:flex;align-items:center;gap:8px;height:16px}
+        .uptime .row>span:first-child{width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .uptime .cells{flex:1;display:flex;gap:1px;height:10px}
+        .uptime .cells i{flex:1;border-radius:1px}
+        .uptime .row>span:last-child{width:62px;text-align:right;font-family:ui-monospace,Menlo,monospace}
+        .uptime .axis{display:flex;justify-content:space-between;margin:2px 70px 0 168px;color:#4B5563;font-size:10px}
         .sign{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:32px;font-size:12px}
         .sign div div:first-child{height:30px;border-bottom:1px solid #111827}
         footer{display:flex;justify-content:space-between;border-top:1px solid #E5E7EB;margin-top:24px;padding-top:8px;font-size:11px;color:#4B5563}
@@ -279,6 +298,18 @@ public enum ReportExport {
             return out + "</tbody>\n</table>\n"
         case .code(let lines):
             return "<pre>" + lines.map(e).joined(separator: "\n") + "</pre>\n"
+        case .uptime(let chart):
+            var out = "<div class=\"note\"><b>\(e(chart.title))</b></div>\n<div class=\"uptime\">\n"
+            for row in chart.rows {
+                let cells = row.values.map { value -> String in
+                    let color = "#" + ReportUptimeRow.cellColor(value)
+                    let tip = value.map { ToolFormat.decimal($0) + "\u{00A0}%" } ?? "aucune donnée"
+                    return "<i style=\"background:\(color)\" title=\"\(e(tip))\"></i>"
+                }.joined()
+                out += "<div class=\"row\"><span>\(e(row.label))</span><span class=\"cells\">\(cells)</span><span style=\"color:\(toneColor(row.tone))\">\(e(row.total))</span></div>\n"
+            }
+            out += "<div class=\"axis\">" + chart.axis.map { "<span>\(e($0))</span>" }.joined() + "</div>\n</div>\n"
+            return out
         }
     }
 }

@@ -5,6 +5,46 @@ import Foundation
 // quoted-printable ou en base64, lignes terminées par CRLF. Le point doublé (RFC 5321 §4.5.2)
 // est appliqué au moment de DATA par `SMTPDotStuffing`.
 
+/// Pièce jointe d'un courriel (note 78 : rapport planifié envoyé par SMTP).
+public struct AlertMailAttachment: Sendable, Equatable {
+    public var fileName: String
+    public var contentType: String
+    public var data: Data
+
+    public init(fileName: String, contentType: String, data: Data) {
+        self.fileName = AlertText.singleLine(fileName)
+        self.contentType = contentType
+        self.data = data
+    }
+
+    /// Type MIME d'après l'extension (« application/pdf »).
+    public static func contentType(forExtension ext: String) -> String {
+        switch ext.lowercased() {
+        case "pdf": return "application/pdf"
+        case "csv": return "text/csv"
+        case "json": return "application/json"
+        case "html", "htm": return "text/html"
+        case "docx": return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        case "png": return "image/png"
+        default: return "application/octet-stream"
+        }
+    }
+
+    /// Nom ASCII de repli (« rapport-siege.pdf ») : les autres caractères deviennent « _ ».
+    var asciiName: String {
+        let mapped = fileName.unicodeScalars.map { scalar -> String in
+            scalar.isASCII && scalar.value >= 32 && scalar != "\"" && scalar != "\\" ? String(scalar) : "_"
+        }.joined()
+        return mapped.isEmpty ? "piece-jointe" : mapped
+    }
+
+    /// Nom encodé selon la RFC 2231 (« UTF-8''rapport-si%C3%A8ge.pdf »).
+    var encodedName: String {
+        let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
+        return "UTF-8''" + (fileName.addingPercentEncoding(withAllowedCharacters: allowed) ?? asciiName)
+    }
+}
+
 /// Un courriel prêt à envoyer.
 public struct AlertMailMessage: Sendable, Equatable {
     public var from: String
@@ -18,6 +58,8 @@ public struct AlertMailMessage: Sendable, Equatable {
     public var encoding: AlertMailEncoding
     /// « NetScope 0.8.0 » (en-tête X-Mailer).
     public var mailer: String
+    /// Note 78 : pièces jointes (multipart/mixed) ; vide pour les alertes.
+    public var attachments: [AlertMailAttachment] = []
 
     public init(from: String, fromName: String = "NetScope", to: [String], subject: String, textBody: String,
                 htmlBody: String? = nil, date: Date = Date(), messageID: String? = nil,
@@ -64,7 +106,36 @@ public struct AlertMailMessage: Sendable, Equatable {
         headers.append("X-Mailer: " + mailer)
 
         var body: [String] = []
-        if let htmlBody {
+        if !attachments.isEmpty {
+            // Note 78 : texte (et HTML) puis pièces jointes en base64.
+            let mark = boundary ?? "NetScope-" + UUID().uuidString.lowercased()
+            let mixed = mark + "-mixte"
+            headers.append("Content-Type: multipart/mixed; boundary=\"\(mixed)\"")
+            body.append("Ceci est un message MIME en plusieurs parties.")
+            body.append("")
+            body.append("--\(mixed)")
+            if let htmlBody {
+                body.append("Content-Type: multipart/alternative; boundary=\"\(mark)\"")
+                body.append("")
+                body.append("--\(mark)")
+                body += part(textBody, type: "text/plain")
+                body.append("--\(mark)")
+                body += part(htmlBody, type: "text/html")
+                body.append("--\(mark)--")
+            } else {
+                body += part(textBody, type: "text/plain")
+            }
+            for attachment in attachments {
+                body.append("--\(mixed)")
+                body.append("Content-Type: \(attachment.contentType); name=\"\(attachment.asciiName)\"")
+                body.append("Content-Transfer-Encoding: base64")
+                body.append("Content-Disposition: attachment; filename=\"\(attachment.asciiName)\";")
+                body.append(" filename*=\(attachment.encodedName)")
+                body.append("")
+                body.append(MIMEHeader.base64Lines(attachment.data))
+            }
+            body.append("--\(mixed)--")
+        } else if let htmlBody {
             let mark = boundary ?? "NetScope-" + UUID().uuidString.lowercased()
             headers.append("Content-Type: multipart/alternative; boundary=\"\(mark)\"")
             body.append("Ceci est un message MIME en plusieurs parties.")

@@ -80,6 +80,8 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
     case firmware
     /// Bilans de raccordement retenus (note 58), facultative.
     case raccordement
+    /// Disponibilité des sondes de la Surveillance sur 30 jours, avec graphes (notes 62 et 78), facultative.
+    case disponibilite
 
     public var id: String { rawValue }
 
@@ -102,19 +104,22 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
         case .suivi: return "Depuis le dernier rapport"
         case .firmware: return "Firmware et licences"
         case .raccordement: return "Bilan de raccordement"
+        case .disponibilite: return "Disponibilité (Surveillance)"
         case .annexe: return "Annexe brute"
         }
     }
 
     /// Ordre dans le document : le détail (inventaire, annexe) vient après la synthèse. « Santé
     /// courriel » est facultative : aucun modèle ne la coche par défaut.
-    public static let documentOrder: [ReportSectionKind] = [.resume, .suivi, .plan, .dhcp, .wan, .firmware, .switchs, .raccordement, .wifi, .fortiap, .wifiDiag, .trafic, .securite, .problemes,
+    public static let documentOrder: [ReportSectionKind] = [.resume, .suivi, .disponibilite, .plan, .dhcp, .wan, .firmware, .switchs, .raccordement, .wifi, .fortiap, .wifiDiag, .trafic, .securite, .problemes,
                                                             .courriel, .disques, .inventaire, .annexe]
 }
 
 /// Format de sortie.
 public enum ReportFormat: String, Codable, CaseIterable, Sendable, Identifiable {
     case pdf, csv, json, html
+    /// Note 78 : document Word écrit à la main (ZIP et XML, sans dépendance).
+    case docx
 
     public var id: String { rawValue }
     public var label: String { rawValue.uppercased() }
@@ -126,6 +131,7 @@ public enum ReportFormat: String, Codable, CaseIterable, Sendable, Identifiable 
         case .csv: return "Tableaux seulement (inventaire, ports, problèmes)."
         case .json: return "Données structurées pour un outil tiers ou un RMM."
         case .html: return "Page autonome lisible dans un navigateur."
+        case .docx: return "Document Word modifiable (Word, Pages, LibreOffice)."
         }
     }
 
@@ -135,6 +141,7 @@ public enum ReportFormat: String, Codable, CaseIterable, Sendable, Identifiable 
         case .csv: return "Exporter en CSV"
         case .json: return "Exporter en JSON"
         case .html: return "Générer la page HTML"
+        case .docx: return "Générer le DOCX"
         }
     }
 }

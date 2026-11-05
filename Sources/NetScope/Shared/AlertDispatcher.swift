@@ -179,6 +179,50 @@ final class AlertDispatcher: ObservableObject {
         send(batch, on: channel, isTest: true)
     }
 
+    // MARK: Rapports planifiés (note 78)
+
+    /// Serveur SMTP des Alertes, pour l'éditeur des rapports planifiés (« smtp.exemple.ca:587 »).
+    var reportServerLabel: String? {
+        let host = settings.smtp.host.trimmingCharacters(in: .whitespaces)
+        return host.isEmpty ? nil : "\(host):\(settings.smtp.port)"
+    }
+
+    /// Problèmes qui empêchent l'envoi d'un rapport planifié pour ce site (vide : prêt). Le Trousseau
+    /// n'est pas relu ici : `refreshSecrets()` à l'ouverture de l'éditeur.
+    func reportProblems(_ schedule: ReportSchedule, siteKey: String, siteName: String) -> [String] {
+        let password = isSandboxed ? true : hasPassword
+        return ReportMail.problems(smtp: settings.smtp, hasPassword: password, schedule: schedule, siteKey: siteKey, siteName: siteName)
+    }
+
+    /// Envoie un rapport planifié par le serveur SMTP des Alertes (même réglages, mot de passe lu au
+    /// Trousseau juste avant). Jamais en démonstration ni pendant les captures. L'envoi est inscrit
+    /// au journal des Alertes, sans secret. Renvoie la réussite et le détail à afficher.
+    func sendReport(_ message: AlertMailMessage, title: String, isTest: Bool) async -> (ok: Bool, detail: String) {
+        guard !isSandboxed else { return (false, "Démonstration\u{00A0}: aucun courriel n’est envoyé.") }
+        let smtp = settings.smtp
+        let secrets = readSecrets()
+        let host = smtp.host.trimmingCharacters(in: .whitespaces)
+        let ehlo = LocalInterfaces.primary().map { "[\($0.address)]" } ?? "[127.0.0.1]"
+        let config = SMTPSubmitConfig(host: host, port: smtp.port, security: smtp.security,
+                                      username: smtp.username.trimmingCharacters(in: .whitespaces),
+                                      password: secrets.smtpPassword, ehloName: ehlo, timeout: 60)
+        let transport = SMTPNetworkTransport(host: host, port: smtp.port, security: smtp.security)
+        let outcome = await SMTPSubmission.send(message, config: config, transport: transport)
+        let detail: String
+        if let error = outcome.error {
+            detail = error.errorDescription ?? error.shortLabel
+        } else {
+            detail = ReportMail.sentSummary(accepted: outcome.acceptedRecipients.count, rejected: outcome.rejectedRecipients)
+                + (outcome.encrypted ? " · chiffré" : "")
+        }
+        let safe = AlertRedactor.redact(detail, secrets: secrets.all)
+        let entry = AlertLogEntry(date: Date(), channelKind: "courriel", channelName: "Courriel · \(host)",
+                                  outcome: outcome.error == nil ? .sent : .failed, title: title, eventCount: 1, severity: .info,
+                                  isTest: isTest, detail: safe, durationMs: outcome.durationMs)
+        record(entry, channel: .email, isTest: false)
+        return (outcome.error == nil, safe)
+    }
+
     func kind(of channel: AlertChannel) -> String {
         switch channel {
         case .email: return "courriel"

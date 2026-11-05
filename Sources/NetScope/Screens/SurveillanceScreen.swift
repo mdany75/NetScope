@@ -9,8 +9,10 @@ struct SurveillanceScreen: View {
     @ObservedObject private var store = MonStore.shared
 
     static let asideWidth: CGFloat = 352
+    static let planningAnchor = "surveillance-planification"
 
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 SidePanelSplit(sideWidth: Self.asideWidth, collapse: .below, matchesHeight: true) {
@@ -18,6 +20,13 @@ struct SurveillanceScreen: View {
                 } side: {
                     MonEditor()
                 }
+                // Note 78 : latence de la sonde choisie, heures ouvrables et fenêtres de maintenance.
+                SidePanelSplit(sideWidth: Self.asideWidth, collapse: .below, matchesHeight: true) {
+                    MonLatencyPanel()
+                } side: {
+                    MonPlanningPanel()
+                }
+                .id(Self.planningAnchor)
                 SidePanelSplit(sideWidth: Self.asideWidth, collapse: .below) {
                     MonJournalPanel()
                 } side: {
@@ -31,6 +40,13 @@ struct SurveillanceScreen: View {
             }
             .padding(.horizontal, Theme.contentPadding)
             .padding(.vertical, 16)
+        }
+        .onAppear {
+            // Captures : NETSCOPE_SURV_DEFILER=1 amène la latence et les horaires en haut (note 78).
+            guard CommandLine.arguments.contains("--snapshot"),
+                  ProcessInfo.processInfo.environment["NETSCOPE_SURV_DEFILER"] == "1" else { return }
+            DispatchQueue.main.async { proxy.scrollTo(Self.planningAnchor, anchor: .top) }
+        }
         }
         .screenToolbar { toolbarActions }
         .onAppear { store.attach(to: state) }

@@ -95,9 +95,12 @@ enum RapportSuiviDemo {
             cadence: .weekly, weekday: 2, hour: 7, minute: 0,
             config: ReportConfig(template: .audit, sections: [.resume, .suivi, .problemes], client: "Groupe Exemple",
                                  technician: "Dany Ménard", format: .pdf),
-            fileNamePattern: "suivi-{site}-{date}", email: .draft, emailTo: "direction@client-exemple.ca",
+            // Note 78 : envoi automatique par le serveur SMTP des Alertes (démonstration : rien ne part).
+            fileNamePattern: "suivi-{site}-{date}", email: .send, emailTo: "direction@client-exemple.ca",
+            mailRecipients: [siege: ["direction@client-exemple.ca", "ti@client-exemple.ca"]],
             activeSince: at(2026, 10, 1, 8, 0), lastSlot: at(2026, 11, 2, 7, 0), lastProduced: at(2026, 11, 2, 7, 0),
-            lastStatus: .ok, lastMessage: "Rapport produit.", lastFiles: ["suivi-siege-2026-11-02.pdf"])
+            lastStatus: .ok, lastMessage: "Rapport produit. Siège\u{00A0}: courriel envoyé à 2 destinataires · chiffré.",
+            lastFiles: ["suivi-siege-2026-11-02.pdf"])
         let monthly = ReportSchedule(
             id: UUID(uuidString: "5A7E0042-0011-4C1E-9A11-00000000C002")!, name: "Inventaire mensuel — Entrepôt Laval", siteKeys: [laval],
             cadence: .monthly, monthDay: 1, hour: 6, minute: 30,

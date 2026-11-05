@@ -5,8 +5,8 @@ import NetScopeCore
 /// Note 42 : rapports planifiés. Une seule instance, lancée avec l'app (fenêtre fermée comprise) :
 /// toutes les 30 secondes, elle regarde si une échéance est passée et produit au plus UN rapport
 /// planifié, avec un écart minimal entre deux productions (rattrapage au lancement sans rafale).
-/// Jamais pendant un scan ; jamais de scan lancé ; jamais de courriel envoyé : au mieux un
-/// brouillon s'ouvre dans Mail. Enregistré dans rapports/planifies.json. En démonstration, deux
+/// Jamais pendant un scan ; jamais de scan lancé ; aucun courriel sans choix explicite : un brouillon
+/// dans Mail, ou (note 78) l'envoi SMTP choisi pour CE rapport. Enregistré dans rapports/planifies.json. En démonstration, deux
 /// rapports planifiés fictifs, rien ne s'exécute ni ne s'écrit.
 @MainActor
 final class RapportScheduleStore: ObservableObject {
@@ -16,6 +16,8 @@ final class RapportScheduleStore: ObservableObject {
     /// Rapport planifié en cours de modification (nouveau compris) ; nil : aucun éditeur ouvert.
     @Published var draft: ReportSchedule?
     @Published private(set) var producing: UUID?
+    /// Note 78 : rapport planifié dont le courriel part en ce moment.
+    @Published private(set) var sending: UUID?
     @Published var message: (text: String, tone: Tone)?
 
     let isDemo: Bool
@@ -72,7 +74,9 @@ final class RapportScheduleStore: ObservableObject {
     // MARK: Production
 
     /// Produit le rapport planifié pour l'échéance donnée (ou « maintenant »), un fichier par site.
-    private func produce(_ id: UUID, slot: Date?, now: Date) {
+    /// Note 78 : `testMail` (« Envoyer un essai ») envoie le résultat même si l'envoi automatique
+    /// n'est pas activé ; sinon il ne part que si « Envoyer par courriel » est choisi.
+    private func produce(_ id: UUID, slot: Date?, now: Date, testMail: Bool = false) {
         guard let index = book.schedules.firstIndex(where: { $0.id == id }), let state else { return }
         let schedule = book.schedules[index]
         producing = id
@@ -80,12 +84,19 @@ final class RapportScheduleStore: ObservableObject {
         defer { producing = nil }
 
         var files: [URL] = []
+        var produced: [(key: String, url: URL)] = []
         var errors: [String] = []
         for key in schedule.siteKeys {
             switch RapportModel.shared.produceScheduled(schedule, siteKey: key, slot: slot ?? now, state: state, now: now) {
-            case .success(let url): files.append(url)
+            case .success(let url):
+                files.append(url)
+                produced.append((key, url))
             case .failure(let error): errors.append("\(SiteModel.shared.name(forKey: key))\u{00A0}: \(error.message)")
             }
+        }
+        // Note 78 : envoi par le serveur SMTP des Alertes, seulement s'il a été choisi (ou pour l'essai).
+        if (schedule.email == .send || testMail), !produced.isEmpty {
+            mail(schedule, files: produced, isTest: testMail, now: now)
         }
         var updated = schedule
         if let slot { updated.lastSlot = slot }
@@ -119,6 +130,84 @@ final class RapportScheduleStore: ObservableObject {
             }
         }
         show(updated.lastMessage ?? text, tone: errors.isEmpty ? .success : .warning)
+    }
+
+    // MARK: Envoi par courriel (note 78)
+
+    /// Envoie chaque fichier aux destinataires de son site, l'un après l'autre ; le résultat est
+    /// ajouté au dernier message du rapport planifié et au journal des Alertes. Jamais en démonstration.
+    private func mail(_ schedule: ReportSchedule, files: [(key: String, url: URL)], isTest: Bool, now: Date) {
+        guard !isDemo else { return }
+        sending = schedule.id
+        // Mot de passe SMTP : présence relue au Trousseau juste avant l'envoi.
+        AlertDispatcher.shared.refreshSecrets()
+        Task { @MainActor in
+            var notes: [String] = []
+            var failed = false
+            for file in files {
+                let site = SiteModel.shared.name(forKey: file.key)
+                let problems = AlertDispatcher.shared.reportProblems(schedule, siteKey: file.key, siteName: site)
+                guard problems.isEmpty else {
+                    notes.append("\(site)\u{00A0}: courriel non envoyé, " + problems.joined(separator: " ").lowercasedFirst)
+                    failed = true
+                    continue
+                }
+                guard let data = try? Data(contentsOf: file.url), data.count <= ReportMail.maxAttachmentBytes else {
+                    notes.append("\(site)\u{00A0}: courriel non envoyé, fichier illisible ou trop gros pour un courriel")
+                    failed = true
+                    continue
+                }
+                let message = ReportMail.message(scheduleName: schedule.name, siteName: site, fileName: file.url.lastPathComponent,
+                                                 data: data, recipients: ReportMail.recipients(schedule, siteKey: file.key),
+                                                 smtp: AlertDispatcher.shared.settings.smtp, date: now, isTest: isTest,
+                                                 mailer: "NetScope \(AppInfo.version)", calendar: calendar)
+                let result = await AlertDispatcher.shared.sendReport(message, title: (isTest ? "Essai\u{00A0}: " : "") + schedule.name + " — " + site,
+                                                                     isTest: isTest)
+                notes.append("\(site)\u{00A0}: " + (result.ok ? "courriel " + result.detail : "échec du courriel, " + result.detail.lowercasedFirst))
+                if !result.ok { failed = true }
+            }
+            sending = nil
+            let text = (isTest ? "Essai\u{00A0}: " : "") + notes.joined(separator: "\u{00A0}; ")
+            if let index = book.schedules.firstIndex(where: { $0.id == schedule.id }) {
+                let base = book.schedules[index].lastMessage ?? ""
+                book.schedules[index].lastMessage = (base.hasSuffix(".") ? String(base.dropLast()) : base) + ". " + text + "."
+                if failed, book.schedules[index].lastStatus == .ok { book.schedules[index].lastStatus = .partial }
+                save()
+            }
+            if failed {
+                NetScopeEventCenter.shared.publish(NetScopeEvent(
+                    kind: .reportReady, severity: .warning, title: "Courriel du rapport planifié en échec\u{00A0}: " + schedule.name,
+                    detail: text + ".", link: .screen(Screen.rapports.rawValue), source: "rapport-courriel-" + schedule.id.uuidString))
+            }
+            show(text + ".", tone: failed ? .warning : .success)
+        }
+    }
+
+    /// « Envoyer un essai… » (après confirmation) : produit le rapport maintenant et l'envoie aux
+    /// destinataires de chaque site, même si l'envoi automatique n'est pas activé.
+    func sendTest(_ id: UUID) {
+        guard let schedule = book.schedules.first(where: { $0.id == id }) ?? (draft?.id == id ? draft : nil) else { return }
+        let count = schedule.siteKeys.map { ReportMail.recipients(schedule, siteKey: $0).count }.reduce(0, +)
+        if isDemo {
+            show("Démonstration\u{00A0}: aucun courriel n’est envoyé (l’essai irait à \(count) destinataire\(count > 1 ? "s" : "")).", tone: .neutral)
+            return
+        }
+        guard producing == nil, sending == nil else { return }
+        if ScanController.shared.isRunning {
+            show("Un scan est en cours\u{00A0}: l’essai sera possible à la fin du scan.", tone: .warning)
+            return
+        }
+        guard book.schedules.contains(where: { $0.id == id }) else {
+            show("Enregistrez d’abord le rapport planifié, puis envoyez l’essai depuis la liste.", tone: .warning)
+            return
+        }
+        produce(id, slot: nil, now: Date(), testMail: true)
+    }
+
+    /// Destinataires de l'essai (confirmation).
+    func testRecipients(_ schedule: ReportSchedule) -> String {
+        let list = schedule.siteKeys.flatMap { ReportMail.recipients(schedule, siteKey: $0) }
+        return list.isEmpty ? "aucun destinataire" : list.joined(separator: ", ")
     }
 
     /// « Produire maintenant » : hors échéance, sans toucher au calendrier du rapport planifié.

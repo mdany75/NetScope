@@ -62,6 +62,7 @@ private func texts(_ document: ReportDocument, _ kind: ReportSectionKind) -> [St
         case .bars(let title, let bars): result.append(title); result += bars.map(\.label)
         case .table(let table): result += table.rows.flatMap { $0.cells.map(\.text) }
         case .code(let lines): result += lines
+        case .uptime(let chart): result.append(chart.title); result += chart.rows.map { $0.label + " " + $0.total }
         }
     }
     return result
@@ -479,12 +480,12 @@ func registerReportTests(_ suite: TestSuite) {
         let json = """
         {"version": 2, "nouveauChamp": true,
          "recents": [
-           {"id": "\(UUID().uuidString)", "title": "Audit", "fileName": "a.docx", "format": "docx", "date": "2026-11-03", "technician": "", "created": "2026-11-03T10:00:00Z"},
+           {"id": "\(UUID().uuidString)", "title": "Audit", "fileName": "a.pptx", "format": "pptx", "date": "2026-11-03", "technician": "", "created": "2026-11-03T10:00:00Z"},
            {"id": "\(UUID().uuidString)", "title": "Audit", "fileName": "b.pdf", "format": "pdf", "date": "2026-11-03", "pages": 3, "technician": "Dany", "created": "2026-11-03T10:00:00Z"}
          ],
          "templates": [
            {"id": "\(UUID().uuidString)", "name": "Mon modèle", "saved": "2026-11-03T10:00:00Z",
-            "config": {"template": "securite", "sections": ["resume", "chiffrement"], "format": "docx", "client": "X"}}
+            "config": {"template": "securite", "sections": ["resume", "chiffrement"], "format": "pptx", "client": "X"}}
          ]}
         """
         try Data(json.utf8).write(to: directory.appendingPathComponent("index.json"))
