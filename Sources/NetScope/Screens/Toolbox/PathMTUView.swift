@@ -274,7 +274,7 @@ struct PathMTUStepsTable: View {
 
     var body: some View {
         let sorted = steps.sorted(using: table.sortOrder)
-        ToolStandardTableFrame(rowCount: sorted.count, maxRows: 10) {
+        ToolStandardTableFrame(rowCount: sorted.count, maxRows: 16) {
             Table(sorted, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
                 TableColumn("N°", sortUsing: table.sort("numero")) { step in
                     ToolTableText("\(step.index)", color: Theme.textSecondary, alignment: .trailing)
@@ -283,17 +283,18 @@ struct PathMTUStepsTable: View {
                 .customizationID("numero")
                 .disabledCustomizationBehavior(.visibility)
 
-                TableColumn("TAILLE IP", sortUsing: table.sort("taille")) { step in
+                TableColumn("TAILLE", sortUsing: table.sort("taille")) { step in
                     ToolTableText("\(step.size)", weight: .semibold, alignment: .trailing)
+                        .help("Taille IP totale\u{00A0}: en-têtes IP et ICMP compris")
                 }
-                .width(min: 56, ideal: 60)
+                .width(min: 56, ideal: 64)
                 .customizationID("taille")
 
                 TableColumn("DONNÉES", sortUsing: table.sort("donnees")) { step in
                     ToolTableText("\(step.payload)", color: Theme.textSecondary, alignment: .trailing)
                         .help("Données ICMP (ping -s) : taille − 28 octets d’en-têtes")
                 }
-                .width(min: 56, ideal: 64)
+                .width(min: 70, ideal: 78)
                 .customizationID("donnees")
 
                 TableColumn("RÉSULTAT", sortUsing: table.sort("resultat")) { step in
@@ -304,7 +305,7 @@ struct PathMTUStepsTable: View {
                     }
                     .help(step.outcome.label)
                 }
-                .width(min: 120, ideal: 170)
+                .width(min: 120, ideal: 160)
                 .customizationID("resultat")
 
                 TableColumn("TEMPS", sortUsing: table.sort("temps")) { step in
@@ -343,7 +344,7 @@ extension PathMTUStep {
         case let .tooBig(reported, from, local):
             if local { return "trop grand pour l’interface" }
             return (reported.map { "MTU \($0) annoncé" } ?? "fragmentation nécessaire") + (from.map { " par \($0)" } ?? "")
-        case .lost: return attempts > 1 ? "aucune réponse (\(attempts) envois)" : "aucune réponse"
+        case .lost: return attempts > 1 ? "aucune réponse ×\(attempts)" : "aucune réponse"
         case let .unreachable(code, _): return "inaccessible (code \(code))"
         case let .failed(message): return message
         }
