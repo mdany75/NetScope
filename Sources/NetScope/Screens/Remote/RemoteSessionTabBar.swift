@@ -11,12 +11,18 @@ struct RemoteSessionTabBar: View {
     var body: some View {
         HStack(alignment: .bottom, spacing: 2) {
             homeTab
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .bottom, spacing: 2) {
-                    ForEach(store.tabs) { tab in
-                        RemoteSessionTabButton(tab: tab, selected: store.activeID == tab.id, model: model, store: store)
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .bottom, spacing: 2) {
+                        ForEach(store.tabs) { tab in
+                            RemoteSessionTabButton(tab: tab, selected: store.activeID == tab.id, model: model, store: store)
+                                .id(tab.id)
+                        }
                     }
                 }
+                // Petite fenêtre : l'onglet actif reste entièrement visible, même au bout de la barre.
+                .onAppear { reveal(store.activeID, proxy) }
+                .onChange(of: store.activeID) { _, id in reveal(id, proxy) }
             }
             .fixedSize(horizontal: false, vertical: true)
             addMenu
@@ -28,6 +34,11 @@ struct RemoteSessionTabBar: View {
         .frame(height: 38, alignment: .bottom)
         .background(Theme.neutralSoft)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+    }
+
+    private func reveal(_ id: UUID?, _ proxy: ScrollViewProxy) {
+        guard let id else { return }
+        DispatchQueue.main.async { proxy.scrollTo(id, anchor: .trailing) }
     }
 
     private var homeTitle: String {

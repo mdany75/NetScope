@@ -2,7 +2,7 @@ import Foundation
 import NetScopeCore
 
 // Note 57 : démonstration du terminal intégré (--demo) et captures (NETSCOPE_REMOTE_VIEW=terminal
-// ou terminal-serie). Sorties fictives reprises du croquis Remote.dc.html : SW-CORE-01 (Cisco
+// terminal-serie ou terminal-telnet). Sorties fictives reprises du croquis Remote.dc.html : SW-CORE-01 (Cisco
 // IOS XE, « show interfaces status » en couleurs) et la console série d'un switch neuf en
 // démarrage. La liaison simulée répond à quelques commandes ; rien ne part sur le réseau ni sur
 // un port série.
@@ -113,9 +113,18 @@ enum TerminalDemo {
         serial.start()
         store.add(ssh, activate: view == "terminal")
         store.add(serial, activate: view == "terminal-serie")
-        if view == "terminal" || view == "terminal-serie" {
+        // Capture « terminal-telnet » : onglet Telnet de SW-ETG2-01 (Aruba, bandeau non chiffré).
+        var telnetTarget: RemoteConnection?
+        if view == "terminal-telnet", let etg = connections.first(where: { $0.proto == .telnet }) {
+            let telnet = TerminalSession(connection: etg)
+            telnet.demoTransport = transportFactory(for: etg)
+            telnet.start()
+            store.add(telnet, activate: true)
+            telnetTarget = etg
+        }
+        if view == "terminal" || view == "terminal-serie" || telnetTarget != nil {
             // Capture : la connexion de l'onglet choisie, le terminal sur toute la largeur.
-            RemoteModel.shared.selectedID = (view == "terminal" ? core : usb).id
+            RemoteModel.shared.selectedID = (telnetTarget ?? (view == "terminal" ? core : usb)).id
             RemoteModel.shared.showDetails = false
         }
     }
@@ -144,8 +153,11 @@ enum TerminalDemo {
         if note.contains("aruba") {
             let prompt = connection.name + "# "
             return {
-                TerminalDemoTransport(lines: ["HPE Networking", "", "Press any key to continue", ""], prompt: prompt,
-                                      responses: ["show interfaces brief": "Status and Counters - Port Status\n  1      100/1000T | No        Yes     Up     1000FDx"])
+                TerminalDemoTransport(lines: [yellow + "Telnet : connexion à \(connection.host):\(connection.port) établie (non chiffrée)." + reset,
+                                              "", "HPE Networking", "", "Press any key to continue", "", "Password: ********", "",
+                                              bold + prompt + reset + "show interfaces brief"] + arubaInterfaces.components(separatedBy: "\n"),
+                                      prompt: bold + prompt + reset,
+                                      responses: ["show interfaces brief": arubaInterfaces, "show vlans": arubaVlans])
             }
         }
         let prompt = "\(connection.username.isEmpty ? "admin" : connection.username)@\(connection.name):~$ "
@@ -168,6 +180,40 @@ enum TerminalDemo {
             "",
         ]
     }
+
+    /// « show interfaces brief » de SW-ETG2-01 (Aruba 2930F), repris du croquis Remote.dc.html.
+    static var arubaInterfaces: String {
+        let up: [Int: String] = [3: "1000FDx", 7: "1000FDx", 9: "100FDx", 14: "1000FDx", 18: "100FDx", 24: "1000FDx"]
+        func pad(_ text: String, _ width: Int) -> String { text.padding(toLength: max(width, text.count), withPad: " ", startingAt: 0) }
+        var lines = ["", " Status and Counters - Port Status", "",
+                     "                    | Intrusion                           MDI   Flow  Bcast",
+                     "  Port  Type        | Alert     Enabled Status Mode       Mode  Ctrl  Limit",
+                     "  ----- ----------- + --------- ------- ------ ---------- ----- ----- ------"]
+        for port in 1...28 {
+            let mode = up[port]
+            let type = port > 24 ? "SFP+SR   " : "100/1000T"
+            let status = mode != nil ? green + "Up    " + reset : red + "Down  " + reset
+            lines.append("  " + pad(String(port), 5) + " " + type + "   | No        Yes     " + status + " "
+                         + pad(mode ?? (port > 24 ? "." : "1000FDx"), 10) + " " + (mode != nil ? "MDIX " : "Auto ") + " off   0")
+        }
+        lines.append("")
+        return lines.joined(separator: "\n")
+    }
+
+    private static let arubaVlans = """
+
+         Status and Counters - VLAN Information
+
+          Maximum VLANs to support : 256
+          Primary VLAN : DEFAULT_VLAN
+
+          VLAN ID Name                             | Status     Voice Jumbo
+          ------- -------------------------------- + ---------- ----- -----
+          1       DEFAULT_VLAN                     | Port-based No    No
+          20      WIFI                             | Port-based No    No
+          30      IMPRESSION                       | Port-based No    No
+
+        """
 
     /// « show interfaces status » de SW-CORE-01, en couleurs (état et VLAN).
     static var interfaceStatus: String {
