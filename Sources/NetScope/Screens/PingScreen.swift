@@ -1,13 +1,16 @@
 import NetScopeCore
 import SwiftUI
 
-/// Écran « Ping continu » (docs/croquis/Ping.dc.html) : cibles en parallèle, grand graphe de la
-/// cible choisie, MTR / traceroute et journal des événements. Le ping démarre à la première
+/// Écran « Ping continu » (docs/croquis/Ping.dc.html) : cibles en parallèle ; un clic retourne la
+/// carte d'une cible en Terminal (croquis C, choisi par Dany), avec dessous le traceroute (MTR)
+/// de cette cible et le journal des événements. Le ping démarre à la première
 /// ouverture de l'écran et continue ensuite en arrière-plan.
 struct PingScreen: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var controller = PingController.shared
     @State private var newTarget = ""
+    /// Carte retournée (réponses façon Terminal) ; un second clic la remet à l'endroit.
+    @State private var flippedID: PingTarget.ID?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -35,7 +38,13 @@ struct PingScreen: View {
             }
         }
         .screenToolbar { toolbarActions }
-        .onAppear { controller.activate(with: state) }
+        .onAppear {
+            controller.activate(with: state)
+            // Captures (--snapshot) : NETSCOPE_PING_TERMINAL=1 retourne la carte choisie.
+            if Launcher.isDemo, ProcessInfo.processInfo.environment["NETSCOPE_PING_TERMINAL"] == "1" {
+                flippedID = controller.selectedTarget?.id
+            }
+        }
         .onChange(of: state.pingTargets) { _, inputs in controller.sync(with: inputs) }
     }
 
@@ -206,19 +215,14 @@ struct PingScreen: View {
         VStack(alignment: .leading, spacing: 16) {
             targetsSection(width: width)
             if let target = controller.selectedTarget {
-                let wide = width >= 1000
-                if wide {
+                if width >= 1000 {
                     HStack(alignment: .top, spacing: 16) {
-                        VStack(spacing: 16) {
-                            PingChartPanel(target: target, interval: controller.interval)
-                            PingMTRPanel(controller: controller, target: target)
-                        }
-                        .frame(width: (width - 16) * 1.7 / 2.7)
+                        PingMTRPanel(controller: controller, target: target)
+                            .frame(width: (width - 16) * 1.4 / 2.4)
                         PingJournalPanel(controller: controller)
-                            .frame(width: (width - 16) / 2.7)
+                            .frame(width: (width - 16) / 2.4)
                     }
                 } else {
-                    PingChartPanel(target: target, interval: controller.interval)
                     PingMTRPanel(controller: controller, target: target)
                     PingJournalPanel(controller: controller)
                 }
@@ -237,7 +241,7 @@ struct PingScreen: View {
                     .kerning(0.6)
                     .foregroundStyle(Theme.textSecondary)
                 Spacer(minLength: 8)
-                Text("Cliquer sur une carte pour l’analyser · statistiques sur les \(PingController.cardWindow) dernières mesures (\(PingFormat.duration(Double(PingController.cardWindow) * controller.interval)))")
+                Text("Cliquer sur une carte pour voir ses réponses et son traceroute · statistiques sur les \(PingController.cardWindow) dernières mesures (\(PingFormat.duration(Double(PingController.cardWindow) * controller.interval)))")
                     .font(Theme.small)
                     .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
@@ -254,10 +258,21 @@ struct PingScreen: View {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12, alignment: .top), count: columns),
                           alignment: .leading, spacing: 12) {
                     ForEach(controller.targets) { target in
-                        PingTargetCard(target: target,
-                                       isSelected: target.id == controller.selectedTarget?.id,
-                                       onSelect: { controller.selectedID = target.id },
-                                       onRemove: { controller.remove(target.id) })
+                        if flippedID == target.id {
+                            PingTerminalCard(target: target, payloadSize: controller.payloadSize,
+                                             onFlipBack: { withAnimation(.easeInOut(duration: 0.2)) { flippedID = nil } },
+                                             onRemove: { controller.remove(target.id) })
+                                .transition(.opacity)
+                        } else {
+                            PingTargetCard(target: target,
+                                           isSelected: target.id == controller.selectedTarget?.id,
+                                           onSelect: {
+                                               controller.selectedID = target.id
+                                               withAnimation(.easeInOut(duration: 0.2)) { flippedID = target.id }
+                                           },
+                                           onRemove: { controller.remove(target.id) })
+                                .transition(.opacity)
+                        }
                     }
                 }
             }

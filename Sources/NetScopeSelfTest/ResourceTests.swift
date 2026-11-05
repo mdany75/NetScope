@@ -6,6 +6,17 @@ import NetScopeCore
 // sondes de Surveillance. Aucun trafic réseau : seule la lecture locale de ce Mac est essayée.
 
 func registerResourceTests(_ suite: TestSuite) {
+    suite.add("Ressources : volumes de ce Mac (lecture locale)") {
+        let volumes = LocalVolumes.list()
+        try expect(!volumes.isEmpty, "au moins le disque de démarrage")
+        guard let startup = LocalVolumes.startup(in: volumes) else { throw TestFailure(message: "disque de démarrage introuvable", file: #fileID, line: #line) }
+        try expect(startup.totalBytes > 0 && startup.availableBytes <= startup.totalBytes, "capacité cohérente")
+        let percent = startup.usedPercent ?? -1
+        try expect(percent >= 0 && percent <= 100, "pourcentage entre 0 et 100")
+        let odd = LocalVolume(name: "Vide", path: "/x", kind: .externe, totalBytes: 0, availableBytes: 5)
+        try expect(odd.usedPercent == nil && odd.availableBytes == 0, "volume de taille nulle")
+    }
+
     suite.add("Ressources : compteur 32 bits revenu à zéro") {
         try expectEqual(ResourceMath.counterDelta(previous: 4_294_967_000, current: 1000, width: .bits32), 1296,
                         "4 294 967 295 − 4 294 967 000 + 1000 + 1")

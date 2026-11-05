@@ -1,0 +1,74 @@
+import NetScopeCore
+import SwiftUI
+
+/// Carte retournée d'une cible (croquis C) : ses dernières réponses défilent comme un ping dans
+/// Terminal. Un clic la remet à l'endroit. Sombre dans les deux apparences, comme Terminal.
+struct PingTerminalCard: View {
+    let target: PingTarget
+    let payloadSize: Int
+    let onFlipBack: () -> Void
+    let onRemove: () -> Void
+
+    /// Lignes affichées : la carte garde la hauteur d'une carte à l'endroit.
+    private static let lines = 7
+
+    var body: some View {
+        Button(action: onFlipBack) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(target.name).font(Theme.mono(11, weight: .semibold)).foregroundStyle(Theme.consolePrompt)
+                        .lineLimit(1)
+                    Text(target.addressLabel).font(Theme.mono(11)).foregroundStyle(Theme.consoleMuted).lineLimit(1)
+                    Spacer(minLength: 4)
+                    Image(systemName: "arrow.uturn.backward").font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Theme.consoleMuted)
+                }
+                .padding(.bottom, 4)
+                let samples = target.history.samples.suffix(Self.lines)
+                if samples.isEmpty {
+                    Text(target.error ?? "En attente de la première réponse…")
+                        .font(Theme.mono(11)).foregroundStyle(Theme.consoleMuted)
+                }
+                ForEach(Array(samples), id: \.sequence) { sample in
+                    line(sample)
+                }
+                Spacer(minLength: 0)
+                Text("Clic : revenir à la carte")
+                    .font(Theme.mono(10)).foregroundStyle(Theme.consoleMuted)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: 176, alignment: .topLeading)
+            .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.console))
+            .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.accent, lineWidth: 2))
+            .contentShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
+        }
+        .buttonStyle(.plain)
+        .help("Réponses de \(target.addressLabel) · clic\u{00A0}: revenir à la carte")
+        .contextMenu {
+            Button("Copier les réponses") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(target.history.samples.suffix(60).map(text).joined(separator: "\n"), forType: .string)
+            }
+            Divider()
+            Button("Retirer la cible", role: .destructive, action: onRemove)
+        }
+    }
+
+    private func line(_ sample: PingSample) -> some View {
+        let slow = (sample.rttMs ?? 0) > target.thresholdMs
+        return Text(text(sample) + (slow ? "  ← lent" : ""))
+            .font(Theme.mono(11))
+            .foregroundStyle(sample.isLost ? Color(hex: 0xFF6B6B) : slow ? Color(hex: 0xFFB340) : Theme.consoleText)
+            .lineLimit(1)
+            .truncationMode(.tail)
+    }
+
+    private func text(_ sample: PingSample) -> String {
+        guard let rtt = sample.rttMs else {
+            let reason = sample.failure?.label ?? "délai dépassé"
+            return "\(reason.prefix(1).uppercased() + reason.dropFirst())\u{00A0}: seq=\(sample.sequence)"
+        }
+        return "\(payloadSize + 8) octets de \(target.addressLabel)\u{00A0}: seq=\(sample.sequence) temps=\(PingFormat.decimal(rtt)) ms"
+    }
+}

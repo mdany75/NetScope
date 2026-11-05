@@ -301,6 +301,9 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 
 ## 11. Repenser le module Ping continu — PHASE 4 (demande de Dany)
 
+- **Disposition livrée dans la 0.20.2** (croquis C choisi par Dany) : clic sur une carte → elle
+  se retourne en Terminal (réponses de la cible), traceroute (MTR) et journal dessous, grand
+  graphe retiré. Reste : préréglages (ci-dessous) et traceroute relancé tout seul.
 - **Constat de Dany** (4 novembre 2026) : « j'aime pas la fenêtre de ping en continu, je sais
   pas pourquoi ». Avant de coder, proposer des croquis de dispositions différentes et choisir
   avec lui (voir aussi ce qui gêne : densité, graphe, place des cibles, journal).

@@ -10,6 +10,8 @@ enum ResourceColors {
     /// Sortie / deuxième série : sarcelle lisible en clair et en sombre.
     static let secondary = Color(light: 0x0F766E, dark: 0x2DD4BF)
     static let grid = Color(light: 0xE5E7EB, dark: 0x3A3A3E)
+    /// Disque : ocre lisible en clair et en sombre.
+    static let disk = Color(light: 0xA16207, dark: 0xF5B041)
 
     /// Couleur d'une charge : normale, élevée (≥ 75 %), critique (≥ 90 %).
     static func load(_ percent: Double?) -> Color {
@@ -209,51 +211,6 @@ struct ResourceBar: View {
     }
 }
 
-/// Tuile de mesure : intitulé, grande valeur, précision, petite courbe.
-struct ResourceTile: View {
-    let title: String
-    let value: String
-    var detail: String = ""
-    var tone: Tone = .neutral
-    var spark: [Double?] = []
-    var sparkColor: Color = ResourceColors.primary
-    var percent: Double? = nil
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Text(title.uppercased()).font(Theme.captionSemibold).kerning(0.4).foregroundStyle(Theme.textSecondary)
-                Spacer(minLength: 4)
-                if tone != .neutral { Circle().fill(tone.dot).frame(width: 7, height: 7) }
-            }
-            Text(value).font(.system(size: 24, weight: .semibold, design: .rounded)).foregroundStyle(Theme.text)
-                .lineLimit(1).minimumScaleFactor(0.6)
-            if let percent { ResourceBar(percent: percent) }
-            Text(detail.isEmpty ? " " : detail).font(Theme.small).foregroundStyle(Theme.textSecondary)
-                .lineLimit(1).truncationMode(.tail)
-            if spark.count > 1 {
-                Sparkline(values: spark, color: sparkColor).frame(height: 28)
-            }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
-        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
-    }
-}
-
-/// Rangée de tuiles de même hauteur (trois colonnes égales).
-struct ResourceTileRow<Content: View>: View {
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            content.frame(maxHeight: .infinity, alignment: .top)
-        }
-        .fixedSize(horizontal: false, vertical: true)
-    }
-}
-
 /// Charge de chaque cœur : une colonne par cœur, P et E sur Apple silicon.
 struct ResourceCoreBars: View {
     let loads: [Double]
@@ -359,5 +316,87 @@ struct ResourceToastText: View {
             .font(Theme.small)
             .foregroundStyle(toast.isError ? Theme.critical : Theme.success)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// Jauge ronde du haut de l'onglet Ressources (façon Moniteur d'activité) : pourcentage au centre,
+/// intitulé et précision dessous.
+struct ResourceRing: View {
+    let percent: Double?
+    let title: String
+    var detail: String = ""
+    var color: Color = ResourceColors.primary
+
+    var body: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                Circle().stroke(Theme.neutralSoft, lineWidth: 9)
+                Circle()
+                    .trim(from: 0, to: CGFloat(min(100, max(0, percent ?? 0)) / 100))
+                    .stroke(color, style: StrokeStyle(lineWidth: 9, lineCap: .butt))
+                    .rotationEffect(.degrees(-90))
+                Text(ResourceFormat.percent(percent))
+                    .font(.system(size: 14, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(Theme.text)
+            }
+            .frame(width: 76, height: 76)
+            Text(detail.isEmpty ? title : "\(title) · \(detail)")
+                .font(Theme.small)
+                .foregroundStyle(Theme.textSecondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Rangée de jauges rondes, colonnes égales, dans un panneau.
+struct ResourceRingRow<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        Panel {
+            HStack(alignment: .top, spacing: 12) { content }
+                .padding(.vertical, 4)
+        }
+    }
+}
+
+/// Disques de ce Mac : un volume par ligne, place utilisée en barre, espace libre.
+struct ResourceVolumesPanel: View {
+    let volumes: [LocalVolume]
+
+    var body: some View {
+        Panel {
+            VStack(alignment: .leading, spacing: 12) {
+                ResourcePanelHeader(title: "Disques", subtitle: volumes.isEmpty ? "" : "\(volumes.count) volume\(volumes.count > 1 ? "s" : "") monté\(volumes.count > 1 ? "s" : "")")
+                if volumes.isEmpty {
+                    Text("Aucun volume lu.").font(Theme.small).foregroundStyle(Theme.textSecondary)
+                }
+                ForEach(volumes) { volume in
+                    HStack(spacing: 12) {
+                        Image(systemName: volume.kind == .reseau ? "server.rack" : volume.kind == .externe ? "externaldrive" : "internaldrive")
+                            .font(.system(size: 14))
+                            .foregroundStyle(Theme.textSecondary)
+                            .frame(width: 18)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(volume.name).font(Theme.bodySemibold).foregroundStyle(Theme.text).lineLimit(1)
+                            Text("\(volume.kindLabel) · \(volume.path)").font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                        }
+                        .frame(width: 220, alignment: .leading)
+                        ResourceBar(percent: volume.usedPercent)
+                        Text(ResourceFormat.percent(volume.usedPercent))
+                            .font(Theme.mono(12)).foregroundStyle(Theme.text)
+                            .frame(width: 52, alignment: .trailing)
+                        Text("\(ResourceFormat.volume(volume.availableBytes)) libres sur \(ResourceFormat.volume(volume.totalBytes))")
+                            .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                            .frame(width: 190, alignment: .trailing)
+                            .lineLimit(1)
+                    }
+                    .help(volume.path)
+                }
+            }
+        }
     }
 }

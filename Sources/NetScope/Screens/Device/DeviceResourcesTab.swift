@@ -35,12 +35,16 @@ private struct LocalResourcesSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
-            tiles
+            // Disposition choisie par Dany : jauges rondes, puis Processeur et Mémoire de la même
+            // hauteur, puis le réseau par interface et les disques.
+            rings
             AdaptiveStack(breakpoint: 760, spacing: 14, horizontalAlignment: .top) {
                 cpuPanel
                 memoryPanel
             }
+            .fixedSize(horizontal: false, vertical: true)
             interfacesPanel
+            ResourceVolumesPanel(volumes: monitor.volumes)
         }
         .onAppear { monitor.retain() }
         .onDisappear { monitor.release() }
@@ -54,25 +58,18 @@ private struct LocalResourcesSection: View {
                        canExport: !monitor.timeline.samples.isEmpty, toast: monitor.toast, window: monitor.timeline.window)
     }
 
-    private var tiles: some View {
-        ResourceTileRow {
-            ResourceTile(title: "Processeur", value: ResourceFormat.percent(monitor.cpu?.total),
-                         detail: monitor.cpu.map { "Utilisateur \(ResourceFormat.percent($0.user)) · Système \(ResourceFormat.percent($0.system))" } ?? "Premier relevé…",
-                         tone: ResourceColors.tone(monitor.cpu?.total), spark: monitor.timeline.series("cpu"))
-            ResourceTile(title: "Mémoire", value: ResourceFormat.percent(monitor.memory?.usedPercent),
-                         detail: memoryDetail, tone: memoryTone, percent: monitor.memory?.usedPercent)
-            let main = monitor.mainInterface
-            ResourceTile(title: "Réseau", value: "↓\u{00A0}" + ResourceFormat.bitsPerSecond(main?.rate?.inBitsPerSecond),
-                         detail: main.map { "↑\u{00A0}\(ResourceFormat.bitsPerSecond($0.rate?.outBitsPerSecond)) · \($0.name) \($0.kind)" } ?? "Aucune interface active",
-                         spark: main.map { monitor.timeline.series("\($0.name).in") } ?? [])
+    private var rings: some View {
+        let startup = LocalVolumes.startup(in: monitor.volumes)
+        let main = monitor.mainInterface.map(ResourceInterfaceRow.init(local:))
+        return ResourceRingRow {
+            ResourceRing(percent: monitor.cpu?.total, title: "Processeur", color: ResourceColors.primary)
+            ResourceRing(percent: monitor.memory?.usedPercent, title: "Mémoire",
+                         detail: monitor.memory?.pressure?.label.lowercased() ?? "", color: ResourceColors.secondary)
+            ResourceRing(percent: startup?.usedPercent, title: "Disque",
+                         detail: startup.map { "\(ResourceFormat.volume($0.availableBytes)) libres" } ?? "", color: ResourceColors.disk)
+            ResourceRing(percent: main?.peak, title: "Réseau",
+                         detail: main.map { "↓\u{00A0}\(ResourceFormat.bitsPerSecond($0.inBps))" } ?? "", color: ResourceColors.primary)
         }
-    }
-
-    private var memoryDetail: String {
-        guard let memory = monitor.memory else { return "—" }
-        var text = "\(ResourceFormat.memory(memory.usedBytes)) / \(ResourceFormat.memory(memory.totalBytes))"
-        if let pressure = memory.pressure { text += " · pression \(pressure.label.lowercased())" }
-        return text
     }
 
     private var memoryTone: Tone {
@@ -97,6 +94,7 @@ private struct LocalResourcesSection: View {
                     ResourceCoreBars(loads: cores, performanceCores: monitor.coreKinds?.performance)
                 }
             }
+            .frame(maxHeight: .infinity, alignment: .topLeading)
         }
     }
 
@@ -128,6 +126,7 @@ private struct LocalResourcesSection: View {
                     }
                 }
             }
+            .frame(maxHeight: .infinity, alignment: .topLeading)
         }
     }
 
@@ -166,16 +165,28 @@ private struct SNMPResourcesSection: View {
                 ToolNotice(tone: .critical, message: error)
             }
             if monitor.started || monitor.processor != nil {
-                tiles
+                rings
                 AdaptiveStack(breakpoint: 760, spacing: 14, horizontalAlignment: .top) {
                     cpuPanel
                     memoryPanel
                 }
+                .fixedSize(horizontal: false, vertical: true)
                 interfacesPanel
             }
         }
         .onAppear { monitor.retain(autoStart: device.snmpKind != nil) }
         .onDisappear { monitor.release() }
+    }
+
+    private var rings: some View {
+        let busiest = monitor.loads.filter(\.isUp).compactMap { load -> Double? in
+            ResourceInterfaceRow(port: nil, load: load).peak
+        }.max()
+        return ResourceRingRow {
+            ResourceRing(percent: monitor.processor?.load.total, title: "Processeur", color: ResourceColors.primary)
+            ResourceRing(percent: monitor.memory?.memory.usedPercent, title: "Mémoire", color: ResourceColors.secondary)
+            ResourceRing(percent: busiest, title: "Port le plus chargé", color: ResourceColors.primary)
+        }
     }
 
     private var sources: String {
@@ -184,31 +195,6 @@ private struct SNMPResourcesSection: View {
         if let source = monitor.memory?.source, !parts.contains(source) { parts.append(source) }
         parts.append("IF-MIB")
         return "Lecture seule · " + parts.joined(separator: " · ")
-    }
-
-    private var totalRate: (Double, Double) {
-        let up = monitor.loads.filter(\.isUp)
-        return (up.compactMap(\.rate.inBitsPerSecond).reduce(0, +), up.compactMap(\.rate.outBitsPerSecond).reduce(0, +))
-    }
-
-    private var tiles: some View {
-        ResourceTileRow {
-            let load = monitor.processor?.load
-            ResourceTile(title: "Processeur", value: ResourceFormat.percent(load?.total),
-                         detail: load.map { $0.perCore.count > 1 ? "\($0.perCore.count) processeurs · moy. 1\u{00A0}min" : "Moyenne de la dernière minute" }
-                            ?? (monitor.lastPoll == nil ? "Premier relevé…" : "Non fourni par l’agent"),
-                         tone: ResourceColors.tone(load?.total), spark: monitor.timeline.series("cpu"))
-            let memory = monitor.memory?.memory
-            ResourceTile(title: "Mémoire", value: ResourceFormat.percent(memory?.usedPercent),
-                         detail: memory.map { "\(ResourceFormat.memory($0.usedBytes)) / \(ResourceFormat.memory($0.totalBytes))" }
-                            ?? (monitor.lastPoll == nil ? "Premier relevé…" : "Non fournie par l’agent"),
-                         tone: ResourceColors.tone(memory?.usedPercent), percent: memory?.usedPercent)
-            let rate = totalRate
-            ResourceTile(title: "Trafic", value: "↓\u{00A0}" + ResourceFormat.bitsPerSecond(monitor.loads.isEmpty ? nil : rate.0),
-                         detail: monitor.loads.isEmpty ? (monitor.lastPoll == nil ? "Premier relevé…" : "Deuxième relevé attendu pour le débit")
-                            : "↑\u{00A0}\(ResourceFormat.bitsPerSecond(rate.1)) · " + MonText.plural(monitor.loads.filter(\.isUp).count, "interface active", "interfaces actives"),
-                         spark: monitor.timeline.sum(suffix: ".in"))
-        }
     }
 
     private var cpuPanel: some View {
@@ -224,6 +210,7 @@ private struct SNMPResourcesSection: View {
                     ResourceCoreBars(loads: cores)
                 }
             }
+            .frame(maxHeight: .infinity, alignment: .topLeading)
         }
     }
 
@@ -243,6 +230,7 @@ private struct SNMPResourcesSection: View {
                     }
                 }
             }
+            .frame(maxHeight: .infinity, alignment: .topLeading)
         }
     }
 

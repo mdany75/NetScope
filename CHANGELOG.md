@@ -1,5 +1,24 @@
 # Changements
 
+## 0.20.2 — 2026-11-04
+
+Un Ping continu repensé avec Dany et un onglet Ressources plus lisible.
+
+### Modifié
+- **Ping continu** : un clic sur une carte la retourne et montre les dernières réponses de la
+  cible comme dans Terminal (« 64 octets de 8.8.8.8 : seq=120 temps=16,0 ms », en orange au-delà
+  du seuil, en rouge quand un paquet est perdu) ; un second clic la remet. Dessous, le
+  traceroute (MTR) de la cible choisie et le journal des événements, côte à côte. Le grand
+  graphe du bas est retiré : la courbe de chaque carte reste. Clic droit : « Copier les réponses ».
+- **Ressources de la fiche Appareil** : quatre jauges rondes en haut (processeur, mémoire,
+  disque de démarrage, réseau ; pour un appareil SNMP : processeur, mémoire, port le plus
+  chargé), puis Processeur et Mémoire de la même hauteur, puis le réseau par interface. Les
+  tuiles de résumé qui répétaient ces panneaux sont retirées.
+
+### Ajouté
+- **Disques de ce Mac** dans l'onglet Ressources : chaque volume monté (interne, externe,
+  partage réseau déjà monté) avec la place utilisée et l'espace libre, lus localement.
+
 ## 0.20.1 — 2026-11-04
 
 Une barre latérale plus simple : le site actif montre ses plages et un résumé, et Speedtest

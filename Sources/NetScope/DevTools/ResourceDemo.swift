@@ -111,7 +111,7 @@ enum ResourceDemo {
             last = sample
         }
         localStepIndex = count
-        if let last { monitor.set(cpu: last.1, memory: last.2, interfaces: last.3, coreKinds: (6, 4)) }
+        if let last { monitor.set(cpu: last.1, memory: last.2, interfaces: last.3, coreKinds: (6, 4), volumes: demoVolumes) }
     }
 
     static func advanceLocal(_ monitor: LocalResourceMonitor) {
@@ -120,6 +120,14 @@ enum ResourceDemo {
         monitor.record(sample.0, titles: localTitles)
         monitor.set(cpu: sample.1, memory: sample.2, interfaces: sample.3, coreKinds: (6, 4))
     }
+
+    /// Volumes de démonstration : le disque de démarrage à 62 %, un disque externe, un partage du NAS.
+    static let demoVolumes: [LocalVolume] = {
+        let go: UInt64 = 1_000_000_000
+        return [LocalVolume(name: "Macintosh HD", path: "/", kind: .interne, totalBytes: 994 * go, availableBytes: 378 * go),
+                LocalVolume(name: "Sauvegardes", path: "/Volumes/Sauvegardes", kind: .externe, totalBytes: 2_000 * go, availableBytes: 1_140 * go),
+                LocalVolume(name: "partage (NAS-SIEGE)", path: "/Volumes/partage", kind: .reseau, totalBytes: 8_000 * go, availableBytes: 3_200 * go)]
+    }()
 
     /// Heure des captures : 14 h 32, comme la barre de menus du croquis ; sinon l'heure réelle.
     private static var demoNow: Date {

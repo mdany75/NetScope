@@ -32,6 +32,8 @@ final class LocalResourceMonitor: ObservableObject {
     @Published private(set) var cpu: CPULoad?
     @Published private(set) var memory: MemoryStats?
     @Published private(set) var interfaces: [LocalInterfaceLoad] = []
+    /// Volumes montés (disque de démarrage d'abord), relus à chaque relevé.
+    @Published private(set) var volumes: [LocalVolume] = []
     @Published private(set) var timeline = ResourceTimeline(window: 300)
     @Published private(set) var isPaused = false
     @Published private(set) var lastSample: Date?
@@ -114,8 +116,9 @@ final class LocalResourceMonitor: ObservableObject {
             coreKinds = LocalResources.coreKinds()
         }
         let reading = await Task.detached(priority: .utility) {
-            (LocalResources.cpuTicks(), LocalResources.memory(), LocalResources.interfaces())
+            (LocalResources.cpuTicks(), LocalResources.memory(), LocalResources.interfaces(), LocalVolumes.list())
         }.value
+        if reading.3 != volumes { volumes = reading.3 }
         let now = Date()
         let seconds = previousDate.map { now.timeIntervalSince($0) } ?? 0
         var values: [String: Double] = [:]
@@ -171,7 +174,9 @@ final class LocalResourceMonitor: ObservableObject {
         lastSample = sample.date
     }
 
-    func set(cpu: CPULoad?, memory: MemoryStats?, interfaces: [LocalInterfaceLoad], coreKinds: (Int, Int)?) {
+    func set(cpu: CPULoad?, memory: MemoryStats?, interfaces: [LocalInterfaceLoad], coreKinds: (Int, Int)?,
+             volumes: [LocalVolume]? = nil) {
+        if let volumes { self.volumes = volumes }
         self.cpu = cpu
         self.memory = memory
         self.interfaces = interfaces
