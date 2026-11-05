@@ -14,6 +14,25 @@ protocol FTPByteStream: AnyObject, Sendable {
     /// Passe en TLS (client), en vérifiant le certificat.
     func startTLS() async throws
     func close()
+    /// Demi-fermeture : plus rien n'est envoyé, la lecture reste possible.
+    func closeWrite()
+}
+
+extension FTPByteStream {
+    /// Fin d'un envoi de fichier sur la connexion de données : demi-fermeture, puis attente que
+    /// l'autre bout ferme à son tour (il a tout lu), puis fermeture. Fermer aussitôt (`close`)
+    /// pouvait jeter les derniers octets encore en mémoire tampon : l'autre bout recevait une
+    /// connexion coupée (« 426 Transfert interrompu ») au lieu de la fin du fichier (note 78,
+    /// constaté avec des fichiers de plusieurs mégaoctets).
+    func finishSending(timeout: TimeInterval) async {
+        closeWrite()
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            // nil : fin du flux (ou erreur) ; des octets inattendus sont ignorés.
+            guard (try? await read(max: 4_096, timeout: max(0.1, deadline.timeIntervalSinceNow))) != nil else { break }
+        }
+        close()
+    }
 }
 
 /// Décision sur un certificat présenté par le serveur FTPS.
@@ -128,6 +147,10 @@ final class FTPSessionStream: FTPByteStream, @unchecked Sendable {
         task.closeWrite()
         task.cancel()
         session.finishTasksAndInvalidate()
+    }
+
+    func closeWrite() {
+        task.closeWrite()
     }
 
     private func map(_ error: Error) -> Error {
@@ -304,6 +327,11 @@ final class FTPConnectionStream: FTPByteStream, @unchecked Sendable {
                 connection.receive(minimumIncompleteLength: 1, maximumLength: max) { data, _, isComplete, error in
                     guard once.claim() else { return }
                     if let data, !data.isEmpty { continuation.resume(returning: data); return }
+                    // Fin du flux : selon le moment, Network la signale par isComplete ou par
+                    // l'erreur ENODATA (« No message available on STREAM ») ; les deux sont une fin
+                    // normale, pas une coupure (note 78).
+                    if isComplete { continuation.resume(returning: nil); return }
+                    if case .posix(let code)? = error, code == .ENODATA { continuation.resume(returning: nil); return }
                     if let error { continuation.resume(throwing: FileTransferError.connectionFailed(error.localizedDescription)); return }
                     continuation.resume(returning: isComplete ? nil : Data())
                 }
@@ -349,6 +377,10 @@ final class FTPConnectionStream: FTPByteStream, @unchecked Sendable {
     func close() {
         connection.send(content: nil, contentContext: .finalMessage, isComplete: true, completion: .idempotent)
         connection.cancel()
+    }
+
+    func closeWrite() {
+        connection.send(content: nil, contentContext: .finalMessage, isComplete: true, completion: .idempotent)
     }
 }
 

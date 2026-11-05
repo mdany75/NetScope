@@ -115,7 +115,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .smtp: return "Bannière, EHLO, STARTTLS, certificat et temps de réponse d’un serveur de courriel, sans rien envoyer."
         case .headers: return "Trajet d’un courriel, SPF, DKIM, DMARC et alertes d’usurpation, à partir des en-têtes collés."
         case .capture: return "Paquets en direct ou fichier .pcap\u{00A0}: détail par couche, hexadécimal, flux, statistiques, façon Wireshark."
-        case .disques: return "Écriture, lecture et accès 4\u{00A0}Kio d’un disque, d’un partage réseau ou d’un dossier nuage\u{00A0}; d’où vient la limite."
+        case .disques: return "Écriture, lecture et accès 4\u{00A0}Kio d’un disque, d’un partage réseau, d’un serveur FTP ou SFTP, ou d’un dossier nuage\u{00A0}; d’où vient la limite."
         case .snmp: return "GET, GETNEXT et parcours d’un OID en SNMP v2c ou v3\u{00A0}: tables courantes nommées, valeurs lisibles, export CSV."
         case .bilan: return "En un clic sur cette prise\u{00A0}: lien, switch et port, VLAN, PoE, DHCP, passerelle, DNS et Internet\u{00A0}; comparaison avant/après."
         }

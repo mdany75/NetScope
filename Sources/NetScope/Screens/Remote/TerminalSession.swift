@@ -98,6 +98,10 @@ final class TerminalSession: ObservableObject, Identifiable {
     }
     @Published var serialPath: String
     @Published var serialSettings: SerialSettings
+    /// Note 78 : envoi ou réception XMODEM/YMODEM en cours (ou terminé, affiché jusqu'à sa fermeture).
+    @Published private(set) var transfer: SerialTransferController?
+    /// Feuille « Transfert de fichier » ouverte.
+    @Published var transferSheetVisible = false
     // Recherche (⌘F)
     @Published var searchVisible = false
     @Published var searchText = "" {
@@ -279,6 +283,8 @@ final class TerminalSession: ObservableObject, Identifiable {
             case .data(let bytes):
                 receive(bytes)
             case .closed(let message):
+                // Port fermé pendant un transfert XMODEM : il est arrêté.
+                if transfer?.isActive == true { transfer?.cancel() }
                 transport = nil
                 removeFlag()
                 phase = .ended(message)
@@ -296,6 +302,11 @@ final class TerminalSession: ObservableObject, Identifiable {
     }
 
     private func receive(_ incoming: [UInt8]) {
+        // Note 78 : pendant un transfert XMODEM/YMODEM, les octets vont à l'automate, pas à l'écran.
+        if let transfer, transfer.isActive, !transfer.isFrozen {
+            transfer.feed(incoming)
+            return
+        }
         // Note 78 : horodatage des lignes de la console série (option de l'onglet).
         let bytes = kind == .serial && timestamps ? stamper.feed(incoming, now: clock) : incoming
         emulator.feed(bytes)
@@ -353,6 +364,8 @@ final class TerminalSession: ObservableObject, Identifiable {
             return
         }
         guard let transport, phase == .connected else { return }
+        // Clavier sans effet pendant un transfert de fichier (il casserait les blocs).
+        if transfer?.isActive == true, transfer?.isFrozen == false { return }
         var out = bytes
         if kind == .serial, bytes == [0x0D] { out = serialSettings.enterBytes }
         if transport.wantsLocalEcho {
@@ -484,6 +497,43 @@ final class TerminalSession: ObservableObject, Identifiable {
             phase = .idle
             start()
         }
+    }
+
+    // MARK: Transfert de fichiers (note 78)
+
+    var isDemo: Bool { demo }
+
+    /// Lance un envoi ou une réception XMODEM/YMODEM sur le port ouvert.
+    func beginTransfer(_ controller: SerialTransferController) {
+        guard kind == .serial, phase == .connected, transfer?.isActive != true else { return }
+        controller.send = { [weak self] bytes in self?.transport?.send(bytes) }
+        controller.onFinish = { [weak self] text in
+            guard let self else { return }
+            let ok = self.transfer?.state == .finished
+            self.info("[\(text)]", tone: ok ? .muted : .warning)
+        }
+        transfer = controller
+        let names = controller.files.map(\.name).joined(separator: ", ")
+        info(controller.direction == .send
+             ? "[\(controller.proto.shortLabel)\u{00A0}: envoi de \(names) — en attente de l’appareil (lancez la réception, ex. «\u{00A0}copy xmodem: flash:\u{00A0}»)]"
+             : "[\(controller.proto.shortLabel)\u{00A0}: prêt à recevoir — lancez l’envoi sur l’appareil]")
+        controller.start()
+    }
+
+    /// Annule le transfert en cours (CAN envoyés à l'appareil).
+    func cancelTransfer() {
+        transfer?.cancel()
+    }
+
+    /// Ferme la barre du transfert terminé.
+    func closeTransfer() {
+        if transfer?.isActive == true { transfer?.cancel() }
+        transfer = nil
+    }
+
+    /// Captures : barre d'un transfert figé.
+    func showDemoTransfer(_ controller: SerialTransferController) {
+        transfer = controller
     }
 
     func toggleSerialPort() {

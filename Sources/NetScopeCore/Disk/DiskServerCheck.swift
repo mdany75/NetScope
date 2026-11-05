@@ -38,6 +38,13 @@ public enum DiskServerCheck {
         return list
     }
 
+    /// « 445, 139, 2049, 548, 80, 443 et 22 » : ports vérifiés, en clair.
+    public static func portList(kind: DiskShareKind, customPort: Int? = nil) -> String {
+        let list = portsToTest(kind: kind, customPort: customPort).map(String.init)
+        guard list.count > 1 else { return list.first ?? "" }
+        return list.dropLast().joined(separator: ", ") + " et " + list[list.count - 1]
+    }
+
     public static func serviceName(_ port: UInt16) -> String {
         ports.first { $0.port == port }?.service ?? PortScanner.serviceName(port)?.uppercased() ?? "TCP \(port)"
     }
@@ -81,7 +88,7 @@ public struct DiskServerReport: Hashable, Sendable {
         if let port = wanted.first(where: { isOpen($0) }) {
             let rtt = ports.first { $0.port == port }?.rttMs.map { " en " + DiskFormat.latency($0) } ?? ""
             return DiskServerAssessment(tone: .success, title: "\(kind.label) joignable",
-                                        detail: "Port \(port) (\(DiskServerCheck.serviceName(port))) ouvert\(rtt)\u{00A0}; \(ping). Le partage peut être monté.")
+                                        detail: "Port \(port) (\(DiskServerCheck.serviceName(port))) ouvert\(rtt)\u{00A0}; \(ping). \(kind.isFileTransfer ? "Le test de vitesse peut passer par \(kind.label)." : "Le partage peut être monté.")")
         }
         // Service voulu fermé : un autre service de partage répond ?
         let suggestion = DiskShareKind.suggested(openPorts: open)

@@ -97,6 +97,10 @@ final class SpeedtestModel: ObservableObject {
     @Published private(set) var lanStartedAt: Date?
     @Published private(set) var lanResult: IperfResult?
     @Published private(set) var lanError: String?
+    /// Note 78 : moteur du test (client intégré, sans rien installer, ou iperf3 de Homebrew).
+    @Published var lanEngine: IperfEngine = .integre
+    /// Intervalles reçus en direct (moteur intégré), avant le résultat final.
+    @Published private(set) var lanLive: [IperfInterval] = []
 
     /// Chemin d'iperf3, nil s'il n'est pas installé (détection partagée avec le bouton « Installer »).
     var iperfPath: URL? { ToolInstallMonitor.shared(.iperf3).path.map { URL(fileURLWithPath: $0) } }
@@ -500,13 +504,18 @@ final class SpeedtestModel: ObservableObject {
         guard !lanRunning else { return }
         ToolInstallMonitor.shared(.iperf3).refresh()
         let options = lanOptions
+        let engine = lanEngine
         lanError = nil
-        guard let path = iperfPath else {
+        let path = iperfPath
+        if engine == .iperf3, path == nil {
             lanError = IperfLocator.missingMessage
             return
         }
         do {
             _ = try options.arguments()
+            if engine == .integre, let reason = IperfNativeClient.unsupportedReason(options) {
+                throw IperfProtocolError.unsupported(reason)
+            }
         } catch {
             lanError = error.localizedDescription
             return
@@ -514,13 +523,26 @@ final class SpeedtestModel: ObservableObject {
         lanRunning = true
         lanStartedAt = Date()
         lanResult = nil
+        lanLive = []
         lanGeneration += 1
         let generation = lanGeneration
         lanTask = Task { [weak self] in
             do {
                 // Démonstration : résultat rejoué, iperf3 n'est jamais lancé.
-                let result = Launcher.isDemo ? try await Self.demoLanRun(options)
-                                             : try await IperfRunner.run(options, executable: path)
+                let result: IperfResult
+                if Launcher.isDemo {
+                    result = try await Self.demoLanRun(options)
+                } else if engine == .integre {
+                    result = try await IperfNativeClient.run(options) { interval in
+                        Task { @MainActor in
+                            let model = SpeedtestModel.shared
+                            guard model.lanGeneration == generation else { return }
+                            model.lanLive.append(interval)
+                        }
+                    }
+                } else {
+                    result = try await IperfRunner.run(options, executable: path)
+                }
                 guard let self, self.lanGeneration == generation else { return }
                 self.lanResult = result
                 self.lanRunning = false

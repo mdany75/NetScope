@@ -42,6 +42,11 @@ public enum DiskLocationKind: String, Codable, CaseIterable, Sendable {
 /// Protocole d'un partage réseau monté.
 public enum DiskNetworkProtocol: String, Codable, Sendable {
     case smb, nfs, afp, webdav
+    /// Note 78 : serveurs de fichiers mesurés par le client de transfert (rien n'est monté).
+    case ftp, ftps, sftp
+
+    /// FTP, FTPS ou SFTP : mesuré par envoi et réception d'un fichier, sans montage.
+    public var isFileTransfer: Bool { self == .ftp || self == .ftps || self == .sftp }
 
     public var label: String {
         switch self {
@@ -49,6 +54,9 @@ public enum DiskNetworkProtocol: String, Codable, Sendable {
         case .nfs: return "NFS"
         case .afp: return "AFP"
         case .webdav: return "WebDAV"
+        case .ftp: return "FTP"
+        case .ftps: return "FTPS"
+        case .sftp: return "SFTP"
         }
     }
 
@@ -152,7 +160,7 @@ public struct DiskLocation: Codable, Hashable, Sendable, Identifiable {
             }
         }
         if isReadOnly { parts.append("lecture seule") }
-        if !isMounted { parts.append(kind == .reseau ? "non monté" : "introuvable") }
+        if !isMounted, networkProtocol?.isFileTransfer != true { parts.append(kind == .reseau ? "non monté" : "introuvable") }
         return parts.joined(separator: " · ")
     }
 

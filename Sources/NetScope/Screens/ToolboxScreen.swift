@@ -202,6 +202,8 @@ private struct ToolMainPanel: View {
     @ObservedObject private var snmp = SNMPBrowserModel.shared
     @ObservedObject private var linkCheck = LinkCheckModel.shared
     @ObservedObject private var mtu = PathMTUModel.shared
+    /// Note 78 : la commande de l’en-tête suit la vue Client ou Serveur de l’outil iperf3.
+    @ObservedObject private var iperfServer = IperfServerModel.shared
 
     var body: some View {
         let tool = store.selectedTool
@@ -323,7 +325,8 @@ private struct ToolMainPanel: View {
         case .dns: return dns.command
         case .whois: return "whois \(whois.target)"
         case .mtu: return mtu.command
-        case .iperf: return "iperf3 -c <serveur> -P 4 -t 10"
+        case .iperf:
+            return iperfServer.showServer ? "iperf3 -s -p \(iperfServer.port ?? IperfProtocol.defaultPort)" : "iperf3 -c <serveur> -P 4 -t 10"
         case .speedtest: return "speedtest"
         case .wol: return wol.command(state: state)
         case .dhcp: return dhcp.command

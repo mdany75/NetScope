@@ -111,8 +111,15 @@ enum TerminalDemo {
         let serial = TerminalSession(connection: usb)
         serial.demoTransport = transportFactory(for: usb)
         serial.start()
+        // Note 78 : « terminal-serie-xmodem » (envoi XMODEM-1K en cours) et « terminal-serie-fichier »
+        // (feuille Transfert de fichier) montrent aussi la console série.
+        let serialView = view == "terminal-serie" || view == "terminal-serie-xmodem" || view == "terminal-serie-fichier"
+        if view == "terminal-serie-xmodem", let firmware = firmwareFiles.first {
+            serial.showDemoTransfer(SerialTransferController.snapshot(file: firmware, proto: .xmodem1K, bytes: 812_032,
+                                                                      retries: 2, seconds: 71))
+        }
         store.add(ssh, activate: view == "terminal")
-        store.add(serial, activate: view == "terminal-serie")
+        store.add(serial, activate: serialView)
         // Capture « terminal-telnet » : onglet Telnet de SW-ETG2-01 (Aruba, bandeau non chiffré).
         var telnetTarget: RemoteConnection?
         if view == "terminal-telnet", let etg = connections.first(where: { $0.proto == .telnet }) {
@@ -122,7 +129,7 @@ enum TerminalDemo {
             store.add(telnet, activate: true)
             telnetTarget = etg
         }
-        if view == "terminal" || view == "terminal-serie" || telnetTarget != nil {
+        if view == "terminal" || serialView || telnetTarget != nil {
             // Capture : la connexion de l'onglet choisie, le terminal sur toute la largeur.
             RemoteModel.shared.selectedID = (telnetTarget ?? (view == "terminal" ? core : usb)).id
             RemoteModel.shared.showDetails = false
@@ -319,6 +326,22 @@ enum TerminalDemo {
         "",
         "",
     ]
+
+    /// Captures : feuille « Transfert de fichier » dessinée dans la page.
+    static var showsTransferSheet: Bool {
+        RegEnvironment.isSnapshot && ProcessInfo.processInfo.environment["NETSCOPE_REMOTE_VIEW"] == "terminal-serie-fichier"
+    }
+
+    /// Firmware fictif de la démonstration (contenu sans valeur, taille réaliste).
+    static var firmwareFiles: [SerialFile] {
+        [SerialFile(name: "c2960x-universalk9-mz.152-7.E9.bin", data: [UInt8](repeating: 0x5A, count: 1_312_444),
+                    modified: Date(timeIntervalSince1970: 1_790_000_000))]
+    }
+
+    /// Configuration envoyée par le switch simulé (réception XMODEM en démonstration).
+    nonisolated static let sampleConfig = (["!", "version 17.6", "hostname Switch", "!"]
+        + (1...24).map { "interface GigabitEthernet1/0/\($0)\n switchport access vlan 1\n spanning-tree portfast\n!" }
+        + ["line con 0", " exec-timeout 0 0", "end", ""]).joined(separator: "\n")
 
     /// Ports série de la démonstration (croquis).
     static let serialPorts: [SerialPortInfo] = [

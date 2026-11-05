@@ -91,8 +91,10 @@ func registerDiskShareTests(_ suite: TestSuite) {
         let web = DiskShareKind.suggested(openPorts: [80])!
         try expect(web.kind == .webdav && !web.secure, "80 seul → WebDAV en HTTP")
         try expect(DiskShareKind.suggested(openPorts: [22, 3389]) == nil, "aucun port de partage")
-        try expect(!DiskShareKind.ftp.isAvailable && !DiskShareKind.sftp.isAvailable && !DiskShareKind.ftps.isAvailable,
-                   "FTP, FTPS, SFTP grisés (note 50)")
+        try expect(DiskShareKind.ftp.isAvailable && DiskShareKind.sftp.isAvailable && DiskShareKind.ftps.isAvailable,
+                   "FTP, FTPS, SFTP mesurables (note 78)")
+        try expect(DiskShareKind.sftp.isFileTransfer && !DiskShareKind.sftp.isMountable && !DiskShareKind.smb.isFileTransfer,
+                   "FTP et SFTP sans montage")
         try expect(DiskShareKind.smb.isMountable && !DiskShareKind.dossier.isMountable, "montables par NetFS")
         try expect(!DiskShareKind.nfs.usesCredentials && DiskShareKind.smb.usesCredentials, "NFS sans compte")
     }
