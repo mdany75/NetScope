@@ -82,8 +82,9 @@ public enum DiskCloudProvider: String, Codable, Sendable {
 
 /// Un emplacement à mesurer.
 public struct DiskLocation: Codable, Hashable, Sendable, Identifiable {
-    /// Chemin du volume ou du dossier (clé de l'historique).
-    public var id: String { path }
+    /// Clé de l'historique : l'emplacement enregistré (note 55) s'il y en a un, sinon le chemin du
+    /// volume ou du dossier.
+    public var id: String { savedID ?? path }
     public var name: String
     /// Point de montage ou dossier racine.
     public var path: String
@@ -103,11 +104,16 @@ public struct DiskLocation: Codable, Hashable, Sendable, Identifiable {
     /// Compte du dossier nuage (« Personnel », « dany@exemple.ca »).
     public var account: String?
     public var isReadOnly: Bool
+    /// Emplacement ajouté par « Ajouter un emplacement… » (note 55) : « emplacement:<UUID> ».
+    public var savedID: String?
+    /// Faux pour un partage enregistré pas encore monté (monté au lancement du test) ou un dossier
+    /// introuvable ; `path` est alors l'adresse du partage ou le chemin attendu.
+    public var isMounted: Bool
 
     public init(name: String, path: String, testParent: String? = nil, kind: DiskLocationKind, fileSystem: String,
                 totalBytes: Int64? = nil, freeBytes: Int64? = nil, server: String? = nil, share: String? = nil,
                 networkProtocol: DiskNetworkProtocol? = nil, provider: DiskCloudProvider? = nil, account: String? = nil,
-                isReadOnly: Bool = false) {
+                isReadOnly: Bool = false, savedID: String? = nil, isMounted: Bool = true) {
         self.name = name
         self.path = path
         self.testParent = testParent ?? path
@@ -121,6 +127,8 @@ public struct DiskLocation: Codable, Hashable, Sendable, Identifiable {
         self.provider = provider
         self.account = account
         self.isReadOnly = isReadOnly
+        self.savedID = savedID
+        self.isMounted = isMounted
     }
 
     /// Ligne sous le nom : « APFS · 412 Go libres sur 994 Go », « SMB · nas.bureau.local/Projets ».
@@ -144,6 +152,7 @@ public struct DiskLocation: Codable, Hashable, Sendable, Identifiable {
             }
         }
         if isReadOnly { parts.append("lecture seule") }
+        if !isMounted { parts.append(kind == .reseau ? "non monté" : "introuvable") }
         return parts.joined(separator: " · ")
     }
 

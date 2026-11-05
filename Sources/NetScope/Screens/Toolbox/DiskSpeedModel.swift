@@ -64,8 +64,29 @@ final class DiskSpeedModel: ObservableObject {
     @Published private(set) var history: [DiskTestRecord] = []
     @Published var showAllHistory = false
 
+    // MARK: Emplacements ajoutés (note 55)
+
+    /// NAS, partages et dossiers ajoutés, tous sites confondus (la liste n'affiche que ceux du site actif).
+    @Published private(set) var shares: [DiskShareLocation] = []
+    /// Feuille « Ajouter un emplacement… » ou « Modifier… ».
+    @Published var editing: DiskShareDraft?
+    /// Suppression à confirmer.
+    @Published var confirmingDelete: DiskShareLocation?
+    /// Derniers « Tester le serveur », par emplacement.
+    @Published private(set) var serverReports: [UUID: DiskServerReport] = [:]
+    @Published private(set) var testingServers: Set<UUID> = []
+    /// « Montage de smb://… » pendant la préparation d'un partage enregistré.
+    @Published private(set) var mountStatus: String?
+    /// Le dernier échec de montage concerne le compte ou le mot de passe (« Modifier… » mis en avant).
+    @Published private(set) var credentialsProblem = false
+
     let isDemo: Bool
     private let store: DiskHistoryStore?
+    private let shareStore: DiskShareStore?
+    /// Volumes et dossiers nuage trouvés à la dernière lecture (avant fusion avec les emplacements ajoutés).
+    private var discovered: [DiskLocation] = []
+    /// Dossiers « Autre » trouvés à la dernière lecture (vérifiés hors du fil principal).
+    private var existingFolders: Set<String> = []
     private let pending: DiskPendingCleanup?
     private var task: Task<Void, Never>?
     private var networkTask: Task<Void, Never>?
@@ -82,7 +103,9 @@ final class DiskSpeedModel: ObservableObject {
         isDemo = arguments.contains("--demo")
         let ephemeral = isDemo || arguments.contains("--snapshot")
         store = ephemeral ? nil : DiskHistoryStore.standard
+        shareStore = ephemeral ? nil : DiskShareStore.standard
         pending = ephemeral ? nil : DiskPendingCleanup.standard
+        if let shareStore { shares = shareStore.load() }
         if isDemo {
             DiskSpeedDemo.apply(to: self)
         } else if let store {
@@ -108,6 +131,10 @@ final class DiskSpeedModel: ObservableObject {
     /// Commande équivalente (en-tête de l'outil).
     var command: String {
         guard let location = selected else { return "dd if=/dev/urandom of=<emplacement>/NetScope-test/essai bs=1m" }
+        if !location.isMounted, location.kind == .reseau {
+            // Partage enregistré pas encore monté : NetFS le monte au lancement.
+            return "dd if=/dev/urandom of=\"<\(location.path)>/NetScope-test/essai\" bs=1m count=\(sizeBytes >> 20) && sync"
+        }
         let path = location.testFolder.appendingPathComponent("essai").path
         return "dd if=/dev/urandom of=\"\(path)\" bs=1m count=\(sizeBytes >> 20) && sync"
     }
@@ -118,28 +145,145 @@ final class DiskSpeedModel: ObservableObject {
     func refreshLocations() {
         guard !isDemo, !loadingLocations else { return }
         loadingLocations = true
+        let folders = shares.filter { $0.kind == .dossier }.map { ($0.trimmedShare as NSString).standardizingPath }
         Task.detached(priority: .userInitiated) {
             let found = DiskLocationCatalog.discover()
+            let existing = Set(folders.filter { FileManager.default.fileExists(atPath: $0) })
             await MainActor.run {
                 let model = DiskSpeedModel.shared
-                model.locations = found
+                model.discovered = found
+                model.existingFolders = existing
                 model.loadingLocations = false
-                if model.selected == nil {
-                    model.selectedID = DiskLocationCatalog.preferred(in: found, lastUsed: model.lastLocation)?.id
-                }
+                model.rebuildLocations()
             }
         }
     }
 
-    func loadDemoLocations(_ list: [DiskLocation], selected: String) {
-        locations = list
+    /// Liste affichée : volumes trouvés et emplacements ajoutés du site actif.
+    func rebuildLocations() {
+        let folders = existingFolders
+        let demo = isDemo
+        locations = DiskShareCatalog.merge(discovered: discovered, saved: shares, siteKey: SiteModel.shared.activeKey,
+                                           folderExists: { demo || folders.contains($0) })
+        if selected == nil {
+            selectedID = DiskLocationCatalog.preferred(in: locations, lastUsed: lastLocation)?.id
+        }
+    }
+
+    func loadDemoLocations(_ list: [DiskLocation], shares: [DiskShareLocation], selected: String) {
+        discovered = list
+        self.shares = shares
+        rebuildLocations()
         selectedID = selected
+    }
+
+    func setDemoServerReport(_ report: DiskServerReport, for id: UUID) {
+        serverReports[id] = report
+    }
+
+    // MARK: Emplacements ajoutés (note 55)
+
+    /// Emplacement ajouté de la carte choisie, s'il y en a un.
+    var selectedShare: DiskShareLocation? { selected.flatMap { DiskShareCatalog.saved(for: $0, in: shares) } }
+
+    func share(for location: DiskLocation) -> DiskShareLocation? { DiskShareCatalog.saved(for: location, in: shares) }
+
+    /// Emplacements du site actif.
+    var siteShares: [DiskShareLocation] { DiskShareCatalog.forSite(shares, siteKey: SiteModel.shared.activeKey) }
+
+    func beginAdd() {
+        editing = DiskShareDraft(share: DiskShareLocation(siteKey: SiteModel.shared.activeKey, kind: .smb), isNew: true)
+    }
+
+    func beginEdit(_ share: DiskShareLocation) {
+        editing = DiskShareDraft(share: share, isNew: false)
+    }
+
+    /// Enregistre l'emplacement ; le mot de passe va au Trousseau (jamais dans le fichier). Renvoie
+    /// un message d'erreur, ou nil.
+    func save(_ draft: DiskShareLocation, password: String, passwordChanged: Bool) -> String? {
+        var share = draft
+        if let twin = DiskShareStore.duplicate(of: share, in: shares) {
+            return "Cet emplacement existe déjà dans ce site\u{00A0}: «\u{00A0}\(twin.displayName)\u{00A0}»."
+        }
+        let keychain = DiskShareMounter.keychain
+        do {
+            if !share.kind.usesCredentials || share.trimmedUser.isEmpty {
+                // NFS, dossier ou invité : aucun mot de passe à garder.
+                if share.hasPassword, !isDemo { try keychain.delete(share.keychainAccount) }
+                share.hasPassword = false
+            } else if passwordChanged {
+                if !isDemo { try keychain.set(password.isEmpty ? nil : password, for: share.keychainAccount) }
+                share.hasPassword = !password.isEmpty
+            }
+        } catch {
+            return "Trousseau\u{00A0}: \(error.localizedDescription)"
+        }
+        if share.kind == .dossier {
+            share.share = (share.trimmedShare as NSString).standardizingPath
+            if isDemo || FileManager.default.fileExists(atPath: share.share) { existingFolders.insert(share.share) }
+        }
+        let isNew = !shares.contains { $0.id == share.id }
+        shares = DiskShareStore.upsert(share, in: shares)
+        persistShares()
+        serverReports[share.id] = nil
+        rebuildLocations()
+        selectedID = share.locationID
+        error = nil
+        credentialsProblem = false
+        notice = (isNew ? "Emplacement «\u{00A0}\(share.displayName)\u{00A0}» ajouté" : "Emplacement «\u{00A0}\(share.displayName)\u{00A0}» enregistré")
+            + " pour le site «\u{00A0}\(SiteModel.shared.activeName)\u{00A0}»."
+        return nil
+    }
+
+    /// Retire l'emplacement (et son mot de passe du Trousseau) ; son historique reste.
+    func delete(_ share: DiskShareLocation) {
+        if share.hasPassword, !isDemo { try? DiskShareMounter.keychain.delete(share.keychainAccount) }
+        let wasSelected = selectedID == share.locationID
+        shares = DiskShareStore.remove(share.id, from: shares)
+        serverReports[share.id] = nil
+        persistShares()
+        if wasSelected { selectedID = nil }
+        rebuildLocations()
+        notice = "Emplacement «\u{00A0}\(share.displayName)\u{00A0}» retiré (ses tests restent dans l’historique)."
+    }
+
+    /// « Tester le serveur » : nom, ping et ports des services de partage.
+    func testServer(_ share: DiskShareLocation) {
+        guard !testingServers.contains(share.id), share.kind != .dossier else { return }
+        testingServers.insert(share.id)
+        Task { [weak self] in
+            guard let self else { return }
+            let report = await self.checkServer(host: share.trimmedServer, kind: share.kind, customPort: share.port)
+            self.serverReports[share.id] = report
+            self.testingServers.remove(share.id)
+        }
+    }
+
+    /// Vérification du serveur (aussi utilisée par la feuille avant d'enregistrer) ; en
+    /// démonstration, un relevé fictif.
+    func checkServer(host: String, kind: DiskShareKind, customPort: Int?) async -> DiskServerReport {
+        if isDemo {
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            return DiskSpeedDemo.serverReport(host: host)
+        }
+        return await DiskServerProbe.run(host: host, kind: kind, customPort: customPort)
+    }
+
+    private func persistShares() {
+        guard let shareStore else { return }
+        do {
+            try shareStore.save(shares)
+        } catch {
+            NSLog("NetScope\u{00A0}: enregistrement des emplacements des disques impossible\u{00A0}: %@", error.localizedDescription)
+        }
     }
 
     private func selectionChanged() {
         guard !isRunning else { return }
         notice = nil
         error = nil
+        credentialsProblem = false
     }
 
     // MARK: Vérifications avant le test
@@ -147,6 +291,12 @@ final class DiskSpeedModel: ObservableObject {
     /// Problème qui empêche de lancer le test sur l'emplacement choisi (nil : tout va bien).
     var blockingProblem: String? {
         guard let location = selected else { return "Choisissez un emplacement." }
+        if let share = share(for: location) {
+            if !share.kind.isAvailable { return DiskShareKind.ftpPending }
+            if share.kind == .dossier, !location.isMounted {
+                return "Dossier introuvable\u{00A0}: «\u{00A0}\(location.path)\u{00A0}» (disque éjecté, dossier déplacé ou renommé). Branchez le disque, puis Actualiser, ou choisissez un autre dossier dans «\u{00A0}Modifier…\u{00A0}»."
+            }
+        }
         if location.isReadOnly { return DiskBenchmarkError.readOnly.errorDescription }
         if !DiskMath.hasRoom(freeBytes: location.freeBytes, testSize: sizeBytes), let free = location.freeBytes {
             return DiskBenchmarkError.insufficientSpace(needed: DiskMath.requiredFreeSpace(forTestSize: sizeBytes), free: free).errorDescription
@@ -173,13 +323,97 @@ final class DiskSpeedModel: ObservableObject {
 
     func start(state: AppState, store toolStore: ToolStore) {
         guard !isRunning, let location = selected, blockingProblem == nil else { return }
-        let config = self.config.effective(for: location.kind)
         task?.cancel()
         networkTask?.cancel()
         generation += 1
         let run = generation
         reset()
         lastRecordID = nil
+        guard let share = share(for: location), share.kind.isMountable else {
+            runBenchmark(location: location, state: state, toolStore: toolStore, run: run, unmountAfter: nil)
+            return
+        }
+        // Partage enregistré (note 55) : monté par NetFS s'il ne l'est pas déjà, droit d'écriture
+        // vérifié, puis le test habituel ; démonté à la fin seulement si NetScope l'a monté.
+        isRunning = true
+        testedLocation = location
+        testedConfig = config.effective(for: location.kind)
+        phase = .preparation
+        credentialsProblem = false
+        mountStatus = location.isMounted ? "Vérification de l’écriture dans \(share.displayName)" : "Montage de \(share.address)"
+        if isDemo {
+            // Démonstration : montage simulé, rien n'est monté.
+            var mounted = location
+            if !mounted.isMounted {
+                mounted.path = "/Volumes/" + (share.trimmedShare.split(separator: "/").last.map(String.init) ?? share.displayName)
+                mounted.testParent = mounted.path
+                mounted.isMounted = true
+                mounted.freeBytes = 5_210_000_000_000
+                mounted.totalBytes = 11_980_000_000_000
+            }
+            task = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 900_000_000)
+                guard let self, self.generation == run, self.isRunning else { return }
+                self.mountStatus = nil
+                self.runBenchmark(location: mounted, state: state, toolStore: toolStore, run: run, unmountAfter: nil)
+            }
+            return
+        }
+        task = Task { [weak self] in
+            let outcome = await Task.detached(priority: .userInitiated) { DiskShareMounter.mount(share) }.value
+            guard let self, self.generation == run, self.isRunning else {
+                // Arrêté pendant le montage : on ne laisse pas monté ce que NetScope vient de monter.
+                if case .mounted(let mounted) = outcome, mounted.mountedByNetScope {
+                    _ = await Task.detached { await DiskShareMounter.unmount(path: mounted.path) }.value
+                }
+                return
+            }
+            switch outcome {
+            case .failed(let problem):
+                self.failPreparation(problem, share: share, location: location, toolStore: toolStore)
+            case .mounted(let mounted):
+                let path = mounted.path
+                let writeProblem = await Task.detached(priority: .userInitiated) { DiskShareMounter.writeProblem(at: path) }.value
+                guard self.generation == run, self.isRunning else {
+                    if mounted.mountedByNetScope { _ = await Task.detached { await DiskShareMounter.unmount(path: path) }.value }
+                    return
+                }
+                if let writeProblem {
+                    self.failPreparation(writeProblem, share: share, location: location, toolStore: toolStore)
+                    if mounted.mountedByNetScope { _ = await Task.detached { await DiskShareMounter.unmount(path: path) }.value }
+                    return
+                }
+                var ready = location
+                ready.path = path
+                ready.testParent = path
+                ready.isMounted = true
+                ready.freeBytes = DiskSpace.freeBytes(at: path) ?? location.freeBytes
+                self.mountStatus = nil
+                if let free = ready.freeBytes, !DiskMath.hasRoom(freeBytes: free, testSize: self.sizeBytes) {
+                    self.failPreparation(.diskFull, share: share, location: location, toolStore: toolStore)
+                    if mounted.mountedByNetScope { _ = await Task.detached { await DiskShareMounter.unmount(path: path) }.value }
+                    return
+                }
+                self.runBenchmark(location: ready, state: state, toolStore: toolStore, run: run,
+                                  unmountAfter: mounted.mountedByNetScope ? path : nil)
+            }
+        }
+    }
+
+    /// Montage ou vérification d'écriture en échec : message expliqué, rien n'est mesuré.
+    private func failPreparation(_ problem: DiskShareProblem, share: DiskShareLocation, location: DiskLocation, toolStore: ToolStore) {
+        isRunning = false
+        phase = nil
+        mountStatus = nil
+        credentialsProblem = problem.concernsCredentials
+        error = problem.message(kind: share.kind, server: share.trimmedServer, share: share.trimmedShare)
+        toolStore.record(ToolRecent(tool: .disques, target: location.name, summary: problem.title, status: .failure))
+    }
+
+    /// Le test lui-même, sur un emplacement prêt (monté). `unmountAfter` : point de montage à
+    /// démonter à la fin (partage monté par NetScope pour ce test).
+    private func runBenchmark(location: DiskLocation, state: AppState, toolStore: ToolStore, run: Int, unmountAfter: String?) {
+        let config = self.config.effective(for: location.kind)
         isRunning = true
         testedLocation = location
         testedConfig = config
@@ -212,8 +446,13 @@ final class DiskSpeedModel: ObservableObject {
                                                  : DiskBenchmark(location: location, config: config, pending: pending)
         task = Task { [weak self] in
             for await event in engine.run() {
-                guard let self, self.generation == run else { return }
+                guard let self, self.generation == run else { break }
                 self.handle(event, location: location, toolStore: toolStore)
+            }
+            if let unmountAfter {
+                // Tâche détachée : le démontage se fait même si le test a été arrêté (tâche annulée).
+                let done = await Task.detached { await DiskShareMounter.unmount(path: unmountAfter) }.value
+                self?.noteUnmount(done, run: run)
             }
             guard let self, self.generation == run, self.isRunning else { return }
             // Flux terminé sans résultat (tâche annulée) : arrêt.
@@ -222,8 +461,18 @@ final class DiskSpeedModel: ObservableObject {
         }
     }
 
+    /// Message après le démontage d'un partage monté pour le test.
+    private func noteUnmount(_ done: Bool, run: Int) {
+        guard generation == run else { return }
+        let text = done ? "Partage démonté (NetScope l’avait monté pour ce test)."
+                        : "Le partage monté pour ce test n’a pas pu être démonté (fichier ouvert\u{00A0}?)\u{00A0}: éjectez-le dans le Finder."
+        notice = [notice, text].compactMap { $0 }.joined(separator: " ")
+        refreshLocations()
+    }
+
     func stop() {
         guard isRunning else { return }
+        mountStatus = nil
         task?.cancel()
         task = nil
         networkTask?.cancel()
@@ -254,6 +503,8 @@ final class DiskSpeedModel: ObservableObject {
         stopped = false
         notice = nil
         pass = 1
+        mountStatus = nil
+        credentialsProblem = false
     }
 
     /// Débit du lien actif et débit montant Internet connu (Speedtest), sans mesure réseau.
@@ -372,6 +623,7 @@ final class DiskSpeedModel: ObservableObject {
     /// Historique affiché : l'emplacement choisi, ou tous.
     var visibleHistory: [DiskTestRecord] {
         guard !showAllHistory, let id = selectedID else { return history }
+        if let location = selected { return DiskHistoryStore.records(history, for: location) }
         return DiskHistoryStore.records(history, for: id)
     }
 

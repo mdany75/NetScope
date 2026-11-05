@@ -16,9 +16,79 @@ enum DiskSpeedDemo {
                                           fileSystem: "APFS", totalBytes: 994_662_584_320, freeBytes: 412_318_000_000)
     static let usb = DiskLocation(name: "Samsung T7", path: "/Volumes/Samsung T7", kind: .externe, fileSystem: "exFAT",
                                   totalBytes: 1_000_202_043_392, freeBytes: 640_410_000_000)
-    static let nas = DiskLocation(name: "Projets", path: "/Volumes/Projets", kind: .reseau, fileSystem: "SMB",
-                                  totalBytes: 7_984_000_000_000, freeBytes: 3_120_000_000_000, server: "nas-bureau.local",
-                                  share: "Projets", networkProtocol: .smb)
+    /// Le partage Projets tel que monté sur le Mac (volume trouvé).
+    static let nasMount = DiskLocation(name: "Projets", path: "/Volumes/Projets", kind: .reseau, fileSystem: "SMB",
+                                       totalBytes: 7_984_000_000_000, freeBytes: 3_120_000_000_000, server: "nas-bureau.local",
+                                       share: "Projets", networkProtocol: .smb)
+
+    // Emplacements ajoutés au Siège (note 55) : le NAS du bureau (déjà monté, avec un test) et le
+    // partage Sauvegardes du serveur de sauvegarde (choisi dans le Scanner, pas encore monté).
+    static var siegeKey: String { SiteFiles.key(for: SitesDemo.siegeID) }
+    static let nasShareID = UUID(uuidString: "D15C0055-0001-4E55-9A11-00000000B001")!
+    static let backupShareID = UUID(uuidString: "D15C0055-0002-4E55-9A11-00000000B002")!
+
+    static var nasShare: DiskShareLocation {
+        DiskShareLocation(id: nasShareID, siteKey: siegeKey, name: "NAS Bureau – Projets", kind: .smb, server: "nas-bureau.local",
+                          share: "Projets", user: "technicien", hasPassword: true, created: Date(timeIntervalSince1970: 1_790_000_000))
+    }
+
+    static var backupShare: DiskShareLocation {
+        DiskShareLocation(id: backupShareID, siteKey: siegeKey, name: "Sauvegardes", kind: .smb, server: "10.10.0.31",
+                          share: "Sauvegardes", user: "BUREAU;technicien", deviceName: "Serveur de sauvegarde",
+                          deviceIP: "10.10.0.31", deviceHost: "SRV-BACKUP", hasPassword: true,
+                          created: Date(timeIntervalSince1970: 1_790_100_000))
+    }
+
+    /// Le NAS tel que la liste l'affiche : volume monté reconnu comme l'emplacement ajouté.
+    static var nas: DiskLocation {
+        var location = nasMount
+        location.name = nasShare.displayName
+        location.savedID = nasShare.locationID
+        return location
+    }
+
+    static var backup: DiskLocation {
+        DiskLocation(name: backupShare.displayName, path: backupShare.address, testParent: "", kind: .reseau, fileSystem: "SMB",
+                     server: backupShare.server, share: backupShare.share, networkProtocol: .smb,
+                     savedID: backupShare.locationID, isMounted: false)
+    }
+
+    /// « Tester le serveur » fictif : NAS (SMB, NFS, WebDAV), serveur de sauvegarde (SMB et HTTPS),
+    /// tout autre nom (rien ne répond).
+    static func serverReport(host: String, now: Date = Date()) -> DiskServerReport {
+        func ports(_ open: [UInt16: Double], closed: [UInt16] = []) -> [PortScanResult] {
+            DiskServerCheck.ports.map { item in
+                if let rtt = open[item.port] { return PortScanResult(port: item.port, state: .open, rttMs: rtt) }
+                return PortScanResult(port: item.port, state: closed.contains(item.port) ? .closed : .filtered)
+            }
+        }
+        let key = DiskShareCatalog.normalizedHost(host)
+        if key == "nas-bureau" || key == "10.10.0.20" {
+            return DiskServerReport(host: host, address: "10.10.0.20", pingMs: serverLatency,
+                                    ports: ports([445: 2.1, 139: 2.3, 2049: 2.0, 80: 2.6, 443: 2.8], closed: [548]), date: now)
+        }
+        if key == "10.10.0.31" || key == "srv-backup" {
+            return DiskServerReport(host: host, address: "10.10.0.31", pingMs: 1.2,
+                                    ports: ports([445: 1.4, 443: 1.9], closed: [139, 2049, 548, 80]), date: now)
+        }
+        return DiskServerReport(host: host, address: IPv4Address(host).map { _ in host } ?? "10.182.122.250", pingMs: nil,
+                                ports: ports([:]), date: now)
+    }
+
+    /// Captures : NETSCOPE_DISQUE_FEUILLE=nouveau (ajout, appareil choisi et serveur testé) ou nas
+    /// (modification du NAS) dessine la feuille par-dessus l'outil.
+    static var snapshotDraft: DiskShareDraft? {
+        guard RegEnvironment.isSnapshot, let raw = ProcessInfo.processInfo.environment["NETSCOPE_DISQUE_FEUILLE"] else { return nil }
+        if raw == "nas" {
+            return DiskShareDraft(share: nasShare, isNew: false, report: serverReport(host: nasShare.server))
+        }
+        var share = backupShare
+        share.id = UUID(uuidString: "D15C0055-0003-4E55-9A11-00000000B003")!
+        share.name = ""
+        share.share = "Archives"
+        share.hasPassword = false
+        return DiskShareDraft(share: share, isNew: true, report: serverReport(host: share.server))
+    }
     static let onedrive = DiskLocation(name: "OneDrive – Bureau", path: home + "/Library/CloudStorage/OneDrive-Bureau",
                                        kind: .nuage, fileSystem: "File Provider", totalBytes: 994_662_584_320,
                                        freeBytes: 412_318_000_000, provider: .onedrive, account: "Bureau")
@@ -62,16 +132,25 @@ enum DiskSpeedDemo {
             case "interne": return internalSSD
             case "usb": return usb
             case "nuage": return onedrive
+            case "sauvegardes": return backup
             default: return nas
             }
         }()
-        model.loadDemoLocations(locations, selected: choice.id)
+        model.loadDemoLocations([internalSSD, usb, nasMount, onedrive], shares: [nasShare, backupShare], selected: choice.id)
+        // NETSCOPE_DISQUE_SERVEUR=1 : résultat de « Tester le serveur » sur le partage choisi.
+        if ProcessInfo.processInfo.environment["NETSCOPE_DISQUE_SERVEUR"] != nil {
+            for share in [nasShare, backupShare] where share.locationID == choice.id {
+                model.setDemoServerReport(serverReport(host: share.server, now: now), for: share.id)
+            }
+        }
+        model.setDemo(history: history(now: now))
+        // Sauvegardes : ajouté, jamais mesuré, pas encore monté.
+        if choice.id == backup.id { return }
         let config = DiskBenchmarkConfig(sizeBytes: choice.kind == .nuage ? 256 << 20 : 1 << 30, passes: choice.kind == .nuage ? 1 : 2)
         let result = result(for: choice, size: config.sizeBytes, passes: config.passes)
         let context = context(for: choice)
         let verdict = DiskAdvisor.verdict(kind: choice.kind, result: result, context: context ?? DiskNetworkContext())
         model.loadDemoResult(location: choice, config: config, result: result, points: curve(result), network: context, verdict: verdict)
-        model.setDemo(history: history(now: now))
     }
 
     /// Courbe fictive : écriture puis lecture de chaque passe, avec de petites variations.
