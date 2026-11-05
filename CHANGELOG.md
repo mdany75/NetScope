@@ -1,5 +1,177 @@
 # Changements
 
+## 0.27.0 — 2026-11-05
+
+Surveillance de longue durée et pages plus faciles à parcourir : Switchs et ports et Wi-Fi ›
+FortiAP passent en onglets, la Surveillance garde 90 jours d’historique avec fenêtres de
+maintenance et rapport de disponibilité, et de nombreux outils gagnent ce qui leur manquait
+(meilleur canal Wi-Fi, plages exclues, Speedtest planifié, liens LLDP sur la Carte, Syslog en
+TCP, décodeurs de la Capture de paquets, serveur iperf3, XMODEM en console série).
+
+### Ajouté
+- **Switchs et ports en onglets** : Switchs, Ports, Trafic, Appareils, et Voisins et liens,
+  sous le bandeau du site. On trouve l’information sans faire défiler une longue page.
+  - Six tuiles de résumé en haut (switchs en ligne, ports actifs, ports en erreur, PoE utilisé,
+    appareils et VLAN, voisins LLDP) ; un clic ouvre l’onglet qui les détaille, déjà filtré.
+  - **Ports** : nouveau tableau de tous les ports, le même pour les switchs SNMP et les
+    FortiSwitch, avec les filtres Tous, Actifs, Inactifs, PoE, Uplinks et Erreurs, les erreurs
+    récentes, et le détail et les actions du port à côté.
+  - **Appareils** : la table MAC s’accompagne des appareils par VLAN ; un clic sur un VLAN
+    filtre la table.
+  - **Voisins et liens** : nouveau tableau des voisins LLDP de tous les switchs du site, avec la
+    nature du lien (entre switchs, FortiLink, routeur, borne, téléphone), à côté de la
+    topologie et de « Ce Mac est branché sur… ».
+  - Un clic sur un port de la façade l’ouvre dans l’onglet Ports ; Retour (⌘[) ramène à
+    l’onglet d’avant ; depuis une fiche Appareil, un port s’ouvre directement dans l’onglet
+    Ports ; l’onglet choisi est retenu.
+- **Wi-Fi › FortiAP en onglets** : Bornes, Clients, SSID, Canaux, Voisins et Conseils, avec le
+  nombre d’éléments de chaque onglet ; le bandeau de la FortiGate et les tuiles restent en haut,
+  et l’onglet choisi est retenu.
+  - Un clic sur une borne (carte des canaux, conseils, colonne Borne des clients) ouvre
+    l’onglet Bornes sur elle ; un clic sur une tuile ouvre l’onglet correspondant ; la fiche
+    d’un appareil ouvre directement le bon onglet.
+  - L’onglet SSID montre les clients et les bornes de chaque SSID, avec un lien vers ses
+    clients.
+- **Wi-Fi (ce Mac)** :
+  - Nouveau panneau « Meilleur canal », avec le canal conseillé en 2,4, 5 et 6 GHz ; il
+    signale les canaux DFS et PSC, propose un choix hors DFS ou plus étroit, et dit si le canal
+    actuel convient.
+  - Relevé par pièce enregistré par site : signal, bruit, débit du lien, latence de la
+    passerelle et débit réel en option, mesurés à la demande ; tableau avec qualité et
+    constats, et export CSV.
+  - Historique du signal jusqu’à une heure (2, 10, 30 min ou 1 h), avec minimum, maximum,
+    changements de borne et temps passé sous −70 dBm.
+- **Sites et plages › Plages exclues** : par site, des adresses, intervalles ou sous-réseaux,
+  avec une note, jamais sondés par le scan, la relecture automatique, le Scan de ports ni le
+  Ping continu d’une plage ; une exclusion qui couvre toute une plage est signalée.
+  - Scanner : « N adresses exclues » à côté des plages cochées, avec la raison en infobulle ;
+    le total d’adresses à scanner tient compte des exclusions.
+  - Inventaire : un appareil d’une plage exclue garde sa fiche, marquée « Exclu du scan », et
+    n’est jamais déclaré disparu.
+  - Plages exclues copiées avec le site : export, import et synchronisation de la
+    configuration, « Dupliquer », colonne « exclusions » du CSV des sites.
+- **Base des fabricants** : option « Mettre à jour automatiquement » dans Réglages › Base des
+  fabricants, activée par défaut. NetScope vérifie le registre IEEE au plus une fois par mois
+  quand la base a plus de 30 jours, jamais pendant un scan ni sur une connexion limitée
+  (partage de connexion du téléphone, données réduites), et garde l’ancienne base en cas
+  d’échec.
+  - Date de la base, dernière vérification, préfixes ajoutés et prochaine vérification
+    affichés ; notification discrète « Base des fabricants mise à jour : +N préfixes ».
+- **Speedtest › Planifié** : un test de débit Internet par jour et par site, à l’heure choisie,
+  avec seuils d’alerte en descente et en montée.
+  - Le test est reporté pendant un scan, pendant un autre test ou sur une connexion limitée,
+    puis rattrapé dans la journée ; sous le seuil, une notification « Débit Internet sous le
+    seuil » ouvre l’onglet Planifié.
+  - Courbe du débit planifié par site sur 30 jours, avec moyennes, minimum, jours sous le seuil
+    et tableau de tous les sites.
+- **Historique et adressage** : carte d’occupation de /24 à /16, parcourue par pages de /24,
+  avec baux, réservations et étendues DHCP de la FortiGate et plages exclues.
+  - « Prochaine IP libre hors étendue DHCP » pour chaque sous-réseau du site et pour chaque
+    page de la carte, à copier ou à vérifier par ping.
+- **Surveillance** :
+  - Heures ouvrables propres à chaque site (jour par jour) ; le site d’une sonde se choisit
+    dans l’éditeur ou se déduit de sa cible.
+  - Fenêtres de maintenance planifiées (une fois, chaque jour, semaine ou mois, avec date de
+    fin) pour tous les sites, un site ou des sondes précises. Les sondes continuent de tourner,
+    les alertes sont suspendues et notées au journal, et ces vérifications sont écartées de la
+    disponibilité.
+  - Rappel d’une alerte non accusée après 15 min à 4 h (désactivé par défaut), au plus 3 fois,
+    par notification et par les canaux des Alertes.
+  - Graphe de latence de la sonde choisie sur 24 h ou 7 jours (moyenne, minimum–maximum,
+    échecs, maintenance, seuil), et disponibilité des 30 derniers jours ; historique gardé
+    jusqu’à 90 jours.
+- **Rapports** :
+  - Nouvelle section « Disponibilité (Surveillance) » : une case par jour pour chaque sonde,
+    les pannes, la durée hors ligne et la latence moyenne.
+  - Export DOCX (Word, Pages, LibreOffice), écrit sans dépendance.
+  - Rapports planifiés : envoi automatique par le serveur SMTP des Alertes, à choisir pour
+    chaque rapport (désactivé par défaut), avec des destinataires par site et un bouton
+    « Envoyer un essai… ».
+- **Carte du réseau** :
+  - Les liens entre switchs sont tracés d’après les voisins LLDP relus par SNMP et la FortiGate
+    (uplinks, ISL, FortiLink), avec le port de chaque bout ; les FortiSwitch hors des plages
+    scannées apparaissent à leur place, et les liens redondants sont dessinés en tirets.
+  - Filtre par VLAN : seuls les appareils du VLAN choisi restent, et les équipements qui ne le
+    portent pas sont atténués.
+  - Glissez un nœud pour le placer ; sa position est retenue pour chaque site, avec « Remettre
+    à sa place » et « Réinitialiser la disposition ».
+  - Le détail d’un switch liste ses liens LLDP (port, voisin, port distant, vitesse, VLAN).
+- **Journaux** :
+  - Réception Syslog aussi en TCP (RFC 6587), sur le même port 5514 que l’UDP, avec les deux
+    cadrages (par longueur, mode « reliable » de FortiOS, et par saut de ligne), le nombre de
+    messages reçus en TCP et les connexions ouvertes.
+  - Transfert facultatif des messages reçus vers un autre serveur Syslog (SIEM, serveur du
+    client), en UDP ou en TCP, avec gravité minimale, traps facultatives et compteurs des
+    messages relayés ou perdus. Désactivé par défaut.
+  - Guide de configuration par marque (FortiGate, FortiSwitch, Cisco, HP/Aruba AOS-S et AOS-CX,
+    Ubiquiti UniFi et EdgeOS, Linux) : commandes à copier en UDP ou en TCP, commande de
+    vérification et conseils.
+- **Capture de paquets** :
+  - Décodage SIP (avec SDP), RTP, RTCP, SNMP (communauté masquée, variables nommées), Syslog,
+    RADIUS (mots de passe masqués) et NTP dans le détail par couche, avec de nouveaux filtres
+    (sip.method, rtp.ssrc, radius.code, syslog.level…) et des filtres rapides « Téléphonie »,
+    « Supervision » et « Authentification ».
+  - Nouvel onglet « Constats » : retransmissions TCP, fenêtre nulle, connexions refusées ou
+    coupées, requêtes sans réponse, échecs (nom inexistant, accès RADIUS refusé, erreurs SIP),
+    perte et gigue de la voix (RTP) et horloge décalée ; latence par flux (TCP, DNS, HTTP, SNMP,
+    RADIUS, NTP, SIP) ; « Voir les paquets » montre les paquets concernés.
+  - Bouton « Ouvrir dans Wireshark » : la capture est écrite en .pcap et ouverte directement
+    dans Wireshark s’il est installé.
+- **iperf3** :
+  - Serveur iperf3 intégré (vue « Serveur de ce Mac ») : un autre appareil mesure son débit
+    vers ce Mac sans rien installer ; démarré sur un clic, port 5201, arrêt automatique après un
+    délai sans test, un test à la fois, TCP dans les deux sens.
+  - Moteur « Intégré » pour mesurer vers un autre Mac NetScope ou un serveur iperf3 sans
+    installer iperf3, avec le débit seconde par seconde en direct.
+- **Vitesse des disques** : les serveurs FTP, FTPS et SFTP s’ajoutent comme emplacements ; le
+  fichier d’essai est envoyé puis reçu, sans montage, mot de passe au Trousseau (clés de
+  ~/.ssh en SFTP), serveur nettoyé à la fin.
+- **Accès distant › Console série** : bouton « Fichier… » pour envoyer ou recevoir des
+  fichiers en XMODEM, XMODEM-CRC, XMODEM-1K et YMODEM (mises à jour de firmware par la
+  console), avec avancement, temps restant, reprises et annulation.
+- Démonstration : données réalistes pour toutes ces nouveautés (onglets des switchs et des
+  bornes, relevé Wi-Fi, carte d’occupation, Speedtest planifié, disponibilité, constats de
+  capture, serveur iperf3, transfert XMODEM).
+
+### Modifié
+- **Surveillance** : les heures ouvrables fixes (lun.–ven. 7 h – 18 h) sont remplacées par
+  celles de chaque site.
+- **Speedtest** : chaque test retient le site actif (colonne « Site » dans l’historique et
+  l’export CSV) ; la courbe de l’Historique et la comparaison au forfait ne portent plus que
+  sur le site actif.
+- **Switchs et ports** : l’ancien tableau des ports d’un FortiSwitch est remplacé par le
+  tableau commun de l’onglet Ports ; tous les panneaux d’avant sont toujours là, dans un
+  onglet.
+
+### Corrigé
+- Les envois FTP de plusieurs mégaoctets pouvaient échouer en fin de transfert (« 426
+  Transfert interrompu »).
+- Speedtest : en petite fenêtre, la barre d’onglets passe sur deux lignes au lieu d’élargir la
+  page.
+- Console série : en petite fenêtre, les boutons passent sur une deuxième ligne au lieu de
+  déborder.
+
+### Limites connues
+- Toutes ces nouveautés sont vérifiées sans réseau (tests du moteur et données de
+  démonstration) : les essais sur de vrais switchs (LLDP d’autres marques, gros switchs
+  empilés), de vraies bornes FortiAP, un vrai serveur SMTP et de vraies consoles série restent
+  à faire.
+- Le Speedtest planifié, les rapports envoyés par SMTP, les rappels d’alerte et la mise à jour
+  automatique de la base des fabricants ne tournent que pendant que NetScope est ouvert ; un
+  test manqué est rattrapé à l’ouverture suivante dans la journée (agent en arrière-plan prévu
+  pour la 0.28.0).
+- Le moteur iperf3 « Intégré » et le serveur de ce Mac ne font que du TCP ; l’UDP et le
+  bidirectionnel demandent le moteur iperf3 installé.
+- « Ouvrir dans Wireshark » demande que Wireshark soit installé ; sinon, enregistrez la
+  capture en .pcap. Les décodeurs ne déchiffrent rien (SNMP v3, TLS) ; HTTP et SIP sont lus
+  segment par segment, sans réassemblage ; une communauté SNMP v1 ou v2c reste lisible dans
+  l’hexadécimal, puisqu’elle passe en clair sur le réseau.
+- Syslog en TCP n’est pas chiffré (pas de TLS) ; le port reste 5514, à indiquer aux
+  équipements.
+- Le meilleur canal Wi-Fi ne voit que les réseaux captés par ce Mac à l’endroit où il se trouve ;
+  ce n’est pas une planification Wi-Fi.
+- L’export de la carte du réseau reste pour la 0.24.0 (note 61).
+
 ## 0.26.2 — 2026-11-05
 
 Tableau de bord de votre serveur RustDesk, lu par SSH en lecture seule : sessions relayées,

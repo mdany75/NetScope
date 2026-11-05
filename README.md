@@ -4,7 +4,7 @@
 sur plusieurs plages, dit sur quel switch et quel port chacun est branché, puis diagnostique,
 surveille, documente et ouvre une session à distance, site par site, dans une seule fenêtre.
 
-[![Version](https://img.shields.io/badge/version-0.26.2-blue)](https://github.com/mdany75/NetScope/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.27.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-lightgrey?logo=apple)](#installation)
 [![Licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
@@ -34,7 +34,13 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   balises Wi-Fi, les tunnels SSH et le saut par bastion ; depuis la 0.26.1, l’assistance à
   distance par RustDesk avec ton propre serveur (carnet des postes, test du serveur, ports
   RustDesk reconnus dans les scans) ; depuis la 0.26.2, un tableau de bord du serveur RustDesk
-  lu par SSH en lecture seule (sessions relayées, demandes de connexion, état de hbbs et hbbr).
+  lu par SSH en lecture seule (sessions relayées, demandes de connexion, état de hbbs et hbbr) ;
+  depuis la 0.27.0, Switchs et ports et FortiAP en onglets, le meilleur canal Wi-Fi et le
+  relevé par pièce, les plages exclues, la base des fabricants tenue à jour toute seule, un
+  Speedtest planifié par site, les fenêtres de maintenance de la Surveillance, le rapport de
+  disponibilité (aussi en DOCX et envoyé par courriel), les liens LLDP sur la Carte, Syslog en
+  TCP, les décodeurs et constats de la Capture de paquets, un serveur iperf3 intégré et
+  XMODEM/YMODEM en console série.
 
 > **État du projet** : NetScope est en développement actif (0.x). Les fonctions réseau
 > (FortiGate, FortiAP, SNMP, Syslog, sessions SSH, Telnet, série et VNC) sont testées sur des
