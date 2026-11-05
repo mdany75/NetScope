@@ -116,6 +116,14 @@ public struct ConfigManifest: Codable, Equatable, Sendable {
         public var files: [File]
         public var preferences: [String]
         public var secrets: [BackupKeychainItem]
+
+        public init(id: String, title: String, files: [File], preferences: [String], secrets: [BackupKeychainItem]) {
+            self.id = id
+            self.title = title
+            self.files = files
+            self.preferences = preferences
+            self.secrets = secrets
+        }
     }
 
     public var format = ConfigManifest.formatName
@@ -129,6 +137,17 @@ public struct ConfigManifest: Codable, Equatable, Sendable {
     public var encrypted: Bool
     /// « sauvegarde » quand l'import lit une sauvegarde de NetScope plutôt qu'un export.
     public var origin: String?
+
+    public init(createdAt: Date, deviceName: String, appVersion: String, appBuild: String, parts: [Part], encrypted: Bool,
+                origin: String? = nil) {
+        self.createdAt = createdAt
+        self.deviceName = deviceName
+        self.appVersion = appVersion
+        self.appBuild = appBuild
+        self.parts = parts
+        self.encrypted = encrypted
+        self.origin = origin
+    }
 
     public var fileCount: Int { parts.reduce(0) { $0 + $1.files.count } }
     public var preferenceCount: Int { parts.reduce(0) { $0 + $1.preferences.count } }

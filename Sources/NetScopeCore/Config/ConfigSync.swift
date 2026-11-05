@@ -161,6 +161,13 @@ public struct ConfigSyncRemoteSite: Identifiable, Hashable, Sendable {
     public var name: String
     public var devices: [String]
     public var updated: Date
+
+    public init(id: UUID, name: String, devices: [String], updated: Date) {
+        self.id = id
+        self.name = name
+        self.devices = devices
+        self.updated = updated
+    }
 }
 
 /// Bilan d'une synchronisation.
@@ -220,7 +227,8 @@ public struct ConfigSyncLocalSite: Sendable {
         for name in siteFiles {
             let path = SiteFiles.folderName + "/" + id + "/" + name
             if let file = snapshot.file(path) {
-                items["fichier:" + path] = Item(label: BackupEngine.label(for: path).replacingOccurrences(of: " (site)", with: ""),
+                let label = BackupEngine.label(for: path).replacingOccurrences(of: " (site)", with: "")
+                items["fichier:" + path] = Item(label: label.prefix(1).uppercased() + label.dropFirst(),
                                                 data: file.data, hash: ConfigHash.sha256(file.data), modifiedHint: file.modified)
             }
         }

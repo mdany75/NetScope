@@ -56,7 +56,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .notifications: return "alerte notification surveillance courriel son silence ne pas déranger regroupement dhcp conflit test"
         case .alertes: return "alerte courriel smtp starttls webhook teams slack json anti-rafale silence trousseau envoyer un test"
         case .interface: return "en0 wi-fi ethernet masque passerelle getifaddrs"
-        case .export: return "export sauvegarde csv json pdf restauration zip manifeste rotation icloud dossier chiffrement chiffrée mot de passe jetons secrets trousseau"
+        case .export: return "export sauvegarde csv json pdf restauration zip manifeste rotation icloud dossier chiffrement chiffrée mot de passe jetons secrets trousseau configuration importer exporter synchronisation synchroniser mac"
         case .raccourcis: return "raccourcis clavier touches commande menu conflit"
         case .majs: return "version github release bêta stable signature télécharger installer jeton"
         case .apropos: return "version licence oui journaux"
@@ -78,7 +78,7 @@ enum RegEnvironment {
     static var initialSection: RegSection? {
         if let raw = ProcessInfo.processInfo.environment["NETSCOPE_REGLAGES_SECTION"] {
             switch raw {
-            case "sauvegarde": return .export
+            case "sauvegarde", "configuration": return .export
             case "identifiants": return .identifiants
             case "decouverte": return .profils
             default: if let section = RegSection(rawValue: raw) { return section }

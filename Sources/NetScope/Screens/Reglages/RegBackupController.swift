@@ -518,8 +518,14 @@ final class RegBackupController: ObservableObject {
         defaults.removeObject(forKey: Key.pendingIsTemporary)
     }
 
+    /// Note 56 : sauvegarde de sécurité de l'état actuel avant un import de configuration ou
+    /// l'application de changements reçus (chiffrée si un mot de passe est mémorisé).
+    func safetyBackup() async -> BackupInfo? {
+        await backup(kind: .securite, encryption: await scheduledEncryption())
+    }
+
     /// Relance NetScope (application installée) ; avec `swift run`, demande de rouvrir à la main.
-    private func relaunch() {
+    func relaunch() {
         guard let bundle = UpdInstaller.runningBundle() else {
             message = ("Restauration prête\u{00A0}: quittez NetScope et rouvrez-le pour l’appliquer.", .warning)
             return

@@ -189,7 +189,13 @@ public enum ConfigImporter {
             }
         }
 
-        // Fichiers.
+        // Fichiers (ceux d'un dossier de site portent le nom du site, de l'export ou de ce Mac).
+        var siteNames: [String: String] = [:]
+        for snapshot in [local, package.snapshot] {
+            for element in snapshot.collectionData(.sites).flatMap(ConfigCollection.sites.elements) ?? [] where !element.name.isEmpty {
+                siteNames[element.id] = element.name
+            }
+        }
         for file in package.files where !collectionFiles.contains(file.path) {
             guard let part = registry.part(forFile: file.path) else { continue }
             let mine = local.file(file.path)
@@ -205,7 +211,7 @@ public enum ConfigImporter {
             } else {
                 action = .ajout
             }
-            changes.append(ConfigChange(id: "fichier:" + file.path, part: part.id, kind: .fichier, label: BackupEngine.label(for: file.path),
+            changes.append(ConfigChange(id: "fichier:" + file.path, part: part.id, kind: .fichier, label: fileLabel(file.path, siteNames: siteNames),
                                         detail: action == .conflit ? "Modifié sur ce Mac après l’export" : file.path, action: action,
                                         localModified: mine?.modified, importModified: file.modified ?? exportDate))
         }
@@ -244,6 +250,16 @@ public enum ConfigImporter {
         }
         let present = Set(changes.map(\.part))
         return ConfigImportPlan(package: package, changes: changes, parts: registry.parts.filter { present.contains($0.id) })
+    }
+
+    /// « Inventaire · Entrepôt Laval » pour « sites/<id>/inventory.json », sinon le libellé de la sauvegarde.
+    static func fileLabel(_ path: String, siteNames: [String: String]) -> String {
+        let parts = path.split(separator: "/").map(String.init)
+        guard parts.count == 3, parts[0] == SiteFiles.folderName else { return BackupEngine.label(for: path) }
+        var label = BackupEngine.label(for: path)
+        if let open = label.range(of: " (") { label = String(label[..<open.lowerBound]) }
+        let name = parts[1] == SiteFiles.noSiteKey ? "plages libres" : (siteNames[parts[1]] ?? "site")
+        return label.prefix(1).uppercased() + label.dropFirst() + " · " + name
     }
 
     // MARK: Plan retenu
