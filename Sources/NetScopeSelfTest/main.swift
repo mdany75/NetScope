@@ -99,6 +99,8 @@ registerWakePlanTests(suite)
 registerRustDeskTests(suite)
 // Note 6 (0.26.1) : ports RustDesk dans les ports ouverts.
 registerRustDeskPortTests(suite)
+// Note 6 (0.26.2) : tableau de bord du serveur RustDesk.
+registerRustDeskServerTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

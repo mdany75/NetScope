@@ -11,6 +11,7 @@ struct RemoteSessionArea: View {
     @ObservedObject private var files = FileTransferStore.shared
     @ObservedObject private var sessions = RemoteSessionStore.shared
     @ObservedObject private var tunnels = SSHTunnelStore.shared
+    @ObservedObject private var server = RustDeskServerModel.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -18,6 +19,9 @@ struct RemoteSessionArea: View {
 
             if model.draft == nil, model.tunnelDraft == nil, let tab = sessions.activeTab {
                 sessionContent(tab)
+            } else if model.draft == nil, model.tunnelDraft == nil, server.isShown {
+                // Note 6 (0.26.2) : onglet « Serveur RustDesk ».
+                RustDeskServerDashboard(model: model)
             } else {
                 ScrollView {
                     if model.draft != nil {
@@ -47,6 +51,13 @@ struct RemoteSessionArea: View {
         }
         .onChange(of: model.tunnelDraft != nil) { _, editing in
             if editing { sessions.select(nil) }
+        }
+        // Note 6 (0.26.2) : un onglet de session ou un formulaire remplace le tableau de bord du serveur.
+        .onChange(of: sessions.activeID) { _, id in
+            if id != nil { server.isShown = false }
+        }
+        .onChange(of: model.draft != nil || model.tunnelDraft != nil) { _, editing in
+            if editing { server.isShown = false }
         }
         .confirmationDialog("Fermer l’onglet «\u{00A0}\(sessions.pendingClose?.tunnelSession?.title ?? sessions.pendingClose?.connection.name ?? "")\u{00A0}»\u{00A0}?",
                             isPresented: Binding(get: { sessions.pendingClose != nil },

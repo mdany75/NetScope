@@ -185,14 +185,18 @@ enum ProcessRunner {
         var signal: Int32? = nil
     }
 
-    static func run(_ executable: String, _ arguments: [String], environment: [String: String], timeout: TimeInterval) async -> Result {
+    /// - `input` : données écrites sur l'entrée standard, puis fermée (nil : /dev/null).
+    /// - `outputLimit` : octets gardés de chaque sortie.
+    static func run(_ executable: String, _ arguments: [String], environment: [String: String], timeout: TimeInterval,
+                    input: Data? = nil, outputLimit: Int = 64_000) async -> Result {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 let process = Process()
                 process.executableURL = URL(fileURLWithPath: executable)
                 process.arguments = arguments
                 process.environment = environment
-                process.standardInput = FileHandle.nullDevice
+                let inputPipe = input.map { _ in Pipe() }
+                process.standardInput = inputPipe ?? FileHandle.nullDevice
                 let out = Pipe(), err = Pipe()
                 process.standardOutput = out
                 process.standardError = err
@@ -201,6 +205,16 @@ enum ProcessRunner {
                 } catch {
                     continuation.resume(returning: Result(status: -1, stdout: "", stderr: error.localizedDescription, timedOut: false))
                     return
+                }
+                if let inputPipe, let input {
+                    // Écrit à part : un processus qui ne lit pas son entrée ne bloque pas la lecture des sorties.
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        let handle = inputPipe.fileHandleForWriting
+                        // Processus déjà terminé : EPIPE plutôt qu'un SIGPIPE qui tuerait NetScope.
+                        _ = fcntl(handle.fileDescriptor, F_SETNOSIGPIPE, 1)
+                        try? handle.write(contentsOf: input)
+                        try? handle.close()
+                    }
                 }
                 let timedOut = OnceFlag()
                 DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
@@ -211,8 +225,8 @@ enum ProcessRunner {
                 process.waitUntilExit()
                 let signaled = process.terminationReason == .uncaughtSignal
                 continuation.resume(returning: Result(status: process.terminationStatus,
-                                                      stdout: String(decoding: stdout.prefix(64_000), as: UTF8.self),
-                                                      stderr: String(decoding: stderr.prefix(64_000), as: UTF8.self),
+                                                      stdout: String(decoding: stdout.prefix(outputLimit), as: UTF8.self),
+                                                      stderr: String(decoding: stderr.prefix(outputLimit), as: UTF8.self),
                                                       timedOut: timedOut.isClaimed,
                                                       signal: signaled ? process.terminationStatus : nil))
             }

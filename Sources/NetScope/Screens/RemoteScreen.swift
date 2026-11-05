@@ -9,6 +9,7 @@ struct RemoteScreen: View {
     @ObservedObject private var files = FileTransferStore.shared
     @ObservedObject private var ftpServer = FTPTemporaryServerModel.shared
     @ObservedObject private var sessions = RemoteSessionStore.shared
+    @ObservedObject private var server = RustDeskServerModel.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -43,7 +44,8 @@ struct RemoteScreen: View {
                 let browsing = files.session.flatMap { files.isShowing(model.selectedID) ? $0 : nil }
                 // Note 57 : petite fenêtre et onglet de session affiché (terminal ou VNC) : la session
                 // prend toute la largeur (l'onglet « Sessions » ramène la liste des connexions).
-                let sessionShown = sessions.activeTab != nil && model.draft == nil && model.tunnelDraft == nil
+                // Note 6 (0.26.2) : le tableau de bord du serveur RustDesk se comporte comme un onglet de session.
+                let sessionShown = (sessions.activeTab != nil || server.isShown) && model.draft == nil && model.tunnelDraft == nil
                 if !model.compactLayout || (browsing == nil && !sessionShown) {
                     RemoteConnectionList(model: model)
                         .frame(width: 272)
@@ -77,6 +79,9 @@ struct RemoteScreen: View {
                 }
             }
         }
+        // Note 6 (0.26.2) : le tableau de bord du serveur ne lit que pendant que l'écran est affiché.
+        .onAppear { server.screenVisible = true }
+        .onDisappear { server.screenVisible = false }
         .overlay {
             if model.showImport { RemoteImportOverlay(model: model) }
             if ftpServer.isPresented { FTPServerOverlay() }
@@ -118,8 +123,15 @@ struct RemoteScreen: View {
         if model.compactLayout != compact { model.compactLayout = compact }
     }
 
+    /// Tableau de bord du serveur RustDesk affiché : il prend la place de la colonne des détails.
+    private var dashboardShown: Bool {
+        server.isShown && sessions.activeTab == nil && model.draft == nil && model.tunnelDraft == nil
+    }
+
     @ViewBuilder private var detailColumn: some View {
-        if model.detailsVisible, let connection = model.selected {
+        if dashboardShown {
+            EmptyView()
+        } else if model.detailsVisible, let connection = model.selected {
             RemoteDetailPanel(model: model, connection: connection)
                 .frame(width: 300)
         } else if let connection = model.selected {
