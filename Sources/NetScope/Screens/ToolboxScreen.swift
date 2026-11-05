@@ -326,7 +326,11 @@ private struct ToolMainPanel: View {
         case .whois: return "whois \(whois.target)"
         case .mtu: return mtu.command
         case .iperf:
-            return iperfServer.showServer ? "iperf3 -s -p \(iperfServer.port ?? IperfProtocol.defaultPort)" : "iperf3 -c <serveur> -P 4 -t 10"
+            if iperfServer.showServer { return "iperf3 -s -p \(iperfServer.port ?? IperfProtocol.defaultPort)" }
+            // Même commande que le client (serveur, flux et durée choisis), pas un modèle figé.
+            let options = speed.lanOptions
+            return "iperf3 -c \(options.host.isEmpty ? "<serveur>" : options.host) -P \(options.streams) -t \(options.duration)"
+                + (options.direction == .reverse ? " -R" : "")
         case .speedtest: return "speedtest"
         case .wol: return wol.command(state: state)
         case .dhcp: return dhcp.command

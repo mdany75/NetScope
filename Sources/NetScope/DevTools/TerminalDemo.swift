@@ -116,7 +116,8 @@ enum TerminalDemo {
         let serialView = view == "terminal-serie" || view == "terminal-serie-xmodem" || view == "terminal-serie-fichier"
         if view == "terminal-serie-xmodem", let firmware = firmwareFiles.first {
             serial.showDemoTransfer(SerialTransferController.snapshot(file: firmware, proto: .xmodem1K, bytes: 812_032,
-                                                                      retries: 2, seconds: 71))
+                                                                      retries: 2, seconds: 875))
+            // 875 s : le débit d'un port à 9600 bauds (≈ 0,93 ko/s en XMODEM-1K), comme la console.
         }
         store.add(ssh, activate: view == "terminal")
         store.add(serial, activate: serialView)

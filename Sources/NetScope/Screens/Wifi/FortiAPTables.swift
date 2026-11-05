@@ -395,7 +395,9 @@ struct FortiAPClientTable: View {
             } else if store.clientsBySSID {
                 ssidGroups(kept, rows: rows)
             } else {
-                tableView(rows).standardTableHeight(rows: rows.count, rowHeight: fortiRowHeight, maxRows: 12)
+                // Note 80 : les clients ont leur propre onglet ; le tableau prend la place (40 lignes
+                // avant de défiler) au lieu de laisser la page vide sous 12 lignes.
+                tableView(rows).standardTableHeight(rows: rows.count, rowHeight: fortiRowHeight, maxRows: 40)
             }
         }
         .searchResults(rows.count, "client", "clients")

@@ -247,7 +247,7 @@ struct WifiRoomSurveyPanel: View {
                     Text(row.measure.room).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
                         .help(row.measure.note ?? row.measure.room)
                 }
-                .width(min: 80, ideal: 120)
+                .width(min: 80, ideal: 110)
                 .customizationID("piece")
                 .disabledCustomizationBehavior(.visibility)
                 TableColumn(StandardTableHeading("HEURE"), sortUsing: table.sort("heure")) { row in
@@ -262,7 +262,7 @@ struct WifiRoomSurveyPanel: View {
                             .foregroundStyle(WifiText.qualityColor(row.rssi).foreground).lineLimit(1)
                     }
                 }
-                .width(min: 86, ideal: 96)
+                .width(min: 86, ideal: 92)
                 .customizationID("signal")
                 TableColumn(StandardTableHeading("SNR"), sortUsing: table.sort("snr")) { row in
                     WifiCell(row.measure.snr.map { "\($0)\u{00A0}dB" } ?? "—", mono: 11, dimmed: row.measure.snr == nil)
@@ -272,7 +272,7 @@ struct WifiRoomSurveyPanel: View {
                 TableColumn(StandardTableHeading("LIEN"), sortUsing: table.sort("lien")) { row in
                     WifiCell(FortiAPText.rate(row.measure.linkRateMbps), mono: 11, dimmed: row.measure.linkRateMbps == nil)
                 }
-                .width(min: 56, ideal: 72)
+                .width(min: 56, ideal: 66)
                 .customizationID("lien")
                 TableColumn(StandardTableHeading("LATENCE"), sortUsing: table.sort("latence")) { row in
                     let high = (row.measure.latencyMs ?? 0) > WifiRoomSurvey.highLatency
@@ -292,7 +292,7 @@ struct WifiRoomSurveyPanel: View {
                         .lineLimit(1)
                         .help(row.measure.downloadMbps == nil ? (row.measure.note ?? "Débit non demandé") : "Téléchargement depuis Cloudflare")
                 }
-                .width(min: 60, ideal: 80)
+                .width(min: 60, ideal: 72)
                 .customizationID("debit")
                 TableColumn(StandardTableHeading("QUALITÉ"), sortUsing: table.sort("qualite")) { row in
                     Self.verdictPill(row.measure.verdict)
@@ -304,7 +304,7 @@ struct WifiRoomSurveyPanel: View {
                     WifiCell(issues.isEmpty ? "—" : issues.joined(separator: ", "), dimmed: issues.isEmpty)
                         .help(issues.joined(separator: "\n"))
                 }
-                .width(min: 70, ideal: 120)
+                .width(min: 70, ideal: 110)
                 .customizationID("constats")
             }
             Group {

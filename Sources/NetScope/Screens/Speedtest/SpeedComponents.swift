@@ -20,6 +20,8 @@ struct SpeedSegment: View {
             Text(label)
                 .font(mono ? Theme.mono(12, weight: .medium) : .system(size: 12, weight: .medium))
                 .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .padding(.horizontal, 3)
                 .foregroundStyle(isOn ? Theme.accentStrong : (isEnabled ? Theme.text : Theme.textTertiary))
                 .frame(maxWidth: .infinity)
                 .frame(height: 30)
