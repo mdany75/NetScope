@@ -225,6 +225,9 @@ public enum ReportBuilder {
         case 139: return ("NetBIOS", .faible)
         case 3389: return ("RDP (bureau à distance)", .moyen)
         case 5900: return ("VNC (partage d’écran)", .moyen)
+        // Note 6 : accès IP direct de RustDesk (session sans serveur ni relais) ; les ports du serveur
+        // (21115 à 21117, 21119) sont attendus sur un serveur RustDesk et ne sont pas des risques.
+        case 21118: return ("RustDesk, accès IP direct", .faible)
         case 1433: return ("SQL Server", .moyen)
         case 3306: return ("MySQL", .moyen)
         case 80 where infrastructure.contains(type): return ("HTTP sans TLS (administration)", .moyen)
@@ -236,7 +239,10 @@ public enum ReportBuilder {
     public static func riskyPorts(_ devices: [Device]) -> [ReportRiskyPort] {
         var result: [ReportRiskyPort] = []
         for device in devices {
+            let rustDeskServer = RustDeskPorts.role(openPorts: device.openPorts)?.isServer == true
             for port in device.openPorts.sorted() {
+                // 21118 d'un serveur RustDesk : WebSocket de hbbs, pas l'accès direct d'un poste.
+                if rustDeskServer, port == RustDeskPorts.direct { continue }
                 guard let risk = risk(port: port, type: device.deviceType) else { continue }
                 result.append(ReportRiskyPort(host: device.hostnameLabel ?? device.displayName, ip: device.ip, port: port,
                                               service: risk.service, severity: risk.severity))

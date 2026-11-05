@@ -97,6 +97,8 @@ registerInventoryExportTests(suite)
 registerWakePlanTests(suite)
 // Note 6 (0.26.1) : RustDesk.
 registerRustDeskTests(suite)
+// Note 6 (0.26.1) : ports RustDesk dans les ports ouverts.
+registerRustDeskPortTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

@@ -26,8 +26,8 @@ func registerTableTests(_ suite: TestSuite) {
     suite.add("Préréglages de ports : mêmes que les profils de Réglages") {
         let presets = PortPreset.all(customPorts: [22, 80, 80, 8080])
         try expectEqual(presets.map(\.profile), ScanProfile.allCases, "un préréglage par profil, même ordre")
-        try expectEqual(presets[0].label, "22 ports essentiels", "libellé du menu")
-        try expectEqual(presets[0].shortLabel, "22 essentiels", "libellé de la barre d'outils")
+        try expectEqual(presets[0].label, "24 ports essentiels", "libellé du menu")
+        try expectEqual(presets[0].shortLabel, "24 essentiels", "libellé de la barre d'outils")
         try expectEqual(presets[0].ports, ScanProfile.essentialPorts, "ports essentiels")
         let custom = presets.first { $0.profile == .personnalise }!
         try expectEqual(custom.ports, [22, 80, 8080], "personnalisé : ports des Réglages, sans doublon")

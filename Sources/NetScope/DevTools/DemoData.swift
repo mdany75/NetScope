@@ -72,6 +72,8 @@ enum DemoData {
         Row(ip: "10.182.122.111", name: "Imprimante accueil", host: "Brother DCP-L2640DW", vendor: "Brother", mac: "94:DD:F8:18:15:7D", latency: 4.1, ports: [80, 443, 9100, 631], sw: "SW-ETG2-01", port: "1/14", vlan: 30, minutesAgo: 0, type: .imprimante, online: true, range: "Bureau"),
         Row(ip: "10.182.122.113", name: "Portable Marc", host: "PF4L8M20", vendor: "Lenovo", mac: "8C:16:45:2B:9E:03", latency: 5.2, ports: [135, 445], sw: "SW-ETG2-01", port: "1/3", vlan: 1, minutesAgo: 1, type: .poste, online: true, range: "Bureau"),
         Row(ip: "10.182.122.117", name: "Poste comptabilité", host: "WKS346", vendor: "Dell", mac: "B0:7B:25:44:A1:6C", latency: 1.9, ports: [135, 445, 3389], sw: "SW-CORE-01", port: "Gi1/0/22", vlan: 1, minutesAgo: 0, type: .poste, online: true, range: "Bureau"),
+        // Note 6 : poste Windows avec l'accès IP direct de RustDesk (21118).
+        Row(ip: "10.182.122.126", name: "Poste direction", host: "WKS352", vendor: "Dell", mac: "B0:7B:25:44:B2:26", latency: 2.2, ports: [135, 445, 21118], sw: "SW-ETG2-01", port: "1/5", vlan: 1, minutesAgo: 0, type: .poste, online: true, range: "Bureau"),
         // Note 30 : téléphones IP Yealink sur SW-ETG2-01, VLAN voix 20 (annoncés « téléphone » par LLDP-MED).
         Row(ip: "10.182.122.121", name: "Téléphone accueil", host: "SIP-T54W", vendor: "Yealink", mac: "80:5E:C0:3A:61:21", latency: 2.1, ports: [80, 443, 5060], sw: "SW-ETG2-01", port: "1/10", vlan: 20, minutesAgo: 0, type: .telephoneIP, online: true, range: "Bureau"),
         Row(ip: "10.182.122.122", name: nil, host: "SIP-T46U", vendor: "Yealink", mac: "80:5E:C0:3A:61:22", latency: 2.4, ports: [80, 443, 5060], sw: "SW-ETG2-01", port: "1/15", vlan: 20, minutesAgo: 0, type: .telephoneIP, online: true, range: "Bureau"),
@@ -83,6 +85,8 @@ enum DemoData {
         Row(ip: "192.168.50.21", name: "Caméra quai", host: "DS-2CD2143G2-I", vendor: "Hikvision", mac: "BC:AD:28:6F:01:5A", latency: 3.0, ports: [80, 443, 554], sw: "SW-CORE-01", port: "Gi1/0/33", vlan: 40, minutesAgo: 0, type: .camera, online: true, range: "Caméras"),
         Row(ip: "192.168.50.22", name: nil, host: "axis-b8a44f2c19e0", vendor: "Axis", mac: "B8:A4:4F:2C:19:E0", latency: 2.7, ports: [80, 443, 554], sw: "SW-CORE-01", port: "Gi1/0/34", vlan: 40, minutesAgo: 0, type: .camera, online: true, range: "Caméras"),
         Row(ip: "10.10.0.10", name: "Contrôleur de domaine", host: "SRV-AD-01", vendor: "Dell", mac: "F4:EE:08:3C:72:A1", latency: 0.9, ports: [53, 88, 389, 445], sw: "SW-CORE-01", port: "Gi1/0/40", vlan: 100, minutesAgo: 0, type: .serveur, online: true, range: "Serveurs"),
+        // Note 6 : serveur RustDesk auto-hébergé (Ubuntu, hbbs et hbbr), ports 21115 à 21117 ouverts.
+        Row(ip: "10.10.0.20", name: "Assistance à distance", host: "srv-assistance", vendor: "VMware", mac: "00:50:56:AA:10:20", latency: 1.0, ports: [22, 21115, 21116, 21117, 21118], sw: "SW-CORE-01", port: "Gi1/0/41", vlan: 100, minutesAgo: 0, type: .serveur, online: true, range: "Serveurs"),
         // Note 24 : branchés sur des FortiSwitch gérés par la FortiGate (FortiGateDemo, mêmes MAC).
         Row(ip: "10.10.0.31", name: "Serveur de sauvegarde", host: "SRV-BACKUP", vendor: "VMware", mac: "00:50:56:AA:10:31", latency: 1.2, ports: [22, 443, 445], sw: "FSW-SERVEURS", port: "port1", vlan: 100, minutesAgo: 0, type: .serveur, online: true, range: "Serveurs"),
         Row(ip: "192.168.50.31", name: nil, host: "CAM-ENTREPOT-01", vendor: "Hikvision", mac: "BC:AD:28:6F:22:31", latency: 3.6, ports: [80, 443, 554], sw: "FSW-QUAI", port: "port1", vlan: 40, minutesAgo: 1, type: .camera, online: true, range: "Caméras"),
@@ -98,6 +102,7 @@ enum DemoData {
         "10.182.122.133": (.dns, nil), "10.182.122.135": (.mdns, nil), "10.182.122.140": (.netbios, "WORKGROUP"),
         "10.182.122.146": (.netbios, "BUREAU"), "192.168.50.21": (.dns, nil), "192.168.50.22": (.mdns, nil),
         "10.10.0.10": (.dns, nil), "10.10.0.31": (.fortigate, nil), "192.168.50.31": (.fortigate, nil),
+        "10.182.122.126": (.netbios, "BUREAU"), "10.10.0.20": (.dns, nil),
     ]
 
     /// Nature SNMP des appareils qui ont répondu à la découverte automatique (démonstration).

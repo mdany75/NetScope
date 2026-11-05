@@ -34,10 +34,10 @@ func registerModelTests(_ suite: TestSuite) {
         // Profil Rapide (défaut) : sonde maintenant les ports essentiels, sans clic droit.
         let rapide = ScanProfile.rapide.ports()
         try expectEqual(rapide, ScanProfile.essentialPorts.sorted(), "rapide : ports essentiels, triés")
-        for port: UInt16 in [22, 23, 80, 443, 445, 3389, 5900, 8080, 8443, 9100, 631, 554, 515, 139, 135, 53, 21, 1883, 5000, 5001, 5060, 5061] {
+        for port: UInt16 in [22, 23, 80, 443, 445, 3389, 5900, 8080, 8443, 9100, 631, 554, 515, 139, 135, 53, 21, 1883, 5000, 5001, 5060, 5061, 21116, 21118] {
             try expect(rapide.contains(port), "rapide : port \(port)")
         }
-        try expectEqual(rapide.count, 22, "rapide : 22 ports (SIP compris, note 30)")
+        try expectEqual(rapide.count, 24, "rapide : 24 ports (SIP compris, note 30 ; RustDesk 21116 et 21118, note 6)")
         try expectEqual(ScanProfile(rawValue: "rapide"), .rapide, "ancien réglage enregistré « rapide » relu")
         try expect(!ScanProfile.commonPorts.contains(161), "161 n'est pas un port TCP à sonder (SNMP = UDP)")
         try expect(ScanProfile.complet.alwaysDiscoversSwitches && !ScanProfile.rapide.alwaysDiscoversSwitches, "SNMP forcé en Complet")

@@ -1,9 +1,10 @@
 import NetScopeCore
 import SwiftUI
 
-/// Profils de ports proposés (croquis : Rapide, Courant, Complet, Imprimantes, Caméras).
+/// Profils de ports proposés (croquis : Rapide, Courant, Complet, Imprimantes, Caméras ; note 6 :
+/// Accès distant, avec RustDesk 21115 à 21119).
 enum ToolPortProfile: String, CaseIterable, Identifiable {
-    case rapide, courant, complet, imprimantes, cameras
+    case rapide, courant, complet, imprimantes, cameras, accesDistant
 
     var id: String { rawValue }
 
@@ -14,6 +15,7 @@ enum ToolPortProfile: String, CaseIterable, Identifiable {
         case .complet: return "Complet"
         case .imprimantes: return "Imprimantes"
         case .cameras: return "Caméras"
+        case .accesDistant: return "Accès distant (RustDesk)"
         }
     }
 
@@ -24,6 +26,7 @@ enum ToolPortProfile: String, CaseIterable, Identifiable {
         case .complet: return "1-65535"
         case .imprimantes: return "80, 443, 515, 631, 9100"
         case .cameras: return "80, 443, 554, 8000, 8554, 37777"
+        case .accesDistant: return "22, 23, 3389, 5900, 21115-21119"
         }
     }
 }

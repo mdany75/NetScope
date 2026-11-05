@@ -136,7 +136,11 @@ struct DevicePortsTab: View {
                                          (21, "FTP ouvert\u{00A0}: identifiants en clair."),
                                          (445, "SMB exposé\u{00A0}: vérifier qu’il n’est pas joignable hors du réseau local."),
                                          (3389, "Bureau à distance exposé\u{00A0}: limiter aux postes d’administration.")]
-        let findings = risky.filter { ports.contains($0.0) }
+        // Note 6 : accès IP direct de RustDesk (21118 d'un poste, pas le WebSocket d'un serveur).
+        let rustDeskDirect: [(UInt16, String)] = RustDeskPorts.role(openPorts: Array(ports)) == .client
+            ? [(RustDeskPorts.direct, "Accès IP direct RustDesk ouvert\u{00A0}: session sans serveur ni relais, à réserver au réseau local ou au VPN.")]
+            : []
+        let findings = risky.filter { ports.contains($0.0) } + rustDeskDirect
         if findings.isEmpty {
             Text("Ports TCP seulement. Une bannière est lue sur SSH, FTP, SMTP, Telnet, VNC et les ports HTTP en clair.")
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)

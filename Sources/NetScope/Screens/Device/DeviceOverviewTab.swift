@@ -274,8 +274,12 @@ struct DeviceOverviewTab: View {
                     ToolFlowLayout(spacing: 6) {
                         ForEach(device.openPorts, id: \.self) { port in
                             PortTag(port: port, showService: true, tone: PortScanner.webScheme(for: port) != nil ? .accent : .neutral)
+                                .help(RustDeskPorts.isRustDeskPort(port)
+                                      ? RustDeskPorts.help(port: port, role: RustDeskPorts.role(openPorts: device.openPorts)) : "")
                         }
                     }
+                    // Note 6 : serveur RustDesk (rôle des ports, test) ou poste à accès IP direct.
+                    RustDeskDeviceFinding(device: device)
                 }
                 HStack(spacing: 8) {
                     Button("Scanner les ports", action: onScanPorts).buttonStyle(.secondary)

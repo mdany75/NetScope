@@ -67,6 +67,7 @@ enum ScanFormat {
         case 3389: return "RDP 3389"
         case 5900: return "VNC 5900"
         case 554: return "RTSP 554"
+        case 21115...21119: return RustDeskPorts.buttonLabel(port)
         default: return "Port \(port)"
         }
     }
@@ -77,6 +78,11 @@ enum ScanFormat {
         case 9100: return "RAW"
         case 541: return "FGFM"
         case 135: return "RPC"
+        case 21115: return "NAT"
+        case 21116: return "ID"
+        case 21117: return "RELAIS"
+        case 21118: return "DIRECT"
+        case 21119: return "WS"
         default: return PortTag.serviceName(port)?.uppercased() ?? "TCP"
         }
     }
