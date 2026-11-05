@@ -29,8 +29,10 @@ public enum WifiBeaconAdvisor {
     }
 
     /// SSID nommés, avec balise lue, dans l'ordre : réseau connecté, puis les plus diffusés.
+    /// Les BSSID suspects (même nom, autre constructeur) ne sont pas des bornes du réseau : écartés.
     private static func groups(_ networks: [WifiNetwork], connected: WifiNetwork?) -> [(ssid: String, members: [WifiNetwork])] {
-        let withBeacon = networks.filter { !$0.isHidden && $0.beacon != nil }
+        let twins = Set(WifiAdvisor.suspiciousTwins(networks, connected: connected).map(\.id))
+        let withBeacon = networks.filter { !$0.isHidden && $0.beacon != nil && !twins.contains($0.id) }
         return Dictionary(grouping: withBeacon, by: { $0.ssid! })
             .map { (ssid: $0.key, members: $0.value.sorted { $0.rssi > $1.rssi }) }
             .sorted { a, b in

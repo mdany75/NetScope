@@ -340,13 +340,23 @@ final class WifiStore: NSObject, ObservableObject {
 
     // MARK: Export
 
+    /// Note 71 : colonnes des éléments de la balise (vides quand macOS ne les fournit pas).
+    private func beaconFields(_ network: WifiNetwork) -> [String] {
+        guard let beacon = network.beacon else { return Array(repeating: "", count: 8) }
+        func yes(_ value: Bool) -> String { value ? "oui" : "non" }
+        return [beacon.generation(band: network.band).label, yes(beacon.supports11k), yes(beacon.supports11v), yes(beacon.supports11r),
+                beacon.bssLoad.map { String($0.utilizationPercent) } ?? "", beacon.bssLoad.map { String($0.stationCount) } ?? "",
+                beacon.pmf.label, beacon.apName ?? ""]
+    }
+
     func exportCSV() {
-        var lines = ["SSID;BSSID;Fabricant;Canal;Largeur (MHz);Bande;RSSI (dBm);Bruit (dBm);Sécurité;Norme;Connecté"]
+        var lines = ["SSID;BSSID;Fabricant;Canal;Largeur (MHz);Bande;RSSI (dBm);Bruit (dBm);Sécurité;Norme;Connecté;"
+                     + "Génération;802.11k;802.11v;802.11r;Utilisation du canal (%);Clients;PMF;Nom de la borne"]
         for network in networks.sorted(by: { $0.rssi > $1.rssi }) {
             let fields = [label(for: network), network.bssid?.formatted(.upperColon) ?? "", WifiText.vendor(network),
                           String(network.channel), String(network.widthMHz), network.band.label, String(network.rssi),
                           network.noise.map(String.init) ?? "", network.security.label, network.standard ?? "",
-                          network.isConnected ? "oui" : "non"]
+                          network.isConnected ? "oui" : "non"] + beaconFields(network)
             lines.append(fields.map(CSVText.field).joined(separator: ";"))
         }
         if !surveyPoints.isEmpty {
@@ -475,10 +485,21 @@ enum WifiMapping {
 
     static func network(_ network: CWNetwork) -> WifiNetwork {
         let channel = network.wlanChannel
+        // Note 71 : éléments de la balise (nil tant que la localisation n'est pas autorisée,
+        // comme le BSSID). Ils précisent la norme (Wi-Fi 7) et la largeur (320 MHz) que CoreWLAN ignore.
+        let beacon = network.informationElementData.map(WifiBeaconParser.parse)
+        let resolvedBand = channel.map(band) ?? .ghz24
+        var standard = standard(of: network)
+        if let generation = beacon?.generation(band: resolvedBand), generation >= .wifi4,
+           standard.map({ WifiGeneration.from(standard: $0) < generation }) ?? true {
+            standard = generation.standard
+        }
+        var widthMHz = channel.map(width) ?? 20
+        if let announced = beacon?.channelWidthMHz, announced > widthMHz { widthMHz = announced }
         return WifiNetwork(ssid: network.ssid, bssid: network.bssid.flatMap(MACAddress.init),
                            channel: channel?.channelNumber ?? 0,
-                           band: channel.map(band) ?? .ghz24, widthMHz: channel.map(width) ?? 20,
+                           band: resolvedBand, widthMHz: widthMHz,
                            rssi: network.rssiValue, noise: network.noiseMeasurement,
-                           security: security(of: network), standard: standard(of: network))
+                           security: security(of: network), standard: standard, beacon: beacon)
     }
 }

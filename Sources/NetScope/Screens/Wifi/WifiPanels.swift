@@ -510,6 +510,16 @@ struct WifiNetworkRow: Identifiable {
     var oui: String { network.bssid.map { String($0.formatted(.upperColon).prefix(8)) } ?? "—" }
     var ouiSort: String { network.bssid == nil ? Self.last : oui }
 
+    // Note 71 : éléments de la balise (−1 : inconnu, en fin de liste en tri décroissant).
+    var generation: WifiGeneration? { WifiBeaconText.generation(network) }
+    var generationSort: Int { generation?.rank ?? -1 }
+    var roamingSort: Int { network.beacon?.roamingCount ?? -1 }
+    var loadSort: Int { network.beacon?.bssLoad?.utilizationPercent ?? -1 }
+    var clientsSort: Int { network.beacon?.bssLoad?.stationCount ?? -1 }
+    var pmfSort: Int { network.beacon.map { $0.pmf.rawValue } ?? -1 }
+    var apName: String? { network.beacon?.apName }
+    var apNameSort: String { apName?.lowercased() ?? Self.last }
+
     /// État : connecté, non autorisé possible, caché.
     var state: String {
         var parts: [String] = []
@@ -541,6 +551,14 @@ struct WifiNetworksTable: View {
         StandardColumn(id: "norme", title: "Norme (mode PHY)", isDefaultVisible: false),
         StandardColumn(id: "oui", title: "OUI du BSSID", isDefaultVisible: false),
         StandardColumn(id: "etat", title: "État", isDefaultVisible: false),
+        // Note 71 : éléments des balises, masqués par défaut (les colonnes du croquis remplissent
+        // déjà la largeur) ; menu « Colonnes » ou panneau « Balise du BSSID ».
+        StandardColumn(id: "generation", title: "Génération Wi-Fi", isDefaultVisible: false),
+        StandardColumn(id: "itinerance", title: "Itinérance (11k/v/r)", isDefaultVisible: false),
+        StandardColumn(id: "charge", title: "Charge du canal", isDefaultVisible: false),
+        StandardColumn(id: "clients", title: "Clients associés", isDefaultVisible: false),
+        StandardColumn(id: "borne", title: "Nom de la borne", isDefaultVisible: false),
+        StandardColumn(id: "pmf", title: "PMF (802.11w)", isDefaultVisible: false),
     ]
 
     static let sortKeys: [String: KeyPathComparator<WifiNetworkRow>] = [
@@ -557,6 +575,12 @@ struct WifiNetworksTable: View {
         "norme": KeyPathComparator(\WifiNetworkRow.standardSort),
         "oui": KeyPathComparator(\WifiNetworkRow.ouiSort),
         "etat": KeyPathComparator(\WifiNetworkRow.stateSort),
+        "generation": KeyPathComparator(\WifiNetworkRow.generationSort),
+        "itinerance": KeyPathComparator(\WifiNetworkRow.roamingSort),
+        "charge": KeyPathComparator(\WifiNetworkRow.loadSort),
+        "clients": KeyPathComparator(\WifiNetworkRow.clientsSort),
+        "borne": KeyPathComparator(\WifiNetworkRow.apNameSort),
+        "pmf": KeyPathComparator(\WifiNetworkRow.pmfSort),
     ]
 
     /// Tri du croquis au premier lancement : RSSI décroissant (signal le plus fort en haut).
@@ -616,6 +640,15 @@ struct WifiNetworksTable: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
         .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
         .searchResults(rows.count, "réseau", "réseaux")
+        .onAppear(perform: applySnapshotColumns)
+    }
+
+    /// Captures (NETSCOPE_WIFI_COLONNES=balises) : colonnes des balises à la place de colonnes radio,
+    /// sans rien enregistrer.
+    private func applySnapshotColumns() {
+        guard RegEnvironment.isSnapshot, ProcessInfo.processInfo.environment["NETSCOPE_WIFI_COLONNES"] == "balises" else { return }
+        for id in ["fabricant", "largeur", "bande", "bssid"] { table.customization[visibility: id] = .hidden }
+        for id in ["generation", "itinerance", "charge", "clients"] { table.setAutomaticVisibility(true, id) }
     }
 
     private func tableView(_ rows: [WifiNetworkRow]) -> some View {
@@ -717,6 +750,58 @@ struct WifiNetworksTable: View {
                 .customizationID("etat")
                 .defaultVisibility(.hidden)
             }
+
+            // Note 71 : éléments des balises (tiret quand macOS ne les fournit pas).
+            Group {
+                TableColumn("GÉNÉRATION", sortUsing: table.sort("generation")) { row in
+                    WifiCell(row.generation.map { $0 == .legacy ? "802.11a/b/g" : $0.label } ?? "—",
+                             weight: .semibold, color: Theme.text, dimmed: row.generation == nil)
+                        .help(row.generation.map { "\($0.label) (\($0.standard))" } ?? "Génération inconnue")
+                }
+                .width(min: 56, ideal: 78)
+                .customizationID("generation")
+                .defaultVisibility(.hidden)
+
+                TableColumn("11K/V/R", sortUsing: table.sort("itinerance")) { row in
+                    if let beacon = row.network.beacon { WifiRoamingBadges(beacon: beacon) } else { WifiCell("—", dimmed: true) }
+                }
+                .width(min: 58, ideal: 60)
+                .customizationID("itinerance")
+                .defaultVisibility(.hidden)
+
+                TableColumn("CHARGE", sortUsing: table.sort("charge")) { row in
+                    if let load = row.network.beacon?.bssLoad { WifiLoadCell(load: load) } else { WifiCell("—", dimmed: true) }
+                }
+                .width(min: 64, ideal: 66)
+                .customizationID("charge")
+                .defaultVisibility(.hidden)
+
+                TableColumn("CLIENTS", sortUsing: table.sort("clients")) { row in
+                    let count = row.network.beacon?.bssLoad?.stationCount
+                    WifiCell(count.map(String.init) ?? "—", mono: 12, weight: .semibold,
+                             color: count.map(WifiBeaconText.clientsColor) ?? Theme.neutralText, dimmed: count == nil)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .width(min: 50, ideal: 58)
+                .customizationID("clients")
+                .defaultVisibility(.hidden)
+
+                TableColumn("BORNE", sortUsing: table.sort("borne")) { row in
+                    WifiCell(row.apName ?? "—", dimmed: row.apName == nil)
+                        .help(row.network.beacon?.apNameSource.map { "Nom annoncé par l’élément \($0.label)" } ?? "Nom non annoncé dans la balise")
+                }
+                .width(min: 70, ideal: 104)
+                .customizationID("borne")
+                .defaultVisibility(.hidden)
+
+                TableColumn("PMF", sortUsing: table.sort("pmf")) { row in
+                    let pmf = row.network.beacon?.pmf
+                    WifiCell(pmf?.label ?? "—", color: pmf == .required ? Theme.success : Theme.neutralText, dimmed: pmf == nil)
+                }
+                .width(min: 60, ideal: 76)
+                .customizationID("pmf")
+                .defaultVisibility(.hidden)
+            }
         }
         .standardTableStyle()
     }
@@ -759,6 +844,7 @@ struct WifiNetworksTable: View {
 
     private func isFlagged(_ network: WifiNetwork) -> Bool {
         network.security.isOpen || network.security == .wep || (network.isHidden && !store.namesRedacted) || store.isSuspicious(network)
+            || (network.beacon?.bssLoad.map(WifiBeaconAdvisor.isSaturated) ?? false)
     }
 
     private var rows: [WifiNetworkRow] {
@@ -778,7 +864,8 @@ struct WifiNetworksTable: View {
                 "ssid": [store.label(for: network)], "mac": [bssid], "fab": [WifiText.vendor(network)],
                 "canal": [String(network.channel)], "bande": [network.band.label], "securite": [network.security.label],
             ], freeText: [[store.label(for: network), bssid, WifiText.vendor(network), "canal \(network.channel)",
-                           network.security.label, network.standard ?? ""].joined(separator: " ")])
+                           network.security.label, network.standard ?? "", network.beacon?.apName ?? "",
+                           WifiBeaconText.generation(network)?.label ?? ""].joined(separator: " ")])
             return query.matches(document) && global.matches(document)
         }
         .map { network in

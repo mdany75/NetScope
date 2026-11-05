@@ -10,7 +10,8 @@ enum WifiDemo {
             WifiNetwork(ssid: ssid, bssid: MACAddress(bssid), channel: channel, band: band, widthMHz: width, rssi: rssi,
                         noise: -92, security: security, standard: standard, isConnected: connected)
         }
-        let networks = [
+        // Note 71 : balises de démonstration (DevTools/WifiBeaconDemo.swift).
+        let networks = WifiBeaconDemo.decorate([
             net("Bureau-Corp", "70:4C:A5:1E:22:A0", .ghz5, 44, 80, -52, .wpa3Enterprise, "802.11ax", connected: true),
             net("Bureau-Corp", "70:4C:A5:1E:22:A8", .ghz24, 11, 20, -49, .wpa3Enterprise, "802.11ax"),
             net("Bureau-Corp", "70:4C:A5:3B:91:18", .ghz5, 36, 80, -66, .wpa3Enterprise, "802.11ax"),
@@ -26,7 +27,7 @@ enum WifiDemo {
             net("DIRECT-7D-DCP-L2640DW", "96:DD:F8:18:15:7D", .ghz24, 1, 20, -61, .wpa2Personal, "802.11n"),
             net("UBNT-Logistik", "78:8A:20:4E:C3:07", .ghz6, 37, 80, -80, .wpa3Personal, "802.11ax"),
             net("Voisin-6E", "3C:52:A1:09:7E:2C", .ghz6, 69, 160, -83, .wpa3Personal, "802.11be"),
-        ]
+        ])
         let connected = networks[0]
         let history: [Int?] = (0..<WifiStore.historyLength).map { i in
             Int((Double(connected.rssi) + 2 * sin(Double(i) * 0.45) + 1.4 * cos(Double(i) * 0.17)).rounded())

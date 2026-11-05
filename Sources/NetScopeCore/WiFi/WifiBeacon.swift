@@ -52,6 +52,17 @@ public enum WifiGeneration: Int, Sendable, Codable, CaseIterable, Comparable {
         }
     }
 
+    /// Génération d'une norme lue par CoreWLAN (« 802.11ax » : Wi-Fi 6).
+    public static func from(standard: String) -> WifiGeneration {
+        switch standard {
+        case "802.11be": return .wifi7
+        case "802.11ax": return .wifi6
+        case "802.11ac": return .wifi5
+        case "802.11n": return .wifi4
+        default: return .legacy
+        }
+    }
+
     /// Le Wi-Fi 6 et les suivants exigent WPA3 pour leur certification.
     public var requiresWPA3Support: Bool { self >= .wifi6 }
 }
