@@ -1,5 +1,50 @@
 # Changements
 
+## 0.26.2 — 2026-11-05
+
+Tableau de bord de votre serveur RustDesk, lu par SSH en lecture seule : sessions relayées,
+demandes de connexion, postes enregistrés, état de hbbs et hbbr, et espace disque.
+
+### Ajouté
+- **Accès distant › Serveur RustDesk** : nouvel onglet, un tableau de bord de votre serveur
+  RustDesk Server OSS lu par SSH en lecture seule.
+  - Sessions relayées en cours et débit ; demandes de connexion des dernières 24 h, avec le nom
+    du poste quand son ID est dans le carnet ; nombre de postes enregistrés ; hbbs et hbbr en
+    marche et depuis quand ; espace disque.
+  - Tableaux standard des sessions relayées (durée, volume, débits actuel, moyen et max) et des
+    demandes de connexion (heure locale, IP du technicien, ID visé, IP du poste, « relais »).
+  - Graphe des six dernières heures, mesuré par ce Mac.
+  - Boutons « Actualiser » et « Copier la commande » (la commande ssh équivalente, sans aucun
+    secret).
+- **Réglages › RustDesk** : choix du compte SSH du serveur (une connexion SSH du carnet, ou
+  utilisateur@hôte avec un mot de passe facultatif gardé au Trousseau), rafraîchissement de
+  15 s à 5 min (30 s par défaut) et bouton « Ouvrir le tableau de bord ».
+- Démonstration : serveur RustDesk avec sessions, demandes et graphe réalistes.
+
+### Modifié
+- Sécurité : NetScope n’envoie au serveur que des commandes de lecture, d’une liste blanche
+  testée, sans jamais utiliser sudo ; les commandes qui modifieraient hbbs ou hbbr (listes
+  noires, débits, effacement des demandes…) sont refusées.
+- Le tableau de bord ne se rafraîchit que lorsqu’il est affiché : aucune connexion SSH en
+  arrière-plan.
+
+### Corrigé
+- Messages clairs, avec la marche à suivre, quand le serveur est injoignable par SSH, quand la
+  console de hbbr ne répond pas, quand hbbs est trop ancien pour lister les demandes ou quand le
+  disque est presque plein, au lieu d’un tableau vide.
+
+### Limites connues
+- Seules les sessions **relayées** par hbbr sont visibles : une session en connexion directe
+  entre le technicien et le poste ne passe pas par le serveur et n’apparaît pas.
+- La liste des demandes dépend de la console de hbbs : un hbbs trop ancien ne la donne pas
+  (le tableau de bord le dit).
+- Le graphe est mesuré par ce Mac pendant que le tableau de bord est affiché : il a des trous
+  quand l’écran est fermé, et il n’est pas partagé avec un autre Mac.
+- Les conteneurs Docker ne sont lus que si le compte SSH est déjà dans le groupe docker, et le
+  nombre de postes seulement si sqlite3 est installé et la base lisible (jamais de sudo).
+- Essayé seulement sur des données de démonstration ; un essai sur le vrai serveur reste à
+  faire.
+
 ## 0.26.1 — 2026-11-05
 
 Assistance à distance par RustDesk avec votre propre serveur : carnet des postes, connexion en

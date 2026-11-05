@@ -2,11 +2,12 @@
 
 > Ordre des versions : voir « Feuille de route révisée » (point 20). Reste de l’ancienne
 > organisation par phases : la fin de la note 11 (phase 4, préréglages du Ping), « plus tard » ;
-> la note 6 (phase 2, RustDesk) est livrée dans la 0.26.1.
+> la note 6 (phase 2, RustDesk) est livrée dans la 0.26.1, avec le tableau de bord du serveur
+> dans la 0.26.2.
 
 ## Priorités (revues le 5 novembre 2026, réorganisées avec les notes 45 à 79 après l’analyse du marché)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0 ; notes 42 et 10 dans la 0.20.0 ; notes 41 et 43, et la note 11 en partie (pause par cible, tableau MTR, écran vide), dans la 0.21.0 ; note 57 dans la 0.22.0 ; notes 35 et 60 dans la 0.23.0 ; erreurs récentes des ports dans la 0.23.1 ; notes 59, 73, 74 et 79, la partie « Trafic » de la note 78 et le navigateur SNMP dans la 0.25.0 ; notes 58, 65, 66 et 71, et les parties « Test MTU », « Ping continu », « Inventaire », « Wake-on-LAN », « Alertes » et « Accès distant » de la note 78 dans la 0.26.0 ; note 6 (RustDesk) dans la 0.26.1 (la 0.24.0, notes 40 et 61, reste à faire).
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0 ; notes 42 et 10 dans la 0.20.0 ; notes 41 et 43, et la note 11 en partie (pause par cible, tableau MTR, écran vide), dans la 0.21.0 ; note 57 dans la 0.22.0 ; notes 35 et 60 dans la 0.23.0 ; erreurs récentes des ports dans la 0.23.1 ; notes 59, 73, 74 et 79, la partie « Trafic » de la note 78 et le navigateur SNMP dans la 0.25.0 ; notes 58, 65, 66 et 71, et les parties « Test MTU », « Ping continu », « Inventaire », « Wake-on-LAN », « Alertes » et « Accès distant » de la note 78 dans la 0.26.0 ; note 6 (RustDesk) dans la 0.26.1 ; tableau de bord du serveur RustDesk (note 6) dans la 0.26.2 (la 0.24.0, notes 40 et 61, reste à faire).
 
 1. **0.13.x à 0.22.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP ; 0.17.0 : relecture automatique, WAN et VPN, Trafic FortiView et analyse complète à essayer sur de vraies FortiGate ; 0.18.0 : FTP, FTPS, SFTP, TFTP, « Bloqué ici », NAS dans Vitesse des disques, export, import et synchronisation à essayer sur de vrais appareils et deux Mac ; 0.20.0 : rapport de suivi, rapports planifiés et Inventaire repensé à essayer sur les vrais sites ; 0.21.0 : firmware et licences, Syslog, traps SNMP, journaux de la FortiGate et pause par cible du Ping à essayer sur de vrais équipements ; 0.22.0 : terminal intégré SSH, Telnet et série, et session VNC intégrée à essayer sur de vrais équipements, câbles console et serveurs VNC ; 0.23.0 : journal de l’app, « Exporter un diagnostic » et fiche matériel automatique à essayer sur de vrais switchs, imprimantes et FortiGate ; 0.25.0 : SNMP v3, navigateur SNMP, graphes des ports et cycle PoE à essayer sur de vrais switchs, FortiSwitch et FortiGate, d’abord sur un port sans risque) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
@@ -144,6 +145,11 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       (avancée de « plus tard » à la demande de Dany, une fois son serveur RustDesk en place) :
       protocole RustDesk dans Accès distant, Réglages › RustDesk, ID RustDesk dans l’Inventaire
       et ports RustDesk reconnus dans les scans. Essai réel sur le serveur et la FortiGate à faire.
+    - ~~**0.26.2, tableau de bord du serveur RustDesk**~~ (livrée le 5 novembre 2026) : note 6
+      (ajout du 5 novembre 2026) : onglet « Serveur RustDesk » d’Accès distant lu par SSH en
+      lecture seule (sessions relayées, demandes de connexion, postes enregistrés, hbbs et hbbr,
+      disque, graphe de six heures), compte SSH et rafraîchissement dans Réglages › RustDesk.
+      Essai réel sur le serveur de Groupe Couture à faire.
     - **0.27.0, surveillance de longue durée** : note 62 (historique de 30 à 90 jours, rapport de
       disponibilité) ; fenêtres de maintenance et heures ouvrables par site ; envoi automatique du
       rapport planifié par SMTP (note 78).
@@ -177,7 +183,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 | Inventaire | 8, 10, 30 | 60 (0.23.0) |
 | Ping continu | 11 (en partie, 0.21.0), 65 (0.26.0) | 11 : préréglages (plus tard) |
 | Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22, 37, 51, 53, 55, 58 (0.26.0) | 70 (plus tard) |
-| Accès distant | 5, 50, 52, 57, 66 (0.26.0), 6 (0.26.1) | 67 (0.30.0) |
+| Accès distant | 5, 50, 52, 57, 66 (0.26.0), 6 (0.26.1 ; tableau de bord du serveur, 0.26.2) | 67 (0.30.0) |
 | Surveillance, alertes et journaux | 3, 23, 43 | 62 (0.27.0), 64 (0.28.0), 76 (plus tard) |
 | Rapports | 4, 42 | 61 (0.24.0), 62 (0.27.0) |
 | Réglages, sauvegarde, aide | 9, 13, 38, 56 | 35 (0.23.0), 13 (plus tard) |
@@ -266,7 +272,10 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
   honnêtement. Option échelle : « Ajuster à la fenêtre » / taille réelle.
 - Tests : contenu du .rdp pour chaque mode.
 
-## 6. Assistance à distance façon AnyDesk : par RustDesk (choix de Dany) — 0.26.1
+## 6. Assistance à distance façon AnyDesk : par RustDesk (choix de Dany) — 0.26.1 et 0.26.2
+
+**Livrée dans la 0.26.2** (5 novembre 2026) pour le tableau de bord du serveur (voir le
+paragraphe « Tableau de bord du serveur » plus bas) ; le reste de la note est livré dans la 0.26.1.
 
 > **Livrée dans la 0.26.1** (5 novembre 2026) : protocole RustDesk dans Accès distant (carnet
 > des postes, « Assistance RustDesk » par ID, lien d’assistance pour l’usager), Réglages ›
@@ -300,6 +309,17 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 - **Décidé (Dany)** : RustDesk Server OSS, gratuit (hbbs + hbbr). Pas de console web ni de
   générateur de client : le carnet des postes et l'historique se font dans NetScope, le client
   portable est préconfiguré par son nom de fichier.
+- **Tableau de bord du serveur** (ajout du 5 novembre 2026, demande de Dany) : **Livré dans la
+  0.26.2** (5 novembre 2026). Onglet « Serveur RustDesk » d’Accès distant, lu par une connexion
+  SSH en lecture seule (jamais de sudo, liste blanche testée des commandes des consoles de hbbs
+  et hbbr) : sessions relayées en cours avec durée, volume et débits ; demandes de connexion des
+  dernières 24 h avec le nom du poste quand son ID est au carnet ; postes enregistrés ; hbbs et
+  hbbr en marche et depuis quand ; espace disque ; graphe des six dernières heures mesuré par ce
+  Mac ; messages avec la marche à suivre (SSH injoignable, console hbbr muette, hbbs trop
+  ancien, disque presque plein). Réglages › RustDesk : compte SSH (carnet ou utilisateur@hôte,
+  mot de passe au Trousseau), rafraîchissement de 15 s à 5 min, seulement quand l’écran est
+  affiché. Limites : sessions directes (sans relais) invisibles ; graphe local à ce Mac. Reste :
+  essai réel sur le serveur de Groupe Couture.
 
 ## 7. Capture et inspection de paquets, façon Wireshark (demande de Dany)
 
