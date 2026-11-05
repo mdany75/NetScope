@@ -106,7 +106,22 @@ final class AppState: ObservableObject {
     /// Compteurs affichés dans la barre latérale (Surveillance : alertes, Analyse : nouveautés).
     @Published var sidebarBadges: [Screen: Int] = [:]
 
+    // MARK: Appareils hors Scanner (écran Appareil, « Ouvrir une fiche »)
+
+    /// Appareils ouverts dans l'écran Appareil sans être dans les résultats du Scanner : saisis à
+    /// la main, ou repris d'une fiche d'inventaire ou d'un autre site. Jamais mêlés à `devices`.
+    @Published private(set) var manualDevices: [ManualDeviceEntry] = [] {
+        didSet { saveManual() }
+    }
+    /// Appareils consultés récemment dans l'écran Appareil.
+    @Published private(set) var recentDeviceViews: [DeviceRecentView] = [] {
+        didSet { saveManual() }
+    }
+    /// Message de la fiche d'un appareil (« saisie rattachée à l'appareil scanné »).
+    @Published var deviceNotice: (deviceID: Device.ID, text: String)?
+
     private let store: StateStore?
+    private let manualStore: ManualDeviceStore?
 
     /// `store` nil : rien n'est lu ni écrit sur le disque (captures, démonstration).
     init(store: StateStore? = StateStore.standard) {
@@ -115,6 +130,11 @@ final class AppState: ObservableObject {
         ranges = saved?.ranges ?? AppState.defaultRanges
         customNames = saved?.customNames ?? [:]
         isFirstLaunch = saved == nil
+        manualStore = store == nil ? nil : ManualDeviceStore.standard
+        if let kept = manualStore?.load() {
+            manualDevices = kept.entries
+            recentDeviceViews = kept.recents
+        }
     }
 
     /// Vrai si aucun état n'était enregistré : les plages par défaut seront remplacées par le réseau détecté.
@@ -128,13 +148,14 @@ final class AppState: ObservableObject {
         self.screen = screen
     }
 
+    /// Appareil de la fiche : celui du Scanner, sinon un appareil ouvert à la main (même IP).
     var selectedDevice: Device? {
         guard let id = selectedDeviceID else { return nil }
-        return devices.first { $0.id == id }
+        return device(withID: id)
     }
 
     func device(withID id: Device.ID) -> Device? {
-        devices.first { $0.id == id }
+        devices.first { $0.id == id } ?? manualEntry(forID: id)?.device
     }
 
     /// Ouvre la fiche d'un appareil (retenu pour Retour, comme toute navigation).
@@ -174,6 +195,7 @@ final class AppState: ObservableObject {
             }
         }
         devices.sort { $0.ip < $1.ip }
+        attachManualDevices(seen: incoming)
     }
 
     /// Noms personnalisés du site choisi (note 28 : les noms vont avec les résultats de chaque site).
@@ -271,10 +293,116 @@ final class AppState: ObservableObject {
                                                 checked: checkedRanges, network: currentNetwork)
     }
 
+    // MARK: Appareils hors Scanner
+
+    /// Saisie à la main (ou reprise) pour cet identifiant, si le Scanner n'a pas d'appareil à cette IP.
+    func manualEntry(forID id: Device.ID) -> ManualDeviceEntry? {
+        guard !manualDevices.isEmpty, !devices.contains(where: { $0.id == id }) else { return nil }
+        return manualDevices.first { $0.deviceID == id }
+    }
+
+    /// Retient l'appareil (même IP : il remplace l'ancien), écrit ses notes et ouvre sa fiche.
+    func openManual(_ entry: ManualDeviceEntry, notes: String = "") {
+        manualDevices = ManualDevices.upsert(entry, into: manualDevices)
+        let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { DeviceNotesStore.shared.setNote(trimmed, for: entry.device) }
+        showDevice(entry.deviceID)
+    }
+
+    /// Modifie un appareil saisi (nom, type, vérification), sans changer sa place dans la liste.
+    func updateManual(_ entry: ManualDeviceEntry) {
+        guard let index = manualDevices.firstIndex(where: { $0.id == entry.id }) else { return }
+        manualDevices[index] = entry
+    }
+
+    /// Oublie une saisie ; sa fiche se ferme si elle était ouverte (ses notes restent au site).
+    func forgetManual(_ entry: ManualDeviceEntry) {
+        manualDevices.removeAll { $0.id == entry.id }
+        if selectedDeviceID == entry.deviceID, !devices.contains(where: { $0.id == entry.deviceID }) {
+            selectedDeviceID = nil
+        }
+    }
+
+    /// Retient la consultation d'une fiche (liste « Consultés récemment »).
+    func recordDeviceView(_ device: Device) {
+        let view = DeviceRecentView(device: device, viewed: Date(), isManual: manualEntry(forID: device.id) != nil)
+        if let first = recentDeviceViews.first, first.ip == view.ip, first.mac == view.mac, first.name == view.name,
+           Date().timeIntervalSince(first.viewed) < 60 { return }
+        recentDeviceViews = DeviceRecents.record(view, in: recentDeviceViews)
+    }
+
+    /// Démonstration et captures : appareils hors Scanner et consultations de départ.
+    func setManualDemo(_ entries: [ManualDeviceEntry], recents: [DeviceRecentView]) {
+        manualDevices = entries
+        recentDeviceViews = recents
+    }
+
+    /// Un scan a vu ces appareils : chaque saisie qui correspond (même MAC, sinon même IP) leur est
+    /// rattachée. Le nom saisi devient leur nom (s'ils n'en ont pas), les notes sont réunies.
+    private func attachManualDevices(seen incoming: [Device]) {
+        guard !manualDevices.isEmpty, !incoming.isEmpty else { return }
+        let ids = Set(incoming.map(\.id))
+        let scanned = devices.filter { ids.contains($0.id) }
+        let result = ManualDevices.attach(manualDevices, to: scanned)
+        guard !result.attached.isEmpty else { return }
+        let notes = DeviceNotesStore.shared
+        for attachment in result.attached {
+            if let name = attachment.customName { setCustomName(name, for: attachment.deviceID) }
+            guard let device = devices.first(where: { $0.id == attachment.deviceID }) else { continue }
+            let typedDevice = attachment.entry.device
+            let typed = notes.note(for: typedDevice)
+            let current = notes.note(for: device)
+            let merged = ManualDevices.mergedNotes(scanned: current, typed: typed, nameForNotes: attachment.nameForNotes)
+            if merged != current { notes.setNote(merged, for: device) }
+            if !typed.isEmpty, DeviceNotesStore.key(for: typedDevice) != DeviceNotesStore.key(for: device) {
+                notes.setNote("", for: typedDevice)
+            }
+            if selectedDeviceID == attachment.entry.deviceID { selectedDeviceID = device.id }
+            deviceNotice = (device.id, "«\u{00A0}\(device.displayName)\u{00A0}» vu par le scan\u{00A0}: la saisie est rattachée à \(device.ip)\u{00A0}; le nom et les notes saisis sont gardés.")
+        }
+        manualDevices = result.remaining
+    }
+
     // MARK: Persistance
 
     private func save() {
         store?.save(StateStore.Snapshot(ranges: ranges, customNames: customNames))
+    }
+
+    private func saveManual() {
+        manualStore?.save(ManualDeviceStore.Snapshot(entries: manualDevices, recents: recentDeviceViews))
+    }
+}
+
+/// Appareils saisis à la main et consultations récentes de l'écran Appareil, en JSON dans
+/// ~/Library/Application Support/NetScope/appareils-saisis.json.
+struct ManualDeviceStore {
+    struct Snapshot: Codable {
+        var version = 1
+        var entries: [ManualDeviceEntry]
+        var recents: [DeviceRecentView]
+    }
+
+    let url: URL
+
+    static var standard: ManualDeviceStore {
+        ManualDeviceStore(url: StateStore.standard.url.deletingLastPathComponent().appendingPathComponent("appareils-saisis.json"))
+    }
+
+    func load() -> Snapshot? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(Snapshot.self, from: data)
+    }
+
+    func save(_ snapshot: Snapshot) {
+        do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            try encoder.encode(snapshot).write(to: url, options: .atomic)
+        } catch {
+            AppLog.shared.error("Appareil", "Enregistrement impossible de \(url.path)\u{00A0}: \(error.localizedDescription)")
+        }
     }
 }
 

@@ -8,14 +8,14 @@ struct DeviceScreen: View {
 
     var body: some View {
         if let device = state.selectedDevice {
+            // Appareil ouvert hors Scanner (saisi à la main, repris de l'inventaire ou d'un autre site).
+            let manual = state.manualEntry(forID: device.id)
             // Type choisi à la main (note 20) à la place du type détecté.
-            DeviceDetailView(device: inventory.withManualTypes([device])[0])
+            DeviceDetailView(device: manual == nil ? inventory.withManualTypes([device])[0] : device, manual: manual)
                 .id(device.id)
         } else {
-            EmptyState(systemImage: Screen.appareil.symbol, title: "Aucun appareil sélectionné",
-                       message: "Choisissez un appareil dans le Scanner ou l’Inventaire pour afficher sa fiche\u{00A0}: réseau, matériel, emplacement physique, ports, page web et notes.") {
-                Button("Ouvrir le Scanner") { state.open(.scanner) }.buttonStyle(.primary)
-            }
+            // « Ouvrir une fiche » : par IP, nom ou MAC, ou saisie à la main d'un appareil inconnu.
+            DeviceLookupPanel()
         }
     }
 }
@@ -23,6 +23,8 @@ struct DeviceScreen: View {
 private struct DeviceDetailView: View {
     @EnvironmentObject private var state: AppState
     let device: Device
+    /// Appareil ouvert hors Scanner : saisi à la main, ou repris d'une fiche d'inventaire ou d'un autre site.
+    var manual: ManualDeviceEntry? = nil
     @ObservedObject private var session = DeviceSession.shared
     @ObservedObject private var store = ToolStore.shared
     @ObservedObject private var notes = DeviceNotesStore.shared
@@ -58,7 +60,10 @@ private struct DeviceDetailView: View {
             .padding(.vertical, 16)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .onAppear { nameDraft = device.customName ?? "" }
+        .onAppear {
+            nameDraft = device.customName ?? ""
+            state.recordDeviceView(device)
+        }
         .screenToolbar {
             Button { step(-1) } label: { Label("Appareil précédent", systemImage: "chevron.up").labelStyle(.iconOnly) }
                 .buttonStyle(.secondary).help("Appareil précédent de la liste").disabled(neighbor(-1) == nil)
@@ -104,11 +109,24 @@ private struct DeviceDetailView: View {
                     metaRow
                     HStack(spacing: 6) {
                         Menu {
-                            DeviceTypeMenuItems(devices: [device])
+                            if let manual {
+                                // Appareil hors Scanner : le type est celui de la saisie.
+                                ForEach(DeviceType.allCases, id: \.self) { type in
+                                    Toggle(isOn: Binding(get: { manual.type == type }, set: { _ in
+                                        var updated = manual
+                                        updated.type = type
+                                        state.updateManual(updated)
+                                    })) {
+                                        Label(type.label, systemImage: type.symbolName)
+                                    }
+                                }
+                            } else {
+                                DeviceTypeMenuItems(devices: [device])
+                            }
                         } label: {
                             HStack(spacing: 4) {
                                 Chip(text: device.deviceType.label, tone: .accent, systemImage: device.deviceType.toolSymbol)
-                                if InvModel.shared.typeChoice(for: state.device(withID: device.id) ?? device).isManual {
+                                if manual == nil, InvModel.shared.typeChoice(for: state.device(withID: device.id) ?? device).isManual {
                                     ManualTypeMark()
                                 }
                             }
@@ -135,6 +153,23 @@ private struct DeviceDetailView: View {
                 Spacer(minLength: 0)
             }
             .padding(16)
+            if let manual {
+                DeviceManualBanner(entry: manual)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+            }
+            if let notice = state.deviceNotice, notice.deviceID == device.id {
+                HStack(spacing: 8) {
+                    Label(notice.text, systemImage: "link")
+                        .font(Theme.small).foregroundStyle(Theme.success)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 8)
+                    Button { state.deviceNotice = nil } label: { Image(systemName: "xmark") }
+                        .buttonStyle(.ghost).help("Masquer")
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+            }
             VStack(alignment: .leading, spacing: 8) {
                 actions
                 if let rustDeskMessage {
@@ -152,7 +187,24 @@ private struct DeviceDetailView: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
     }
 
-    private var statusChip: some View {
+    @ViewBuilder private var statusChip: some View {
+        if let manual, manual.lastCheck == nil, manual.base == nil {
+            // Saisi à la main, jamais vérifié : ni en ligne, ni hors ligne.
+            HStack(spacing: 6) {
+                StatusDot(online: false, size: 7)
+                Text("Pas encore vérifié").font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(Theme.neutralText)
+            .padding(.horizontal, 8)
+            .frame(height: 22)
+            .background(Capsule().fill(Theme.neutralSoft))
+            .fixedSize()
+        } else {
+            scannedStatusChip
+        }
+    }
+
+    private var scannedStatusChip: some View {
         HStack(spacing: 6) {
             StatusDot(online: device.isOnline, size: 7)
             Text(device.isOnline
@@ -174,7 +226,11 @@ private struct DeviceDetailView: View {
             meta("IP", device.ip.description)
             if let mac = device.mac { meta("MAC", mac.formatted(.upperColon)) }
             Text(device.vendorLabel).lineLimit(1)
-            Text("Vu \(ToolText.relative(device.lastSeen))").lineLimit(1)
+            if let manual, manual.isTyped {
+                Text("Saisi \(ToolText.relative(manual.created))").lineLimit(1)
+            } else {
+                Text("Vu \(ToolText.relative(device.lastSeen))").lineLimit(1)
+            }
         }
         .font(Theme.small)
         .foregroundStyle(Theme.textSecondary)
@@ -362,6 +418,11 @@ private struct DeviceDetailView: View {
     private func commitName() {
         let trimmed = nameDraft.trimmingCharacters(in: .whitespaces)
         guard trimmed != (device.customName ?? "") else { return }
+        if var entry = manual {
+            entry.name = trimmed
+            state.updateManual(entry)
+            return
+        }
         state.setCustomName(trimmed, for: device.id)
     }
 

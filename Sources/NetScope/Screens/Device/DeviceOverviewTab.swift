@@ -243,21 +243,46 @@ struct DeviceOverviewTab: View {
 
     private var availabilityCard: some View {
         DeviceCard(title: "Disponibilité") {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
-                    ToolStatTile(label: "État", value: device.isOnline ? "En ligne" : "Hors ligne",
-                                 valueColor: device.isOnline ? Theme.success : Theme.textSecondary)
-                    ToolStatTile(label: "Latence", value: device.latencyMs.map(ToolFormat.milliseconds) ?? "—")
-                    ToolStatTile(label: "Dernière vue", value: ToolText.relative(device.lastSeen))
+            if let typed = state.manualEntry(forID: device.id), typed.isTyped {
+                typedAvailability(typed)
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        ToolStatTile(label: "État", value: device.isOnline ? "En ligne" : "Hors ligne",
+                                     valueColor: device.isOnline ? Theme.success : Theme.textSecondary)
+                        ToolStatTile(label: "Latence", value: device.latencyMs.map(ToolFormat.milliseconds) ?? "—")
+                        ToolStatTile(label: "Dernière vue", value: ToolText.relative(device.lastSeen))
+                    }
+                    VStack(spacing: 0) {
+                        DeviceKVRow(key: "Première détection", value: DeviceFormat.date(device.firstSeen))
+                        DeviceKVRow(key: "Dernière détection", value: DeviceFormat.date(device.lastSeen))
+                        DeviceKVRow(key: "Suivi depuis", value: DeviceFormat.span(from: device.firstSeen), mono: false)
+                    }
+                    Text("Le détail heure par heure viendra avec la Surveillance.")
+                        .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 }
-                VStack(spacing: 0) {
-                    DeviceKVRow(key: "Première détection", value: DeviceFormat.date(device.firstSeen))
-                    DeviceKVRow(key: "Dernière détection", value: DeviceFormat.date(device.lastSeen))
-                    DeviceKVRow(key: "Suivi depuis", value: DeviceFormat.span(from: device.firstSeen), mono: false)
-                }
-                Text("Le détail heure par heure viendra avec la Surveillance.")
-                    .font(Theme.caption).foregroundStyle(Theme.textTertiary)
             }
+        }
+    }
+
+    /// Appareil saisi à la main : jamais détecté par un scan, seulement vérifié par ping sur demande.
+    private func typedAvailability(_ entry: ManualDeviceEntry) -> some View {
+        let check = entry.lastCheck
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                ToolStatTile(label: "État", value: check.map { $0.isOnline ? "En ligne" : "Ne répond pas" } ?? "Non vérifié",
+                             valueColor: check?.isOnline == true ? Theme.success : Theme.textSecondary)
+                ToolStatTile(label: "Latence", value: check?.latencyMs.map(ToolFormat.milliseconds) ?? "—")
+                ToolStatTile(label: "Vérifié", value: check.map { ToolText.relative($0.date) } ?? "jamais")
+            }
+            VStack(spacing: 0) {
+                DeviceKVRow(key: "Saisi le", value: DeviceFormat.date(entry.created))
+                DeviceKVRow(key: "Dernière vérification", value: check.map { DeviceFormat.date($0.date) } ?? "—")
+                DeviceKVRow(key: "Vu par un scan", value: "pas encore", mono: false)
+            }
+            Text("«\u{00A0}Vérifier maintenant\u{00A0}» envoie un seul ping\u{00A0}; un scan qui voit cet appareil le rattache.")
+                .font(Theme.caption).foregroundStyle(Theme.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
