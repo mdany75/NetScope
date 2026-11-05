@@ -81,6 +81,7 @@ registerTerminalTests(suite)
 registerVNCTests(suite)
 registerHardwareDetectTests(suite)
 registerPortHistoryTests(suite)
+registerPortActionTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)
