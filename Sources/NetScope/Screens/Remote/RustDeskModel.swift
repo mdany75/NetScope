@@ -51,7 +51,8 @@ final class RustDeskModel: ObservableObject {
             history = RustDeskDemo.history(connections: RemoteDemo.connections)
             savedPasswords = Set(RemoteDemo.connections.filter { RustDeskDemo.hasSavedPassword($0) }.map(\.id))
             isInstalled = true
-            if ProcessInfo.processInfo.environment["NETSCOPE_RUSTDESK_VIEW"] == "verifie" {
+            // Captures : NETSCOPE_RUSTDESK_VIEW=verifie|test : vérifications déjà faites (données fixes).
+            if ["verifie", "test"].contains(ProcessInfo.processInfo.environment["NETSCOPE_RUSTDESK_VIEW"] ?? "") {
                 clientFindings = RustDeskClientCheck.compare(settings, client: RustDeskDemo.clientConfig)
                 clientCheckedAt = Date().addingTimeInterval(-120)
                 probes = RustDeskDemo.probes(settings)

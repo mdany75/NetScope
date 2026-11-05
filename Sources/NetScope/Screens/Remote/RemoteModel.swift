@@ -49,7 +49,8 @@ struct RemoteDraft: Equatable {
         editingID = connection.id
         name = connection.name
         proto = connection.proto
-        host = connection.host
+        // Note 6 : ID RustDesk groupé comme l’usager le dicte (les espaces sont acceptés).
+        host = connection.isRustDeskByID ? RustDeskID.grouped(connection.host, separator: " ") : connection.host
         port = String(connection.port)
         username = connection.username
         folder = connection.folder
@@ -210,6 +211,11 @@ final class RemoteModel: ObservableObject {
                 let proto: RemoteProtocol = raw.hasSuffix("vnc") || raw == "vnc-externe" ? .vnc : .rdp
                 selectedID = connections.first { $0.proto == proto }?.id
                 if raw.hasPrefix("modifier") { startEditing() }
+            }
+            // Note 6 : poste RustDesk choisi (détail, aperçu, lancements), ou son formulaire.
+            if raw == "rustdesk" || raw == "modifier-rustdesk" {
+                selectedID = connections.first { $0.proto == .rustdesk }?.id
+                if raw == "modifier-rustdesk" { startEditing() }
             }
             // Captures : connexion Telnet choisie (encadré « Installer » de telnet).
             if raw == "telnet" { selectedID = connections.first { $0.proto == .telnet }?.id }

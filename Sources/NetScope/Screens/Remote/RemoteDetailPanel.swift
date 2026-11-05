@@ -51,7 +51,8 @@ struct RemoteDetailPanel: View {
                         }
                         HStack(spacing: 6) {
                             if connection.isRustDeskByID {
-                                Chip(text: "Par le serveur d’ID", tone: .neutral)
+                                Chip(text: "Par ID", tone: .neutral)
+                                    .help("Joint par le serveur d’ID RustDesk (aucune sonde TCP)")
                             } else {
                                 Chip(text: reach.label, tone: reach.tone)
                             }
@@ -147,7 +148,7 @@ struct RemoteDetailPanel: View {
         }
         if connection.proto == .serie { return "Port ouvert seulement quand vous ouvrez la session, en accès exclusif." }
         if connection.proto == .rustdesk {
-            return "Mot de passe permanent au Trousseau macOS (service \(RustDeskModel.keychainService)), jamais dans le carnet ni dans une ligne de commande\u{00A0}: macOS le remet à RustDesk dans l’adresse rustdesk://."
+            return "Mot de passe permanent au Trousseau macOS, jamais dans le carnet ni dans une ligne de commande\u{00A0}: macOS le remet à RustDesk dans l’adresse d’ouverture."
         }
         return "Identifiants demandés par l’application externe, jamais enregistrés par NetScope."
     }

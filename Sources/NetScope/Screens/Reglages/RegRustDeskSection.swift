@@ -11,10 +11,16 @@ struct RegRustDeskSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            serverPanel
-            portablePanel
-            clientPanel
-            testPanel
+            // Captures : NETSCOPE_RUSTDESK_VIEW=test montre d'abord le test du serveur et les VIP.
+            if ProcessInfo.processInfo.environment["NETSCOPE_RUSTDESK_VIEW"] == "test" {
+                testPanel
+                clientPanel
+            } else {
+                serverPanel
+                portablePanel
+                clientPanel
+                testPanel
+            }
         }
         .onAppear { rustdesk.refreshInstalled() }
     }

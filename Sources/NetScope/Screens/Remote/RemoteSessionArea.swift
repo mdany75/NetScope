@@ -605,7 +605,7 @@ struct RemoteForm: View {
 
     private func helpLine(_ title: String, _ text: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(title).font(.system(size: 12, weight: .semibold)).frame(width: 48, alignment: .leading)
+            Text(title).font(.system(size: 12, weight: .semibold)).frame(width: 60, alignment: .leading)
             Text(text).font(Theme.caption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
         }
     }
