@@ -221,6 +221,17 @@ public struct DisplayFilter: Sendable {
         case "http.response.code": return number { $0.decoded.httpStatus.map(Double.init) }
         case "http.response": return Field(name: name, kind: .boolean) { $0.decoded.httpStatus == nil ? [] : [.number(1)] }
         case "arp.opcode": return number { $0.decoded.arpOperation.map(Double.init) }
+        // Note 78 : VoIP, supervision et authentification.
+        case "sip.method": return text { $0.decoded.sipMethod.map { [$0] } ?? [] }
+        case "sip.status_code": return number { $0.decoded.sipStatus.map(Double.init) }
+        case "sip.call_id", "sip.call-id": return text { $0.decoded.sipCallID.map { [$0] } ?? [] }
+        case "rtp.ssrc": return number { $0.decoded.rtp.map { Double($0.ssrc) } }
+        case "rtp.p_type", "rtp.pt": return number { $0.decoded.rtp.map { Double($0.payloadType) } }
+        case "rtp.seq": return number { $0.decoded.rtp.map { Double($0.sequence) } }
+        case "radius.code": return number { $0.decoded.radiusCode.map(Double.init) }
+        case "syslog.level", "syslog.severity": return number { $0.decoded.syslogSeverity.map(Double.init) }
+        case "ntp.mode": return number { $0.decoded.ntp.map { Double($0.mode) } }
+        case "ntp.stratum": return number { $0.decoded.ntp.map { Double($0.stratum) } }
         case "info", "frame.info": return text { [$0.summary] }
         default:
             if name.hasPrefix("tcp.analysis."), let flag = TCPAnalysisFlag.allCases.first(where: { "tcp.analysis." + $0.filterName == name }) {

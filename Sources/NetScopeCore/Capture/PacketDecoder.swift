@@ -774,6 +774,11 @@ struct PacketDecoding {
                 dns(o + 2, min(end, o + 2 + Int(b.u16(o))), kind: .dns, lengthPrefix: o)
                 return
             }
+            if SIPRecognizer.looksLikeSIP(b, o, end) { sip(o, end); return }
+            if on(514) || on(601) || on(5514), SyslogRecognizer.looksLikeSyslog(b, o, end, allowLength: true) {
+                syslog(o, end, overTCP: true)
+                return
+            }
             data(o, end)
             return
         }
@@ -782,6 +787,19 @@ struct PacketDecoding {
         if on(137) { dns(o, end, kind: .nbns); return }
         if on(67) || on(68) { dhcp(o, end); return }
         if on(1900), HTTPRecognizer.looksLikeHTTP(b, o, end) { http(o, end, kind: .ssdp); return }
+        // Note 78 : VoIP, supervision et authentification.
+        if SIPRecognizer.looksLikeSIP(b, o, end) { sip(o, end); return }
+        if on(161) || on(162) || on(1161) || on(1162), b.u8(o) == 0x30 { snmp(o, end); return }
+        if on(514) || on(5514), SyslogRecognizer.looksLikeSyslog(b, o, end, allowLength: false) { syslog(o, end, overTCP: false); return }
+        if on(1812) || on(1813) || on(1645) || on(1646) || on(3799), end - o >= 20 { radius(o, end); return }
+        if on(123), end - o >= 48 { ntp(o, end); return }
+        if sourcePort >= 1024, destinationPort >= 1024 {
+            switch RTPRecognizer.kind(b, o, end) {
+            case .rtp: rtp(o, end); return
+            case .rtcp: rtcp(o, end); return
+            case nil: break
+            }
+        }
         data(o, end)
     }
 }
