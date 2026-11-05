@@ -29,29 +29,47 @@ enum WifiDemo {
             net("Voisin-6E", "3C:52:A1:09:7E:2C", .ghz6, 69, 160, -83, .wpa3Personal, "802.11be"),
         ])
         let connected = networks[0]
-        let history: [Int?] = (0..<WifiStore.historyLength).map { i in
-            Int((Double(connected.rssi) + 2 * sin(Double(i) * 0.45) + 1.4 * cos(Double(i) * 0.17)).rounded())
-        }
+        // Note 78 : une heure d'historique ; visite de la salle 204 (autre borne) il y a 38 à 21 minutes.
         let now = Date()
-        let calendar = Calendar.current
-        func today(_ hour: Int, _ minute: Int) -> Date {
-            calendar.date(bySettingHour: hour, minute: minute, second: 0, of: now) ?? now
-        }
+        let roamOut = now.addingTimeInterval(-38 * 60)
+        let roamBack = now.addingTimeInterval(-21 * 60)
         store.loadDemo(
             connection: WifiStore.Connection(interfaceName: "en0", network: connected, transmitRate: 866, transmitPower: 63,
                                              countryCode: "CA", hardwareAddress: "3c:22:fb:7e:05:b1", powerOn: true),
             networks: networks,
-            history: history,
+            timeline: timeline(now: now, rssi: connected.rssi, roamOut: roamOut, roamBack: roamBack),
             roams: [
-                WifiStore.Roam(time: today(10, 18), from: "70:4C:A5:1E:22:A0 (canal 44)", to: "70:4C:A5:3B:91:18 (canal 36) · salle 204",
+                WifiStore.Roam(time: roamOut, from: "70:4C:A5:1E:22:A0 (canal 44)", to: "70:4C:A5:3B:91:18 (canal 36) · salle 204",
                                rssiBefore: -74, rssiAfter: -58),
-                WifiStore.Roam(time: today(10, 52), from: "70:4C:A5:3B:91:18 (canal 36)", to: "70:4C:A5:1E:22:A0 (canal 44) · accueil",
+                WifiStore.Roam(time: roamBack, from: "70:4C:A5:3B:91:18 (canal 36)", to: "70:4C:A5:1E:22:A0 (canal 44) · accueil",
                                rssiBefore: -70, rssiAfter: -51),
-            ],
-            points: [
-                WifiStore.SurveyPoint(room: "Accueil", rssi: -48, bssid: "70:4C:A5:1E:22:A0", time: today(9, 2)),
-                WifiStore.SurveyPoint(room: "Salle 204", rssi: -67, bssid: "70:4C:A5:3B:91:18", time: today(9, 9)),
-                WifiStore.SurveyPoint(room: "Entrepôt", rssi: -79, bssid: "70:4C:A5:1E:22:A0", time: today(9, 15)),
             ])
+    }
+
+    /// Une heure de signal : relevés toutes les 10 s (écran caché), puis toutes les 2 s les 10
+    /// dernières minutes (écran ouvert) ; baisse avant le passage à l'autre borne, et une autre il y a 8 min.
+    static func timeline(now: Date, rssi: Int, roamOut: Date, roamBack: Date) -> WifiSignalTimeline {
+        var timeline = WifiSignalTimeline()
+        var t = now.addingTimeInterval(-3600)
+        while t <= now {
+            let age = now.timeIntervalSince(t)
+            let k = age / 10
+            var value = Double(rssi) + 2 * sin(k * 0.45) + 1.4 * cos(k * 0.17)
+            var bssid = "70:4C:A5:1E:22:A0"
+            var channel = 44
+            if t >= roamOut, t < roamBack {
+                bssid = "70:4C:A5:3B:91:18"
+                channel = 36
+                value = -61 - 9 * max(0, 1 - roamBack.timeIntervalSince(t) / 240) + 1.5 * sin(k * 0.6)
+            } else if t < roamOut, roamOut.timeIntervalSince(t) < 300 {
+                value -= 20 * (1 - roamOut.timeIntervalSince(t) / 300)
+            } else if abs(age - 480) < 45 {
+                value -= 13 * (1 - abs(age - 480) / 45)
+            }
+            timeline.append(WifiSignalSample(time: t, rssi: Int(value.rounded()), noise: -92 + Int((sin(k * 0.3) * 1.5).rounded()),
+                                             channel: channel, bssid: bssid))
+            t = t.addingTimeInterval(age > 600 ? 10 : 2)
+        }
+        return timeline
     }
 }

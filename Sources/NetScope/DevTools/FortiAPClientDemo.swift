@@ -17,6 +17,7 @@ import NetScopeCore
 /// - NETSCOPE_WIFI_CLIENTS=ssid : section Clients regroupée par SSID, tous les SSID dépliés
 ///   (NETSCOPE_WIFI_SSID=Invités : ce SSID seulement) ;
 /// - NETSCOPE_WIFI_CLIENT=Android_89UM1WTN (nom ou MAC) : fiche complète de ce client ;
+/// - NETSCOPE_WIFI_ONGLET=bornes|clients|ssid|canaux|voisins|conseils : onglet affiché (note 80) ;
 /// - fiche Appareil avec sa section Wi-Fi : NETSCOPE_DEVICE=10.182.122.133 (sans NETSCOPE_WIFI_VUE).
 @MainActor
 extension FortiAPDemo {
@@ -176,6 +177,13 @@ extension FortiAPDemo {
                 if let ap = store.ap(for: client) { store.viewedAP = ap.id }
                 store.showClient(client.id)
             }
+        }
+        // Note 80 : onglet de la partie FortiAP (NETSCOPE_WIFI_ONGLET=bornes|clients|ssid|canaux|voisins|conseils) ;
+        // sans lui, l'onglet suit la variable donnée (Clients pour une fiche ou la vue par SSID).
+        if let wanted = env["NETSCOPE_WIFI_ONGLET"], let tab = FortiAPTab.named(wanted) {
+            store.tab = tab
+        } else if env["NETSCOPE_WIFI_CLIENTS"]?.lowercased() == "ssid" {
+            store.tab = .clients
         }
     }
 }

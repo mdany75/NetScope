@@ -104,6 +104,8 @@ registerRustDeskPortTests(suite)
 registerRustDeskServerTests(suite)
 // Écran Appareil : ouvrir une fiche par IP, nom ou MAC, appareils saisis à la main.
 registerDeviceLookupTests(suite)
+// Note 78 (0.27.0) : Wi-Fi de ce Mac (meilleur canal, historique d'une heure, relevé par pièce).
+registerWifiLocalTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)
