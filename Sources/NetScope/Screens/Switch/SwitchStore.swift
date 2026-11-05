@@ -120,6 +120,8 @@ final class SwitchStore: ObservableObject {
     /// celles retenues par switch. Une demande d'autorisation de macOS ne gèle donc pas l'app.
     func loadVault() async {
         guard !isDemo else { return }
+        // Note 59 : utilisateurs SNMP v3 (tous les sites et par site), lus au même moment.
+        await SNMPAccessVault.shared.load()
         if vaultTask == nil {
             vaultTask = Task { [weak self] in
                 let (map, saved) = await Task.detached(priority: .userInitiated) {
@@ -378,7 +380,7 @@ final class SwitchStore: ObservableObject {
         guard !isPolling, !isDiscovering else { return false }
         let fortigate = FortiGateStore.shared
         guard !fortigate.isBusy else { return false }
-        return hosts.contains { !isController($0) && !community(for: $0).isEmpty }
+        return hosts.contains { !isController($0) && hasSNMPAccess($0) }
             || (fortigate.isEnabled && (fortigate.isReady || fortigate.isDemo))
     }
 
@@ -433,11 +435,11 @@ final class SwitchStore: ObservableObject {
         // une fois par heure au plus ; entre-temps, celle du relevé précédent est recopiée.
         let now = Date()
         let jobs: [(host: String, target: SNMPTarget, readHardware: Bool, previous: SNMPHardwareInfo?)] = list.compactMap { host in
-            let community = community(for: host)
-            guard let ip = IPv4Address(host), !community.isEmpty else { return nil }
+            // Note 59 : utilisateur v3 du site d'abord, communauté en repli.
+            guard let target = snmpTarget(for: host) else { return nil }
             let previous = snapshots[host]
             let stale = hardwareReadAt[host].map { now.timeIntervalSince($0) > Self.hardwareRefresh } ?? true
-            return (host, SNMPTarget(host: ip, community: community, timeout: 2, retries: 1), previous == nil || stale, previous?.hardware)
+            return (host, target, previous == nil || stale, previous?.hardware)
         }
         let readsHardware = Set(jobs.filter(\.readHardware).map(\.host))
         var fresh = Set<String>()
@@ -650,7 +652,8 @@ final class SwitchStore: ObservableObject {
         await pollTask?.value
 
         var result = SwitchAutoResult(date: Date(), queriedHosts: queried, respondedHosts: found.map(\.host),
-                                      noCommunity: communitiesTried == 0, communitiesTried: communitiesTried)
+                                      noCommunity: communitiesTried == 0 && !SNMPAccessVault.shared.hasAnyV3,
+                                      communitiesTried: communitiesTried)
         guard !Task.isCancelled else { return interrupted(result) }
         if !found.isEmpty { state.devices = SNMPAutoLocate.applyDiscovery(found, to: state.devices) }
         // Note 60 : sysDescr déjà lu par la découverte → modèle et version dans l'inventaire du site.
@@ -667,7 +670,8 @@ final class SwitchStore: ObservableObject {
                 hosts.append(key)
                 autoHosts.insert(key)
             }
-            if hostCommunities[key] != item.community {
+            // Découvert en v3 : aucune communauté à retenir (celle déjà connue reste le repli).
+            if !item.community.isEmpty, hostCommunities[key] != item.community {
                 hostCommunities[key] = item.community
                 vaultChanged = true
             }
@@ -682,7 +686,7 @@ final class SwitchStore: ObservableObject {
             let routers = Self.deduplicated(found.filter { $0.kind == .routeur || $0.host == gateway }, known: [])
             routerTables = await withTaskGroup(of: [IPv4Address: MACAddress].self) { group in
                 for router in routers.prefix(8) {
-                    group.addTask { await SNMPDiscovery.routerARP(host: router.host, community: router.community) }
+                    group.addTask { await SNMPDiscovery.routerARP(host: router.host, community: router.community, v3: router.v3) }
                 }
                 var tables: [[IPv4Address: MACAddress]] = []
                 for await table in group where !table.isEmpty { tables.append(table) }
@@ -705,7 +709,7 @@ final class SwitchStore: ObservableObject {
             known: ofThisSite.compactMap(IPv4Address.init), manual: Set(hosts.filter { !autoHosts.contains($0) }.compactMap(IPv4Address.init)),
             discoveredNow: discoveredNow, ranges: ranges, localSubnet: ledger.scanNetwork?.subnet).map(\.description))
         let allowed = Set(ofThisSite)
-        let polled = hosts.filter { relevant.contains($0) && allowed.contains($0) && !community(for: $0).isEmpty }
+        let polled = hosts.filter { relevant.contains($0) && allowed.contains($0) && hasSNMPAccess($0) }
         let fresh = await pollHosts(polled)
         guard !Task.isCancelled else { return interrupted(result) }
         phase(.locations)
@@ -892,7 +896,7 @@ extension SwitchStore {
         let siteKey = SiteModel.shared.activeKey
         await loadVault()
         guard !Task.isCancelled, SiteModel.shared.activeKey == siteKey, !isPolling, !isDiscovering else { return .skipped }
-        let list = autoRefreshHosts().filter { !community(for: $0).isEmpty }
+        let list = autoRefreshHosts().filter { hasSNMPAccess($0) }
         guard !list.isEmpty else { return .nothing }
         let fresh = await pollHosts(list)
         guard !Task.isCancelled, SiteModel.shared.activeKey == siteKey else { return .skipped }

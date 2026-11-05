@@ -196,6 +196,9 @@ func registerSNMPv3WalkTests(_ suite: TestSuite) {
         try expectEqual(SNMPMIB.parse(".1.3.6.1.2.1.1.5.0"), SNMPOIDs.sysName, "point initial")
         try expectEqual(SNMPMIB.parse("IF-MIB::ifDescr.3"), SNMPOIDs.ifDescr.appending(3), "notation net-snmp")
         try expectEqual(SNMPMIB.parse("ifxtable"), "1.3.6.1.2.1.31.1.1", "casse ignorée")
+        for preset in SNMPMIB.presets {
+            try expectEqual(SNMPMIB.parse(preset.name), preset.oid, "raccourci « \(preset.name) » reconnu")
+        }
         try expect(SNMPMIB.parse("pas-un-oid") == nil && SNMPMIB.parse("") == nil, "saisie refusée")
         try expectEqual(SNMPMIB.presets.map(\.name), ["system", "ifTable", "ifXTable", "ENTITY-MIB", "LLDP-MIB", "BRIDGE-MIB",
                                                      "Q-BRIDGE-MIB", "POWER-ETHERNET-MIB", "HOST-RESOURCES"], "raccourcis")

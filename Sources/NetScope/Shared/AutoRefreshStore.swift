@@ -223,7 +223,7 @@ final class AutoRefreshStore: ObservableObject {
         update(.wifi, available: !ids.isEmpty, blockedReason: blocked, inFlight: wifiStore.busy, read: wifiRead)
         let snmpHosts = switchStore.autoRefreshHosts()
         // Autres switchs, ou une communauté saisie depuis (Réglages, Switchs) : on réessaie.
-        if snmpUnusable, snmpHosts != snmpUnusableHosts || snmpHosts.contains(where: { !switchStore.community(for: $0).isEmpty }) {
+        if snmpUnusable, snmpHosts != snmpUnusableHosts || snmpHosts.contains(where: { switchStore.hasSNMPAccess($0) }) {
             snmpUnusable = false
         }
         let snmpRead = snmpHosts.compactMap { switchStore.snapshots[$0]?.polledAt }.max()

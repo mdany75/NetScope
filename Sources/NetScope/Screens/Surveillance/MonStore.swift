@@ -367,6 +367,11 @@ final class MonStore: ObservableObject {
             }
             var context = MonRunContext(pinger: pinger, snmpCommunity: community, devices: devices,
                                         inventoryReady: inventoryReady, now: Date())
+            // Note 59 : utilisateur v3 du site de l'agent (ou de tous les sites), communauté en repli.
+            if needsSNMP {
+                await SNMPAccessVault.shared.load()
+                context.snmpV3 = SNMPAccessVault.shared.lookup
+            }
             context.onlineServices = onlineServices
             context.onlineServiceGraph = onlineGraph
             context.fortiWifi = fortiWifi

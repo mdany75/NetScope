@@ -93,7 +93,10 @@ struct RegKnownSwitchTable: View {
             let snapshot = store.snapshots[host]
             let community = store.community(for: host)
             let snmp: String
-            if community.isEmpty {
+            if let v3 = SNMPAccessVault.shared.v3(for: host) {
+                // Note 59 : v3 d'abord, la communauté reste le repli.
+                snmp = "v3 · \(v3.user)" + (community.isEmpty ? "" : " · repli v2c")
+            } else if community.isEmpty {
                 snmp = "v2c"
             } else if community != store.community {
                 snmp = "v2c · propre au switch"

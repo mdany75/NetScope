@@ -186,6 +186,8 @@ public enum SNMPMIB {
         if clean.hasPrefix(".") { clean.removeFirst() }
         guard !clean.isEmpty else { return nil }
         if let oid = SNMPOID(clean), oid.components.count >= 2 { return oid }
+        // Nom d'un raccourci (« ENTITY-MIB », « HOST-RESOURCES »).
+        if let preset = presets.first(where: { $0.name.caseInsensitiveCompare(clean) == .orderedSame }) { return preset.oid }
         let parts = clean.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
         guard let object = byName[String(parts[0]).lowercased()] else { return nil }
         guard parts.count == 2 else { return object.oid }
@@ -282,7 +284,8 @@ public enum SNMPBrowserFormat {
         switch value {
         case .integer(let number):
             if let oid, let label = enumeration(oid: oid, value: number) { return "\(label) (\(number))" }
-            return grouped(Int64(number))
+            // INTEGER : souvent un index ou un code, laissé tel quel (comme net-snmp).
+            return String(number)
         case .octetString(let bytes):
             if bytes.isEmpty { return "« »" }
             if bytes.count == 6, !isPrintable(bytes) { return hex(bytes, separator: ":").uppercased() }

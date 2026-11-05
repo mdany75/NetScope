@@ -284,8 +284,13 @@ final class ScanController: ObservableObject {
     private static func startSweep(_ hosts: [IPv4Address]) -> Task<SNMPSweep, Never> {
         Task.detached(priority: .userInitiated) {
             let communities = RegSNMPDiscoveryVault.communities()
-            guard !communities.isEmpty, !hosts.isEmpty else { return SNMPSweep(queried: hosts, communities: communities.count) }
-            let found = await SNMPDiscovery(communities: communities).discover(hosts)
+            // Note 59 : utilisateurs v3 (du site, sinon de tous les sites) pour les hôtes muets en v2c.
+            await SNMPAccessVault.shared.load()
+            let vault = await MainActor.run { SNMPAccessVault.shared }
+            let hasV3 = await MainActor.run { vault.global != nil || !vault.perSite.isEmpty }
+            let lookup: SNMPv3Lookup? = hasV3 ? await MainActor.run { vault.lookup } : nil
+            guard !communities.isEmpty || lookup != nil, !hosts.isEmpty else { return SNMPSweep(queried: hosts, communities: communities.count) }
+            let found = await SNMPDiscovery(communities: communities, v3: lookup).discover(hosts)
             return SNMPSweep(found: found, queried: hosts, communities: communities.count)
         }
     }

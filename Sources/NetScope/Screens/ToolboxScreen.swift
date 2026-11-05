@@ -198,6 +198,7 @@ private struct ToolMainPanel: View {
     @ObservedObject private var disks = DiskSpeedModel.shared
     @ObservedObject private var tftp = TFTPModel.shared
     @ObservedObject private var speed = SpeedtestModel.shared
+    @ObservedObject private var snmp = SNMPBrowserModel.shared
 
     var body: some View {
         let tool = store.selectedTool
@@ -294,6 +295,7 @@ private struct ToolMainPanel: View {
         case .headers: MailHeaderView(model: headers, store: store)
         case .capture: PacketCaptureView(model: capture, store: store)
         case .disques: DiskSpeedView(model: disks, store: store)
+        case .snmp: SNMPBrowserView(model: snmp, store: store)
         }
     }
 
@@ -325,6 +327,7 @@ private struct ToolMainPanel: View {
         case .headers: return "analyse locale des en-têtes (rien n’est envoyé)"
         case .capture: return capture.command
         case .disques: return disks.command
+        case .snmp: return snmp.command
         }
     }
 }
