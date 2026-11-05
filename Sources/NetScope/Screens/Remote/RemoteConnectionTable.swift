@@ -192,8 +192,12 @@ struct RemoteConnectionTable: View {
             Group {
                 TableColumn("NOM", sortUsing: table.sort("nom")) { connection in
                     HStack(spacing: 8) {
-                        RemoteReachDot(state: model.state(of: connection.id))
-                            .help(model.state(of: connection.id).label)
+                        if connection.isRustDeskByID {
+                            RemoteByIDDot()
+                        } else {
+                            RemoteReachDot(state: model.state(of: connection.id))
+                                .help(model.state(of: connection.id).label)
+                        }
                         Text(connection.name).font(.system(size: 12.5, weight: .semibold)).lineLimit(1)
                         if connection.isFavorite {
                             Image(systemName: "star.fill").font(.system(size: 10)).foregroundStyle(Color(hex: 0xD97706))

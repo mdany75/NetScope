@@ -741,7 +741,7 @@ struct InvTable: View {
             // Note 6 : ID RustDesk de la fiche (le serveur d'ID joint le poste, quel que soit le site).
             if let id = record.annotations.validRustDeskID {
                 Button("Connecter par RustDesk (\(RustDeskID.grouped(id, separator: " ")))") {
-                    RemoteModel.shared.connectRustDesk(id: id, name: record.displayName)
+                    model.showRustDesk(RemoteModel.shared.connectRustDesk(id: id, name: record.displayName))
                 }
             }
             // Note 50 : ports du dernier relevé de cet appareil ; autre site : grisé (autre réseau).

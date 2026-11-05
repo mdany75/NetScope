@@ -30,6 +30,8 @@ private struct DeviceDetailView: View {
     @ObservedObject private var switches = SwitchStore.shared
     @State private var nameDraft = ""
     @State private var copied: String?
+    /// Note 6 : retour du bouton « Connecter par RustDesk » (texte, erreur ?), effacé après quelques secondes.
+    @State private var rustDeskMessage: (text: String, isError: Bool)?
     @FocusState private var nameFocused: Bool
 
     var body: some View {
@@ -133,7 +135,15 @@ private struct DeviceDetailView: View {
                 Spacer(minLength: 0)
             }
             .padding(16)
-            actions
+            VStack(alignment: .leading, spacing: 8) {
+                actions
+                if let rustDeskMessage {
+                    Label(rustDeskMessage.text, systemImage: rustDeskMessage.isError ? "exclamationmark.triangle" : "checkmark")
+                        .font(Theme.caption)
+                        .foregroundStyle(rustDeskMessage.isError ? Theme.warning : Theme.success)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
@@ -220,6 +230,20 @@ private struct DeviceDetailView: View {
         .disabled(device.mac == nil)
     }
 
+    /// Note 6 : message de « Connecter par RustDesk » sous les actions (RustDesk absent : l'alerte
+    /// de téléchargement de la fenêtre principale s'en charge).
+    private func showRustDesk(_ outcome: RemoteModel.RustDeskOutcome) {
+        switch outcome {
+        case .opened(let text): rustDeskMessage = (text, false)
+        case .failed(let text): rustDeskMessage = (text, true)
+        case .notInstalled: rustDeskMessage = nil; return
+        }
+        let shown = rustDeskMessage?.text
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
+            if rustDeskMessage?.text == shown { rustDeskMessage = nil }
+        }
+    }
+
     @ViewBuilder private var secondaryActions: some View {
         Button { ToolActions.open(DeviceSession.defaultURL(for: device)) } label: {
             Label("Ouvrir dans le navigateur", systemImage: "safari")
@@ -233,13 +257,12 @@ private struct DeviceDetailView: View {
         // Note 6 : ID RustDesk saisi dans la fiche d'inventaire de l'appareil.
         if let id = InvModel.shared.store.record(forIP: device.ip)?.annotations.validRustDeskID {
             Button {
-                RemoteModel.shared.connectRustDesk(id: id, name: device.displayName)
+                showRustDesk(RemoteModel.shared.connectRustDesk(id: id, name: device.displayName))
             } label: {
-                Label("RustDesk", systemImage: RemoteProtocol.rustdesk.symbol)
+                Label("Connecter par RustDesk", systemImage: RemoteProtocol.rustdesk.symbol)
             }
             .buttonStyle(.secondary)
             .help("Connecter par RustDesk (ID \(RustDeskID.grouped(id)))")
-            .rustDeskInstallAlert()
         }
         // Note 50 : FTP, FTPS ou SFTP, actifs seulement si le port était ouvert au dernier scan.
         Menu {

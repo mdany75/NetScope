@@ -149,7 +149,18 @@ final class RemoteModel: ObservableObject {
     @Published var showDetailsCompact = false
     /// Petite fenêtre (mesurée par l'écran).
     @Published var compactLayout = false
-    @Published var toast: String?
+    /// Message en tête de l'écran Accès distant (réussite par défaut ; `fail` pour une erreur).
+    @Published var toast: String? {
+        didSet { toastIsError = false }
+    }
+    /// Le message est une erreur ou un avertissement : affiché en orange avec un triangle.
+    @Published private(set) var toastIsError = false
+
+    /// Affiche un message d'erreur (ton d'avertissement, jamais la coche de réussite).
+    func fail(_ text: String?) {
+        toast = text
+        toastIsError = text != nil
+    }
     @Published var pendingDeletion: RemoteConnection?
     @Published private(set) var serialPorts: [String] = []
 
@@ -399,6 +410,16 @@ final class RemoteModel: ObservableObject {
             if connection.proto == .rustdesk, let password = draft.password {
                 try RustDeskModel.shared.setPassword(password, for: connection.id)
             }
+            // Protocole changé : le mot de passe de l'ancien protocole est oublié (rien d'orphelin au Trousseau).
+            if let previous = existing?.proto, previous != connection.proto {
+                if previous == .rustdesk { RustDeskModel.shared.forget(connection.id) }
+                if [.ssh, .telnet].contains(previous), ![.ssh, .telnet].contains(connection.proto) {
+                    try? RemoteSessionStore.shared.setPassword("", for: connection.id)
+                }
+                if previous.isFileTransfer, !connection.proto.isFileTransfer {
+                    try? FileTransferStore.shared.setPassword("", for: connection.id)
+                }
+            }
             if let index = connections.firstIndex(where: { $0.id == connection.id }) {
                 connections[index] = connection
                 toast = "Connexion « \(connection.name) » enregistrée."
@@ -437,7 +458,8 @@ final class RemoteModel: ObservableObject {
         // Note 57 : onglets de la connexion fermés (terminal ou VNC, plein écran compris),
         // mots de passe SSH, Telnet et VNC oubliés.
         RemoteSessionStore.shared.forget(connection.id)
-        if connection.proto == .rustdesk { RustDeskModel.shared.forget(connection.id) }
+        // Toujours oublié, quel que soit le protocole actuel (ancienne connexion RustDesk changée).
+        RustDeskModel.shared.forget(connection.id)
         connections.removeAll { $0.id == connection.id }
         reachability[connection.id] = nil
         if selectedID == connection.id { selectedID = connections.first?.id }
@@ -569,7 +591,7 @@ final class RemoteModel: ObservableObject {
         }
         if !inTerminalApp, mode == nil || connection.proto != .vnc, RemoteSessionStore.opensInTab(connection.proto) {
             guard let valid = try? connection.validated() else {
-                toast = "Connexion «\u{00A0}\(connection.name)\u{00A0}» à corriger avant de l’ouvrir."
+                fail("Connexion «\u{00A0}\(connection.name)\u{00A0}» à corriger avant de l’ouvrir.")
                 return
             }
             selectedID = connection.id
@@ -617,33 +639,45 @@ final class RemoteModel: ObservableObject {
                     guard !Task.isCancelled else { return }
                     self.fullScreenTasks[id] = nil
                     if outcome == .timedOut {
-                        self.toast = "Plein écran non appliqué à «\u{00A0}\(name)\u{00A0}»\u{00A0}: utilisez Présentation › Passer en plein écran dans Partage d’écran."
+                        self.fail("Plein écran non appliqué à «\u{00A0}\(name)\u{00A0}»\u{00A0}: utilisez Présentation › Passer en plein écran dans Partage d’écran.")
                     }
                 }
             }
         } catch {
-            toast = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            fail((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
         }
     }
 
     // MARK: RustDesk (note 6)
 
+    /// Issue d'une ouverture RustDesk, à afficher par l'écran d'où vient le clic.
+    enum RustDeskOutcome: Equatable {
+        case opened(String)
+        case failed(String)
+        /// RustDesk absent : l'alerte de téléchargement (fenêtre principale) s'en charge.
+        case notInstalled
+    }
+
     /// Ouvre RustDesk sur ce poste et note le lancement (historique, dernière connexion).
-    func connectRustDesk(_ connection: RemoteConnection) {
+    /// `postToast` : message montré en tête de l'écran Accès distant (faux depuis un autre écran).
+    @discardableResult
+    func connectRustDesk(_ connection: RemoteConnection, postToast: Bool = true) -> RustDeskOutcome {
         guard let valid = try? connection.validated(), let target = valid.rustDeskTarget else {
-            toast = "Connexion «\u{00A0}\(connection.name)\u{00A0}» à corriger avant de l’ouvrir."
-            return
+            let text = "Connexion «\u{00A0}\(connection.name)\u{00A0}» à corriger avant de l’ouvrir."
+            if postToast { fail(text) }
+            return .failed(text)
         }
-        selectedID = connection.id
-        draft = nil
-        let rustdesk = RustDeskModel.shared
-        let message = rustdesk.launch(target, name: valid.name, connection: valid)
-        guard !rustdesk.needsInstall else { return }
+        if postToast {
+            selectedID = connection.id
+            draft = nil
+        }
+        guard let message = RustDeskModel.shared.launch(target, name: valid.name, connection: valid) else { return .notInstalled }
         if let index = connections.firstIndex(where: { $0.id == connection.id }) {
             connections[index].lastConnected = Date()
             save()
         }
-        toast = message
+        if postToast { toast = message }
+        return .opened(message)
     }
 
     /// « Nouvelle connexion RustDesk » : ID collé (espaces acceptés) ou IP directe. `saveToBook` :
@@ -663,8 +697,9 @@ final class RemoteModel: ObservableObject {
                 selectedID = fresh.id
                 save()
                 if launch { connectRustDesk(fresh) } else { toast = "Poste «\u{00A0}\(fresh.name)\u{00A0}» ajouté au carnet." }
-            } else if launch, let target = fresh.rustDeskTarget {
-                toast = RustDeskModel.shared.launch(target, name: fresh.name)
+            } else if launch, let target = fresh.rustDeskTarget,
+                      let message = RustDeskModel.shared.launch(target, name: fresh.name) {
+                toast = message
             }
             return nil
         } catch {
@@ -674,20 +709,16 @@ final class RemoteModel: ObservableObject {
 
     /// Note 6 : ID RustDesk d'une fiche d'inventaire ou d'un appareil : la connexion du carnet qui a
     /// cet ID, sinon un lancement direct (sans l'ajouter au carnet).
-    /// Renvoie le message affiché (aussi gardé dans `toast` pour l'écran Accès distant).
-    @discardableResult
-    func connectRustDesk(id text: String, name: String) -> String? {
+    /// Renvoie l'issue, que l'écran appelant affiche lui-même (rien n'est laissé dans `toast`).
+    func connectRustDesk(id text: String, name: String) -> RustDeskOutcome {
         guard let id = RustDeskID.parse(text) else {
-            toast = RemoteValidationError.invalidRustDeskID(text).errorDescription
-            return toast
+            return .failed(RemoteValidationError.invalidRustDeskID(text).errorDescription ?? "ID RustDesk invalide.")
         }
         if let existing = connections.first(where: { $0.proto == .rustdesk && $0.host == id }) {
-            toast = nil
-            connectRustDesk(existing)
-        } else {
-            toast = RustDeskModel.shared.launch(.id(id), name: name)
+            return connectRustDesk(existing, postToast: false)
         }
-        return RustDeskModel.shared.needsInstall ? nil : toast
+        guard let message = RustDeskModel.shared.launch(.id(id), name: name) else { return .notInstalled }
+        return .opened(message)
     }
 
     /// Note 57 : session VNC intégrée (VNCSessionView), dans un onglet de la barre des sessions.
@@ -795,7 +826,7 @@ final class RemoteModel: ObservableObject {
     func openTunnel(_ tunnel: SSHTunnelSpec, of connection: RemoteConnection) {
         let current = connections.first { $0.id == connection.id } ?? connection
         guard let valid = try? current.validated() else {
-            toast = "Connexion «\u{00A0}\(current.name)\u{00A0}» à corriger avant d’ouvrir un tunnel."
+            fail("Connexion «\u{00A0}\(current.name)\u{00A0}» à corriger avant d’ouvrir un tunnel.")
             return
         }
         let spec = valid.tunnels.first { $0.id == tunnel.id } ?? tunnel
@@ -817,7 +848,7 @@ final class RemoteModel: ObservableObject {
     /// Hôte de rebond choisi dans le panneau de détails (croquis : liste des connexions SSH).
     func setProxyJump(_ jump: String, for id: UUID) {
         guard let normalized = try? SSHJumpChain.normalized(jump) else {
-            toast = SSHTunnelError.invalidJump(jump).errorDescription
+            fail(SSHTunnelError.invalidJump(jump).errorDescription)
             return
         }
         updateExisting(id) { $0.proxyJump = normalized }
@@ -861,7 +892,7 @@ final class RemoteModel: ObservableObject {
                 try RemoteExecutor.execute(plan, title: through.name)
                 toast = "Ouverture dans Windows App\u{00A0}: \(through.name), par le tunnel."
             } catch {
-                toast = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                fail((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
             }
         case .http, .https:
             guard let url = SSHTunnelCommand.webURL(use: use, port: port) else { return }

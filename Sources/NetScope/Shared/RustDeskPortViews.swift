@@ -45,8 +45,10 @@ final class RustDeskServerTestModel: ObservableObject {
     }
 }
 
+@MainActor
 enum RustDeskOpen {
-    /// Ouvre une session directe dans RustDesk ; message d'erreur si le client n'est pas installé.
+    /// Ouvre une session directe dans RustDesk ; client absent : l'alerte « Télécharger RustDesk »
+    /// de la fenêtre principale, comme dans Accès distant et l'Inventaire.
     @discardableResult
     static func direct(host: String, report: (String, Tone) -> Void) -> Bool {
         guard let url = RustDeskPorts.directURL(host: host) else {
@@ -58,7 +60,7 @@ enum RustDeskOpen {
             return false
         }
         guard NSWorkspace.shared.urlForApplication(toOpen: url) != nil else {
-            report("RustDesk n’est pas installé sur ce Mac (rustdesk.com).", .warning)
+            RustDeskModel.shared.needsInstall = true
             return false
         }
         NSWorkspace.shared.open(url)
@@ -134,7 +136,7 @@ struct RustDeskServerDetail: View {
                 Button(tester.isRunning(host) ? "Test en cours…" : "Tester le serveur RustDesk") { tester.test(host: host) }
                     .buttonStyle(.secondary)
                     .disabled(tester.isRunning(host))
-                    .help("Connexions TCP vers \(host) sur 21115 à 21119 (rien n’est envoyé)")
+                    .help("Connexions TCP vers \(host) sur les ports 21115 à 21119, sans envoyer de données")
                 if let date = tester.testedAt[host] {
                     Text("Testé à \(ToolText.time(date))").font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 }

@@ -37,8 +37,8 @@ final class RustDeskModel: ObservableObject {
     }
     @Published private(set) var vipReports: [VIPReport] = []
     @Published private(set) var checkingVIPs = false
-    /// Message bref de la section des réglages (import, copie).
-    @Published var notice: String?
+    /// Message bref de la section des réglages (import), avec son ton (réussite ou avertissement).
+    @Published var notice: (text: String, tone: Tone)?
 
     private let store: RustDeskStore?
     private let sandboxed: Bool
@@ -114,14 +114,17 @@ final class RustDeskModel: ObservableObject {
 
     // MARK: Lancement
 
-    /// Ouvre RustDesk sur ce poste ; renvoie le message à afficher. `connection` nil : ID collé.
+    /// Ouvre RustDesk sur ce poste ; renvoie le message à afficher, ou nil si RustDesk n'est pas
+    /// installé (l'alerte de téléchargement de la fenêtre principale s'affiche alors).
+    /// `connection` nil : ID collé.
     @discardableResult
-    func launch(_ target: RustDeskTarget, name: String, connection: RemoteConnection? = nil) -> String {
+    func launch(_ target: RustDeskTarget, name: String, connection: RemoteConnection? = nil) -> String? {
         refreshInstalled()
         guard isInstalled else {
             needsInstall = true
-            return "RustDesk n’est pas installé sur ce Mac."
+            return nil
         }
+        needsInstall = false
         let launch = RustDeskLaunch(connectionID: connection?.id, name: name, target: target.hostValue,
                                     endUser: connection?.endUser ?? "", site: connection?.folder ?? "")
         history = RustDeskHistory.adding(launch, to: history)
@@ -173,12 +176,12 @@ final class RustDeskModel: ObservableObject {
     @discardableResult
     func importPortable(_ text: String) -> Bool {
         guard let portable = RustDeskPortableConfig.parse(text) else {
-            notice = "Nom non reconnu\u{00A0}: attendu «\u{00A0}rustdesk-host=<serveur>,key=<clé>,.exe\u{00A0}»."
+            notice = ("Nom non reconnu\u{00A0}: attendu «\u{00A0}rustdesk-host=<serveur>,key=<clé>,.exe\u{00A0}».", .warning)
             return false
         }
         settings = settings.merging(portable)
-        notice = "Réglages importés du nom du client portable\u{00A0}: serveur «\u{00A0}\(portable.host)\u{00A0}»"
-            + (portable.key.isEmpty ? ", sans clé." : ", clé \(RustDeskKey.short(portable.key)).")
+        notice = ("Réglages importés du nom du client portable\u{00A0}: serveur «\u{00A0}\(portable.host)\u{00A0}»"
+            + (portable.key.isEmpty ? ", sans clé." : ", clé \(RustDeskKey.short(portable.key))."), .success)
         return true
     }
 

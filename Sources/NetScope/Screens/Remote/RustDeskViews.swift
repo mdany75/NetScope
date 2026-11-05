@@ -42,14 +42,16 @@ struct RustDeskDetailSection: View {
                             if let message = rustdesk.supportMessage {
                                 rustdesk.copy(message)
                                 flash("Lien d’assistance copié")
-                            } else {
-                                model.toast = "Aucun lien d’assistance\u{00A0}: indiquez la page de l’usager dans Réglages › RustDesk."
                             }
                         } label: {
                             Label("Lien pour l’usager", systemImage: "link").labelStyle(RemoteCompactLabelStyle())
                         }
                         .buttonStyle(RemoteSmallButtonStyle())
-                        .help("Copier le lien d’assistance pour l’usager (page du client portable préconfiguré)")
+                        // Comme dans Réglages › RustDesk : sans lien d'assistance, le bouton est désactivé.
+                        .disabled(rustdesk.supportMessage == nil)
+                        .help(rustdesk.supportMessage == nil
+                              ? "Indiquez la page d’assistance dans Réglages › RustDesk"
+                              : "Copier le lien d’assistance pour l’usager (page du client portable préconfiguré)")
                     }
                     if let copied {
                         Label(copied, systemImage: "checkmark").font(Theme.caption).foregroundStyle(Theme.success)
@@ -138,7 +140,7 @@ struct RustDeskQuickBox: View {
                     .foregroundStyle(RemoteProtocol.rustdesk.tint)
                     .frame(width: 26, height: 26)
                     .background(RoundedRectangle(cornerRadius: 6).fill(RemoteProtocol.rustdesk.soft))
-                TextField("", text: $text, prompt: Text("ID donné par l’usager · 123 456 789").foregroundStyle(Theme.textTertiary))
+                TextField("", text: $text, prompt: Text("ID de l’usager (123 456 789)").foregroundStyle(Theme.textTertiary))
                     .textFieldStyle(.plain)
                     .font(Theme.mono(13))
                     .padding(.horizontal, 10)
@@ -153,14 +155,19 @@ struct RustDeskQuickBox: View {
                 .buttonStyle(RemoteSmallButtonStyle(primary: true))
                 .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            HStack(spacing: 10) {
+            // L'aide passe sous la case : jamais tronquée en petite fenêtre.
+            VStack(alignment: .leading, spacing: 4) {
                 Toggle("Ajouter au carnet", isOn: $saveToBook).toggleStyle(.checkbox).font(Theme.small)
-                if let error {
-                    Text(error).font(Theme.caption).foregroundStyle(Theme.critical).lineLimit(2)
-                } else {
-                    Text("Espaces acceptés\u{00A0}; une IPv4 ouvre l’accès IP direct (21118).")
-                        .font(Theme.caption).foregroundStyle(Theme.textTertiary).lineLimit(1)
+                Group {
+                    if let error {
+                        Text(error).foregroundStyle(Theme.critical)
+                    } else {
+                        Text("Espaces acceptés\u{00A0}; une IPv4 ouvre l’accès IP direct (21118).")
+                            .foregroundStyle(Theme.textTertiary)
+                    }
                 }
+                .font(Theme.caption)
+                .fixedSize(horizontal: false, vertical: true)
             }
             if !rustdesk.history.isEmpty {
                 VStack(spacing: 0) {
@@ -194,7 +201,7 @@ struct RustDeskQuickBox: View {
                 if let id = launch.connectionID, let connection = model.connections.first(where: { $0.id == id }) {
                     model.connectRustDesk(connection)
                 } else if let target = try? RustDeskTarget.parse(launch.target) {
-                    model.toast = rustdesk.launch(target, name: launch.name)
+                    if let message = rustdesk.launch(target, name: launch.name) { model.toast = message }
                 }
             } label: {
                 Image(systemName: "arrow.clockwise").font(.system(size: 10, weight: .semibold))

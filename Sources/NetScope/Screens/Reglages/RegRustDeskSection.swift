@@ -71,10 +71,15 @@ struct RegRustDeskSection: View {
                                      .help("Remplit le serveur d’ID, la clé, le relais et l’API à partir du nom du fichier .exe (host=, key=, relay=, api=)")
                              }
                              if let notice = rustdesk.notice {
-                                 RegNotice(notice, tone: notice.hasPrefix("Nom non reconnu") ? .warning : .success)
+                                 RegNotice(notice.text, tone: notice.tone)
                              }
                          }
                          .padding(.top, 4)
+                         // Avis effacé dès qu'on saisit un autre nom, et en quittant la section.
+                         .onChange(of: portableName) { _, value in
+                             if !value.isEmpty { rustdesk.notice = nil }
+                         }
+                         .onDisappear { rustdesk.notice = nil }
                      }
                  })
     }

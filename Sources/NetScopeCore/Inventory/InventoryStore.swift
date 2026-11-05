@@ -596,6 +596,7 @@ public struct InventoryStore: Codable, Sendable {
         notes.isFavorite = notes.isFavorite || extra.isFavorite
         if (notes.customVendor ?? "").isEmpty { notes.customVendor = extra.customVendor }
         if notes.hardware == nil { notes.hardware = extra.hardware }
+        if (notes.rustdeskID ?? "").isEmpty { notes.rustdeskID = extra.rustdeskID }
         keep.annotations = notes
         // Pièces jointes : celles de la fiche rattachée s'ajoutent, chacune dans son dossier d'origine.
         keep.takeAttachments(of: other)

@@ -167,6 +167,21 @@ func registerRustDeskTests(_ suite: TestSuite) {
         try expectEqual(RustDeskWire.testNatResponsePort(response), 53_122, "port vu par le serveur")
         try expectEqual(RustDeskWire.testNatResponsePort([0xAA, 0x01, 0x00]), 0, "port absent")
         try expect(RustDeskWire.testNatResponsePort([0x3A, 0x00]) == nil, "autre message")
+        // Varint géant (10 octets) comme longueur d'un champ de type 2 : refus, pas de plantage.
+        let huge: [UInt8] = [0xAA, 0x01] + Array(repeating: 0xFF, count: 9) + [0x01]
+        try expect(RustDeskWire.testNatResponsePort(huge) == nil, "longueur géante refusée")
+        try expect(RustDeskWire.messageField([0x12] + Array(repeating: 0xFF, count: 9) + [0x01]) == nil, "longueur géante (messageField)")
+        // Port géant dans un TestNatResponse : borné, sans plantage.
+        let bigPort: [UInt8] = [0xAA, 0x01, 0x0B, 0x08] + Array(repeating: 0xFF, count: 9) + [0x01]
+        try expectEqual(RustDeskWire.testNatResponsePort(bigPort), 0, "port hors de Int : ignoré")
+        try expectEqual(RustDeskWire.testNatResponsePort([0xAA, 0x01, 0x04, 0x08, 0xFF, 0xFF, 0x07]), 65_535, "port borné")
+        // Datagrammes d'autres services : pas une réponse rendezvous.
+        try expect(RustDeskWire.messageField([0x08, 0x01]) == nil, "champ varint seul")
+        try expect(RustDeskWire.messageField([0xFA, 0x03, 0x00]) == nil, "champ inconnu (63)")
+        try expect(RustDeskWire.messageField([0x3A, 0x00, 0x3A, 0x00]) == nil, "deux champs")
+        try expectEqual(RustDeskWire.messageField([0x3A, 0x00]), 7, "RegisterPeerResponse vide")
+        // Trame annonçant une longueur démesurée : jamais complète.
+        try expect(RustDeskWire.unframe([0xFF, 0xFF, 0xFF, 0xFF, 0x00]) == nil, "longueur annoncée trop grande")
         let register = RustDeskWire.registerPeer(id: "netscope.sonde.ab12cd34")
         try expectEqual(Array(register.prefix(2)), [0x32, 0x19], "RegisterPeer (champ 6)")
         try expectEqual(RustDeskWire.messageField(register), 6, "champ relu")
@@ -213,6 +228,15 @@ func registerRustDeskTests(_ suite: TestSuite) {
         let shifted = RustDeskVIP(name: "Décalé", externalIP: "203.0.113.45", mappedIP: "192.168.10.20", portForward: true,
                                   proto: "tcp", externalPorts: 21116...21116, mappedPorts: 31116...31116)
         try expectEqual(RustDeskVIPCheck.evaluate([shifted], settings: RustDeskServerSettings(idServer: "a.exemple.ca"))[1].level, .warning, "port changé")
+        // NAT statique sans rapport avec RustDesk (serveur web) : jamais une preuve.
+        let web = RustDeskVIP(name: "NAT-Web", externalIP: "203.0.113.10", mappedIP: "192.168.1.50", portForward: false)
+        var bare = RustDeskServerSettings(idServer: "a.exemple.ca", publicKey: key)
+        try expectEqual(RustDeskVIPCheck.evaluate([web], settings: bare).map(\.level), [.warning, .warning, .warning, .warning], "NAT statique à confirmer")
+        bare.internalAddress = "192.168.10.20"
+        let unrelated = RustDeskVIPCheck.evaluate([web], settings: bare)
+        try expect(unrelated.allSatisfy { $0.level == .error && $0.title.contains("aucun VIP") }, "NAT statique d'un autre serveur : aucun VIP")
+        let natRD = RustDeskVIP(name: "NAT-RD", externalIP: "203.0.113.11", mappedIP: "192.168.10.20", portForward: false)
+        try expectEqual(RustDeskVIPCheck.evaluate([web, natRD], settings: bare).map(\.level), [.ok, .ok, .ok, .ok], "NAT statique vers le serveur")
         let transport = RustDeskFixedTransport(body: Data(json.utf8))
         let read = try await RustDeskVIPCheck.read(transport: transport)
         try expectEqual(read.count, 3, "lecture par le transport FortiGate (GET)")

@@ -173,7 +173,11 @@ struct RemoteConnectionList: View {
                         }
                     }
                     Spacer(minLength: 4)
-                    RemoteReachDot(state: reach).help(reach.label)
+                    if connection.isRustDeskByID {
+                        RemoteByIDDot()
+                    } else {
+                        RemoteReachDot(state: reach).help(reach.label)
+                    }
                 }
                 .padding(.leading, 6)
                 .padding(.trailing, 2)

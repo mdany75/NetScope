@@ -40,6 +40,9 @@ struct ContentView: View {
             .quickLoginPrompt()
             // Note 73 : confirmation des actions sur un port (cycle PoE, redémarrage).
             .portActionPrompt()
+            // Note 6 : « RustDesk n'est pas installé », une seule alerte pour tous les écrans
+            // (Accès distant, Inventaire, fiche Appareil, Scanner).
+            .rustDeskInstallAlert()
             .id(state.screen)
                 .navigationTitle(state.screen.pageTitle)
                 .navigationSubtitle(SitePicker.windowSubtitle(activeName: sites.activeSite?.displayName))

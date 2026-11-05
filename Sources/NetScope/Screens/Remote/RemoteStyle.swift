@@ -98,6 +98,19 @@ struct RemoteReachDot: View {
     }
 }
 
+/// Note 6 : poste RustDesk joint par son ID (jamais sondé) : pastille neutre, pas « Non vérifiée ».
+struct RemoteByIDDot: View {
+    var size: CGFloat = 9
+
+    var body: some View {
+        Image(systemName: "number.circle")
+            .font(.system(size: size + 2, weight: .medium))
+            .foregroundStyle(Theme.textTertiary)
+            .frame(width: size + 2, height: size + 2)
+            .help("Joint par le serveur d’ID RustDesk (aucune sonde)")
+    }
+}
+
 extension RemoteReachability {
     var label: String {
         switch self {

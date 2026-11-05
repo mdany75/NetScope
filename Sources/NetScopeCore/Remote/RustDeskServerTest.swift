@@ -37,7 +37,11 @@ public enum RustDeskWire {
         return header + payload
     }
 
-    /// Première trame complète ; nil si les octets ne suffisent pas encore.
+    /// Taille maximale d'une réponse lue (un TestNatResponse fait quelques octets).
+    public static let maxReply = 4_096
+
+    /// Première trame complète ; nil si les octets ne suffisent pas encore, ou si la longueur
+    /// annoncée dépasse `maxReply`.
     public static func unframe(_ bytes: [UInt8]) -> (payload: [UInt8], consumed: Int)? {
         guard let first = bytes.first else { return nil }
         let headerLength = Int(first & 0x3) + 1
@@ -45,7 +49,7 @@ public enum RustDeskWire {
         var value = 0
         for index in 0..<headerLength { value |= Int(bytes[index]) << (8 * index) }
         let length = value >> 2
-        guard bytes.count >= headerLength + length else { return nil }
+        guard length <= maxReply, bytes.count >= headerLength + length else { return nil }
         return (Array(bytes[headerLength..<(headerLength + length)]), headerLength + length)
     }
 
@@ -102,9 +106,11 @@ public enum RustDeskWire {
                 guard let value = readVarint(bytes, &index) else { return nil }
                 result.append((field, value, nil))
             case 2:
-                guard let length = readVarint(bytes, &index), index + Int(length) <= bytes.count else { return nil }
-                result.append((field, nil, Array(bytes[index..<(index + Int(length))])))
-                index += Int(length)
+                // Longueur venue du réseau : la borner avant toute conversion en Int.
+                guard let length = readVarint(bytes, &index), length <= UInt64(bytes.count - index) else { return nil }
+                let n = Int(length)
+                result.append((field, nil, Array(bytes[index..<(index + n)])))
+                index += n
             case 5:
                 guard index + 4 <= bytes.count else { return nil }
                 index += 4
@@ -118,9 +124,16 @@ public enum RustDeskWire {
         return result
     }
 
-    /// Numéro du message reçu (champ du oneof de RendezvousMessage).
+    /// Numéros de champ du oneof de RendezvousMessage (1 à 30, tous des messages).
+    static let rendezvousFields = 1...30
+
+    /// Numéro du message reçu (champ du oneof de RendezvousMessage) ; nil si les octets ne
+    /// forment pas exactement un message rendezvous (un seul champ connu, de type message,
+    /// lu sans reste) : la réponse d'un autre service UDP n'est pas comptée.
     public static func messageField(_ payload: [UInt8]) -> Int? {
-        fields(payload)?.first?.field
+        guard let top = fields(payload), top.count == 1, let only = top.first,
+              only.body != nil, rendezvousFields.contains(only.field) else { return nil }
+        return only.field
     }
 
     /// Port source vu par le serveur dans un TestNatResponse (0 s'il est absent) ; nil si ce
@@ -128,7 +141,8 @@ public enum RustDeskWire {
     public static func testNatResponsePort(_ payload: [UInt8]) -> Int? {
         guard let top = fields(payload), let message = top.first(where: { $0.field == testNatResponseField }) else { return nil }
         let inner = fields(message.body ?? []) ?? []
-        return Int(inner.first(where: { $0.field == 1 })?.varint ?? 0)
+        // Port venu du réseau : conversion exacte, bornée à 0...65535.
+        return inner.first(where: { $0.field == 1 })?.varint.flatMap { Int(exactly: $0) }.map { min($0, 65_535) } ?? 0
     }
 }
 
@@ -273,9 +287,10 @@ struct RustDeskExchange: Sendable {
             @Sendable func receive() {
                 connection.receive(minimumIncompleteLength: 1, maximumLength: 2_048) { data, _, complete, error in
                     if let data, !data.isEmpty {
-                        state.append([UInt8](data), millis: elapsed())
+                        let full = state.append([UInt8](data), millis: elapsed())
                         // TCP : attendre une trame complète ; UDP : un datagramme suffit.
-                        if udp || RustDeskWire.unframe(state.result.reply ?? []) != nil { return finish() }
+                        // Au-delà de maxReply, on arrête de lire (réponse trop longue).
+                        if udp || full || RustDeskWire.unframe(state.result.reply ?? []) != nil { return finish() }
                     }
                     if error != nil || complete { return finish() }
                     receive()
@@ -320,10 +335,15 @@ final class RustDeskExchangeState: @unchecked Sendable {
         value.connectMillis = millis
     }
 
-    func append(_ bytes: [UInt8], millis: Int) {
+    /// Ajoute les octets reçus, sans dépasser `RustDeskWire.maxReply` ; vrai si le plafond est atteint.
+    @discardableResult
+    func append(_ bytes: [UInt8], millis: Int) -> Bool {
         lock.lock(); defer { lock.unlock() }
         if value.replyMillis == nil { value.replyMillis = millis }
-        value.reply = (value.reply ?? []) + bytes
+        var reply = value.reply ?? []
+        reply.append(contentsOf: bytes.prefix(max(0, RustDeskWire.maxReply - reply.count)))
+        value.reply = reply
+        return reply.count >= RustDeskWire.maxReply
     }
 }
 
@@ -417,10 +437,20 @@ public enum RustDeskVIPCheck {
         let interne = settings.internalAddress.trimmingCharacters(in: .whitespaces)
         return requiredPorts(settings).map { required in
             let label = "\(required.proto.uppercased()) \(required.port)"
-            guard let vip = vips.first(where: { $0.portForward && $0.covers(required.proto, port: required.port) })
-                    ?? vips.first(where: { $0.covers(required.proto, port: required.port) }) else {
-                return RustDeskFinding(.error, "\(label) (\(required.role))\u{00A0}: aucun VIP",
-                                       "Créer un VIP \(label) vers l’adresse interne du serveur, et la règle de pare-feu qui l’autorise.")
+            let missing = RustDeskFinding(.error, "\(label) (\(required.role))\u{00A0}: aucun VIP",
+                                          "Créer un VIP \(label) vers l’adresse interne du serveur, et la règle de pare-feu qui l’autorise.")
+            let vip: RustDeskVIP
+            if let forward = vips.first(where: { $0.portForward && $0.covers(required.proto, port: required.port) }) {
+                vip = forward
+            } else if !interne.isEmpty {
+                // Repli : un NAT statique ne compte que s'il vise le serveur lui-même.
+                guard let nat = vips.first(where: { !$0.portForward && $0.mappedIP == interne }) else { return missing }
+                vip = nat
+            } else {
+                // Sans adresse interne, un NAT statique peut viser n'importe quel serveur : à confirmer.
+                guard let nat = vips.first(where: { !$0.portForward && isPrivate($0.mappedIP) && $0.mappedIP != $0.externalIP }) else { return missing }
+                return RustDeskFinding(.warning, "\(label) (\(required.role))\u{00A0}: NAT statique «\u{00A0}\(nat.name)\u{00A0}» trouvé, à confirmer",
+                                       "Aucun VIP de redirection pour ce port. Le NAT statique \(nat.externalIP) → \(nat.mappedIP) ne vise peut-être pas le serveur RustDesk\u{00A0}: indiquez son adresse interne pour le vérifier.")
             }
             let target = vip.mappedIP
             if !interne.isEmpty, target != interne {

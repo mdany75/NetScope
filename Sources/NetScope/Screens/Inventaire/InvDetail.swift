@@ -44,8 +44,6 @@ struct InvDetail: View {
             layouts
             InvAttachmentsPanel(record: record, siteKey: site)
         }
-        // Note 6 : RustDesk absent au moment de « Connecter par RustDesk ».
-        .rustDeskInstallAlert()
         .sheet(item: $editing) { mode in
             InvManualSheet(mode: mode, onDone: { key, site in onCreated(site, key) }, dismiss: { editing = nil })
         }
@@ -327,7 +325,7 @@ struct InvDetail: View {
         let id = current.validRustDeskID
         return Button {
             guard let id else { return }
-            if let message = RemoteModel.shared.connectRustDesk(id: id, name: record.displayName) { model.show(message) }
+            model.showRustDesk(RemoteModel.shared.connectRustDesk(id: id, name: record.displayName))
         } label: {
             Label("Connecter par RustDesk", systemImage: RemoteProtocol.rustdesk.symbol)
         }

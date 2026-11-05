@@ -18,7 +18,8 @@ struct RemoteScreen: View {
                 .onChange(of: state.searchText) { _, text in model.toolbarSearch = text }
             if let toast = model.toast {
                 HStack(spacing: 10) {
-                    Image(systemName: "checkmark.circle").font(.system(size: 13, weight: .semibold))
+                    Image(systemName: model.toastIsError ? "exclamationmark.triangle" : "checkmark.circle")
+                        .font(.system(size: 13, weight: .semibold))
                     Text(toast).font(.system(size: 12, weight: .medium))
                     Spacer()
                     Button {
@@ -29,10 +30,11 @@ struct RemoteScreen: View {
                     .buttonStyle(.plain)
                     .help("Fermer le message")
                 }
-                .foregroundStyle(Theme.success)
+                // Erreur : ton d'avertissement, jamais la coche verte de réussite.
+                .foregroundStyle(model.toastIsError ? Theme.warning : Theme.success)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.successSoft))
+                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(model.toastIsError ? Theme.warningSoft : Theme.successSoft))
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
             }
@@ -94,8 +96,6 @@ struct RemoteScreen: View {
             }
             .buttonStyle(.secondary)
         }
-        // Note 6 : RustDesk absent au moment de « Connecter ».
-        .rustDeskInstallAlert()
         .confirmationDialog("Supprimer la connexion « \(model.pendingDeletion?.name ?? "") » ?",
                             isPresented: Binding(get: { model.pendingDeletion != nil },
                                                  set: { if !$0 { model.pendingDeletion = nil } }),

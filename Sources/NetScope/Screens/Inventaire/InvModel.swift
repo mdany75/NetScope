@@ -467,6 +467,15 @@ final class InvModel: ObservableObject {
         }
     }
 
+    /// Note 6 : issue de « Connecter par RustDesk », montrée dans l'Inventaire (RustDesk absent :
+    /// l'alerte de téléchargement de la fenêtre principale s'en charge).
+    func showRustDesk(_ outcome: RemoteModel.RustDeskOutcome) {
+        switch outcome {
+        case .opened(let message), .failed(let message): show(message)
+        case .notInstalled: break
+        }
+    }
+
     func show(_ message: String, undo: Bool = false) {
         toast = message
         toastUndo = undo

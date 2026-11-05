@@ -243,6 +243,10 @@ func registerInventoryTests(_ suite: TestSuite) {
         store.merge([dev("10.0.0.160", "3C:22:FB:7E:05:B2", host: "Macmini-de-Dany", online: true, sw: "SW", port: "1/11")], at: t0)
         store.merge([dev("10.0.0.160", "3C:22:FB:7E:05:B2", host: "Macmini-de-Dany", online: false)], at: t0.addingTimeInterval(3600))
         store.merge([dev("10.0.0.135", "3C:22:FB:7E:05:B1", host: "Macmini-de-Dany", seen: t0.addingTimeInterval(7200))], at: t0.addingTimeInterval(7200))
+        // ID RustDesk saisi sur l'ancienne fiche (MAC …:B2) : repris par la fusion (note 6).
+        var old = store.record("mac:3c:22:fb:7e:05:b2")!.annotations
+        old.rustdeskID = "123 456 789"
+        store.setAnnotations(old, for: "mac:3c:22:fb:7e:05:b2", at: t0.addingTimeInterval(7250))
         let duplicates = store.probableDuplicates()
         try expectEqual(duplicates.count, 1, "une paire")
         try expectEqual(duplicates[0].keep, "mac:3c:22:fb:7e:05:b1", "fiche la plus récente conservée")
@@ -251,6 +255,7 @@ func registerInventoryTests(_ suite: TestSuite) {
         let kept = store.record("mac:3c:22:fb:7e:05:b1")!
         try expectEqual(kept.ipHistory.map(\.ip.description), ["10.0.0.160", "10.0.0.135"], "historique des IP réuni")
         try expectEqual(kept.portHistory.count, 1, "historique des ports repris")
+        try expectEqual(kept.annotations.rustdeskID, "123 456 789", "ID RustDesk repris")
         try expect(store.events(for: kept.key).contains { $0.kind == .fusion }, "événement de fusion")
         try expect(store.probableDuplicates().isEmpty, "plus de doublon")
     }
