@@ -193,6 +193,11 @@ public struct FlowAggregator: Sendable {
 
     public func lastSeen(_ exporter: IPv4Address) -> Date? { exporters[exporter]?.lastSeen }
 
+    /// Vrai si l'exportateur est déjà suivi, ou s'il reste de la place pour lui.
+    public func accepts(_ exporter: IPv4Address) -> Bool {
+        exporters[exporter] != nil || exporters.count < limits.maxExporters
+    }
+
     public mutating func forget(exporter: IPv4Address) { exporters[exporter] = nil }
 
     public mutating func removeAll() { exporters = [:] }
@@ -255,16 +260,20 @@ public struct FlowAggregator: Sendable {
         let all = FlowMath.add(bytes, reverse)
         window.kinds.insert(record.kind)
         window.maxSampling = max(window.maxSampling, record.samplingRate)
+        // Le volume « hors tableaux » est compté une seule fois par enregistrement, même si
+        // plusieurs tableaux sont pleins.
+        var overflowed = false
+        defer { if overflowed { window.overflow = FlowMath.add(window.overflow, all) } }
         // Interfaces : le flux entre par l'une et sort par l'autre (le sens inverse à l'envers).
         if let input = record.inputInterface, input != 0 {
-            bump(&window.interfaces, input, limits.interfacesPerWindow, &window.overflow, all) {
+            bump(&window.interfaces, input, limits.interfacesPerWindow, &overflowed) {
                 $0.inBytes = FlowMath.add($0.inBytes, bytes)
                 $0.outBytes = FlowMath.add($0.outBytes, reverse)
                 $0.flows += 1
             }
         }
         if let output = record.outputInterface, output != 0 {
-            bump(&window.interfaces, output, limits.interfacesPerWindow, &window.overflow, all) {
+            bump(&window.interfaces, output, limits.interfacesPerWindow, &overflowed) {
                 $0.outBytes = FlowMath.add($0.outBytes, bytes)
                 $0.inBytes = FlowMath.add($0.inBytes, reverse)
                 $0.flows += 1
@@ -279,8 +288,8 @@ public struct FlowAggregator: Sendable {
             ? FlowVolume(sent: bytes, received: reverse, packets: packets, flows: 1)
             : FlowVolume(sent: reverse, received: bytes, packets: packets, flows: 1)
         window.total.merge(volume)
-        bump(&window.hosts, local, limits.hostsPerWindow, &window.overflow, all) { $0.merge(volume) }
-        bump(&window.remotes, remote, limits.remotesPerWindow, &window.overflow, all) { $0.merge(volume) }
+        bump(&window.hosts, local, limits.hostsPerWindow, &overflowed) { $0.merge(volume) }
+        bump(&window.remotes, remote, limits.remotesPerWindow, &overflowed) { $0.merge(volume) }
         let port = FlowApplications.servicePort(proto: record.proto, sourcePort: record.sourcePort, destinationPort: record.destinationPort)
         let app = FlowApplications.application(proto: record.proto, port: port)
         if window.applications[app.name] != nil || window.applications.count < limits.applicationsPerWindow {
@@ -288,7 +297,7 @@ public struct FlowAggregator: Sendable {
             entry.1.merge(volume)
             window.applications[app.name] = entry
         } else {
-            window.overflow = FlowMath.add(window.overflow, all)
+            overflowed = true
         }
         let key = ConversationKey(local: local, remote: remote, proto: record.proto, port: port)
         if window.conversations[key] != nil || window.conversations.count < limits.conversationsPerWindow {
@@ -297,7 +306,7 @@ public struct FlowAggregator: Sendable {
             if let duration = record.durationMs { value.durationMs = max(value.durationMs ?? 0, duration) }
             window.conversations[key] = value
         } else {
-            window.overflow = FlowMath.add(window.overflow, all)
+            overflowed = true
         }
         // Interface vers Internet : celle par où sort le trafic vers une adresse publique (ou par
         // où il entre depuis une adresse publique).
@@ -309,11 +318,11 @@ public struct FlowAggregator: Sendable {
 
     /// Met à jour une ligne existante, ou en crée une si le tableau n'est pas plein (sinon le volume
     /// va dans « autres »).
-    private static func bump<K: Hashable, V: Sendable>(_ map: inout [K: V], _ key: K, _ cap: Int, _ overflow: inout UInt64,
-                                                       _ bytes: UInt64, _ update: (inout V) -> Void) where V: DefaultInit {
+    private static func bump<K: Hashable, V: Sendable>(_ map: inout [K: V], _ key: K, _ cap: Int, _ overflowed: inout Bool,
+                                                       _ update: (inout V) -> Void) where V: DefaultInit {
         if map[key] == nil {
             guard map.count < cap else {
-                overflow = FlowMath.add(overflow, bytes)
+                overflowed = true
                 return
             }
             map[key] = V.empty
@@ -323,6 +332,9 @@ public struct FlowAggregator: Sendable {
 
     // MARK: Compteurs sFlow
 
+    /// Débit au-delà duquel un compteur d'interface est jugé faux (1 Tb/s).
+    static let maxCounterBps: Double = 1e12
+
     public mutating func add(_ counters: FlowInterfaceCounters, at date: Date) {
         guard touch(counters.exporter, at: date), var state = exporters[counters.exporter] else { return }
         var entry = state.counters[counters.ifIndex] ?? CounterState(last: counters, date: date)
@@ -330,8 +342,13 @@ public struct FlowAggregator: Sendable {
             let dt = date.timeIntervalSince(entry.date)
             // Compteur remis à zéro (redémarrage) : pas de débit cette fois.
             if dt >= 1, counters.inOctets >= entry.last.inOctets, counters.outOctets >= entry.last.outOctets {
-                entry.inBps = Double(counters.inOctets - entry.last.inOctets) * 8 / dt
-                entry.outBps = Double(counters.outOctets - entry.last.outOctets) * 8 / dt
+                // Un débit absurde (compteur forgé ou saut de 0 à une valeur énorme) est ignoré :
+                // plus de 8 fois la vitesse annoncée, ou plus de 1 Tb/s.
+                let ceiling = min(Self.maxCounterBps, counters.speed > 0 ? Double(counters.speed) * 8 : Self.maxCounterBps)
+                let inBps = Double(counters.inOctets - entry.last.inOctets) * 8 / dt
+                let outBps = Double(counters.outOctets - entry.last.outOctets) * 8 / dt
+                entry.inBps = inBps.isFinite && inBps <= ceiling ? inBps : nil
+                entry.outBps = outBps.isFinite && outBps <= ceiling ? outBps : nil
             }
             let errors = UInt64(counters.inErrors) + UInt64(counters.outErrors)
             let previousErrors = UInt64(entry.last.inErrors) + UInt64(entry.last.outErrors)
@@ -405,19 +422,27 @@ public struct FlowAggregator: Sendable {
             target.interfaces[key] = entry
         }
         for (key, value) in source.wanVotes { target.wanVotes[key] = FlowMath.add(target.wanVotes[key] ?? 0, value) }
-        trim(&target.hosts, limits.hostsPerWindow, bytes: { $0.bytes }, overflow: &target.overflow)
-        trim(&target.remotes, limits.remotesPerWindow, bytes: { $0.bytes }, overflow: &target.overflow)
-        trim(&target.applications, limits.applicationsPerWindow, bytes: { $0.1.bytes }, overflow: &target.overflow)
-        trim(&target.conversations, limits.conversationsPerWindow, bytes: { $0.volume.bytes }, overflow: &target.overflow)
+        // Un même volume peut sortir de plusieurs tableaux : on ne compte que le plus gros des
+        // débordements, pour ne pas le compter plusieurs fois.
+        let dropped = [
+            trim(&target.hosts, limits.hostsPerWindow, bytes: { $0.bytes }),
+            trim(&target.remotes, limits.remotesPerWindow, bytes: { $0.bytes }),
+            trim(&target.applications, limits.applicationsPerWindow, bytes: { $0.1.bytes }),
+            trim(&target.conversations, limits.conversationsPerWindow, bytes: { $0.volume.bytes }),
+        ].max() ?? 0
+        target.overflow = FlowMath.add(target.overflow, dropped)
     }
 
-    private static func trim<K: Hashable, V>(_ map: inout [K: V], _ cap: Int, bytes: (V) -> UInt64, overflow: inout UInt64) {
-        guard map.count > cap else { return }
+    /// Garde les `cap` plus grosses lignes et renvoie le volume des lignes retirées.
+    private static func trim<K: Hashable, V>(_ map: inout [K: V], _ cap: Int, bytes: (V) -> UInt64) -> UInt64 {
+        guard map.count > cap else { return 0 }
         let sorted = map.sorted { bytes($0.value) > bytes($1.value) }
+        var dropped: UInt64 = 0
         for (key, value) in sorted.dropFirst(cap) {
-            overflow = FlowMath.add(overflow, bytes(value))
+            dropped = FlowMath.add(dropped, bytes(value))
             map[key] = nil
         }
+        return dropped
     }
 
     /// Nombre de lignes gardées en mémoire (tous exportateurs, toutes fenêtres) : sert aux tests

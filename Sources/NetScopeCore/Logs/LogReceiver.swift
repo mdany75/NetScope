@@ -258,13 +258,23 @@ public enum LogDecoder {
 public extension TFTPFirewallStatus {
     /// Avertissement pour les récepteurs de journaux, ou nil si le coupe-feu ne gêne pas.
     var logWarning: String? {
+        warning(nothing: "aucun message Syslog ni aucune trap n’arrivera", what: "les messages des équipements")
+    }
+
+    /// Avertissement pour le collecteur de flux (NetFlow, sFlow, IPFIX), ou nil.
+    var flowWarning: String? {
+        warning(nothing: "aucun flux NetFlow, sFlow ou IPFIX n’arrivera", what: "les flux des équipements")
+    }
+
+    /// `nothing` : ce qui n'arrivera pas (« aucun message Syslog… ») ; `what` : ce qui est reçu.
+    func warning(nothing: String, what: String) -> String? {
         guard enabled else { return nil }
         if blockAll {
-            return "Le coupe-feu de macOS bloque toutes les connexions entrantes\u{00A0}: aucun message Syslog ni aucune trap n’arrivera. Désactivez «\u{00A0}Bloquer toutes les connexions entrantes\u{00A0}» dans Réglages Système › Réseau › Coupe-feu le temps de l’enquête."
+            return "Le coupe-feu de macOS bloque toutes les connexions entrantes\u{00A0}: \(nothing). Désactivez «\u{00A0}Bloquer toutes les connexions entrantes\u{00A0}» dans Réglages Système › Réseau › Coupe-feu le temps de l’enquête."
         }
         switch app {
         case .blocked:
-            return "Le coupe-feu de macOS bloque les connexions entrantes vers NetScope\u{00A0}: autorisez NetScope dans Réglages Système › Réseau › Coupe-feu › Options, sinon les messages des équipements n’arriveront pas."
+            return "Le coupe-feu de macOS bloque les connexions entrantes vers NetScope\u{00A0}: autorisez NetScope dans Réglages Système › Réseau › Coupe-feu › Options, sinon \(what) n’arriveront pas."
         case .unknown:
             return "Le coupe-feu de macOS est actif\u{00A0}: au premier démarrage, macOS demandera d’accepter les connexions entrantes pour NetScope. Répondez «\u{00A0}Autoriser\u{00A0}»."
         case .allowed:

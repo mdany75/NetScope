@@ -14,7 +14,8 @@ import Foundation
 /// sondes exclues, heures de silence, anti-rafale) : on peut ne recevoir sur le téléphone que
 /// le critique, ou que les sondes de certains sites.
 public struct AlertChannelFilter: Codable, Equatable, Sendable {
-    /// Gravité minimale envoyée sur ce canal (un rétablissement suit toujours sa panne).
+    /// Gravité minimale envoyée sur ce canal (un rétablissement suit sa panne : il part seulement
+    /// si la panne qu'il clôt passait ce filtre).
     public var minimumSeverity: AlertSeverity = .info
     /// Sites retenus (vide : tous). Un événement sans site (service en ligne, test DHCP, scan)
     /// passe toujours : il ne dépend d'aucun site.
@@ -36,7 +37,12 @@ public struct AlertChannelFilter: Codable, Equatable, Sendable {
     /// Vrai si l'événement part sur ce canal.
     public func accepts(_ event: AlertEvent) -> Bool {
         if event.kind == .test { return true }
-        if event.kind != .probeRecovered, event.severity < minimumSeverity { return false }
+        if event.kind == .probeRecovered {
+            // Gravité de la panne close (inconnue : le rétablissement passe, comme avant).
+            if let closed = event.closedSeverity, closed < minimumSeverity { return false }
+        } else if event.severity < minimumSeverity {
+            return false
+        }
         if !siteIDs.isEmpty, let site = event.siteID, !siteIDs.contains(site) { return false }
         return true
     }

@@ -214,6 +214,7 @@ struct FlowEntryTable: View {
         let sorted = rows.sorted(using: table.sortOrder)
         VStack(alignment: .leading, spacing: 6) {
             TrafficTableBar(title: tab.label + " " + FlowTrafficBridge.span(period), count: sorted.count) {
+                FlowCSVButton(name: "flux-\(tab.rawValue)") { FlowCSV.entries(sorted, multi: multiExporter) }
                 ToolColumnsMenu(model: table)
             }
             ToolStandardTableFrame(rowCount: sorted.count, maxRows: 14, emptyText: "Aucun flux \(FlowTrafficBridge.span(period)).") {
@@ -416,6 +417,7 @@ struct FlowConversationTable: View {
         let sorted = rows.sorted(using: table.sortOrder)
         VStack(alignment: .leading, spacing: 6) {
             TrafficTableBar(title: "Conversations " + FlowTrafficBridge.span(period), count: sorted.count) {
+                FlowCSVButton(name: "flux-conversations") { FlowCSV.conversations(sorted, multi: multiExporter) }
                 ToolColumnsMenu(model: table)
             }
             ToolStandardTableFrame(rowCount: sorted.count, maxRows: 14, emptyText: "Aucune conversation \(FlowTrafficBridge.span(period)).") {
@@ -655,8 +657,13 @@ struct FlowExporterEditor: View {
                 TextField("Nom", text: $name, prompt: Text(exporter.description))
                 Picker("Lien Internet", selection: $wan) {
                     Text(summary?.wanInterface.map { "Deviné (\(FlowTrafficBridge.interfaceName($0)))" } ?? "Deviné d’après les flux").tag(UInt32(0))
-                    ForEach(summary?.interfaces.map(\.index).sorted() ?? [], id: \.self) { index in
+                    let indices = summary?.interfaces.map(\.index).sorted() ?? []
+                    ForEach(indices, id: \.self) { index in
                         Text(FlowTrafficBridge.interfaceName(index)).tag(index)
+                    }
+                    // Interface enregistrée pas encore revue dans les flux (après un redémarrage).
+                    if let saved = flows.settings(for: exporter).wanInterface, saved != 0, !indices.contains(saved) {
+                        Text(FlowTrafficBridge.interfaceName(saved) + " (enregistrée)").tag(saved)
                     }
                 }
                 TextField("Débit descendant (Mb/s)", text: $down, prompt: Text("500"))
@@ -690,6 +697,56 @@ struct FlowExporterEditor: View {
     }
 
     static func number(_ text: String) -> Double? {
-        Double(text.replacingOccurrences(of: ",", with: ".").trimmingCharacters(in: .whitespaces)).flatMap { $0 > 0 ? $0 : nil }
+        Double(text.replacingOccurrences(of: ",", with: ".").trimmingCharacters(in: .whitespaces)).flatMap { $0.isFinite && $0 > 0 && $0 <= 1_000_000 ? $0 : nil }
+    }
+}
+
+// MARK: - Export CSV
+
+/// Lignes des tableaux de flux en CSV (séparateur « ; », comme TrafficStore.csv), dans l'ordre affiché.
+enum FlowCSV {
+    static func entries(_ rows: [FlowRow], multi: Bool) -> String {
+        var lines = [(multi ? "Exportateur;" : "") + "Nom;Adresse;Débit (b/s);Envoyé (octets);Reçu (octets);Flux;Catégorie;Port de switch"]
+        for row in rows {
+            var fields: [String] = multi ? [row.entry.site] : []
+            fields += [row.name, row.entry.ip?.description ?? "", String(Int(row.entry.bandwidth)),
+                       String(row.entry.sentBytes), String(row.entry.receivedBytes), String(row.entry.sessions),
+                       row.entry.category ?? "", row.location ?? ""]
+            lines.append(fields.map(AnaCSV.quote).joined(separator: ";"))
+        }
+        return lines.joined(separator: "\r\n") + "\r\n"
+    }
+
+    static func conversations(_ rows: [FlowConversationRow], multi: Bool) -> String {
+        var lines = [(multi ? "Exportateur;" : "") + "Appareil;Adresse;Destination;Port;Protocole;Application;Envoyé (octets);Reçu (octets);Durée (s)"]
+        for row in rows {
+            let s = row.session
+            var fields: [String] = multi ? [s.site] : []
+            fields += [row.localName ?? "", s.source?.description ?? "", s.destination?.description ?? "",
+                       s.destinationPort.map(String.init) ?? "", s.proto, s.application ?? "",
+                       String(s.sentBytes), String(s.receivedBytes), s.duration.map(String.init) ?? ""]
+            lines.append(fields.map(AnaCSV.quote).joined(separator: ";"))
+        }
+        return lines.joined(separator: "\r\n") + "\r\n"
+    }
+}
+
+/// Bouton « Exporter CSV » d'un tableau de flux.
+struct FlowCSVButton: View {
+    let name: String
+    let text: () -> String
+    @State private var document: InvCSVDocument?
+    @State private var exporting = false
+
+    var body: some View {
+        Button {
+            document = InvCSVDocument(text: text())
+            exporting = true
+        } label: { Label("Exporter CSV", systemImage: "square.and.arrow.up") }
+            .buttonStyle(.secondary)
+            .controlSize(.small)
+            .fixedSize()
+            .fileExporter(isPresented: $exporting, document: document, contentType: .commaSeparatedText,
+                          defaultFilename: "\(name)-\(InvFormat.day(Date())).csv") { _ in }
     }
 }

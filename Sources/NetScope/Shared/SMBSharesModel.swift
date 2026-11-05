@@ -186,7 +186,13 @@ final class SMBSharesModel: ObservableObject {
     // MARK: Actions sur un partage
 
     func openInFinder(host: String, share: SMBShare) {
-        guard share.opensInFinder, let url = SMBPaths.url(host: host, share: share.name) else { return }
+        guard share.opensInFinder else {
+            // Double-clic sur IPC$, une imprimante ou un périphérique : dire pourquoi rien ne s'ouvre.
+            let why = share.kind == .ipc ? "partage système" : share.kind == .printer ? "imprimante" : "pas un disque"
+            show("\(share.name)\u{00A0}: \(why), rien à ouvrir dans le Finder (clic droit\u{00A0}: copier le chemin)")
+            return
+        }
+        guard let url = SMBPaths.url(host: host, share: share.name) else { return }
         if RegEnvironment.isSandboxed {
             show("Démonstration\u{00A0}: \(SMBPaths.readable(host: host, share: share.name)) non ouvert")
             return

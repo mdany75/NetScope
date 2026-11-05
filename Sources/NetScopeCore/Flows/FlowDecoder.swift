@@ -211,7 +211,9 @@ public struct FlowDecoder: Sendable {
                 let key = TemplateKey(exporter: exporter, domain: domain, id: setID, ipfix: ipfix)
                 let body = Array(set.bytes[set.offset..<set.end])
                 if let template = templates[key] {
-                    try readData(body, template: template, key: key, into: &result)
+                    // Un ensemble mal formé (bourrage final d'un gabarit variable, par exemple) ne
+                    // fait pas perdre le reste du datagramme : ses enregistrements lus sont gardés.
+                    try? readData(body, template: template, key: key, into: &result)
                 } else {
                     keepWaiting(key, body)
                     result.setsWaiting += 1
@@ -331,7 +333,8 @@ public struct FlowDecoder: Sendable {
                 values.set(field.type, value)
             }
             if template.isOptions {
-                if let rate = values.samplingInterval, rate > 0 {
+                if let rate = values.samplingInterval, rate > 0,
+                   sampling[exporterDomain] != nil || sampling.count < limits.maxTemplates {
                     sampling[exporterDomain] = rate
                     result.samplingRate = rate
                 }

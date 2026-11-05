@@ -152,6 +152,7 @@ final class AlertDispatcher: ObservableObject {
         // Le Trousseau n'est lu que pour les canaux de téléphone activés ou essayés.
         if settings.ntfy.isEnabled || testing.contains(.ntfy) {
             secrets.ntfyToken = keychain.string(for: AlertSecretKey.ntfyToken)
+            if settings.ntfy.isPublicServer { secrets.ntfyTopic = settings.ntfy.topic }
         }
         if settings.pushover.isEnabled || testing.contains(.pushover) {
             secrets.pushoverToken = keychain.string(for: AlertSecretKey.pushoverToken)

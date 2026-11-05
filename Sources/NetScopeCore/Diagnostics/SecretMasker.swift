@@ -56,8 +56,9 @@ public enum SecretMasker {
 
     private static let p = NSRegularExpression.escapedTemplate(for: placeholder)
 
-    /// Noms de champs secrets dans du JSON (« "password": … », « "access_token": … »).
-    private static let jsonKey = #"[A-Za-z0-9_\-]*(?:password|passwd|pwd|passphrase|token|secret|community|apikey|api_key|api-key|authorization|privkey|private_key|cookie|credential)[A-Za-z0-9_\-]*"#
+    /// Noms de champs secrets dans du JSON (« "password": … », « "access_token": … »). « topic » :
+    /// sujet ntfy, qui sert de clé de lecture sur un serveur public.
+    private static let jsonKey = #"[A-Za-z0-9_\-]*(?:password|passwd|pwd|passphrase|token|secret|community|apikey|api_key|api-key|authorization|privkey|private_key|cookie|credential|topic)[A-Za-z0-9_\-]*"#
 
     /// Noms d'un secret dans du texte libre ou un en-tête (« mot de passe : », « token= »).
     private static let textKey = #"(?:access[_\-]?token|refresh[_\-]?token|id[_\-]?token|auth[_\-]?token|session[_\-]?token|x-auth-token|x-api-key|api[_\-]?key|apikey|api[_\- ]?token|client[_\-]?secret|secret|passphrase|password|passwd|pwd|mot de passe|mot_de_passe|motdepasse|token|jeton|community|communauté|communaute|auth[_\-]?password|priv[_\-]?password|clé d[’']api|cle d[’']api)"#

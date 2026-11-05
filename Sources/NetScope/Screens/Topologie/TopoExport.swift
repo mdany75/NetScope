@@ -262,7 +262,7 @@ enum TopoExporter {
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
         guard panel.runModal() == .OK, let url = panel.url else { return nil }
-        guard let data = data(content, format: format) else { return .failure(TopoExportError("rendu impossible")) }
+        guard let data = data(content, format: format) else { return .failure(TopoExportError("la carte n’a pas pu être dessinée (carte trop grande\u{00A0}?). Essayez le format SVG ou draw.io, ou filtrez par VLAN.")) }
         do {
             try data.write(to: url, options: .atomic)
             return .success(url)

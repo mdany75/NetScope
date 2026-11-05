@@ -103,7 +103,7 @@ struct SMBSharesPanel: View {
             return hostState.user.isEmpty ? "Lecture en invité…" : "Lecture avec \(hostState.user)…"
         }
         guard let listing = hostState.listing else {
-            if let error = hostState.error { return "Dernier essai\u{00A0}: \(error.title.lowercased())" }
+            if let error = hostState.error { return "Dernier essai\u{00A0}: \(error.title.lowercasedFirst)" }
             return inSheet ? "Lancé seulement sur clic" : "smbutil view, lancé seulement sur clic"
         }
         return "\(listing.summary) · accès\u{00A0}: \(listing.access.label) · lu à \(ToolText.time(listing.date))"
@@ -267,7 +267,7 @@ struct SMBSharesPanel: View {
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
-            Text("Double-clic ou «\u{00A0}Ouvrir\u{00A0}»\u{00A0}: le Finder monte le partage et demande lui-même l’identifiant. Clic droit\u{00A0}: copier le chemin smb:// ou Windows.")
+            Text("Double-clic sur un disque ou «\u{00A0}Ouvrir\u{00A0}»\u{00A0}: le Finder monte le partage et demande lui-même l’identifiant. Clic droit\u{00A0}: copier le chemin smb:// ou Windows.")
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -289,6 +289,13 @@ struct SMBSharesPanel: View {
     private func listAgain() {
         // « Relire » garde l'accès de la dernière lecture réussie (utilisateur retenu au Trousseau).
         if case .user(let display)? = hostState.listing?.access, model.memo[host]?.user == display {
+            guard model.memo[host]?.passwordSaved == true else {
+                // Mot de passe non retenu : smbutil le demanderait et recevrait une chaîne vide.
+                // Le champ s'ouvre pour le saisir à nouveau.
+                user = display
+                loginChoice = true
+                return
+            }
             model.list(host: host, login: SMBLogin(field: display))
         } else {
             model.list(host: host)

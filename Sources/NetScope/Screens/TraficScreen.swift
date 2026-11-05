@@ -110,9 +110,12 @@ struct TraficScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header(overview)
-                if let toast = store.toast { TrafficToast(text: toast) { store.toast = nil } }
-                ForEach(store.shownErrors, id: \.self) { message in
-                    ToolNotice(tone: .critical, title: "Lecture du trafic impossible", message: message)
+                // Messages de FortiView : pas au-dessus de la vue Flux, qui ne lit pas FortiView.
+                if !showsFlows {
+                    if let toast = store.toast { TrafficToast(text: toast) { store.toast = nil } }
+                    ForEach(store.shownErrors, id: \.self) { message in
+                        ToolNotice(tone: .critical, title: "Lecture du trafic impossible", message: message)
+                    }
                 }
                 switch screen.part {
                 case .trafic where screen.source == .flows:
@@ -209,7 +212,9 @@ struct TraficScreen: View {
             Label(store.isInReport ? "Dans le rapport" : "Ajouter au rapport", systemImage: store.isInReport ? "checkmark" : "doc.badge.plus")
         }
         .buttonStyle(.secondary)
-        .disabled(store.isInReport)
+        // La section « Trafic » du rapport vient de FortiView : les flux n'y vont pas encore.
+        .disabled(store.isInReport || showsFlows)
+        .help(showsFlows ? "Les flux ne vont pas encore dans le rapport\u{00A0}; la section Trafic reprend FortiView." : "")
         Button {
             if showsFlows { flows.refresh() } else { store.refresh() }
         } label: {

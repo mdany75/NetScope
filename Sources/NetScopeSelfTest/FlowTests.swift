@@ -310,6 +310,46 @@ func registerFlowTests(_ suite: TestSuite) {
         try expect(status.lastRejection?.contains("format inconnu") == true, "dernière raison")
     }
 
+    suite.add("Flux : datagrammes invalides de milliers d'adresses, états bornés") {
+        var limits = FlowAggregator.Limits()
+        limits.maxExporters = 8
+        let collector = FlowCollector(limits: limits)
+        for n in 0..<2000 {
+            collector.ingest([0xFF, 0xFF, 0, 1, 2, 3], from: IPv4Address(UInt32(0x0A00_0000) + UInt32(n)), port: 2055)
+        }
+        var status = collector.status()
+        try expectEqual(status.received, 2000, "tous comptés")
+        try expectEqual(status.rejected, 2000, "tous rejetés")
+        try expect(status.exporters.count <= 8, "états d'exportateurs bornés (\(status.exporters.count))")
+        let flow = FlowPacketBuilder.Flow(source: ip("10.0.0.5"), destination: ip("1.1.1.1"), bytes: 100)
+        collector.ingest(FlowPacketBuilder.netflowV5([flow]), from: router, port: 2055)
+        status = collector.status()
+        try expect(status.exporters.contains { $0.address == router && $0.records == 1 }, "un vrai exportateur garde sa place")
+        try expect(status.exporters.count <= 8, "toujours borné")
+    }
+
+    suite.add("Flux : conversions saturées et débordement compté une fois") {
+        try expectEqual(FlowTrafficBridge.bytes(fromRate: .infinity, span: 60), 0, "infini")
+        try expectEqual(FlowTrafficBridge.bytes(fromRate: 1e30, span: 90_000), UInt64.max, "trop grand : saturé")
+        try expectEqual(FlowTrafficBridge.bytes(fromRate: -5, span: 60), 0, "négatif")
+        try expectEqual(FlowTrafficBridge.bytes(fromRate: 8000, span: 10), 10_000, "valeur normale")
+        try expectEqual(FlowTrafficBridge.saturated(.nan), 0, "NaN")
+        var limits = FlowAggregator.Limits()
+        limits.hostsPerWindow = 1
+        limits.remotesPerWindow = 1
+        limits.conversationsPerWindow = 1
+        var aggregator = FlowAggregator(limits: limits)
+        let date = Date(timeIntervalSince1970: 1_790_000_000)
+        for last in 1...4 {
+            let record = FlowRecord(kind: .netflow5, exporter: router, source: ip("10.0.0.\(last)"), destination: ip("1.1.1.\(last)"),
+                                    sourcePort: 40_000, destinationPort: 443, proto: 6, bytes: 1000, packets: 1)
+            aggregator.add(record, at: date)
+        }
+        let summary = try XTUnwrap(aggregator.summary(exporter: router, window: 60, now: date.addingTimeInterval(30)), "synthèse")
+        try expect(summary.overflowBytes <= summary.total.bytes, "débordement \(summary.overflowBytes) ≤ total \(summary.total.bytes)")
+        try expectEqual(summary.overflowBytes, 3000, "trois flux hors tableaux, comptés une fois")
+    }
+
     suite.add("Flux : ports et guide de configuration par marque") {
         let ports = FlowCollectorPorts.standard
         try expectEqual(ports.active.map(\.port), [2055, 4739, 6343], "trois ports par défaut")

@@ -153,6 +153,10 @@ final class FlowStore: ObservableObject {
     }
 
     private func stopped(_ reason: String) {
+        // Un port interrompu arrête toute l'écoute : le collecteur aussi, pour que l'état affiché
+        // (« arrêté ») corresponde à ce qui reçoit vraiment.
+        guard isListening else { return }
+        collector.stop()
         isListening = false
         loop?.cancel()
         loop = nil
@@ -184,7 +188,11 @@ final class FlowStore: ObservableObject {
             recomputeNow(now: Date())
             return
         }
-        guard !computing else { return }
+        // Une demande faite pendant un calcul est gardée et relancée à la fin de celui-ci.
+        guard !computing else {
+            pendingRefresh = true
+            return
+        }
         computing = true
         let collector = self.collector
         let window = FlowTrafficBridge.window(period)
@@ -197,6 +205,10 @@ final class FlowStore: ObservableObject {
                 guard let self else { return }
                 self.computing = false
                 self.apply(status: status, summaries: summaries, now: now)
+                if self.pendingRefresh {
+                    self.pendingRefresh = false
+                    self.refresh()
+                }
             }
         }
     }
@@ -215,6 +227,7 @@ final class FlowStore: ObservableObject {
     }
 
     private var lastCompute = Date()
+    private var pendingRefresh = false
 
     /// Exportateurs montrés : celui choisi, sinon tous.
     var shownSummaries: [FlowSummary] {

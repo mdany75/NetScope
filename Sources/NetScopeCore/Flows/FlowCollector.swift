@@ -188,6 +188,22 @@ public final class FlowCollector: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         stats.received += 1
+        // Exportateur refusé avant tout décodage : il n'apprend aucun gabarit (qui évincerait
+        // ceux des vrais exportateurs) et ne prend pas de place dans les états.
+        guard aggregator.accepts(exporter) else {
+            reject("\(exporter)\u{00A0}: trop d’exportateurs (\(aggregator.limits.maxExporters) au plus), datagramme écarté")
+            return
+        }
+        if exporterStats[exporter] == nil, exporterStats.count >= aggregator.limits.maxExporters {
+            // Place prise par des adresses qui n'ont jamais rien envoyé de lisible : la plus
+            // ancienne laisse sa place. Sinon, le datagramme n'est compté que dans le total.
+            guard let stale = exporterStats.values.filter({ $0.records == 0 }).min(by: { $0.lastSeen < $1.lastSeen }) else {
+                reject("\(exporter)\u{00A0}: trop d’exportateurs (\(aggregator.limits.maxExporters) au plus), datagramme écarté")
+                return
+            }
+            exporterStats[stale.address] = nil
+            if aggregator.lastSeen(stale.address) == nil { decoder.forget(exporter: stale.address) }
+        }
         var exporterStat = exporterStats[exporter] ?? FlowExporterStatus(address: exporter, firstSeen: date, lastSeen: date, port: port)
         exporterStat.datagrams += 1
         exporterStat.lastSeen = max(exporterStat.lastSeen, date)

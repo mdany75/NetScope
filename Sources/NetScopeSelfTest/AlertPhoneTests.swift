@@ -252,6 +252,17 @@ func registerAlertPhoneTests(_ suite: TestSuite) {
         try expect(!filter.accepts(phoneEvent(severity: .critical, site: laval)), "autre site")
         try expect(filter.accepts(phoneEvent(.serviceIncident, severity: .critical, site: nil)), "sans site : passe")
         try expect(filter.accepts(phoneEvent(.probeRecovered, severity: .info, site: siege)), "rétablissement suit sa panne")
+        var recoveredWarning = phoneEvent(.probeRecovered, severity: .info, site: siege)
+        recoveredWarning.closedSeverity = .warning
+        try expect(!filter.accepts(recoveredWarning), "rétablissement d'une alerte filtrée : pas envoyé")
+        recoveredWarning.closedSeverity = .critical
+        try expect(filter.accepts(recoveredWarning), "rétablissement d'une panne critique : envoyé")
+        var planner = AlertPlanner()
+        var alertSettings = AlertSettings()
+        alertSettings.isEnabled = true
+        _ = planner.submit(phoneEvent(.probeWarning, severity: .warning, site: siege), settings: alertSettings, now: phoneDate)
+        _ = planner.submit(phoneEvent(.probeRecovered, site: siege), settings: alertSettings, now: phoneDate.addingTimeInterval(60))
+        try expectEqual(planner.pending.last?.closedSeverity, .warning, "le planificateur reporte la gravité de la panne close")
         try expect(filter.accepts(AlertBatch.test(now: phoneDate, origin: "Mac").events[0]), "essai toujours permis")
 
         let batch = AlertBatch(events: [phoneEvent(severity: .critical, site: siege), phoneEvent(.probeWarning, severity: .warning, site: siege),

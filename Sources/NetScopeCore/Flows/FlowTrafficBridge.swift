@@ -78,8 +78,8 @@ public enum FlowTrafficBridge {
                 let measured = interface.counterInBps != nil && realtime
                 let rx = measured ? interface.counterInBps ?? 0 : summary.rate(interface.inBytes)
                 let tx = measured ? interface.counterOutBps ?? 0 : summary.rate(interface.outBytes)
-                let inBytes = interface.inBytes > 0 || interface.counterInBps == nil ? interface.inBytes : UInt64(max(0, (interface.counterInBps ?? 0) * summary.span / 8))
-                let outBytes = interface.outBytes > 0 || interface.counterOutBps == nil ? interface.outBytes : UInt64(max(0, (interface.counterOutBps ?? 0) * summary.span / 8))
+                let inBytes = interface.inBytes > 0 || interface.counterInBps == nil ? interface.inBytes : bytes(fromRate: interface.counterInBps ?? 0, span: summary.span)
+                let outBytes = interface.outBytes > 0 || interface.counterOutBps == nil ? interface.outBytes : bytes(fromRate: interface.counterOutBps ?? 0, span: summary.span)
                 // Sur une interface WAN, « reçu » est le téléchargement et « envoyé » l'envoi.
                 overview.entries.append(TrafficEntry(site: site, view: .interfaces, key: name, name: name,
                                                      sentBytes: outBytes, receivedBytes: inBytes, bandwidth: rx + tx,
@@ -88,8 +88,8 @@ public enum FlowTrafficBridge {
                 let speedMbps = interface.speed.map { $0 / 1_000_000 }
                 overview.links.append(TrafficLink(site: site, name: name, alias: isWAN ? "Internet" : nil, role: isWAN ? "wan" : "lan",
                                                   linkUp: interface.isUp, speedMbps: speedMbps.flatMap { $0 > 0 ? $0 : nil },
-                                                  upstreamKbps: isWAN ? config.upMbps.map { UInt64(max(0, $0) * 1000) } : nil,
-                                                  downstreamKbps: isWAN ? config.downMbps.map { UInt64(max(0, $0) * 1000) } : nil,
+                                                  upstreamKbps: isWAN ? config.upMbps.map { saturated($0 * 1000) } : nil,
+                                                  downstreamKbps: isWAN ? config.downMbps.map { saturated($0 * 1000) } : nil,
                                                   txBps: tx, rxBps: rx))
             }
             overview.sessions += summary.conversations.enumerated().map { index, conversation in
@@ -104,6 +104,18 @@ public enum FlowTrafficBridge {
         return overview
     }
 
+    /// Octets transportés à un débit (b/s) pendant une durée (s), sans jamais planter :
+    /// une valeur infinie, négative ou plus grande que UInt64.max est ramenée dans les bornes.
+    public static func bytes(fromRate bps: Double, span: TimeInterval) -> UInt64 {
+        saturated(bps * span / 8)
+    }
+
+    /// Conversion saturée d'un Double en UInt64 (0 pour NaN, l'infini ou une valeur négative).
+    public static func saturated(_ value: Double) -> UInt64 {
+        guard value.isFinite, value > 0 else { return 0 }
+        return value >= Double(UInt64.max) ? UInt64.max : UInt64(value)
+    }
+
     /// Remarques de lecture d'un exportateur (échantillonnage, IPv6, lignes hors tableaux, WAN).
     static func notes(_ summary: FlowSummary, site: String, multi: Bool, config: FlowExporterSettings) -> [String] {
         let prefix = multi ? site + "\u{00A0}: " : ""
@@ -115,7 +127,7 @@ public enum FlowTrafficBridge {
             notes.append(prefix + "\(summary.ipv6Flows) flux IPv6 comptés dans le total, mais pas dans les tableaux (adresses IPv4 seulement).")
         }
         if summary.overflowBytes > 0, summary.total.bytes > 0 {
-            let share = Double(summary.overflowBytes) / Double(max(1, summary.total.bytes)) * 100
+            let share = min(100, Double(summary.overflowBytes) / Double(max(1, summary.total.bytes)) * 100)
             if share >= 1 {
                 notes.append(prefix + String(format: "%.0f", share) + "\u{00A0}% du volume réparti sur trop d’appareils ou de conversations pour être détaillé (mémoire bornée).")
             }

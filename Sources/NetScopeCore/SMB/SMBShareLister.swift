@@ -112,6 +112,9 @@ final class SMBPTYSession: @unchecked Sendable {
     private let lock = NSLock()
     private var output = ""
     private var prompts = 0
+    /// Vrai dès que l'en-tête du tableau des partages est arrivé : après, plus aucune demande de
+    /// mot de passe n'est acceptée (un commentaire de partage peut finir par « password: »).
+    private var listingSeen = false
     private var timedOut = false
     private var done = false
     private var continuation: CheckedContinuation<SMBRunResult, Never>?
@@ -154,9 +157,8 @@ final class SMBPTYSession: @unchecked Sendable {
             let chunk = String(decoding: bytes, as: UTF8.self)
             lock.lock()
             if output.count < Self.maxOutput { output += chunk }
-            let tail = String(output.suffix(160)).lowercased()
-            let askingPassword = (tail.contains("password") || tail.contains("mot de passe"))
-                && tail.trimmingCharacters(in: .whitespaces).hasSuffix(":")
+            if !listingSeen { listingSeen = SMBPrompt.containsListingHeader(output) }
+            let askingPassword = !listingSeen && SMBPrompt.isPasswordPrompt(output)
             var reply: String?
             var stop = false
             if askingPassword {
@@ -179,12 +181,36 @@ final class SMBPTYSession: @unchecked Sendable {
                 return
             }
             done = true
+            // Par prudence : le mot de passe envoyé ne reparaît jamais dans la sortie analysée,
+            // affichée ou journalisée (écho du terminal).
+            if let password, password.count >= 3 { output = output.replacingOccurrences(of: password, with: "••••") }
             let result = SMBRunResult(output: output, succeeded: message == nil && !timedOut,
                                       timedOut: timedOut, passwordPrompts: prompts)
             let continuation = self.continuation
             self.continuation = nil
             lock.unlock()
             continuation?.resume(returning: result)
+        }
+    }
+}
+
+/// Reconnaissance de la demande de mot de passe de smbutil et du début de la liste.
+public enum SMBPrompt {
+    /// Vrai si la dernière ligne (pas encore terminée) est exactement une demande de mot de passe
+    /// de smbutil : « Password: », « Password for serveur: » (ou en français).
+    public static func isPasswordPrompt(_ output: String) -> Bool {
+        let last = output.split(separator: "\n", omittingEmptySubsequences: false).last.map(String.init) ?? ""
+        let line = last.trimmingCharacters(in: .whitespacesAndNewlines)
+        return line.range(of: #"^(password|mot de passe)( (for|pour) .+)?\s*:$"#,
+                          options: [.regularExpression, .caseInsensitive]) != nil
+    }
+
+    /// Vrai si la sortie contient l'en-tête du tableau des partages (« Share  Type  Comments »).
+    public static func containsListingHeader(_ output: String) -> Bool {
+        output.split(separator: "\n").contains { line in
+            let words = line.lowercased().split(separator: " ")
+            guard let first = words.first else { return false }
+            return ["share", "sharename", "partage"].contains(String(first)) && words.contains("type")
         }
     }
 }

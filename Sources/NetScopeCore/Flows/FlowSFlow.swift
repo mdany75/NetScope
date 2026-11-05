@@ -187,7 +187,8 @@ struct FlowPacketSummary: Hashable {
             let dst = IPv4Address(UInt32(flowUInt(header[(offset + 16)..<(offset + 20)])))
             var summary = FlowPacketSummary(length: total, src: src, dst: dst, ipv6: false, proto: proto, srcPort: 0, dstPort: 0, tcpFlags: 0)
             let l4 = offset + ihl
-            if fragment == 0, proto == 6 || proto == 17, header.count >= l4 + 4 {
+            // IHL inférieur à 5 (en-tête forgé ou corrompu) : pas de ports, ils seraient lus dans l'en-tête IP.
+            if ihl >= 20, fragment == 0, proto == 6 || proto == 17, header.count >= l4 + 4 {
                 summary.srcPort = UInt16(header[l4]) << 8 | UInt16(header[l4 + 1])
                 summary.dstPort = UInt16(header[l4 + 2]) << 8 | UInt16(header[l4 + 3])
                 if proto == 6, header.count >= l4 + 14 { summary.tcpFlags = header[l4 + 13] }

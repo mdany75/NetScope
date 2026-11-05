@@ -50,6 +50,16 @@ private final class CallLog: @unchecked Sendable {
 }
 
 func registerSMBSharesTests(_ suite: TestSuite) {
+    suite.add("Partages SMB : demande de mot de passe reconnue seulement sur la vraie ligne de smbutil") {
+        try expect(SMBPrompt.isPasswordPrompt("Password for 10.0.0.5: "), "Password for … :")
+        try expect(SMBPrompt.isPasswordPrompt("x\nPassword:"), "Password: seul")
+        try expect(SMBPrompt.isPasswordPrompt("Mot de passe pour nas: "), "en français")
+        try expect(!SMBPrompt.isPasswordPrompt("Docs  Disk  Mettre le password:"), "commentaire de partage")
+        try expect(!SMBPrompt.isPasswordPrompt("Password for x: ok\n"), "ligne terminée")
+        try expect(SMBPrompt.containsListingHeader("Share                 Type    Comments\n-----"), "en-tête vu")
+        try expect(!SMBPrompt.containsListingHeader("Password for nas:"), "pas d'en-tête")
+    }
+
     suite.add("Partages SMB : sortie de smbutil d'un NAS (noms avec espaces, accents, imprimante)") {
         let parsed = try SMBShareParser.parse(synologyOutput).unwrap("tableau reconnu")
         try expectEqual(parsed.shares.count, 8, "huit partages")

@@ -17,9 +17,9 @@ struct TraficFlowView: View {
         VStack(alignment: .leading, spacing: 14) {
             FlowCollectorBar()
             ForEach(flows.startErrors, id: \.self) { message in
-                ToolNotice(tone: .critical, title: "Port non ouvert", message: message)
+                ToolNotice(tone: .critical, title: "Écoute impossible", message: message)
             }
-            if let warning = flows.firewall?.logWarning, flows.isListening {
+            if let warning = flows.firewall?.flowWarning, flows.isListening {
                 ToolNotice(tone: .warning, message: warning)
             }
             if overview.isEmpty {
@@ -231,11 +231,20 @@ struct FlowPortsPanel: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .monPanel()
-        .onAppear {
-            netflowText = String(flows.ports.netflow)
-            ipfixText = String(flows.ports.ipfix)
-            sflowText = String(flows.ports.sflow)
-        }
+        .onAppear { showAppliedPorts() }
+        // Au démarrage de l'écoute, les champs reprennent les ports réellement appliqués.
+        .onChange(of: flows.isListening) { _, _ in showAppliedPorts() }
+    }
+
+    private func showAppliedPorts() {
+        netflowText = String(flows.ports.netflow)
+        ipfixText = String(flows.ports.ipfix)
+        sflowText = String(flows.ports.sflow)
+    }
+
+    /// Port UDP saisi, s'il est valide (1 à 65535).
+    static func port(_ text: String) -> UInt16? {
+        UInt16(text.trimmingCharacters(in: .whitespaces)).flatMap { $0 > 0 ? $0 : nil }
     }
 
     private func row(title: String, detail: String, enabled: Binding<Bool>, text: Binding<String>, standard: UInt16,
@@ -251,15 +260,19 @@ struct FlowPortsPanel: View {
             .disabled(flows.isListening)
             Spacer(minLength: 6)
             Text("UDP").font(Theme.caption).foregroundStyle(Theme.textSecondary).fixedSize()
+            let invalid = Self.port(text.wrappedValue) == nil
             TextField("", text: text)
                 .textFieldStyle(.roundedBorder)
                 .font(Theme.mono(12))
                 .frame(width: 62)
                 .disabled(flows.isListening)
+                .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.critical, lineWidth: invalid ? 1.5 : 0))
                 .onChange(of: text.wrappedValue) { _, value in
-                    if let port = UInt16(value.trimmingCharacters(in: .whitespaces)), port > 0 { apply(port) }
+                    if let port = Self.port(value) { apply(port) }
                 }
-                .help("Port d’écoute (standard\u{00A0}: \(standard))\u{00A0}; modifiable à l’arrêt.")
+                .help(invalid
+                      ? "Port invalide\u{00A0}: de 1 à 65535. Le port appliqué reste l’ancien."
+                      : "Port d’écoute de 1 à 65535 (standard\u{00A0}: \(standard))\u{00A0}; modifiable à l’arrêt.")
         }
     }
 }

@@ -94,6 +94,8 @@ public struct AlertPlanner: Sendable, Equatable {
     public private(set) var suppressed: [String: Int] = [:]
     /// Objets dont la panne a été signalée (un rétablissement n'est envoyé que pour eux).
     public private(set) var openDowns: Set<String> = []
+    /// Gravité de la panne signalée de chaque objet (reportée sur son rétablissement).
+    private var openSeverities: [String: AlertSeverity] = [:]
 
     public init() {}
 
@@ -107,8 +109,10 @@ public struct AlertPlanner: Sendable, Equatable {
         if let probe = event.probeID, rules.excludedProbes.contains(probe) { return .skipped(.probeExcluded) }
 
         // Rétablissement : seulement si la panne (ou l'alerte) de cet objet a été signalée.
+        var event = event
         if event.kind == .probeRecovered {
             guard openDowns.remove(event.subject) != nil else { return .skipped(.noOpenAlert) }
+            event.closedSeverity = openSeverities.removeValue(forKey: event.subject)
         } else if event.severity < rules.minimumSeverity {
             return .skipped(.belowSeverity)
         }
@@ -123,7 +127,11 @@ public struct AlertPlanner: Sendable, Equatable {
             return .skipped(.throttled)
         }
         lastQueued[key] = now
-        if event.kind.opensIncident { openDowns.insert(event.subject) }
+        if event.kind.opensIncident {
+            openDowns.insert(event.subject)
+            // Panne puis alerte du même objet : la plus grave des deux est retenue.
+            openSeverities[event.subject] = max(openSeverities[event.subject] ?? event.severity, event.severity)
+        }
         pending.append(event)
         return .queued
     }

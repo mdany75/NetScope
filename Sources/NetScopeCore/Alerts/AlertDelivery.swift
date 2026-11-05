@@ -13,6 +13,9 @@ public struct AlertSecrets: Sendable {
     public var ntfyToken: String?
     public var pushoverToken: String?
     public var pushoverUser: String?
+    /// Sujet ntfy sur un serveur public : quiconque le connaît lit les messages, il est donc
+    /// retiré du journal comme un secret (il reste dans les réglages, voir AlertNtfySettings).
+    public var ntfyTopic: String?
 
     public init(smtpPassword: String? = nil, webhookURLs: [UUID: String] = [:], webhookAuth: [UUID: String] = [:],
                 ntfyToken: String? = nil, pushoverToken: String? = nil, pushoverUser: String? = nil) {
@@ -26,7 +29,7 @@ public struct AlertSecrets: Sendable {
 
     /// Toutes les valeurs secrètes (pour les retirer du journal).
     public var all: [String] {
-        ([smtpPassword, ntfyToken, pushoverToken, pushoverUser].compactMap { $0 } + Array(webhookURLs.values) + Array(webhookAuth.values))
+        ([smtpPassword, ntfyToken, ntfyTopic, pushoverToken, pushoverUser].compactMap { $0 } + Array(webhookURLs.values) + Array(webhookAuth.values))
             .filter { !$0.isEmpty }
     }
 }

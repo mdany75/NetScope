@@ -131,6 +131,9 @@ public struct AlertEvent: Codable, Identifiable, Equatable, Sendable {
     public var probeID: UUID?
     /// Note 76 : site de l'événement (filtre par site des canaux de téléphone) ; nil : sans site.
     public var siteID: UUID?
+    /// Rétablissement : gravité de la panne (ou de l'alerte) qu'il clôt, donnée par AlertPlanner.
+    /// Un canal de téléphone n'envoie le rétablissement que s'il aurait envoyé la panne.
+    public var closedSeverity: AlertSeverity?
 
     public init(id: UUID = UUID(), kind: AlertEventKind, severity: AlertSeverity? = nil, title: String, message: String,
                 subject: String, occurredAt: Date = Date(), details: [AlertDetail] = [], probeID: UUID? = nil, siteID: UUID? = nil) {
