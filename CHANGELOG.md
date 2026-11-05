@@ -1,5 +1,45 @@
 # Changements
 
+## 0.27.1 — 2026-11-05
+
+Moins de fausses alertes pour le Wi-Fi : un appareil qui passe d’une borne FortiAP à une autre
+n’est plus signalé comme « déplacé sur un autre port », et la carte d’occupation distingue
+d’un coup d’œil les appareils Wi-Fi, les appareils filaires et les adresses DHCP.
+
+### Ajouté
+- **Itinérance Wi-Fi dans l’historique** : quand un appareil Wi-Fi change de borne, son
+  historique note « passé de la borne AP-ETG2 à la borne AP-ACCUEIL », sans alerte.
+- **Carte d’occupation (Analyse)** : les appareils filaires restent en vert, les appareils Wi-Fi
+  passent en cyan avec un symbole Wi-Fi. Un triangle dans le coin signale une adresse attribuée
+  par bail DHCP de la FortiGate, un point une réservation ; une adresse fixe n’a pas de repère.
+  Une légende est ajoutée sous la carte.
+- **Adresse choisie et infobulles de la carte** : l’accès est indiqué (filaire avec son port, ou
+  Wi-Fi avec la borne, le SSID et la bande), ainsi que l’attribution de l’adresse (bail DHCP,
+  réservation ou fixe).
+
+### Modifié
+- **Reconnaissance des appareils Wi-Fi** : NetScope s’appuie sur plusieurs indices : client vu
+  par la FortiGate, port de switch d’une borne (fiche ou voisin LLDP), port « Wi-Fi », interface
+  Wi-Fi de ce Mac, téléphone mobile ou adresse MAC privée. Une borne qui change de port reste
+  signalée.
+- **Alertes à traiter** : les anciens changements de port d’appareils Wi-Fi ne comptent plus dans
+  la pastille de la barre latérale ni dans la tuile ; le tableau les marque d’un symbole Wi-Fi.
+
+### Corrigé
+- **Historique et adressage, Surveillance** : un appareil Wi-Fi qui passe d’une borne FortiAP à
+  une autre ne déclenche plus l’alerte « Appareil déplacé sur un autre port ». Un appareil
+  filaire qui change de port garde son alerte.
+
+### Limites connues
+- La reconnaissance du Wi-Fi repose sur des indices : un appareil Wi-Fi que la FortiGate ne voit
+  pas, derrière une borne non reconnue (sans LLDP ni fiche) et avec une adresse MAC fixe, peut
+  encore être pris pour un appareil filaire et déclencher l’alerte. À l’inverse, un téléphone ou
+  un appareil à MAC privée branché par câble est classé Wi-Fi.
+- Les repères DHCP (bail, réservation) viennent des baux de la FortiGate : sans FortiGate
+  configurée pour le site, aucune adresse n’est marquée DHCP.
+- Testé sur des données de démonstration seulement ; essai réel à faire avec de vraies bornes
+  FortiAP et une vraie FortiGate.
+
 ## 0.27.0 — 2026-11-05
 
 Surveillance de longue durée et pages plus faciles à parcourir : Switchs et ports et Wi-Fi ›
