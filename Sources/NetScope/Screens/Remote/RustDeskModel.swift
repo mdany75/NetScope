@@ -20,6 +20,14 @@ final class RustDeskModel: ObservableObject {
     @Published private(set) var isInstalled = false
     /// RustDesk absent au moment de « Connecter » : l'écran propose le téléchargement.
     @Published var needsInstall = false
+    /// Correctif 0.27.3 : onglet « Assistance RustDesk » choisi dans Accès distant. Il se comporte
+    /// comme l'onglet « Serveur RustDesk » (même règle pour la colonne des détails et la petite
+    /// fenêtre) et l'un remplace l'autre.
+    @Published var isAssistanceShown = false {
+        didSet { if isAssistanceShown, !oldValue { RustDeskServerModel.shared.isShown = false } }
+    }
+    /// ID à placer dans le champ de l'onglet d'assistance (fiche d'un appareil, menu d'une connexion).
+    @Published var assistancePrefill: String?
 
     /// « Vérifier le client RustDesk de ce Mac ».
     @Published private(set) var clientFindings: [RustDeskFinding]?
@@ -49,6 +57,8 @@ final class RustDeskModel: ObservableObject {
         if RegEnvironment.isDemo {
             settings = RustDeskDemo.settings
             history = RemoteDemo.isSoloView ? [] : RustDeskDemo.history(connections: RemoteDemo.connections)
+            // Captures : NETSCOPE_REMOTE_VIEW=rustdesk-assistance ouvre l'onglet « Assistance RustDesk ».
+            isAssistanceShown = ProcessInfo.processInfo.environment["NETSCOPE_REMOTE_VIEW"] == "rustdesk-assistance"
             savedPasswords = Set(RemoteDemo.activeConnections.filter { RustDeskDemo.hasSavedPassword($0) }.map(\.id))
             isInstalled = true
             // Captures : NETSCOPE_RUSTDESK_VIEW=verifie|test : vérifications déjà faites (données fixes).
@@ -144,6 +154,24 @@ final class RustDeskModel: ObservableObject {
             NSWorkspace.shared.open(url)
         }
         return "Ouverture dans RustDesk\u{00A0}: \(name) (\(target.label))" + (secret == nil ? ", mot de passe demandé par RustDesk." : ".")
+    }
+
+    /// Lancements d'aujourd'hui (pastille de l'onglet « Assistance RustDesk »).
+    var todayCount: Int { RustDeskAssistance.todayCount(history) }
+
+    /// Ouvre l'onglet « Assistance RustDesk » d'Accès distant ; `id` : placé dans le champ.
+    func openAssistance(in state: AppState, id: String? = nil) {
+        showAssistance(id: id)
+        state.open(.acces)
+    }
+
+    /// Même chose depuis l'écran Accès distant lui-même (panneau de détails, page « Sessions »).
+    func showAssistance(id: String? = nil) {
+        RemoteSessionStore.shared.select(nil)
+        RemoteModel.shared.draft = nil
+        RemoteModel.shared.tunnelDraft = nil
+        if let id { assistancePrefill = RustDeskID.parse(id).map { RustDeskID.grouped($0, separator: " ") } ?? id }
+        isAssistanceShown = true
     }
 
     func launches(of id: UUID) -> [RustDeskLaunch] {

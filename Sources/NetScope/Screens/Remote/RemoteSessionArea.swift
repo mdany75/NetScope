@@ -24,6 +24,9 @@ struct RemoteSessionArea: View {
             } else if model.draft == nil, model.tunnelDraft == nil, server.isShown {
                 // Note 6 (0.26.2) : onglet « Serveur RustDesk ».
                 RustDeskServerDashboard(model: model)
+            } else if model.draft == nil, model.tunnelDraft == nil, rustdesk.isAssistanceShown {
+                // Correctif 0.27.3 : onglet « Assistance RustDesk ».
+                RustDeskAssistancePage(model: model)
             } else {
                 ScrollView {
                     if model.draft != nil {
@@ -55,11 +58,18 @@ struct RemoteSessionArea: View {
             if editing { sessions.select(nil) }
         }
         // Note 6 (0.26.2) : un onglet de session ou un formulaire remplace le tableau de bord du serveur.
+        // Correctif 0.27.3 : de même pour l'onglet « Assistance RustDesk ».
         .onChange(of: sessions.activeID) { _, id in
-            if id != nil { server.isShown = false }
+            if id != nil {
+                server.isShown = false
+                rustdesk.isAssistanceShown = false
+            }
         }
         .onChange(of: model.draft != nil || model.tunnelDraft != nil) { _, editing in
-            if editing { server.isShown = false }
+            if editing {
+                server.isShown = false
+                rustdesk.isAssistanceShown = false
+            }
         }
         // Compte retiré et serveur RustDesk non réglé : plus d'onglet, donc plus de tableau de bord.
         .onChange(of: server.isAvailable) { _, available in
@@ -127,8 +137,8 @@ struct RemoteSessionArea: View {
             }
             if !sessions.tabs.isEmpty { openSessionsBox }
             FTPServerCard()
-            // Note 6 : ID collé par le technicien (nouvelle connexion RustDesk) et derniers lancements.
-            RustDeskQuickBox(model: model).padding(.top, 4)
+            // Correctif 0.27.3 : l'assistance RustDesk (ID collé, derniers lancements) a quitté cette
+            // page pour son onglet (RustDeskAssistancePage).
 
             SectionHeader("Ouvrir une connexion enregistrée").padding(.top, 6)
             // 280 : le nom et l’adresse d’une connexion nommée par son IP tiennent sans « … ».
@@ -194,6 +204,16 @@ struct RemoteSessionArea: View {
             }
             if connection.proto == .rustdesk, !RustDeskModel.shared.isInstalled {
                 RustDeskDownloadBanner()
+            }
+            // Correctif 0.27.3 : l'assistance par ID et l'historique complet ont leur onglet.
+            if connection.proto == .rustdesk {
+                Button {
+                    rustdesk.isAssistanceShown = true
+                } label: {
+                    Label("Historique et autre poste\u{00A0}: onglet Assistance RustDesk", systemImage: RemoteProtocol.rustdesk.symbol)
+                }
+                .buttonStyle(.ghost)
+                .help("Ouvrir l’onglet «\u{00A0}Assistance RustDesk\u{00A0}»\u{00A0}: ID de l’usager, sessions récentes, reconnexion")
             }
             // Note 57 : session VNC intégrée ouverte dans un onglet (affiché ou non).
             if connection.proto == .vnc, let tab = sessions.tab(for: connection.id) {

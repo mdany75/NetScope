@@ -341,6 +341,12 @@ struct InvDetail: View {
         .fixedSize()
         .disabled(id == nil)
         .help(id.map { "Ouvrir RustDesk sur l’ID \(RustDeskID.grouped($0))" } ?? "Indiquez l’ID RustDesk du poste")
+        // Correctif 0.27.3 : l'onglet « Assistance RustDesk » d'Accès distant, ID déjà saisi.
+        .contextMenu {
+            if let id {
+                Button("Ouvrir dans l’assistance RustDesk") { RustDeskModel.shared.openAssistance(in: state, id: id) }
+            }
+        }
     }
 
     private var typePicker: some View {

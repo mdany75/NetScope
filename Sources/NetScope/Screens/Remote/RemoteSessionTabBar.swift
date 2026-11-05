@@ -9,10 +9,13 @@ struct RemoteSessionTabBar: View {
     @ObservedObject var store = RemoteSessionStore.shared
     /// Note 6 (0.26.2) : onglet fixe « Serveur RustDesk » (tableau de bord du serveur).
     @ObservedObject private var server = RustDeskServerModel.shared
+    /// Correctif 0.27.3 : onglet fixe « Assistance RustDesk » (ID de l'usager, sessions récentes).
+    @ObservedObject private var rustdesk = RustDeskModel.shared
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 2) {
             homeTab
+            assistanceTab
             if server.isAvailable { serverTab }
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -51,17 +54,49 @@ struct RemoteSessionTabBar: View {
     }
 
     private var homeTab: some View {
-        let selected = store.activeID == nil && !dashboardShown
+        let selected = store.activeID == nil && !dashboardShown && !assistanceShown
         return Button {
             store.select(nil)
             server.isShown = false
+            rustdesk.isAssistanceShown = false
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "rectangle.stack").font(.system(size: 12))
                 Text(homeTitle).font(.system(size: 12, weight: selected ? .semibold : .medium)).lineLimit(1)
-                if store.tabs.isEmpty, model.draft == nil, model.tunnelDraft == nil, !server.isAvailable {
-                    Text("SSH · Telnet · Console série · RDP · VNC · FTP · SFTP · Tunnels").font(Theme.caption).foregroundStyle(Theme.textSecondary)
-                        .lineLimit(1)
+            }
+            .foregroundStyle(selected ? Theme.text : Theme.textSecondary)
+            .padding(.horizontal, 10)
+            .frame(height: 32)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(RemoteTabShape(selected: selected))
+        .fixedSize()
+        .help("Aperçu, connexions récentes et formulaire (SSH, Telnet, console série, RDP, VNC, FTP, SFTP, tunnels)")
+    }
+
+    /// Page d'assistance affichée (aucun onglet de session ni formulaire par-dessus).
+    private var assistanceShown: Bool {
+        store.activeID == nil && rustdesk.isAssistanceShown && model.draft == nil && model.tunnelDraft == nil
+    }
+
+    /// Correctif 0.27.3 : assistance RustDesk par l'ID de l'usager et historique des sessions.
+    /// Toujours présent (comme l'était la section de la page « Sessions »), jamais fermé.
+    private var assistanceTab: some View {
+        let selected = assistanceShown
+        let today = rustdesk.todayCount
+        return Button {
+            model.draft = nil
+            model.tunnelDraft = nil
+            store.select(nil)
+            rustdesk.isAssistanceShown = true
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: RemoteProtocol.rustdesk.symbol).font(.system(size: 12))
+                Text("Assistance RustDesk").font(.system(size: 12, weight: selected ? .semibold : .medium)).lineLimit(1)
+                if today > 0 {
+                    CountBadge(count: today, color: RemoteProtocol.rustdesk.tint)
+                        .help(today == 1 ? "1 session RustDesk lancée aujourd’hui" : "\(today) sessions RustDesk lancées aujourd’hui")
                 }
             }
             .foregroundStyle(selected ? Theme.text : Theme.textSecondary)
@@ -72,7 +107,7 @@ struct RemoteSessionTabBar: View {
         .buttonStyle(.plain)
         .background(RemoteTabShape(selected: selected))
         .fixedSize()
-        .help("Aperçu, connexions récentes et formulaire")
+        .help("Assistance RustDesk\u{00A0}: ID de l’usager, sessions récentes, reconnexion et ajout au carnet")
     }
 
     /// Tableau de bord affiché (aucun onglet de session ni formulaire par-dessus).
