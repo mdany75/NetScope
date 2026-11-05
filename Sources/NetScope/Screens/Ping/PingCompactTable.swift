@@ -67,6 +67,12 @@ struct PingCompactTable: View {
         StandardColumn(id: "envoyes", title: "Envoyés / reçus", isDefaultVisible: false),
     ]
 
+    /// Largeurs idéales (défilement horizontal en petite fenêtre).
+    static let widths: [String: CGFloat] = [
+        "etat": 96, "nom": 150, "adresse": 104, "role": 140, "dernier": 60, "courbe": 130, "min": 46, "moyenne": 46,
+        "max": 46, "gigue": 48, "perte": 56, "seuil": 72, "envoyes": 96,
+    ]
+
     static let sortKeys: [String: KeyPathComparator<PingCompactRow>] = [
         "etat": KeyPathComparator(\PingCompactRow.sortStatus),
         "nom": KeyPathComparator(\PingCompactRow.sortName),
@@ -110,7 +116,7 @@ struct PingCompactTable: View {
                         .lineLimit(1)
                         .help(row.target.role.isEmpty ? row.target.name : "\(row.target.name) · \(row.target.role)")
                 }
-                .width(min: 100, ideal: 170)
+                .width(min: 100, ideal: 150)
                 .customizationID("nom")
                 .disabledCustomizationBehavior(.visibility)
 
@@ -140,7 +146,7 @@ struct PingCompactTable: View {
                         .frame(height: 18)
                         .opacity(row.target.isPaused ? 0.45 : 1)
                 }
-                .width(min: 80, ideal: 150)
+                .width(min: 80, ideal: 130)
                 .customizationID("courbe")
 
                 TableColumn(StandardTableHeading("MIN"), sortUsing: table.sort("min")) { row in

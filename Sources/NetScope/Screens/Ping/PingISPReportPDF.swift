@@ -178,12 +178,12 @@ struct PingISPReportPage: View {
             let listed = PingISPReport.listedOutages(target)
             if !listed.shown.isEmpty {
                 VStack(spacing: 0) {
-                    tableRow(["Pannes · début", "Fin", "Durée", "Paquets perdus"], header: true, widths: [170, 170, 80, 90])
+                    tableRow(["Pannes · début", "Fin", "Durée", "Paquets perdus"], header: true, widths: [170, 170, 80, 90], leading: 2)
                     ForEach(Array(listed.shown.enumerated()), id: \.offset) { _, outage in
                         tableRow([PingISPReport.stamp(outage.start),
                                   outage.end.map { PingISPReport.stamp($0) } ?? "en cours",
                                   PingFormat.duration(outage.duration(until: report.periodEnd)),
-                                  "\(outage.lostPackets)"], widths: [170, 170, 80, 90], mono: true)
+                                  "\(outage.lostPackets)"], widths: [170, 170, 80, 90], mono: true, leading: 2)
                     }
                     if listed.hidden > 0 {
                         Text("et \(listed.hidden) autre\(listed.hidden > 1 ? "s" : "") panne\(listed.hidden > 1 ? "s" : "") plus ancienne\(listed.hidden > 1 ? "s" : "")")
@@ -246,7 +246,9 @@ struct PingISPReportPage: View {
         }
     }
 
-    private func tableRow(_ cells: [String], header: Bool = false, widths: [CGFloat], mono: Bool = false, fill: Color? = nil) -> some View {
+    /// `leading` : nombre de colonnes alignées à gauche (dates) ; les chiffres sont à droite.
+    private func tableRow(_ cells: [String], header: Bool = false, widths: [CGFloat], mono: Bool = false, fill: Color? = nil,
+                          leading: Int = 1) -> some View {
         HStack(spacing: 0) {
             ForEach(Array(cells.enumerated()), id: \.offset) { index, cell in
                 Text(header ? cell.uppercased() : cell)
@@ -254,7 +256,7 @@ struct PingISPReportPage: View {
                     .foregroundStyle(header ? Self.gray : Self.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                    .frame(width: index < widths.count ? widths[index] : 60, alignment: index == 0 ? .leading : .trailing)
+                    .frame(width: index < widths.count ? widths[index] : 60, alignment: index < leading ? .leading : .trailing)
             }
             Spacer(minLength: 0)
         }

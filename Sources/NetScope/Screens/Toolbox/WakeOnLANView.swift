@@ -144,7 +144,7 @@ struct WakeTargetTable: View {
     static let columns: [StandardColumn] = [
         StandardColumn(id: "nom", title: "Nom", isRequired: true),
         StandardColumn(id: "ip", title: "IP"),
-        StandardColumn(id: "diffusion", title: "Diffusion"),
+        StandardColumn(id: "diffusion", title: "Diffusion", isDefaultVisible: false),
         StandardColumn(id: "mac", title: "MAC"),
         StandardColumn(id: "type", title: "Type"),
         StandardColumn(id: "etat", title: "État"),
@@ -168,6 +168,15 @@ struct WakeTargetTable: View {
     @MainActor
     static func makeModel() -> StandardTableModel<Device> {
         StandardTableModel(id: "outils.wol", columns: columns, sortKeys: sortKeys, defaultSort: "nom")
+    }
+
+    /// Poste hors du sous-réseau de ce Mac : broadcast dirigé (mode automatique).
+    private func isDirected(_ device: Device) -> Bool {
+        local.map { !$0.contains(device.ip) } ?? false
+    }
+
+    private func directedHelp(_ device: Device) -> String {
+        "Autre sous-réseau\u{00A0}: broadcast dirigé vers \(WakeOnLAN.directedBroadcast(for: device.ip).description) en mode automatique (le routeur doit le laisser passer)"
     }
 
     var body: some View {
@@ -194,20 +203,30 @@ struct WakeTargetTable: View {
                 .disabledCustomizationBehavior(.visibility)
 
                 TableColumn("IP", sortUsing: table.sort("ip")) { device in
-                    ToolTableText(device.ip.description, size: 11)
+                    // Note 78 : un poste d'un autre sous-réseau recevra un broadcast dirigé.
+                    HStack(spacing: 4) {
+                        ToolTableText(device.ip.description, size: 11)
+                        if isDirected(device) {
+                            Image(systemName: "arrow.triangle.branch")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(Theme.accentStrong)
+                                .help(directedHelp(device))
+                                .accessibilityLabel("Broadcast dirigé")
+                        }
+                    }
                 }
                 .width(min: 90, ideal: 100)
                 .customizationID("ip")
 
                 TableColumn("DIFFUSION", sortUsing: table.sort("diffusion")) { device in
-                    let directed = local.map { !$0.contains(device.ip) } ?? false
+                    let directed = isDirected(device)
                     ToolTableText(directed ? "dirigée" : "locale", size: 11, mono: false,
                                   color: directed ? Theme.accentStrong : Theme.textSecondary)
-                        .help(directed ? "Autre sous-réseau\u{00A0}: broadcast dirigé vers \(WakeOnLAN.directedBroadcast(for: device.ip).description) (le routeur doit le laisser passer)"
-                              : "Même sous-réseau que ce Mac\u{00A0}: broadcast local")
+                        .help(directed ? directedHelp(device) : "Même sous-réseau que ce Mac\u{00A0}: broadcast local")
                 }
-                .width(min: 50, ideal: 58)
+                .width(min: 50, ideal: 64)
                 .customizationID("diffusion")
+                .defaultVisibility(.hidden)
 
                 TableColumn("MAC", sortUsing: table.sort("mac")) { device in
                     ToolTableText(device.mac?.formatted(.upperColon) ?? "—", size: 11)
@@ -222,7 +241,7 @@ struct WakeTargetTable: View {
                         ToolTableText(device.deviceType.label, size: 11, mono: false, color: Theme.neutralText)
                     }
                 }
-                .width(min: 60, ideal: 92)
+                .width(min: 60, ideal: 108)
                 .customizationID("type")
 
                 TableColumn("ÉTAT", sortUsing: table.sort("etat")) { device in

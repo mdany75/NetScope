@@ -51,9 +51,13 @@ enum PingSessionDemo {
     /// Cibles qui ont 24 h de mesures : la passerelle et les trois résolveurs publics.
     static let longLogInputs: Set<String> = ["10.182.122.1", "8.8.8.8", "1.1.1.1", "9.9.9.9"]
 
-    /// Début de la panne nocturne du lien Internet, en heures avant « maintenant », et sa durée.
-    static let outageHoursAgo = 12.4
+    /// Panne nocturne du lien Internet : la plus récente nuit à 2 h 14, pendant 3 min 20 s.
     static let outageSeconds: TimeInterval = 200
+
+    static func outageStart(now: Date, calendar: Calendar) -> Date {
+        let today = calendar.date(bySettingHour: 2, minute: 14, second: 0, of: now) ?? now.addingTimeInterval(-12 * 3600)
+        return today > now.addingTimeInterval(-3600) ? today.addingTimeInterval(-86_400) : today
+    }
 
     /// 24 h de mesures toutes les 4 s : latence plus haute et pertes le soir (19 h à 22 h) sur
     /// Internet, panne de 3 min 20 s la nuit ; la passerelle reste propre.
@@ -65,7 +69,7 @@ enum PingSessionDemo {
         var random = PingDemo.Random(state: 0x15F0_2026 ^ UInt64(input.unicodeScalars.reduce(0) { $0 &* 31 &+ Int($1.value) }))
         let step: TimeInterval = 4
         let start = now.addingTimeInterval(-24 * 3600)
-        let outageStart = now.addingTimeInterval(-outageHoursAgo * 3600)
+        let outageStart = outageStart(now: now, calendar: calendar)
         var sequence = 0
         var date = start
         while date < now {

@@ -262,11 +262,16 @@ struct PingScreen: View {
                 .padding(.horizontal, 12)
                 .frame(height: 32)
                 .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
-                PingCompactTable(controller: controller, table: compactTable) { id in
-                    controller.selectedID = id
-                    withAnimation(.easeInOut(duration: 0.2)) { flippedID = id }
+                // Petite fenêtre : le tableau défile à gauche et à droite au lieu de couper ses colonnes.
+                StandardTableHorizontalScroll(
+                    minWidth: compactTable.contentWidth(PingCompactTable.widths),
+                    height: StandardTableMetrics.height(rows: controller.targets.count, rowHeight: PingCompactTable.rowHeight, maxRows: 16)) {
+                    PingCompactTable(controller: controller, table: compactTable) { id in
+                        controller.selectedID = id
+                        withAnimation(.easeInOut(duration: 0.2)) { flippedID = id }
+                    }
+                    .standardTableHeight(rows: controller.targets.count, rowHeight: PingCompactTable.rowHeight, maxRows: 16)
                 }
-                .standardTableHeight(rows: controller.targets.count, rowHeight: PingCompactTable.rowHeight, maxRows: 16)
             }
             .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
             .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
