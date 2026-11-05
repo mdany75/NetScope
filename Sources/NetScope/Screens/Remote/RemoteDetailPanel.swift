@@ -84,6 +84,7 @@ struct RemoteDetailPanel: View {
     }
 
     private var securityChip: (text: String, tone: Tone) {
+        if connection.proto == .vnc { return ("Non chiffré", .warning) }
         guard connection.proto.isFileTransfer else { return ("Bientôt", .neutral) }
         return connection.proto == .ftp ? ("Non chiffré", .warning) : ("Chiffré", .success)
     }
@@ -91,6 +92,9 @@ struct RemoteDetailPanel: View {
     private var securityFootnote: String {
         if connection.proto.isFileTransfer {
             return "Mots de passe au Trousseau macOS (service com.danymenard.netscope.ftp), jamais dans le carnet."
+        }
+        if connection.proto == .vnc {
+            return "Mot de passe au Trousseau macOS (service com.danymenard.netscope.vnc). VNC ne chiffre pas l’image\u{00A0}: réseau local, VPN ou tunnel SSH."
         }
         return "Clés, Trousseau, hôte de rebond, tunnels et vérification d’empreinte dans NetScope\u{00A0}: prochaine version."
     }
@@ -100,7 +104,11 @@ struct RemoteDetailPanel: View {
         case .ssh: return "Géré par ssh : clés de ~/.ssh et agent SSH ; l’empreinte de la clé d’hôte est comparée à ~/.ssh/known_hosts."
         case .telnet: return "Identifiant et mot de passe demandés par l’appareil, en clair."
         case .rdp: return "Identifiants demandés par Windows App à l’ouverture (NLA)."
-        case .vnc: return "Mot de passe demandé par Partage d’écran (compte macOS ou mot de passe VNC)."
+        case .vnc:
+            let saved = VNCPasswordStore.hasPassword(connection.id) ? "au Trousseau" : "demandé à la connexion"
+            return connection.username.isEmpty
+                ? "Mot de passe VNC \(saved) (chiffré par DES au défi du serveur)."
+                : "Compte macOS « \(connection.username) » (ARD\u{00A0}: Diffie-Hellman + AES-128) ou mot de passe VNC, \(saved)."
         case .ftp, .ftps:
             let password = FileTransferStore.shared.hasPassword(connection.id) ? "mot de passe au Trousseau" : "mot de passe demandé à la connexion"
             if connection.username.isEmpty { return "Anonyme (utilisateur « anonymous »)." }

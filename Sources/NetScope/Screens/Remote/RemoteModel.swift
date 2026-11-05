@@ -157,9 +157,20 @@ final class RemoteModel: ObservableObject {
         if let raw = ProcessInfo.processInfo.environment["NETSCOPE_REMOTE_VIEW"] {
             if raw == "nouveau" { draft = RemoteDraft() }
             if raw == "import" { showImport = true }
+            // Note 57 : session VNC intégrée ouverte (bureau Windows dessiné, aucun réseau) ;
+            // « vnc-mac » : celle du Mac mini du croquis ; « vnc-mdp » : demande du mot de passe.
+            if ["vnc", "vnc-mac", "vnc-mdp"].contains(raw) {
+                let target = connections.first { $0.proto == .vnc && (raw == "vnc-mac" ? $0.name != VNCDemo.windowsName : $0.name == VNCDemo.windowsName) }
+                    ?? connections.first { $0.proto == .vnc }
+                if let target {
+                    selectedID = target.id
+                    let session = VNCSessionStore.shared.open(target)
+                    if raw == "vnc-mdp" { session.showDemoCredentialsPrompt() }
+                }
+            }
             // Captures : connexion RDP choisie, ou son formulaire de modification.
-            if ["rdp", "vnc", "modifier-rdp", "modifier-vnc"].contains(raw) {
-                let proto: RemoteProtocol = raw.hasSuffix("vnc") ? .vnc : .rdp
+            if ["rdp", "modifier-rdp", "modifier-vnc", "vnc-externe"].contains(raw) {
+                let proto: RemoteProtocol = raw.hasSuffix("vnc") || raw == "vnc-externe" ? .vnc : .rdp
                 selectedID = connections.first { $0.proto == proto }?.id
                 if raw.hasPrefix("modifier") { startEditing() }
             }
@@ -449,8 +460,14 @@ final class RemoteModel: ObservableObject {
     }
 
     /// Ouvre la connexion ; `mode` : choix rapide du bouton « Connecter » (fenêtre ou plein
-    /// écran pour cette fois seulement, sans changer la connexion enregistrée).
-    func connect(_ connection: RemoteConnection, mode: RemoteDisplayMode? = nil) {
+    /// écran pour cette fois seulement, sans changer la connexion enregistrée). `external` : VNC
+    /// dans Partage d'écran plutôt que dans la session intégrée (note 57).
+    func connect(_ connection: RemoteConnection, mode: RemoteDisplayMode? = nil, external: Bool = false) {
+        // Note 57 : VNC s'ouvre dans la session intégrée de NetScope.
+        if connection.proto == .vnc, !external {
+            openVNC(connection, fullScreen: (mode ?? connection.display.mode) == .fullScreen)
+            return
+        }
         // Note 52 : connexion SSH ou Telnet du carnet sans utilisateur : le nom est demandé.
         if [.ssh, .telnet].contains(connection.proto), connection.username.trimmingCharacters(in: .whitespaces).isEmpty {
             QuickLoginModel.shared.ask(QuickLoginTarget(connection: connection))
@@ -497,6 +514,18 @@ final class RemoteModel: ObservableObject {
         } catch {
             toast = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
+    }
+
+    /// Note 57 : session VNC intégrée (VNCSessionView), affichée à la place de la zone des sessions.
+    func openVNC(_ connection: RemoteConnection, fullScreen: Bool = false) {
+        selectedID = connection.id
+        draft = nil
+        if let index = connections.firstIndex(where: { $0.id == connection.id }) {
+            connections[index].lastConnected = Date()
+            save()
+        }
+        let session = VNCSessionStore.shared.open(connections.first { $0.id == connection.id } ?? connection)
+        if fullScreen, session.phase == .connected { VNCFullScreenController.shared.present(session) }
     }
 
     /// Échelle de Partage d'écran et autorisation d'accessibilité pour le plein écran ;

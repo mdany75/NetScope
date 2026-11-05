@@ -31,7 +31,7 @@ public enum RemoteProtocol: String, Codable, CaseIterable, Identifiable, Sendabl
         case .ssh: return "SSH (Secure Shell)"
         case .telnet: return "Telnet (non chiffré)"
         case .rdp: return "RDP (Bureau à distance)"
-        case .vnc: return "VNC (Partage d’écran)"
+        case .vnc: return "VNC (bureau à distance, RFB)"
         case .serie: return "Console série"
         case .ftp: return "FTP (non chiffré)"
         case .ftps: return "FTPS (FTP sur TLS)"

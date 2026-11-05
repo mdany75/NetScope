@@ -23,6 +23,10 @@ enum RemoteDemo {
                              display: RemoteDisplaySettings(mode: .window, windowSize: .fit)),
             RemoteConnection(name: "WKS341", proto: .rdp, host: "10.182.122.146", username: "CORP\\dmenard",
                              folder: "Siège › Postes", note: "Dell · Windows 11 Pro", lastConnected: ago(170)),
+            // Note 57 : poste Windows joint en VNC (session intégrée, DevTools/VNCDemo.swift).
+            RemoteConnection(name: "WKS352", proto: .vnc, host: "10.182.122.152",
+                             folder: "Siège › Postes", note: "Dell OptiPlex · Windows 11 Pro · UltraVNC", lastConnected: ago(0.05),
+                             display: RemoteDisplaySettings(mode: .window, vncScale: .fit)),
             RemoteConnection(name: "Macmini-de-Dany", proto: .vnc, host: "10.182.122.135", username: "dany",
                              folder: "Siège › Postes", note: "Apple Mac mini · ce Mac", lastConnected: ago(0.25),
                              display: RemoteDisplaySettings(mode: .window, vncScale: .fit)),

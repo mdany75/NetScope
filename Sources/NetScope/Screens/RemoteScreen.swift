@@ -8,6 +8,8 @@ struct RemoteScreen: View {
     @ObservedObject private var model = RemoteModel.shared
     @ObservedObject private var files = FileTransferStore.shared
     @ObservedObject private var ftpServer = FTPTemporaryServerModel.shared
+    /// Note 57 : sessions VNC intégrées.
+    @ObservedObject private var vnc = VNCSessionStore.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,11 +40,19 @@ struct RemoteScreen: View {
             HStack(alignment: .top, spacing: 12) {
                 // Note 50 : navigateur de fichiers ouvert ; en petite fenêtre, il prend toute la largeur.
                 let browsing = files.session.flatMap { files.isShowing(model.selectedID) ? $0 : nil }
-                if browsing == nil || !model.compactLayout {
+                let vncSession = browsing == nil ? vnc.displayed(for: model.selectedID) : nil
+                if (browsing == nil && vncSession == nil) || !model.compactLayout {
                     RemoteConnectionList(model: model)
                         .frame(width: 272)
                 }
-                if let session = browsing {
+                if let vncSession {
+                    // Note 57 : session VNC intégrée ; en petite fenêtre, elle prend toute la largeur.
+                    VNCSessionView(session: vncSession, compact: model.compactLayout,
+                                   onShowConnections: { vncSession.isVisible = false },
+                                   // Petite fenêtre : le bouton des connexions masque déjà la session.
+                                   onHide: model.compactLayout ? nil : { vncSession.isVisible = false })
+                        .frame(minWidth: 300)
+                } else if let session = browsing {
                     // Petite fenêtre : « Connexions » masque le navigateur (la session continue).
                     FileTransferBrowser(session: session, model: model, compact: model.compactLayout) {
                         session.isVisible = false

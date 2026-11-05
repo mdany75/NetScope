@@ -121,6 +121,15 @@ struct RemoteSessionArea: View {
             if connection.proto == .ftp {
                 SpeedBanner(text: FileTransferTexts.ftpWarning)
             }
+            // Note 57 : session VNC intégrée masquée (toujours ouverte).
+            if connection.proto == .vnc, let vnc = VNCSessionStore.shared.session(for: connection.id), !vnc.isVisible {
+                Button {
+                    vnc.isVisible = true
+                } label: {
+                    Label("Revenir à la session VNC", systemImage: "display")
+                }
+                .buttonStyle(.secondary)
+            }
             if connection.proto.isFileTransfer, files.session?.connection.id == connection.id, files.session?.isVisible == false {
                 Button {
                     files.session?.isVisible = true
@@ -142,6 +151,8 @@ struct RemoteSessionArea: View {
     }
 
     private func launchSubtitle(_ connection: RemoteConnection, plan: Result<RemoteLaunchPlan, Error>) -> String {
+        // Note 57 : VNC s'ouvre dans NetScope (Partage d'écran reste au menu du bouton).
+        if connection.proto == .vnc, (try? plan.get()) != nil { return "« Connecter » ouvre la session VNC intégrée" }
         switch plan {
         case .success(let plan): return "« Connecter » ouvre \(plan.appName)"
         case .failure: return "Connexion à corriger avant de l’ouvrir"
@@ -161,6 +172,14 @@ struct RemoteSessionArea: View {
                 ForEach(rdpPreviewLines(contents), id: \.self) { line in
                     Text(line).foregroundStyle(Theme.consoleMuted)
                 }
+            case .success(.url) where connection.proto == .vnc:
+                // Note 57 : client RFB intégré (VNCSessionView).
+                Text("NetScope › ").foregroundColor(Color(hex: 0x4ADE80)) + Text(verbatim: "vnc://\(connection.host):\(connection.port)")
+                Text("Session VNC intégrée\u{00A0}: mot de passe VNC ou compte macOS, au Trousseau\u{00A0}; ZRLE, Hextile, CopyRect.")
+                    .foregroundStyle(Theme.consoleMuted)
+                Text("Affichage\u{00A0}: \(connection.display.mode == .fullScreen ? "plein écran" : "dans NetScope") · "
+                     + (connection.display.vncScale == .actual ? "100\u{00A0}%" : "ajusté à la fenêtre"))
+                    .foregroundStyle(Theme.consoleMuted)
             case .success(.url(let url)):
                 Text("open ").foregroundColor(Color(hex: 0x4ADE80)) + Text(url.absoluteString)
                 Text("Partage d’écran demande le mot de passe du compte distant.").foregroundStyle(Theme.consoleMuted)
@@ -355,7 +374,7 @@ struct RemoteForm: View {
             helpLine("SSH", "Terminal ; clés et empreintes de ~/.ssh, vérifiées par ssh.")
             helpLine("Telnet", "Terminal ; client Homebrew (brew install telnet), sinon nc.")
             helpLine("RDP", "Windows App, en fenêtre ou en plein écran (fichier .rdp) ; identifiants demandés à l’ouverture.")
-            helpLine("VNC", "Partage d’écran de macOS (vnc://)\u{00A0}; plein écran par l’accessibilité.")
+            helpLine("VNC", "Session intégrée à NetScope (mot de passe VNC ou compte macOS)\u{00A0}; Partage d’écran au menu du bouton.")
             helpLine("FTP", "Navigateur de fichiers de NetScope (Ce Mac ↔ serveur)\u{00A0}; non chiffré, à réserver au réseau local.")
             helpLine("FTPS", "Même navigateur, chiffré par TLS (explicite sur 21, implicite sur 990).")
             helpLine("SFTP", "Même navigateur, par SSH (/usr/bin/sftp)\u{00A0}; clés et known_hosts de ~/.ssh.")
