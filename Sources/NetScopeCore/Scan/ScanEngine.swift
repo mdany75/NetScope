@@ -415,6 +415,8 @@ public enum ScanDeviceClassifier {
         if !open.isDisjoint(with: printerPorts) || vendorIs(printerVendors) { return .imprimante }
         if !open.isDisjoint(with: cameraPorts) || vendorIs(cameraVendors) { return .camera }
         if open.contains(88) && open.contains(389) || open.contains(53) && open.contains(389) { return .serveur }
+        // Note 6 : serveur RustDesk (hbbs 21116, relais hbbr 21117).
+        if RustDeskPorts.role(openPorts: ports)?.isServer == true { return .serveur }
         // Téléphones IP de bureau (note 30), avant les équipements réseau des mêmes fabricants
         // (FortiFone, Cisco) et avant les cellulaires, qui n'en sont jamais.
         if VoIPClassifier.isIPPhone(open: open, vendorWords: vendorWords, vendor: vendor, host: host, mac: mac, signals: voip) {
@@ -434,6 +436,8 @@ public enum ScanDeviceClassifier {
         }
         if open.contains(1883) || open.contains(8883) || vendorIs(iotVendors) { return .iot }
         if open.contains(445) || open.contains(135) || open.contains(5900) { return .poste }
+        // Note 6 : accès IP direct de RustDesk (21118 seul) : un poste qu'on dépanne.
+        if RustDeskPorts.role(openPorts: ports) == .client { return .poste }
         if vendorIs(["apple", "dell", "lenovo", "intel"]) {
             return .poste
         }

@@ -103,7 +103,8 @@ enum RegEnvironment {
 
 /// Réglages du profil Personnalisé, lus plus tard par le Scanner (`RegScanTuning.current`).
 struct RegScanTuning: Equatable {
-    static let defaultPorts = "21,22,23,25,53,80,135,139,443,445,554,631,3389,5900,8080,8443,9100"
+    /// Avec RustDesk (21116, 21118) depuis la 0.26.1 ; voir `ScanProfile.migratedCustomPorts`.
+    static let defaultPorts = ScanProfile.defaultCustomPortsText
 
     var threads = 128
     /// Délai d'attente par sonde, en millisecondes.
@@ -129,7 +130,8 @@ struct RegScanTuning: Equatable {
         if defaults.object(forKey: RegPrefs.Key.threads) != nil { tuning.threads = defaults.integer(forKey: RegPrefs.Key.threads) }
         if defaults.object(forKey: RegPrefs.Key.timeout) != nil { tuning.timeoutMs = defaults.integer(forKey: RegPrefs.Key.timeout) }
         if defaults.object(forKey: RegPrefs.Key.retries) != nil { tuning.retries = defaults.integer(forKey: RegPrefs.Key.retries) }
-        if let ports = defaults.string(forKey: RegPrefs.Key.ports) { tuning.portsText = ports }
+        // Une liste jamais personnalisée (ancienne valeur par défaut) reçoit les ports RustDesk.
+        if let ports = defaults.string(forKey: RegPrefs.Key.ports) { tuning.portsText = ScanProfile.migratedCustomPorts(ports) }
         return tuning
     }
 }

@@ -170,6 +170,8 @@ public struct DeviceSearchItem: SearchableRecord {
         fields += [d.hostname, d.customName, d.switchName, d.switchPort, d.rangeLabel].compactMap { $0 }
         if let vlan = d.vlan { fields.append("vlan \(vlan)") }
         fields += d.openPorts.map(String.init)
+        // Note 6 : « rustdesk » trouve les serveurs et les postes à accès IP direct.
+        if let role = RustDeskPorts.role(openPorts: d.openPorts) { fields.append(role.label) }
         return fields
     }
 }

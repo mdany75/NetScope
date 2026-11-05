@@ -228,6 +228,11 @@ public enum PortScanner {
         serviceNames[port]
     }
 
+    /// Nom usuel d'un port UDP (21116/udp de RustDesk, sinon le nom TCP du même port).
+    public static func udpServiceName(_ port: UInt16) -> String? {
+        RustDeskPorts.udpServiceName(port) ?? serviceNames[port]
+    }
+
     static let serviceNames: [UInt16: String] = [
         20: "ftp-data", 21: "ftp", 22: "ssh", 23: "telnet", 25: "smtp", 53: "dns", 67: "dhcp", 69: "tftp",
         80: "http", 81: "http", 88: "kerberos", 110: "pop3", 111: "rpcbind", 123: "ntp", 135: "msrpc",
@@ -242,7 +247,8 @@ public enum PortScanner {
         8081: "http-alt", 8088: "http-alt", 8291: "winbox", 8443: "https-alt", 8554: "rtsp-alt",
         8883: "mqtt-tls", 8888: "http-alt", 9000: "http-alt", 9100: "jetdirect", 9200: "elasticsearch",
         9443: "https-alt", 10000: "webmin", 11211: "memcached", 27017: "mongodb", 32400: "plex",
-        37777: "dahua",
+        21115: "rustdesk-nat", 21116: "rustdesk-id", 21117: "rustdesk-relais", 21118: "rustdesk-direct",
+        21119: "rustdesk-ws", 37777: "dahua",
     ]
 
     /// Ports à ouvrir dans un navigateur, avec le schéma correspondant.

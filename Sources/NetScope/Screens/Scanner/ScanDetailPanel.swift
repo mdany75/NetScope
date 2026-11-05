@@ -81,6 +81,10 @@ struct ScanDetailIdentity: View {
                     KeyValueRow(key: "MAC", value: device.mac?.formatted(.upperColon) ?? "—", mono: true, keyWidth: 110)
                     KeyValueRow(key: "OUI", value: ouiLabel, keyWidth: 110)
                     KeyValueRow(key: "Découverte", value: ScanFormat.discovery(device), keyWidth: 110)
+                    // Note 6 : rôle RustDesk reconnu aux ports (sans toucher au type choisi à la main).
+                    if let role = RustDeskPorts.role(openPorts: device.openPorts) {
+                        KeyValueRow(key: "Rôle", value: role.label, keyWidth: 110)
+                    }
                     KeyValueRow(key: "Première vue", value: ScanFormat.date(device.firstSeen), keyWidth: 110)
                     HStack(spacing: 8) {
                         Text("Nom personnalisé")
@@ -300,7 +304,12 @@ struct ScanDetailLatency: View {
                 } else {
                     ScanFlowLayout(spacing: 6) {
                         ForEach(device.openPorts, id: \.self) { port in
-                            portButton(port)
+                            if RustDeskPorts.isRustDeskPort(port) {
+                                // Note 6 : session directe (21118 d'un poste) ou rôle et test du serveur.
+                                ScanRustDeskPortButton(port: port, device: device) { scan.show($0, tone: $1, place: .actions) }
+                            } else {
+                                portButton(port)
+                            }
                         }
                     }
                 }

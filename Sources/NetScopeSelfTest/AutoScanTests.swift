@@ -18,7 +18,7 @@ func registerAutoScanTests(_ suite: TestSuite) {
         let engine = ScanEngine(pinger: pinger, arp: ScanFakeARP(table: [:]), ports: ports, names: names)
         let options = ScanOptions()
         try expectEqual(options.profile, .rapide, "profil par défaut")
-        try expectEqual(options.ports.count, 22, "Rapide : 22 ports essentiels (SIP 5060 et 5061 compris)")
+        try expectEqual(options.ports.count, 24, "Rapide : 24 ports essentiels (SIP 5060 et 5061, RustDesk 21116 et 21118 compris)")
         var found: [IPv4Address: Device] = [:]
         for await event in engine.scan([bureau], options: options) {
             switch event {

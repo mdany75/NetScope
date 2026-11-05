@@ -343,7 +343,8 @@ struct ScanDeviceTable: View {
                 .disabledCustomizationBehavior(.visibility)
 
                 TableColumn(StandardTableHeading("TYPE"), sortUsing: table.sort("type")) { device in
-                    ScanTypeCell(type: device.deviceType, isManual: inventory.typeChoice(for: device).isManual)
+                    ScanTypeCell(type: device.deviceType, isManual: inventory.typeChoice(for: device).isManual,
+                                 role: RustDeskPorts.role(openPorts: device.openPorts))
                 }
                 // Emplacement (Switch / port, VLAN) juste après la MAC : si le tableau défile
                 // horizontalement, ce sont Fabricant et Ports qui sortent de la vue en premier.
@@ -629,6 +630,11 @@ struct ScanPortPresetMenu: View {
                     .disabled(preset.ports.isEmpty)
             }
             Divider()
+            // Note 6 : SSH, Telnet, RDP, VNC et RustDesk (21115 à 21119).
+            ForEach(PortPreset.thematic) { preset in
+                Button(preset.label) { scan.probePorts(of: devices, preset: preset, state: state) }
+            }
+            Divider()
             Button("Modifier les préréglages…") {
                 RegNavigation.shared.section = .profils
                 state.open(.reglages)
@@ -642,6 +648,19 @@ struct ScanPortPresetMenu: View {
 struct ScanTypeCell: View {
     let type: DeviceType
     let isManual: Bool
+    /// Note 6 : rôle RustDesk reconnu aux ports (« Serveur RustDesk »), affiché à la place du type
+    /// détecté quand celui-ci est « Serveur » et n'a pas été choisi à la main.
+    var role: RustDeskPorts.Role? = nil
+
+    private var label: String {
+        guard !isManual, let role, role.isServer, type == .serveur else { return type.label }
+        return role.label
+    }
+
+    private var helpText: String {
+        let base = isManual ? "\(type.label) · choisi à la main" : "\(type.label) · détecté par le scan"
+        return role.map { base + "\n" + $0.label } ?? base
+    }
 
     var body: some View {
         HStack(spacing: 5) {
@@ -649,14 +668,14 @@ struct ScanTypeCell: View {
                 .font(.system(size: 11))
                 .foregroundStyle(type == .inconnu ? Theme.textTertiary : Theme.neutralText)
                 .frame(width: 16)
-            Text(type.label)
+            Text(label)
                 .font(Theme.small)
                 .foregroundStyle(type == .inconnu ? Theme.textTertiary : Theme.neutralText)
                 .lineLimit(1)
                 .truncationMode(.tail)
             if isManual { ManualTypeMark() }
         }
-        .help(isManual ? "\(type.label) · choisi à la main" : "\(type.label) · détecté par le scan")
+        .help(helpText)
     }
 }
 

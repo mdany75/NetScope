@@ -227,6 +227,12 @@ struct PortTag: View {
         case 8080: return "http-alt"
         case 8443: return "https-alt"
         case 9100: return "jetdirect"
+        // Note 6 : RustDesk, mêmes noms que RustDeskPorts.info (NetScopeCore) et le scan de ports.
+        case 21115: return "rustdesk-nat"
+        case 21116: return "rustdesk-id"
+        case 21117: return "rustdesk-relais"
+        case 21118: return "rustdesk-direct"
+        case 21119: return "rustdesk-ws"
         default: return nil
         }
     }
