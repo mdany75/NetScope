@@ -1,7 +1,7 @@
 import Foundation
 import NetScopeCore
 
-/// Répartiteur des alertes envoyées hors du Mac (courriel, webhooks). Les émetteurs (Surveillance,
+/// Répartiteur des alertes envoyées hors du Mac (courriel, webhooks, ntfy et Pushover). Les émetteurs (Surveillance,
 /// État des services, Test DHCP, Scanner) l'appellent d'une ligne : `AlertDispatcher.shared.emit(…)`.
 ///
 /// - RIEN ne part tant que l'interrupteur général des alertes est coupé (désactivé par défaut) ;
@@ -40,6 +40,10 @@ final class AlertDispatcher: ObservableObject {
     @Published private(set) var hasPassword = false
     @Published private(set) var maskedURLs: [UUID: String] = [:]
     @Published private(set) var hasAuthValue: Set<UUID> = []
+    /// Note 76 : jeton ntfy, jeton d'application et clé utilisateur Pushover présents au Trousseau.
+    @Published private(set) var hasNtfyToken = false
+    @Published private(set) var hasPushoverToken = false
+    @Published private(set) var hasPushoverUser = false
     /// Événements retenus par les règles depuis le lancement (anti-rafale, silence…).
     @Published private(set) var skippedCount = 0
     @Published private(set) var lastSkipReason: AlertSkipReason?
@@ -61,6 +65,9 @@ final class AlertDispatcher: ObservableObject {
             hasPassword = true
             maskedURLs = demo.maskedURLs
             hasAuthValue = demo.authHeaders
+            hasNtfyToken = demo.hasNtfyToken
+            hasPushoverToken = demo.hasPushoverKeys
+            hasPushoverUser = demo.hasPushoverKeys
             return
         }
         if let data = defaults?.data(forKey: Key.settings), let saved = try? JSONDecoder().decode(AlertSettings.self, from: data) {
@@ -88,7 +95,11 @@ final class AlertDispatcher: ObservableObject {
 
     /// Événement d'un émetteur (nil : rien à signaler). Ne fait rien si les alertes sont coupées.
     func emit(_ event: AlertEvent?) {
-        guard let event, !isSandboxed else { return }
+        guard var event, !isSandboxed else { return }
+        // Note 76 : site de la sonde, pour le filtre par site des canaux de téléphone.
+        if event.siteID == nil, let probeID = event.probeID, let probe = MonStore.shared.probes.first(where: { $0.id == probeID }) {
+            event.siteID = MonStore.shared.site(of: probe)
+        }
         let decision = planner.submit(event, settings: settings, hasChannel: !settings.enabledChannels.isEmpty, now: Date())
         if case .skipped(let reason) = decision {
             if reason != .alertsDisabled && reason != .kindDisabled {
@@ -116,7 +127,11 @@ final class AlertDispatcher: ObservableObject {
         guard let batch = planner.flush(now: Date(), rules: settings.rules, force: true) else { return }
         // L'interrupteur a pu être coupé pendant le regroupement : rien ne part.
         guard settings.isEnabled else { return }
-        for channel in settings.enabledChannels { send(batch, on: channel, isTest: false) }
+        for channel in settings.enabledChannels {
+            // ntfy et Pushover : filtre propre (gravité, sites) après les règles communes.
+            guard let filtered = settings.batch(batch, for: channel) else { continue }
+            send(filtered, on: channel, isTest: false)
+        }
     }
 
     // MARK: Envoi
@@ -134,14 +149,22 @@ final class AlertDispatcher: ObservableObject {
             secrets.webhookURLs[hook.id] = keychain.string(for: AlertSecretKey.webhookURL(hook.id))
             secrets.webhookAuth[hook.id] = keychain.string(for: AlertSecretKey.webhookAuth(hook.id))
         }
+        // Le Trousseau n'est lu que pour les canaux de téléphone activés ou essayés.
+        if settings.ntfy.isEnabled || testing.contains(.ntfy) {
+            secrets.ntfyToken = keychain.string(for: AlertSecretKey.ntfyToken)
+        }
+        if settings.pushover.isEnabled || testing.contains(.pushover) {
+            secrets.pushoverToken = keychain.string(for: AlertSecretKey.pushoverToken)
+            secrets.pushoverUser = keychain.string(for: AlertSecretKey.pushoverUser)
+        }
         return secrets
     }
 
     private func send(_ batch: AlertBatch, on channel: AlertChannel, isTest: Bool) {
         let delivery = delivery()
         let settings = self.settings
-        let secrets = readSecrets()
         if isTest { testing.insert(channel) }
+        let secrets = readSecrets()
         Task {
             let entry = await delivery.deliver(batch, on: channel, settings: settings, secrets: secrets)
             AlertDispatcher.shared.record(entry, channel: channel, isTest: isTest)
@@ -227,6 +250,8 @@ final class AlertDispatcher: ObservableObject {
         switch channel {
         case .email: return "courriel"
         case .webhook(let id): return settings.webhook(id)?.kind.rawValue ?? "webhook"
+        case .ntfy: return "ntfy"
+        case .pushover: return "pushover"
         }
     }
 
@@ -250,6 +275,32 @@ final class AlertDispatcher: ObservableObject {
         }
         maskedURLs = masked
         hasAuthValue = auth
+        hasNtfyToken = !(keychain.string(for: AlertSecretKey.ntfyToken) ?? "").isEmpty
+        hasPushoverToken = !(keychain.string(for: AlertSecretKey.pushoverToken) ?? "").isEmpty
+        hasPushoverUser = !(keychain.string(for: AlertSecretKey.pushoverUser) ?? "").isEmpty
+    }
+
+    /// Note 76 : enregistre un secret de ntfy ou de Pushover (vide : l'efface). Renvoie un
+    /// message d'erreur éventuel. En démonstration, rien n'est écrit au Trousseau.
+    @discardableResult
+    func setPhoneSecret(_ value: String, account: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !isSandboxed else {
+            switch account {
+            case AlertSecretKey.ntfyToken: hasNtfyToken = !trimmed.isEmpty
+            case AlertSecretKey.pushoverToken: hasPushoverToken = !trimmed.isEmpty
+            case AlertSecretKey.pushoverUser: hasPushoverUser = !trimmed.isEmpty
+            default: break
+            }
+            return nil
+        }
+        do {
+            if trimmed.isEmpty { try keychain.delete(account) } else { try keychain.set(trimmed, for: account) }
+            refreshSecrets()
+            return nil
+        } catch {
+            return (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
     }
 
     /// Enregistre le mot de passe SMTP (vide : l'efface). Renvoie un message d'erreur éventuel.
@@ -304,6 +355,8 @@ final class AlertDispatcher: ObservableObject {
         switch channel {
         case .email: return settings.smtp.problems(hasPassword: hasPassword).isEmpty
         case .webhook(let id): return maskedURLs[id] != nil
+        case .ntfy: return settings.ntfy.problems().isEmpty
+        case .pushover: return settings.pushover.problems(hasToken: hasPushoverToken, hasUserKey: hasPushoverUser).isEmpty
         }
     }
 
@@ -311,12 +364,15 @@ final class AlertDispatcher: ObservableObject {
     func channelSummary(forProbe id: UUID) -> (text: String, active: Bool) {
         guard settings.isEnabled else { return ("Alertes hors du Mac désactivées", false) }
         if settings.rules.excludedProbes.contains(id) { return ("Sonde exclue des alertes", false) }
-        let channels = settings.channels(forProbe: id)
+        let site = MonStore.shared.probes.first { $0.id == id }.flatMap { MonStore.shared.site(of: $0) }
+        let channels = settings.channels(forProbe: id, siteID: site)
         guard !channels.isEmpty else { return ("Aucun canal activé", false) }
         let names = channels.map { channel -> String in
             switch channel {
             case .email: return "Courriel"
             case .webhook(let hookID): return settings.webhook(hookID)?.kind.shortLabel ?? "Webhook"
+            case .ntfy: return "ntfy"
+            case .pushover: return "Pushover"
             }
         }
         var seen = Set<String>()

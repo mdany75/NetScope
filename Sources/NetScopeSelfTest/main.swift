@@ -135,6 +135,8 @@ registerWirelessRoamingTests(suite)
 registerSMBSharesTests(suite)
 // Note 75 (0.28.0) : collecteur NetFlow, sFlow et IPFIX.
 registerFlowTests(suite)
+// Note 76 (0.28.0) : alertes sur téléphone par ntfy et Pushover.
+registerAlertPhoneTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

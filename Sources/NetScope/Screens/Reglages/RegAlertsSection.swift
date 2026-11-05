@@ -1,15 +1,16 @@
 import NetScopeCore
 import SwiftUI
 
-/// Réglages › Alertes : alertes envoyées hors du Mac, par courriel (SMTP) et par webhook
-/// (Microsoft Teams, Slack, JSON générique). Interrupteur général désactivé par défaut : rien ne
+/// Réglages › Alertes : alertes envoyées hors du Mac, par courriel (SMTP), par webhook
+/// (Microsoft Teams, Slack, JSON générique) et sur téléphone (ntfy, Pushover, note 76). Interrupteur général désactivé par défaut : rien ne
 /// part tant qu'il ne l'est pas, sauf un message d'essai demandé et confirmé. Les secrets vont
 /// au Trousseau (service com.danymenard.netscope.alertes).
 struct RegAlertsSection: View {
     @ObservedObject private var alerts = AlertDispatcher.shared
 
     /// Captures de développement : NETSCOPE_ALERTES_PARTIE=regles commence aux règles et au journal,
-    /// =webhooks aux webhooks (parties sous le pli de la fenêtre de capture).
+    /// =webhooks aux webhooks, =telephone aux canaux ntfy et Pushover (parties sous le pli de la
+    /// fenêtre de capture).
     private static var capturePart: String? {
         AlertDispatcher.shared.isSandboxed ? ProcessInfo.processInfo.environment["NETSCOPE_ALERTES_PARTIE"] : nil
     }
@@ -18,7 +19,8 @@ struct RegAlertsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            if !startsAtRules { channelsPanel }
+            if !startsAtRules && Self.capturePart != "telephone" { channelsPanel }
+            if !startsAtRules { phonePanel }
             RegAlertRulesPanel()
             RegAlertJournalPanel()
         }
@@ -27,7 +29,7 @@ struct RegAlertsSection: View {
 
     private var channelsPanel: some View {
         RegPanel(title: "Alertes",
-                 subtitle: "Prévenir hors du Mac, par courriel ou dans Teams, Slack ou un autre service, quand une sonde tombe, qu’un serveur DHCP non autorisé répond ou qu’un service en ligne a un incident.",
+                 subtitle: "Prévenir hors du Mac, par courriel, dans Teams, Slack ou un autre service, ou sur le téléphone, quand une sonde tombe, qu’un serveur DHCP non autorisé répond ou qu’un service en ligne a un incident.",
                  accessory: { masterSwitch }) {
             statusBanner
             if Self.capturePart != "webhooks" {
@@ -36,6 +38,18 @@ struct RegAlertsSection: View {
             }
             RegAlertWebhooksCard()
                 .padding(.top, 14)
+        }
+    }
+
+    /// Note 76 : notifications sur téléphone (ntfy, Pushover), côte à côte si la largeur le permet.
+    private var phonePanel: some View {
+        RegPanel(title: "Notifications sur téléphone",
+                 subtitle: "Recevoir l’alerte loin du Mac, sans Teams\u{00A0}: ntfy (gratuit, auto-hébergeable) ou Pushover (licence unique par plateforme). Désactivés par défaut.",
+                 accessory: { EmptyView() }) {
+            RegColumns(minColumnWidth: 360) {
+                RegAlertNtfyCard()
+                RegAlertPushoverCard()
+            }
         }
     }
 
@@ -53,9 +67,9 @@ struct RegAlertsSection: View {
         let channels = alerts.settings.enabledChannels
         let ready = channels.filter(alerts.isReady)
         if alerts.isSandboxed {
-            RegNotice("Démonstration\u{00A0}: canaux fictifs, aucun courriel ni webhook n’est envoyé.", tone: .neutral)
+            RegNotice("Démonstration\u{00A0}: canaux fictifs, aucun courriel, webhook ni notification n’est envoyé.", tone: .neutral)
         } else if !alerts.settings.isEnabled {
-            RegNotice("Alertes désactivées\u{00A0}: aucun courriel ni webhook ne part. Réglez les canaux, essayez-les avec «\u{00A0}Envoyer un test\u{00A0}», puis activez les alertes.", tone: .neutral)
+            RegNotice("Alertes désactivées\u{00A0}: aucun courriel, webhook ni notification ne part. Réglez les canaux, essayez-les avec «\u{00A0}Envoyer un test\u{00A0}», puis activez les alertes.", tone: .neutral)
         } else if channels.isEmpty {
             RegNotice("Alertes activées, mais aucun canal n’est activé\u{00A0}: rien ne peut partir.", tone: .warning)
         } else if ready.count < channels.count {

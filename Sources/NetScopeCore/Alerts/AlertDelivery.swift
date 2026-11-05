@@ -9,16 +9,25 @@ public struct AlertSecrets: Sendable {
     public var smtpPassword: String?
     public var webhookURLs: [UUID: String]
     public var webhookAuth: [UUID: String]
+    /// Note 76 : jeton d'accès ntfy (facultatif), jeton d'application et clé utilisateur Pushover.
+    public var ntfyToken: String?
+    public var pushoverToken: String?
+    public var pushoverUser: String?
 
-    public init(smtpPassword: String? = nil, webhookURLs: [UUID: String] = [:], webhookAuth: [UUID: String] = [:]) {
+    public init(smtpPassword: String? = nil, webhookURLs: [UUID: String] = [:], webhookAuth: [UUID: String] = [:],
+                ntfyToken: String? = nil, pushoverToken: String? = nil, pushoverUser: String? = nil) {
         self.smtpPassword = smtpPassword
         self.webhookURLs = webhookURLs
         self.webhookAuth = webhookAuth
+        self.ntfyToken = ntfyToken
+        self.pushoverToken = pushoverToken
+        self.pushoverUser = pushoverUser
     }
 
     /// Toutes les valeurs secrètes (pour les retirer du journal).
     public var all: [String] {
-        ([smtpPassword].compactMap { $0 } + Array(webhookURLs.values) + Array(webhookAuth.values)).filter { !$0.isEmpty }
+        ([smtpPassword, ntfyToken, pushoverToken, pushoverUser].compactMap { $0 } + Array(webhookURLs.values) + Array(webhookAuth.values))
+            .filter { !$0.isEmpty }
     }
 }
 
@@ -159,10 +168,14 @@ public struct AlertDelivery: Sendable {
                 return entry(batch, kind: "webhook", name: "Webhook supprimé", outcome: .failed, detail: "Webhook introuvable dans les réglages.", now: now)
             }
             return await deliverWebhook(batch, hook: hook, settings: settings, secrets: secrets, now: now)
+        case .ntfy:
+            return await deliverNtfy(batch, settings: settings, secrets: secrets, now: now)
+        case .pushover:
+            return await deliverPushover(batch, settings: settings, secrets: secrets, now: now)
         }
     }
 
-    private func entry(_ batch: AlertBatch, kind: String, name: String, outcome: AlertLogEntry.Outcome, detail: String,
+    func entry(_ batch: AlertBatch, kind: String, name: String, outcome: AlertLogEntry.Outcome, detail: String,
                        duration: Double? = nil, now: Date, secrets: AlertSecrets = AlertSecrets()) -> AlertLogEntry {
         AlertLogEntry(date: now, channelKind: kind, channelName: name, outcome: outcome, title: batch.title,
                       eventCount: batch.events.count, severity: batch.severity, isTest: batch.isTest,

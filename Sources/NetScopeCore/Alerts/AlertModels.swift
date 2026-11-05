@@ -129,9 +129,11 @@ public struct AlertEvent: Codable, Identifiable, Equatable, Sendable {
     public var details: [AlertDetail]
     /// Sonde de la Surveillance à l'origine de l'événement (exclusions par sonde).
     public var probeID: UUID?
+    /// Note 76 : site de l'événement (filtre par site des canaux de téléphone) ; nil : sans site.
+    public var siteID: UUID?
 
     public init(id: UUID = UUID(), kind: AlertEventKind, severity: AlertSeverity? = nil, title: String, message: String,
-                subject: String, occurredAt: Date = Date(), details: [AlertDetail] = [], probeID: UUID? = nil) {
+                subject: String, occurredAt: Date = Date(), details: [AlertDetail] = [], probeID: UUID? = nil, siteID: UUID? = nil) {
         self.id = id
         self.kind = kind
         self.severity = severity ?? kind.typicalSeverity
@@ -141,6 +143,7 @@ public struct AlertEvent: Codable, Identifiable, Equatable, Sendable {
         self.occurredAt = occurredAt
         self.details = details
         self.probeID = probeID
+        self.siteID = siteID
     }
 
     /// Clé de l'anti-rafale : un type d'événement pour un objet.
@@ -347,11 +350,17 @@ public struct AlertWebhook: Codable, Identifiable, Equatable, Sendable {
 public enum AlertChannel: Hashable, Sendable, Identifiable {
     case email
     case webhook(UUID)
+    /// Note 76 : notification sur téléphone par ntfy.
+    case ntfy
+    /// Note 76 : notification sur téléphone par Pushover.
+    case pushover
 
     public var id: String {
         switch self {
         case .email: return "courriel"
         case .webhook(let id): return "webhook-\(id.uuidString)"
+        case .ntfy: return "ntfy"
+        case .pushover: return "pushover"
         }
     }
 }
@@ -362,6 +371,11 @@ public enum AlertSecretKey {
     public static let smtpPassword = "smtp.motdepasse"
     public static func webhookURL(_ id: UUID) -> String { "webhook.\(id.uuidString).adresse" }
     public static func webhookAuth(_ id: UUID) -> String { "webhook.\(id.uuidString).entete" }
+    /// Note 76 : jeton d'accès ntfy (facultatif).
+    public static let ntfyToken = "ntfy.jeton"
+    /// Note 76 : jeton d'application et clé utilisateur Pushover.
+    public static let pushoverToken = "pushover.application"
+    public static let pushoverUser = "pushover.utilisateur"
 }
 
 // MARK: - Règles
@@ -478,6 +492,9 @@ public struct AlertSettings: Codable, Equatable, Sendable {
     public var isEnabled = false
     public var smtp = AlertSMTPSettings()
     public var webhooks: [AlertWebhook] = []
+    /// Note 76 : notifications sur téléphone (désactivées par défaut).
+    public var ntfy = AlertNtfySettings()
+    public var pushover = AlertPushoverSettings()
     public var rules = AlertRules()
 
     public init() {}
@@ -487,12 +504,30 @@ public struct AlertSettings: Codable, Equatable, Sendable {
         isEnabled = try c.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? false
         smtp = try c.decodeIfPresent(AlertSMTPSettings.self, forKey: .smtp) ?? AlertSMTPSettings()
         webhooks = try c.decodeIfPresent([AlertWebhook].self, forKey: .webhooks) ?? []
+        ntfy = try c.decodeIfPresent(AlertNtfySettings.self, forKey: .ntfy) ?? AlertNtfySettings()
+        pushover = try c.decodeIfPresent(AlertPushoverSettings.self, forKey: .pushover) ?? AlertPushoverSettings()
         rules = try c.decodeIfPresent(AlertRules.self, forKey: .rules) ?? AlertRules()
     }
 
     /// Canaux activés (sans vérifier les secrets).
     public var enabledChannels: [AlertChannel] {
         (smtp.isEnabled ? [.email] : []) + webhooks.filter(\.isEnabled).map { .webhook($0.id) }
+            + (ntfy.isEnabled ? [.ntfy] : []) + (pushover.isEnabled ? [.pushover] : [])
+    }
+
+    /// Filtre propre au canal (gravité, sites) : seuls ntfy et Pushover en ont un.
+    public func filter(for channel: AlertChannel) -> AlertChannelFilter? {
+        switch channel {
+        case .ntfy: return ntfy.filter
+        case .pushover: return pushover.filter
+        case .email, .webhook: return nil
+        }
+    }
+
+    /// Lot à envoyer sur ce canal après son filtre propre (nil : rien pour lui).
+    public func batch(_ batch: AlertBatch, for channel: AlertChannel) -> AlertBatch? {
+        guard let filter = filter(for: channel) else { return batch }
+        return filter.apply(batch)
     }
 
     public func webhook(_ id: UUID) -> AlertWebhook? { webhooks.first { $0.id == id } }
@@ -504,15 +539,23 @@ public struct AlertSettings: Codable, Equatable, Sendable {
         case .webhook(let id):
             guard let hook = webhook(id) else { return "Webhook supprimé" }
             return hook.name.isEmpty ? hook.kind.shortLabel : "\(hook.kind.shortLabel) · \(hook.name)"
+        case .ntfy:
+            let topic = ntfy.topic.trimmingCharacters(in: .whitespaces)
+            return topic.isEmpty ? "ntfy" : "ntfy · \(topic)"
+        case .pushover: return "Pushover"
         }
     }
 
     /// Canaux qui recevraient les alertes de cette sonde (vide : alertes désactivées, sonde exclue
     /// ou aucun canal) : indication de la Surveillance.
-    public func channels(forProbe id: UUID) -> [AlertChannel] {
+    /// `siteID` : site de la sonde (un canal de téléphone limité à d'autres sites ne la reçoit pas).
+    public func channels(forProbe id: UUID, siteID: UUID? = nil) -> [AlertChannel] {
         guard isEnabled, !rules.excludedProbes.contains(id),
               !rules.kinds.isDisjoint(with: [.probeDown, .probeWarning, .probeRecovered, .licenseExpiring, .firmwareOutdated, .syslogSevere, .wanDown]) else { return [] }
-        return enabledChannels
+        return enabledChannels.filter { channel in
+            guard let filter = filter(for: channel), !filter.siteIDs.isEmpty, let siteID else { return true }
+            return filter.siteIDs.contains(siteID)
+        }
     }
 }
 
@@ -534,7 +577,7 @@ public struct AlertLogEntry: Codable, Identifiable, Equatable, Sendable {
 
     public var id: UUID
     public var date: Date
-    /// « courriel », « teams », « slack », « generic ».
+    /// « courriel », « teams », « slack », « generic », « ntfy », « pushover ».
     public var channelKind: String
     public var channelName: String
     public var outcome: Outcome
