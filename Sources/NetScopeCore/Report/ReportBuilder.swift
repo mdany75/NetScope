@@ -168,6 +168,8 @@ public struct ReportInput: Sendable {
     public var firmware: FirmwareOverview?
     /// Diagnostics Wi-Fi retenus pour le rapport du site (section facultative « Diagnostic Wi-Fi »).
     public var wifiDiagnoses: [WifiDiagnosisResult] = []
+    /// Bilans de raccordement retenus pour le rapport du site (section facultative, note 58).
+    public var linkChecks: [LinkCheckReportEntry] = []
     /// Trafic FortiView (section facultative « Trafic et analyse ») ; nil : aucune lecture.
     public var traffic: TrafficOverview?
     /// Analyse complète du réseau, si elle a été lancée.
@@ -394,6 +396,7 @@ public enum ReportBuilder {
             case .fortiap: blocks = fortiAPBlocks(input.fortiWifi, thresholds: input.fortiWifiThresholds, masked: config.maskMAC)
             case .dhcp: blocks = dhcpScopeBlocks(input.dhcpScopes, thresholds: input.dhcpThresholds)
             case .wifiDiag: blocks = wifiDiagnosisBlocks(input.wifiDiagnoses, masked: config.maskMAC)
+            case .raccordement: blocks = linkCheckBlocks(input.linkChecks, masked: config.maskMAC)
             case .wan: blocks = wanBlocks(input.wan, thresholds: input.wanThresholds)
             case .firmware: blocks = firmwareBlocks(input.firmware)
             case .trafic: blocks = trafficBlocks(input.traffic, analysis: input.networkAnalysis, masked: config.maskMAC)

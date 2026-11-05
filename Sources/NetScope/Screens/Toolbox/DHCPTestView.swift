@@ -127,56 +127,67 @@ final class ToolDHCPModel: ObservableObject {
         phase = .listening
         deadline = Date().addingTimeInterval(seconds)
         task = Task { [weak self] in
-            // 1) Port 68 partagé (sans droits).
-            let shared: (offers: [DHCPOffer], bound: Bool, error: String?) = await Task.detached {
-                do {
-                    guard let fd = try DHCPProbe.openSocket(interface: name, port: DHCPProbe.clientPort) else { return ([], false, nil) }
-                    defer { close(fd) }
-                    let sentAt = Date()
-                    try DHCPProbe.send(packet, fd: fd)
-                    return (DHCPProbe.receive(fd: fd, xid: xid, until: sentAt.addingTimeInterval(seconds), sentAt: sentAt), true, nil)
-                } catch {
-                    return ([], true, (error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
-                }
-            }.value
+            let outcome = await Self.discoverWithoutPrivilege(interface: name, packet: packet, xid: xid, seconds: seconds)
             guard let self else { return }
-            if shared.bound {
-                self.reception = .sharedPort
-                self.error = shared.error
-                self.complete(shared.offers, xid: xid, store: store)
-                return
+            switch outcome {
+            case .received(let offers, let reception, let error):
+                self.reception = reception
+                self.error = error
+                self.complete(offers, xid: xid, store: store)
+            case .needsPrivilege:
+                // Il faut l'autorisation d'administrateur : on l'explique et on attend le clic.
+                self.phase = .idle
+                self.deadline = nil
+                self.needsPrivilege = true
             }
-            // 2) Port refusé : capture BPF si elle est déjà permise.
-            if await Task.detached(operation: { BPFCapture.readableDevice() != nil }).value {
-                self.reception = .bpf
-                self.deadline = Date().addingTimeInterval(seconds)
-                let result: (offers: [DHCPOffer], error: String?) = await Task.detached {
-                    do {
-                        let capture = try BPFCapture(interface: name, filter: BPFFilter.dhcpClient, promiscuous: false)
-                        defer { capture.stop() }
-                        let sentAt = try Self.sendFromFreePort(packet, interface: name)
-                        var found: [DHCPOffer] = []
-                        while Date() < sentAt.addingTimeInterval(seconds) {
-                            for frame in capture.read(timeout: 0.3) {
-                                guard var offer = DHCPParser.parseFrame(frame.bytes), offer.xid == xid else { continue }
-                                offer.delay = (frame.date ?? Date()).timeIntervalSince(sentAt)
-                                found.append(offer)
-                            }
-                        }
-                        return (found, nil)
-                    } catch {
-                        return ([], (error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
-                    }
-                }.value
-                self.error = result.error
-                self.complete(result.offers, xid: xid, store: store)
-                return
-            }
-            // 3) Il faut l'autorisation d'administrateur : on l'explique et on attend le clic.
-            self.phase = .idle
-            self.deadline = nil
-            self.needsPrivilege = true
         }
+    }
+
+    /// Issue d'un DHCPDISCOVER sans droits d'administrateur.
+    enum UnprivilegedOutcome: Sendable {
+        case received([DHCPOffer], Reception, error: String?)
+        /// Port 68 refusé et /dev/bpf non ouvrable : seule la capture par tcpdump reste.
+        case needsPrivilege
+    }
+
+    /// Envoie le DISCOVER et lit les offres sans droits : port UDP 68 partagé avec macOS, sinon
+    /// capture BPF si elle est déjà permise. Sert au Test DHCP et au bilan de raccordement (note 58).
+    nonisolated static func discoverWithoutPrivilege(interface name: String, packet: [UInt8], xid: UInt32,
+                                                     seconds: TimeInterval) async -> UnprivilegedOutcome {
+        // 1) Port 68 partagé (sans droits).
+        let shared: (offers: [DHCPOffer], bound: Bool, error: String?) = await Task.detached {
+            do {
+                guard let fd = try DHCPProbe.openSocket(interface: name, port: DHCPProbe.clientPort) else { return ([], false, nil) }
+                defer { close(fd) }
+                let sentAt = Date()
+                try DHCPProbe.send(packet, fd: fd)
+                return (DHCPProbe.receive(fd: fd, xid: xid, until: sentAt.addingTimeInterval(seconds), sentAt: sentAt), true, nil)
+            } catch {
+                return ([], true, (error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+            }
+        }.value
+        if shared.bound { return .received(shared.offers, .sharedPort, error: shared.error) }
+        // 2) Port refusé : capture BPF si elle est déjà permise.
+        guard await Task.detached(operation: { BPFCapture.readableDevice() != nil }).value else { return .needsPrivilege }
+        let result: (offers: [DHCPOffer], error: String?) = await Task.detached {
+            do {
+                let capture = try BPFCapture(interface: name, filter: BPFFilter.dhcpClient, promiscuous: false)
+                defer { capture.stop() }
+                let sentAt = try Self.sendFromFreePort(packet, interface: name)
+                var found: [DHCPOffer] = []
+                while Date() < sentAt.addingTimeInterval(seconds) {
+                    for frame in capture.read(timeout: 0.3) {
+                        guard var offer = DHCPParser.parseFrame(frame.bytes), offer.xid == xid else { continue }
+                        offer.delay = (frame.date ?? Date()).timeIntervalSince(sentAt)
+                        found.append(offer)
+                    }
+                }
+                return (found, nil)
+            } catch {
+                return ([], (error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+            }
+        }.value
+        return .received(result.offers, .bpf, error: result.error)
     }
 
     private func runPrivileged(_ name: String, xid: UInt32, packet: [UInt8], seconds: TimeInterval, store: ToolStore) {

@@ -78,6 +78,8 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
     case suivi
     /// Firmware et licences du parc Fortinet (note 41), facultative.
     case firmware
+    /// Bilans de raccordement retenus (note 58), facultative.
+    case raccordement
 
     public var id: String { rawValue }
 
@@ -99,13 +101,14 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
         case .trafic: return "Trafic et bilan de santé"
         case .suivi: return "Depuis le dernier rapport"
         case .firmware: return "Firmware et licences"
+        case .raccordement: return "Bilan de raccordement"
         case .annexe: return "Annexe brute"
         }
     }
 
     /// Ordre dans le document : le détail (inventaire, annexe) vient après la synthèse. « Santé
     /// courriel » est facultative : aucun modèle ne la coche par défaut.
-    public static let documentOrder: [ReportSectionKind] = [.resume, .suivi, .plan, .dhcp, .wan, .firmware, .switchs, .wifi, .fortiap, .wifiDiag, .trafic, .securite, .problemes,
+    public static let documentOrder: [ReportSectionKind] = [.resume, .suivi, .plan, .dhcp, .wan, .firmware, .switchs, .raccordement, .wifi, .fortiap, .wifiDiag, .trafic, .securite, .problemes,
                                                             .courriel, .disques, .inventaire, .annexe]
 }
 

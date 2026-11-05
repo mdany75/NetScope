@@ -124,6 +124,7 @@ enum Snapshots {
             }
         }
         if options.demo { ok = RapportPDFCheck.write(into: directory, state: state) && ok }
+        if options.demo { ok = LinkCheckPDFCheck.write(into: directory) && ok }
         return ok
     }
 
