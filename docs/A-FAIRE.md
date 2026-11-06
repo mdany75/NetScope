@@ -1719,7 +1719,13 @@ Dany : étendre la synchronisation iCloud Drive de la note 56 (0.18.0) au lieu d
   l’historique et alerte en cas d’échec.
 - **Nom ou note sur un ID** : nom et note libres pour chaque ID RustDesk, gardés dans NetScope et
   synchronisés entre les Mac (note 86) ; affichés dans le tableau de bord, l’assistance et le carnet.
-- Déconnecter un usager et la quarantaine : retirés par Dany le 6 novembre 2026.
+- **Bouton « Déconnecter »** sur une session relayée en cours (Dany, 6 novembre 2026), avec
+  confirmation. Le serveur libre (hbbs/hbbr) n’a pas d’API pour couper une session : NetScope ferme
+  par SSH la connexion relayée de ce poste sur hbbr (`ss -K`, sudo, mot de passe au Trousseau),
+  puis vérifie qu’elle a disparu ; si ce n’est pas possible, il le dit (redémarrer hbbr coupe
+  toutes les sessions, proposé à part avec avertissement). Avec RustDesk Server Pro : son API.
+  Le poste peut se reconnecter aussitôt (pas de blocage).
+- Quarantaine : retirée par Dany le 6 novembre 2026.
 - À vérifier avant : quel serveur tourne chez Groupe Couture (libre ou Pro, Docker ou non).
 - **Associer un ID à une MAC automatiquement** : la fiche d’inventaire a déjà un champ « ID
   RustDesk » (0.26.1), retenu par la MAC. Le serveur ne voit que l’IP publique du site (NAT) ; à la
