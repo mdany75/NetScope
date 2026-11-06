@@ -1,5 +1,33 @@
 # Changements
 
+## 0.33.1 — 2026-11-06
+
+Serveur RustDesk, actions (note 88). Chaque action demande une confirmation qui dit ce qui va se
+passer ; la commande exacte se copie (sans secret) ; mot de passe sudo au Trousseau seulement.
+
+### Ajouté
+- **« Déconnecter… »** sur chaque session relayée en cours (aussi au clic droit) : la connexion
+  de ce poste est fermée sur le serveur (`ss -K`), puis NetScope vérifie qu’elle a disparu ;
+  sinon il le dit et propose, à part, de redémarrer hbbr (coupe toutes les sessions). Le poste
+  peut se reconnecter aussitôt.
+- **Panneau « Actions sur le serveur »** :
+  - mettre à jour RustDesk : sessions signalées, compose relu, clé et base sauvegardées sur le
+    serveur, image actuelle étiquetée, `docker compose pull` et `up -d`, puis versions, ports et
+    clé vérifiés ; retour à l’image précédente si RustDesk ne repart pas ;
+  - mettre à jour le système (apt ou dnf) : sécurité seulement ou tout, redémarrage permis ou non ;
+  - historique des actions, synchronisé entre les Mac.
+- **Mise à jour planifiée** : jour, heure, RustDesk, système ou les deux, sécurité seulement ou
+  tout, redémarrage permis ou non, report si une session est en cours (nouvel essai toutes les
+  15 min pendant 3 h) ; faite par l’agent d’un seul Mac choisi, même app fermée ; alerte en cas
+  d’échec, d’abandon ou d’échéance manquée. Avertissement si l’agent n’est pas actif.
+
+### Limites connues
+- Rien n’a été essayé sur un vrai serveur : `ss -K` (selon le noyau), `docker compose` par sudo,
+  sauvegarde dans `/var/backups` (jamais effacée automatiquement).
+- « Sécurité seulement » avec apt demande unattended-upgrades sur le serveur.
+- macOS peut demander l’accès au Trousseau pour l’agent ; sans lui, la mise à jour planifiée
+  échoue et l’échec est noté.
+
 ## 0.33.0 — 2026-11-06
 
 Serveur RustDesk, en lecture seulement (note 87) : rien n’est modifié sur le serveur.
