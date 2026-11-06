@@ -1725,7 +1725,17 @@ Dany : étendre la synchronisation iCloud Drive de la note 56 (0.18.0) au lieu d
   puis vérifie qu’elle a disparu ; si ce n’est pas possible, il le dit (redémarrer hbbr coupe
   toutes les sessions, proposé à part avec avertissement). Avec RustDesk Server Pro : son API.
   Le poste peut se reconnecter aussitôt (pas de blocage).
-- Quarantaine : retirée par Dany le 6 novembre 2026.
+- **Déconnexion automatique (quarantaine par ID)** (Dany, 6 novembre 2026) : bouton
+  « Déconnexion automatique » sur un ID (session, demande, carnet), avec confirmation. Toutes les
+  30 secondes, NetScope lit le serveur par SSH ; si un ID en quarantaine a une session relayée en
+  cours, il la coupe aussitôt (même méthode que « Déconnecter ») et le note dans l’historique,
+  avec alerte. Liste des ID en quarantaine dans le tableau de bord : motif, depuis quand, durée
+  (1 h, 24 h, jusqu’à levée), levée en un clic ; synchronisée entre les Mac (note 86), mais un seul
+  Mac l’applique à la fois. Faite par l’agent en arrière-plan (note 64), même app fermée.
+  Limites à afficher : une session peut durer jusqu’à 30 secondes avant d’être coupée ; une
+  session pair-à-pair (directe) ne passe plus par le serveur une fois établie et ne peut pas être
+  coupée ainsi ; Mac éteint = aucune déconnexion. Option à évaluer : un petit script sur le
+  serveur lui-même (systemd), qui couperait sans attendre et sans Mac allumé.
 - À vérifier avant : quel serveur tourne chez Groupe Couture (libre ou Pro, Docker ou non).
 - **Associer un ID à une MAC automatiquement** : la fiche d’inventaire a déjà un champ « ID
   RustDesk » (0.26.1), retenu par la MAC. Le serveur ne voit que l’IP publique du site (NAT) ; à la
