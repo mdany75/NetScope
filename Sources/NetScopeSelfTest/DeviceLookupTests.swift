@@ -236,10 +236,14 @@ func registerDeviceLookupTests(_ suite: TestSuite) {
         try expectEqual(DeviceLookup.target(for: "10.10", in: list), .invalid("Adresse IP incomplète\u{00A0}: 2 octets sur 4"), "incomplète")
     }
 
-    suite.add("Fermer la fiche : ⇧⌘W par défaut, sans conflit") {
+    suite.add("Fermer la fiche : aucun raccourci par défaut, ⇧⌘W et ⌥⌘W réservés à macOS") {
         let action = ShortcutCatalog.fixedActions.first { $0.id == ShortcutID.closeDevice }
-        try expectEqual(action?.defaultCombo, KeyCombo("w", [.shift, .command]), "⇧⌘W")
+        try expect(action != nil, "commande au catalogue")
+        try expect(action?.defaultCombo == nil, "aucun raccourci par défaut")
+        try expect(ShortcutCatalog.systemReserved[KeyCombo("w", [.shift, .command])] != nil, "⇧⌘W : Fermer la fenêtre (onglets)")
+        try expect(ShortcutCatalog.systemReserved[KeyCombo("w", [.option, .command])] != nil, "⌥⌘W : Tout fermer")
         let actions = ShortcutCatalog.fixedActions + ShortcutCatalog.screenActions(NavModule.allCases.map { ($0.rawValue, $0.title) })
-        try expect(ShortcutSettings().conflicts(in: actions)[ShortcutID.closeDevice] == nil, "aucun conflit, ni avec macOS")
+        let settings = ShortcutSettings(overrides: [ShortcutID.closeDevice: KeyCombo("w", [.shift, .command])])
+        try expect(settings.conflicts(in: actions)[ShortcutID.closeDevice] != nil, "⇧⌘W choisi : conflit signalé")
     }
 }

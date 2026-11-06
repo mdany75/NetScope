@@ -66,14 +66,18 @@ final class HostResourcesModel: ObservableObject {
 
     // MARK: Appareils connus (les mêmes que « Ouvrir une fiche »)
 
-    func candidates(_ state: AppState) -> [DeviceLookupCandidate] {
-        let lookup = DeviceLookupModel.shared
-        lookup.refreshCandidates(state)
-        return lookup.candidates
+    /// Appareils connus tels que lus en dernier (la vue les relit à l'apparition et quand les
+    /// résultats changent) : rien n'est publié pendant le calcul de la vue.
+    var candidates: [DeviceLookupCandidate] { DeviceLookupModel.shared.candidates }
+
+    /// Hors du calcul de la vue (Entrée, clic) : relit les appareils connus s'ils ont changé.
+    private func refreshedCandidates(_ state: AppState) -> [DeviceLookupCandidate] {
+        DeviceLookupModel.shared.refreshCandidates(state)
+        return candidates
     }
 
-    func suggestions(_ state: AppState) -> [DeviceLookupMatch] {
-        DeviceLookup.suggestions(for: query, in: candidates(state), limit: 6)
+    var suggestions: [DeviceLookupMatch] {
+        DeviceLookup.suggestions(for: query, in: candidates, limit: 6)
     }
 
     func move(_ offset: Int, count: Int) {
@@ -86,12 +90,13 @@ final class HostResourcesModel: ObservableObject {
     /// Entrée : la suggestion choisie aux flèches, sinon l'appareil connu identique ou l'adresse
     /// tapée ; un nom inconnu est résolu (DNS) seulement si aucune suggestion ne lui correspond.
     func submit(_ state: AppState) {
-        let found = suggestions(state)
+        let list = refreshedCandidates(state)
+        let found = DeviceLookup.suggestions(for: query, in: list, limit: 6)
         if found.indices.contains(highlighted) {
             open(found[highlighted].candidate, state: state)
             return
         }
-        switch DeviceLookup.target(for: query, in: candidates(state)) {
+        switch DeviceLookup.target(for: query, in: list) {
         case .empty:
             return
         case .known(let candidate):
@@ -127,7 +132,7 @@ final class HostResourcesModel: ObservableObject {
 
     /// Ouvre une adresse : l'appareil connu à cette adresse s'il y en a un, sinon l'adresse seule.
     func open(address ip: IPv4Address, state: AppState) {
-        if let known = candidates(state).first(where: { $0.ip == ip && $0.siteKey == nil }) {
+        if let known = refreshedCandidates(state).first(where: { $0.ip == ip && $0.siteKey == nil }) {
             open(known, state: state)
             return
         }
@@ -136,7 +141,7 @@ final class HostResourcesModel: ObservableObject {
 
     /// Rouvre un poste consulté récemment (appareil connu de même MAC, sinon de même IP).
     func open(_ recent: DeviceRecentView, state: AppState) {
-        let list = candidates(state)
+        let list = refreshedCandidates(state)
         if let mac = recent.mac, let known = list.first(where: { $0.mac == mac && $0.ip != nil && $0.siteKey == nil }) {
             open(known, state: state)
         } else {
@@ -210,12 +215,21 @@ final class HostResourcesModel: ObservableObject {
         DeviceSession.shared.tab = .ressources
         let lookup = DeviceLookupModel.shared
         if let candidate = host.candidate {
+            lookup.notice = nil
             lookup.open(candidate, state: state)
+            // Rien d'ouvert (IP prise dans le Scanner du site actif, fiche d'inventaire disparue) :
+            // l'avis s'affiche ici plutôt que sur le panneau Appareil, invisible depuis l'outil.
+            if state.screen == .outils {
+                notice = lookup.notice
+                    ?? "La fiche de «\u{00A0}\(candidate.displayName)\u{00A0}» n’a pas pu être ouverte\u{00A0}: l’appareil n’est plus connu."
+                lookup.notice = nil
+            }
         } else if state.shownDevice(withID: host.device.id) != nil {
             state.showDevice(host.device.id)
         } else {
             lookup.showForm(prefilledFrom: .ip(host.device.ip))
-            if state.selectedDeviceID != nil { state.closeDevice() } else { state.open(.appareil) }
+            // Pas closeDevice() : l'appareil choisi dans le Scanner n'a pas été consulté ici.
+            if state.selectedDeviceID != nil { state.openEmptyDevicePanel() } else { state.open(.appareil) }
         }
     }
 
@@ -252,7 +266,7 @@ struct HostResourcesView: View {
     @FocusState private var fieldFocused: Bool
 
     var body: some View {
-        let found = model.query.isEmpty ? [] : model.suggestions(state)
+        let found = model.query.isEmpty ? [] : model.suggestions
         VStack(alignment: .leading, spacing: 14) {
             search(found)
             if let host = model.host {
@@ -265,10 +279,12 @@ struct HostResourcesView: View {
             }
         }
         .onAppear {
+            DeviceLookupModel.shared.refreshCandidates(state)
             model.prepareDemo(state)
             if model.host == nil { fieldFocused = true }
         }
         .onChange(of: model.focusRequest) { _, _ in fieldFocused = true }
+        .onChange(of: DeviceLookupModel.signature(state)) { _, _ in DeviceLookupModel.shared.refreshCandidates(state) }
     }
 
     // MARK: Champ et suggestions
@@ -447,14 +463,14 @@ struct HostResourcesView: View {
                 }
             }
             if model.recents.isEmpty {
-                Text("Tapez l’adresse IP, le nom ou la MAC d’un poste, d’un serveur, d’un switch ou d’une imprimante\u{00A0}: ses ressources s’affichent ici, sans ouvrir sa fiche. Les postes consultés apparaîtront ici.")
+                Text("Tapez l’adresse IP, le nom ou la MAC d’un poste, d’un serveur, d’un switch ou d’une imprimante\u{00A0}: ses ressources s’affichent ici, sans ouvrir sa fiche\u{00A0}; les postes consultés seront gardés dans cette liste.")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 8)], alignment: .leading, spacing: 8) {
                     ForEach(model.recents) { recent in
                         Button { model.open(recent, state: state) } label: {
-                            DeviceRecentRow(recent: recent).contentShape(Rectangle())
+                            DeviceRecentRow(recent: recent, marksMissing: false).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .help("Afficher les ressources de \(recent.name)")

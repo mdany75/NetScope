@@ -164,6 +164,18 @@ extension AppState {
         DeviceLookupModel.shared.prepareAfterClose()
     }
 
+    /// Écran Appareil sans appareil choisi (« Ouvrir une fiche »), ouvert depuis un autre écran
+    /// (Boîte à outils › « Ressources d'un poste ») : l'appareil choisi dans le Scanner n'est pas
+    /// compté comme consulté, et Retour revient à l'écran d'où l'on vient.
+    func openEmptyDevicePanel() {
+        let here = location(of: screen)
+        isNavigating = true
+        selectedDeviceID = nil
+        screen = .appareil
+        isNavigating = false
+        if recordsHistory { history.leave(here, to: location(of: .appareil)) }
+    }
+
     var canGoBack: Bool { history.canGoBack }
     var canGoForward: Bool { history.canGoForward }
 

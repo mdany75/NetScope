@@ -61,7 +61,7 @@ struct AppCommands: Commands {
                 .regShortcut(ShortcutID.openDevice, shortcuts)
                 .disabled(device == nil)
             // Écran Appareil : revenir à « Ouvrir une fiche » (Retour rouvre la fiche).
-            Button("Fermer la fiche") { state.closeDevice() }
+            Button("Fermer la fiche appareil") { state.closeDevice() }
                 .regShortcut(ShortcutID.closeDevice, shortcuts)
                 .disabled(device == nil || state.screen != .appareil)
             Divider()
