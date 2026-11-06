@@ -210,7 +210,27 @@ struct RustDeskServerDashboard: View {
         if RustDeskServerAlerts.backupDue(last: watch.lastBackup, now: status.now) {
             noticeBanner(RustDeskFinding(.warning, "Aucune sauvegarde récente de la clé et de la base",
                                          watch.lastBackup.map { "Dernière copie chiffrée sur ce Mac \(RemoteFormat.relative($0))." }
-                                             ?? "Sans copie, perdre le serveur oblige à reconfigurer la clé sur tous les postes."))
+                                             ?? "Sans copie, perdre le serveur oblige à reconfigurer la clé sur tous les postes.")) {
+                VStack(alignment: .trailing, spacing: 4) {
+                    Button {
+                        watch.backup()
+                    } label: {
+                        if watch.backupRunning {
+                            HStack(spacing: 5) { ProgressView().controlSize(.mini); Text("Copie…") }
+                        } else {
+                            Label("Sauvegarder maintenant", systemImage: "externaldrive.badge.checkmark").labelStyle(RemoteCompactLabelStyle())
+                        }
+                    }
+                    .buttonStyle(RemoteSmallButtonStyle(primary: true))
+                    .disabled(watch.backupRunning || !server.settings.hasAccount)
+                    .help("Lit le dossier de données du serveur (clés et db_v2.sqlite3) par sudo et l’enregistre chiffré sur ce Mac (clé au Trousseau). Rien n’est écrit sur le serveur.")
+                    if let message = watch.backupMessage, !message.ok {
+                        Text(message.text).font(Theme.caption).foregroundStyle(Theme.critical)
+                            .multilineTextAlignment(.trailing).frame(maxWidth: 320, alignment: .trailing)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
         }
         tiles(status)
         RustDeskServerChart(samples: RustDeskServerSamples.window(server.samples, hours: 6, now: status.readAt), now: status.readAt)
@@ -256,6 +276,10 @@ struct RustDeskServerDashboard: View {
     }
 
     private func noticeBanner(_ finding: RustDeskFinding) -> some View {
+        noticeBanner(finding) { EmptyView() }
+    }
+
+    private func noticeBanner<Action: View>(_ finding: RustDeskFinding, @ViewBuilder action: () -> Action) -> some View {
         let tone: Tone = finding.level == .error ? .critical : finding.level == .warning ? .warning : .neutral
         return HStack(alignment: .top, spacing: 10) {
             RustDeskLevelIcon(level: finding.level).font(.system(size: 14))
@@ -266,6 +290,7 @@ struct RustDeskServerDashboard: View {
                     .textSelection(.enabled)
             }
             Spacer(minLength: 0)
+            action()
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(tone.background))

@@ -1,5 +1,12 @@
 # Changements
 
+## 0.33.2 — 2026-11-06
+
+### Ajouté
+- Serveur RustDesk : bouton « Sauvegarder maintenant » dans le bandeau « Aucune sauvegarde
+  récente de la clé et de la base », sans avoir à descendre jusqu’au panneau « Clé publique et
+  sauvegarde » ; un échec s’affiche sous le bouton.
+
 ## 0.33.1 — 2026-11-06
 
 Serveur RustDesk, actions (note 88). Chaque action demande une confirmation qui dit ce qui va se
