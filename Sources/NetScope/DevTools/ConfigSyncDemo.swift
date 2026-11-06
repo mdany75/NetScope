@@ -147,7 +147,15 @@ enum ConfigSyncDemo {
         var summary: String
     }
 
-    /// Trois Mac (ce MacBook Pro, le Mac Studio et le Mac du bureau resté en 0.28), un conflit
+    /// Version mineure précédant celle de l'app (« 0.29.0 » → « 0.28.0 ») : le Mac du bureau reste
+    /// toujours une version derrière, quelle que soit la version construite.
+    static func previousVersion(_ version: String) -> String {
+        let parts = version.split(separator: ".").compactMap { Int($0) }
+        guard parts.count >= 2, parts[1] > 0 else { return "0.28.0" }
+        return "\(parts[0]).\(parts[1] - 1).0"
+    }
+
+    /// Trois Mac (ce MacBook Pro, le Mac Studio et le Mac du bureau resté une version derrière), un conflit
     /// sur une connexion du carnet, une sonde supprimée sur le Mac Studio à confirmer.
     static func state() -> SyncState {
         let now = Date()
@@ -156,7 +164,7 @@ enum ConfigSyncDemo {
             ConfigSyncDevice(id: "demo-macbook", name: deviceName, model: deviceModel, appVersion: version, lastSync: now.addingTimeInterval(-40)),
             ConfigSyncDevice(id: "demo-studio", name: studioDevice, model: "Mac Studio (2023)", appVersion: version,
                              lastSync: now.addingTimeInterval(-3 * 60)),
-            ConfigSyncDevice(id: "demo-bureau", name: officeDevice, model: "iMac (24 pouces, 2021)", appVersion: "0.28.0", schema: nil,
+            ConfigSyncDevice(id: "demo-bureau", name: officeDevice, model: "iMac (24 pouces, 2021)", appVersion: previousVersion(version), schema: nil,
                              lastSync: now.addingTimeInterval(-2 * 3_600 - 14 * 60)),
         ]
         let routeur = Data(#"{"host":"10.182.122.1","id":"9C1A0000-0000-4000-8000-000000000001","name":"Routeur du Siège","port":22,"protocol":"ssh","user":"admin"}"#.utf8)

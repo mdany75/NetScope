@@ -275,9 +275,9 @@ struct RegBackupSection: View {
                 Text(backups.folderLabel).font(Theme.mono(12, weight: .semibold)).foregroundStyle(Theme.text)
                     .lineLimit(1).truncationMode(.middle)
                 Text(lastText + (backups.automatic ? " · automatique chaque jour" : " · automatique désactivée"))
-                    .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                    .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .fixedSize()
         }
     }
 
@@ -302,10 +302,24 @@ struct RegBackupSection: View {
 
     private var selected: BackupInfo? { backups.backups.first { $0.id == selection } }
 
+    /// Petite fenêtre (barre de défilement verticale comprise) : les boutons passent sous le titre
+    /// au lieu de faire défiler la page de côté.
     private var listHeader: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                RegLabel("Sauvegardes (\(backups.backups.count))")
+                Spacer()
+                listButtons
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                RegLabel("Sauvegardes (\(backups.backups.count))")
+                listButtons
+            }
+        }
+    }
+
+    private var listButtons: some View {
         HStack(spacing: 8) {
-            RegLabel("Sauvegardes (\(backups.backups.count))")
-            Spacer()
             StandardColumnsMenu(model: table, compact: true)
             Button("Afficher dans le Finder") { backups.revealInFinder(selected) }
                 .buttonStyle(RegSmallButtonStyle())
@@ -316,12 +330,21 @@ struct RegBackupSection: View {
                 .regDisabled(selected == nil)
                 .help(selected == nil ? "Choisissez une sauvegarde dans la liste" : "Restaurer la sauvegarde choisie")
         }
+        .fixedSize()
     }
 
     private var footer: some View {
-        HStack(alignment: .center, spacing: 12) {
-            footerButtons
-            secretsNote.frame(maxWidth: .infinity, alignment: .leading)
+        // Petite fenêtre : la note passe sous les boutons au lieu d'être écrasée en une colonne
+        // d'une lettre (et de faire défiler la page de côté).
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 12) {
+                footerButtons
+                secretsNote.frame(minWidth: 260, maxWidth: .infinity, alignment: .leading)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                footerButtons
+                secretsNote.frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .padding(.top, 12)
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -56,22 +56,31 @@ struct RegConfigSection: View {
         }
     }
 
+    /// Petite fenêtre (barre de défilement verticale comprise) : les deux boutons passent l'un sous
+    /// l'autre au lieu de faire défiler la page de côté.
     private var buttons: some View {
-        HStack(spacing: 8) {
-            Button(action: config.beginExport) { Label("Exporter la configuration…", systemImage: "square.and.arrow.up") }
-                .buttonStyle(.secondary)
-                .regDisabled(config.isWorking)
-            Button(action: config.beginImport) {
-                if config.isWorking {
-                    HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Lecture…") }
-                } else {
-                    Label("Importer la configuration…", systemImage: "square.and.arrow.down")
-                }
-            }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) { exportButton; importButton }.fixedSize()
+            VStack(alignment: .leading, spacing: 8) { exportButton; importButton }.fixedSize()
+        }
+    }
+
+    private var exportButton: some View {
+        Button(action: config.beginExport) { Label("Exporter la configuration…", systemImage: "square.and.arrow.up") }
             .buttonStyle(.secondary)
             .regDisabled(config.isWorking)
+    }
+
+    private var importButton: some View {
+        Button(action: config.beginImport) {
+            if config.isWorking {
+                HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Lecture…") }
+            } else {
+                Label("Importer la configuration…", systemImage: "square.and.arrow.down")
+            }
         }
-        .fixedSize()
+        .buttonStyle(.secondary)
+        .regDisabled(config.isWorking)
     }
 
     /// Les parties, en une ligne (pastilles).

@@ -326,8 +326,8 @@ struct RegSyncSection: View {
                 return HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 12)).foregroundStyle(Theme.warning).frame(width: 18)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\(conflict.label) · \(conflict.siteName)").font(Theme.bodySemibold).foregroundStyle(Theme.text).lineLimit(1)
-                            .truncationMode(.middle)
+                        Text("\(conflict.label) · \(conflict.siteName)").font(Theme.bodySemibold).foregroundStyle(Theme.text).lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                         Text("Gardée\u{00A0}: \(conflict.keptDevice), modifiée \(RegSyncFormat.ago(conflict.keptModified, now: sync.now)) · écartée\u{00A0}: \(conflict.otherDevice), modifiée \(RegSyncFormat.ago(conflict.otherModified, now: sync.now))")
                             .font(Theme.small).foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -360,9 +360,9 @@ struct RegSyncSection: View {
                 return HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "trash").font(.system(size: 12)).foregroundStyle(Theme.critical).frame(width: 18)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\(deletion.label) · \(deletion.scopeName)").font(Theme.bodySemibold).foregroundStyle(Theme.text).lineLimit(1)
-                            .truncationMode(.middle)
-                        Text("Supprimé sur «\u{00A0}\(deletion.device)\u{00A0}» \(RegSyncFormat.ago(deletion.date, now: sync.now))\u{00A0}; toujours présent sur ce Mac.")
+                        Text("\(deletion.label) · \(deletion.scopeName)").font(Theme.bodySemibold).foregroundStyle(Theme.text).lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("Suppression faite sur «\u{00A0}\(deletion.device)\u{00A0}» \(RegSyncFormat.ago(deletion.date, now: sync.now))\u{00A0}; l’élément existe toujours sur ce Mac.")
                             .font(Theme.small).foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                         HStack(spacing: 6) {

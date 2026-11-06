@@ -78,32 +78,32 @@ struct RegSyncDeviceTable: View {
     var body: some View {
         let rows = rows
         Table(rows, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
-            TableColumn("MAC", sortUsing: table.sort("mac")) { row in
+            TableColumn(StandardTableHeading("MAC"), sortUsing: table.sort("mac")) { row in
                 HStack(spacing: 6) {
                     Image(systemName: row.model.localizedCaseInsensitiveContains("MacBook") ? "laptopcomputer" : "desktopcomputer")
                         .font(.system(size: 11)).foregroundStyle(row.isThisMac ? Theme.accent : Theme.textSecondary)
                     Text(row.name).font(Theme.bodySemibold).foregroundStyle(Theme.text).lineLimit(1)
                 }
             }
-            .width(min: 120, ideal: 190)
+            .width(min: 120, ideal: 150)
             .customizationID("mac").disabledCustomizationBehavior(.visibility)
-            TableColumn("MODÈLE", sortUsing: table.sort("modele")) { row in
+            TableColumn(StandardTableHeading("MODÈLE"), sortUsing: table.sort("modele")) { row in
                 Text(row.model).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.tail)
             }
-            .width(min: 70, ideal: 170)
+            .width(min: 60, ideal: 80)
             .customizationID("modele")
-            TableColumn("VERSION", sortUsing: table.sort("version")) { row in
+            TableColumn(StandardTableHeading("VERSION"), sortUsing: table.sort("version")) { row in
                 Text(row.version).font(Theme.mono(11)).foregroundStyle(row.isOlder ? Theme.warning : Theme.text).lineLimit(1)
             }
-            .width(min: 56, ideal: 130)
+            .width(min: 56, ideal: 60)
             .customizationID("version")
-            TableColumn("DERNIÈRE SYNCHRO", sortUsing: table.sort("synchro")) { row in
+            TableColumn(StandardTableHeading("SYNCHRO"), sortUsing: table.sort("synchro")) { row in
                 Text(row.isThisMac && sync.lastSync == nil ? "Jamais" : RegSyncFormat.ago(row.lastSync, now: sync.now))
                     .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
             }
-            .width(min: 70, ideal: 120)
+            .width(min: 70, ideal: 90)
             .customizationID("synchro")
-            TableColumn("ÉTAT", sortUsing: table.sort("etat")) { row in
+            TableColumn(StandardTableHeading("ÉTAT"), sortUsing: table.sort("etat")) { row in
                 if row.isThisMac {
                     RegPill(text: "Ce Mac", tone: .accent)
                 } else if row.isOlder {
@@ -113,7 +113,7 @@ struct RegSyncDeviceTable: View {
                     RegPill(text: "À jour", tone: .success)
                 }
             }
-            .width(min: 80, ideal: 150)
+            .width(min: 80, ideal: 140)
             .customizationID("etat")
         }
         .standardTableStyle()
@@ -169,7 +169,7 @@ struct RegSyncCategoryTable: View {
     var body: some View {
         let rows = rows
         Table(rows, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
-            TableColumn("CATÉGORIE", sortUsing: table.sort("categorie")) { row in
+            TableColumn(StandardTableHeading("CATÉGORIE"), sortUsing: table.sort("categorie")) { row in
                 HStack(spacing: 8) {
                     Toggle("", isOn: Binding(get: { row.isOn }, set: { sync.setCategory(row.id, $0) }))
                         .toggleStyle(.checkbox).labelsHidden()
@@ -179,24 +179,24 @@ struct RegSyncCategoryTable: View {
                 }
                 .help(row.detail)
             }
-            .width(min: 180, ideal: 270)
+            .width(min: 180, ideal: 250)
             .customizationID("categorie").disabledCustomizationBehavior(.visibility)
-            TableColumn("SUR CE MAC", sortUsing: table.sort("contenu")) { row in
+            TableColumn(StandardTableHeading("SUR CE MAC"), sortUsing: table.sort("contenu")) { row in
                 Text(row.summary).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.tail)
                     .help(row.summary)
             }
-            .width(min: 90, ideal: 260)
+            .width(min: 90, ideal: 130)
             .customizationID("contenu")
-            TableColumn("ÉTAT", sortUsing: table.sort("etat")) { row in
+            TableColumn(StandardTableHeading("ÉTAT"), sortUsing: table.sort("etat")) { row in
                 if row.isOn {
                     RegPill(text: "Synchronisée", tone: .success)
                 } else {
                     RegPill(text: "Sur ce Mac seulement", tone: .neutral)
                 }
             }
-            .width(min: 80, ideal: 150)
+            .width(min: 80, ideal: 136)
             .customizationID("etat")
-            TableColumn("CONTENU", sortUsing: table.sort("detail")) { row in
+            TableColumn(StandardTableHeading("CONTENU"), sortUsing: table.sort("detail")) { row in
                 Text(row.detail).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.tail)
                     .help(row.detail)
             }
@@ -263,31 +263,31 @@ struct RegSyncChangeTable: View {
     var body: some View {
         let rows = rows
         Table(rows, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
-            TableColumn("QUAND", sortUsing: table.sort("quand")) { row in
+            TableColumn(StandardTableHeading("QUAND"), sortUsing: table.sort("quand")) { row in
                 Text(RegSyncFormat.ago(row.date, now: sync.now)).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
             }
-            .width(min: 66, ideal: 100)
+            .width(min: 66, ideal: 76)
             .customizationID("quand").disabledCustomizationBehavior(.visibility)
-            TableColumn("ÉLÉMENT", sortUsing: table.sort("element")) { row in
+            TableColumn(StandardTableHeading("ÉLÉMENT"), sortUsing: table.sort("element")) { row in
                 Text(row.label).font(Theme.bodySemibold).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.tail).help(row.label)
             }
-            .width(min: 110, ideal: 240)
+            .width(min: 110, ideal: 196)
             .customizationID("element")
-            TableColumn("CATÉGORIE", sortUsing: table.sort("categorie")) { row in
+            TableColumn(StandardTableHeading("CATÉGORIE"), sortUsing: table.sort("categorie")) { row in
                 Text(row.category).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.tail)
             }
-            .width(min: 76, ideal: 170)
+            .width(min: 76, ideal: 120)
             .customizationID("categorie")
-            TableColumn("SITE OU PARTIE", sortUsing: table.sort("portee")) { row in
+            TableColumn(StandardTableHeading("SITE OU PARTIE"), sortUsing: table.sort("portee")) { row in
                 Text(row.scope).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.tail)
             }
             .width(min: 90, ideal: 170)
             .customizationID("portee")
             .defaultVisibility(.hidden)
-            TableColumn("DE", sortUsing: table.sort("de")) { row in
+            TableColumn(StandardTableHeading("DE"), sortUsing: table.sort("de")) { row in
                 Text(row.device).font(Theme.small).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.tail)
             }
-            .width(min: 76, ideal: 150)
+            .width(min: 76, ideal: 116)
             .customizationID("de")
         }
         .standardTableStyle()
