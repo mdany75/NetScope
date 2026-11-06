@@ -444,8 +444,11 @@ struct RustDeskAssistanceTable: View {
                 .width(min: 132, ideal: RustDeskAssistanceColumns.widths["date"])
                 .customizationID("date").disabledCustomizationBehavior(.visibility)
                 TableColumn(StandardTableHeading("POSTE"), sortUsing: table.sort("poste")) { row in
-                    Text(row.launch.name).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.text).lineLimit(1)
-                        .help(row.launch.name)
+                    // Note 87 : nom et note donnés à l'ID dans le tableau de bord du serveur.
+                    let note = RustDeskServerWatchModel.shared.note(for: row.launch.target)
+                    let given = note?.name.isEmpty == false ? note!.name : nil
+                    Text(given ?? row.launch.name).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.text).lineLimit(1)
+                        .help([row.launch.name, note?.note ?? ""].filter { !$0.isEmpty }.joined(separator: "\n"))
                 }
                 .width(min: 100, ideal: RustDeskAssistanceColumns.widths["poste"])
                 .customizationID("poste").disabledCustomizationBehavior(.visibility)

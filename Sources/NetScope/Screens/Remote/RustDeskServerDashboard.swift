@@ -9,8 +9,10 @@ struct RustDeskServerDashboard: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var model: RemoteModel
     @ObservedObject private var server = RustDeskServerModel.shared
+    @ObservedObject private var watch = RustDeskServerWatchModel.shared
 
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header
@@ -39,6 +41,17 @@ struct RustDeskServerDashboard: View {
         }
         .onAppear {
             if server.status == nil, server.error == nil, server.settings.hasAccount { server.refresh() }
+            // Captures : NETSCOPE_RUSTDESK_DEFILER=maj (mises à jour, clé, suspects) ou =journaux (historique, journaux).
+            guard CommandLine.arguments.contains("--snapshot"),
+                  let anchor = ProcessInfo.processInfo.environment["NETSCOPE_RUSTDESK_DEFILER"] else { return }
+            DispatchQueue.main.async { proxy.scrollTo("rd-" + anchor, anchor: .top) }
+        }
+        }
+        .sheet(item: $watch.editing) { target in
+            RustDeskNoteSheet(target: target, watch: watch)
+        }
+        .sheet(item: $watch.associating) { request in
+            RustDeskAssociationSheet(request: request, watch: watch)
         }
     }
 
@@ -158,15 +171,20 @@ struct RustDeskServerDashboard: View {
     // MARK: Contenu
 
     @ViewBuilder private func content(_ status: RustDeskServerStatus) -> some View {
-        let book = server.book
+        let book = watch.book
         ForEach(status.notices) { finding in
             noticeBanner(finding)
+        }
+        if RustDeskServerAlerts.backupDue(last: watch.lastBackup, now: status.now) {
+            noticeBanner(RustDeskFinding(.warning, "Aucune sauvegarde récente de la clé et de la base",
+                                         watch.lastBackup.map { "Dernière copie chiffrée sur ce Mac \(RemoteFormat.relative($0))." }
+                                             ?? "Sans copie, perdre le serveur oblige à reconfigurer la clé sur tous les postes."))
         }
         tiles(status)
         RustDeskServerChart(samples: RustDeskServerSamples.window(server.samples, hours: 6, now: status.readAt), now: status.readAt)
         Panel {
             if status.relayConsole == .ok {
-                RustDeskRelayTable(rows: RustDeskRelayRow.rows(status, book: book))
+                RustDeskRelayTable(rows: RustDeskRelayRow.rows(status, book: book), watch: watch)
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionHeader("Sessions relayées en cours")
@@ -186,12 +204,18 @@ struct RustDeskServerDashboard: View {
                     Text("Non disponible\u{00A0}: ce hbbs ne connaît pas la commande «\u{00A0}pr\u{00A0}». Mettez l’image rustdesk/rustdesk-server à jour.")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 } else {
-                    RustDeskRequestTable(rows: RustDeskRequestRow.rows(status, book: book), total: status.punchTotal)
+                    RustDeskRequestTable(rows: RustDeskRequestRow.rows(status, book: book, site: watch.probableSite), total: status.punchTotal, watch: watch)
                 }
             }
         }
+        RustDeskUpdatesPanel(status: status, watch: watch).id("rd-maj")
+        RustDeskKeyBackupPanel(status: status, watch: watch, server: server)
+        RustDeskSuspiciousPanel(events: watch.suspicious(status), watch: watch)
+        RustDeskHistoryPanel(watch: watch).id("rd-journaux")
+        RustDeskLogsPanel(watch: watch)
         serverPanel(status)
-        Text("Une session pair-à-pair (directe) ne passe plus par le serveur une fois établie\u{00A0}: seules les sessions relayées par hbbr apparaissent «\u{00A0}en cours\u{00A0}». Les demandes de connexion montrent toutes les tentatives, relayées ou directes, depuis le dernier démarrage de hbbs (liste gardée en mémoire). Le poste est nommé quand son ID est dans le carnet.")
+        RustDeskAlertsPanel(watch: watch)
+        Text("Une session pair-à-pair (directe) ne passe plus par le serveur une fois établie\u{00A0}: seules les sessions relayées par hbbr apparaissent «\u{00A0}en cours\u{00A0}». Les demandes de connexion montrent toutes les tentatives, relayées ou directes, depuis le dernier démarrage de hbbs (liste gardée en mémoire). Le poste est nommé par son nom donné ici, le carnet ou sa fiche d’inventaire (clic droit\u{00A0}: se connecter, nommer, associer, ouvrir la fiche).")
             .font(Theme.caption).foregroundStyle(Theme.textTertiary)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -235,7 +259,28 @@ struct RustDeskServerDashboard: View {
             processTile("hbbr", process: status.hbbr, container: status.containers.first { $0.name.contains("hbbr") },
                         consoleAnswered: status.relayConsole.isOK)
             diskTile(status.disk)
+            healthTiles(status)
         }
+    }
+
+    /// Note 87 : durée de fonctionnement, processeur, mémoire, redémarrages de hbbs et hbbr.
+    @ViewBuilder private func healthTiles(_ status: RustDeskServerStatus) -> some View {
+        let health = status.health
+        let load = (health?.load ?? []).map { String(format: "%.2f", $0).replacingOccurrences(of: ".", with: ",") }
+        RustDeskServerTile(title: "En marche depuis", value: health?.uptimeSeconds.map { RustDeskServerFormat.duration($0) } ?? "—",
+                           detail: load.isEmpty ? "système" : "charge " + load.joined(separator: " · "))
+        RustDeskServerTile(title: "Processeur", value: health?.cpuPercent.map { "\(Int($0.rounded()))\u{00A0}%" } ?? "—",
+                           detail: health?.cpus.map { "\($0) cœur\($0 > 1 ? "s" : "") · mesuré sur 1\u{00A0}s" } ?? "non lu",
+                           tone: (health?.cpuPercent ?? 0) >= 90 ? .warning : nil, fraction: health?.cpuPercent.map { $0 / 100 })
+        RustDeskServerTile(title: "Mémoire", value: health?.memoryUsedFraction.map { "\(Int(($0 * 100).rounded()))\u{00A0}%" } ?? "—",
+                           detail: health?.memoryAvailableKB.map { "\(RustDeskServerFormat.kilobytes($0)) disponibles" } ?? "non lue",
+                           tone: (health?.memoryUsedFraction ?? 0) >= 0.9 ? .warning : nil, fraction: health?.memoryUsedFraction)
+        let inspected = watch.detail?.containers ?? []
+        let details = inspected.isEmpty ? status.containerDetails : inspected
+        let restarts = details.reduce(0) { $0 + $1.restartCount }
+        RustDeskServerTile(title: "Redémarrages", value: details.isEmpty ? "—" : "\(restarts)",
+                           detail: details.isEmpty ? "conteneurs non inspectés" : details.map { "\($0.name) \($0.restartCount)" }.joined(separator: " · "),
+                           tone: restarts > 0 ? .warning : nil)
     }
 
     /// Demandes des dernières 24 h : console hbbs non lue, hbbs sans « pr », ou nombre lu.

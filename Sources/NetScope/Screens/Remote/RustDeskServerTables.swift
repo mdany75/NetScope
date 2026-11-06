@@ -58,6 +58,7 @@ enum RustDeskRelayColumns {
 
 struct RustDeskRelayTable: View {
     let rows: [RustDeskRelayRow]
+    @ObservedObject var watch: RustDeskServerWatchModel
     @StateObject private var table = StandardTableModel<RustDeskRelayRow>(
         id: "rustdesk-serveur-sessions", columns: RustDeskRelayColumns.columns, sortKeys: RustDeskRelayColumns.sortKeys,
         defaultSort: "duree", defaultAscending: false)
@@ -118,6 +119,11 @@ struct RustDeskRelayTable: View {
                     }
                     .standardTableStyle()
                     .scrollDisabled(rows.count <= 8)
+                    .contextMenu(forSelectionType: String.self) { ids in
+                        if let row = ids.first.flatMap({ id in rows.first { $0.id == id } }) {
+                            RustDeskRowMenu(id: row.targetID, station: row.station, targetIP: "", technicianIP: nil, watch: watch)
+                        }
+                    }
                 }
             }
         }
@@ -146,6 +152,10 @@ struct RustDeskRequestRow: Identifiable, Hashable {
     let station: String
     let targetIP: String
     let relayed: Bool
+    /// Note 87 : site probable (IP publique = WAN d'une FortiGate connue), indice seulement.
+    let site: String
+    /// Nom donné à l'IP du technicien.
+    let technician: String
 
     var stationSort: String { station.isEmpty ? "\u{10FFFF}" + targetID : station.lowercased() }
     var modeSort: Int { relayed ? 0 : 1 }
@@ -164,12 +174,15 @@ struct RustDeskRequestRow: Identifiable, Hashable {
         return day.string(from: date) + " " + time
     }
 
-    static func rows(_ status: RustDeskServerStatus, book: [String: String]) -> [RustDeskRequestRow] {
+    @MainActor
+    static func rows(_ status: RustDeskServerStatus, book: [String: String], site: (String) -> String? = { _ in nil }) -> [RustDeskRequestRow] {
         let relayed = RustDeskServerCorrelation.relayedRequestIDs(sessions: status.relaySessions, requests: status.punchRequests, now: status.now)
+        let watch = RustDeskServerWatchModel.shared
         return status.punchRequests.map { request in
             RustDeskRequestRow(id: request.id, date: request.date, fromIP: request.fromIP, targetID: request.targetID,
                                station: RustDeskServerCorrelation.name(of: request.targetID, book: book) ?? "",
-                               targetIP: request.targetIP, relayed: relayed.contains(request.id))
+                               targetIP: request.targetIP, relayed: relayed.contains(request.id),
+                               site: site(request.targetIP) ?? "", technician: watch.technicianName(request.fromIP) ?? "")
         }
     }
 }
@@ -181,6 +194,7 @@ enum RustDeskRequestColumns {
         StandardColumn(id: "id", title: "ID visé"),
         StandardColumn(id: "poste", title: "Poste"),
         StandardColumn(id: "ipPoste", title: "IP du poste"),
+        StandardColumn(id: "site", title: "Site probable"),
         StandardColumn(id: "mode", title: "Relais"),
     ]
     static let sortKeys: [String: KeyPathComparator<RustDeskRequestRow>] = [
@@ -189,15 +203,17 @@ enum RustDeskRequestColumns {
         "id": KeyPathComparator(\RustDeskRequestRow.targetID),
         "poste": KeyPathComparator(\RustDeskRequestRow.stationSort),
         "ipPoste": KeyPathComparator(\RustDeskRequestRow.targetIP),
+        "site": KeyPathComparator(\RustDeskRequestRow.site),
         "mode": KeyPathComparator(\RustDeskRequestRow.modeSort),
     ]
-    static let widths: [String: CGFloat] = ["heure": 100, "technicien": 120, "id": 110, "poste": 140, "ipPoste": 120, "mode": 70]
+    static let widths: [String: CGFloat] = ["heure": 100, "technicien": 120, "id": 110, "poste": 140, "ipPoste": 120, "site": 90, "mode": 70]
 }
 
 struct RustDeskRequestTable: View {
     let rows: [RustDeskRequestRow]
     /// Liste lue tronquée (plus de demandes chez hbbs que les 500 lues).
     let total: Int
+    @ObservedObject var watch: RustDeskServerWatchModel
     @StateObject private var table = StandardTableModel<RustDeskRequestRow>(
         id: "rustdesk-serveur-demandes", columns: RustDeskRequestColumns.columns, sortKeys: RustDeskRequestColumns.sortKeys,
         defaultSort: "heure", defaultAscending: false)
@@ -228,7 +244,11 @@ struct RustDeskRequestTable: View {
                         .width(min: 96, ideal: RustDeskRequestColumns.widths["heure"])
                         .customizationID("heure").disabledCustomizationBehavior(.visibility)
                         TableColumn(StandardTableHeading("IP DU TECHNICIEN"), sortUsing: table.sort("technicien")) { row in
-                            Text(row.fromIP).font(Theme.mono(12)).lineLimit(1)
+                            if row.technician.isEmpty {
+                                Text(row.fromIP).font(Theme.mono(12)).lineLimit(1)
+                            } else {
+                                Text(row.technician).font(.system(size: 12)).lineLimit(1).help(row.fromIP)
+                            }
                         }
                         .width(min: 90, ideal: RustDeskRequestColumns.widths["technicien"])
                         .customizationID("technicien")
@@ -243,6 +263,7 @@ struct RustDeskRequestTable: View {
                                 Text("Hors carnet").font(Theme.small).foregroundStyle(Theme.textTertiary).lineLimit(1)
                             } else {
                                 Text(row.station).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                                    .help(watch.note(for: row.targetID)?.note ?? "")
                             }
                         }
                         .width(min: 90, ideal: RustDeskRequestColumns.widths["poste"])
@@ -252,6 +273,13 @@ struct RustDeskRequestTable: View {
                         }
                         .width(min: 90, ideal: RustDeskRequestColumns.widths["ipPoste"])
                         .customizationID("ipPoste")
+                        TableColumn(StandardTableHeading("SITE"), sortUsing: table.sort("site")) { row in
+                            Text(row.site.isEmpty ? "—" : row.site).font(Theme.small)
+                                .foregroundStyle(row.site.isEmpty ? Theme.textTertiary : Theme.textSecondary).lineLimit(1)
+                                .help(row.site.isEmpty ? "" : "Indice\u{00A0}: \(row.targetIP) est l’adresse WAN de la FortiGate de ce site")
+                        }
+                        .width(min: 60, ideal: RustDeskRequestColumns.widths["site"])
+                        .customizationID("site")
                         TableColumn(StandardTableHeading("RELAIS"), sortUsing: table.sort("mode")) { row in
                             if row.relayed {
                                 Chip(text: "relais", tone: .accent)
@@ -265,8 +293,61 @@ struct RustDeskRequestTable: View {
                     }
                     .standardTableStyle()
                     .scrollDisabled(rows.count <= Self.maxRows)
+                    .contextMenu(forSelectionType: Int.self) { ids in
+                        if let row = ids.first.flatMap({ id in rows.first { $0.id == id } }) {
+                            RustDeskRowMenu(id: row.targetID, station: row.station, targetIP: row.targetIP, technicianIP: row.fromIP, watch: watch)
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+// MARK: - Clic droit (note 87)
+
+/// Se connecter, ajouter au carnet, ouvrir la fiche ou l'associer, nommer, copier l'ID.
+struct RustDeskRowMenu: View {
+    @EnvironmentObject private var state: AppState
+    let id: String
+    let station: String
+    let targetIP: String
+    let technicianIP: String?
+    @ObservedObject var watch: RustDeskServerWatchModel
+
+    var body: some View {
+        if let parsed = RustDeskID.parse(id) {
+            Button("Se connecter") {
+                RustDeskModel.shared.launch(.id(parsed), name: station.isEmpty ? RustDeskID.grouped(parsed) : station)
+            }
+            Button("Ajouter au carnet…") { addToBook(parsed) }
+                .disabled(RustDeskServerModel.shared.book[parsed] != nil)
+            if let record = watch.record(for: parsed) {
+                Menu("Ouvrir la fiche «\u{00A0}\(record.displayName)\u{00A0}»") {
+                    ForEach(state.openInItems(.device(NavDeviceRef(record, siteKey: nil)))) { item in
+                        NavMenuButton(item: item)
+                    }
+                }
+            } else if !targetIP.isEmpty {
+                Button("Associer à une fiche…") { watch.proposeAssociation(id: parsed, targetIP: targetIP) }
+            }
+            Button("Nom et note…") { watch.editing = RustDeskNoteTarget(kind: .id, key: parsed) }
+            Button("Copier l’ID") { RustDeskModel.shared.copy(parsed) }
+        }
+        if let technicianIP, !technicianIP.isEmpty {
+            Divider()
+            Button("Nommer le technicien (\(technicianIP))…") { watch.editing = RustDeskNoteTarget(kind: .technician, key: technicianIP) }
+            Button("Copier l’IP du technicien") { RustDeskModel.shared.copy(technicianIP) }
+        }
+    }
+
+    /// Fiche du carnet pré-remplie (RustDesk par ID), à vérifier puis enregistrer.
+    private func addToBook(_ id: String) {
+        let remote = RemoteModel.shared
+        RustDeskServerModel.shared.isShown = false
+        remote.startNew(proto: .rustdesk)
+        remote.draft?.host = id
+        remote.draft?.name = watch.name(for: id) ?? ""
+        remote.draft?.note = watch.note(for: id)?.note ?? ""
     }
 }

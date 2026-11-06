@@ -21,13 +21,13 @@ enum RustDeskServerDemo {
             RustDeskRelaySession(address: "\(technicianHome):61002", seconds: 95, megabytes: 6.12,
                                  maxKbps: 1_650, averageKbps: 540, currentKbps: 380),
         ]
-        return RustDeskServerStatus(
+        var status = RustDeskServerStatus(
             readAt: now, serverTime: now, hostname: "rustdesk-01", user: "admin", system: "Ubuntu 26.04 LTS", tcpClient: "nc",
             hbbs: RustDeskServerProcess(name: "hbbs", pid: 1873, seconds: uptime, arguments: "hbbs -r assistance.exemple.ca:21117 -k …"),
             hbbr: RustDeskServerProcess(name: "hbbr", pid: 1902, seconds: uptime - 1, arguments: "hbbr -k …"),
             containers: [
-                RustDeskContainer(name: "hbbs", image: "rustdesk/rustdesk-server:1.1.16", status: "Up 3 days"),
-                RustDeskContainer(name: "hbbr", image: "rustdesk/rustdesk-server:1.1.16", status: "Up 3 days"),
+                RustDeskContainer(name: "hbbs", image: "rustdesk/rustdesk-server:latest", status: "Up 3 days"),
+                RustDeskContainer(name: "hbbr", image: "rustdesk/rustdesk-server:latest", status: "Up 3 days"),
             ],
             disk: RustDeskDiskUsage(mount: "/", totalKB: 61_611_820, usedKB: 21_564_137, availableKB: 36_882_651, dataKB: 4_120),
             backups: [RustDeskBackupFile(path: "/opt/rustdesk/sauvegardes/rustdesk-data-quotidienne.tar.gz",
@@ -36,6 +36,108 @@ enum RustDeskServerDemo {
             relayConsole: .ok, relaySessions: sessions, totalBandwidth: "1024Mb/s", sessionBandwidth: "16Mb/s",
             idConsole: .ok, punchSupported: true, punchTotal: requests(now: now).count, punchRequests: requests(now: now),
             relayServers: ["assistance.exemple.ca:21117"], complete: true)
+        status.health = RustDeskServerHealth(uptimeSeconds: 41 * 86_400 + 6 * 3_600, load: [0.18, 0.22, 0.19], cpus: 2,
+                                             cpuPercent: 6.4, memoryTotalKB: 4_014_080, memoryAvailableKB: 2_861_220)
+        status.publicKey = .key(demoKey)
+        status.containerDetails = detail(now: now).containers
+        status.images = detail(now: now).images
+        return status
+    }
+
+    // MARK: Note 87 (0.33.0)
+
+    /// Clé publique FICTIVE (« for-demo-only-not-a-real-key-000 » en base 64).
+    static let demoKey = "Zm9yLWRlbW8tb25seS1ub3QtYS1yZWFsLWtleS0wMDA="
+    static let localDigest = "sha256:0d1e2m3o4d5e6m7o8d9e0d1e2m3o4d5e6m7o8d9e0d1e2m3o4d5e6m7o8d9e0d1e"
+    static let hubDigest = "sha256:9f8e7d6c5b4a39281706f5e4d3c2b1a09f8e7d6c5b4a39281706f5e4d3c2b1a0"
+
+    /// Lecture détaillée (sudo) : 7 mises à jour dont 3 de sécurité, redémarrage requis, hbbs 1.1.14,
+    /// hbbr redémarré deux fois.
+    static func detail(now: Date) -> RustDeskServerReading {
+        let started = now.addingTimeInterval(-Double(3 * 86_400 + 4 * 3_600 + 12 * 60))
+        return RustDeskServerReading(
+            readAt: now.addingTimeInterval(-3 * 3_600), sudo: "ok",
+            updates: RustDeskSystemUpdates(manager: "apt",
+                                           packages: ["libssl3t64", "openssh-client", "openssh-server", "openssl", "python3-urllib3", "snapd", "tzdata"],
+                                           security: ["libssl3t64", "openssh-server", "openssl"], rebootRequired: true,
+                                           rebootPackages: ["linux-image-6.17.0-8-generic"], listsDate: now.addingTimeInterval(-9 * 3_600)),
+            hbbsVersion: "1.1.14",
+            containers: [
+                RustDeskContainerDetail(name: "hbbs", restartCount: 0, startedAt: started, image: "rustdesk/rustdesk-server:latest", imageID: "sha256:4b1d"),
+                RustDeskContainerDetail(name: "hbbr", restartCount: 2, startedAt: started.addingTimeInterval(1), image: "rustdesk/rustdesk-server:latest", imageID: "sha256:4b1d"),
+            ],
+            images: [RustDeskImageDigest(imageID: "sha256:4b1d", repoDigests: ["rustdesk/rustdesk-server@" + localDigest])],
+            publicKey: .key(demoKey))
+    }
+
+    /// Suivi : noms et notes, historique de deux mois, versions publiées, dernière copie il y a 9 jours.
+    static func watch(now: Date) -> RustDeskWatchStore.Contents {
+        var contents = RustDeskWatchStore.Contents()
+        contents.notes = [
+            "731905246": RustDeskIDNote(name: "Kiosque entrepôt", note: "Écran tactile du quai 3 · redémarrer après 22 h", updatedAt: now),
+            "1027554318": RustDeskIDNote(name: "", note: "Poste de Sophie, télétravail le vendredi", updatedAt: now),
+        ]
+        contents.technicians = [technicianHome: "Marc (domicile)", technicianOffice: "Mac du siège"]
+        var history = requests(now: now).map(RustDeskArchivedRequest.init)
+        let ids = [("184352907", "10.182.122.146"), ("263418095", "203.0.113.58"), ("1027554318", "203.0.113.90"), ("731905246", "192.0.2.61")]
+        for day in 3..<62 where day % 7 != 5 && day % 7 != 6 {
+            for index in 0..<(2 + day % 4) {
+                let pick = ids[(day + index) % ids.count]
+                history.append(RustDeskArchivedRequest(date: now.addingTimeInterval(-Double(day * 86_400 + index * 4_700 + 3_600)),
+                                                       fromIP: index % 3 == 0 ? technicianHome : technicianOffice,
+                                                       targetID: pick.0, targetIP: pick.1))
+            }
+        }
+        // Rafale d'une IP inconnue (essais d'ID au hasard), il y a deux jours.
+        for index in 0..<11 {
+            history.append(RustDeskArchivedRequest(date: now.addingTimeInterval(-2 * 86_400 + Double(index * 20)), fromIP: "203.0.113.201",
+                                                   targetID: String(418_220_977 + index * 7_919), targetIP: "192.0.2.88"))
+        }
+        contents.history = history.sorted { $0.date < $1.date }
+        contents.knownKey = demoKey
+        contents.backups = [now.addingTimeInterval(-9 * 86_400), now.addingTimeInterval(-40 * 86_400)]
+        contents.published = RustDeskPublishedVersions(checkedAt: now.addingTimeInterval(-3 * 3_600), server: "1.1.15", hubDigest: hubDigest, client: "1.4.4")
+        return contents
+    }
+
+    /// Refus de la FortiGate du siège (filtre géographique) vers 21116.
+    static func denied(now: Date) -> [RustDeskDeniedAttempt] {
+        var list: [RustDeskDeniedAttempt] = []
+        for index in 0..<14 {
+            let seconds = Double(index) * 2_400 + 600
+            let port = index % 3 == 0 ? 21_117 : 21_116
+            list.append(RustDeskDeniedAttempt(date: now.addingTimeInterval(-seconds), sourceIP: "198.51.100.211",
+                                              port: port, country: "Pays filtré", site: "Siège"))
+        }
+        return list
+    }
+
+    /// Adresses WAN fictives des FortiGate.
+    static let wanAddresses: [(site: String, ip: String)] = [("Siège", "203.0.113.58"), ("Laval", "203.0.113.90")]
+
+    static let candidates = [
+        RustDeskAssociationCandidate(ip: "10.182.122.113", mac: "3C:52:82:4A:19:E7", name: "Portable Marc",
+                                     reason: "session relayée (21117) sur la FortiGate de Siège", relay: true),
+        RustDeskAssociationCandidate(ip: "10.182.122.152", mac: "F4:39:09:11:7C:2A", name: "POSTE-COMPTA-03",
+                                     reason: "session FortiGate de Siège vers le serveur"),
+    ]
+
+    /// Journaux de hbbs et hbbr (texte fictif dans le format du serveur).
+    static func logs(now: Date) -> [RustDeskLogLine] {
+        let rows: [(Double, String, String, String)] = [
+            (871, "hbbs", "INFO", "[src/rendezvous_server.rs:1205] punch hole request from 10.182.122.135 to 184352907"),
+            (522, "hbbs", "WARN", "[src/rendezvous_server.rs:732] Punch hole request from 203.0.113.201 to unknown id 418220977"),
+            (311, "hbbs", "INFO", "[src/rendezvous_server.rs:1205] punch hole request from 10.182.122.135 to 1027554318"),
+            (262, "hbbr", "INFO", "[src/relay_server.rs:460] New relay request 5f1c from 198.51.100.37:61002"),
+            (262, "hbbr", "INFO", "[src/relay_server.rs:478] Relayrequest 5f1c paired, 203.0.113.58:52114"),
+            (24, "hbbs", "INFO", "[src/rendezvous_server.rs:1205] punch hole request from 10.182.122.135 to 184352907"),
+            (22, "hbbr", "INFO", "[src/relay_server.rs:460] New relay request 9a07 from 203.0.113.58:52114"),
+            (12, "hbbs", "INFO", "[src/peer.rs:101] update_pk 263418095 203.0.113.58:21116"),
+            (2.2, "hbbs", "INFO", "[src/rendezvous_server.rs:1205] punch hole request from 198.51.100.37 to 1027554318"),
+        ]
+        return rows.enumerated().map { index, row in
+            RustDeskLogLine(id: index, service: row.1, date: now.addingTimeInterval(-row.0 * 60), level: row.2, text: row.2 + " " + row.3)
+        }
     }
 
     /// Serveur injoignable par SSH (capture « rustdesk-serveur-erreur »).

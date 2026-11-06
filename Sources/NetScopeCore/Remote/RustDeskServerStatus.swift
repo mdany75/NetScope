@@ -318,6 +318,11 @@ public struct RustDeskServerStatus: Equatable, Sendable {
     public var relayServers: [String]
     /// Marqueur de fin reçu : toutes les sections ont été lues.
     public var complete: Bool
+    /// Note 87 : santé, clé publique, conteneurs inspectés et images (groupe docker seulement).
+    public var health: RustDeskServerHealth?
+    public var publicKey: RustDeskPublicKey = .unknown
+    public var containerDetails: [RustDeskContainerDetail] = []
+    public var images: [RustDeskImageDigest] = []
 
     public init(readAt: Date, serverTime: Date? = nil, hostname: String = "", user: String = "", system: String = "",
                 tcpClient: String = "", hbbs: RustDeskServerProcess? = nil, hbbr: RustDeskServerProcess? = nil,
@@ -362,6 +367,7 @@ public struct RustDeskServerStatus: Equatable, Sendable {
             && a.relaySessions == b.relaySessions && a.totalBandwidth == b.totalBandwidth && a.sessionBandwidth == b.sessionBandwidth
             && a.idConsole == b.idConsole && a.punchSupported == b.punchSupported && a.punchTotal == b.punchTotal
             && a.punchRequests == b.punchRequests && a.relayServers == b.relayServers && a.complete == b.complete
+            && a.health == b.health && a.publicKey == b.publicKey && a.containerDetails == b.containerDetails && a.images == b.images
     }
 
     /// Heure de référence du serveur (son horloge si connue, sinon celle du Mac).
@@ -534,6 +540,10 @@ public enum RustDeskServerOutput {
         let requests = (parts["HBBS_PR"]?.lines ?? []).enumerated().compactMap { RustDeskPunchRequest.parse($0.element, id: $0.offset) }
         status.punchRequests = requests.sorted { ($0.date, $0.id) > ($1.date, $1.id) }
         if !status.punchRequests.isEmpty { status.punchSupported = true }
+        status.health = parts["SANTE"].flatMap { RustDeskServerHealth.parse($0.lines) }
+        status.publicKey = RustDeskPublicKey.parse(parts["CLE"]?.lines)
+        status.containerDetails = (parts["INSPECT"]?.lines ?? []).compactMap(RustDeskContainerDetail.parse)
+        status.images = (parts["IMAGES"]?.lines ?? []).compactMap(RustDeskImageDigest.parse)
         return status
     }
 

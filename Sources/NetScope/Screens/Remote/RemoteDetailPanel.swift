@@ -111,6 +111,10 @@ struct RemoteDetailPanel: View {
                         KeyValueRow(key: connection.isRustDeskByID ? "ID RustDesk" : "IP directe", value: connection.address, mono: true, keyWidth: 92)
                         KeyValueRow(key: "Usager", value: connection.endUser.isEmpty ? "—" : connection.endUser, keyWidth: 92)
                         KeyValueRow(key: "Dernière", value: RemoteFormat.relative(connection.lastConnected), keyWidth: 92)
+                        // Note 87 : nom et note donnés à l'ID (tableau de bord du serveur).
+                        if let note = RustDeskServerWatchModel.shared.note(for: connection.host) {
+                            KeyValueRow(key: "Note", value: [note.name, note.note].filter { !$0.isEmpty }.joined(separator: " · "), keyWidth: 92)
+                        }
                     }
                 } else {
                 VStack(spacing: 0) {

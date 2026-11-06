@@ -252,7 +252,7 @@ public struct AgentJournal: Codable, Equatable, Sendable {
 /// HTTP, DNS). Les autres (SNMP, FortiGate, inventaire, journaux, services en ligne) attendent l'app :
 /// leurs secrets et leurs lectures vivent dans l'interface.
 public enum MonBackground {
-    public static let supportedKinds: Set<MonProbeKind> = [.ping, .tcp, .http, .dns]
+    public static let supportedKinds: Set<MonProbeKind> = [.ping, .tcp, .http, .dns, .rustdeskServer]
 
     public static func supports(_ probe: MonProbe) -> Bool { probe.isEnabled && supportedKinds.contains(probe.kind) }
 

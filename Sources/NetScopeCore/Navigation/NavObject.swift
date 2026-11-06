@@ -111,6 +111,8 @@ public struct NavProbeRef: Hashable, Sendable {
             return MonTrafficChecks.isAll(text) ? nil : text
         case .tlsCertificate:
             return MonTLSChecks.target(text)?.host
+        case .rustdeskServer:
+            return (try? RustDeskServerAccount.parse(text))?.host
         }
     }
 }

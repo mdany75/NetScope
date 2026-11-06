@@ -49,6 +49,9 @@ public struct MonRunContext: Sendable {
     /// Note 84 : clients Wi-Fi et ports des bornes (sonde « Port de switch ») ; nil : déduit de
     /// `fortiWifi` et des appareils.
     public var wireless: InvWirelessContext?
+    /// Note 87 : lecture du serveur RustDesk pour un compte (« utilisateur@hôte[:port] ») ; nil :
+    /// compte saisi et mot de passe au Trousseau (RustDesk), comme dans l'agent.
+    public var rustdeskServerRead: (@Sendable (String) async -> Result<RustDeskServerStatus, RustDeskServerReadError>)?
 
     public init(pinger: ScanPinging?, snmpCommunity: String?, devices: [Device], inventoryReady: Bool = true,
                 now: Date = Date()) {
@@ -154,6 +157,8 @@ public enum MonRunner {
             return MonLogChecks.run(probe, target: target, logs: context.logs, listening: context.logsListening, now: context.now)
         case .tlsCertificate:
             return MonRunOutcome(result: await MonTLSChecks.run(probe, target: target, now: context.now))
+        case .rustdeskServer:
+            return await MonRustDeskChecks.run(probe, target: target, read: context.rustdeskServerRead, now: context.now)
         }
     }
 

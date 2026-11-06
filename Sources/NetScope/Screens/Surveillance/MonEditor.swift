@@ -466,6 +466,14 @@ private struct MonConditionFields: View {
                 Text("jours avant l’expiration\u{00A0}; panne une fois expiré (STARTTLS pour 25, 587, 143 et 110)")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
             }
+        case .rustdeskServer:
+            HStack(spacing: 8) {
+                Text("Disque au-delà de").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
+                MonInput(placeholder: "90", text: double($probe.resourceLimit), mono: true)
+                    .frame(width: 56)
+                Text("%\u{00A0}; hbbs ou hbbr arrêté et clé publique changée alertent toujours (lecture SSH en lecture seule)")
+                    .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
+            }
         }
     }
 

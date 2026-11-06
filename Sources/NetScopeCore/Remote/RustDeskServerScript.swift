@@ -136,6 +136,37 @@ public enum RustDeskServerScript {
     section SAUVEGARDE
     find "$D" -maxdepth 3 -type f \( -iname '*backup*' -o -iname '*sauvegarde*' -o -iname '*.bak' -o -iname '*.tar.gz' -o -iname '*.tgz' \) -printf '%T@\t%s\t%p\n' 2>/dev/null | sort -rn | head -n 3
 
+    # Note 87 (0.33.0) : santé du serveur (durée de fonctionnement, charge, mémoire, processeur).
+    section SANTE
+    printf 'uptime=%s\n' "$(cut -d' ' -f1 /proc/uptime 2>/dev/null)"
+    printf 'charge=%s\n' "$(cut -d' ' -f1-3 /proc/loadavg 2>/dev/null)"
+    printf 'cpus=%s\n' "$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)"
+    awk '/^MemTotal:|^MemAvailable:|^SwapTotal:|^SwapFree:/ {print $1 $2}' /proc/meminfo 2>/dev/null
+    printf 'cpu1=%s\n' "$(head -n 1 /proc/stat 2>/dev/null)"
+    sleep 1
+    printf 'cpu2=%s\n' "$(head -n 1 /proc/stat 2>/dev/null)"
+
+    # Clé publique du serveur (fichier public ; la clé privée n'est jamais lue ici).
+    section CLE
+    for f in "$D/data/id_ed25519.pub" "$D/id_ed25519.pub"; do
+      if [ -r "$f" ]; then printf 'cle=%s\n' "$(head -c 200 "$f")"; break
+      elif [ -e "$f" ]; then echo 'ETAT illisible'; break
+      fi
+    done
+
+    # Redémarrages et empreinte des images (seulement si le compte est déjà dans le groupe docker).
+    if command -v docker >/dev/null 2>&1 && { [ "$(id -u)" = 0 ] || id -Gn 2>/dev/null | tr ' ' '\n' | grep -qx docker; }; then
+      noms=$(timeout 5 docker ps --all --format '{{.Names}}' </dev/null 2>/dev/null | grep -Ei 'hbbs|hbbr|rustdesk')
+      section INSPECT
+      for n in $noms; do
+        timeout 5 docker inspect --format '{{.Name}}|{{.RestartCount}}|{{.State.StartedAt}}|{{.Config.Image}}|{{.Image}}' "$n" </dev/null 2>/dev/null
+      done
+      section IMAGES
+      for i in $(for n in $noms; do timeout 5 docker inspect --format '{{.Image}}' "$n" </dev/null 2>/dev/null; done | sort -u); do
+        timeout 5 docker image inspect --format '{{.Id}}|{{join .RepoDigests " "}}' "$i" </dev/null 2>/dev/null
+      done
+    fi
+
     section POSTES
     DB="$D/data/db_v2.sqlite3"
     if [ ! -e "$DB" ]; then echo 'ETAT introuvable'
@@ -297,7 +328,7 @@ public enum RustDeskServerSSH {
     /// (StrictHostKeyChecking=ask, l'askpass répond « no ») tant que l'utilisateur n'a pas accepté
     /// son empreinte (`acceptNewHostKey` : accept-new) ; clé changée : toujours refusée.
     public static func arguments(_ account: RustDeskServerAccount, acceptNewHostKey: Bool = false,
-                                 connectTimeout: Int = connectTimeout) -> [String] {
+                                 connectTimeout: Int = connectTimeout, command: String = remoteCommand) -> [String] {
         var args = [
             "-T",
             "-o", "BatchMode=no",
@@ -320,7 +351,7 @@ public enum RustDeskServerSSH {
             args += ["-i", (account.keyPath as NSString).expandingTildeInPath, "-o", "IdentitiesOnly=yes"]
         }
         if account.port != 22 { args += ["-p", String(account.port)] }
-        args += ["--", account.destination, remoteCommand]
+        args += ["--", account.destination, command]
         return args
     }
 
@@ -407,6 +438,40 @@ public enum RustDeskServerSSH {
     public static func run(_ account: RustDeskServerAccount, secret: String?, acceptNewHostKey: Bool = false,
                            timeout: TimeInterval = totalTimeout,
                            now: @escaping @Sendable () -> Date = { Date() }) async -> Result<RustDeskServerStatus, RustDeskServerReadError> {
+        let result = await execute(account, secret: secret, input: Data(RustDeskServerScript.text.utf8),
+                                   acceptNewHostKey: acceptNewHostKey, timeout: timeout)
+        switch result {
+        case .failure(let error): return .failure(error)
+        case .success(let (valid, output)):
+            return RustDeskServerOutput.interpret(status: output.status, stdout: output.stdout, stderr: output.stderr,
+                                                  timedOut: output.timedOut, host: valid.host, readAt: now())
+        }
+    }
+
+    /// Note 87 : lecture à la demande (mises à jour, journaux, sauvegarde). Le mot de passe sudo
+    /// éventuel passe en PREMIÈRE ligne de l'entrée standard (jamais dans la ligne de commande),
+    /// lu par le shell distant dans une variable non exportée ; le script fixe suit.
+    public static func runDetail(_ account: RustDeskServerAccount, secret: String?, sudoPassword: String?, script: String,
+                                 timeout: TimeInterval = 120, outputLimit: Int = 4_000_000) async -> Result<String, RustDeskServerReadError> {
+        let line = (sudoPassword ?? "").replacingOccurrences(of: "\n", with: "")
+        let result = await execute(account, secret: secret, input: Data((line + "\n" + script).utf8),
+                                   command: RustDeskServerDetailScript.remoteCommand, timeout: timeout, outputLimit: outputLimit)
+        switch result {
+        case .failure(let error): return .failure(error)
+        case .success(let (valid, output)):
+            if output.stdout.contains(RustDeskServerScript.sectionPrefix) { return .success(output.stdout) }
+            if case .failure(let error) = RustDeskServerOutput.interpret(status: output.status, stdout: "", stderr: output.stderr,
+                                                                       timedOut: output.timedOut, host: valid.host, readAt: Date()) {
+                return .failure(error)
+            }
+            return .failure(RustDeskServerReadError(kind: .script, detail: "Aucune sortie."))
+        }
+    }
+
+    /// Connexion ssh commune : compte revalidé, askpass et tube du secret dans un dossier privé.
+    static func execute(_ account: RustDeskServerAccount, secret: String?, input: Data, acceptNewHostKey: Bool = false,
+                        command: String = remoteCommand, timeout: TimeInterval,
+                        outputLimit: Int = 2_000_000) async -> Result<(RustDeskServerAccount, ProcessRunner.Result), RustDeskServerReadError> {
         guard FileManager.default.isExecutableFile(atPath: executable) else {
             return .failure(RustDeskServerReadError(kind: .launch, detail: "/usr/bin/ssh introuvable sur ce Mac."))
         }
@@ -435,11 +500,9 @@ public enum RustDeskServerSSH {
         let env = environment(askpass: askpass, secretPipe: channel?.path,
                               expect: SSHTerminalCommand.expectedPrompt(user: valid.user, host: valid.host),
                               flag: folder.appendingPathComponent("drapeau").path)
-        let result = await ProcessRunner.run(executable, arguments(valid, acceptNewHostKey: acceptNewHostKey), environment: env,
-                                             timeout: timeout, input: Data(RustDeskServerScript.text.utf8),
-                                             outputLimit: 2_000_000)
-        return RustDeskServerOutput.interpret(status: result.status, stdout: result.stdout, stderr: result.stderr,
-                                              timedOut: result.timedOut, host: valid.host, readAt: now())
+        let result = await ProcessRunner.run(executable, arguments(valid, acceptNewHostKey: acceptNewHostKey, command: command),
+                                             environment: env, timeout: timeout, input: input, outputLimit: outputLimit)
+        return .success((valid, result))
     }
 }
 

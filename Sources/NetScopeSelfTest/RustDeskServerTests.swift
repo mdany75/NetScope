@@ -118,9 +118,12 @@ func registerRustDeskServerTests(_ suite: TestSuite) {
             try expect(!words.contains(word), "le script ne contient pas la commande « \(word) »")
         }
         for phrase in ["docker exec", "docker run", "docker stop", "docker restart", "docker rm", "docker compose",
-                       "docker-compose", "id_ed25519", "> /"] {
+                       "docker-compose", "> /"] {
             try expect(!lower.contains(phrase), "le script ne contient pas « \(phrase) »")
         }
+        // Note 87 : seule la clé PUBLIQUE est lue (id_ed25519.pub), jamais la clé privée.
+        try expect(lower.components(separatedBy: "id_ed25519").dropFirst().allSatisfy { $0.hasPrefix(".pub") },
+                   "seule id_ed25519.pub est lue")
         // Aucune commande interdite de console, sous aucune forme.
         for pattern in [#"\bpr\s+-"#, #"\bib\b"#, #"\bic\b"#, #"\baur\b"#, #"\brg\b"#, #"\bba\b"#, #"\bBa\b"#, #"\bbr\b"#, #"\bBr\b"#] {
             try expect(script.range(of: pattern, options: .regularExpression) == nil, "motif interdit absent : \(pattern)")

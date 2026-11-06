@@ -24,6 +24,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
     case syslogSeverity, trapReceived
     /// Certificat TLS (note 70) : jours restants avant l'expiration d'un service HTTPS, LDAPS ou de courriel.
     case tlsCertificate
+    /// Serveur RustDesk (note 87) : hbbs ou hbbr arrêté, disque plein, clé publique changée (lecture SSH).
+    case rustdeskServer
 
     public var id: String { rawValue }
 
@@ -54,6 +56,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .syslogSeverity: return "Message Syslog de gravité ≥ X"
         case .trapReceived: return "Trap SNMP reçue"
         case .tlsCertificate: return "Certificat TLS (jours restants)"
+        case .rustdeskServer: return "Serveur RustDesk"
         }
     }
 
@@ -84,6 +87,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .syslogSeverity: return "Syslog"
         case .trapReceived: return "Trap"
         case .tlsCertificate: return "Certificat"
+        case .rustdeskServer: return "RustDesk"
         }
     }
 
@@ -111,6 +115,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .firmwareOutdated: return "Équipement, modèle ou famille (FortiAP), «\u{00A0}Siège / *\u{00A0}», ou «\u{00A0}*\u{00A0}»"
         case .syslogSeverity, .trapReceived: return "Adresse ou nom de l’appareil, ou «\u{00A0}*\u{00A0}» pour tous"
         case .tlsCertificate: return "Hôte:port (fw.exemple.ca:443, 10.0.0.1:8443, mail.exemple.ca:587)"
+        case .rustdeskServer: return "Compte SSH du serveur (admin@assistance.exemple.ca)"
         }
     }
 
@@ -368,6 +373,9 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
         case .tlsCertificate:
             let days = Int(resourceLimit ?? MonProbe.defaultResourceLimit(.tlsCertificate))
             return "Alerte si le certificat expire dans \(days)\(nbsp)j ou moins, panne s’il est expiré"
+        case .rustdeskServer:
+            let limit = Int(resourceLimit ?? MonProbe.defaultResourceLimit(.rustdeskServer))
+            return "Alerte si hbbs ou hbbr s’arrête, si le disque dépasse \(limit)\(nbsp)% ou si la clé publique change"
         }
     }
 

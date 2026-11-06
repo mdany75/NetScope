@@ -3,12 +3,16 @@ import SwiftUI
 
 /// Réglages › RustDesk › « Tableau de bord du serveur » (note 6, 0.26.2) : compte SSH du serveur
 /// (connexion du carnet ou « utilisateur@hôte[:port] »), rafraîchissement, lien vers le tableau de
-/// bord. Lecture seule : aucune commande ne modifie le serveur, jamais de sudo.
+/// bord. Lecture seule : aucune commande ne modifie le serveur. Note 87 : mot de passe sudo (Trousseau)
+/// pour les lectures à la demande (mises à jour, journaux, copie du dossier de données).
 struct RegRustDeskServerPanel: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var server = RustDeskServerModel.shared
     @State private var password = ""
     @State private var passwordSaved = false
+    @ObservedObject private var watch = RustDeskServerWatchModel.shared
+    @State private var sudoPassword = ""
+    @State private var sudoSaved = false
     /// Compte saisi, validé dans les réglages seulement à Retour ou à la sortie du champ (pas à
     /// chaque frappe : chaque changement de compte oublie l'état, les échantillons et relance une lecture).
     @State private var manualText: String?
@@ -84,6 +88,21 @@ struct RegRustDeskServerPanel: View {
                              Text("Clé, rebond et mot de passe de la connexion du carnet (Trousseau) sont repris tels quels.")
                                  .font(Theme.caption).foregroundStyle(Theme.textSecondary)
                          }
+                         VStack(alignment: .leading, spacing: 4) {
+                             RegLabel("Mot de passe sudo (facultatif)")
+                             HStack(spacing: 8) {
+                                 RegTextField(placeholder: watch.hasSudoPassword ? "Enregistré au Trousseau (inchangé)" : "Aucun\u{00A0}: celui du compte SSH",
+                                              text: $sudoPassword, secure: true)
+                                     .onSubmit { if !sudoPassword.isEmpty { saveSudo() } }
+                                     .disabled(!server.settings.hasAccount)
+                                 Button(sudoPassword.isEmpty && watch.hasSudoPassword ? "Oublier" : "Enregistrer", action: saveSudo)
+                                     .buttonStyle(.secondary)
+                                     .disabled(!server.settings.hasAccount || (sudoPassword.isEmpty && !watch.hasSudoPassword))
+                             }
+                             Text(sudoSaved ? "Trousseau mis à jour." : "Pour lire avec sudo, à la demande seulement, ce que le compte ne voit pas\u{00A0}: mises à jour, conteneurs, journaux, copie chiffrée de la clé et de la base. Passé sur l’entrée de ssh (jamais dans une ligne de commande), redemandé par sudo à chaque commande\u{00A0}; aucune commande ne modifie le serveur.")
+                                 .font(Theme.caption).foregroundStyle(sudoSaved ? Theme.success : Theme.textSecondary)
+                                 .fixedSize(horizontal: false, vertical: true)
+                         }
                          VStack(alignment: .leading, spacing: 6) {
                              RegLabel("Rafraîchissement")
                              HStack(spacing: 10) {
@@ -113,7 +132,7 @@ struct RegRustDeskServerPanel: View {
                                  Label(copied, systemImage: "checkmark").font(Theme.small).foregroundStyle(Theme.success)
                              }
                          }
-                         Text("Conseil\u{00A0}: un compte du groupe docker voit les conteneurs\u{00A0}; sans sqlite3 ou sans droit de lecture sur /opt/rustdesk/data, le nombre de postes reste inconnu. NetScope n’envoie jamais de commande qui modifie hbbs ou hbbr.")
+                         Text("Conseil\u{00A0}: un compte du groupe docker voit les conteneurs à chaque lecture (sinon, avec sudo, à la demande)\u{00A0}; sans sqlite3 ou sans droit de lecture sur /opt/rustdesk/data, le nombre de postes reste inconnu. NetScope n’envoie jamais de commande qui modifie hbbs ou hbbr.")
                              .font(Theme.caption).foregroundStyle(Theme.textSecondary)
                              .fixedSize(horizontal: false, vertical: true)
                      }
@@ -145,6 +164,16 @@ struct RegRustDeskServerPanel: View {
         }
         if manualInvalid { return "Format attendu\u{00A0}: utilisateur@hôte ou utilisateur@hôte:port." }
         return nil
+    }
+
+    private func saveSudo() {
+        watch.setSudoPassword(sudoPassword)
+        sudoPassword = ""
+        sudoSaved = true
+        Task {
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            sudoSaved = false
+        }
     }
 
     private func savePassword() {

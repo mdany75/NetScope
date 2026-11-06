@@ -42,7 +42,7 @@ final class MonStore: ObservableObject {
     /// après un changement de type ou de cible est écarté.
     private var launched: [UUID: MonProbe] = [:]
     private var timer: Timer?
-    private weak var appState: AppState?
+    private(set) weak var appState: AppState?
     private var pinger: ICMPPinger?
     private var pingerFailed = false
     private var saveScheduled = false
@@ -167,6 +167,14 @@ final class MonStore: ObservableObject {
         toast = nil
         changed()
         return probe.id
+    }
+
+    /// Note 87 : ajoute une sonde toute faite (serveur RustDesk, ports surveillés).
+    func addProbe(_ probe: MonProbe) {
+        probes.append(probe)
+        trackers[probe.id] = MonTracker()
+        nextRun[probe.id] = Date().addingTimeInterval(2)
+        changed()
     }
 
     /// Enregistre une sonde modifiée dans l'éditeur.
@@ -398,6 +406,17 @@ final class MonStore: ObservableObject {
             context.trafficError = trafficError
             context.logs = logs
             context.logsListening = logsListening
+            // Note 87 : sonde du serveur RustDesk ; compte du tableau de bord (clé, rebond, mot de passe
+            // du carnet) quand c'est le même, données fixes en démonstration (aucun ssh).
+            if probe.kind == .rustdeskServer {
+                if RegEnvironment.isSandboxed {
+                    let demo = RustDeskServerDemo.status(now: Date())
+                    context.rustdeskServerRead = { _ in .success(demo) }
+                } else if let account = try? RustDeskServerModel.shared.resolvedAccount().get(), account.label == probe.target {
+                    let secret = RustDeskServerModel.shared.secret()
+                    context.rustdeskServerRead = { _ in await RustDeskServerSSH.run(account, secret: secret) }
+                }
+            }
             context.wireless = wireless
             let outcome = await MonRunner.run(probe, context: context)
             MonStore.shared.finish(probe.id, outcome: outcome, manual: manual)

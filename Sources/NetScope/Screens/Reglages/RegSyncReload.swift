@@ -55,6 +55,7 @@ enum RegSyncReload {
         if files.contains("connexions.json") { RemoteModel.shared.reloadFromDisk() }
         if files.contains("rustdesk.json") { RustDeskModel.shared.reloadFromDisk() }
         if files.contains("rustdesk-serveur.json") { RustDeskServerModel.shared.reloadFromDisk() }
+        if files.contains(RustDeskWatchStore.fileName) { RustDeskServerWatchModel.shared.reloadFromDisk() }
         if files.contains(QuickLoginMemory.fileName) { QuickLoginModel.shared.reloadFromDisk() }
         if files.contains("identifiants.json") { RegRemoteCredentialStore.shared.reloadFromDisk() }
         if files.contains("surveillance.json") { MonStore.shared.reloadFromDisk() }

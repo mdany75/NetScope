@@ -91,7 +91,7 @@ public struct ConfigPart: Identifiable, Hashable, Sendable {
         ConfigPart(id: "acces", title: "Accès distant et RustDesk",
                    detail: "Carnet d’Accès distant et tunnels, RustDesk (carnet, historique, serveur), mots de passe SSH, Telnet, VNC, FTP, SFTP et SMB.",
                    systemImage: "display.2",
-                   files: ["connexions.json", "rustdesk.json", "rustdesk-serveur.json"],
+                   files: ["connexions.json", "rustdesk.json", "rustdesk-serveur.json", "rustdesk-serveur-suivi.json"],
                    preferences: ["acces.*", "smb.*"],
                    secrets: ["acces/*", "vnc/*", "ftp/*", "rustdesk/*", "smb/*", "partages/*"]),
         ConfigPart(id: "alertes", title: "SMTP et webhooks",

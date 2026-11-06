@@ -36,6 +36,7 @@ final class RustDeskServerModel: ObservableObject {
                 acceptedHostKeyAccount = nil
                 samples = []
                 refreshManualPasswordFlag()
+                RustDeskServerWatchModel.shared.accountChanged()
                 if !isAvailable { isShown = false }
             }
             save()
@@ -163,7 +164,7 @@ final class RustDeskServerModel: ObservableObject {
     }
 
     /// Secret du compte : mot de passe de la connexion SSH du carnet, ou celui saisi ici (Trousseau).
-    private func secret() -> String? {
+    func secret() -> String? {
         guard !sandboxed else { return nil }
         if let id = settings.connectionID {
             return RemoteSessionStore.keychain.string(for: id.uuidString)
@@ -256,6 +257,7 @@ final class RustDeskServerModel: ObservableObject {
             case .success(let value):
                 self.status = value
                 self.error = nil
+                RustDeskServerWatchModel.shared.ingest(value)
                 if let sample = RustDeskServerSamples.sample(from: value) {
                     self.samples = RustDeskServerSamples.adding(sample, to: self.samples, now: Date())
                     self.save()
