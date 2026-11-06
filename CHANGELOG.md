@@ -7,6 +7,11 @@ Nmap), sonde les ports UDP avec de vraies requêtes de chaque protocole, vérifi
 TLS de tout un site, et lit les contrôleurs UniFi, Omada et Meraki pour les clients qui ne sont
 pas en Fortinet.
 
+Cette version comprend aussi la **0.29.0** (section suivante), publiée avec elle : toutes vos
+données NetScope suivent d’un Mac à l’autre (synchronisation complète, Réglages ›
+Synchronisation). Dans « Ouvrir une fiche », seuls les appareils du site actif sont proposés,
+et les Réglages et la Boîte à outils sont en ordre alphabétique.
+
 ### Ajouté
 - **Empreinte légère des appareils** : système, produit et version déduits des bannières (SSH,
   FTP, SMTP, Telnet, VNC), des en-têtes HTTP et du titre de page, du certificat TLS, du dialecte
@@ -96,7 +101,7 @@ pas en Fortinet.
   (SNMP, NTP, SIP, IPMI), certificats de serveurs Web et de courriel, et vrais contrôleurs UniFi,
   Omada et Meraki.
 
-## 0.29.0 — 2026-11-05
+## 0.29.0 — 2026-11-05 (publiée avec la 0.30.0)
 
 Toutes vos données NetScope suivent maintenant d’un Mac à l’autre : sites, inventaires, Accès
 distant, Surveillance, alertes, réglages et identifiants, avec les secrets chiffrés et remis au
