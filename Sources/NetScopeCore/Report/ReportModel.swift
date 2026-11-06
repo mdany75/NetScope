@@ -84,6 +84,8 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
     case disponibilite
     /// Carte du réseau du site : image, légende et liens entre switchs (note 61), facultative.
     case carte
+    /// Relevé Wi-Fi sur plan : carte de chaleur par étage (note 94), facultative.
+    case releveWifi
 
     public var id: String { rawValue }
 
@@ -108,13 +110,14 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
         case .raccordement: return "Bilan de raccordement"
         case .disponibilite: return "Disponibilité (Surveillance)"
         case .carte: return "Carte du réseau"
+        case .releveWifi: return "Relevé Wi-Fi sur plan"
         case .annexe: return "Annexe brute"
         }
     }
 
     /// Ordre dans le document : le détail (inventaire, annexe) vient après la synthèse. « Santé
     /// courriel » est facultative : aucun modèle ne la coche par défaut.
-    public static let documentOrder: [ReportSectionKind] = [.resume, .suivi, .disponibilite, .carte, .plan, .dhcp, .wan, .firmware, .switchs, .raccordement, .wifi, .fortiap, .wifiDiag, .trafic, .securite, .problemes,
+    public static let documentOrder: [ReportSectionKind] = [.resume, .suivi, .disponibilite, .carte, .plan, .dhcp, .wan, .firmware, .switchs, .raccordement, .wifi, .fortiap, .wifiDiag, .releveWifi, .trafic, .securite, .problemes,
                                                             .courriel, .disques, .inventaire, .annexe]
 }
 

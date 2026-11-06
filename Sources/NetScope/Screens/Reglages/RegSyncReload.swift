@@ -51,6 +51,7 @@ enum RegSyncReload {
         }
         for path in touched("sites/*/" + SiteFiles.resultsName) { SiteModel.shared.reloadResults(siteKey: siteKey(path)) }
         for path in touched("sites/*/" + WifiRoomSurvey.fileName) { WifiSurveyStore.shared.reloadFromDisk(siteKey: siteKey(path)) }
+        for path in touched("sites/*/" + WifiFloorPlans.fileName) { WifiFloorStore.shared.reloadFromDisk(siteKey: siteKey(path)) }
         for path in touched("sites/*/" + TopoManualLayout.fileName) { TopoLayoutStore.shared.forget(siteKey(path)) }
         if files.contains("connexions.json") { RemoteModel.shared.reloadFromDisk() }
         if files.contains("rustdesk.json") { RustDeskModel.shared.reloadFromDisk() }

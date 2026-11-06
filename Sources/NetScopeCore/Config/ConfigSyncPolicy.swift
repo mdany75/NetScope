@@ -177,7 +177,7 @@ public enum ConfigSyncPolicy {
 
     /// Fichiers du dossier d'un site synchronisés avec lui.
     public static let siteFiles = [SiteFiles.inventoryName, SiteFiles.notesName, SiteFiles.resultsName,
-                                   WifiRoomSurvey.fileName, TopoManualLayout.fileName]
+                                   WifiRoomSurvey.fileName, WifiFloorPlans.fileName, TopoManualLayout.fileName]
 
     // MARK: Découpage des fichiers globaux
 
