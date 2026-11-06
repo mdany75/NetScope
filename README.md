@@ -145,6 +145,8 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   clé et sauvegarde, historique et rapport mensuel, tentatives suspectes, journaux, nom et note
   par ID, ID associé à la MAC du poste (0.33.0) ; déconnecter une session, mettre à jour
   RustDesk et le système, mise à jour planifiée la nuit par l’agent (0.33.1).
+- Terminal intégré : extraits personnalisés et envoi d’une commande à plusieurs sessions avec
+  confirmation (0.34.0).
 
 ### Rapports
 

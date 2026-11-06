@@ -1,5 +1,28 @@
 # Changements
 
+## 0.34.0 — 2026-11-06
+
+Suite de l’Accès distant (note 67) et ordre alphabétique partout.
+
+### Ajouté
+- **Extraits personnalisés** dans le terminal intégré : bouton « + », pour une marque ou pour
+  toutes les sessions, avec ou sans Entrée ; « Modifier… » et « Supprimer… » (avec confirmation)
+  au clic droit. Ils s’affichent avant les extraits par marque.
+- **Envoi à plusieurs sessions** (« Plusieurs sessions… ») : une commande ou un extrait, sessions
+  ouvertes à cocher, confirmation qui nomme chaque destinataire (nom, adresse, site) et dit
+  quelles lignes seront exécutées. ⌘Retour pour envoyer ou enregistrer.
+
+### Modifié
+- **Ordre alphabétique** (fr_CA, sans casse ni accents) : écrans dans chaque section de la barre
+  latérale et du menu Aller, « Ouvrir dans › », types d’appareil, protocoles d’Accès distant,
+  contrôleurs, sondes à ajouter, marques de sauvegarde, modèles de rapport, types de partage,
+  guides par marque, événements des notifications. Les éléments d’ensemble restent en tête
+  (« Général »…) et « Autre », « À propos »… à la fin. Les raccourcis clavier ne changent pas.
+
+### Limites connues
+- Aucun essai réel sur de vraies sessions SSH ou Telnet.
+- Quelques listes gardent leur ordre (formats d’export, sources, préréglages de capture).
+
 ## 0.33.2 — 2026-11-06
 
 ### Ajouté
