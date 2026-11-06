@@ -146,6 +146,8 @@ registerUDPScanTests(suite)
 registerTLSCertificateTests(suite)
 // Note 77 (0.30.0) : contrôleurs UniFi, Omada et Meraki (réponses fixes, aucun réseau).
 registerControllerTests(suite)
+// Notes 63 et 64 (0.31.0) : scans planifiés par site et agent en arrière-plan (aucun réseau).
+registerAutomationTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

@@ -23,6 +23,8 @@ enum Launcher {
             RegConfigController.applyPending()
             RegSyncController.applyPending()
         }
+        // Note 64 : l'app ouverte reprend la main sur l'agent, avant de lire la Surveillance et les Journaux.
+        AppPresenceKeeper.launch()
         NetScopeApp.main()
     }
 
@@ -67,6 +69,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             SiteModel.shared.saveOnQuit()
             // Note 43 : journal des messages reçus depuis le dernier enregistrement.
             LogStore.saveOnQuitIfLoaded()
+            // Note 64 : l'agent (s'il est activé) reprend les sondes, Syslog et les scans planifiés.
+            AppPresenceKeeper.quit()
         }
     }
 }
@@ -104,6 +108,8 @@ struct NetScopeApp: App {
                     MonStore.shared.attach(to: state)
                     // Note 42 : rapports planifiés (jamais de scan ; rattrapage unique au lancement).
                     RapportScheduleStore.shared.attach(to: state)
+                    // Note 63 : scans planifiés par site (jamais pendant un autre scan).
+                    ScanScheduleStore.shared.attach(to: state)
                     // Note 29 : relecture automatique du site actif (FortiGate, bornes, switchs SNMP).
                     AutoRefreshStore.shared.attach(to: state)
                     // État des services en ligne : reprend si l'outil a déjà servi (aucune requête sinon).
