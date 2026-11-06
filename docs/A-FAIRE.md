@@ -1698,3 +1698,23 @@ Dany : étendre la synchronisation iCloud Drive de la note 56 (0.18.0) au lieu d
   0.32.0, IPv6 en 0.33.0 et la note 67 en 0.34.0 (décalage du 5 novembre 2026, notes 68, 69, 70
   et 77 en 0.30.0).
 
+
+## 87. Serveur RustDesk : mises à jour, déconnexion et quarantaine, nom et note par ID — 0.33.0 (demande de Dany, 6 novembre 2026)
+
+À noter seulement (« c’est juste pour la feuille de route »). Dans Accès distant › Serveur RustDesk :
+
+- **Mises à jour** : version de hbbs et hbbr lue par SSH (binaire ou image Docker), comparée à la
+  dernière version publiée de rustdesk-server sur GitHub ; mises à jour du système du serveur
+  lues par SSH en lecture seule (`apt list --upgradable`, `dnf check-update`…), avec le nombre de
+  correctifs de sécurité et « redémarrage requis ». Installer reste à faire à la main, ou plus
+  tard avec confirmation.
+- **Déconnecter un usager** : le serveur libre (hbbs/hbbr) n’a pas d’API pour couper une session.
+  Possible par SSH en fermant la connexion relayée de ce poste (`ss -K`, droits root), sinon
+  redémarrer hbbr coupe toutes les sessions. RustDesk Server Pro a une API qui le fait proprement.
+- **Quarantaine** : avec le serveur libre, bloquer l’IP publique du poste au pare-feu du serveur
+  (ufw/nftables par SSH) ou à la FortiGate (devant les VIP RustDesk ; jeton en écriture requis).
+  Attention : une IP publique peut être partagée par tout un site. Avec Server Pro : désactiver
+  l’ID ou l’appareil. Toujours avec confirmation, durée au choix et levée en un clic.
+- **Nom ou note sur un ID** : nom et note libres pour chaque ID RustDesk, gardés dans NetScope et
+  synchronisés entre les Mac (note 86) ; affichés dans le tableau de bord, l’assistance et le carnet.
+- À vérifier avant : quel serveur tourne chez Groupe Couture (libre ou Pro, Docker ou non).
