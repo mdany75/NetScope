@@ -69,9 +69,10 @@ enum ScanRouting {
         return result
     }
 
-    /// Tampon de sysctl(CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, flags) ; nil en cas d'échec.
-    static func dump(flags: Int32) -> [UInt8]? {
-        var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, flags]
+    /// Tampon de sysctl(CTL_NET, PF_ROUTE, 0, famille, NET_RT_FLAGS, flags) ; nil en cas d'échec.
+    /// Famille AF_INET (table ARP) ou AF_INET6 (table des voisins NDP, 0.31.0).
+    static func dump(flags: Int32, family: Int32 = AF_INET) -> [UInt8]? {
+        var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, family, NET_RT_FLAGS, flags]
         // La table peut grossir entre les deux appels : quelques essais.
         for _ in 0..<3 {
             var length = 0

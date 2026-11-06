@@ -476,6 +476,8 @@ final class ScanController: ObservableObject {
         scanTask = nil
         // Note 30 : téléphones IP d'après les voisins LLDP / CDP et le VLAN voix déjà connus.
         applyVoIPHints(state)
+        // IPv6 (0.31.0) : voisins de la table NDP (lecture locale, aucun paquet) rattachés par la MAC.
+        IPv6Model.shared.refresh(interface: state.activeInterface?.name, state: state)
         // Note 28 : date du scan du site, MAC de sa passerelle, résultats écrits dans le dossier du site.
         SiteModel.shared.scanFinished(state)
         let online = state.devices.filter { device in device.isOnline && targets.contains { $0.range.contains(device.ip) } }.count

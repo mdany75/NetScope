@@ -229,6 +229,8 @@ final class AppState: ObservableObject {
             device.customName = customNames[device.id] ?? device.customName
             if let position = index[device.id] {
                 device.firstSeen = min(devices[position].firstSeen, device.firstSeen)
+                // IPv6 (0.31.0) : les adresses IPv6 rattachées restent si le scan n'en apporte pas.
+                if device.ipv6 == nil, device.mac == devices[position].mac { device.ipv6 = devices[position].ipv6 }
                 devices[position] = device
             } else {
                 index[device.id] = devices.count

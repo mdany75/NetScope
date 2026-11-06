@@ -150,6 +150,8 @@ registerControllerTests(suite)
 registerConfigBackupTests(suite)
 // Notes 63 et 64 (0.31.0) : scans planifiés par site et agent en arrière-plan (aucun réseau).
 registerAutomationTests(suite)
+// IPv6 (0.31.0) : adresses, préfixes, EUI-64, table NDP sur octets fixes, ICMPv6 (rien n’est envoyé).
+registerIPv6Tests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

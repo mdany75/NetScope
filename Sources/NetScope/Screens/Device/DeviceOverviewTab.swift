@@ -101,6 +101,23 @@ struct DeviceOverviewTab: View {
         DeviceCard(title: "Réseau") {
             VStack(spacing: 0) {
                 DeviceKVRow(key: "Adresse IPv4", value: device.ip.description)
+                // IPv6 (0.31.0) : adresses rattachées par la MAC (table NDP) : lien local, ULA, globales.
+                ForEach(device.ipv6 ?? [], id: \.self) { address in
+                    // Adresse sur une ligne (réduite au besoin), jamais coupée en deux.
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(Self.ipv6Key(address)).font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize()
+                        Spacer(minLength: 8)
+                        Text(address.description).font(Theme.mono(12.5)).foregroundStyle(Theme.text)
+                            .lineLimit(1).minimumScaleFactor(0.75).textSelection(.enabled)
+                    }
+                    .padding(.vertical, 5)
+                    .overlay(alignment: .bottom) { Rectangle().fill(Theme.neutralSoft).frame(height: 1) }
+                    .help("\(address.scope.label) · forme complète \(address.expanded)"
+                          + (address.embeddedMAC != nil ? " · identifiant EUI-64" : ""))
+                }
+                if (device.ipv6 ?? []).isEmpty {
+                    DeviceKVRow(key: "IPv6", value: "Aucune adresse vue", mono: false, valueColor: Theme.textSecondary)
+                }
                 DeviceKVRow(key: "Masque", value: subnet.map { "\($0.mask) (/\($0.prefix))" } ?? "Inconnu")
                 DeviceKVRow(key: "Réseau", value: subnet?.description ?? "—")
                 DeviceKVRow(key: "Passerelle", value: gatewayText)
@@ -109,6 +126,15 @@ struct DeviceOverviewTab: View {
                 DeviceKVRow(key: "Nom d’hôte", value: device.hostnameLabel ?? "—",
                             detail: device.hostnameLabel == nil ? nil : device.nameSourceLabel)
             }
+        }
+    }
+
+    static func ipv6Key(_ address: IPv6Address) -> String {
+        switch address.scope {
+        case .linkLocal: return "IPv6 lien local"
+        case .uniqueLocal: return "IPv6 ULA"
+        case .global, .documentation: return "IPv6 globale"
+        default: return "IPv6 · \(address.scope.label.lowercased())"
         }
     }
 
