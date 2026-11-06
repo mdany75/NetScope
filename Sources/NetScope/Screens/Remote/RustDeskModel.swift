@@ -9,7 +9,7 @@ import NetScopeCore
 final class RustDeskModel: ObservableObject {
     static let shared = RustDeskModel()
 
-    nonisolated static let keychainService = "com.danymenard.netscope.rustdesk"
+    nonisolated static let keychainService = RustDeskServerCredentials.rustDeskService
     nonisolated static let keychain = UpdKeychain(service: keychainService)
 
     @Published var settings: RustDeskServerSettings {

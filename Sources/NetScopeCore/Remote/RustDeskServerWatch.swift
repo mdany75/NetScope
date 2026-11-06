@@ -570,11 +570,15 @@ public struct RustDeskWatchStore: Sendable {
         public var backups: [Date] = []
         public var published = RustDeskPublishedVersions()
         public var monitoredPorts: [Int] = RustDeskServerAlerts.defaultPorts
+        /// Note 88 (0.33.1) : actions faites sur le serveur (à la main ou planifiées), récentes d'abord.
+        public var actions: [RustDeskActionRecord] = []
+        /// Note 88 (0.33.1) : mise à jour planifiée (un seul Mac l'exécute).
+        public var schedule = RustDeskUpdateSchedule()
 
         public init() {}
 
         private enum CodingKeys: String, CodingKey {
-            case version, notes, technicians, history, knownKey, keyChangedAt, backups, published, monitoredPorts
+            case version, notes, technicians, history, knownKey, keyChangedAt, backups, published, monitoredPorts, actions, schedule
         }
 
         public init(from decoder: Decoder) throws {
@@ -589,6 +593,8 @@ public struct RustDeskWatchStore: Sendable {
             published = ((try? c.decodeIfPresent(RustDeskPublishedVersions.self, forKey: .published)) ?? nil) ?? RustDeskPublishedVersions()
             let ports = ((try? c.decodeIfPresent([Int].self, forKey: .monitoredPorts)) ?? nil) ?? RustDeskServerAlerts.defaultPorts
             monitoredPorts = ports.filter { (1...65_535).contains($0) }
+            actions = ((try? c.decodeIfPresent([RustDeskActionRecord].self, forKey: .actions)) ?? nil) ?? []
+            schedule = ((try? c.decodeIfPresent(RustDeskUpdateSchedule.self, forKey: .schedule)) ?? nil) ?? RustDeskUpdateSchedule()
         }
 
         /// Clé lue : la première devient la clé connue ; une autre marque le changement (alerte
@@ -633,6 +639,8 @@ public struct RustDeskWatchStore: Sendable {
             merged.published = local.published
         }
         if local.monitoredPorts != base.monitoredPorts { merged.monitoredPorts = local.monitoredPorts }
+        merged.actions = RustDeskActionRecord.union(local.actions, disk.actions)
+        if local.schedule != base.schedule { merged.schedule = local.schedule }
         return merged
     }
 

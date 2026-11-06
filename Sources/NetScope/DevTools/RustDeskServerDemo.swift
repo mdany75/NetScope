@@ -71,6 +71,9 @@ enum RustDeskServerDemo {
     }
 
     /// Suivi : noms et notes, historique de deux mois, versions publiées, dernière copie il y a 9 jours.
+    /// Identifiant du Mac qui exécute la mise à jour planifiée en démonstration (« ce Mac »).
+    static let demoMachineID = "00000000-0000-4000-8000-000000000088"
+
     static func watch(now: Date) -> RustDeskWatchStore.Contents {
         var contents = RustDeskWatchStore.Contents()
         contents.notes = [
@@ -97,6 +100,33 @@ enum RustDeskServerDemo {
         contents.knownKey = demoKey
         contents.backups = [now.addingTimeInterval(-9 * 86_400), now.addingTimeInterval(-40 * 86_400)]
         contents.published = RustDeskPublishedVersions(checkedAt: now.addingTimeInterval(-3 * 3_600), server: "1.1.15", hubDigest: hubDigest, client: "1.4.4")
+        // Note 88 (0.33.1) : mise à jour planifiée et actions passées (valeurs fictives).
+        var schedule = RustDeskUpdateSchedule()
+        schedule.enabled = true
+        schedule.weekday = 1
+        schedule.hour = 3
+        schedule.target = .both
+        schedule.scope = .security
+        schedule.runnerID = demoMachineID
+        schedule.runnerName = "Mac du siège"
+        contents.schedule = schedule
+        let mac = "Mac du siège"
+        // Dernière échéance (dimanche 3 h) : actions planifiées faites quelques minutes après.
+        let sunday = schedule.lastSlot(atOrBefore: now, calendar: .current) ?? now.addingTimeInterval(-4 * 86_400)
+        contents.actions = [
+            RustDeskActionRecord(date: sunday.addingTimeInterval(9 * 60), kind: .updateSystem, target: "Sécurité seulement", outcome: .ok,
+                                 summary: "Mises à jour de sécurité installées (unattended-upgrade).", origin: mac + " (agent, planifiée)", slot: sunday),
+            RustDeskActionRecord(date: sunday.addingTimeInterval(4 * 60), kind: .updateRustDesk, target: "hbbs et hbbr (Docker)", outcome: .ok,
+                                 summary: "Déjà à jour\u{00A0}: aucune nouvelle image, rien n’est redémarré.", origin: mac + " (agent, planifiée)", slot: sunday),
+            RustDeskActionRecord(date: sunday.addingTimeInterval(-2 * 86_400 + 14 * 3_600 + 22 * 60), kind: .disconnect, target: "198.51.100.37:60412 (Kiosque entrepôt)",
+                                 outcome: .ok, summary: "Connexion relayée de 198.51.100.37:60412 fermée (1 connexion(s)). Le poste peut se reconnecter.",
+                                 origin: mac),
+            RustDeskActionRecord(date: sunday.addingTimeInterval(-7 * 86_400 + 60), kind: .updateRustDesk, target: "hbbs et hbbr (Docker)", outcome: .postponed,
+                                 summary: "Reportée\u{00A0}: session relayée en cours.", origin: mac + " (agent, planifiée)", slot: sunday.addingTimeInterval(-7 * 86_400)),
+            RustDeskActionRecord(date: sunday.addingTimeInterval(-7 * 86_400 + 16 * 60), kind: .updateRustDesk, target: "hbbs et hbbr (Docker)", outcome: .ok,
+                                 summary: "RustDesk Server 1.1.12 → 1.1.14.", origin: mac + " (agent, planifiée)", slot: sunday.addingTimeInterval(-7 * 86_400)),
+        ]
+        contents.actions = RustDeskActionRecord.union(contents.actions, [])
         return contents
     }
 

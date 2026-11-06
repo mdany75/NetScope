@@ -109,6 +109,8 @@ registerRustDeskPortTests(suite)
 // Note 6 (0.26.2) : tableau de bord du serveur RustDesk.
 registerRustDeskServerTests(suite)
 registerRustDeskServerWatchTests(suite)
+// Note 88 (0.33.1) : actions sur le serveur RustDesk et mise à jour planifiée.
+registerRustDeskServerActionTests(suite)
 // Correctif 0.27.3 : onglet « Assistance RustDesk » d'Accès distant.
 registerRustDeskAssistanceTests(suite)
 // Écran Appareil : ouvrir une fiche par IP, nom ou MAC, appareils saisis à la main.

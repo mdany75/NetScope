@@ -10,6 +10,7 @@ struct RustDeskServerDashboard: View {
     @ObservedObject var model: RemoteModel
     @ObservedObject private var server = RustDeskServerModel.shared
     @ObservedObject private var watch = RustDeskServerWatchModel.shared
+    @ObservedObject private var serverActions = RustDeskServerActionModel.shared
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -42,7 +43,7 @@ struct RustDeskServerDashboard: View {
         .onAppear {
             if server.status == nil, server.error == nil, server.settings.hasAccount { server.refresh() }
             // Captures : NETSCOPE_RUSTDESK_DEFILER=maj (mises à jour, clé, suspects), =journaux (historique,
-            // journaux), =alertes (Surveillance) ou =associer (association proposée d'un ID, démonstration).
+            // journaux), =actions (actions et mise à jour planifiée, note 88), =alertes (Surveillance) ou =associer (association proposée d'un ID, démonstration).
             guard CommandLine.arguments.contains("--snapshot"),
                   let anchor = ProcessInfo.processInfo.environment["NETSCOPE_RUSTDESK_DEFILER"] else { return }
             if anchor == "associer", RegEnvironment.isDemo {
@@ -58,9 +59,22 @@ struct RustDeskServerDashboard: View {
         .sheet(item: RegEnvironment.isSnapshot ? .constant(nil) : $watch.associating) { request in
             RustDeskAssociationSheet(request: request, watch: watch)
         }
+        // Note 88 : confirmation d'une action sur le serveur (fermeture seulement par ses boutons).
+        .sheet(item: RegEnvironment.isSnapshot ? .constant(nil) : $serverActions.pending) { action in
+            RustDeskActionSheet(action: action).interactiveDismissDisabled()
+        }
         // Captures : une vraie feuille ne se capture pas hors écran ; elle est dessinée par-dessus.
         .overlay(alignment: .top) {
-            if RegEnvironment.isSnapshot, let request = watch.associating {
+            if RegEnvironment.isSnapshot, let action = serverActions.pending {
+                ZStack(alignment: .top) {
+                    Color(nsColor: .shadowColor).opacity(0.18)
+                    RustDeskActionSheet(action: action)
+                        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+                        .shadow(color: Color(nsColor: .shadowColor).opacity(0.3), radius: 18, y: 8)
+                        .padding(.top, 8)
+                }
+            } else if RegEnvironment.isSnapshot, let request = watch.associating {
                 ZStack(alignment: .top) {
                     Color(nsColor: .shadowColor).opacity(0.18)
                     RustDeskAssociationSheet(request: request, watch: watch)
@@ -202,7 +216,9 @@ struct RustDeskServerDashboard: View {
         RustDeskServerChart(samples: RustDeskServerSamples.window(server.samples, hours: 6, now: status.readAt), now: status.readAt)
         Panel {
             if status.relayConsole == .ok {
-                RustDeskRelayTable(rows: RustDeskRelayRow.rows(status, book: book), watch: watch)
+                RustDeskRelayTable(rows: RustDeskRelayRow.rows(status, book: book), watch: watch) { row in
+                    serverActions.askDisconnect(row, status: status)
+                }
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionHeader("Sessions relayées en cours")
@@ -227,6 +243,7 @@ struct RustDeskServerDashboard: View {
             }
         }
         RustDeskUpdatesPanel(status: status, watch: watch).id("rd-maj")
+        RustDeskActionsPanel(status: status, watch: watch).id("rd-actions")
         RustDeskKeyBackupPanel(status: status, watch: watch, server: server)
         RustDeskSuspiciousPanel(events: watch.suspicious(status), watch: watch)
         RustDeskHistoryPanel(watch: watch).id("rd-journaux")

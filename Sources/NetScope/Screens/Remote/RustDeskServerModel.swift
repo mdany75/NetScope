@@ -12,7 +12,7 @@ final class RustDeskServerModel: ObservableObject {
 
     /// Mot de passe du compte saisi à la main, au Trousseau sous « tableau-serveur-ssh:<utilisateur@hôte[:port]> » :
     /// lié au compte, il n'est jamais remis à un autre hôte (compte du carnet : celui de la connexion SSH).
-    nonisolated static let manualPasswordPrefix = "tableau-serveur-ssh:"
+    nonisolated static let manualPasswordPrefix = RustDeskServerCredentials.manualPasswordPrefix
     /// Ancien nom fixe (avant la liaison au compte) : effacé au lancement.
     nonisolated static let legacyManualPasswordAccount = "tableau-serveur-ssh"
 
