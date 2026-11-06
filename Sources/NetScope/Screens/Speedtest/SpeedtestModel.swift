@@ -618,6 +618,15 @@ final class SpeedtestModel: ObservableObject {
         persist()
     }
 
+    /// Note 86 : historique et forfait reçus d'un autre Mac, relus sans redémarrer.
+    func reloadFromDisk() {
+        guard let store else { return }
+        let content = store.load()
+        history = content.records
+        planDownText = content.planDownMbps.map { SpeedFormat.integer($0) } ?? ""
+        planUpText = content.planUpMbps.map { SpeedFormat.integer($0) } ?? ""
+    }
+
     private func persist() {
         guard let store else { return }
         do {

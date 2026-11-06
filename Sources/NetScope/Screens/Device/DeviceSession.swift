@@ -163,6 +163,12 @@ final class DeviceNotesStore: ObservableObject {
         savedAt = [:]
     }
 
+    /// Note 86 : notes du site actif reçues d'un autre Mac, relues sans redémarrer.
+    func reloadFromDisk() {
+        guard !isEphemeral else { return }
+        notes = Self.load(url)
+    }
+
     static func key(for device: Device) -> String {
         device.mac?.description ?? device.id
     }

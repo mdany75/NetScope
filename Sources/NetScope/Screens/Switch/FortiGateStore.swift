@@ -181,6 +181,17 @@ final class FortiGateStore: ObservableObject {
 
     // MARK: Liste et Trousseau
 
+    /// Note 86 : FortiGate reçues d'un autre Mac avec leur site (préférence déjà écrite, jetons
+    /// remis au Trousseau), relues sans redémarrer.
+    func reloadFromDisk() {
+        guard !isDemo else { return }
+        let saved = Self.savedControllers()
+        guard saved != controllers else { return }
+        controllers = saved
+        tokensLoaded = false
+        Task { await loadTokens() }
+    }
+
     /// Liste enregistrée, lue sans passer par le fil principal (sauvegardes) : jamais de jeton.
     nonisolated static func savedControllers() -> [FortiGateController] {
         UserDefaults.standard.data(forKey: listKey).flatMap(FortiControllerList.decode) ?? []

@@ -119,6 +119,13 @@ final class RegRemoteCredentialStore: ObservableObject {
         }
     }
 
+    /// Note 86 : identifiants reçus d'un autre Mac (et leurs secrets remis au Trousseau), relus sans redémarrer.
+    func reloadFromDisk() {
+        guard let url else { return }
+        credentials = RemoteCredentialStore.load(from: url).credentials
+        secretsSet = Set(credentials.filter { Self.keychain($0.kind).string(for: $0.keychainAccount) != nil }.map(\.id))
+    }
+
     static func keychain(_ kind: RemoteCredential.Kind) -> UpdKeychain { UpdKeychain(service: RemoteCredential.keychainService(kind)) }
 
     private func persist() {

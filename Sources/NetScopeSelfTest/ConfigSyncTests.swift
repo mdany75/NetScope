@@ -244,7 +244,7 @@ func registerConfigSyncTests(_ suite: TestSuite) {
         let info = try BackupEngine.create(source, in: folder.appendingPathComponent("sauvegardes"), format: .zip, kind: .manuelle)
         let package = try ConfigArchive.read(info.url, password: nil)
         try expectEqual(package.manifest.origin, "sauvegarde", "origine")
-        try expectEqual(Set(package.manifest.parts.map(\.id)), ["sites", "inventaires", "raccourcis"], "parties reconnues")
+        try expectEqual(Set(package.manifest.parts.map(\.id)), ["sites", "surveillance", "raccourcis"], "parties reconnues")
     }
 
     suite.add("Synchronisation : un Mac publie, l’autre reçoit ; jetons chiffrés par le mot de passe de synchro") {

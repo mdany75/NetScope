@@ -121,6 +121,15 @@ final class SiteModel: ObservableObject {
     /// « Siège », ou « Aucun site » (plages libres).
     var activeName: String { activeSite?.displayName ?? "Aucun site" }
 
+    /// Note 86 : fiches des sites reçues d'un autre Mac (sites.json déjà écrit), relues sans
+    /// redémarrer. Le site actif reste celui de ce Mac.
+    func reloadFromDisk() {
+        guard !isEphemeral, !saveBlocked, let files, case .loaded(let saved) = files.readList() else { return }
+        var reloaded = saved
+        reloaded.activeID = list.activeID
+        if reloaded != list { list = reloaded }
+    }
+
     func site(_ id: UUID) -> Site? { list.site(id) }
 
     /// Inventaire du site actif (nil en démonstration).
@@ -325,6 +334,17 @@ final class SiteModel: ObservableObject {
         InvModel.shared.markIngested(state.devices)
         ScanController.shared.restore(results)
         SwitchStore.shared.restore(results)
+    }
+
+    /// Note 86 : derniers résultats d'un site reçus d'un autre Mac (plus récents que ceux d'ici).
+    /// Site ouvert : montrés tout de suite, sauf pendant un scan (ils le seront au prochain
+    /// passage) ; autre site : relus du disque à son ouverture.
+    func reloadResults(siteKey key: String) {
+        guard !isEphemeral else { return }
+        guard key == activeKey else { shelf.forget(key); return }
+        guard let state = attachedState, !ScanController.shared.isRunning else { return }
+        shelf.forget(key)
+        apply(shelf.take(key), to: state)
     }
 
     /// Fermeture de NetScope : résultats du site actif et fusion d'inventaire en attente enregistrés.

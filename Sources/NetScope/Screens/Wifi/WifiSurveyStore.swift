@@ -47,6 +47,13 @@ final class WifiSurveyStore: ObservableObject {
 
     // MARK: Site
 
+    /// Note 86 : relevé du site ouvert reçu d'un autre Mac, relu (jamais pendant une mesure).
+    func reloadFromDisk(siteKey key: String) {
+        guard !isDemo, key == siteKey, !isMeasuring else { return }
+        siteKey = nil
+        load(siteKey: key)
+    }
+
     /// Relevé du site actif (relu à chaque changement de site).
     func load(siteKey key: String) {
         guard key != siteKey else { return }

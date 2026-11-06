@@ -7,7 +7,7 @@ import ServiceManagement
 
 /// Sections de la colonne de gauche, dans l'ordre du croquis (docs/croquis/Reglages.dc.html).
 enum RegSection: String, CaseIterable, Identifiable {
-    case general, sites, profils, identifiants, switchs, notifications, alertes, interface, rustdesk, export, majs, raccourcis, diagnostic, apropos
+    case general, sites, profils, identifiants, switchs, notifications, alertes, interface, rustdesk, export, synchro, majs, raccourcis, diagnostic, apropos
 
     var id: String { rawValue }
 
@@ -23,6 +23,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .interface: return "Interface réseau"
         case .rustdesk: return "RustDesk"
         case .export: return "Export et sauvegarde"
+        case .synchro: return "Synchronisation"
         case .majs: return "Mises à jour"
         case .raccourcis: return "Raccourcis"
         case .diagnostic: return "Journal et diagnostic"
@@ -42,6 +43,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .interface: return "network"
         case .rustdesk: return "person.wave.2"
         case .export: return "square.and.arrow.up"
+        case .synchro: return "arrow.clockwise.icloud"
         case .majs: return "arrow.triangle.2.circlepath"
         case .raccourcis: return "command"
         case .diagnostic: return "stethoscope"
@@ -61,7 +63,8 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .alertes: return "alerte courriel smtp starttls webhook teams slack json ntfy pushover téléphone telephone notification push anti-rafale silence trousseau envoyer un test"
         case .interface: return "en0 wi-fi ethernet masque passerelle getifaddrs"
         case .rustdesk: return "rustdesk assistance à distance hbbs hbbr serveur id relais clé publique client portable usager vip fortigate 21115 21116 21117"
-        case .export: return "export sauvegarde csv json pdf restauration zip manifeste rotation icloud dossier chiffrement chiffrée mot de passe jetons secrets trousseau configuration importer exporter synchronisation synchroniser mac"
+        case .export: return "export sauvegarde csv json pdf restauration zip manifeste rotation icloud dossier chiffrement chiffrée mot de passe jetons secrets trousseau configuration importer exporter"
+        case .synchro: return "synchronisation synchroniser icloud drive onedrive nas dossier partagé mac conflit suppression catégories secrets trousseau mot de passe version"
         case .raccourcis: return "raccourcis clavier touches commande menu conflit écran " + Screen.searchNames
         case .majs: return "version github release bêta stable signature télécharger installer jeton"
         case .diagnostic: return "journal log erreurs avertissements modules diagnostic exporter zip plantage crash rapport secrets masqués signalement"
@@ -88,6 +91,7 @@ enum RegEnvironment {
             case "identifiants": return .identifiants
             case "decouverte": return .profils
             case "journal": return .diagnostic
+            case "synchronisation": return .synchro
             default: if let section = RegSection(rawValue: raw) { return section }
             }
         }
@@ -173,6 +177,26 @@ final class RegPrefs: ObservableObject {
     }
     /// Format d'export par défaut (bouton « Exporter » du Scanner).
     @Published var exportFormat: ExportFormat { didSet { defaults?.set(exportFormat.rawValue, forKey: Key.exportFormat) } }
+
+    /// Note 86 : profils de scan et réglages reçus d'un autre Mac (préférences déjà écrites),
+    /// relus sans redémarrer.
+    func reloadFromDisk() {
+        guard let defaults else { return }
+        let current = RegScanTuning.current
+        if current != tuning { tuning = current }
+        let profile = defaults.string(forKey: Key.defaultProfile).flatMap(ScanProfile.init(rawValue:)) ?? .rapide
+        if profile != defaultProfile { defaultProfile = profile }
+        let confirm = defaults.object(forKey: Key.confirmPublic) as? Bool ?? true
+        if confirm != confirmPublicRanges { confirmPublicRanges = confirm }
+        let auto = defaults.object(forKey: Key.autoSwitches) as? Bool ?? true
+        if auto != autoDiscoverSwitches { autoDiscoverSwitches = auto }
+        let arp = defaults.object(forKey: Key.gatewayARP) as? Bool ?? true
+        if arp != readGatewayARP { readGatewayARP = arp }
+        let methods = ScanProfileMethods.decode(defaults.data(forKey: Key.scanMethods))
+        if methods != scanMethods { scanMethods = methods }
+        let format = defaults.string(forKey: Key.exportFormat).flatMap(ExportFormat.init(rawValue:)) ?? .csv
+        if format != exportFormat { exportFormat = format }
+    }
 
     /// Méthodes de découverte d'un profil.
     func methods(for profile: ScanProfile) -> ScanMethods { scanMethods.methods(for: profile) }

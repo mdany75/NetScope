@@ -127,6 +127,18 @@ final class SwitchStore: ObservableObject {
         }
     }
 
+    /// Note 86 : switchs reçus d'un autre Mac (préférences déjà écrites), relus sans redémarrer.
+    func reloadFromDisk() {
+        guard !isDemo else { return }
+        let defaults = UserDefaults.standard
+        let saved = defaults.stringArray(forKey: Self.hostsKey) ?? []
+        if saved != hosts { hosts = saved }
+        let auto = Set(defaults.stringArray(forKey: Self.autoHostsKey) ?? [])
+        if auto != autoHosts { autoHosts = auto }
+        let ignored = Set(defaults.stringArray(forKey: Self.ignoredKey) ?? [])
+        if ignored != ignoredHosts { ignoredHosts = ignored }
+    }
+
     /// Lit au Trousseau (une seule fois, hors du fil principal) la communauté des Identifiants et
     /// celles retenues par switch. Une demande d'autorisation de macOS ne gèle donc pas l'app.
     func loadVault() async {

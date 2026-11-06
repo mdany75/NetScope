@@ -29,6 +29,13 @@ final class RegShortcutStore: ObservableObject {
         }
     }
 
+    /// Note 86 : raccourcis reçus d'un autre Mac, relus sans redémarrer.
+    func reloadFromDisk() {
+        guard defaults != nil else { return }
+        let saved = ShortcutSettings.decoded(UserDefaults.standard.data(forKey: Self.key))
+        if saved != settings { settings = saved }
+    }
+
     static func action(_ id: String) -> ShortcutAction? { actions.first { $0.id == id } }
 
     func combo(_ id: String) -> KeyCombo? {

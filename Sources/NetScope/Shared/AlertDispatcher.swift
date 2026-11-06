@@ -263,6 +263,15 @@ final class AlertDispatcher: ObservableObject {
 
     // MARK: Secrets (Trousseau)
 
+    /// Note 86 : canaux et règles reçus d'un autre Mac (préférence déjà écrite, secrets remis au
+    /// Trousseau), relus sans redémarrer ; le journal des envois reste celui de ce Mac.
+    func reloadFromDisk() {
+        guard let defaults, let data = defaults.data(forKey: Key.settings),
+              let saved = try? JSONDecoder().decode(AlertSettings.self, from: data) else { return }
+        if saved != settings { settings = saved }
+        refreshSecrets()
+    }
+
     func refreshSecrets() {
         guard !isSandboxed else { return }
         hasPassword = !(keychain.string(for: AlertSecretKey.smtpPassword) ?? "").isEmpty

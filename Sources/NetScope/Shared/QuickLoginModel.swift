@@ -228,6 +228,12 @@ final class QuickLoginModel: ObservableObject {
         (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
     }
 
+    /// Note 86 : noms retenus reçus d'un autre Mac, relus sans redémarrer.
+    func reloadFromDisk() {
+        guard let url else { return }
+        memory = QuickLoginMemory.load(from: url)
+    }
+
     private func persist() {
         guard let url else { return }
         do {

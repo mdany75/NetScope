@@ -141,6 +141,13 @@ final class AppState: ObservableObject {
         manualLoaded = true
     }
 
+    /// Note 86 : appareils saisis reçus d'un autre Mac, relus sans redémarrer (les consultations
+    /// récentes restent celles de ce Mac).
+    func reloadManualFromDisk() {
+        guard let kept = manualStore?.load(), kept.entries != manualDevices else { return }
+        manualDevices = kept.entries
+    }
+
     /// Vrai si aucun état n'était enregistré : les plages par défaut seront remplacées par le réseau détecté.
     private(set) var isFirstLaunch: Bool
 

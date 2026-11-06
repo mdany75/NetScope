@@ -324,6 +324,12 @@ final class RustDeskServerModel: ObservableObject {
         }
     }
 
+    /// Note 86 : compte du serveur reçu d'un autre Mac (les échantillons restent ceux d'ici).
+    func reloadFromDisk() {
+        guard let contents = store?.load() else { return }
+        if settings != contents.settings { settings = contents.settings }
+    }
+
     private func save() {
         guard let store else { return }
         do {

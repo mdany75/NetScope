@@ -7,7 +7,11 @@ import NetScopeCore
 /// ni Trousseau ; uniquement des valeurs fictives.
 @MainActor
 enum ConfigSyncDemo {
-    static let deviceName = "MacBook Pro (démonstration)"
+    static let deviceName = "MacBook Pro de Dany"
+    static let deviceModel = "MacBook Pro (14 pouces, 2023)"
+    /// Note 86 : les deux autres Mac de la démonstration de la synchronisation.
+    static let studioDevice = "Mac Studio de Dany"
+    static let officeDevice = "Mac du bureau"
     static let otherDevice = "MacBook Air de l’atelier"
     static let thirdDevice = "iMac du bureau"
     /// Site publié par un autre Mac, absent de ce Mac.
@@ -125,28 +129,80 @@ enum ConfigSyncDemo {
         return ConfigArchive.contents(of: snapshot)
     }
 
-    // MARK: Synchronisation
+    // MARK: Synchronisation (notes 56 et 86)
 
+    /// Captures : NETSCOPE_REGLAGES_SECTION=synchronisation ouvre Réglages › Synchronisation.
     struct SyncState {
         var enabled: Bool
-        var siteIDs: Set<UUID>
+        var excludedSites: Set<UUID>
+        var disabledCategories: Set<String>
         var lastSync: Date
         var conflicts: [ConfigSyncConflict]
+        var deletions: [ConfigSyncDeletion]
+        var recent: [ConfigSyncChange]
+        var devices: [ConfigSyncDevice]
+        var counts: [ConfigSyncGlobal.CategoryCount]
         var remoteSites: [ConfigSyncRemoteSite]
         var pendingCount: Int
         var summary: String
     }
 
+    /// Trois Mac (ce MacBook Pro, le Mac Studio et le Mac du bureau resté en 0.28), un conflit
+    /// sur une connexion du carnet, une sonde supprimée sur le Mac Studio à confirmer.
     static func state() -> SyncState {
         let now = Date()
-        let conflict = ConfigSyncConflict(id: UUID(uuidString: "C0F1C700-0000-4000-8000-000000000001")!, date: now.addingTimeInterval(-4 * 60),
-                                          siteID: SitesDemo.lavalID, siteName: "Entrepôt Laval", key: "fichier:sites/\(SitesDemo.lavalID.uuidString)/inventory.json",
-                                          label: "Inventaire", keptDevice: otherDevice, keptModified: now.addingTimeInterval(-38 * 60),
-                                          otherDevice: deviceName, otherModified: now.addingTimeInterval(-52 * 60),
-                                          otherData: Data("{}".utf8), keptRemote: true)
-        let remote = ConfigSyncRemoteSite(id: levisID, name: "Clinique Exemple · Lévis", devices: [thirdDevice], updated: now.addingTimeInterval(-3 * 3_600))
-        return SyncState(enabled: true, siteIDs: [SitesDemo.siegeID, SitesDemo.lavalID, SitesDemo.quebecID],
-                         lastSync: now.addingTimeInterval(-4 * 60), conflicts: [conflict], remoteSites: [remote], pendingCount: 0,
-                         summary: "3 reçus de \(otherDevice) · 2 envoyés · 1 conflit")
+        let version = UpdController.currentVersionText
+        let devices = [
+            ConfigSyncDevice(id: "demo-macbook", name: deviceName, model: deviceModel, appVersion: version, lastSync: now.addingTimeInterval(-40)),
+            ConfigSyncDevice(id: "demo-studio", name: studioDevice, model: "Mac Studio (2023)", appVersion: version,
+                             lastSync: now.addingTimeInterval(-3 * 60)),
+            ConfigSyncDevice(id: "demo-bureau", name: officeDevice, model: "iMac (24 pouces, 2021)", appVersion: "0.28.0", schema: nil,
+                             lastSync: now.addingTimeInterval(-2 * 3_600 - 14 * 60)),
+        ]
+        let routeur = Data(#"{"host":"10.182.122.1","id":"9C1A0000-0000-4000-8000-000000000001","name":"Routeur du Siège","port":22,"protocol":"ssh","user":"admin"}"#.utf8)
+        let conflict = ConfigSyncConflict(id: UUID(uuidString: "C0F1C700-0000-4000-8000-000000000086")!, date: now.addingTimeInterval(-6 * 60),
+                                          siteID: ConfigSyncPolicy.globalID, siteName: "Accès distant et RustDesk",
+                                          key: "element:connexions.json#connections#9C1A0000-0000-4000-8000-000000000001",
+                                          label: "Connexion «\u{00A0}Routeur du Siège\u{00A0}»", keptDevice: studioDevice,
+                                          keptModified: now.addingTimeInterval(-12 * 60), otherDevice: deviceName,
+                                          otherModified: now.addingTimeInterval(-18 * 60), otherData: routeur, keptRemote: true)
+        let deletion = ConfigSyncDeletion(scope: ConfigSyncPolicy.globalFolder, scopeName: "Surveillance et rapports planifiés",
+                                          key: "element:surveillance.json#probes#5D0E0000-0000-4000-8000-000000000007",
+                                          label: "Sonde «\u{00A0}Imprimante de l’accueil\u{00A0}»", category: "surveillance",
+                                          device: studioDevice, date: now.addingTimeInterval(-25 * 60))
+        func change(_ minutes: Double, _ scope: String, _ label: String, _ category: String, _ device: String) -> ConfigSyncChange {
+            ConfigSyncChange(date: now.addingTimeInterval(-minutes * 60), scopeName: scope, label: label, category: category, device: device)
+        }
+        let recent = [
+            change(4, "Accès distant et RustDesk", "Connexion «\u{00A0}NAS Synology\u{00A0}»", "acces", studioDevice),
+            change(4, "Accès distant et RustDesk", "Mot de passe Telnet · SW-ETG2-01", "acces", studioDevice),
+            change(9, "Surveillance et rapports planifiés", "Sonde «\u{00A0}Passerelle Laval\u{00A0}»", "surveillance", studioDevice),
+            change(22, "Entrepôt Laval", "Inventaire", "inventaires", studioDevice),
+            change(31, "Profils de scan", "Profil de scan · fils", "profils", studioDevice),
+            change(134, "Clinique Exemple", "Fiche du site", "sites", officeDevice),
+            change(186, "Surveillance et rapports planifiés", "Rapport planifié «\u{00A0}Bilan mensuel\u{00A0}»", "surveillance", officeDevice),
+        ]
+        let registry = ConfigPartRegistry.standard
+        func count(_ id: String, files: Int = 0, elements: Int = 0, preferences: Int = 0, secrets: Int = 0, sites: Int = 0) -> ConfigSyncGlobal.CategoryCount? {
+            registry.part(id).map { ConfigSyncGlobal.CategoryCount(part: $0, files: files, elements: elements, preferences: preferences, secrets: secrets, siteItems: sites) }
+        }
+        let counts = [
+            count("sites", preferences: 4, sites: 6),
+            count("fortigate", preferences: 2, secrets: 4, sites: 4),
+            count("switchs", preferences: 5, secrets: 3),
+            count("identifiants", files: 2, elements: 6, secrets: 6),
+            count("acces", files: 3, elements: 38, preferences: 2, secrets: 14),
+            count("alertes", preferences: 2, secrets: 5),
+            count("surveillance", files: 2, elements: 21, preferences: 6),
+            count("raccourcis", preferences: 1),
+            count("profils", preferences: 6),
+            count("inventaires", files: 3, elements: 64, sites: 14),
+            count("reglages", files: 5, preferences: 27, secrets: 2),
+        ].compactMap { $0 }
+        let remote = ConfigSyncRemoteSite(id: levisID, name: "Clinique Exemple · Lévis", devices: [officeDevice], updated: now.addingTimeInterval(-3 * 3_600))
+        return SyncState(enabled: true, excludedSites: [SitesDemo.drummondID], disabledCategories: ["raccourcis"],
+                         lastSync: now.addingTimeInterval(-40), conflicts: [conflict], deletions: [deletion], recent: recent,
+                         devices: devices, counts: counts, remoteSites: [remote], pendingCount: 0,
+                         summary: "3 reçus de \(studioDevice) · 2 envoyés · 1 conflit · 1 suppression à confirmer")
     }
 }

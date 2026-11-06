@@ -973,6 +973,15 @@ final class RemoteModel: ObservableObject {
         return added
     }
 
+    /// Note 86 : carnet reçu d'un autre Mac (synchronisation), relu sans redémarrer.
+    func reloadFromDisk() {
+        guard let store, let loaded = store.load() else { return }
+        connections = loaded
+        if let selectedID, !loaded.contains(where: { $0.id == selectedID }) { self.selectedID = loaded.first?.id }
+        RemoteSessionStore.shared.loadSavedPasswords(for: loaded.filter { [.ssh, .telnet].contains($0.proto) }.map(\.id))
+        RustDeskModel.shared.loadSavedPasswords(for: loaded.filter { $0.proto == .rustdesk }.map(\.id))
+    }
+
     private func save() {
         guard let store else { return }
         do {
