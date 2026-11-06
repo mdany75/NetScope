@@ -14,6 +14,21 @@ public enum VLANScanRunner {
         return VLANEntry.parseList(result.stdout)
     }
 
+    /// Variante bloquante de `listVLANs()`, pour la fermeture de l'app (lecture, sans droits).
+    public static func listVLANsNow() -> [VLANEntry] {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: VLANScanCommands.networksetup)
+        process.arguments = ["-listVLANs"]
+        process.environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin"]
+        let out = Pipe()
+        process.standardOutput = out
+        process.standardError = FileHandle.nullDevice
+        do { try process.run() } catch { return [] }
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return VLANEntry.parseList(String(decoding: data, as: UTF8.self))
+    }
+
     /// Script avec droits administrateur ; nil si réussi, sinon le message d'erreur (refus compris).
     public static func runPrivileged(_ script: String, prompt: String, timeout: TimeInterval = 120) async -> String? {
         let apple: String

@@ -27,7 +27,9 @@ public enum CableTestVendor: String, Codable, CaseIterable, Sendable {
         switch kind {
         case .cisco?: return .cisco
         case .aruba?: return .aruba
-        case .fortiswitch?, .fortigate?: return .fortiSwitch
+        case .fortiswitch?: return .fortiSwitch
+        // FortiGate en SSH : pas de test de câble (refus « marque non prise en charge ») ; un FortiSwitch
+        // géré par une FortiGate passe par le canal REST (`target.fortiGate`), sans marque.
         default: return nil
         }
     }

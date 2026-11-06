@@ -54,6 +54,7 @@ struct VLANScanSheet: View {
                         ForEach(model.ethernetChoices, id: \.self) { Text($0).tag($0) }
                     }
                     .labelsHidden().frame(width: 100)
+                    .task { await model.refreshInterfaces() }
                 }
                 Spacer(minLength: 0)
             }

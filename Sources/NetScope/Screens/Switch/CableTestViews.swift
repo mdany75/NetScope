@@ -133,7 +133,6 @@ enum CableTestFormat {
 struct CableTestSheet: View {
     @ObservedObject private var model = CableTestModel.shared
     let request: CableTestModel.Request
-    let snapshot: SNMPSwitchSnapshot?
     let dismiss: () -> Void
     @State private var acknowledged = false
 
@@ -179,7 +178,7 @@ struct CableTestSheet: View {
                 Spacer(minLength: 8)
                 Button("Annuler", action: dismiss).buttonStyle(.secondary).keyboardShortcut(.cancelAction)
                 Button("Lancer le test") {
-                    model.perform(request, acknowledged: acknowledged, snapshot: snapshot)
+                    model.perform(request, acknowledged: acknowledged)
                     dismiss()
                 }
                 .buttonStyle(PrimaryButtonStyle(tint: Theme.critical))
@@ -226,12 +225,8 @@ private struct CableTestPresenter: ViewModifier {
         content
             .overlay(alignment: .top) { snapshotSheet }
             .sheet(item: $model.request) { request in
-                CableTestSheet(request: request, snapshot: snapshot(for: request.target), dismiss: { model.request = nil })
+                CableTestSheet(request: request, dismiss: { model.request = nil })
             }
-    }
-
-    private func snapshot(for target: PortActionTarget) -> SNMPSwitchSnapshot? {
-        SwitchStore.shared.orderedSnapshots.first { $0.displayName == target.switchName }
     }
 
     /// Captures (NETSCOPE_CABLE_FEUILLE=1) : la feuille sur le premier port actif d'un switch Cisco.
@@ -241,10 +236,10 @@ private struct CableTestPresenter: ViewModifier {
            let snapshot = SwitchStore.shared.orderedSnapshots.first(where: { !$0.isViaController }),
            let iface = snapshot.physicalPorts.first(where: { $0.isUp && !snapshot.locatedUplinks.contains($0.index) }) {
             let target = PortActionModel.shared.target(snapshot: snapshot, iface: iface, state: state)
-            let request = CableTestModel.Request(target: target, decision: model.decision(target, snapshot: snapshot))
+            let request = model.makeRequest(target: target, decision: model.decision(target, snapshot: snapshot), snapshot: snapshot)
             ZStack(alignment: .top) {
                 Color(nsColor: .shadowColor).opacity(0.18).ignoresSafeArea()
-                CableTestSheet(request: request, snapshot: snapshot, dismiss: {})
+                CableTestSheet(request: request, dismiss: {})
                     .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
                     .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
                     .shadow(color: Color(nsColor: .shadowColor).opacity(0.3), radius: 18, y: 8)

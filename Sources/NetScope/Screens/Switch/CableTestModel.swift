@@ -17,6 +17,11 @@ final class CableTestModel: ObservableObject {
         let id = UUID()
         var target: PortActionTarget
         var decision: CableTestDecision
+        /// Identité exacte du switch au moment de la demande (deux switchs peuvent porter le même nom).
+        var switchHost: String
+        var switchName: String
+        /// Site actif au moment de la demande : le résultat va dans SON historique.
+        var siteKey: String
     }
 
     @Published var request: Request?
@@ -34,10 +39,10 @@ final class CableTestModel: ObservableObject {
     // MARK: Marque et identifiant SSH (ceux des sauvegardes de configuration)
 
     private func equipment(_ snapshot: SNMPSwitchSnapshot) -> ConfigEquipment {
-        var equipment = ConfigEquipment(name: snapshot.displayName, host: snapshot.host.description,
-                                        kind: ConfigDeviceKind.detect(descr: snapshot.system.descr, name: snapshot.displayName))
-        if equipment.kind == .fortigate { equipment.kind = .fortiswitch }
-        return equipment
+        // Une FortiGate reste une FortiGate : « diagnose switch physical-ports cable-diag » n'y existe pas
+        // (ses ports internes passent seulement par le canal REST d'un FortiSwitch géré).
+        ConfigEquipment(name: snapshot.displayName, host: snapshot.host.description,
+                        kind: ConfigDeviceKind.detect(descr: snapshot.system.descr, name: snapshot.displayName))
     }
 
     func vendor(_ snapshot: SNMPSwitchSnapshot) -> (vendor: CableTestVendor?, name: String?) {
@@ -67,7 +72,22 @@ final class CableTestModel: ObservableObject {
             if let reason = decision.reason { AppLog.shared.info(Self.logModule, "Test refusé sur \(target.portLabel)\u{00A0}: \(reason)") }
             return
         }
-        request = Request(target: target, decision: decision)
+        request = makeRequest(target: target, decision: decision, snapshot: snapshot)
+    }
+
+    func makeRequest(target: PortActionTarget, decision: CableTestDecision, snapshot: SNMPSwitchSnapshot) -> Request {
+        Request(target: target, decision: decision, switchHost: snapshot.host.description,
+                switchName: snapshot.displayName, siteKey: siteKey)
+    }
+
+    /// Switch de la demande, retrouvé par son adresse ET son nom dans le site de la demande ;
+    /// introuvable ou ambigu : nil (le test est alors refusé).
+    func snapshot(for request: Request) -> SNMPSwitchSnapshot? {
+        guard SiteModel.shared.activeKey == request.siteKey else { return nil }
+        let matches = SwitchStore.shared.orderedSnapshots.filter {
+            $0.host.description == request.switchHost && $0.displayName == request.switchName
+        }
+        return matches.count == 1 ? matches[0] : nil
     }
 
     // MARK: Historique (par site)
@@ -90,9 +110,8 @@ final class CableTestModel: ObservableObject {
         history(switchName: switchName, port: port).first { $0.date >= since }
     }
 
-    private func store(_ result: CableTestResult) {
+    private func store(_ result: CableTestResult, siteKey key: String) {
         guard !isDemo else { return }
-        let key = siteKey
         var history = histories[key] ?? historyURL(key).map(CableTestHistory.load) ?? CableTestHistory()
         history.add(result)
         histories[key] = history
@@ -105,10 +124,15 @@ final class CableTestModel: ObservableObject {
 
     // MARK: Exécution
 
-    func perform(_ request: Request, acknowledged: Bool, snapshot: SNMPSwitchSnapshot?) {
+    func perform(_ request: Request, acknowledged: Bool) {
         self.request = nil
         let target = request.target
-        let decision = snapshot.map { self.decision(target, snapshot: $0) } ?? request.decision
+        guard let snapshot = snapshot(for: request) else {
+            AppLog.shared.warning(Self.logModule, "Test refusé sur \(target.portLabel)\u{00A0}: switch introuvable ou ambigu (site changé, ou deux switchs du même nom à la même adresse).")
+            return
+        }
+        let decision = self.decision(target, snapshot: snapshot)
+        let siteKey = request.siteKey
         guard decision.isAllowed, let channel = decision.channel, decision.warnings.isEmpty || acknowledged else {
             AppLog.shared.warning(Self.logModule, "Test refusé sur \(target.portLabel)\u{00A0}: \(decision.reason ?? "confirmation manquante")")
             return
@@ -116,7 +140,7 @@ final class CableTestModel: ObservableObject {
         let key = Self.key(target)
         running.insert(key)
         AppLog.shared.warning(Self.logModule, "Test de câble demandé sur \(target.portLabel) · \(target.deviceLabel) · par \(channel.label)")
-        let equipment = snapshot.map(self.equipment)
+        let equipment = self.equipment(snapshot)
         Task { [weak self] in
             guard let self else { return }
             let result: CableTestResult
@@ -127,7 +151,7 @@ final class CableTestModel: ObservableObject {
                 result = await self.execute(target: target, channel: channel, equipment: equipment)
             }
             self.running.remove(key)
-            self.store(result)
+            self.store(result, siteKey: siteKey)
             if result.error == nil {
                 AppLog.shared.info(Self.logModule, "\(target.portLabel)\u{00A0}: \(result.headline)")
             } else {
@@ -136,7 +160,7 @@ final class CableTestModel: ObservableObject {
         }
     }
 
-    private func execute(target: PortActionTarget, channel: CableTestChannel, equipment: ConfigEquipment?) async -> CableTestResult {
+    private func execute(target: PortActionTarget, channel: CableTestChannel, equipment: ConfigEquipment) async -> CableTestResult {
         let start = Date()
         func make(_ pairs: [CablePairResult], vendor: CableTestVendor, error: String? = nil) -> CableTestResult {
             CableTestResult(date: start, switchName: target.switchName, switchHost: target.switchHost?.description ?? "",
@@ -144,7 +168,7 @@ final class CableTestModel: ObservableObject {
         }
         switch channel {
         case .ssh(let host, let vendor):
-            guard let equipment, let id = ConfigBackupModel.shared.credentialID(of: equipment),
+            guard let id = ConfigBackupModel.shared.credentialID(of: equipment),
                   let credential = RegRemoteCredentialStore.shared.credentials.first(where: { $0.id == id }) else {
                 return make([], vendor: vendor, error: CableTestRefusal.noSSHAccount.message)
             }

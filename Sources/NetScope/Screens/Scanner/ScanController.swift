@@ -147,6 +147,11 @@ final class ScanController: ObservableObject {
     /// modifiées) ; `profile` remplace le profil choisi dans le Scanner.
     func start(_ state: AppState, unattended: Bool = false, profile chosen: ScanProfile? = nil, onlyRanges: [ScanRangeConfig]? = nil) {
         guard !isRunning else { return }
+        // Note 90 : pendant un scan de VLAN tagué (création, adresse, scan, retrait), aucun autre scan.
+        if onlyRanges == nil, VLANScanModel.shared.phase.isRunning {
+            show("Scan d’un VLAN tagué en cours\u{00A0}: attendez sa fin pour lancer un scan.", tone: .warning)
+            return
+        }
         // Note 63 : jamais deux scans à la fois (scan planifié d'un autre site en cours).
         if !unattended, let site = ScanScheduleStore.shared.runningSiteName {
             show("Scan planifié de «\u{00A0}\(site)\u{00A0}» en cours\u{00A0}: attendez sa fin pour lancer un scan.", tone: .warning)

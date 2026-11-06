@@ -87,6 +87,8 @@ func registerCableTestVLANTests(_ suite: TestSuite) {
         try expect(injected.refusals.contains(.invalidPort("Gi1/0/1; reload")), "port avec « ; » refusé")
         let noAccount = CableTestGuard.decide(target: cableTarget(), settings: settings, vendor: .cisco, hasSSHAccount: false, fortiGateProblem: nil)
         try expect(noAccount.refusals.contains(.noSSHAccount), "sans identifiant SSH")
+        try expectEqual(CableTestVendor.from(.fortiswitch), .fortiSwitch, "FortiSwitch en SSH")
+        try expect(CableTestVendor.from(.fortigate) == nil, "FortiGate en SSH : pas de test de câble")
         var ro = cableTarget(); ro.readOnlyController = "UniFi"
         try expect(!CableTestGuard.decide(target: ro, settings: settings, vendor: .cisco, hasSSHAccount: true, fortiGateProblem: nil).isAllowed, "contrôleur en lecture seule")
         for bad in ["", "Gi1/0/1 ", "-oProxyCommand", "Gi1/0/1\nreload", "port3", "Gi1/0/1|x", "Gi1/0/1é"] {

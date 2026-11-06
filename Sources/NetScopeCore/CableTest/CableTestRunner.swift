@@ -73,7 +73,7 @@ public struct CableTestHistory: Codable, Equatable, Sendable {
 public enum CableTestSSH {
     public static let stepTimeout: TimeInterval = 60
 
-    /// Exécute le plan et rend la sortie de la dernière étape. `sleep` : attente entre deux étapes.
+    /// Exécute le plan et rend la sortie de la dernière étape ; une étape intermédiaire refusée arrête tout. `sleep` : attente entre deux étapes.
     public static func run(_ target: ConfigSSHTarget, vendor: CableTestVendor, port: String, secret: String?,
                            sleep: @Sendable (Int) async -> Void) async -> Result<String, ConfigBackupError> {
         guard let plan = CableTestCommands.plan(vendor: vendor, port: port), CableTestCommands.isAllowed(plan) else {
@@ -116,6 +116,11 @@ public enum CableTestSSH {
             }
             if result.timedOut, result.stdout.isEmpty {
                 return .failure(ConfigBackupError(kind: .timeout, detail: "Aucune réponse de \(target.host) dans le délai."))
+            }
+            // Étape intermédiaire refusée (Cisco : « test cable-diagnostics tdr » sans enable, port sans TDR…) :
+            // on s'arrête là, sinon le « show » rendrait le résultat d'un test ANCIEN avec la date du jour.
+            if index < plan.steps.count - 1, let refusal = CableTestParser.refusal(in: result.stdout) {
+                return .failure(ConfigBackupError(kind: .commandRejected, detail: "Test non lancé\u{00A0}: \(refusal)"))
             }
             last = result.stdout
         }

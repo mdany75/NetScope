@@ -36,7 +36,11 @@ final class VLANScanModel: ObservableObject {
     @Published var fixedAddress = ""
     @Published var fixedPrefix = 24
     @Published var fixedRouter = ""
-    @Published var parent = "en0"
+    /// Interface câblée choisie (vide tant qu'aucune n'est trouvée ; jamais le Wi-Fi par défaut).
+    @Published var parent = ""
+    /// Interfaces câblées (Wi-Fi exclu) et noms des interfaces Wi-Fi, lus à l'ouverture de la feuille.
+    @Published private(set) var wiredInterfaces: [String] = []
+    @Published private(set) var wifiInterfaces: Set<String> = []
     @Published private(set) var phase: Phase = .idle
     /// Adresse obtenue et sous-réseau scanné (« 10.0.20.57 · 10.0.20.0/24 »).
     @Published private(set) var obtained: String?
@@ -50,7 +54,7 @@ final class VLANScanModel: ObservableObject {
         isDemo = demo
         if demo {
             vlanText = "20"
-            parent = "en0"
+            parent = "en7"
             if ProcessInfo.processInfo.environment["NETSCOPE_VLAN_FEUILLE"] == "scan" {
                 phase = .scanning
                 obtained = "10.182.20.57 · 10.182.20.0/24"
@@ -65,12 +69,23 @@ final class VLANScanModel: ObservableObject {
 
     // MARK: Ethernet et VLAN proposés
 
-    /// Interfaces Ethernet (en0, en7…) avec une adresse ou un lien.
+    /// Interfaces câblées (en7…) avec un lien : le Wi-Fi ne transporte pas le 802.1Q, il est exclu.
     var ethernetChoices: [String] {
-        if isDemo { return ["en0", "en7"] }
-        let names = LocalInterfaces.linkInterfaces().map(\.name).filter(VLANScanRequest.isValidParent)
-        let unique = Array(Set(names + [parent])).filter(VLANScanRequest.isValidParent)
-        return unique.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+        if isDemo { return ["en7"] }
+        return wiredInterfaces
+    }
+
+    /// Relit les interfaces (getifaddrs et NWPathMonitor : lecture locale, aucun trafic) et choisit
+    /// par défaut la première interface Ethernet active à la place d'un choix Wi-Fi ou disparu.
+    func refreshInterfaces() async {
+        guard !isDemo else { return }
+        let list = await LocalInterfaces.linkInterfacesWithKinds().filter { VLANScanRequest.isValidParent($0.name) }
+        wifiInterfaces = Set(list.filter { $0.kind == .wifi }.map(\.name))
+        let wired = list.filter { $0.kind != .wifi }
+        wiredInterfaces = wired.map(\.name)
+        if !wiredInterfaces.contains(parent) {
+            parent = (wired.first { $0.kind == .ethernet } ?? wired.first)?.name ?? ""
+        }
     }
 
     /// VLAN vus par LLDP/CDP, sur la FortiGate et sur les switchs relevés.
@@ -96,6 +111,14 @@ final class VLANScanModel: ObservableObject {
 
     /// Demande validée (nil et message si la saisie est refusée).
     func validatedRequest() -> Result<VLANScanRequest, VLANScanInputError> {
+        if !isDemo {
+            if parent.isEmpty {
+                return .failure(VLANScanInputError(message: "Aucune interface Ethernet branchée (le Wi-Fi ne transporte pas les VLAN tagués)."))
+            }
+            if wifiInterfaces.contains(parent) {
+                return .failure(VLANScanInputError(message: "\(parent) est le Wi-Fi\u{00A0}: choisissez une interface Ethernet branchée sur le port en trunk."))
+            }
+        }
         guard let vlan = VLANScanRequest.parseID(vlanText) else {
             return .failure(VLANScanInputError(message: "Numéro de VLAN de 1 à 4094."))
         }
@@ -129,10 +152,13 @@ final class VLANScanModel: ObservableObject {
         task = Task { [weak self] in await self?.run(request, state: state) }
     }
 
-    /// Annuler : le scan s'arrête, l'interface est retirée quand même.
+    /// Vrai pendant le scan lancé par CE modèle (et non un scan lancé ailleurs).
+    private var ownsScan = false
+
+    /// Annuler : le scan du VLAN s'arrête (jamais un autre scan), l'interface est retirée quand même.
     func cancel() {
         task?.cancel()
-        if ScanController.shared.isRunning { ScanController.shared.stop() }
+        if phase == .scanning, ownsScan, ScanController.shared.isRunning { ScanController.shared.stop() }
     }
 
     // MARK: Déroulement réel
@@ -165,7 +191,18 @@ final class VLANScanModel: ObservableObject {
             try Task.checkCancellation()
             phase = .scanning
             let range = ScanRangeConfig(text: cidr, label: "VLAN \(request.vlan) (tagué)", vlan: request.vlan)
+            // Le bouton de scan est bloqué pendant toute l'opération, mais un scan planifié a pu partir :
+            // jamais d'attente sur le scan d'un autre.
+            guard !ScanController.shared.isRunning else {
+                throw VLANScanInputError(message: "un scan est déjà en cours, le VLAN n’a pas été scanné.")
+            }
             ScanController.shared.start(state, onlyRanges: [range])
+            let expected = (try? ScanTarget(config: range)).map { [$0.range] } ?? []
+            guard ScanController.shared.isRunning, ScanController.shared.lastScanRanges == expected else {
+                throw VLANScanInputError(message: "le scan n’a pas pu démarrer (voir le message du Scanner).")
+            }
+            ownsScan = true
+            defer { ownsScan = false }
             while ScanController.shared.isRunning {
                 if Task.isCancelled { ScanController.shared.stop() }
                 try? await Task.sleep(nanoseconds: 500_000_000)
@@ -227,13 +264,26 @@ final class VLANScanModel: ObservableObject {
 
     // MARK: Fermeture de l'app et lancement suivant
 
-    /// Fermeture de l'app : l'interface encore présente est retirée avant de quitter.
+    /// Fermeture de l'app : toute interface VLAN de NetScope encore présente est retirée avant de quitter
+    /// (relue par networksetup, pas seulement celle connue ici). Retrait déjà en cours : pas de deuxième
+    /// fenêtre d'autorisation ; la trace reste et le lancement suivant finit le travail s'il le faut.
     func removeOnQuit() {
-        guard !isDemo, let entry = created, let script = VLANScanCommands.deleteScript([entry]) else { return }
+        guard !isDemo, !RegEnvironment.isSandboxed else { return }
+        let ledgerEmpty = Self.ledgerURL.map { VLANScanLedger.load(from: $0).isEmpty } ?? true
+        guard created != nil || !ledgerEmpty else { return }
+        if phase == .removing { return }
+        let creating = phase == .creating
         task?.cancel()
+        var entries = VLANScanRunner.listVLANsNow().filter(\.isNetScope)
+        if let created, !entries.contains(where: { $0.name == created.name }) { entries.append(created) }
+        guard let script = VLANScanCommands.deleteScript(entries) else {
+            // Création en cours : l'interface peut encore apparaître, la trace reste pour le lancement suivant.
+            if !creating { forget() }
+            return
+        }
         if VLANScanRunner.runPrivilegedNow(script, prompt: VLANScanCommands.removalPrompt) == nil {
             created = nil
-            forget()
+            if !creating { forget() }
         }
     }
 
