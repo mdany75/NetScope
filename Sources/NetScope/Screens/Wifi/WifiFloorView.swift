@@ -29,15 +29,36 @@ struct WifiFloorView: View {
                 .padding(.horizontal, 10).padding(.vertical, 7)
                 .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.accentSoft))
             }
+            if store.isReadOnly {
+                HStack(spacing: 8) {
+                    Image(systemName: "lock.fill").font(.system(size: 12, weight: .semibold))
+                    Text("Relevé sur plan de ce site illisible (version plus récente de NetScope\u{00A0}?)\u{00A0}: lecture seule, rien n’est importé, mesuré ni enregistré.")
+                        .font(Theme.small)
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(Theme.warning)
+                .padding(.horizontal, 10).padding(.vertical, 7)
+                .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.warning.opacity(0.12)))
+            }
             if let floor = store.floor {
                 controls(floor)
-                let analysis = WifiHeatmap.analysis(floor)
-                SidePanelSplit(sideWidth: 300, collapse: .below) {
-                    planPanel(floor, analysis: analysis)
-                } side: {
-                    VStack(spacing: 14) {
-                        summaryPanel(floor, analysis: analysis)
-                        measuresPanel(floor)
+                if let computed = store.computed, computed.floorID == floor.id {
+                    SidePanelSplit(sideWidth: 300, collapse: .below) {
+                        planPanel(floor, computed: computed)
+                    } side: {
+                        VStack(spacing: 14) {
+                            summaryPanel(floor, computed: computed)
+                            measuresPanel(floor)
+                        }
+                    }
+                } else {
+                    Panel {
+                        HStack(spacing: 8) {
+                            ProgressView().controlSize(.small)
+                            Text("Calcul de la carte de chaleur…").font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 30)
                     }
                 }
             } else {
@@ -67,6 +88,7 @@ struct WifiFloorView: View {
                     .font(Theme.small).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center).frame(maxWidth: 460)
                 Button { store.importPlan() } label: { Label("Importer un plan…", systemImage: "square.and.arrow.down") }
                     .buttonStyle(.primary)
+                    .disabled(store.isReadOnly)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 30)
@@ -107,12 +129,14 @@ struct WifiFloorView: View {
             .menuStyle(.borderlessButton)
             .fixedSize()
             .help("Étages du site")
+            .disabled(store.isReadOnly)
         Picker("Outil", selection: $store.tool) {
             ForEach(WifiFloorTool.allCases) { Text($0.label).tag($0) }
         }
         .labelsHidden()
         .pickerStyle(.segmented)
         .fixedSize()
+        .disabled(store.isReadOnly)
     }
 
     @ViewBuilder private var metricAndNeighbors: some View {
@@ -178,10 +202,10 @@ struct WifiFloorView: View {
 
     // MARK: Plan
 
-    private func planPanel(_ floor: WifiFloor, analysis: WifiFloorAnalysis) -> some View {
+    private func planPanel(_ floor: WifiFloor, computed: WifiFloorComputed) -> some View {
         Panel(padding: 10) {
             GeometryReader { geo in
-                WifiFloorPlanDrawing(floor: floor, metric: store.metric, analysis: analysis,
+                WifiFloorPlanDrawing(floor: floor, metric: computed.metric, analysis: computed.analysis, heat: computed.heat,
                                      scaleFirst: store.scaleFirst, scalePending: store.scalePending)
                     .frame(width: geo.size.width, height: geo.size.height)
                     .contentShape(Rectangle())
@@ -202,8 +226,9 @@ struct WifiFloorView: View {
 
     // MARK: Panneaux
 
-    private func summaryPanel(_ floor: WifiFloor, analysis: WifiFloorAnalysis) -> some View {
-        Panel {
+    private func summaryPanel(_ floor: WifiFloor, computed: WifiFloorComputed) -> some View {
+        let analysis = computed.analysis
+        return Panel {
             VStack(alignment: .leading, spacing: 10) {
                 SectionHeader("Bilan de l’étage")
                 Text(WifiHeatmap.summary(analysis)).font(Theme.small).foregroundStyle(Theme.text).fixedSize(horizontal: false, vertical: true)
@@ -227,8 +252,8 @@ struct WifiFloorView: View {
                     finding("info.circle", Theme.textSecondary, "Chevauchements non vérifiés\u{00A0}: cocher «\u{00A0}Bornes voisines\u{00A0}» pendant les mesures.")
                 }
                 Divider()
-                SectionHeader(store.metric.label)
-                WifiFloorLegend(metric: store.metric, floor: floor)
+                SectionHeader(computed.metric.label)
+                WifiFloorLegend(metric: computed.metric, labels: computed.heat.labels)
             }
         }
     }

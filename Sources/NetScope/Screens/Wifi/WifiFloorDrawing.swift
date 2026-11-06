@@ -33,6 +33,64 @@ enum WifiFloorImageCache {
     }
 }
 
+/// Carte de chaleur prête à dessiner : grille, bornes ou canaux de la légende et image.
+struct WifiFloorHeat {
+    let grid: WifiHeatGrid
+    let labels: [String]
+    let image: CGImage?
+
+    @MainActor
+    init(grid: WifiHeatGrid, metric: WifiHeatMetric) {
+        self.grid = grid
+        labels = WifiHeatmap.categories(grid)
+        image = WifiFloorPlanDrawing.heatImage(grid, metric: metric, labels: labels)
+    }
+
+    @MainActor
+    static func make(_ floor: WifiFloor, metric: WifiHeatMetric) -> WifiFloorHeat {
+        WifiFloorHeat(grid: WifiHeatmap.grid(floor, metric: metric, columns: WifiFloorComputed.columns), metric: metric)
+    }
+}
+
+/// Bilan et carte de l'étage affiché, mis en cache par WifiFloorStore : le corps des vues ne fait
+/// plus aucun calcul de grille (chaque frappe ou message publiait le store et recalculait tout).
+struct WifiFloorComputed {
+    static let columns = 96
+
+    /// Ce dont dépend le calcul ; un changement de nom de borne à placer ou de message n'y entre pas.
+    struct Key: Equatable {
+        var floorID: UUID
+        var imageWidth: Double
+        var imageHeight: Double
+        var scale: WifiFloorScale?
+        var measures: [WifiFloorMeasure]
+        var aps: [WifiFloorAP]
+        var metric: WifiHeatMetric
+
+        init(_ floor: WifiFloor, metric: WifiHeatMetric) {
+            floorID = floor.id
+            imageWidth = floor.imageWidth
+            imageHeight = floor.imageHeight
+            scale = floor.scale
+            measures = floor.measures
+            aps = floor.aps
+            self.metric = metric
+        }
+    }
+
+    let key: Key
+    let floorID: UUID
+    let metric: WifiHeatMetric
+    let analysis: WifiFloorAnalysis
+    let heat: WifiFloorHeat
+
+    @MainActor
+    static func make(_ floor: WifiFloor, metric: WifiHeatMetric, key: Key) -> WifiFloorComputed {
+        WifiFloorComputed(key: key, floorID: floor.id, metric: metric, analysis: WifiHeatmap.analysis(floor),
+                          heat: .make(floor, metric: metric))
+    }
+}
+
 /// Note 94 : plan d'un étage avec la carte de chaleur, les mesures, les bornes placées, les zones
 /// mortes, les chevauchements de canaux, la borne suggérée et l'échelle. Même dessin à l'écran,
 /// dans le PDF exporté et dans le rapport.
@@ -40,13 +98,13 @@ struct WifiFloorPlanDrawing: View {
     let floor: WifiFloor
     let metric: WifiHeatMetric
     let analysis: WifiFloorAnalysis
+    let heat: WifiFloorHeat
     var scaleFirst: WifiPlanPoint? = nil
     var scalePending: (a: WifiPlanPoint, b: WifiPlanPoint)? = nil
-    var columns = 96
 
     var body: some View {
-        let grid = WifiHeatmap.grid(floor, metric: metric, columns: columns)
-        let labels = WifiHeatmap.categories(grid)
+        let grid = heat.grid
+        let labels = heat.labels
         GeometryReader { geo in
             let size = geo.size
             ZStack(alignment: .topLeading) {
@@ -55,7 +113,7 @@ struct WifiFloorPlanDrawing: View {
                     Image(nsImage: image).resizable().interpolation(.high).frame(width: size.width, height: size.height)
                 }
                 // Une case par pixel, agrandie avec lissage : dégradé continu entre les cases.
-                if let heat = Self.heatImage(grid, metric: metric, labels: labels) {
+                if let heat = heat.image {
                     Image(decorative: heat, scale: 1)
                         .resizable()
                         .interpolation(.high)
@@ -204,13 +262,12 @@ struct WifiFloorPlanDrawing: View {
 /// Légende de la mesure affichée.
 struct WifiFloorLegend: View {
     let metric: WifiHeatMetric
-    let floor: WifiFloor
+    /// Bornes ou canaux de la carte affichée (calculés avec elle).
+    let labels: [String]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if metric.isCategorical {
-                let grid = WifiHeatmap.grid(floor, metric: metric, columns: 32)
-                let labels = WifiHeatmap.categories(grid)
                 if labels.isEmpty { Text("Aucune mesure.").font(Theme.small).foregroundStyle(Theme.textSecondary) }
                 ForEach(labels, id: \.self) { item in
                     row(Theme.heatCategoryColor(item, in: labels), item)
@@ -242,13 +299,14 @@ enum WifiFloorExport {
 
         var body: some View {
             let analysis = WifiHeatmap.analysis(floor)
+            let heat = WifiFloorHeat.make(floor, metric: metric)
             VStack(alignment: .leading, spacing: 12) {
                 Text("Relevé Wi-Fi — \(siteName) — \(floor.name)").font(.system(size: 18, weight: .bold))
                 Text("\(metric.label) · " + WifiHeatmap.summary(analysis)).font(.system(size: 12)).foregroundStyle(Color(white: 0.3))
-                WifiFloorPlanDrawing(floor: floor, metric: metric, analysis: analysis)
+                WifiFloorPlanDrawing(floor: floor, metric: metric, analysis: analysis, heat: heat)
                     .frame(width: width, height: width * floor.imageHeight / floor.imageWidth)
                     .overlay(Rectangle().stroke(Color(white: 0.8)))
-                WifiFloorLegend(metric: metric, floor: floor)
+                WifiFloorLegend(metric: metric, labels: heat.labels)
             }
             .padding(24)
             .frame(width: width + 48, alignment: .leading)
@@ -287,7 +345,8 @@ enum WifiFloorExport {
         inLight {
             let width: CGFloat = 1000
             let height = width * floor.imageHeight / floor.imageWidth
-            let view = WifiFloorPlanDrawing(floor: floor, metric: .signal, analysis: WifiHeatmap.analysis(floor))
+            let view = WifiFloorPlanDrawing(floor: floor, metric: .signal, analysis: WifiHeatmap.analysis(floor),
+                                            heat: .make(floor, metric: .signal))
                 .frame(width: width, height: height)
                 .environment(\.colorScheme, .light)
             let renderer = ImageRenderer(content: view)

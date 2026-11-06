@@ -27,10 +27,15 @@ enum WifiFloorTool: String, CaseIterable, Identifiable {
 final class WifiFloorStore: ObservableObject {
     static let shared = WifiFloorStore()
 
-    @Published private(set) var plans = WifiFloorPlans()
+    @Published private(set) var plans = WifiFloorPlans() { didSet { refreshComputed() } }
     @Published private(set) var siteKey: String?
-    @Published var selectedFloorID: UUID?
-    @Published var metric: WifiHeatMetric = .signal
+    @Published var selectedFloorID: UUID? { didSet { refreshComputed() } }
+    @Published var metric: WifiHeatMetric = .signal { didSet { refreshComputed() } }
+    /// Bilan et carte de chaleur de l'étage affiché, calculés hors du fil principal et seulement
+    /// quand le plan, ses mesures, ses bornes, son échelle ou la mesure affichée changent.
+    @Published private(set) var computed: WifiFloorComputed?
+    /// Sites dont le fichier est illisible : rien n'est importé, mesuré ni enregistré.
+    @Published private(set) var readOnly = Set<String>()
     @Published var tool: WifiFloorTool = .measure
     /// Balayer les bornes voisines à chaque mesure (quelques secondes de plus).
     @Published var withNeighbors = false
@@ -43,9 +48,12 @@ final class WifiFloorStore: ObservableObject {
     @Published var message: String?
 
     let isDemo: Bool
-    private var readOnly = Set<String>()
     private var task: Task<Void, Never>?
     private var write: Task<Void, Never>?
+    private var computeTask: Task<Void, Never>?
+    private var computedKey: WifiFloorComputed.Key?
+    /// Le fichier du site a changé (synchronisation) pendant une mesure : relu à la fin de la mesure.
+    private var pendingReload = false
 
     init(demo: Bool = Launcher.isDemo || RegEnvironment.isSnapshot) {
         isDemo = demo
@@ -55,30 +63,76 @@ final class WifiFloorStore: ObservableObject {
             siteKey = SiteModel.shared.activeKey
             if let metric = WifiFloorDemo.snapshotMetric { self.metric = metric }
         }
+        refreshComputed()
     }
 
     var floor: WifiFloor? { plans.floor(selectedFloorID) ?? plans.floors.first }
     var isMeasuring: Bool { phase != nil }
+    /// Fichier du site illisible (version plus récente de NetScope ?) : import, mesures et bornes désactivés.
+    var isReadOnly: Bool { siteKey.map { readOnly.contains($0) } ?? false }
+
+    // MARK: Calcul
+
+    /// Recalcule le bilan et la carte de l'étage affiché si ses données ou la mesure affichée ont
+    /// changé ; hors du fil principal (synchrone en démonstration et pendant les captures).
+    private func refreshComputed() {
+        guard let floor else {
+            computeTask?.cancel()
+            computedKey = nil
+            computed = nil
+            return
+        }
+        let key = WifiFloorComputed.Key(floor, metric: metric)
+        guard key != computedKey else { return }
+        computedKey = key
+        computeTask?.cancel()
+        let metric = metric
+        if isDemo {
+            computed = WifiFloorComputed.make(floor, metric: metric, key: key)
+            return
+        }
+        computeTask = Task.detached(priority: .userInitiated) { [weak self] in
+            let analysis = WifiHeatmap.analysis(floor)
+            let grid = WifiHeatmap.grid(floor, metric: metric, columns: WifiFloorComputed.columns)
+            guard !Task.isCancelled else { return }
+            await self?.apply(key: key, floorID: floor.id, metric: metric, analysis: analysis, grid: grid)
+        }
+    }
+
+    private func apply(key: WifiFloorComputed.Key, floorID: UUID, metric: WifiHeatMetric, analysis: WifiFloorAnalysis, grid: WifiHeatGrid) {
+        guard computedKey == key else { return }
+        computed = WifiFloorComputed(key: key, floorID: floorID, metric: metric, analysis: analysis,
+                                     heat: WifiFloorHeat(grid: grid, metric: metric))
+    }
 
     // MARK: Site
 
     func reloadFromDisk(siteKey key: String) {
-        guard !isDemo, key == siteKey, !isMeasuring else { return }
+        guard !isDemo, key == siteKey else { return }
+        // Pendant une mesure : relu à la fin, avant d'y ajouter la mesure (sinon l'enregistrement de
+        // fin de mesure effacerait les changements reçus de l'autre Mac).
+        guard !isMeasuring else {
+            pendingReload = true
+            return
+        }
         siteKey = nil
         load(siteKey: key)
     }
 
     func load(siteKey key: String) {
         guard key != siteKey else { return }
+        pendingReload = false
         cancel()
         siteKey = key
         guard !isDemo else { return }
         plans = Self.read(siteKey: key) ?? WifiFloorPlans()
-        if Self.isUnreadable(siteKey: key) {
-            readOnly.insert(key)
-            message = "Relevé sur plan de ce site illisible (version plus récente de NetScope\u{00A0}?)\u{00A0}: les changements ne seront pas enregistrés."
-        }
+        markReadable(siteKey: key)
         if plans.floor(selectedFloorID) == nil { selectedFloorID = plans.floors.first?.id }
+    }
+
+    /// Lecture seule tant que le fichier du site est illisible ; levée dès qu'il redevient lisible.
+    private func markReadable(siteKey key: String) {
+        if Self.isUnreadable(siteKey: key) { readOnly.insert(key) } else { readOnly.remove(key) }
     }
 
     private static func url(siteKey: String) -> URL? {
@@ -95,19 +149,22 @@ final class WifiFloorStore: ObservableObject {
         return read(siteKey: siteKey) == nil
     }
 
+    /// Enregistre le site ; l'encodage (images des plans comprises, plusieurs Mo) se fait hors du fil principal.
     private func save() {
         guard !isDemo, !RegEnvironment.isSnapshot, let key = siteKey, !readOnly.contains(key),
-              let url = Self.url(siteKey: key), let data = plans.encoded() else { return }
+              let url = Self.url(siteKey: key) else { return }
+        let plans = plans
         let previous = write
         write = Task.detached(priority: .utility) {
             await previous?.value
+            guard let data = plans.encoded() else { return }
             try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try? data.write(to: url, options: .atomic)
         }
     }
 
     private func update(_ change: (inout WifiFloor) -> Void) {
-        guard let id = floor?.id, let index = plans.floors.firstIndex(where: { $0.id == id }) else { return }
+        guard !isReadOnly, let id = floor?.id, let index = plans.floors.firstIndex(where: { $0.id == id }) else { return }
         change(&plans.floors[index])
         save()
     }
@@ -116,6 +173,7 @@ final class WifiFloorStore: ObservableObject {
 
     /// Importe le plan d'un étage (PDF : première page ; image) et l'ajoute au site.
     func importPlan() {
+        guard !isReadOnly else { return }
         guard plans.floors.count < WifiFloorPlans.maxFloors else {
             message = "Trop d’étages pour ce site (\(WifiFloorPlans.maxFloors) au plus)."
             return
@@ -166,7 +224,7 @@ final class WifiFloorStore: ObservableObject {
     }
 
     func removeFloor() {
-        guard let id = floor?.id else { return }
+        guard !isReadOnly, let id = floor?.id else { return }
         plans.floors.removeAll { $0.id == id }
         selectedFloorID = plans.floors.first?.id
         save()
@@ -175,7 +233,7 @@ final class WifiFloorStore: ObservableObject {
     // MARK: Clic sur le plan
 
     func tap(_ point: WifiPlanPoint, wifi: WifiStore) {
-        guard floor != nil else { return }
+        guard floor != nil, !isReadOnly else { return }
         switch tool {
         case .measure: measure(at: point, wifi: wifi)
         case .scale:
@@ -186,7 +244,7 @@ final class WifiFloorStore: ObservableObject {
                 scaleFirst = point
                 scalePending = nil
             }
-        case .ap: placeAP(at: point)
+        case .ap: placeAP(at: point, wifi: wifi)
         }
     }
 
@@ -203,21 +261,35 @@ final class WifiFloorStore: ObservableObject {
         scalePending = nil
     }
 
-    private func placeAP(at point: WifiPlanPoint) {
+    private func placeAP(at point: WifiPlanPoint, wifi: WifiStore) {
         let name = apName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else {
             message = "Choisir ou saisir le nom de la borne avant de cliquer sur le plan."
             return
         }
         let known = FortiAPStore.shared.shownOverview.aps.first { $0.name == name }
+        // Ce Mac est sur cette borne d'après la FortiGate : son BSSID actuel est celui de la borne.
+        let current = isDemo ? nil : wifi.connection?.network?.bssid?.formatted(.upperColon)
+        let learned = current != nil && Self.fortiAPName(wifi: wifi) == name
         update { floor in
             if let index = floor.aps.firstIndex(where: { $0.name == name }) {
                 floor.aps[index].point = point
             } else {
                 floor.aps.append(WifiFloorAP(name: name, serial: known?.serial, model: known?.model, point: point))
             }
+            if learned { floor.learn(bssid: current, apName: name) }
         }
         message = "Borne «\u{00A0}\(name)\u{00A0}» placée."
+    }
+
+    /// Borne à laquelle la FortiGate voit ce Mac associé (client Wi-Fi de même adresse MAC, sur le
+    /// canal actuel) ; nil sans FortiGate lue, sans adresse de l'interface ou sur un autre canal.
+    private static func fortiAPName(wifi: WifiStore) -> String? {
+        guard let connection = wifi.connection, let mac = connection.hardwareAddress.flatMap(MACAddress.init) else { return nil }
+        let client = FortiAPStore.shared.shownOverview.clients.first { $0.mac == mac }
+        guard let client, let name = client.apName, !name.isEmpty else { return nil }
+        if let channel = client.channel, let current = connection.network?.channel, channel != current { return nil }
+        return name
     }
 
     func removeAP(_ id: UUID) {
@@ -248,13 +320,16 @@ final class WifiFloorStore: ObservableObject {
             return
         }
         let bssid = network.bssid?.formatted(.upperColon)
-        var measure = WifiFloorMeasure(point: point, time: Date(), ssid: network.ssid, bssid: bssid, apName: nil,
+        // Nom de la borne captée : d'après la FortiGate (ce Mac vu comme client), sinon une borne
+        // placée qui porte ce BSSID ou une mesure déjà nommée.
+        let fortiName = Self.fortiAPName(wifi: wifi)
+        var measure = WifiFloorMeasure(point: point, time: Date(), ssid: network.ssid, bssid: bssid,
+                                       apName: fortiName ?? floor?.apName(bssid: bssid),
                                        band: network.band, channel: network.channel, widthMHz: network.widthMHz, rssi: network.rssi,
                                        noise: network.noise, linkRateMbps: connection.transmitRate)
         guard withNeighbors else {
-            plans.add(measure, to: floorID)
+            add(measure, to: floorID, learnFromFortiGate: fortiName != nil)
             message = "Mesure ajoutée\u{00A0}: \(WifiQuality.dbm(measure.rssi))."
-            save()
             return
         }
         // Balayage demandé : quelques secondes, puis les voisines de ce balayage.
@@ -273,19 +348,47 @@ final class WifiFloorStore: ObservableObject {
                                       widthMHz: $0.widthMHz, rssi: $0.rssi)
                 }
             }
-            self.plans.add(measure, to: floorID)
             self.phase = nil
             self.task = nil
+            // Fichier changé par la synchronisation pendant le balayage : relu avant d'y ajouter la mesure.
+            if self.pendingReload, let key = self.siteKey {
+                self.pendingReload = false
+                self.plans = Self.read(siteKey: key) ?? self.plans
+                self.markReadable(siteKey: key)
+                if self.plans.floor(self.selectedFloorID) == nil { self.selectedFloorID = self.plans.floors.first?.id }
+            }
+            guard self.plans.floor(floorID) != nil else {
+                self.message = "Mesure abandonnée\u{00A0}: l’étage a été supprimé sur un autre Mac."
+                return
+            }
+            guard !self.isReadOnly else { return }
+            self.add(measure, to: floorID, learnFromFortiGate: fortiName != nil)
             self.message = "Mesure ajoutée\u{00A0}: \(WifiQuality.dbm(measure.rssi))"
                 + (measure.neighbors.map { ", \($0.count) borne\($0.count > 1 ? "s" : "") voisine\($0.count > 1 ? "s" : "")" } ?? ", voisines non lues") + "."
-            self.save()
         }
+    }
+
+    /// Ajoute la mesure, apprend le BSSID de la borne placée nommée par la FortiGate, puis enregistre.
+    private func add(_ measure: WifiFloorMeasure, to floorID: UUID, learnFromFortiGate: Bool) {
+        var next = plans
+        next.add(measure, to: floorID)
+        if learnFromFortiGate, let index = next.floors.firstIndex(where: { $0.id == floorID }) {
+            next.floors[index].learn(bssid: measure.bssid, apName: measure.apName)
+        }
+        plans = next
+        save()
     }
 
     func cancel() {
         task?.cancel()
         task = nil
         phase = nil
+        // Relecture reportée pendant la mesure annulée : faite maintenant.
+        if pendingReload, let key = siteKey, !isDemo {
+            pendingReload = false
+            siteKey = nil
+            load(siteKey: key)
+        }
     }
 
     // MARK: Export

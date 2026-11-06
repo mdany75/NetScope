@@ -108,13 +108,30 @@ public struct WifiFloorAP: Codable, Hashable, Identifiable, Sendable {
     public var serial: String?
     public var model: String?
     public var point: WifiPlanPoint
+    /// BSSID de la borne (majuscules, deux-points), appris quand une mesure prise sur ses ondes est
+    /// nommée par la FortiGate ; sert ensuite à nommer les mesures et les voisines sans elle.
+    public var bssids: [String]
 
-    public init(id: UUID = UUID(), name: String, serial: String? = nil, model: String? = nil, point: WifiPlanPoint) {
+    public init(id: UUID = UUID(), name: String, serial: String? = nil, model: String? = nil, point: WifiPlanPoint, bssids: [String] = []) {
         self.id = id
         self.name = name
         self.serial = serial
         self.model = model
         self.point = point
+        self.bssids = bssids
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, name, serial, model, point, bssids }
+
+    /// Fichiers d'avant les BSSID : `bssids` absent → aucun.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        serial = try c.decodeIfPresent(String.self, forKey: .serial)
+        model = try c.decodeIfPresent(String.self, forKey: .model)
+        point = try c.decode(WifiPlanPoint.self, forKey: .point)
+        bssids = try c.decodeIfPresent([String].self, forKey: .bssids) ?? []
     }
 }
 
@@ -153,6 +170,23 @@ public struct WifiFloor: Codable, Hashable, Identifiable, Sendable {
     /// Distance réelle (m) entre deux points du plan.
     public func metres(_ a: WifiPlanPoint, _ b: WifiPlanPoint) -> Double {
         hypot((a.x - b.x) * imageWidth, (a.y - b.y) * imageHeight) * effectiveMetresPerPixel
+    }
+
+    /// Nom de la borne qui émet ce BSSID : borne placée qui le porte, sinon mesure déjà nommée.
+    public func apName(bssid: String?) -> String? {
+        guard let key = bssid?.uppercased(), !key.isEmpty else { return nil }
+        if let ap = aps.first(where: { $0.bssids.contains(key) }) { return ap.name }
+        return measures.last { $0.bssid?.uppercased() == key && $0.apName != nil }?.apName
+    }
+
+    /// Associe un BSSID à la borne placée de ce nom (et le retire des autres) ; false : aucune borne de ce nom.
+    @discardableResult
+    public mutating func learn(bssid: String?, apName: String?) -> Bool {
+        guard let key = bssid?.uppercased(), !key.isEmpty, let apName,
+              let index = aps.firstIndex(where: { $0.name == apName }) else { return false }
+        for i in aps.indices where i != index { aps[i].bssids.removeAll { $0 == key } }
+        if !aps[index].bssids.contains(key) { aps[index].bssids.append(key) }
+        return true
     }
 
     public var widthMetres: Double { imageWidth * effectiveMetresPerPixel }
@@ -333,6 +367,9 @@ public enum WifiHeatmap {
     public static let reachMetres = 8.0
     /// Rayon autour d'une borne suggérée (m).
     public static let suggestionRadiusMetres = 7.0
+    /// Zone faible minimale pour suggérer une borne : au moins ce nombre de cases et cette surface.
+    public static let suggestionMinimumCells = 4
+    public static let suggestionMinimumSquareMetres = 4.0
     /// Signal minimal d'une voisine pour compter un chevauchement (dBm).
     public static let overlapRSSI = -80
 
@@ -395,6 +432,7 @@ public enum WifiHeatmap {
         var result: [WifiChannelOverlap] = []
         // Nom des bornes connues par leur BSSID (mesures nommées), sinon le SSID de la voisine.
         var names: [String: String] = [:]
+        for ap in floor.aps { for bssid in ap.bssids { names[bssid.uppercased()] = ap.name } }
         for measure in floor.measures {
             if let bssid = measure.bssid?.uppercased(), let name = measure.apName { names[bssid] = name }
         }
@@ -478,7 +516,8 @@ public enum WifiHeatmap {
     }
 
     /// Emplacement suggéré d'une borne ajoutée : la case faible qui a le plus de cases faibles dans
-    /// un rayon de `suggestionRadiusMetres` (en cas d'égalité, la plus loin des bornes placées).
+    /// un rayon de `suggestionRadiusMetres` (en cas d'égalité, la plus loin des bornes placées) ;
+    /// nil si cette zone faible est trop petite (moins de 4 cases ou de 4 m²).
     public static func suggestion(_ grid: WifiHeatGrid, floor: WifiFloor) -> WifiPlanPoint? {
         let weak = grid.values.indices.filter { (grid.values[$0] ?? 0) < Double(weakRSSI) && grid.values[$0] != nil }
         guard !weak.isEmpty else { return nil }
@@ -491,7 +530,10 @@ public enum WifiHeatmap {
                 best = (score, distance, candidate)
             }
         }
-        return best?.point
+        guard let best else { return nil }
+        let cellArea = pow(grid.cellWidth * floor.imageWidth * floor.effectiveMetresPerPixel, 2)
+        guard best.score >= suggestionMinimumCells, Double(best.score) * cellArea >= suggestionMinimumSquareMetres else { return nil }
+        return best.point
     }
 
     /// Bornes et canaux distincts d'une grille catégorielle, dans l'ordre alphabétique (légende et couleurs).

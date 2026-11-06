@@ -76,6 +76,12 @@ func registerWifiFloorTests(_ suite: TestSuite) {
         try expectEqual(analysis.medianRSSI, -52, "signal médian")
         let fine = WifiHeatmap.analysis(floor(good), columns: 40)
         try expect(fine.deadZones.isEmpty && fine.suggestion == nil, "bonne couverture : ni zone morte ni suggestion")
+        // Plan de 2 m × 1 m tout entier faible : 2 m², trop petit pour suggérer une borne.
+        var tiny = floor([spot(0.5, 0.5, -70)])
+        tiny.scale = WifiFloorScale(a: WifiPlanPoint(x: 0, y: 0.5), b: WifiPlanPoint(x: 1, y: 0.5), metres: 2)
+        let tinyAnalysis = WifiHeatmap.analysis(tiny, columns: 40)
+        try expect(tinyAnalysis.coveredCells > WifiHeatmap.suggestionMinimumCells, "cases faibles nombreuses")
+        try expect(tinyAnalysis.suggestion == nil, "zone faible de 2 m² : pas de borne suggérée")
         try expect(WifiHeatmap.summary(fine).contains("aucune zone morte"), "bilan en mots")
         try expectEqual(WifiHeatmap.summary(WifiHeatmap.analysis(floor([]))), "Aucune mesure sur cet étage.", "étage vide")
     }
@@ -95,6 +101,17 @@ func registerWifiFloorTests(_ suite: TestSuite) {
         try expectEqual(overlaps.count, 1, "un endroit")
         try expectEqual(overlaps.first?.others, ["Voisin"], "voisine forte sur un canal recouvert seulement")
         try expectEqual(overlaps.first?.strongestRSSI, -65, "signal de la voisine")
+        // Borne placée qui a appris le BSSID de la voisine : nommée dans le chevauchement et les mesures.
+        var named = f
+        named.aps = [WifiFloorAP(name: "AP-HALL", point: WifiPlanPoint(x: 0.6, y: 0.5))]
+        try expect(named.learn(bssid: "a4:2b:b0:11:22:33", apName: "AP-HALL"), "BSSID appris par la borne placée")
+        try expect(!named.learn(bssid: "A4:2B:B0:11:22:33", apName: "AP-INCONNUE"), "aucune borne de ce nom")
+        try expectEqual(named.aps[0].bssids, ["A4:2B:B0:11:22:33"], "BSSID en majuscules, une fois")
+        try expectEqual(WifiHeatmap.channelOverlaps(named).first?.others, ["AP-HALL"], "voisine nommée par la borne placée")
+        try expectEqual(named.apName(bssid: "A4:2B:B0:11:22:33"), "AP-HALL", "mesure nommée par son BSSID")
+        try expectEqual(named.apName(bssid: "00:11:22:33:44:55"), nil, "BSSID inconnu")
+        let legacy = Data(#"{"id":"\#(UUID().uuidString)","name":"AP-1","point":{"x":0.5,"y":0.5}}"#.utf8)
+        try expectEqual(try JSONDecoder().decode(WifiFloorAP.self, from: legacy).bssids, [], "ancien fichier : aucun BSSID")
     }
 
     suite.add("Relevé sur plan : fichier du site et rapport") {
