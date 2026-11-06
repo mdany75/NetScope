@@ -126,8 +126,11 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
             }
         }
 
-        /// Écrans de la section, en ordre alphabétique (demande de Dany, 5 novembre 2026) ; les
+        /// Écrans de la section, en ordre alphabétique (demande de Dany, 5 novembre 2026), sauf le
+        /// Scanner, écran principal, gardé en tête de Découverte (Dany, 6 novembre 2026) ; les
         /// sections gardent leur ordre et les raccourcis suivent l'écran, pas sa position.
-        var screens: [Screen] { Screen.allCases.filter { $0.group == self }.sortedFrench(by: \.title) }
+        var screens: [Screen] {
+            Screen.allCases.filter { $0.group == self }.sortedFrench(by: \.title, first: [Screen.scanner.title])
+        }
     }
 }

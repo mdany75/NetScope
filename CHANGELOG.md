@@ -1,5 +1,11 @@
 # Changements
 
+## 0.36.1 — 2026-11-06
+
+### Modifié
+- Barre latérale et menu Aller : le **Scanner** reprend la tête de la section Découverte ; les
+  autres écrans restent en ordre alphabétique.
+
 ## 0.36.0 — 2026-11-06
 
 Relevé Wi-Fi sur plan (note 94).
