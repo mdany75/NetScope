@@ -7,6 +7,14 @@ import SwiftUI
 /// Couleurs propres aux sources de localisation (croquis).
 enum SwitchSource: String {
     case lldp = "LLDP", cdp = "CDP", fdb = "FDB", arp = "ARP", uplink = "Uplink", fortigate = "FortiGate"
+    /// Note 77 : switchs lus par un contrôleur UniFi, Omada ou Meraki.
+    case unifi = "UniFi", omada = "Omada", meraki = "Meraki"
+
+    /// Source d'un relevé de contrôleur (FortiGate, ou la marque du contrôleur), sinon `fallback`.
+    static func of(_ snapshot: SNMPSwitchSnapshot, fallback: SwitchSource) -> SwitchSource {
+        guard snapshot.isViaController else { return fallback }
+        return snapshot.controllerKind.flatMap(SwitchSource.init(rawValue:)) ?? .fortigate
+    }
 
     var colors: (background: Color, foreground: Color) {
         switch self {
@@ -16,6 +24,7 @@ enum SwitchSource: String {
         case .arp: return (Theme.successSoft, Color(light: 0x166534, dark: 0x9AE9B8))
         case .uplink: return (Color(light: 0xE2E8F0, dark: 0x253347), Color(light: 0x0F172A, dark: 0xA5B6DF))
         case .fortigate: return (Color(light: 0xFFEDD5, dark: 0x3B2416), Color(light: 0x9A3412, dark: 0xF6B78C))
+        case .unifi, .omada, .meraki: return (Theme.accentSoft, Theme.accentStrong)
         }
     }
 }
@@ -86,6 +95,10 @@ struct SwitchSourcesPanel: View {
                         source(.arp, arpText)
                         if fortigate.isConfigured {
                             source(.fortigate, "FortiSwitch gérés (FortiLink) · API REST de la FortiGate du site, prioritaire sur SNMP")
+                        }
+                        // Note 77 : contrôleurs UniFi, Omada et Meraki du site actif.
+                        ForEach(Array(Set(SiteControllerStore.shared.activeControllers.map(\.kind))).sorted { $0.rawValue < $1.rawValue }) { kind in
+                            source(SwitchSource(rawValue: kind.shortLabel) ?? .fdb, "switchs gérés · API du contrôleur \(kind.label) du site, lecture seule, prioritaire sur SNMP")
                         }
                     }
                     Text("Un port d’accès qui apprend la MAC est retenu en priorité\u{00A0}; les ports trunk et uplink (voisin LLDP ou nombreuses MAC) sont ignorés.")
@@ -169,9 +182,12 @@ struct SwitchSourcesPanel: View {
             } else {
                 let count = store.allHosts.count
                 let via = store.controllerHosts.count
+                // Note 77 : « via FortiGate », « via UniFi »… ou « via un contrôleur » s'ils sont plusieurs.
+                let sources = Set(store.controllerSnapshots.map(\.controllerSourceLabel))
+                let viaLabel = sources.count == 1 ? sources.first! : "un contrôleur"
                 Text("Dernier relevé\u{00A0}:")
                 Text(store.lastPoll.map(SwitchText.dateTime) ?? "jamais").font(Theme.mono(12)).foregroundStyle(Theme.text)
-                Text("· \(count) switch\(count > 1 ? "s" : "")" + (via > 0 ? " (\(via) via FortiGate)" : "") + " · \(fdb) entrées FDB · \(lldp) voisins LLDP")
+                Text("· \(count) switch\(count > 1 ? "s" : "")" + (via > 0 ? " (\(via) via \(viaLabel))" : "") + " · \(fdb) entrées FDB · \(lldp) voisins LLDP")
             }
         }
         .font(Theme.small)
@@ -263,7 +279,11 @@ struct SwitchCard: View {
                                 HStack(spacing: 8) {
                                     cardName(snapshot)
                                     statusChip(snapshot)
-                                    if store.isController(host) {
+                                    if store.isController(host), let kind = snapshot?.controllerKind {
+                                        // Note 77 : switch lu par un contrôleur UniFi, Omada ou Meraki du site.
+                                        Chip(text: snapshot?.controllerName.map { "via \(kind) · \($0)" } ?? "via \(kind)", tone: .accent)
+                                            .help("Switch géré par \(kind)\u{00A0}: lu par l’API du contrôleur \(snapshot?.controllerName.map { "du site «\u{00A0}\($0)\u{00A0}»" } ?? "") en lecture seule, prioritaire sur SNMP.")
+                                    } else if store.isController(host) {
                                         // Note 25 : le site de la FortiGate qui a lu ce FortiSwitch.
                                         Chip(text: snapshot?.controllerName.map { "via FortiGate · \($0)" } ?? "via FortiGate", tone: .accent)
                                             .help("FortiSwitch géré par FortiLink\u{00A0}: lu par l’API REST de la FortiGate \(snapshot?.controllerName.map { "du site «\u{00A0}\($0)\u{00A0}»" } ?? ""), jamais interrogé directement (son adresse FortiLink n’est pas joignable depuis ce Mac).")
@@ -278,8 +298,8 @@ struct SwitchCard: View {
                                     HStack(spacing: 8) {
                                         cardName(snapshot)
                                         statusChip(snapshot)
-                                        Chip(text: "via FortiGate", tone: .accent)
-                                            .help(snapshot?.controllerName.map { "FortiSwitch lu par la FortiGate du site «\u{00A0}\($0)\u{00A0}»." } ?? "FortiSwitch lu par la FortiGate.")
+                                        Chip(text: "via \(snapshot?.controllerSourceLabel ?? "FortiGate")", tone: .accent)
+                                            .help(snapshot?.controllerName.map { "Switch lu par le contrôleur du site «\u{00A0}\($0)\u{00A0}»." } ?? "Switch lu par son contrôleur.")
                                     }
                                 }
                                 HStack(spacing: 8) {
@@ -298,7 +318,7 @@ struct SwitchCard: View {
                         }
                         Group {
                             if let snapshot, store.isController(host) {
-                                Text("\(SwitchText.model(snapshot)) · ") + Text(SwitchText.fortiLinkAddress(snapshot)).font(Theme.mono(12))
+                                Text("\(SwitchText.model(snapshot)) · ") + Text(SwitchText.controllerAddress(snapshot)).font(Theme.mono(12))
                                     + Text(" · \(SwitchText.portsSummary(snapshot))")
                             } else if let snapshot {
                                 Text("\(SwitchText.model(snapshot)) · ") + Text(host).font(Theme.mono(12)) + Text(" · \(SwitchText.portsSummary(snapshot))")
@@ -348,7 +368,13 @@ struct SwitchCard: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            if store.isController(host) {
+            if store.isController(host), let kind = store.snapshots[host]?.controllerKind {
+                // Note 77 : le contrôleur est réglé dans la fiche de son site.
+                Button("Réglages du contrôleur \(kind)…") {
+                    RegNavigation.shared.section = .sites
+                    state.open(.reglages)
+                }
+            } else if store.isController(host) {
                 Button("Réglages du contrôleur FortiGate…") {
                     RegNavigation.shared.section = .switchs
                     state.open(.reglages)
@@ -413,7 +439,7 @@ struct SwitchCard: View {
             HStack {
                 Text("PoE").font(Theme.small).foregroundStyle(Theme.textSecondary)
                 Spacer()
-                Text(snapshot.isViaController ? (snapshot.poeDetails?.isEmpty == false ? "sans budget publié par la FortiGate" : "aucun port PoE")
+                Text(snapshot.isViaController ? (snapshot.poeDetails?.isEmpty == false ? "sans budget publié par \(snapshot.controllerKind ?? "la FortiGate")" : "aucun port PoE")
                      : "non annoncé (POWER-ETHERNET-MIB absente)").font(Theme.small).foregroundStyle(Theme.textTertiary)
             }
         }
@@ -686,7 +712,8 @@ struct SwitchPortDetail: View {
 
             if let neighbor {
                 VStack(alignment: .leading, spacing: 6) {
-                    SwitchFieldLabel(snapshot.isViaController ? (neighbor.portID == "FortiLink" ? "Lien FortiLink (FortiGate)" : "Lien inter-switch (ISL)") : "Voisin LLDP")
+                    SwitchFieldLabel(snapshot.controllerKind != nil ? "Voisin (\(snapshot.controllerSourceLabel))"
+                                     : (snapshot.isViaController ? (neighbor.portID == "FortiLink" ? "Lien FortiLink (FortiGate)" : "Lien inter-switch (ISL)") : "Voisin LLDP"))
                     inline("Système", neighbor.sysName, mono: true)
                     inline("Port distant", neighbor.portID + (neighbor.portDescr.map { $0 == neighbor.portID ? "" : " (\($0))" } ?? ""), mono: true)
                     inline("Capacités", neighbor.capabilities.map { $0.labels.joined(separator: ", ") } ?? "—", mono: false)
@@ -756,7 +783,7 @@ struct SwitchPortDetail: View {
             HStack(spacing: 6) {
                 Text(info.name).font(Theme.bodySemibold).lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 4)
-                SwitchSourceTag(source: snapshot.isViaController ? .fortigate : (isNeighbor ? .lldp : .fdb))
+                SwitchSourceTag(source: SwitchSource.of(snapshot, fallback: isNeighbor ? .lldp : .fdb))
             }
             Text("\(info.ip) · \(entry.mac.formatted(.upperColon))").font(Theme.mono(12)).foregroundStyle(Theme.text)
             Text("\(info.vendor) · VLAN \((entry.vlan ?? snapshot.pvid[iface.index]).map(String.init) ?? "—") · vu \(SwitchText.ago(snapshot.polledAt))")
@@ -1114,7 +1141,7 @@ struct SwitchMacTable: View {
             let info = store.describe(entry.mac, devices: state.devices)
             let neighbor = snapshot.neighbor(on: i)
             let source: SwitchSource = isUplink ? .uplink
-                : (snapshot.isViaController ? .fortigate : (store.isAnnounced(entry.mac, by: neighbor, devices: state.devices) ? .lldp : .fdb))
+                : SwitchSource.of(snapshot, fallback: store.isAnnounced(entry.mac, by: neighbor, devices: state.devices) ? .lldp : .fdb)
             let iface = snapshot.interface(i)
             let device = devices[entry.mac]
             let vlan = entry.vlan ?? snapshot.pvid[i]

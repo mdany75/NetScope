@@ -153,6 +153,9 @@ struct RegSitesSection: View {
                                 RegSiteHintsBox(site: site)
                             }
                             .padding(.top, 16)
+                            // Note 77 : contrôleur UniFi, Omada ou Meraki du site (lecture seule).
+                            RegSiteControllersBox(site: site)
+                                .padding(.top, 12)
                             RegColumns(minColumnWidth: 300) {
                                 RegSiteSwitchesBox(site: site)
                                 RegSiteNotesBox(site: site)
@@ -181,7 +184,12 @@ struct RegSitesSection: View {
             // Insécables : la valeur passe à la ligne après « · », jamais au milieu de « 3 plages actives ».
             RegTile("Total à scanner", "\(RegFormat.count(total))\u{00A0}adresses\u{00A0}· \(active.count)\u{00A0}plage\(active.count > 1 ? "s" : "")\u{00A0}active\(active.count > 1 ? "s" : "")"
                     + (excluded > 0 ? "\u{00A0}· \(RegFormat.count(excluded))\u{00A0}exclue\(excluded > 1 ? "s" : "")" : ""))
-            RegTile("FortiGate", site.fortiGateIDs.compactMap { fortigate.controller($0)?.displayName }.joined(separator: ", ").nonEmpty ?? "Aucune (SNMP seulement)")
+            if site.fortiGateIDs.isEmpty, !site.controllers.isEmpty {
+                // Note 77 : sans FortiGate, le contrôleur UniFi, Omada ou Meraki du site.
+                RegTile("Contrôleur", site.controllers.map(\.kind.label).joined(separator: ", "))
+            } else {
+                RegTile("FortiGate", site.fortiGateIDs.compactMap { fortigate.controller($0)?.displayName }.joined(separator: ", ").nonEmpty ?? "Aucune (SNMP seulement)")
+            }
             RegTile("Passerelle connue", gateways.first.map { gateways.count > 1 ? "\($0) +\(gateways.count - 1)" : $0 } ?? "Pas encore relevée", mono: true)
             RegTile("Inventaire", "\(RegFormat.count(count)) fiche\(count > 1 ? "s" : "")" + (site.lastScan.map { " · scan \(ScanFormat.relative($0).lowercased())" } ?? " · jamais scanné"))
         }

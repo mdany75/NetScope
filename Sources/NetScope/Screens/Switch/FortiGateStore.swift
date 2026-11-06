@@ -177,6 +177,8 @@ final class FortiGateStore: ObservableObject {
         SwitchStore.shared.showControllerSites(sites)
         FortiAPStore.shared.keepOnly(ids, selection: chosen)
         DHCPScopeStore.shared.keepOnly(ids, selection: chosen)
+        // Note 77 : contrôleurs UniFi, Omada et Meraki du site choisi.
+        SiteControllerStore.shared.siteChanged(state: state)
     }
 
     // MARK: Liste et Trousseau

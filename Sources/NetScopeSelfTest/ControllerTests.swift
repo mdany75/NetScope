@@ -373,6 +373,18 @@ func registerControllerTests(_ suite: TestSuite) {
         try expectEqual(snapshots[1].controllerSourceLabel, "Meraki", "marque")
     }
 
+    suite.add("Contrôleurs : aucune action sur les ports d’un switch UniFi, Omada ou Meraki") {
+        let target = PortActionTarget(switchName: "MS120-Production", switchHost: ip("10.40.0.2"), portName: "Port 3", ifIndex: 3,
+                                      poe: SNMPPoEPort(group: 1, port: 3, ifIndex: 3, adminEnabled: true, detection: .deliveringPower),
+                                      viaFortiGate: true, readOnlyController: "Meraki")
+        var settings = PortActionSettings()
+        settings.enabled = true
+        let decision = PortActionGuard.decide(.poeCycle, target: target, settings: settings,
+                                               hasWriteCredentials: true, fortiGateProblem: nil)
+        try expectEqual(decision.refusals, [.readOnlyController("Meraki")], "lecture seule, jamais de repli SNMP")
+        try expect(decision.channel == nil, "aucun moyen d’action")
+    }
+
     suite.add("Contrôleurs : secrets retirés, redirections limitées") {
         let text = #"{"x_passphrase":"WifiSecret1","accessToken":"AT-123456","ok":"oui"} cle=ABCDEFGH AccessToken=AT-XYZ"#
         let clean = ControllerRedact.clean(text, secrets: ["ABCDEFGH"])

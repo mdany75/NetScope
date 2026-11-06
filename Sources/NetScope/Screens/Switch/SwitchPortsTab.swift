@@ -193,7 +193,7 @@ struct SwitchPortTable: View {
                 (Text("Ports · ").font(.system(size: 14, weight: .semibold))
                     + Text(snapshot.displayName).font(Theme.mono(14, weight: .semibold)))
                     .lineLimit(1).fixedSize()
-                SwitchSourceTag(source: snapshot.isViaController ? .fortigate : .fdb)
+                SwitchSourceTag(source: SwitchSource.of(snapshot, fallback: .fdb))
                 Spacer(minLength: 8)
                 Text(poeText).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
                     .help("PoE utilisé sur le budget publié par le switch")

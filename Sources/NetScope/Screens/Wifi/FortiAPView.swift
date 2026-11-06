@@ -63,8 +63,16 @@ enum FortiAPText {
 /// Choix de la partie de l'écran Wi-Fi.
 enum WifiScreenPart: String, CaseIterable, Identifiable {
     case local, fortiap
+    /// Note 77 : bornes et clients des contrôleurs UniFi, Omada et Meraki du site.
+    case controllers
     var id: String { rawValue }
-    var label: String { self == .local ? "Ce Mac" : "FortiAP" }
+    var label: String {
+        switch self {
+        case .local: return "Ce Mac"
+        case .fortiap: return "FortiAP"
+        case .controllers: return "Contrôleurs"
+        }
+    }
 }
 
 /// Partie FortiAP : bandeau de la FortiGate, tuiles, tableaux, carte des canaux, conseils.

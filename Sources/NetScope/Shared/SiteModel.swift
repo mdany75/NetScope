@@ -256,6 +256,7 @@ final class SiteModel: ObservableObject {
         let switches = SwitchStore.shared
         if switches.isPolling || switches.isDiscovering { return "Attendez la fin de l’interrogation des switchs" }
         if FortiGateStore.shared.isBusy { return "Attendez la fin de la lecture des FortiGate" }
+        if SiteControllerStore.shared.isBusy { return "Attendez la fin de la lecture des contrôleurs" }
         return nil
     }
 
@@ -457,6 +458,14 @@ final class SiteModel: ObservableObject {
         RapportModel.shared.siteChanged(activeSite)
     }
 
+    /// Note 77 : contrôleurs UniFi, Omada et Meraki d'un site (sans secret : il est au Trousseau).
+    /// Ne touche ni aux plages du Scanner ni aux FortiGate.
+    func setControllers(_ controllers: [SiteController], for id: UUID) {
+        guard let index = list.index(of: id), list.sites[index].controllers != controllers else { return }
+        list.sites[index].controllers = controllers
+        save()
+    }
+
     /// Notes du site (Réglages › Sites) : ne touche ni aux plages du Scanner ni aux FortiGate.
     func setNotes(_ notes: String, for id: UUID) {
         guard let index = list.index(of: id), list.sites[index].notes != notes else { return }
@@ -483,6 +492,7 @@ final class SiteModel: ObservableObject {
     func remove(_ id: UUID, state: AppState) {
         let key = SiteFiles.key(for: id)
         let wasActive = id == list.activeID
+        let removedSite = list.site(id)
         if wasActive {
             if let reason = busyReason() {
                 ScanController.shared.show("\(reason) avant de supprimer le site actif.", tone: .warning)
@@ -517,6 +527,8 @@ final class SiteModel: ObservableObject {
             }
         }
         SNMPAccessVault.shared.update(site: id, credentials: nil)
+        // Note 77 : secrets des contrôleurs UniFi, Omada et Meraki du site, retirés du Trousseau.
+        if let removedSite { SiteControllerStore.shared.forgetSecrets(of: removedSite) }
         save()
         if wasActive {
             ScanController.shared.show("Site supprimé\u{00A0}: aucun site actif. Les plages du Scanner restent celles du site supprimé, sans être enregistrées.", tone: .neutral)

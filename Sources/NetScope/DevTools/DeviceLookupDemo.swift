@@ -31,7 +31,8 @@ enum DeviceLookupDemo {
                 list.append(DeviceRecentView(device: device, viewed: ago(minutes)))
             }
         }
-        list.insert(DeviceRecentView(device: manualEntry(now: now).device, viewed: ago(2), isManual: true), at: 1)
+        // Autre site actif (NETSCOPE_SITE) : ces appareils du Siège peuvent manquer.
+        list.insert(DeviceRecentView(device: manualEntry(now: now).device, viewed: ago(2), isManual: true), at: min(1, list.count))
         return list
     }
 

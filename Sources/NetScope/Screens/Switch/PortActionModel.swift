@@ -140,14 +140,14 @@ final class PortActionModel: ObservableObject {
         let thisMac = PortActionGuard.isThisMacPort(entries: entries, arp: snapshot.arp, localMACs: localMACs,
                                                     localIPs: localIP.map { [$0] } ?? [])
             || (localIP != nil && device?.ip == localIP)
-        let forti = snapshot.isViaController
+        let forti = snapshot.isViaController && snapshot.controllerKind == nil
             ? FortiPortLocator.reference(switchName: snapshot.system.name, site: snapshot.controllerName, in: fortiSites())
             : nil
         return PortActionTarget(switchName: snapshot.displayName, switchHost: snapshot.isViaController ? nil : snapshot.host,
                                 portName: iface.name, ifIndex: iface.index, isUplink: snapshot.locatedUplinks.contains(iface.index),
                                 isThisMacPort: thisMac, deviceName: name, deviceIP: ip, deviceMAC: firstMAC,
                                 macCount: entries.count, poe: snapshot.poePort(iface.index), fortiGate: forti,
-                                viaFortiGate: snapshot.isViaController)
+                                viaFortiGate: snapshot.isViaController, readOnlyController: snapshot.controllerKind)
     }
 
     /// Port d'un appareil localisé (fiche Appareil) ; nil si le switch ou le port n'est pas relevé.

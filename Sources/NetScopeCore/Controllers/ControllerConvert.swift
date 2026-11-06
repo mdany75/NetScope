@@ -62,7 +62,7 @@ public enum ControllerConvert {
             }
             if port.poeCapable == true || port.poePowerW != nil || port.poeEnabled == true {
                 let detection: PoEDetectionStatus? = port.poeEnabled == false ? .disabled
-                    : (port.deliversPoE ? .deliveringPower : (port.alerts.contains { $0.lowercased().contains("poe") } ? .fault : .searching))
+                    : (port.deliversPoE ? .deliveringPower : (port.alerts.contains(where: Self.isPoEFault) ? .fault : .searching))
                 poe.append(SNMPPoEPort(group: 1, port: port.number, ifIndex: index, adminEnabled: port.poeEnabled, detection: detection,
                                        powerClass: port.poeClass, consumptionMW: port.poePowerW.map { Int(($0 * 1000).rounded()) },
                                        wattsSource: report.kind.shortLabel))
@@ -84,7 +84,9 @@ public enum ControllerConvert {
             if let ip = ap.ip { arp[mac] = ip }
         }
         let model = sw.model.isEmpty ? "switch" : sw.model
-        var descr = "\(report.kind.brand) \(model), \(sw.firmware.isEmpty ? "version inconnue" : sw.firmware)"
+        // « version 6.6.61 » : lu par la colonne Firmware comme un sysDescr ; « MS 16.7 » → « 16.7 ».
+        let version = sw.firmware.split(separator: " ").last.map(String.init) ?? ""
+        var descr = "\(report.kind.brand) \(model), \(version.isEmpty ? "version inconnue" : "version \(version)")"
         if !sw.serial.isEmpty { descr += " · série \(sw.serial)" }
         descr += " · géré par \(report.kind.label)"
         let ticks = sw.uptime.flatMap { $0 >= 0 && $0 < 4.0e7 ? UInt32($0 * 100) : nil }
@@ -100,6 +102,12 @@ public enum ControllerConvert {
                                              firmware: sw.firmware.isEmpty ? nil : sw.firmware, vendor: report.kind.brand,
                                              origin: report.kind.label)
         return snapshot
+    }
+
+    /// Alerte de défaut PoE (« PoE overload », « PoE denied ») ; « aucun appareil PoE » n'en est pas une.
+    static func isPoEFault(_ alert: String) -> Bool {
+        let text = alert.lowercased()
+        return text.contains("poe") && ["overload", "fault", "denied", "error", "surcharge", "défaut"].contains { text.contains($0) }
     }
 
     /// Client filaire branché sur ce switch (MAC du switch, sinon son nom).

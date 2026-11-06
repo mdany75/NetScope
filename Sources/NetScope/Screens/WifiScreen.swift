@@ -13,9 +13,19 @@ struct WifiScreen: View {
     /// Note 48 : sites montrés par le menu « Site ▾ » de la partie FortiAP.
     @ObservedObject private var scopes = SiteScopeStore.shared
     @ObservedObject private var sites = SiteModel.shared
-    /// Partie affichée ; captures : NETSCOPE_WIFI_VUE=fortiap.
+    /// Note 77 : contrôleurs UniFi, Omada et Meraki du site actif.
+    @ObservedObject private var controllers = SiteControllerStore.shared
+    /// Partie affichée ; captures : NETSCOPE_WIFI_VUE=fortiap (ou controleurs).
     @AppStorage("NetScope.wifi.partie") private var savedPart = WifiScreenPart.local.rawValue
-    @State private var part: WifiScreenPart = FortiAPDemo.opensFortiAP ? .fortiap : .local
+    @State private var part: WifiScreenPart = FortiAPDemo.opensFortiAP ? .fortiap : (Self.opensControllers ? .controllers : .local)
+
+    /// Captures : NETSCOPE_WIFI_VUE=controleurs ouvre la partie des contrôleurs.
+    private static var opensControllers: Bool {
+        CommandLine.arguments.contains("--snapshot") && ProcessInfo.processInfo.environment["NETSCOPE_WIFI_VUE"] == "controleurs"
+    }
+
+    /// La partie « Contrôleurs » n'est proposée que pour un site qui en a.
+    private var showsControllers: Bool { !controllers.activeControllers.isEmpty }
 
     var body: some View {
         ScrollView {
@@ -47,6 +57,8 @@ struct WifiScreen: View {
                 partPicker
                 if part == .fortiap {
                     FortiAPView()
+                } else if part == .controllers {
+                    ControllerWifiView()
                 } else {
                 WifiConnectionPanel(store: store)
 
@@ -78,6 +90,7 @@ struct WifiScreen: View {
         .onAppear {
             store.start()
             if !FortiAPDemo.opensFortiAP, !RegEnvironment.isSnapshot, let saved = WifiScreenPart(rawValue: savedPart) { part = saved }
+            if part == .controllers, !showsControllers { part = .local }
             if fortiAP.focusAP != nil || fortiAP.openFortiAPPart {
                 part = .fortiap
                 fortiAP.openFortiAPPart = false
@@ -96,7 +109,11 @@ struct WifiScreen: View {
         }
         .onAppear { fortiAP.setScope(scopes.keys(for: .wifi)) }
         .onChange(of: scopes.keys(for: .wifi)) { _, keys in fortiAP.setScope(keys) }
-        .onChange(of: sites.activeKey) { _, _ in fortiAP.setScope(scopes.keys(for: .wifi)) }
+        .onChange(of: sites.activeKey) { _, _ in
+            fortiAP.setScope(scopes.keys(for: .wifi))
+            // Note 77 : un site sans contrôleur ne garde pas la partie « Contrôleurs ».
+            if part == .controllers, !showsControllers { part = .local }
+        }
         .onChange(of: part) { _, value in
             guard !RegEnvironment.isSnapshot else { return }
             savedPart = value.rawValue
@@ -105,6 +122,8 @@ struct WifiScreen: View {
         .screenToolbar {
             if part == .fortiap {
                 fortiToolbar
+            } else if part == .controllers {
+                controllersToolbar
             } else {
                 localToolbar
             }
@@ -117,6 +136,13 @@ struct WifiScreen: View {
             Picker("Partie", selection: $part) {
                 Text("Ce Mac (analyse locale)").tag(WifiScreenPart.local)
                 Text("FortiAP (\(fortiAP.shownOverview.aps.count) borne\(fortiAP.shownOverview.aps.count > 1 ? "s" : ""))").tag(WifiScreenPart.fortiap)
+                if showsControllers {
+                    // Note 77 : bornes des contrôleurs UniFi, Omada et Meraki du site actif.
+                    let count = controllers.readings.reduce(0) { $0 + $1.report.aps.count }
+                    let kinds = Set(controllers.activeControllers.map(\.kind))
+                    let name = kinds.count == 1 ? kinds.first!.shortLabel : "Contrôleurs"
+                    Text("\(name) (\(count) borne\(count > 1 ? "s" : ""))").tag(WifiScreenPart.controllers)
+                }
             }
             .labelsHidden()
             .pickerStyle(.segmented)
@@ -158,6 +184,23 @@ struct WifiScreen: View {
         }
         .buttonStyle(.secondary)
         .disabled(fortiAP.busy || !fortiAP.canRefresh(state: state))
+    }
+
+    /// Note 77 : état et relecture des contrôleurs du site actif.
+    @ViewBuilder private var controllersToolbar: some View {
+        HStack(spacing: 6) {
+            Circle().fill(controllers.lastRefresh == nil ? Theme.textTertiary : Theme.accent).frame(width: 8, height: 8)
+            Text(controllers.isBusy ? "Lecture des contrôleurs…" : (controllers.lastRefresh.map { "Lu à \(WifiText.timeSeconds($0))" } ?? "Contrôleurs non lus"))
+                .font(.system(size: 12, weight: .semibold))
+        }
+        .foregroundStyle(controllers.lastRefresh == nil ? Theme.textSecondary : Theme.accentStrong)
+        .fixedSize()
+        Button { controllers.refreshNow(state: state) } label: {
+            Label(controllers.isBusy ? "Lecture…" : "Relire les contrôleurs", systemImage: "arrow.clockwise")
+        }
+        .buttonStyle(.secondary)
+        .disabled(controllers.isBusy || !(controllers.hasReadyControllers || controllers.isDemo))
+        .help("Relit les contrôleurs UniFi, Omada et Meraki du site actif (HTTPS, lecture seule).")
     }
 
     @ViewBuilder private var localToolbar: some View {

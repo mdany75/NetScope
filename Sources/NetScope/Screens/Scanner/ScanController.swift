@@ -275,6 +275,12 @@ final class ScanController: ObservableObject {
                 if self.plannedPhases.contains(.locations) { self.phase = .locations }
                 await fortigate.refreshAfterScan(state: state, ranges: targets.map(\.range))
             }
+            // Note 77 : contrôleurs UniFi, Omada et Meraki du site actif (lecture seule).
+            let vendors = SiteControllerStore.shared
+            if !engineCancelled, !Task.isCancelled, vendors.hasReadyControllers {
+                if self.plannedPhases.contains(.locations) { self.phase = .locations }
+                await vendors.refreshAfterScan(state: state)
+            }
             switches.scanEnded(interrupted: Task.isCancelled, planned: discoversSwitches)
             self.finish(state, targets: targets, exclusions: exclusions, found: foundIDs, engineCancelled: engineCancelled,
                         snmpCancelled: Task.isCancelled)

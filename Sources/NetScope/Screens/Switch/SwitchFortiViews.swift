@@ -13,6 +13,13 @@ extension SwitchText {
         return snapshot.host.value < (1 << 24) ? "adresse FortiLink inconnue" : "\(snapshot.host) (FortiLink)"
     }
 
+    /// Note 77 : adresse de gestion d'un switch lu par UniFi, Omada ou Meraki ; adresse FortiLink
+    /// d'un FortiSwitch.
+    static func controllerAddress(_ snapshot: SNMPSwitchSnapshot) -> String {
+        guard snapshot.controllerKind != nil else { return fortiLinkAddress(snapshot) }
+        return snapshot.host.value < (1 << 24) ? "adresse inconnue" : snapshot.host.description
+    }
+
     /// Uptime pour un switch SNMP ; nom du contrôleur pour un FortiSwitch (FortiOS ne publie pas
     /// l'uptime des switchs dans les adresses lues).
     static func uptimeOrController(_ snapshot: SNMPSwitchSnapshot) -> String {
