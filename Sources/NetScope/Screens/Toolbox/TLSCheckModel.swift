@@ -42,6 +42,8 @@ final class TLSCheckModel: ObservableObject {
     private var task: Task<Void, Never>?
     private var sweepTask: Task<Void, Never>?
     private var generation = 0
+    /// Numéro du balayage en cours : les sondes d'un balayage arrêté ne touchent pas au suivant.
+    private var sweepGeneration = 0
 
     private init() {
         let arguments = CommandLine.arguments
@@ -93,7 +95,7 @@ final class TLSCheckModel: ObservableObject {
             return
         }
         guard let port = portValue, port > 0 else {
-            error = "Port invalide (1 à 65535)."
+            error = "Port invalide (1 à 65\u{202F}535)."
             return
         }
         cancel()
@@ -153,7 +155,12 @@ final class TLSCheckModel: ObservableObject {
 
     func sweep(devices: [Device]) {
         guard !sweepRunning else { return }
-        let targets = isDemo ? TLSDemo.siteTargets : TLSSiteSweep.targets(from: devices)
+        // Plages exclues du site (note 82) : jamais de poignée TLS vers ces adresses, même si
+        // le dernier scan les montre encore en ligne (leur dernier état connu reste).
+        let site = SiteModel.shared
+        let targets = isDemo ? TLSDemo.siteTargets : TLSSiteSweep.targets(from: devices).filter { target in
+            IPv4Address(target.host).map { site.exclusionReason($0) == nil } ?? true
+        }
         sweepNotice = nil
         guard !targets.isEmpty else {
             sweepNotice = "Aucun appareil du dernier scan n’a le port 443 ou 8443 ouvert. Lancer un scan avec ces ports, puis recommencer."
@@ -163,6 +170,8 @@ final class TLSCheckModel: ObservableObject {
         sweepDone = 0
         sweepTotal = targets.count
         sweepResults = []
+        sweepGeneration += 1
+        let sweep = sweepGeneration
         let demo = isDemo
         sweepTask = Task { [weak self] in
             let results = await TLSSiteSweep.run(targets, probe: { target in
@@ -174,10 +183,10 @@ final class TLSCheckModel: ObservableObject {
             }, progress: { done, total in
                 Task { @MainActor in
                     let model = TLSCheckModel.shared
-                    if model.sweepRunning { model.sweepDone = max(model.sweepDone, done) }
+                    if model.sweepRunning, model.sweepGeneration == sweep { model.sweepDone = max(model.sweepDone, done) }
                 }
             })
-            guard let self, !Task.isCancelled else { return }
+            guard let self, !Task.isCancelled, sweep == self.sweepGeneration else { return }
             self.sweepResults = results
             self.sweepDate = Date()
             self.sweepRunning = false
@@ -187,6 +196,7 @@ final class TLSCheckModel: ObservableObject {
     func cancelSweep() {
         sweepTask?.cancel()
         sweepTask = nil
+        sweepGeneration += 1
         sweepRunning = false
         sweepNotice = "Vérification du site arrêtée."
     }

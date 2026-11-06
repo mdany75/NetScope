@@ -130,8 +130,10 @@ final class UDPScanModel: ObservableObject {
         scan(host: device.ip.description)
     }
 
-    /// Communauté v2c à envoyer à `host`, et sa description (sans la valeur).
-    func communityToSend(for host: String) -> (value: String?, note: String) {
+    /// Communauté v2c à envoyer à `host`, et sa description (sans la valeur). `isSiteMember` :
+    /// l'adresse résolue est privée ou dans les plages du site ; sinon seule la communauté
+    /// propre à l'hôte peut partir (la communauté générale du site reste chez nous).
+    func communityToSend(for host: String, isSiteMember: Bool = true) -> (value: String?, note: String) {
         switch community {
         case .aucune:
             return (nil, "SNMP v3 seulement")
@@ -139,12 +141,13 @@ final class UDPScanModel: ObservableObject {
             return ("public", "communauté «\u{00A0}public\u{00A0}»")
         case .site:
             let perHost = RegSNMPDiscoveryVault.hostCommunities()[host]
-            let saved = RegSNMPCredentials.load()?.community
             // « public » n'est jamais envoyée sans le choix explicite de l'utilisateur.
-            if let value = [perHost, saved].compactMap({ $0 }).first(where: { !$0.isEmpty && $0 != "public" }) {
-                return (value, "communauté du site")
+            if let value = perHost, !value.isEmpty, value != "public" { return (value, "communauté du site") }
+            guard let saved = RegSNMPCredentials.load()?.community, !saved.isEmpty, saved != "public" else {
+                return (nil, "aucune communauté enregistrée\u{00A0}: SNMP v3 seulement")
             }
-            return (nil, "aucune communauté enregistrée\u{00A0}: SNMP v3 seulement")
+            guard isSiteMember else { return (nil, UDPCommunityPolicy.withheldNote) }
+            return (saved, "communauté du site")
         }
     }
 
@@ -171,8 +174,10 @@ final class UDPScanModel: ObservableObject {
             return
         }
         let services = orderedServices
-        let (community, note) = Launcher.isDemo ? demoCommunity : communityToSend(for: host)
-        let options = UDPProbeOptions(timeout: 1.5, attempts: 2, snmpCommunity: community, ntpControlChecks: ntpChecks)
+        // Note provisoire : la communauté réellement envoyée est choisie après la résolution du nom.
+        let literal = IPv4Address(host)
+        let (_, note) = Launcher.isDemo ? demoCommunity : communityToSend(for: host, isSiteMember: literal.map(isSiteMember) ?? true)
+        let ntpChecks = self.ntpChecks
         tasks[host]?.cancel()
         let run = (generations[host] ?? 0) + 1
         generations[host] = run
@@ -186,19 +191,34 @@ final class UDPScanModel: ObservableObject {
             if Launcher.isDemo {
                 // Démonstration : aucune sonde ne part, résultats fixes après un court délai.
                 try? await Task.sleep(nanoseconds: 900_000_000)
-                summary = UDPScanDemo.summary(for: host, services: services, community: choice, ntpChecks: options.ntpControlChecks)
+                summary = UDPScanDemo.summary(for: host, services: services, community: choice, ntpChecks: ntpChecks)
             } else {
                 let resolved = await Task.detached { try? PingResolver.resolve(host) }.value
                 guard let address = resolved else {
                     self?.finish(host, run: run, error: "Nom d’hôte introuvable\u{00A0}: «\u{00A0}\(host)\u{00A0}».")
                     return
                 }
+                guard let model = self, model.generations[host] == run else { return }
+                // Note 82 : un nom qui se résout en une adresse exclue n'est pas sondé non plus.
+                if let reason = SiteModel.shared.exclusionReason(address) {
+                    model.finish(host, run: run, error: reason + "\u{00A0}: retirez-la des plages exclues (Réglages › Sites et plages) pour la sonder.")
+                    return
+                }
+                // La communauté générale du site ne part que vers une adresse privée ou des plages du site.
+                let (community, note) = model.communityToSend(for: host, isSiteMember: model.isSiteMember(address))
+                model.update(host) { $0.communityNote = note }
+                let options = UDPProbeOptions(timeout: 1.5, attempts: 2, snmpCommunity: community, ntpControlChecks: ntpChecks)
                 summary = await UDPPortScanner.scan(host: address, services: services, options: options) { done, total, latest in
                     Task { @MainActor in self?.progress(host, run: run, done: done, total: total, latest: latest) }
                 }
             }
             self?.finish(host, run: run, summary: summary, store: store)
         }
+    }
+
+    /// Adresse privée ou dans les plages du site actif : la communauté générale peut lui être envoyée.
+    private func isSiteMember(_ address: IPv4Address) -> Bool {
+        UDPCommunityPolicy.maySendSiteCommunity(to: address, siteRanges: SiteModel.shared.activeSite?.ranges.map(\.text) ?? [])
     }
 
     /// Démonstration : la communauté choisie, sans Trousseau.

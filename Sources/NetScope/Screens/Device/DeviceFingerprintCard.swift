@@ -5,7 +5,6 @@ import SwiftUI
 /// annoncées, services en clair et indices (d'où vient chaque déduction).
 struct DeviceFingerprintCard: View {
     let device: Device
-    var onScanPorts: () -> Void
 
     var body: some View {
         let report = device.fingerprintReport
@@ -50,13 +49,10 @@ struct DeviceFingerprintCard: View {
                     }
                 }
                 if device.fingerprint?.services.isEmpty != false {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text("Bannières, en-têtes HTTP, certificat et SMB se lisent par un scan de ports avec la détection de services.")
-                            .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Spacer(minLength: 0)
-                        Button("Scanner les ports", action: onScanPorts).buttonStyle(.secondary).fixedSize()
-                    }
+                    // Le bouton « Scanner les ports » est celui de la carte Services connus, juste à côté.
+                    Text("Bannières, en-têtes HTTP, certificat et SMB se lisent par un scan de ports avec la détection de services.")
+                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }

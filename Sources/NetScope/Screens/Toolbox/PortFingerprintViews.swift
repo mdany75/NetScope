@@ -30,7 +30,7 @@ struct PortProductCell: View {
     }
 
     private func help(_ service: FPServiceResult?) -> String {
-        guard let service else { return "Rien de reconnu (cochez « Détection de services » pour lire les bannières)" }
+        guard let service else { return "Rien de reconnu (scan de ports avec la détection de services pour lire les bannières)" }
         var lines: [String] = []
         if let system = service.system { lines.append("Système\u{00A0}: \(system)") }
         if let clear = service.clearText { lines.append("\(clear) en clair\u{00A0}: identifiants et données lisibles sur le réseau") }

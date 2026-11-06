@@ -47,7 +47,7 @@ struct TLSCheckView: View {
                 }
                 ToolLabeledField(label: "Port") {
                     HStack(spacing: 6) {
-                        ToolTextField(placeholder: "443", text: $model.port, invalid: !model.port.isEmpty && model.portValue == nil) { start() }
+                        ToolTextField(placeholder: "443", text: $model.port, invalid: !model.port.isEmpty && (model.portValue ?? 0) == 0) { start() }
                             .frame(width: 76)
                         portMenu
                     }
@@ -399,7 +399,7 @@ struct TLSCheckView: View {
             Chip(text: "\(soon) bientôt", tone: soon > 0 ? .warning : .neutral)
             Chip(text: "\(selfSigned) auto-signé\(selfSigned > 1 ? "s" : "")", tone: .neutral)
             if failed > 0 { Chip(text: "\(failed) sans réponse TLS", tone: .neutral) }
-            Text("\(model.sweepResults.count) vérifiés" + (model.sweepDate.map { " · \(ToolText.relative($0))" } ?? ""))
+            Text("\(model.sweepResults.count) vérifié\(model.sweepResults.count > 1 ? "s" : "")" + (model.sweepDate.map { " · \(ToolText.relative($0))" } ?? ""))
                 .font(Theme.caption).foregroundStyle(Theme.textSecondary)
                 .padding(.leading, 4)
         }
@@ -425,6 +425,8 @@ struct TLSChainRow: Identifiable {
     var subjectText: String { certificate.subject.summary }
     var issuerText: String { certificate.isSelfIssued ? "lui-même" : certificate.issuer.summary }
     var notAfter: Date { certificate.notAfter }
+    /// Clé de tri de « Restant » (keyPath distinct de « Expire le » : chaque colonne garde sa flèche).
+    var remainingSort: Date { certificate.notAfter }
     var keyText: String { certificate.publicKey.label }
     var signatureText: String { certificate.signatureAlgorithm }
 }
@@ -452,7 +454,7 @@ struct TLSChainTable: View {
         "sujet": KeyPathComparator(\TLSChainRow.subjectText),
         "emetteur": KeyPathComparator(\TLSChainRow.issuerText),
         "fin": KeyPathComparator(\TLSChainRow.notAfter),
-        "restant": KeyPathComparator(\TLSChainRow.notAfter),
+        "restant": KeyPathComparator(\TLSChainRow.remainingSort),
         "cle": KeyPathComparator(\TLSChainRow.keyText),
         "signature": KeyPathComparator(\TLSChainRow.signatureText),
         "empreinte": KeyPathComparator(\TLSChainRow.certificate.sha256Fingerprint),

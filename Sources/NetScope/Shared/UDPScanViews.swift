@@ -32,7 +32,7 @@ struct UDPResultsTable: View {
 
     static let sortKeys: [String: KeyPathComparator<UDPProbeResult>] = [
         "port": KeyPathComparator(\UDPProbeResult.port),
-        "proto": KeyPathComparator(\UDPProbeResult.port),
+        "proto": KeyPathComparator(\UDPProbeResult.udpSortProto),
         "etat": KeyPathComparator(\UDPProbeResult.udpSortState),
         "service": KeyPathComparator(\UDPProbeResult.udpSortService),
         "reponse": KeyPathComparator(\UDPProbeResult.udpSortReply),
@@ -127,6 +127,8 @@ struct UDPResultsTable: View {
 }
 
 extension UDPProbeResult {
+    /// Clé de tri de « Proto » (keyPath distinct de « Port » : chaque colonne garde sa flèche).
+    var udpSortProto: UInt16 { port }
     var udpSortState: Int { state.rank }
     var udpSortService: String { service.serviceName }
     var udpSortReply: String { summary ?? "~" }

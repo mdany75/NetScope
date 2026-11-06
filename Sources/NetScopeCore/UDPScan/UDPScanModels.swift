@@ -300,3 +300,17 @@ public struct UDPProbeOptions: Sendable, Hashable {
         self.concurrency = concurrency
     }
 }
+
+// MARK: - Communauté du site
+
+/// Communauté SNMP v2c générale du site (secret du Trousseau, envoyée en clair) : jamais à un
+/// hôte hors du réseau. Elle ne part que vers une adresse privée (RFC 1918) ou une adresse des
+/// plages du site actif ; ailleurs, la sonde SNMP se limite à la découverte v3.
+public enum UDPCommunityPolicy {
+    public static let withheldNote = "communauté non envoyée\u{00A0}: hôte hors des plages du site, SNMP v3 seulement"
+
+    public static func maySendSiteCommunity(to address: IPv4Address, siteRanges: [String]) -> Bool {
+        if AddressScope.of(address) == .privee { return true }
+        return siteRanges.contains { text in (try? IPRange(parsing: text))?.contains(address) ?? false }
+    }
+}

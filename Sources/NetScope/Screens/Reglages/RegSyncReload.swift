@@ -36,7 +36,15 @@ enum RegSyncReload {
     static func reload(files: Set<String>, preferences: Set<String>, state: AppState?) {
         func touched(_ pattern: String) -> [String] { files.filter { ConfigMatch.glob(pattern, $0) } }
         func siteKey(_ path: String) -> String { path.split(separator: "/").dropFirst().first.map(String.init) ?? SiteFiles.noSiteKey }
-        if files.contains(SiteFiles.listName) { SiteModel.shared.reloadFromDisk() }
+        if files.contains(SiteFiles.listName) {
+            let controllers = SiteModel.shared.activeSite?.controllers
+            SiteModel.shared.reloadFromDisk()
+            // Contrôleurs du site actif changés sur un autre Mac : lectures et switchs appliqués
+            // du contrôleur retiré ou modifié oubliés tout de suite.
+            if let state, SiteModel.shared.activeSite?.controllers != controllers {
+                SiteControllerStore.shared.siteChanged(state: state)
+            }
+        }
         for path in touched("sites/*/" + SiteFiles.inventoryName) { InvModel.shared.reloadFromDisk(siteKey: siteKey(path)) }
         if touched("sites/*/" + SiteFiles.notesName).contains(where: { siteKey($0) == SiteModel.shared.activeKey }) {
             DeviceNotesStore.shared.reloadFromDisk()

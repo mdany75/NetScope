@@ -179,7 +179,7 @@ struct PortScanView: View {
 
     @ViewBuilder private var tcpBody: some View {
         ToolAdaptiveRow(spacing: 12) {
-            ToolLabeledField(label: "Cible (IP ou hostname)") {
+            ToolLabeledField(label: "Cible (IP ou nom d’hôte)") {
                 ToolTextField(placeholder: "10.182.122.111", text: $model.target) { startScan() }
                     .frame(minWidth: 170)
             }

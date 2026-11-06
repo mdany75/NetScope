@@ -48,7 +48,7 @@ struct UDPScanToolSection: View {
     }
 
     private var targetField: some View {
-        ToolLabeledField(label: "Cible (IP ou hostname)") {
+        ToolLabeledField(label: "Cible (IP ou nom d’hôte)") {
             ToolTextField(placeholder: "10.182.122.111", text: $target) { model.scan(host: host, store: store) }
                 .frame(minWidth: 170, maxWidth: 260)
         }
@@ -72,7 +72,7 @@ struct UDPScanToolSection: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 if hostState.isRunning {
-                    Text("En cours · \(hostState.done) / \(hostState.total) ports UDP · \(hostState.partial.filter { $0.state == .open }.count) ouverts")
+                    Text("En cours · \(hostState.done) / \(hostState.total) ports UDP · \(MonText.plural(hostState.partial.filter { $0.state == .open }.count, "ouvert", "ouverts"))")
                 } else if let summary = hostState.summary {
                     Text((summary.wasCancelled ? "Interrompu · " : "Terminé · ") + summary.summary
                          + (hostState.communityNote.map { " · SNMP\u{00A0}: \($0)" } ?? ""))

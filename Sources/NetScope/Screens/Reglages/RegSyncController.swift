@@ -466,7 +466,7 @@ final class RegSyncController: ObservableObject {
                 isSyncing = false
                 if rerun { rerun = false; scheduleSync(reason: "changement pendant la synchro") }
             }
-            let outcome = await Task.detached(priority: .utility) { () -> Result<(ConfigSyncReport, ConfigSyncState, [ConfigSyncGlobal.CategoryCount]), Error> in
+            let outcome = await Task.detached(priority: .utility) { () -> Result<(ConfigSyncReport, ConfigSyncState, ConfigSyncState, [ConfigSyncGlobal.CategoryCount]), Error> in
                 Result {
                     var engine = engine
                     let password = Self.storedPassword()
@@ -476,23 +476,30 @@ final class RegSyncController: ObservableObject {
                     let snapshot = ConfigSnapshot.read(dataDirectory: RegBackupController.dataDirectory,
                                                        preferences: RegConfigController.currentPreferences(), secrets: secrets)
                     var state = ConfigSyncEngine.loadState(from: Self.stateURL)
+                    let before = state
                     let report = try engine.sync(sites: ids, global: true, snapshot: snapshot, state: &state)
                     if !report.plan.secrets.isEmpty {
                         _ = BackupEngine.restoreSecrets(report.plan.secrets, to: BackupKeychainSecrets())
                     }
                     try ConfigSyncEngine.saveState(state, to: Self.stateURL)
                     let counts = ConfigSyncGlobal.counts(snapshot: snapshot, sites: ids)
-                    return (report, state, counts)
+                    return (report, before, state, counts)
                 }
             }.value
             switch outcome {
-            case .success(let (report, state, counts)):
+            case .success(let (report, before, state, counts)):
                 lastSync = state.lastSync
                 defaults?.set(state.lastSync, forKey: Key.last)
                 apply(state)
                 olderDevices = state.devices.filter(engine.isOlder)
                 self.counts = counts
                 let applied = applyReceived(report.plan)
+                if applied.failed {
+                    // Écriture d'un changement reçu impossible : l'état ne doit pas le croire
+                    // appliqué, sinon l'ancienne version restée ici serait republiée par-dessus.
+                    let restored = Self.revertingItems(state, to: before)
+                    try? ConfigSyncEngine.saveState(restored, to: Self.stateURL)
+                }
                 lastSummary = Self.summary(report)
                 if !report.errors.isEmpty {
                     message = (report.errors.joined(separator: " "), .warning)
@@ -518,12 +525,13 @@ final class RegSyncController: ObservableObject {
 
     /// Applique les changements reçus : à chaud quand le magasin sait relire, sinon au redémarrage.
     @discardableResult
-    private func applyReceived(_ plan: ConfigApplyPlan) -> (hot: Int, deferred: Int) {
+    private func applyReceived(_ plan: ConfigApplyPlan) -> (hot: Int, deferred: Int, failed: Bool) {
         let received = plan.withoutSecrets
-        guard !received.isEmpty else { return (0, 0) }
+        guard !received.isEmpty else { return (0, 0, false) }
         let hot = received.filtered(files: { RegSyncReload.isHot(file: $0) }, preferences: { _ in true })
         let later = received.filtered(files: { !RegSyncReload.isHot(file: $0) }, preferences: { _ in false })
         var applied = 0
+        var failed = false
         if !hot.isEmpty {
             RegSyncReload.flushStores()
             suppressUntil = Date().addingTimeInterval(6)
@@ -538,6 +546,7 @@ final class RegSyncController: ObservableObject {
                 AppLog.shared.warning("Synchronisation", "Changé ici entre-temps, pas remplacé\u{00A0}: \(outcome.skipped.joined(separator: ", "))")
             }
             if !outcome.failed.isEmpty {
+                failed = true
                 AppLog.shared.error("Synchronisation", "Écriture impossible\u{00A0}: \(outcome.failed.joined(separator: ", "))")
             }
         }
@@ -552,7 +561,22 @@ final class RegSyncController: ObservableObject {
             try? RegConfigController.savePending(merged, secretsRestored: restored, to: Self.pendingURL)
             pendingCount = Self.pendingOperationCount()
         }
-        return (applied, later.operationCount)
+        return (applied, later.operationCount, failed)
+    }
+
+    /// Remet, pour chaque élément dont l'état a changé à ce passage, l'état d'avant la
+    /// synchronisation. Un élément reçu mais pas écrit est ainsi reçu de nouveau au passage
+    /// suivant (jamais republié comme changé ici) ; un élément déjà identique des deux côtés
+    /// retrouve sa base sans rien envoyer ni signaler.
+    nonisolated static func revertingItems(_ state: ConfigSyncState, to before: ConfigSyncState) -> ConfigSyncState {
+        var result = state
+        for (scope, site) in state.sites {
+            let old = before.sites[scope]?.items ?? [:]
+            for (key, item) in site.items where old[key] != item {
+                result.sites[scope]?.items[key] = old[key]
+            }
+        }
+        return result
     }
 
     /// « 3 reçus de MacBook Air · 1 envoyé · 1 conflit ».

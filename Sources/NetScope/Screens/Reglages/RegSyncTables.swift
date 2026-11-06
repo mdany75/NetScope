@@ -65,7 +65,7 @@ struct RegSyncDeviceTable: View {
         Table(rows, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
             TableColumn("MAC", sortUsing: table.sort("mac")) { row in
                 HStack(spacing: 6) {
-                    Image(systemName: row.isThisMac ? "laptopcomputer" : "desktopcomputer")
+                    Image(systemName: row.model.localizedCaseInsensitiveContains("MacBook") ? "laptopcomputer" : "desktopcomputer")
                         .font(.system(size: 11)).foregroundStyle(row.isThisMac ? Theme.accent : Theme.textSecondary)
                     Text(row.name).font(Theme.bodySemibold).foregroundStyle(Theme.text).lineLimit(1)
                 }

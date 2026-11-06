@@ -137,7 +137,7 @@ func registerTLSCertificateTests(_ suite: TestSuite) {
         try expectEqual(TLSAnalysis.verdict(inspection, now: now), .ok, "nom couvert et chaîne reconnue")
         inspection.chain = [nas]
         try expect(TLSAnalysis.findings(inspection, now: now).contains { $0.title == "Chaîne incomplète" }, "intermédiaire manquant")
-        try expect(TLSAnalysis.report(inspection, now: now).contains("SHA-256 : F5:2F:C5"), "rapport avec l'empreinte")
+        try expect(TLSAnalysis.report(inspection, now: now).contains("SHA-256\u{00A0}: F5:2F:C5"), "rapport avec l'empreinte")
         inspection.chain = []
         inspection.error = "Connexion refusée (port fermé)"
         try expectEqual(TLSAnalysis.verdict(inspection, now: now), .failed, "aucun certificat")

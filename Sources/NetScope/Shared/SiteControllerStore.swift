@@ -86,7 +86,7 @@ final class SiteControllerStore: ObservableObject {
         if !c.hasValidAddress { return "adresse invalide." }
         if c.authMode.accountLabel != nil, c.account.trimmingCharacters(in: .whitespaces).isEmpty { return "identifiant à saisir." }
         if secretsLoaded, !hasSecret(c.id) { return "\(c.authMode.secretLabel.lowercased()) à saisir (Trousseau)." }
-        if c.usesPinning, c.pinnedFingerprint == nil { return "certificat à accepter (« Tester » dans Réglages › Sites)." }
+        if c.usesPinning, c.pinnedFingerprint == nil { return "certificat à accepter («\u{00A0}Tester\u{00A0}» dans Réglages › Sites et plages)." }
         return nil
     }
 

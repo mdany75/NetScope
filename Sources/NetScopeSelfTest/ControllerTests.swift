@@ -85,6 +85,33 @@ private func readFailure(_ reader: ControllerReader) async -> ControllerReadFail
 }
 
 func registerControllerTests(_ suite: TestSuite) {
+    suite.add("Contrôleurs : état de la dernière lecture propre à ce Mac (fiche du site synchronisée inchangée)") {
+        func unwrap<T>(_ value: T?, _ what: String) throws -> T {
+            guard let value else { throw TestFailure(message: "\(what) : nil", file: #fileID, line: #line) }
+            return value
+        }
+        func sites(_ controllers: String) -> Data {
+            Data(#"{"sites":[{"id":"S1","name":"Siège","controllers":[\#(controllers)]}]}"#.utf8)
+        }
+        let collection = ConfigCollection.sites
+        let ok = sites(#"{"id":"C1","host":"10.1.0.1","lastStatus":{"kind":"ok","message":""}}"#)
+        let failed = sites(#"{"id":"C1","host":"10.1.0.1","lastStatus":{"kind":"error","message":"délai dépassé"}}"#)
+        let a = try unwrap(collection.elements(of: ok)?.first, "fiche lue")
+        let b = try unwrap(collection.elements(of: failed)?.first, "fiche lue")
+        try expectEqual(a.hash, b.hash, "un autre état de lecture ne change pas la fiche du site")
+        try expect(!String(decoding: a.canonical, as: UTF8.self).contains("lastStatus"), "état jamais publié")
+        // Reçu : adresse changée sur l'autre Mac, nouveau contrôleur C2 avec l'état de l'autre Mac.
+        let incoming = sites(#"{"id":"C1","host":"10.1.0.2","lastStatus":{"kind":"error","message":"x"}},{"id":"C2","host":"10.1.0.3","lastStatus":{"kind":"ok","message":""}}"#)
+        let element = try unwrap(collection.elements(of: incoming)?.first, "fiche reçue")
+        let merged = try unwrap(collection.merge(local: ok, applying: [element]), "fusion")
+        let root = try unwrap(try JSONSerialization.jsonObject(with: merged) as? [String: Any], "JSON")
+        let list = try unwrap(((root["sites"] as? [[String: Any]])?.first?["controllers"]) as? [[String: Any]], "contrôleurs")
+        try expectEqual(list.count, 2, "deux contrôleurs")
+        try expectEqual(list[0]["host"] as? String, "10.1.0.2", "réglage reçu appliqué")
+        try expectEqual((list[0]["lastStatus"] as? [String: Any])?["kind"] as? String, "ok", "état de ce Mac gardé")
+        try expect(list[1]["lastStatus"] == nil, "contrôleur nouveau ici : sans l’état de l’autre Mac")
+    }
+
     suite.add("Contrôleurs : réglages d’un contrôleur (adresse, port, marque, aucun secret)") {
         var c = SiteController(kind: .unifi, host: " https://10.1.0.1:8443/manage ", port: 443)
         try expectEqual(c.cleanHost, "10.1.0.1", "adresse nettoyée")

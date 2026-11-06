@@ -137,7 +137,7 @@ struct RegSyncSection: View {
                     }
                 }
                 if !sync.usesICloud {
-                    Text("Autre dossier que iCloud Drive\u{00A0}: choisissez le même sur chacun de vos Mac. Un partage réseau doit être monté pour synchroniser, et un autre Mac n’y est vu qu’à la minuterie de 15\u{00A0}minutes. Les secrets restent chiffrés.")
+                    Text("Autre dossier qu’iCloud Drive\u{00A0}: choisissez le même sur chacun de vos Mac. Un partage réseau doit être monté pour synchroniser, et un autre Mac n’y est vu qu’à la minuterie de 15\u{00A0}minutes. Les secrets restent chiffrés.")
                         .font(Theme.small).foregroundStyle(Theme.warning)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -298,7 +298,7 @@ struct RegSyncSection: View {
 
     private var recentPanel: some View {
         RegPanel(title: "Changements reçus récents",
-                 subtitle: "Appliqués sans redémarrer, dès leur arrivée.") {
+                 subtitle: "Appliqués dès leur arrivée, sauf quelques-uns qui attendent le prochain lancement de NetScope.") {
             if sync.recent.isEmpty {
                 RegNotice("Rien reçu pour l’instant.", tone: .neutral)
             } else {

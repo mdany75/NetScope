@@ -362,7 +362,7 @@ struct RegSiteControllerEditor: View {
         case .omada:
             HStack(alignment: .bottom, spacing: 10) {
                 RegField(label: "Site Omada") {
-                    RegTextField(placeholder: "nom ou ID (vide : le premier)", text: $siteRef)
+                    RegTextField(placeholder: "nom ou ID (vide\u{00A0}: le premier)", text: $siteRef)
                 }
                 RegField(label: "ID du contrôleur (facultatif)") {
                     RegTextField(placeholder: "omadacId, lu sur /api/info si vide", text: $orgRef, mono: true)
@@ -371,10 +371,10 @@ struct RegSiteControllerEditor: View {
         case .meraki:
             HStack(alignment: .bottom, spacing: 10) {
                 RegField(label: "Organisation (facultatif)") {
-                    RegTextField(placeholder: "nom ou ID (vide : la première)", text: $orgRef)
+                    RegTextField(placeholder: "nom ou ID (vide\u{00A0}: la première)", text: $orgRef)
                 }
                 RegField(label: "Réseau") {
-                    RegTextField(placeholder: "nom ou ID du réseau (vide : le premier)", text: $siteRef)
+                    RegTextField(placeholder: "nom ou ID du réseau (vide\u{00A0}: le premier)", text: $siteRef)
                 }
             }
         }

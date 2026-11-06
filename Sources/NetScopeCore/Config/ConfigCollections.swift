@@ -17,6 +17,9 @@ public struct ConfigCollection: Sendable, Hashable {
     /// Champs propres à chaque Mac (dernier scan, nombre de fiches, dernier état) : ni comparés,
     /// ni remplacés (la valeur de ce Mac est gardée).
     public var volatileFields: [String]
+    /// Champs propres à chaque Mac dans les éléments d'une liste imbriquée, reconnus par leur
+    /// « id » (« controllers » → « lastStatus » : état de la dernière lecture d'un contrôleur).
+    public var nestedVolatileFields: [String: [String]]
     /// « Site », « FortiGate ».
     public var elementLabel: String
     /// Noms uniques dans la liste (« Clinique (2) » pour un élément ajouté au même nom).
@@ -26,14 +29,15 @@ public struct ConfigCollection: Sendable, Hashable {
     public var similarNote: String
 
     public init(kind: ConfigItemKind, key: String, arrayKey: String? = nil, idField: String = "id", nameField: String = "name",
-                volatileFields: [String] = [], elementLabel: String, uniqueNames: Bool = false, similarField: String? = nil,
-                similarNote: String = "") {
+                volatileFields: [String] = [], nestedVolatileFields: [String: [String]] = [:], elementLabel: String,
+                uniqueNames: Bool = false, similarField: String? = nil, similarNote: String = "") {
         self.kind = kind
         self.key = key
         self.arrayKey = arrayKey
         self.idField = idField
         self.nameField = nameField
         self.volatileFields = volatileFields
+        self.nestedVolatileFields = nestedVolatileFields
         self.elementLabel = elementLabel
         self.uniqueNames = uniqueNames
         self.similarField = similarField
@@ -41,7 +45,10 @@ public struct ConfigCollection: Sendable, Hashable {
     }
 
     public static let sites = ConfigCollection(kind: .fichier, key: SiteFiles.listName, arrayKey: "sites",
-                                               volatileFields: ["lastScan", "inventoryCount"], elementLabel: "Site",
+                                               volatileFields: ["lastScan", "inventoryCount"],
+                                               // État de la dernière lecture d'un contrôleur : propre à ce Mac
+                                               // (une erreur réseau ici ne modifie pas la fiche du site).
+                                               nestedVolatileFields: ["controllers": ["lastStatus"]], elementLabel: "Site",
                                                uniqueNames: true, similarField: "ranges",
                                                similarNote: "mêmes plages\u{00A0}: sites gardés séparés (reconnus par leur identifiant)")
     public static let fortiGates = ConfigCollection(kind: .preference, key: "NetScope.fortigate.controleurs", nameField: "site",
@@ -76,8 +83,41 @@ public struct ConfigCollection: Sendable, Hashable {
               let json = try? JSONSerialization.data(withJSONObject: dictionary, options: [.sortedKeys]) else { return nil }
         var stripped = dictionary
         for field in volatileFields { stripped.removeValue(forKey: field) }
+        stripNested(&stripped)
         guard let canonical = try? JSONSerialization.data(withJSONObject: stripped, options: [.sortedKeys]) else { return nil }
         return Element(id: id, name: dictionary[nameField] as? String ?? "", json: json, canonical: canonical)
+    }
+
+    /// Retire les champs propres au Mac des listes imbriquées.
+    private func stripNested(_ dictionary: inout [String: Any]) {
+        for (key, fields) in nestedVolatileFields {
+            guard let list = dictionary[key] as? [Any] else { continue }
+            dictionary[key] = list.map { object -> Any in
+                guard var item = object as? [String: Any] else { return object }
+                for field in fields { item.removeValue(forKey: field) }
+                return item
+            }
+        }
+    }
+
+    /// Garde, dans les listes imbriquées reçues, les champs propres au Mac de l'élément local du
+    /// même « id » (retirés pour un élément imbriqué nouveau ici).
+    private func keepNested(_ dictionary: inout [String: Any], from current: [String: Any]) {
+        for (key, fields) in nestedVolatileFields {
+            guard let list = dictionary[key] as? [Any] else { continue }
+            var locals: [String: [String: Any]] = [:]
+            for case let item as [String: Any] in current[key] as? [Any] ?? [] {
+                if let id = item["id"] as? String { locals[id] = item }
+            }
+            dictionary[key] = list.map { object -> Any in
+                guard var item = object as? [String: Any] else { return object }
+                let local = (item["id"] as? String).flatMap { locals[$0] }
+                for field in fields {
+                    if let value = local?[field] { item[field] = value } else { item.removeValue(forKey: field) }
+                }
+                return item
+            }
+        }
     }
 
     private func array(in data: Data) -> [Any]? {
@@ -120,6 +160,7 @@ public struct ConfigCollection: Sendable, Hashable {
                 for field in volatileFields {
                     if let value = current[field] { dictionary[field] = value } else { dictionary.removeValue(forKey: field) }
                 }
+                keepNested(&dictionary, from: current)
                 if uniqueNames, let name = dictionary[nameField] as? String {
                     dictionary[nameField] = Self.uniqueName(name, in: list, excluding: item.id, idField: idField, nameField: nameField)
                 }
@@ -127,6 +168,7 @@ public struct ConfigCollection: Sendable, Hashable {
             } else {
                 // Élément nouveau sur ce Mac : sans l'état propre à l'autre Mac.
                 for field in volatileFields { dictionary.removeValue(forKey: field) }
+                keepNested(&dictionary, from: [:])
                 if uniqueNames, let name = dictionary[nameField] as? String {
                     dictionary[nameField] = Self.uniqueName(name, in: list, excluding: item.id, idField: idField, nameField: nameField)
                 }

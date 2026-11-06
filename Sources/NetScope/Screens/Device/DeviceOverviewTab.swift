@@ -78,7 +78,7 @@ struct DeviceOverviewTab: View {
                 availabilityCard
                 servicesCard
                 // Note 68 : empreinte légère (système, confiance, versions, indices).
-                DeviceFingerprintCard(device: device, onScanPorts: onScanPorts)
+                DeviceFingerprintCard(device: device)
             }
             // Notes 27 et 46 : client Wi-Fi vu par la FortiGate du site actif, tout ce qui sert au diagnostic.
             if let client = fortiAP.client(for: device) {

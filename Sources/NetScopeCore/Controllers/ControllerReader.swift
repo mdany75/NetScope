@@ -129,11 +129,11 @@ public enum ControllerDiagnostic {
         let formatter = ISO8601DateFormatter()
         var lines: [String] = []
         lines.append("NetScope · réponses brutes du contrôleur \(controller.kind.label) (diagnostic, secrets retirés)")
-        lines.append("Date : \(formatter.string(from: date))")
-        lines.append("Contrôleur : \(controller.addressLabel) · \(controller.authMode.label) · \(controller.scopeLabel)"
+        lines.append("Date\u{00A0}: \(formatter.string(from: date))")
+        lines.append("Contrôleur\u{00A0}: \(controller.addressLabel) · \(controller.authMode.label) · \(controller.scopeLabel)"
                      + (controller.kind == .unifi ? (controller.unifiOS ? " · UniFi OS" : " · contrôleur classique") : ""))
         if let report {
-            lines.append("Lu : \(report.controllerName)" + (report.version.map { " · version \($0)" } ?? "")
+            lines.append("Lu\u{00A0}: \(report.controllerName)" + (report.version.map { " · version \($0)" } ?? "")
                          + " · \(report.switches.count) switchs, \(report.aps.count) bornes, \(report.clients.count) clients")
             for note in report.notes { lines.append("# " + note) }
         }

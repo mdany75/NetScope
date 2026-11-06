@@ -194,7 +194,7 @@ public enum TLSExpiry: Hashable, Sendable {
             return .expired(daysAgo: Int((now.timeIntervalSince(certificate.notAfter) / 86_400).rounded(.down)))
         }
         let days = certificate.daysRemaining(at: now)
-        return days < warningDays ? .soon(days: days) : .valid(days: days)
+        return days <= warningDays ? .soon(days: days) : .valid(days: days)
     }
 
     /// « 213 jours restants », « expire dans 12 jours », « expiré depuis 1 041 jours ».
@@ -481,27 +481,27 @@ public enum TLSAnalysis {
     /// Texte du rapport (copie) : verdict, certificat, chaîne, versions.
     public static func report(_ inspection: TLSInspection, now: Date = Date(), warningDays: Int = TLSExpiry.defaultWarningDays) -> String {
         var lines = ["Certificat TLS — \(inspection.endpoint) (\(inspection.mode.label))"]
-        if let serverName = inspection.serverName { lines.append("SNI : \(serverName)") }
-        lines.append("Verdict : \(verdict(inspection, now: now, warningDays: warningDays).label)")
-        if let error = inspection.error { lines.append("Erreur : \(error)") }
+        if let serverName = inspection.serverName { lines.append("SNI\u{00A0}: \(serverName)") }
+        lines.append("Verdict\u{00A0}: \(verdict(inspection, now: now, warningDays: warningDays).label)")
+        if let error = inspection.error { lines.append("Erreur\u{00A0}: \(error)") }
         for (index, certificate) in inspection.chain.enumerated() {
             lines.append("")
             lines.append("[\(index)] \(certificate.subject.text)")
-            lines.append("    Émetteur : \(certificate.issuer.text)")
+            lines.append("    Émetteur\u{00A0}: \(certificate.issuer.text)")
             if !certificate.subjectAltNames.isEmpty {
-                lines.append("    SAN : " + certificate.subjectAltNames.map { "\($0.kind):\($0.text)" }.joined(separator: ", "))
+                lines.append("    SAN\u{00A0}: " + certificate.subjectAltNames.map { "\($0.kind):\($0.text)" }.joined(separator: ", "))
             }
-            lines.append("    Validité : \(TLSFormat.date(certificate.notBefore)) → \(TLSFormat.date(certificate.notAfter)) (\(TLSExpiry.of(certificate, now: now, warningDays: warningDays).label))")
-            lines.append("    Clé : \(certificate.publicKey.label) · Signature : \(certificate.signatureAlgorithm)")
-            lines.append("    SHA-256 : \(certificate.sha256Fingerprint)")
+            lines.append("    Validité\u{00A0}: \(TLSFormat.date(certificate.notBefore)) → \(TLSFormat.date(certificate.notAfter)) (\(TLSExpiry.of(certificate, now: now, warningDays: warningDays).label))")
+            lines.append("    Clé\u{00A0}: \(certificate.publicKey.label) · Signature\u{00A0}: \(certificate.signatureAlgorithm)")
+            lines.append("    SHA-256\u{00A0}: \(certificate.sha256Fingerprint)")
         }
         if !inspection.versions.isEmpty {
             lines.append("")
-            lines.append("Versions : " + inspection.versions.map { "\($0.version.label) \($0.accepted == true ? "oui" : $0.accepted == false ? "non" : "?")" }
+            lines.append("Versions\u{00A0}: " + inspection.versions.map { "\($0.version.label) \($0.accepted == true ? "oui" : $0.accepted == false ? "non" : "?")" }
                 .joined(separator: " · "))
         }
         if let version = inspection.negotiatedVersion {
-            lines.append("Négocié : \(version.label)" + (inspection.cipherSuite.map { " · \($0)" } ?? ""))
+            lines.append("Négocié\u{00A0}: \(version.label)" + (inspection.cipherSuite.map { " · \($0)" } ?? ""))
         }
         return lines.joined(separator: "\n")
     }

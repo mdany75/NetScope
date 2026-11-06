@@ -141,6 +141,18 @@ private func serveOnce(_ fd: Int32, replyFrom replyFD: Int32? = nil, _ reply: @e
 private let loopback = IPv4Address(127, 0, 0, 1)
 
 func registerUDPScanTests(_ suite: TestSuite) {
+    suite.add("UDP ciblé : communauté du site jamais envoyée à un hôte public hors des plages") {
+        let ranges = ["10.93.226.0/24", "203.0.113.10-203.0.113.20"]
+        try expect(!UDPCommunityPolicy.maySendSiteCommunity(to: IPv4Address(8, 8, 8, 8), siteRanges: ranges),
+                   "hôte public : aucune communauté envoyée")
+        try expect(!UDPCommunityPolicy.maySendSiteCommunity(to: IPv4Address(8, 8, 8, 8), siteRanges: []), "site sans plage")
+        try expect(UDPCommunityPolicy.maySendSiteCommunity(to: IPv4Address(192, 168, 1, 10), siteRanges: []), "adresse privée")
+        try expect(UDPCommunityPolicy.maySendSiteCommunity(to: IPv4Address(203, 0, 113, 15), siteRanges: ranges),
+                   "adresse publique des plages du site")
+        try expect(!UDPCommunityPolicy.maySendSiteCommunity(to: IPv4Address(203, 0, 113, 21), siteRanges: ranges),
+                   "juste après la plage du site")
+    }
+
     suite.add("UDP ciblé : sondes DNS, SNMP, IPMI, NTP, TFTP construites octet par octet") {
         try expectEqual(UDPProbePayload.dnsVersionBind(id: 0x1234),
                         bytes("12 34 00 00 00 01 00 00 00 00 00 00 07 76 65 72 73 69 6f 6e 04 62 69 6e 64 00 00 10 00 03"),
