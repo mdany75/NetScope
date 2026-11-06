@@ -114,8 +114,12 @@ public struct RustDeskServerAction: Equatable, Identifiable, Sendable {
     public var allowReboot = false
     /// Mise à jour planifiée : reportée si une session relayée est en cours.
     public var postponeIfSession = false
-    /// Sessions relayées en cours au moment de la confirmation (signalées).
-    public var activeSessions = 0
+    /// Sessions relayées en cours au moment de la confirmation (signalées) ; nil : inconnues
+    /// (console de hbbr illisible).
+    public var activeSessions: Int? = 0
+
+    /// La première conséquence avertit de sessions coupées (connues ou peut-être).
+    public var warnsSessions: Bool { kind != .disconnect && (activeSessions ?? 1) > 0 }
 
     private init(kind: RustDeskActionKind) {
         self.kind = kind
@@ -125,31 +129,36 @@ public struct RustDeskServerAction: Equatable, Identifiable, Sendable {
     public static func disconnect(_ session: RustDeskRelaySession, targetID: String = "", station: String = "") throws -> RustDeskServerAction {
         var action = RustDeskServerAction(kind: .disconnect)
         action.peerAddress = try RustDeskActionValidation.address(session.ip)
-        action.peerPort = try RustDeskActionValidation.port(session.port)
+        // Sans port, le filtre viserait toutes les connexions de cette IP (postes derrière le même
+        // NAT) : l'IP seule ne choisit jamais un appareil.
+        guard let port = try RustDeskActionValidation.port(session.port) else {
+            throw RustDeskActionError("Port de la session inconnu\u{00A0}: déconnexion refusée, elle couperait toutes les sessions venant de \(action.peerAddress) (postes derrière le même routeur).")
+        }
+        action.peerPort = port
         action.targetID = try RustDeskActionValidation.rustDeskID(targetID)
         action.station = RemoteShell.sanitizedTitle(station, limit: 60)
         return action
     }
 
-    public static func restartRelay(activeSessions: Int) -> RustDeskServerAction {
+    public static func restartRelay(activeSessions: Int?) -> RustDeskServerAction {
         var action = RustDeskServerAction(kind: .restartRelay)
-        action.activeSessions = max(0, activeSessions)
+        action.activeSessions = activeSessions.map { max(0, $0) }
         return action
     }
 
-    public static func updateRustDesk(activeSessions: Int, postponeIfSession: Bool = false) -> RustDeskServerAction {
+    public static func updateRustDesk(activeSessions: Int?, postponeIfSession: Bool = false) -> RustDeskServerAction {
         var action = RustDeskServerAction(kind: .updateRustDesk)
-        action.activeSessions = max(0, activeSessions)
+        action.activeSessions = activeSessions.map { max(0, $0) }
         action.postponeIfSession = postponeIfSession
         return action
     }
 
-    public static func updateSystem(scope: RustDeskUpdateScope, allowReboot: Bool, activeSessions: Int,
+    public static func updateSystem(scope: RustDeskUpdateScope, allowReboot: Bool, activeSessions: Int?,
                                     postponeIfSession: Bool = false) -> RustDeskServerAction {
         var action = RustDeskServerAction(kind: .updateSystem)
         action.scope = scope
         action.allowReboot = allowReboot
-        action.activeSessions = max(0, activeSessions)
+        action.activeSessions = activeSessions.map { max(0, $0) }
         action.postponeIfSession = postponeIfSession
         return action
     }
@@ -191,6 +200,9 @@ public struct RustDeskServerAction: Equatable, Identifiable, Sendable {
     }
 
     private var sessionsWarning: String? {
+        guard let activeSessions else {
+            return "Sessions relayées en cours inconnues (console de hbbr illisible)\u{00A0}: elles seront peut-être coupées."
+        }
         guard activeSessions > 0 else { return nil }
         return "\(activeSessions) session\(activeSessions > 1 ? "s" : "") relayée\(activeSessions > 1 ? "s" : "") en cours\u{00A0}: elle\(activeSessions > 1 ? "s seront coupées" : " sera coupée")."
     }
@@ -309,6 +321,8 @@ public enum RustDeskServerActionScript {
     n=$(relais)
     val sessions "${n:-0}"
     R=$(printf '%s\n' $NOMS | grep -i hbbr | head -n 1)
+    # Image tout-en-un (un seul conteneur, sans « hbbr » dans le nom) : ce conteneur-là.
+    if [ -z "$R" ] && [ "$(printf '%s\n' $NOMS | grep -c .)" = 1 ]; then R=$(printf '%s\n' $NOMS | head -n 1); fi
     if [ -n "$R" ]; then
       dk restart "$R" >/dev/null 2>&1 || { etape echec "docker restart $R a échoué."; fin echec; }
       etape ok "Conteneur $R redémarré."
@@ -331,13 +345,34 @@ public enum RustDeskServerActionScript {
     command -v docker >/dev/null 2>&1 || { etape echec "Docker absent : RustDesk n’est pas en conteneur ici ; mise à jour par le gestionnaire de paquets (rustdesk-server-hbbs, -hbbr) à faire à la main."; fin echec; }
     S=$(printf '%s\n' $NOMS | grep -i hbbs | head -n 1)
     R=$(printf '%s\n' $NOMS | grep -i hbbr | head -n 1)
+    # Image tout-en-un (un seul conteneur, sans « hbbs » ni « hbbr » dans le nom) : ce conteneur-là.
+    if [ -z "$S$R" ] && [ "$(printf '%s\n' $NOMS | grep -c .)" = 1 ]; then S=$(printf '%s\n' $NOMS | head -n 1); fi
     [ -n "$S" ] || { etape echec "Conteneur hbbs introuvable."; fin echec; }
-    DIR=$(dk inspect --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$S" 2>/dev/null)
+    [ -n "$R" ] || R=$S
+    lab() { dk inspect --format "{{index .Config.Labels \"$1\"}}" "$S" 2>/dev/null; }
+    DIR=$(lab com.docker.compose.project.working_dir)
+    PROJ=$(lab com.docker.compose.project)
+    CFG=$(lab com.docker.compose.project.config_files)
     [ -n "$DIR" ] || { etape echec "hbbs n’a pas été lancé par docker compose : mise à jour automatique non prise en charge."; fin echec; }
-    if dkl compose version >/dev/null 2>&1; then dc() { (cd "$DIR" && dkl compose "$@"); }
-    elif command -v docker-compose >/dev/null 2>&1; then dc() { (cd "$DIR" && if [ "$DKDIRECT" = 1 ]; then timeout 900 docker-compose "$@" </dev/null; else asroot timeout 900 docker-compose "$@"; fi); }
+    if dkl compose version >/dev/null 2>&1; then DCV=2
+    elif command -v docker-compose >/dev/null 2>&1; then DCV=1
     else etape echec "Ni « docker compose » ni « docker-compose » sur le serveur."; fin echec; fi
+    # Même projet et mêmes fichiers qu’au lancement (étiquettes du conteneur), sans « cd » : le
+    # dossier peut être fermé au compte SSH ; docker les lit en root. Valeurs toujours entre guillemets.
+    dc() {
+      dcn=$#
+      set -f; dco=$IFS; IFS=,
+      for dcf in $CFG; do set -- "$@" -f "$dcf"; done
+      IFS=$dco; set +f
+      dci=0; while [ $dci -lt $dcn ]; do set -- "$@" "$1"; shift; dci=$((dci+1)); done
+      if [ -n "$PROJ" ]; then set -- -p "$PROJ" "$@"; fi
+      set -- --project-directory "$DIR" "$@"
+      if [ "$DCV" = 2 ]; then dkl compose "$@"
+      elif [ "$DKDIRECT" = 1 ]; then timeout 900 docker-compose "$@" </dev/null
+      else asroot timeout 900 docker-compose "$@"; fi
+    }
     val dossier "$DIR"
+    val projet "$PROJ"
     n=$(relais)
     val sessions "${n:-0}"
     if [ "${n:-0}" -gt 0 ]; then etape attention "$n connexion(s) relayée(s) en cours : coupées si l’image change."; fi
@@ -352,7 +387,9 @@ public enum RustDeskServerActionScript {
       if asroot test -e "$DATA/$f" 2>/dev/null; then F="$F $f"; fi
     done
     B="/var/backups/netscope-rustdesk-$STAMP.tar.gz"
-    if asroot mkdir -p /var/backups && asroot tar -C "$DATA" -czf "$B" $F 2>/dev/null; then etape ok "Clé et base sauvegardées : $B"; val sauvegarde "$B"
+    # Archive créée en 600 (umask 077, puis chmod vérifié) : elle contient la clé privée du serveur.
+    if asroot mkdir -p /var/backups && asroot sh -c 'umask 077; exec tar -C "$1" -czf "$2" $3' sh "$DATA" "$B" "$F" 2>/dev/null \
+       && asroot chmod 600 "$B"; then etape ok "Clé et base sauvegardées (lisibles par root seulement) : $B"; val sauvegarde "$B"
     else etape echec "Sauvegarde de la clé et de la base impossible : rien n’est changé."; fin echec; fi
     CLE1=$(asroot head -c 200 "$DATA/id_ed25519.pub" 2>/dev/null)
     V1=$(dk exec "$S" hbbs --version 2>/dev/null | head -n 1)
@@ -364,11 +401,22 @@ public enum RustDeskServerActionScript {
     RETOUR="$REPO:netscope-avant-$STAMP"
     if dk tag "$IID" "$RETOUR" >/dev/null 2>&1; then etape ok "Image actuelle étiquetée $RETOUR."; val image_retour "$RETOUR"
     else etape echec "Étiquette de retour impossible : rien n’est changé."; fin echec; fi
+    # hbbr sur une autre image : étiquetée et vérifiée aussi.
+    IMGR=$(dk inspect --format '{{.Config.Image}}' "$R" 2>/dev/null)
+    IIDR=$(dk inspect --format '{{.Image}}' "$R" 2>/dev/null)
+    RETOURR=
+    if [ -n "$IMGR" ] && [ "$IMGR" != "$IMG" ]; then
+      RETOURR="$(printf '%s' "$IMGR" | sed 's/:[^:/]*$//'):netscope-avant-$STAMP"
+      if dk tag "$IIDR" "$RETOURR" >/dev/null 2>&1; then etape ok "Image de hbbr étiquetée $RETOURR."; val image_retour_hbbr "$RETOURR"
+      else etape echec "Étiquette de retour de hbbr impossible : rien n’est changé."; fin echec; fi
+    fi
     # Mise à jour.
     if dc pull >/dev/null 2>&1; then etape ok "docker compose pull terminé."
     else etape echec "docker compose pull a échoué (réseau, registre) : rien n’est changé."; fin echec; fi
     NID=$(dk image inspect --format '{{.Id}}' "$IMG" 2>/dev/null)
-    if [ "$NID" = "$IID" ]; then etape info "Déjà à jour : aucune nouvelle image, rien n’est redémarré."; val version_apres "$V1"; fin ok; fi
+    NIDR=$IIDR
+    if [ -n "$RETOURR" ]; then NIDR=$(dk image inspect --format '{{.Id}}' "$IMGR" 2>/dev/null); fi
+    if [ "$NID" = "$IID" ] && [ "$NIDR" = "$IIDR" ]; then etape info "Déjà à jour : aucune nouvelle image, rien n’est redémarré."; val version_apres "$V1"; fin ok; fi
     if dc up -d >/dev/null 2>&1; then etape ok "docker compose up -d terminé."; else etape attention "docker compose up -d a signalé une erreur."; fi
     verifier() {
       i=0
@@ -391,7 +439,10 @@ public enum RustDeskServerActionScript {
       fin ok
     fi
     etape echec "RustDesk ne repart pas après la mise à jour : retour à l’image précédente."
-    if dk tag "$RETOUR" "$IMG" >/dev/null 2>&1 && dc up -d >/dev/null 2>&1 && verifier; then
+    REMIS=1
+    dk tag "$RETOUR" "$IMG" >/dev/null 2>&1 || REMIS=0
+    if [ -n "$RETOURR" ]; then dk tag "$RETOURR" "$IMGR" >/dev/null 2>&1 || REMIS=0; fi
+    if [ $REMIS = 1 ] && dc up -d >/dev/null 2>&1 && verifier; then
       etape ok "Image précédente remise ($RETOUR) : RustDesk tourne de nouveau."
       val retour ok
     else
@@ -405,9 +456,10 @@ public enum RustDeskServerActionScript {
         "SECU=" + (action.scope == .security ? "1" : "0") + "\nREDEM=" + (action.allowReboot ? "1" : "0") + "\n" + #"""
     if command -v apt-get >/dev/null 2>&1; then
       val gestionnaire apt
-      A1=$(apt list --upgradable 2>/dev/null | grep -vc '^Listing')
       if asroot timeout 600 apt-get update -q >/dev/null 2>&1; then etape ok "Listes de paquets rafraîchies (apt-get update)."
       else etape echec "apt-get update a échoué."; fin echec; fi
+      # Compte « avant » pris sur les listes rafraîchies.
+      A1=$(apt list --upgradable 2>/dev/null | grep -vc '^Listing')
       if [ "$SECU" = 1 ]; then
         command -v unattended-upgrade >/dev/null 2>&1 || { etape echec "Sécurité seulement : unattended-upgrades n’est pas installé sur le serveur."; fin echec; }
         if asroot env DEBIAN_FRONTEND=noninteractive timeout 3600 unattended-upgrade >/dev/null 2>&1; then etape ok "Mises à jour de sécurité installées (unattended-upgrade)."
@@ -445,7 +497,7 @@ public enum RustDeskServerActionScript {
     public static let modifyingWords: [RustDeskActionKind: [String]] = [
         .disconnect: ["ss -K"],
         .restartRelay: ["dk restart", "systemctl restart"],
-        .updateRustDesk: ["mkdir -p /var/backups", "tar -C", "dk tag", "dc pull", "dc up -d"],
+        .updateRustDesk: ["mkdir -p /var/backups", "tar -C", "chmod 600", "dk tag", "dc pull", "dc up -d"],
         .updateSystem: ["apt-get update", "unattended-upgrade", "apt-get -y", "dnf -y", "shutdown -r"],
     ]
 }
@@ -677,8 +729,10 @@ public struct RustDeskUpdateSchedule: Codable, Equatable, Sendable {
         guard schedule.enabled, !schedule.runnerID.isEmpty, schedule.runnerID == machineID,
               let slot = schedule.lastSlot(atOrBefore: now, calendar: calendar) else { return .idle }
         if let changed = schedule.changedAt, slot < changed { return .idle }
-        let mine = records.filter { $0.slot == slot }
-        if mine.contains(where: { $0.outcome.closesSlot }) { return .idle }
+        // Chaque type d'action a sa fin : « RustDesk réussie, système reporté » reprend le système.
+        let open = openKinds(schedule, slot: slot, records: records)
+        if open.isEmpty { return .idle }
+        let mine = records.filter { $0.slot == slot && open.contains($0.kind) }
         let end = slot.addingTimeInterval(window)
         if let last = mine.map(\.date).max() {
             if now >= end { return .expired(slot: slot) }
@@ -691,8 +745,25 @@ public struct RustDeskUpdateSchedule: Codable, Equatable, Sendable {
         return .run(slot: slot, last: now.addingTimeInterval(retryDelay) >= end)
     }
 
+    /// Types d'action de l'échéance encore ouverts (sans résultat qui la ferme), dans l'ordre.
+    public static func openKinds(_ schedule: RustDeskUpdateSchedule, slot: Date, records: [RustDeskActionRecord]) -> [RustDeskActionKind] {
+        schedule.target.kinds.filter { kind in
+            !records.contains { $0.slot == slot && $0.kind == kind && $0.outcome.closesSlot }
+        }
+    }
+
+    /// Réglages changés : `changedAt` n'avance que si l'échéance elle-même change (activation,
+    /// jour, heure, minute, cible, Mac) ; cocher une option ne fait pas oublier une échéance reportée.
+    public func changed(from old: RustDeskUpdateSchedule, now: Date) -> RustDeskUpdateSchedule {
+        var updated = self
+        let timing = enabled != old.enabled || weekday != old.weekday || hour != old.hour || minute != old.minute
+            || target != old.target || runnerID != old.runnerID
+        updated.changedAt = timing ? now : old.changedAt
+        return updated
+    }
+
     /// Actions d'une échéance, dans l'ordre (RustDesk d'abord, puis le système).
-    public func actions(activeSessions: Int = 0) -> [RustDeskServerAction] {
+    public func actions(activeSessions: Int? = 0) -> [RustDeskServerAction] {
         target.kinds.map { kind in
             kind == .updateRustDesk
                 ? .updateRustDesk(activeSessions: activeSessions, postponeIfSession: postponeIfSession)

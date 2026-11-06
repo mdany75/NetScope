@@ -645,17 +645,49 @@ public struct RustDeskWatchStore: Sendable {
     }
 
     public let url: URL
+    /// Verrou partagé par l'app et l'agent (flock) : lecture, fusion et écriture d'un seul tenant.
+    public let lockURL: URL
 
-    public init(url: URL) {
+    public init(url: URL, lockURL: URL? = nil) {
         self.url = url
+        self.lockURL = lockURL ?? url.appendingPathExtension("lock")
     }
 
     public static let fileName = "rustdesk-serveur-suivi.json"
 
     public static var standard: RustDeskWatchStore {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        let manager = FileManager.default
+        let base = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
-        return RustDeskWatchStore(url: base.appendingPathComponent("NetScope", isDirectory: true).appendingPathComponent(fileName))
+        // Verrou hors du dossier synchronisé et sauvegardé (Caches).
+        let caches = manager.urls(for: .cachesDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Caches")
+        return RustDeskWatchStore(url: base.appendingPathComponent("NetScope", isDirectory: true).appendingPathComponent(fileName),
+                                  lockURL: caches.appendingPathComponent("NetScope", isDirectory: true).appendingPathComponent(fileName + ".lock"))
+    }
+
+    /// Exécute `body` sous verrou exclusif (flock) : une écriture de l'app et une de l'agent ne se
+    /// croisent jamais entre la relecture et l'écriture. Sans verrou possible : `body` quand même.
+    public func withLock<T>(_ body: () throws -> T) rethrows -> T {
+        try? FileManager.default.createDirectory(at: lockURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let fd = open(lockURL.path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
+        if fd >= 0 { _ = flock(fd, LOCK_EX) }
+        defer {
+            if fd >= 0 {
+                _ = flock(fd, LOCK_UN)
+                close(fd)
+            }
+        }
+        return try body()
+    }
+
+    /// Lit, change et écrit sous verrou (seul ce que `change` touche est modifié).
+    public func update(_ change: (inout Contents) -> Void) throws {
+        try withLock {
+            var contents = load() ?? Contents()
+            change(&contents)
+            try save(contents)
+        }
     }
 
     public func load() -> Contents? {

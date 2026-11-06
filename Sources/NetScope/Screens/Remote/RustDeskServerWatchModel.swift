@@ -573,9 +573,8 @@ final class RustDeskServerWatchModel: ObservableObject {
     /// Réglages de la mise à jour planifiée (synchronisés ; le Mac choisi l'exécute par son agent).
     func setSchedule(_ schedule: RustDeskUpdateSchedule) {
         guard schedule != contents.schedule else { return }
-        var updated = schedule
-        updated.changedAt = Date()
-        contents.schedule = updated
+        // changedAt n'avance que si l'échéance change : une option cochée ne fait pas oublier un report.
+        contents.schedule = schedule.changed(from: contents.schedule, now: Date())
         if !RegEnvironment.isDemo { save() }
     }
 
@@ -584,12 +583,17 @@ final class RustDeskServerWatchModel: ObservableObject {
     private func save() {
         guard let store else { return }
         do {
-            if let disk = store.load() {
-                let merged = RustDeskWatchStore.merge(local: contents, base: baseline, disk: disk, now: Date())
-                if merged != contents { contents = merged }
+            // Sous le verrou partagé avec l'agent : il n'écrit pas entre cette relecture et l'écriture.
+            let saved = try store.withLock { () throws -> RustDeskWatchStore.Contents in
+                var merged = contents
+                if let disk = store.load() {
+                    merged = RustDeskWatchStore.merge(local: contents, base: baseline, disk: disk, now: Date())
+                }
+                try store.save(merged)
+                return merged
             }
-            try store.save(contents)
-            baseline = contents
+            if saved != contents { contents = saved }
+            baseline = saved
         } catch {
             AppLog.shared.error("RustDesk", "Suivi du serveur non enregistré\u{00A0}: \(error.localizedDescription)")
         }

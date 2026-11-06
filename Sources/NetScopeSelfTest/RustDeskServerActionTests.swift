@@ -54,6 +54,38 @@ func registerRustDeskServerActionTests(_ suite: TestSuite) {
                                                                           averageKbps: 0, currentKbps: 0))
         try expect(v6.script.contains("( dst [2001:db8::5]:40000 )"), "IPv6 entre crochets, sans forme ::ffff:")
         try expect(action.consequences.joined().contains("reconnecter aussitôt"), "le poste peut se reconnecter, dit avant")
+        // Sans port : refusée (le filtre viserait tous les postes derrière la même IP publique).
+        let noPort = RustDeskRelaySession(address: "203.0.113.58", seconds: 1, megabytes: 0, maxKbps: 0, averageKbps: 0, currentKbps: 0)
+        try expect(noPort.port == nil, "session sans port")
+        var refusedNoPort = ""
+        do { _ = try RustDeskServerAction.disconnect(noPort) } catch { refusedNoPort = (error as? RustDeskActionError)?.message ?? "" }
+        try expect(refusedNoPort.contains("Port de la session inconnu"), "déconnexion sans port refusée, raison dite")
+    }
+
+    suite.add("Serveur RustDesk, actions : sauvegarde en 600, compose d'origine, image tout-en-un, compte apt après update") {
+        let rustdesk = RustDeskServerAction.updateRustDesk(activeSessions: 0).script
+        try expect(rustdesk.contains("umask 077; exec tar -C \"$1\" -czf \"$2\" $3' sh \"$DATA\" \"$B\" \"$F\""), "archive créée avec umask 077")
+        try expect(rustdesk.contains("&& asroot chmod 600 \"$B\"; then"), "mode 600 vérifié")
+        try expect(!rustdesk.contains("cd \"$DIR\""), "aucun cd dans le dossier du compose")
+        try expect(rustdesk.contains("com.docker.compose.project.config_files") && rustdesk.contains("-p \"$PROJ\"")
+                   && rustdesk.contains("--project-directory \"$DIR\"") && rustdesk.contains("-f \"$dcf\""), "projet et fichiers d'origine")
+        try expect(rustdesk.contains("dk tag \"$IIDR\" \"$RETOURR\"") && rustdesk.contains("dk tag \"$RETOURR\" \"$IMGR\""), "image de hbbr étiquetée et remise")
+        try expect(rustdesk.contains("[ -z \"$S$R\" ]"), "conteneur unique pris sans hbbs ni hbbr")
+        try expect(RustDeskServerAction.restartRelay(activeSessions: 0).script.contains("[ -z \"$R\" ] && [ \"$(printf"), "hbbr : conteneur unique")
+        let system = RustDeskServerAction.updateSystem(scope: .all, allowReboot: false, activeSessions: 0).script
+        try expect(system.range(of: "apt-get update -q")!.lowerBound < system.range(of: "A1=$(apt list")!.lowerBound, "compte avant pris après apt-get update")
+        // Fonction dc : arguments dans l'ordre attendu (essai local en sh, sans docker).
+        let body = rustdesk.components(separatedBy: "\ndc() {\n")[1].components(separatedBy: "\n}\n")[0]
+        let probe = "DIR='/srv/mon dossier'\nPROJ=rd\nCFG='/srv/mon dossier/a.yml,/srv/b.yml'\nDCV=2\ndkl() { printf '<%s>' \"$@\"; }\ndc() {\n" + body + "\n}\ndc up -d\n"
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", probe]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        try process.run()
+        process.waitUntilExit()
+        let out = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        try expectEqual(out, "<compose><--project-directory></srv/mon dossier><-p><rd><-f></srv/mon dossier/a.yml><-f></srv/b.yml><up><-d>", "arguments de docker compose")
     }
 
     suite.add("Serveur RustDesk, actions : chaque script ne contient que ses propres commandes de modification") {
@@ -119,6 +151,9 @@ func registerRustDeskServerActionTests(_ suite: TestSuite) {
         try expectEqual(restart.confirmLabel, "Redémarrer hbbr", "bouton de confirmation")
         let system = RustDeskServerAction.updateSystem(scope: .all, allowReboot: true, activeSessions: 0)
         try expect(system.consequences.joined().contains("Redémarrage du serveur permis"), "redémarrage annoncé")
+        let unknown = RustDeskServerAction.restartRelay(activeSessions: nil)
+        try expect(unknown.consequences[0].contains("inconnues") && unknown.warnsSessions, "sessions inconnues : dit, avec avertissement")
+        try expect(!RustDeskServerAction.updateRustDesk(activeSessions: 0).warnsSessions, "aucune session : pas d'avertissement")
         let account = RustDeskServerAccount(user: "admin", host: "assistance.exemple.ca", port: 2222)
         let command = RustDeskServerSSH.copyableActionCommand(account, action: restart)
         try expect(command.hasPrefix("ssh -T -p 2222 -- admin@assistance.exemple.ca "), "même connexion ssh")
@@ -192,7 +227,9 @@ func registerRustDeskServerActionTests(_ suite: TestSuite) {
         try expectEqual(RustDeskUpdateSchedule.decide(schedule, now: slot.addingTimeInterval(3 * 3_600 + 60), calendar: calendar, records: [postponed], machineID: "MAC-A"),
                         .expired(slot: slot), "fenêtre passée : abandon")
         let done = RustDeskActionRecord(date: at, kind: .updateRustDesk, target: "x", outcome: .ok, summary: "", origin: "A", slot: slot)
-        try expectEqual(RustDeskUpdateSchedule.decide(schedule, now: at.addingTimeInterval(3_600), calendar: calendar, records: [done], machineID: "MAC-A"),
+        var rustdeskOnly = schedule
+        rustdeskOnly.target = .rustdesk
+        try expectEqual(RustDeskUpdateSchedule.decide(rustdeskOnly, now: at.addingTimeInterval(3_600), calendar: calendar, records: [done], machineID: "MAC-A"),
                         .idle, "faite : rien de plus")
         try expectEqual(RustDeskUpdateSchedule.decide(schedule, now: slot.addingTimeInterval(5 * 3_600), calendar: calendar, records: [], machineID: "MAC-A"),
                         .missed(slot: slot), "aucun essai dans la fenêtre : manquée")
@@ -200,11 +237,35 @@ func registerRustDeskServerActionTests(_ suite: TestSuite) {
         changed.changedAt = slot.addingTimeInterval(4 * 3_600)
         try expectEqual(RustDeskUpdateSchedule.decide(changed, now: slot.addingTimeInterval(5 * 3_600), calendar: calendar, records: [], machineID: "MAC-A"),
                         .idle, "réglée après l'échéance : ni faite ni manquée")
+        // L'agent note la manquée pour chaque action ouverte (RustDesk et système).
         let missedOld = RustDeskUpdateSchedule.decide(schedule, now: slot.addingTimeInterval(6 * 86_400), calendar: calendar,
-                                                      records: [RustDeskActionRecord(date: slot, kind: .updateRustDesk, target: "", outcome: .missed,
-                                                                                     summary: "", origin: "A", slot: slot)], machineID: "MAC-A")
+                                                      records: [RustDeskActionKind.updateRustDesk, .updateSystem].map {
+                                                          RustDeskActionRecord(date: slot, kind: $0, target: "", outcome: .missed,
+                                                                               summary: "", origin: "A", slot: slot)
+                                                      }, machineID: "MAC-A")
         try expectEqual(missedOld, .idle, "manquée notée une seule fois")
         try expectEqual(schedule.actions().map(\.kind), [.updateRustDesk, .updateSystem], "RustDesk puis système")
+        // RustDesk réussie, système reporté : nouvel essai du système seulement.
+        let rdOK = RustDeskActionRecord(date: at, kind: .updateRustDesk, target: "x", outcome: .ok, summary: "", origin: "A", slot: slot)
+        let sysLater = RustDeskActionRecord(date: at, kind: .updateSystem, target: "x", outcome: .postponed, summary: "", origin: "A", slot: slot)
+        try expectEqual(RustDeskUpdateSchedule.decide(schedule, now: at.addingTimeInterval(600), calendar: calendar, records: [rdOK, sysLater], machineID: "MAC-A"),
+                        .idle, "système reporté : attendre 15 min")
+        try expectEqual(RustDeskUpdateSchedule.decide(schedule, now: at.addingTimeInterval(900), calendar: calendar, records: [rdOK, sysLater], machineID: "MAC-A"),
+                        .run(slot: slot, last: false), "système reporté : nouvel essai")
+        try expectEqual(RustDeskUpdateSchedule.openKinds(schedule, slot: slot, records: [rdOK, sysLater]), [.updateSystem], "système seulement")
+        try expectEqual(RustDeskUpdateSchedule.decide(schedule, now: slot.addingTimeInterval(3 * 3_600 + 60), calendar: calendar, records: [rdOK, sysLater], machineID: "MAC-A"),
+                        .expired(slot: slot), "système reporté toute la fenêtre : abandon")
+        let sysOK = RustDeskActionRecord(date: at, kind: .updateSystem, target: "x", outcome: .ok, summary: "", origin: "A", slot: slot)
+        try expectEqual(RustDeskUpdateSchedule.decide(schedule, now: at.addingTimeInterval(3_600), calendar: calendar, records: [rdOK, sysOK], machineID: "MAC-A"),
+                        .idle, "les deux faites : rien de plus")
+        // changedAt : seulement si l'échéance change.
+        var option = schedule
+        option.postponeIfSession = false
+        option.runnerName = "Autre nom"
+        try expectEqual(option.changed(from: schedule, now: at).changedAt, schedule.changedAt, "option cochée : échéance gardée")
+        var moved = schedule
+        moved.hour = 4
+        try expectEqual(moved.changed(from: schedule, now: at).changedAt, at, "heure changée : changedAt avance")
         try expect(schedule.actions().allSatisfy(\.postponeIfSession), "report si session")
         try expect(!RustDeskUpdateSchedule.thisMachineID().isEmpty, "identifiant de ce Mac lu (gethostuuid, état local)")
     }
@@ -251,5 +312,20 @@ func registerRustDeskServerActionTests(_ suite: TestSuite) {
         try expect(RustDeskServerCredentials.account(carnet, connections: []) == nil, "connexion supprimée : aucun compte")
         try expect(AlertEvent.rustDeskScheduledUpdate(a) == nil, "réussite : aucune alerte")
         try expectEqual(AlertEvent.rustDeskScheduledUpdate(b)?.severity, .critical, "échec : alerte critique")
+        // Écriture sous verrou : seules les actions changent, le reste du fichier est gardé.
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("netscope-suivi-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = RustDeskWatchStore(url: folder.appendingPathComponent(RustDeskWatchStore.fileName))
+        var onDisk = RustDeskWatchStore.Contents()
+        onDisk.technicians = ["198.51.100.4": "Technicien A"]
+        onDisk.schedule = schedule
+        try store.save(onDisk)
+        try store.update { $0.actions = RustDeskActionRecord.union([b], $0.actions) }
+        let reread = store.load()
+        try expectEqual(reread?.technicians, onDisk.technicians, "techniciens gardés")
+        try expectEqual(reread?.schedule, schedule, "réglage gardé")
+        try expectEqual(reread?.actions.map(\.id), [b.id], "action ajoutée")
+        try expectEqual(store.lockURL.lastPathComponent, RustDeskWatchStore.fileName + ".lock", "verrou à côté (test)")
+        try expect(RustDeskWatchStore.standard.lockURL.path.contains("/Caches/"), "verrou hors du dossier synchronisé")
     }
 }

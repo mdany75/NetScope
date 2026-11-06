@@ -12,7 +12,8 @@ struct RustDeskActionsPanel: View {
     @ObservedObject var watch: RustDeskServerWatchModel
     @ObservedObject var actions = RustDeskServerActionModel.shared
 
-    private var sessions: Int { status.relayConsole == .ok ? status.relaySessions.count : 0 }
+    /// Sessions relayées en cours ; nil : inconnues (console de hbbr illisible), dit comme tel.
+    private var sessions: Int? { status.relayConsole == .ok ? status.relaySessions.count : nil }
 
     static var machineID: String {
         RegEnvironment.isDemo ? RustDeskServerDemo.demoMachineID : RustDeskUpdateSchedule.thisMachineID()
@@ -101,6 +102,13 @@ struct RustDeskOutcomeIcon: View {
 struct RustDeskScheduleEditor: View {
     @ObservedObject var watch: RustDeskServerWatchModel
     let machineID: String
+    @ObservedObject private var agent = AgentController.shared
+    @EnvironmentObject private var state: AppState
+
+    /// L'agent (note 64) est inscrit et son battement de cœur est récent.
+    private var agentActive: Bool {
+        agent.isEnabled && (agent.status?.isResponding(now: agent.now) ?? false)
+    }
 
     private var schedule: RustDeskUpdateSchedule { watch.contents.schedule }
 
@@ -169,15 +177,29 @@ struct RustDeskScheduleEditor: View {
                         .disabled(machineID.isEmpty)
                     }
                 }
+                if !agentActive {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Theme.warning)
+                        Text("Agent NetScope non actif sur ce Mac\u{00A0}: la mise à jour planifiée ne sera pas faite ici, et une échéance manquée ne sera pas notée.")
+                            .font(Theme.small).foregroundStyle(Theme.text).fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 4)
+                        Button("Réglages de l’agent…") {
+                            RegNavigation.shared.section = .surveillance
+                            state.open(.reglages)
+                        }
+                        .buttonStyle(RemoteSmallButtonStyle())
+                    }
+                }
             }
         }
+        .onAppear { agent.refresh() }
     }
 
     private var runnerText: String {
         let next = schedule.nextSlot(after: Date(), calendar: .current).map { "Prochaine\u{00A0}: \(RustDeskRequestRow.moment($0)) (\(schedule.label(calendar: .current)))" } ?? ""
         if schedule.runnerID.isEmpty { return "Aucun Mac choisi\u{00A0}: rien ne sera fait. " + next }
         if schedule.runnerID == machineID {
-            return "Faite par l’agent NetScopeAgent de ce Mac, même NetScope fermé\u{00A0}; un seul Mac l’exécute. Report de 15\u{00A0}min en 15\u{00A0}min pendant 3\u{00A0}h si une session est en cours, alerte en cas d’échec. " + next
+            return "Faite par l’agent NetScopeAgent de ce Mac (s’il est actif), même NetScope fermé\u{00A0}; un seul Mac l’exécute. Report de 15\u{00A0}min en 15\u{00A0}min pendant 3\u{00A0}h si une session est en cours, alerte en cas d’échec. " + next
         }
         return "Faite par «\u{00A0}\(schedule.runnerName.isEmpty ? "un autre Mac" : schedule.runnerName)\u{00A0}» (un autre Mac). " + next
     }
@@ -186,10 +208,29 @@ struct RustDeskScheduleEditor: View {
 // MARK: - Confirmation
 
 struct RustDeskActionSheet: View {
-    let action: RustDeskServerAction
+    /// Action ouverte ; ses options (portée, redémarrage) se changent ici, dans `pending`.
+    let opened: RustDeskServerAction
     @ObservedObject var actions = RustDeskServerActionModel.shared
 
-    private var destructive: Bool { action.kind != .disconnect || action.activeSessions > 0 }
+    init(action: RustDeskServerAction) {
+        opened = action
+    }
+
+    private var action: RustDeskServerAction {
+        if let pending = actions.pending, pending.id == opened.id { return pending }
+        return opened
+    }
+
+    private var destructive: Bool { action.kind != .disconnect }
+
+    private func option<V>(_ path: WritableKeyPath<RustDeskServerAction, V>) -> Binding<V> {
+        Binding(get: { action[keyPath: path] },
+                set: { value in
+                    guard var pending = actions.pending, pending.id == opened.id else { return }
+                    pending[keyPath: path] = value
+                    actions.pending = pending
+                })
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -198,12 +239,22 @@ struct RustDeskActionSheet: View {
                 Text("Démonstration\u{00A0}: l’action est simulée, rien n’est envoyé au serveur.")
                     .font(Theme.caption).foregroundStyle(Theme.textSecondary)
             }
+            if action.kind == .updateSystem {
+                HStack(spacing: 12) {
+                    Picker("Mises à jour", selection: option(\.scope)) {
+                        ForEach(RustDeskUpdateScope.allCases, id: \.self) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented).fixedSize()
+                    Toggle("Redémarrage permis", isOn: option(\.allowReboot)).controlSize(.small)
+                }
+                .disabled(actions.running || actions.result != nil)
+            }
             VStack(alignment: .leading, spacing: 5) {
                 ForEach(Array(action.consequences.enumerated()), id: \.offset) { index, line in
                     HStack(alignment: .top, spacing: 6) {
-                        Image(systemName: index == 0 && action.activeSessions > 0 ? "exclamationmark.triangle.fill" : "circle.fill")
-                            .font(.system(size: index == 0 && action.activeSessions > 0 ? 11 : 5))
-                            .foregroundStyle(index == 0 && action.activeSessions > 0 ? Theme.warning : Theme.textSecondary)
+                        Image(systemName: index == 0 && action.warnsSessions ? "exclamationmark.triangle.fill" : "circle.fill")
+                            .font(.system(size: index == 0 && action.warnsSessions ? 11 : 5))
+                            .foregroundStyle(index == 0 && action.warnsSessions ? Theme.warning : Theme.textSecondary)
                             .frame(width: 12, height: 14)
                         Text(line).font(Theme.small).foregroundStyle(Theme.text).fixedSize(horizontal: false, vertical: true)
                     }
