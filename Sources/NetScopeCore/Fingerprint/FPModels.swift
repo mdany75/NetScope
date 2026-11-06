@@ -238,9 +238,12 @@ public struct FPServiceResult: Hashable, Sendable, Identifiable {
     public var clearText: String?
     public var clues: [FPClue]
     public var confidence: FPConfidence
+    /// La version est celle du protocole (SMB 3.1.1, RFB 3.8), pas celle d'un logiciel.
+    public var isProtocolVersion: Bool
 
     public init(port: UInt16, product: String? = nil, version: String? = nil, system: String? = nil,
-                clearText: String? = nil, clues: [FPClue] = [], confidence: FPConfidence = .faible) {
+                clearText: String? = nil, clues: [FPClue] = [], confidence: FPConfidence = .faible,
+                isProtocolVersion: Bool = false) {
         self.port = port
         self.product = product
         self.version = version
@@ -248,6 +251,7 @@ public struct FPServiceResult: Hashable, Sendable, Identifiable {
         self.clearText = clearText
         self.clues = clues
         self.confidence = confidence
+        self.isProtocolVersion = isProtocolVersion
     }
 
     /// « OpenSSH 8.9p1 », « nginx », nil si rien n'est reconnu.
@@ -257,7 +261,7 @@ public struct FPServiceResult: Hashable, Sendable, Identifiable {
     }
 
     /// La version est annoncée (utile au rapport Sécurité).
-    public var exposesVersion: Bool { version != nil }
+    public var exposesVersion: Bool { version != nil && !isProtocolVersion }
 }
 
 /// Famille de système, pour regrouper des indices concordants.

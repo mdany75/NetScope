@@ -290,6 +290,7 @@ public enum FPServiceRules {
         context.product("VNC (RFB)", version: version,
                         clue: FPClue(source: .banner, observed: banner, conclusion: "VNC", weight: .forte, port: context.result.port))
         context.result.clearText = "VNC"
+        context.result.isProtocolVersion = context.result.product == "VNC (RFB)"
         // RFB 3.889 : partage d'écran de macOS.
         if raw.hasPrefix("003.889") {
             context.vote(.macos, name: "macOS", type: .poste,
@@ -318,6 +319,7 @@ public enum FPServiceRules {
         if observation.smb1Only == true {
             let clue = FPClue(source: .smb, observed: "SMB1 seulement", conclusion: "SMB1 (obsolète)", weight: .forte, port: port)
             context.product("SMB", version: "1", clue: clue)
+            context.result.isProtocolVersion = true
             context.result.clearText = "SMB1"
             return
         }
@@ -326,8 +328,8 @@ public enum FPServiceRules {
         let signing = observation.smbSigningRequired.map { $0 ? ", signature exigée" : ", signature facultative" } ?? ""
         context.product("SMB", version: String(name.dropFirst(4)),
                         clue: FPClue(source: .smb, observed: name + signing, conclusion: name, weight: .forte, port: port))
+        context.result.isProtocolVersion = context.result.product == "SMB"
         if observation.smbSambaHint == true {
-            context.result.product = "Samba (SMB)"
             context.vote(.linux, name: "Linux (Samba)",
                          clue: FPClue(source: .smb, observed: "indice SPNEGO de Samba", conclusion: "Samba (Linux, NAS)",
                                       weight: .moyenne, port: port))
@@ -492,6 +494,7 @@ public enum FPServiceRules {
             ("unifi network", .ubiquiti, "Contrôleur UniFi", .serveur), ("unifi os", .ubiquiti, "UniFi OS", .routeur),
             ("edgeos", .ubiquiti, "Ubiquiti EdgeOS", .routeur), ("airos", .ubiquiti, "Ubiquiti airOS", .pointAcces),
             ("pfsense", .bsd, "pfSense", .routeur), ("opnsense", .bsd, "OPNsense", .routeur),
+            ("proxmox backup", .linux, "Proxmox Backup Server", .serveur),
             ("proxmox", .linux, "Proxmox VE", .serveur), ("vmware esxi", .esxi, "VMware ESXi", .serveur),
             ("idrac", .bmc, "Dell iDRAC", .serveur), ("ilo ", .bmc, "HPE iLO", .serveur), ("integrated lights-out", .bmc, "HPE iLO", .serveur),
             ("routeros", .routeros, "MikroTik RouterOS", .routeur), ("mikrotik", .routeros, "MikroTik RouterOS", .routeur),

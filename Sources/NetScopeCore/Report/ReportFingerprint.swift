@@ -20,7 +20,9 @@ public struct ReportFingerprintFinding: Hashable, Sendable {
 
     public var host: String
     public var ip: IPv4Address
+    /// Premier port ; `ports` les donne tous quand le même constat vaut pour plusieurs (80 et 443).
     public var port: UInt16
+    public var ports: [UInt16]
     public var kind: Kind
     /// « OpenSSH 8.9p1 », « Telnet », « SMB1 ».
     public var detail: String
@@ -47,15 +49,24 @@ extension ReportBuilder {
                     default: severity = .moyen
                     }
                     let detail = clear + (service.productLabel.map { $0 == clear ? "" : " (\($0))" } ?? "")
-                    result.append(ReportFingerprintFinding(host: host, ip: device.ip, port: service.port, kind: kind,
-                                                           detail: detail, system: system, severity: severity))
+                    append(ReportFingerprintFinding(host: host, ip: device.ip, port: service.port, ports: [service.port],
+                                                    kind: kind, detail: detail, system: system, severity: severity), to: &result)
                 } else if service.exposesVersion, let label = service.productLabel {
-                    result.append(ReportFingerprintFinding(host: host, ip: device.ip, port: service.port, kind: .version,
-                                                           detail: label, system: system, severity: .faible))
+                    append(ReportFingerprintFinding(host: host, ip: device.ip, port: service.port, ports: [service.port],
+                                                    kind: .version, detail: label, system: system, severity: .faible), to: &result)
                 }
             }
         }
         return result.sorted { ($0.severity, $0.ip, $0.port) < ($1.severity, $1.ip, $1.port) }
+    }
+
+    /// Même constat sur un autre port du même appareil (serveur web sur 80 et 443) : une seule ligne.
+    private static func append(_ finding: ReportFingerprintFinding, to result: inout [ReportFingerprintFinding]) {
+        if let index = result.firstIndex(where: { $0.ip == finding.ip && $0.kind == finding.kind && $0.detail == finding.detail }) {
+            result[index].ports.append(finding.port)
+        } else {
+            result.append(finding)
+        }
     }
 
     /// Blocs du rapport : tableau des constats, ou rien si aucun service n'a été lu.
@@ -63,7 +74,8 @@ extension ReportBuilder {
         let findings = fingerprintFindings(devices)
         guard !findings.isEmpty else { return [] }
         let rows = findings.map { item in
-            ReportRow([ReportCell(item.host, bold: true), ReportCell(item.ip.description), ReportCell("\(item.port)"),
+            ReportRow([ReportCell(item.host, bold: true), ReportCell(item.ip.description),
+                       ReportCell(item.ports.map(String.init).joined(separator: ", ")),
                        ReportCell(item.kind.label), ReportCell(item.detail), ReportCell(item.system ?? "—", tone: .muted),
                        ReportCell(item.severity.label, badge: item.severity.tone)])
         }

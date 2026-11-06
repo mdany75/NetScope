@@ -87,6 +87,8 @@ struct DevicePortsTab: View {
     static func start(_ model: ToolPortScanModel, device: Device, state: AppState, store: ToolStore) {
         model.target = device.ip.description
         model.start(store: store) { summary in
+            // Note 68 : bannières, en-têtes, certificats et dialecte SMB lus, même pour un scan interrompu.
+            state.recordServices(host: device.ip.description, results: summary.results)
             guard !summary.wasCancelled else { return }
             // Un profil partiel (Imprimantes, Caméras…) ne doit pas effacer les ports connus hors de sa liste.
             let scanned = Set(summary.results.map(\.port))
@@ -104,7 +106,7 @@ struct DevicePortsTab: View {
             let filtered = summary.results.filter { $0.state == .filtered }
             return (summary.open + (filtered.count <= 8 ? filtered : [])).sorted { $0.port < $1.port }
         }
-        return device.openPorts.sorted().map { PortScanResult(port: $0, state: .open, banner: "connu (inventaire)") }
+        return device.knownPortRows
     }
 
     private var title: String {
@@ -158,6 +160,7 @@ struct DevicePortsTab: View {
 // MARK: - Web
 
 struct DeviceWebTab: View {
+    @EnvironmentObject private var state: AppState
     let device: Device
     @ObservedObject var model: DeviceWebModel
     @ObservedObject var store: ToolStore
@@ -207,7 +210,7 @@ struct DeviceWebTab: View {
                 .textFieldStyle(.roundedBorder)
                 .font(Theme.mono(12))
                 .autocorrectionDisabled()
-                .onSubmit { model.run(store: store) }
+                .onSubmit { model.run(store: store, onResult: state.recordWebProbe) }
                 .frame(minWidth: 120)
             Menu {
                 ForEach(DeviceSession.webURLs(for: device), id: \.self) { url in
@@ -220,7 +223,7 @@ struct DeviceWebTab: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .help("Adresses web d’après les ports ouverts")
-            Button(model.isRunning ? "Analyse…" : "Analyser") { model.run(store: store) }
+            Button(model.isRunning ? "Analyse…" : "Analyser") { model.run(store: store, onResult: state.recordWebProbe) }
                 .buttonStyle(.secondary)
                 .disabled(model.isRunning)
             Button("Ouvrir dans le navigateur") { ToolActions.open(model.urlText) }

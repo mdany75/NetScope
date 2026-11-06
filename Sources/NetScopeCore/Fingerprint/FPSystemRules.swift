@@ -54,7 +54,7 @@ public enum FPSystemRules {
         // Indices qui contredisent la famille retenue : la confiance baisse d'un cran.
         let contradicted = ranked.dropFirst().contains { $0.value >= 2 }
         let strongest = chosen.map(\.clue.weight).max() ?? .faible
-        var confidence: FPConfidence = strongest == .forte || total >= 4 ? .forte : (total >= 2 ? .moyenne : .faible)
+        var confidence: FPConfidence = strongest == .forte || total >= 5 ? .forte : (total >= 2 ? .moyenne : .faible)
         if contradicted, confidence > .faible, !(strongest == .forte && total >= 6) {
             confidence = FPConfidence(rawValue: confidence.rawValue - 1) ?? .faible
         }
@@ -153,7 +153,7 @@ public enum FPSystemRules {
         if lower.hasPrefix("hp ethernet") || lower.contains("jetdirect") || lower.hasPrefix("brother nc-")
             || ["laserjet", "officejet", "ricoh", "lexmark", "xerox", "kyocera", "epson"].contains(where: lower.contains) {
             let name = info.vendor.map { "Imprimante \($0)" } ?? "Imprimante"
-            return [vote(.printer, name, info.version, .imprimante)]
+            return [vote(.printer, name, info.version.map { "· micrologiciel \($0)" }, .imprimante)]
         }
         if lower.contains("vmware esxi") { return [vote(.esxi, "VMware ESXi", info.version, .serveur)] }
         if lower.hasPrefix("darwin") { return [vote(.macos, "macOS", nil, .poste)] }
