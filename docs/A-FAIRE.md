@@ -1726,7 +1726,13 @@ Dany : étendre la synchronisation iCloud Drive de la note 56 (0.18.0) au lieu d
   toutes les sessions, proposé à part avec avertissement). Avec RustDesk Server Pro : son API.
   Le poste peut se reconnecter aussitôt (pas de blocage).
 - Quarantaine et déconnexion automatique : retirées par Dany le 6 novembre 2026.
-- À vérifier avant : quel serveur tourne chez Groupe Couture (libre ou Pro, Docker ou non).
+- Serveur de Groupe Couture (précisé par Dany le 6 novembre 2026) : **RustDesk libre (OSS), dans
+  Docker**. Donc : version lue par `docker image inspect` et `hbbs --version` dans le conteneur ;
+  mise à jour = `docker pull` de rustdesk/rustdesk-server puis recréation des conteneurs (compose
+  ou `docker run` d’origine relus avant) ; retour arrière = image précédente gardée sous une
+  étiquette ; clé et base dans le volume monté, sauvegardés avant ; « Déconnecter » coupe la
+  connexion dans l’espace réseau du conteneur hbbr (`ss -K` via `nsenter` ou `docker exec`).
+  Pas d’API Server Pro.
 - **Associer un ID à une MAC automatiquement** : la fiche d’inventaire a déjà un champ « ID
   RustDesk » (0.26.1), retenu par la MAC. Le serveur ne voit que l’IP publique du site (NAT) ; à la
   connexion, la table des sessions de la FortiGate du site (jeton en lecture) donne le poste
