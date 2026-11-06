@@ -137,6 +137,8 @@ registerSMBSharesTests(suite)
 registerFlowTests(suite)
 // Note 76 (0.28.0) : alertes sur téléphone par ntfy et Pushover.
 registerAlertPhoneTests(suite)
+// Note 77 (0.30.0) : contrôleurs UniFi, Omada et Meraki (réponses fixes, aucun réseau).
+registerControllerTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

@@ -293,7 +293,8 @@ public enum SiteSwitchFilter {
             if let controller = candidate.controllerID {
                 // FortiSwitch : celui de la FortiGate du site actif ; sans site actif, tous.
                 guard let site = activeSite else { return true }
-                return site.fortiGateIDs.contains(controller)
+                // Note 77 : ou un contrôleur UniFi, Omada ou Meraki du site actif.
+                return site.fortiGateIDs.contains(controller) || site.controllers.contains { $0.id == controller }
             }
             let owners = sites.filter { $0.switchHosts.contains(candidate.host) }
             if let site = activeSite {

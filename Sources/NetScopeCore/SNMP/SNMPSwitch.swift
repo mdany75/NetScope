@@ -101,6 +101,7 @@ public struct SNMPSystemInfo: Hashable, Sendable, Codable {
             case 890: return "Zyxel"
             case 4526: return "Netgear"
             case 11863: return "TP-Link"
+            case 29671: return "Cisco Meraki"
             case 25506: return "HPE"
             case 1916: return "Extreme"
             case 30065: return "Arista"
@@ -331,6 +332,9 @@ public struct SNMPSwitchSnapshot: Hashable, Sendable, Codable, Identifiable {
     /// Note 60 : modèle, numéro de série et version du logiciel (ENTITY-MIB, sinon sysDescr) ;
     /// nil dans un relevé antérieur à la 0.23.0 ou sans réponse utile.
     public var hardware: SNMPHardwareInfo?
+    /// Note 77 : marque du contrôleur qui a fourni ce relevé (« UniFi », « Omada », « Meraki ») ;
+    /// nil pour un FortiSwitch lu par la FortiGate ou un relevé SNMP.
+    public var controllerKind: String?
 
     public init(host: IPv4Address, system: SNMPSystemInfo, interfaces: [SNMPInterface], fdb: [SNMPFDBEntry] = [],
                 neighbors: [SNMPLLDPNeighbor] = [], pvid: [Int: Int] = [:], poePorts: Set<Int> = [],
@@ -356,6 +360,9 @@ public struct SNMPSwitchSnapshot: Hashable, Sendable, Codable, Identifiable {
 
     /// Relevé fourni par un contrôleur (FortiGate) et non par SNMP.
     public var isViaController: Bool { controllerName != nil }
+
+    /// Source affichée d'un relevé de contrôleur : « FortiGate », ou la marque (note 77).
+    public var controllerSourceLabel: String { controllerKind ?? "FortiGate" }
 
     public var displayName: String { system.name.isEmpty ? host.description : system.name }
 

@@ -5,6 +5,8 @@ public struct NameDetails: Hashable, Sendable {
     /// Origine du nom retenu.
     public enum Source: String, Hashable, Sendable, Codable {
         case dns, mdns, netbios, snmp, fortigate
+        /// Note 77 : nom donné par un contrôleur UniFi, Omada ou Meraki.
+        case controller
 
         public var label: String {
             switch self {
@@ -13,6 +15,7 @@ public struct NameDetails: Hashable, Sendable {
             case .netbios: return "NetBIOS"
             case .snmp: return "SNMP"
             case .fortigate: return "FortiGate"
+            case .controller: return "Contrôleur (UniFi, Omada, Meraki)"
             }
         }
     }
