@@ -420,7 +420,7 @@ struct TLSChainRow: Identifiable {
     var id: Int { index }
     var role: String {
         if index == 0 { return "Serveur" }
-        return certificate.isSelfIssued ? "Racine" : (index == count - 1 && certificate.isCA == true ? "Intermédiaire" : "Intermédiaire")
+        return certificate.isSelfIssued ? "Racine" : "Intermédiaire"
     }
     var subjectText: String { certificate.subject.summary }
     var issuerText: String { certificate.isSelfIssued ? "lui-même" : certificate.issuer.summary }
