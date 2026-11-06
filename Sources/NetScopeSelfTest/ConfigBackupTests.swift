@@ -119,6 +119,14 @@ func registerConfigBackupTests(_ suite: TestSuite) {
         try expectEqual(cisco.last, "netadmin@10.182.122.2", "Cisco : pas de commande exec")
         try expect(cisco.contains("StrictHostKeyChecking=accept-new"), "empreinte acceptée")
         try expect(!cisco.contains("-p"), "port 22 par défaut")
+        let probe = ConfigBackupSSH.hostKeyProbeArguments(ConfigSSHTarget(user: "netadmin", host: "10.182.122.2", port: 2222),
+                                                          knownHosts: "/tmp/kh")
+        try expect(probe.contains("UserKnownHostsFile=/tmp/kh") && probe.contains("PreferredAuthentications=none")
+                   && probe.contains("PasswordAuthentication=no") && probe.contains("BatchMode=yes"), "relevé de clé sans authentification")
+        try expectEqual(Array(probe.suffix(3)), ["--", "netadmin@10.182.122.2", "true"], "relevé : destination après --")
+        try expect(probe.contains("2222"), "relevé : port")
+        let keygen = "256 SHA256:AbC+/12 10.182.122.2 (ED25519)\n3072 SHA256:XyZ 10.182.122.2 (RSA)\n"
+        try expectEqual(ConfigBackupSSH.fingerprints(inKeygenOutput: keygen), ["SHA256:AbC+/12", "SHA256:XyZ"], "empreintes de ssh-keygen -l")
         let input = ConfigBackupSSH.input(for: .cisco).map { String(decoding: $0, as: UTF8.self) }
         try expectEqual(input, "terminal length 0\nshow running-config\nexit\n", "commandes de Cisco sur l'entrée")
         try expect(!ConfigSSHTarget(user: "-oProxyCommand=x", host: "h").isValid, "utilisateur qui serait une option")

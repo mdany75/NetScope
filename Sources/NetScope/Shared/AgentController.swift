@@ -1,29 +1,36 @@
+import AppKit
 import Foundation
 import NetScopeCore
 import ServiceManagement
 
 /// Note 64 : présence de l'app pour l'agent sans fenêtre. Au lancement, AVANT que la Surveillance et
 /// les Journaux lisent leurs fichiers : app-ouverte.json est écrit, puis le verrou partagé est pris et
-/// rendu (une écriture de l'agent déjà commencée se termine, aucune autre ne suit). Rafraîchie toutes
-/// les 30 s, effacée à la fermeture : l'agent reprend la main. Rien en démonstration ni en capture.
+/// rendu (une écriture de l'agent déjà commencée se termine, aucune autre ne suit ; 2 s au plus, pour ne
+/// pas figer le lancement). Rafraîchie toutes les 30 s en temps mural et au réveil, effacée à la
+/// fermeture : l'agent reprend la main. L'agent reconnaît aussi l'app vivante par son pid
+/// (AppPresence.processIsApp), même après une longue veille. Rien en démonstration ni en capture.
 enum AppPresenceKeeper {
     private static var timer: DispatchSourceTimer?
+    private static var wakeObserver: NSObjectProtocol?
 
     static func launch() {
         guard !RegEnvironment.isSandboxed else { return }
         let files = AutomationFiles.standard
         refresh(files)
-        _ = AutomationLock.with(files.lockURL, timeout: 15) { true }
+        _ = AutomationLock.with(files.lockURL, timeout: 2) { true }
         let timer = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
-        timer.schedule(deadline: .now() + 30, repeating: 30)
+        timer.schedule(wallDeadline: .now() + 30, repeating: 30)
         timer.setEventHandler { refresh(files) }
         timer.resume()
         self.timer = timer
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification,
+                                                                         object: nil, queue: nil) { _ in refresh(files) }
     }
 
     static func quit() {
         guard !RegEnvironment.isSandboxed else { return }
         timer?.cancel()
+        if let wakeObserver { NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver) }
         AppPresence.clear(.standard, pid: getpid())
     }
 

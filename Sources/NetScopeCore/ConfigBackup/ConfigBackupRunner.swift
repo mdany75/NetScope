@@ -116,6 +116,95 @@ public enum ConfigBackupSSH {
                          host: target.host, kind: kind)
     }
 
+    /// Arguments du relevé de clé : connexion sans aucune authentification (rien n'est envoyé),
+    /// clé enregistrée dans un known_hosts temporaire, mêmes algorithmes que la sauvegarde.
+    public static func hostKeyProbeArguments(_ target: ConfigSSHTarget, knownHosts: String) -> [String] {
+        var args = [
+            "-T", "-n",
+            "-o", "BatchMode=yes",
+            "-o", "ConnectTimeout=\(connectTimeout)",
+            "-o", "StrictHostKeyChecking=accept-new",
+            "-o", "UserKnownHostsFile=\(knownHosts)",
+            "-o", "GlobalKnownHostsFile=/dev/null",
+            "-o", "HashKnownHosts=no",
+            "-o", "UpdateHostKeys=no",
+            "-o", "CheckHostIP=no",
+            "-o", "PreferredAuthentications=none",
+            "-o", "PasswordAuthentication=no",
+            "-o", "KbdInteractiveAuthentication=no",
+            "-o", "PubkeyAuthentication=no",
+            "-o", "GSSAPIAuthentication=no",
+            "-o", "HostbasedAuthentication=no",
+            "-o", "LogLevel=ERROR",
+            "-o", "ControlMaster=no",
+            "-o", "ControlPath=none",
+            "-o", "KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group1-sha1",
+            "-o", "HostKeyAlgorithms=+ssh-rsa",
+        ]
+        if target.port != 22 { args += ["-p", String(target.port)] }
+        args += ["--", target.destination, "true"]
+        return args
+    }
+
+    /// Empreintes SHA256 de la sortie de « ssh-keygen -lf » (une par ligne).
+    public static func fingerprints(inKeygenOutput text: String) -> [String] {
+        text.components(separatedBy: "\n").compactMap { line in
+            line.split(separator: " ").first { $0.hasPrefix("SHA256:") }.map(String.init)
+        }
+    }
+
+    /// « Accepter l'empreinte » : relève la clé présentée maintenant (sans s'authentifier) et ne
+    /// l'ajoute à ~/.ssh/known_hosts que si son empreinte est exactement celle montrée à
+    /// l'utilisateur. Une autre clé (usurpation entre les deux connexions) est refusée.
+    public static func trustHostKey(_ target: ConfigSSHTarget, fingerprint: String,
+                                    knownHosts: URL = FileManager.default.homeDirectoryForCurrentUser
+                                        .appendingPathComponent(".ssh/known_hosts")) async -> Result<Void, ConfigBackupError> {
+        guard target.isValid else { return .failure(ConfigBackupError(kind: .account, detail: "Utilisateur ou adresse SSH invalide.")) }
+        guard fingerprint.hasPrefix("SHA256:") else {
+            return .failure(ConfigBackupError(kind: .unknownHostKey, detail: "Empreinte affichée inconnue\u{00A0}: rien n’a été accepté."))
+        }
+        let folder = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("nskey-" + UUID().uuidString.prefix(8), isDirectory: true)
+        let temp = folder.appendingPathComponent("known_hosts")
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        } catch {
+            return .failure(ConfigBackupError(kind: .launch, detail: "Préparation impossible\u{00A0}: \(error.localizedDescription)"))
+        }
+        defer { try? FileManager.default.removeItem(at: folder) }
+        _ = await ProcessRunner.run(executable, hostKeyProbeArguments(target, knownHosts: temp.path),
+                                    environment: ["PATH": "/usr/bin:/bin"], timeout: TimeInterval(connectTimeout + 10))
+        guard let lines = try? String(contentsOf: temp, encoding: .utf8),
+              !lines.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return .failure(ConfigBackupError(kind: .unreachable, detail: "Clé SSH de \(target.host) illisible\u{00A0}: rien n’a été accepté."))
+        }
+        let keygen = await ProcessRunner.run("/usr/bin/ssh-keygen", ["-l", "-E", "sha256", "-f", temp.path],
+                                             environment: ["PATH": "/usr/bin:/bin"], timeout: 10)
+        let presented = fingerprints(inKeygenOutput: keygen.stdout)
+        guard presented.contains(fingerprint) else {
+            return .failure(ConfigBackupError(kind: .hostKey,
+                                              detail: "\(target.host) présente maintenant \(presented.first ?? "une autre clé"), pas l’empreinte affichée\u{00A0}: refusée.",
+                                              fingerprint: presented.first))
+        }
+        do {
+            let directory = knownHosts.deletingLastPathComponent()
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+            if !FileManager.default.fileExists(atPath: knownHosts.path) {
+                FileManager.default.createFile(atPath: knownHosts.path, contents: nil, attributes: [.posixPermissions: 0o600])
+            }
+            let existing = (try? Data(contentsOf: knownHosts)) ?? Data()
+            let handle = try FileHandle(forWritingTo: knownHosts)
+            defer { try? handle.close() }
+            try handle.seekToEnd()
+            var text = lines.hasSuffix("\n") ? lines : lines + "\n"
+            if let last = existing.last, last != UInt8(ascii: "\n") { text = "\n" + text }
+            try handle.write(contentsOf: Data(text.utf8))
+        } catch {
+            return .failure(ConfigBackupError(kind: .launch, detail: "known_hosts non modifié\u{00A0}: \(error.localizedDescription)"))
+        }
+        return .success(())
+    }
+
     /// Sortie de ssh → configuration nettoyée, ou erreur expliquée.
     public static func interpret(status: Int32, stdout: String, stderr: String, timedOut: Bool, host: String,
                                  kind: ConfigDeviceKind) -> Result<String, ConfigBackupError> {

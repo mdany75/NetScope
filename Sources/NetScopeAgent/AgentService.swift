@@ -30,7 +30,11 @@ actor AgentService {
     let files: AutomationFiles
     let siteFiles: SiteFiles
     /// Réglages de l'app (alertes, Syslog, profils de scan) : mêmes préférences, en lecture seule.
-    let defaults = UserDefaults(suiteName: AutomationFiles.appBundleID)
+    /// Dans NetScope.app, Bundle.main est l'app : son domaine est celui de UserDefaults.standard (un
+    /// suiteName égal à l'identifiant du paquet principal n'est pas pris en charge). Hors paquet
+    /// (.build/debug), la suite nommée.
+    let defaults: UserDefaults? = Bundle.main.bundleIdentifier == AutomationFiles.appBundleID
+        ? .standard : UserDefaults(suiteName: AutomationFiles.appBundleID)
     let startedAt = Date()
     let calendar = ScanScheduler.calendar()
 
@@ -55,6 +59,7 @@ actor AgentService {
     private var scanTask: Task<Void, Never>?
     private var scanning: String?
     private var alerts = AgentAlerts()
+    private var notedProblems: [String: Date] = [:]
 
     init(files: AutomationFiles) {
         self.files = files
@@ -129,6 +134,9 @@ actor AgentService {
         if let syslogPort { parts.append("Syslog sur le port \(syslogPort)") }
         if settings.scans { parts.append("scans planifiés") }
         note("NetScope est fermé\u{00A0}: l’agent prend le relais (" + parts.joined(separator: ", ") + ").")
+        if defaults?.data(forKey: "alertes.reglages") == nil {
+            note("Réglages d’alerte introuvables dans les préférences de NetScope\u{00A0}: l’agent n’enverra aucune alerte.", level: .warning)
+        }
     }
 
     /// L'app s'est ouverte : l'agent rend la main sans rien écrire de plus.
@@ -185,11 +193,11 @@ actor AgentService {
         let updated = current.probes.first { $0.id == probe.id } ?? live
         for alert in applied.alerts {
             note("Sonde «\u{00A0}\(updated.name)\u{00A0}»\u{00A0}: \(alert.message)", level: alert.severity == .critical ? .error : .warning)
-            if let event = AlertEvent.probe(alert, probe: updated) { alerts.submit(event, defaults: defaults) }
+            if let event = AlertEvent.probe(alert, probe: updated) { sendAlert(event, defaults: defaults) }
         }
         if applied.recovered {
             note("Sonde «\u{00A0}\(updated.name)\u{00A0}»\u{00A0}: retour à la normale (\(outcome.result.value)).")
-            alerts.submit(.probeRecovery(probe: updated, value: outcome.result.value, at: outcome.result.date), defaults: defaults)
+            sendAlert(.probeRecovery(probe: updated, value: outcome.result.value, at: outcome.result.date), defaults: defaults)
         }
     }
 
@@ -315,7 +323,7 @@ actor AgentService {
         }
         note("Scan de «\u{00A0}\(siteName)\u{00A0}»\u{00A0}: \(report.message)", level: report.outcome == .ok ? .info : .warning)
         if let event = AlertEvent.newDevices(report.newDevices, at: report.finishedAt) {
-            alerts.submit(event, defaults: defaults)
+            sendAlert(event, defaults: defaults)
         }
     }
 
@@ -349,6 +357,16 @@ actor AgentService {
         if written {
             monitorDirty = false
             logsDirty = false
+        }
+    }
+
+    /// Alerte de l'agent ; un même problème (réglages, Trousseau) n'est noté qu'une fois par heure.
+    private func sendAlert(_ event: AlertEvent, defaults: UserDefaults?) {
+        let now = Date()
+        for problem in alerts.submit(event, defaults: defaults) {
+            if let last = notedProblems[problem], now.timeIntervalSince(last) < 3600 { continue }
+            notedProblems[problem] = now
+            note(problem, level: .warning)
         }
     }
 

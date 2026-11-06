@@ -76,8 +76,11 @@ public enum AutomationLock {
 
 /// L'app ouverte : son pid et la dernière fois qu'elle l'a dit.
 public struct AppPresence: Codable, Equatable, Sendable {
-    /// Au-delà, une présence qui n'est plus rafraîchie ne compte plus (app tuée, Mac en veille).
+    /// Au-delà, une présence qui n'est plus rafraîchie ne compte plus, sauf si son pid est encore
+    /// le binaire de NetScope (au réveil d'une veille, l'app vivante n'a pas encore rafraîchi).
     public static let staleAfter: TimeInterval = 120
+    /// Nom du binaire de l'app (Contents/MacOS/NetScope).
+    public static let appExecutableName = "NetScope"
 
     public var pid: Int32
     public var date: Date
@@ -89,11 +92,23 @@ public struct AppPresence: Codable, Equatable, Sendable {
         self.version = version
     }
 
-    /// Vrai si l'app est ouverte : présence récente et processus vivant.
-    public static func isActive(_ presence: AppPresence?, now: Date, alive: (Int32) -> Bool = AppPresence.processAlive) -> Bool {
-        guard let presence else { return false }
-        guard now.timeIntervalSince(presence.date) < staleAfter else { return false }
-        return alive(presence.pid)
+    /// Vrai si l'app est ouverte : processus vivant, et soit c'est bien le binaire de NetScope (quel
+    /// que soit l'âge de la présence : veille), soit la présence est récente (pid non vérifiable).
+    public static func isActive(_ presence: AppPresence?, now: Date, alive: (Int32) -> Bool = AppPresence.processAlive,
+                                isApp: (Int32) -> Bool = AppPresence.processIsApp) -> Bool {
+        guard let presence, alive(presence.pid) else { return false }
+        if isApp(presence.pid) { return true }
+        return now.timeIntervalSince(presence.date) < staleAfter
+    }
+
+    /// Vrai si le pid exécute le binaire « NetScope » (proc_pidpath) ; faux s'il est illisible.
+    public static func processIsApp(_ pid: Int32) -> Bool {
+        guard pid > 0 else { return false }
+        var buffer = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
+        let length = proc_pidpath(pid, &buffer, UInt32(buffer.count))
+        guard length > 0 else { return false }
+        let path = String(cString: buffer)
+        return (path as NSString).lastPathComponent == appExecutableName
     }
 
     public static func processAlive(_ pid: Int32) -> Bool {

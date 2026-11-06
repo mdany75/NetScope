@@ -25,8 +25,6 @@ final class ConfigBackupModel: ObservableObject {
     /// Comparaison : seulement les blocs modifiés (sinon le fichier entier).
     @Published var changesOnly = true
 
-    /// Empreintes SSH acceptées pendant cette session (« Accepter l'empreinte »).
-    private var acceptedHostKeys: Set<String> = []
     private var texts: [String: String] = [:]
     private var archive: ConfigBackupArchive?
     let isDemo: Bool
@@ -189,10 +187,30 @@ final class ConfigBackupModel: ObservableObject {
 
     // MARK: Sauvegarde
 
+    /// « Accepter l'empreinte » : la clé n'est enregistrée dans known_hosts que si celle que
+    /// présente l'équipement est exactement l'empreinte affichée ; la sauvegarde suit, en mode strict.
     func acceptHostKey(for equipment: ConfigEquipment) {
-        acceptedHostKeys.insert(equipment.host)
+        guard let shown = errors[equipment.id]?.fingerprint, !running.contains(equipment.id) else { return }
         errors[equipment.id] = nil
-        Task { await backup(equipment) }
+        if isDemo {
+            Task { await backup(equipment) }
+            return
+        }
+        guard let credentialID = credentialID(of: equipment),
+              let credential = RegRemoteCredentialStore.shared.credentials.first(where: { $0.id == credentialID }) else {
+            errors[equipment.id] = ConfigBackupError(kind: .account, detail: "Aucun identifiant SSH pour \(equipment.name).")
+            return
+        }
+        let target = ConfigSSHTarget(credential: credential, host: equipment.host)
+        running.insert(equipment.id)
+        Task {
+            let trusted = await ConfigBackupSSH.trustHostKey(target, fingerprint: shown)
+            running.remove(equipment.id)
+            switch trusted {
+            case .failure(let error): errors[equipment.id] = error
+            case .success: await backup(equipment)
+            }
+        }
     }
 
     func backupAll(_ list: [ConfigEquipment]) async {
@@ -287,11 +305,10 @@ final class ConfigBackupModel: ObservableObject {
             return .failure(ConfigBackupError(kind: .account, detail: "Aucun identifiant SSH pour \(equipment.name)."))
         }
         let target = ConfigSSHTarget(credential: credential, host: equipment.host)
-        let accept = acceptedHostKeys.contains(equipment.host)
         let service = RemoteCredential.keychainService(.ssh), account = credential.keychainAccount
         return await Task.detached(priority: .userInitiated) {
             let secret = UpdKeychain(service: service).string(for: account)
-            return await ConfigBackupSSH.run(target, kind: kind, secret: secret, acceptNewHostKey: accept)
+            return await ConfigBackupSSH.run(target, kind: kind, secret: secret)
         }.value
     }
 }

@@ -21,13 +21,19 @@ public struct UpdKeychain: Sendable {
 
     /// Valeur enregistrée, ou nil (absente ou illisible).
     public func string(for account: String) -> String? {
+        lookup(account).value
+    }
+
+    /// Valeur et code du Trousseau : errSecItemNotFound (absente) se distingue d'un accès refusé
+    /// (autre processus que celui qui a créé l'élément, demande d'accès refusée).
+    public func lookup(_ account: String) -> (value: String?, status: OSStatus) {
         var query = baseQuery(account)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var item: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
-              let data = item as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        guard status == errSecSuccess, let data = item as? Data else { return (nil, status) }
+        return (String(data: data, encoding: .utf8), status)
     }
 
     /// Enregistre (ou remplace) la valeur ; une valeur vide efface l'élément.

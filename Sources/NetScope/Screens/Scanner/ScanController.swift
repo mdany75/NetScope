@@ -35,6 +35,8 @@ final class ScanController: ObservableObject {
     @Published private(set) var plannedPhases: [ScanPhase] = []
     @Published private(set) var startedAt: Date?
     @Published private(set) var finishedAt: Date?
+    /// Dernier scan arrêté (par l'utilisateur ou à l'étape SNMP) : résultats partiels.
+    @Published private(set) var lastScanInterrupted = false
     /// Plages du dernier scan lancé (la Carte du réseau ne montre que ses appareils).
     @Published private(set) var lastScanRanges: [IPRange] = []
     @Published private(set) var status: [UUID: RangeStatus] = [:]
@@ -222,6 +224,7 @@ final class ScanController: ObservableObject {
         })
         startedAt = begin
         finishedAt = nil
+        lastScanInterrupted = false
         lastScanRanges = targets.map(\.range)
         isRunning = true
         phase = .ping
@@ -471,6 +474,7 @@ final class ScanController: ObservableObject {
         }
         for id in status.keys { status[id]?.finishedAt = end }
         finishedAt = end
+        lastScanInterrupted = engineCancelled || snmpCancelled
         isRunning = false
         phase = nil
         scanTask = nil

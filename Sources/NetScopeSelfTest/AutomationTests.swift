@@ -172,7 +172,12 @@ func registerAutomationTests(_ suite: TestSuite) {
         let presence = AppPresence(pid: 4242, date: now.addingTimeInterval(-30), version: "0.31.0")
         try expect(AppPresence.isActive(presence, now: now, alive: { _ in true }), "app ouverte")
         try expect(!AppPresence.isActive(presence, now: now, alive: { _ in false }), "processus disparu")
-        try expect(!AppPresence.isActive(presence, now: now.addingTimeInterval(AppPresence.staleAfter), alive: { _ in true }), "présence périmée")
+        try expect(!AppPresence.isActive(presence, now: now.addingTimeInterval(AppPresence.staleAfter), alive: { _ in true }, isApp: { _ in false }),
+                   "présence périmée, pid qui n'est plus NetScope")
+        try expect(AppPresence.isActive(presence, now: now.addingTimeInterval(AppPresence.staleAfter * 10), alive: { _ in true }, isApp: { _ in true }),
+                   "réveil de veille : présence périmée mais NetScope vivant")
+        try expect(!AppPresence.isActive(presence, now: now, alive: { _ in false }, isApp: { _ in true }), "processus disparu malgré le nom")
+        try expect(!AppPresence.processIsApp(getpid()), "ce processus n'est pas NetScope")
         try expect(!AppPresence.isActive(nil, now: now), "aucune présence")
         try expect(AppPresence.processAlive(getpid()), "ce processus est vivant")
 

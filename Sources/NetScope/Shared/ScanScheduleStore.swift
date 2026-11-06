@@ -24,6 +24,8 @@ final class ScanScheduleStore: ObservableObject {
     private let files = AutomationFiles.standard
     private var timer: Timer?
     private weak var state: AppState?
+    /// Modification gardée en mémoire faute de verrou (agent occupé) : réécrite au passage suivant.
+    private var pendingSave = false
 
     private init(demo: Bool = RegEnvironment.isSandboxed) {
         isDemo = demo
@@ -57,6 +59,7 @@ final class ScanScheduleStore: ObservableObject {
 
     private func tick() {
         guard !isDemo, let state else { return }
+        if pendingSave { retrySave() }
         // L'agent a pu écrire pendant que l'app était fermée : relu avant chaque décision.
         reload()
         guard ScanScheduler.canStart(scanRunning: ScanController.shared.isRunning, scheduledRunning: runningID != nil) else { return }
@@ -87,8 +90,15 @@ final class ScanScheduleStore: ObservableObject {
         runningSiteName = siteName
         let prefix = catchUp ? "Rattrapé après la veille. " : ""
         AppLog.shared.info("Scans planifiés", "Scan planifié de «\u{00A0}\(siteName)\u{00A0}» (\(schedule.profile.label))")
-        // Site actif aux plages enregistrées : le Scanner fait le scan (interface, switchs, alertes).
-        if schedule.siteKey == SiteModel.shared.activeKey, !SiteModel.shared.hasUnsavedRanges(state) {
+        // Site actif aux plages non enregistrées : ni le Scanner (plages en cours de modification) ni
+        // un scan sans interface (il écrirait les fichiers du site tenu en mémoire par l'app).
+        if schedule.siteKey == SiteModel.shared.activeKey, SiteModel.shared.hasUnsavedRanges(state) {
+            endRun(schedule, slot: slot, outcome: .failed, siteName: siteName,
+                   message: prefix + "Plages du site actif non enregistrées\u{00A0}: scan non lancé.")
+            return
+        }
+        // Site actif : le Scanner fait le scan (interface, switchs, alertes).
+        if schedule.siteKey == SiteModel.shared.activeKey {
             let controller = ScanController.shared
             controller.start(state, unattended: true, profile: schedule.profile)
             guard controller.isRunning else {
@@ -102,8 +112,10 @@ final class ScanScheduleStore: ObservableObject {
                 let online = state.devices.filter { device in device.isOnline && ranges.contains { $0.contains(device.ip) } }.count
                 let fresh = ScanController.shared.newIDs.count
                 let duration = Date().timeIntervalSince(begin)
-                self.endRun(schedule, slot: slot, outcome: .ok, siteName: siteName, online: online, new: fresh, duration: duration,
-                            message: prefix + ScanScheduler.summary(online: online, new: fresh, duration: duration) + ".")
+                let interrupted = ScanController.shared.lastScanInterrupted
+                let summary = ScanScheduler.summary(online: online, new: fresh, duration: duration) + "."
+                self.endRun(schedule, slot: slot, outcome: interrupted ? .partial : .ok, siteName: siteName, online: online, new: fresh,
+                            duration: duration, message: prefix + (interrupted ? "Interrompu\u{00A0}: " : "") + summary)
             }
             return
         }
@@ -147,7 +159,8 @@ final class ScanScheduleStore: ObservableObject {
             return
         }
         let directory = files.base
-        let result = AutomationLock.with(files.lockURL) { () -> ScanScheduleBook in
+        // Fil principal : 2 s au plus (l'agent ne garde le verrou que le temps d'écrire ses fichiers).
+        let result = AutomationLock.with(files.lockURL, timeout: 2) { () -> ScanScheduleBook in
             var fresh = ScanScheduleBook.load(from: directory)
             body(&fresh)
             do {
@@ -157,11 +170,26 @@ final class ScanScheduleStore: ObservableObject {
             }
             return fresh
         }
-        if let result { book = result } else { body(&book) }
+        if let result {
+            book = result
+            pendingSave = false
+        } else {
+            body(&book)
+            pendingSave = true
+            AppLog.shared.warning("Scans planifiés", "Verrou partagé occupé\u{00A0}: modification enregistrée au prochain passage.")
+        }
+    }
+
+    private func retrySave() {
+        let directory = files.base, current = book
+        let saved = AutomationLock.with(files.lockURL, timeout: 2) { () -> Bool in
+            (try? current.save(to: directory)) != nil
+        }
+        if saved == true { pendingSave = false }
     }
 
     func reload() {
-        guard !isDemo else { return }
+        guard !isDemo, !pendingSave else { return }
         let fresh = ScanScheduleBook.load(from: files.base)
         if fresh != book { book = fresh }
     }
