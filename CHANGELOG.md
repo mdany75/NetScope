@@ -96,6 +96,57 @@ pas en Fortinet.
   (SNMP, NTP, SIP, IPMI), certificats de serveurs Web et de courriel, et vrais contrôleurs UniFi,
   Omada et Meraki.
 
+## 0.29.0 — 2026-11-05
+
+Toutes vos données NetScope suivent maintenant d’un Mac à l’autre : sites, inventaires, Accès
+distant, Surveillance, alertes, réglages et identifiants, avec les secrets chiffrés et remis au
+Trousseau de chaque Mac.
+
+### Ajouté
+- **Synchronisation complète entre vos Mac** : sites, inventaires et derniers résultats, carnet
+  d’Accès distant et tunnels, RustDesk, identifiants, sondes et rapports planifiés de la
+  Surveillance, canaux d’alerte, saisies à la main, relevés Wi-Fi, historique Speedtest,
+  réglages, raccourcis et profils de scan.
+- **Tout est synchronisé par défaut**, par catégories qu’on peut décocher. Ce qui est propre à
+  chaque Mac (interface active, fenêtres, captures, journal, base des fabricants, historiques
+  bruts volumineux, état des mises à jour) ne l’est jamais.
+- **Secrets protégés** : les mots de passe et jetons (FortiGate, SNMP, SSH, Telnet, VNC, FTP,
+  SMB, RustDesk, SMTP, ntfy, Pushover…) sont chiffrés par le mot de passe de synchronisation et
+  remis au Trousseau de chaque Mac ; ils ne sont jamais écrits en clair dans le dossier partagé.
+- **Nouvelle section Réglages › Synchronisation** : Mac synchronisés avec leur version et leur
+  dernière synchro, catégories avec compteurs, changements reçus récents, conflits avec
+  « Rétablir l’autre version » et suppressions venues d’un autre Mac à confirmer.
+- **Dossier au choix** : iCloud Drive par défaut, ou OneDrive, un NAS monté ou un dossier
+  partagé.
+
+### Modifié
+- Les changements reçus s’appliquent sans redémarrer, quelques secondes après une modification
+  sur un autre Mac ; seul un type de donnée que ce Mac ne sait pas relire à chaud attend
+  « Redémarrer et appliquer ».
+- Chaque Mac écrit son propre fichier, signé par le mot de passe de synchronisation ; la fusion
+  se fait élément par élément et un fichier non signé ou altéré est refusé et signalé.
+- Les rapports planifiés sont produits et envoyés par un seul Mac, indiqué sur les autres.
+- La synchronisation iCloud Drive de la 0.18.0 est reprise telle quelle : les sites déjà
+  synchronisés le restent, sans rien refaire.
+
+### Corrigé
+- Un Mac resté sur une version plus ancienne est signalé et n’efface jamais ce que sa version ne
+  connaît pas.
+- Un dossier choisi absent (partage non monté) n’est jamais recréé en local : NetScope demande
+  de monter le partage.
+
+### Limites connues
+- Pas de serveur : la synchronisation passe par un dossier partagé et dépend de lui (iCloud
+  Drive, OneDrive ou le NAS doivent avoir copié le fichier avant que l’autre Mac le voie).
+- Sans mot de passe de synchronisation, un dossier autre qu’iCloud Drive n’échange ni Accès
+  distant, ni alertes, ni identifiants, ni Surveillance, ni FortiGate ; l’écran le dit.
+- Oublier le mot de passe de synchronisation rend les secrets déjà partagés illisibles sur les
+  autres Mac : il faut les ressaisir.
+- Les suppressions faites sur un autre Mac sont à confirmer, et les éléments supprimés sont
+  oubliés après 180 jours.
+- Testée sur des données de démonstration seulement : essai réel à faire entre deux Mac (et
+  plus) avec iCloud Drive, puis un NAS.
+
 ## 0.28.0 — 2026-11-05
 
 La carte du réseau s’exporte enfin en livrable pour le client (PNG, PDF, SVG, draw.io) et entre

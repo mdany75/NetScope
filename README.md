@@ -4,7 +4,7 @@
 sur plusieurs plages, dit sur quel switch et quel port chacun est branché, puis diagnostique,
 surveille, documente et ouvre une session à distance, site par site, dans une seule fenêtre.
 
-[![Version](https://img.shields.io/badge/version-0.30.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.29.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-lightgrey?logo=apple)](#installation)
 [![Licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
@@ -20,8 +20,8 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   n’est pas joignable depuis le Mac. À notre connaissance, aucun autre outil Mac ne le fait.
 - **Plusieurs clients sans mélange, sans nuage** : chaque site garde ses plages, sa FortiGate,
   ses switchs, ses résultats et son inventaire, même quand deux sites utilisent les mêmes
-  adresses. Tout reste sur le Mac (synchronisation iCloud Drive entre tes Mac en option), sans
-  abonnement par site.
+  adresses. Tout reste sur le Mac (synchronisation entre tes Mac par iCloud Drive ou un dossier
+  partagé, en option), sans abonnement par site.
 - **Fortinet en profondeur** : FortiSwitch, bornes FortiAP, liens WAN et VPN, FortiView,
   firmware, licences et journaux, lus par l’API ; seules les actions sur les ports (cycle PoE,
   désactivées par défaut) modifient quelque chose, après confirmation.
@@ -48,6 +48,8 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   sessions dans un tableau ; la 0.28.0 exporte la carte du réseau (PNG, PDF, SVG, draw.io) et
   l’ajoute aux rapports, reçoit les flux NetFlow, sFlow et IPFIX de toute marque dans Trafic,
   liste les partages SMB d’un hôte et envoie les alertes sur téléphone par ntfy ou Pushover ;
+  la 0.29.0 synchronise toutes les données entre tes Mac (sites, inventaires, Accès distant,
+  Surveillance, alertes, réglages), secrets chiffrés et remis au Trousseau de chaque Mac ;
   la 0.30.0 reconnaît le système et les versions des services sans Nmap, sonde les ports UDP
   avec de vraies requêtes, vérifie les certificats TLS (seul ou tout un site) et lit en lecture
   seule les contrôleurs UniFi, Omada et Meraki.
@@ -232,8 +234,8 @@ vérifiée avant l’installation).
 - **Lecture seule chez Fortinet** : NetScope lit la FortiGate par son API et ne modifie rien.
   L’empreinte de son certificat est acceptée une fois, de façon explicite.
 - **Rien n’est envoyé sans toi** : pas de compte, pas de serveur NetScope, pas de télémétrie ;
-  la synchronisation par iCloud Drive et les alertes par courriel, webhook, ntfy ou Pushover ne
-  fonctionnent que si tu les actives. Le scan reste sur les plages choisies, la découverte
+  la synchronisation (iCloud Drive, OneDrive ou NAS) et les alertes par courriel, webhook, ntfy
+  ou Pushover ne fonctionnent que si tu les actives. Le scan reste sur les plages choisies, la découverte
   SNMP ne vise que des adresses privées, les rapports partent en brouillon Mail et la base des
   fabricants n’est mise à jour que sur demande. La vérification des mises à jour (GitHub) se
   désactive dans Réglages.
