@@ -1699,69 +1699,65 @@ Dany : étendre la synchronisation iCloud Drive de la note 56 (0.18.0) au lieu d
   et 77 en 0.30.0).
 
 
-## 87. Serveur RustDesk : mises à jour, nom et note par ID, surveillance — 0.33.0 (demande de Dany, 6 novembre 2026)
+## 87. Serveur RustDesk, lecture : mises à jour à vérifier, nom et note par ID, surveillance — 0.33.0 (demande de Dany, 6 novembre 2026)
 
-À noter seulement (« c’est juste pour la feuille de route »). Dans Accès distant › Serveur RustDesk :
+Notée le 6 novembre 2026 (« c’est juste pour la feuille de route »). Séparée en deux le même jour :
+cette note ne fait que **lire** le serveur (aucun risque pour lui) ; ce qui agit sur le serveur
+est dans la note 88 (0.33.1), à faire après l’essai de la 0.33.0 sur le vrai serveur. Dans
+Accès distant › Serveur RustDesk :
 
-- **Mises à jour** : version de hbbs et hbbr lue par SSH (binaire ou image Docker), comparée à la
-  dernière version publiée de rustdesk-server sur GitHub ; mises à jour du système du serveur
-  lues par SSH en lecture seule (`apt list --upgradable`, `dnf check-update`…), avec le nombre de
-  correctifs de sécurité et « redémarrage requis ».
-- **Installer les mises à jour** (précision de Dany, 6 novembre 2026) : bouton « Mettre à jour »
-  pour RustDesk (nouvelle image Docker ou nouveaux binaires, puis redémarrage de hbbs et hbbr) et
-  pour le système (`apt upgrade`…), avec confirmation, sessions en cours signalées avant, clé du
-  serveur et base `db_v2.sqlite3` sauvegardées avant, vérification après (versions, ports, clé
-  inchangée) et retour à la version précédente si RustDesk ne repart pas. Mot de passe sudo au
-  Trousseau seulement.
-- **Mise à jour planifiée** : fenêtre choisie (ex. dimanche 3 h), RustDesk, système ou les deux,
-  sécurité seulement ou tout, redémarrage du serveur permis ou non, report si une session relayée
-  est en cours ; exécutée par l’agent en arrière-plan (note 64) même app fermée ; résultat dans
-  l’historique et alerte en cas d’échec.
+- **Mises à jour à vérifier** : version de RustDesk lue par SSH (image en `:latest` : empreinte
+  locale comparée à Docker Hub, et `hbbs --version`), comparée à la dernière version publiée ;
+  mises à jour du système lues en lecture seule (`apt list --upgradable`…), avec le nombre de
+  correctifs de sécurité et « redémarrage requis » ; nouvelle version du client RustDesk signalée
+  (client portable à remplacer sur la page d’assistance).
 - **Nom ou note sur un ID** : nom et note libres pour chaque ID RustDesk, gardés dans NetScope et
   synchronisés entre les Mac (note 86) ; affichés dans le tableau de bord, l’assistance et le carnet.
-- **Bouton « Déconnecter »** sur une session relayée en cours (Dany, 6 novembre 2026), avec
-  confirmation. Le serveur libre (hbbs/hbbr) n’a pas d’API pour couper une session : NetScope ferme
-  par SSH la connexion relayée de ce poste sur hbbr (`ss -K`, sudo, mot de passe au Trousseau),
-  puis vérifie qu’elle a disparu ; si ce n’est pas possible, il le dit (redémarrer hbbr coupe
-  toutes les sessions, proposé à part avec avertissement). Avec RustDesk Server Pro : son API.
-  Le poste peut se reconnecter aussitôt (pas de blocage).
-- Quarantaine et déconnexion automatique : retirées par Dany le 6 novembre 2026.
-- Serveur de Groupe Couture (précisé par Dany le 6 novembre 2026) : **RustDesk libre (OSS), dans
-  Docker**. Donc : version lue par `docker image inspect` et `hbbs --version` dans le conteneur ;
-  mise à jour = `docker pull` de rustdesk/rustdesk-server puis recréation des conteneurs (compose
-  ou `docker run` d’origine relus avant) ; retour arrière = image précédente gardée sous une
-  étiquette ; clé et base dans le volume monté, sauvegardés avant ; « Déconnecter » coupe la
-  connexion dans l’espace réseau du conteneur hbbr (`ss -K` via `nsenter` ou `docker exec`).
-  Pas d’API Server Pro.
-- Précisions sur l’installation (6 novembre 2026, sans aucune valeur réelle, à la demande de Dany) :
-  - conteneurs en `network_mode: host` : « Déconnecter » se fait directement sur l’hôte (`ss -K`) ;
-  - image en `:latest` : version lue par l’empreinte (digest) comparée à Docker Hub et par
-    `hbbs --version` ; avant une mise à jour, étiqueter l’image actuelle pour pouvoir y revenir ;
-    mise à jour = `docker compose pull` puis `docker compose up -d` dans le dossier du compose ;
-  - sudo avec mot de passe : mot de passe sudo au Trousseau (`sudo -S`), jamais ailleurs ;
-  - bouton « Sauvegarder la clé et la base » (dossier de données du serveur, copie chiffrée sur
-    le Mac) et alerte tant qu’aucune sauvegarde récente n’existe ;
-  - ports surveillés configurables (WebSocket 21118 et 21119 souvent fermés : pas d’alerte) ;
-  - tentatives refusées par la FortiGate (filtre géographique) montrées dans « tentatives
-    suspectes » ;
-  - nouvelle version du client RustDesk signalée (client portable à remplacer sur la page
-    d’assistance).
-- **Associer un ID à une MAC automatiquement** : la fiche d’inventaire a déjà un champ « ID
-  RustDesk » (0.26.1), retenu par la MAC. Le serveur ne voit que l’IP publique du site (NAT) ; à la
-  connexion, la table des sessions de la FortiGate du site (jeton en lecture) donne le poste
-  interne qui parle au serveur (21116/21117), puis ARP ou bail DHCP donnent la MAC. NetScope
-  propose l’association, Dany confirme (l’IP seule ne tranche jamais). Poste sur le réseau local
-  du serveur : IP privée, correspondance directe avec le dernier scan. Le tableau de bord montre
-  alors le nom de la fiche au lieu de « Hors carnet », avec lien vers la fiche Appareil.
-- **Autres suggestions retenues** :
-  - clé publique du serveur affichée et copiable, alerte si elle change ;
-  - santé : durée de fonctionnement, processeur, mémoire, redémarrages de hbbs et hbbr ;
-  - historique des demandes conservé jour après jour, rapport mensuel par poste et par
-    technicien (CSV, PDF) ;
-  - alertes de Surveillance par l’agent : hbbs ou hbbr arrêté, disque > 90 %, clé changée, ports
-    21115 à 21119 injoignables de l’extérieur ;
-  - tentatives suspectes signalées (ID hors carnet, rafale depuis une même IP) ;
-  - site probable du poste quand son IP publique est le WAN d’une FortiGate connue (indice
-    seulement) ;
-  - clic droit sur une ligne : se connecter, ajouter au carnet, ouvrir la fiche, copier l’ID ;
-  - journaux de hbbs et hbbr dans NetScope, avec recherche et filtre par ID.
+- **ID associé à une MAC** : la fiche d’inventaire a déjà un champ « ID RustDesk » (0.26.1), retenu
+  par la MAC. Le serveur ne voit que l’IP publique du site (NAT) ; à la connexion, la table des
+  sessions de la FortiGate du site (jeton en lecture) donne le poste interne qui parle au serveur
+  (21116/21117), puis ARP ou bail DHCP donnent la MAC. NetScope propose l’association, Dany
+  confirme (l’IP seule ne tranche jamais). Poste sur le réseau local du serveur : IP privée,
+  correspondance directe avec le dernier scan. Le tableau de bord montre alors le nom de la fiche
+  au lieu de « Hors carnet », avec lien vers la fiche Appareil.
+- **Clé publique** du serveur affichée et copiable, alerte si elle change.
+- **Sauvegarder la clé et la base** : copie chiffrée sur le Mac du dossier de données du serveur
+  (lecture seule côté serveur, sudo au Trousseau) ; alerte tant qu’aucune sauvegarde récente
+  n’existe.
+- **Santé** : durée de fonctionnement, processeur, mémoire, redémarrages de hbbs et hbbr (en plus
+  du disque).
+- **Historique** des demandes conservé jour après jour (aujourd’hui perdu au redémarrage de hbbs),
+  rapport mensuel par poste et par technicien (CSV, PDF).
+- **Alertes de Surveillance** par l’agent (note 64) : hbbs ou hbbr arrêté, disque > 90 %, clé
+  changée, ports injoignables de l’extérieur ; ports surveillés configurables (WebSocket 21118 et
+  21119 souvent fermés : pas d’alerte).
+- **Tentatives suspectes** signalées : ID hors carnet, rafale depuis une même IP, tentatives
+  refusées par la FortiGate (filtre géographique, lues dans ses journaux).
+- **Site probable** du poste quand son IP publique est le WAN d’une FortiGate connue (indice
+  seulement).
+- **Clic droit** sur une ligne : se connecter, ajouter au carnet, ouvrir la fiche, copier l’ID.
+- **Journaux** de hbbs et hbbr dans NetScope, avec recherche et filtre par ID.
+- Serveur visé (précisé par Dany) : RustDesk libre (OSS) dans Docker, compose, `network_mode:
+  host`, sudo avec mot de passe ; pas d’API Server Pro. Aucune valeur réelle dans ce dépôt.
+- Retirés par Dany le 6 novembre 2026 : quarantaine et déconnexion automatique.
+
+## 88. Serveur RustDesk, actions : déconnecter, installer les mises à jour, mise à jour planifiée — 0.33.1 (demande de Dany, 6 novembre 2026)
+
+Séparée de la note 87 le 6 novembre 2026 : tout ce qui **agit** sur le serveur RustDesk. À faire
+après l’essai réel de la 0.33.0. Mot de passe sudo au Trousseau seulement (`sudo -S`), confirmation
+avant chaque action, tout est noté dans l’historique.
+
+- **Bouton « Déconnecter »** sur une session relayée en cours. Le serveur libre n’a pas d’API pour
+  couper une session : NetScope ferme par SSH la connexion relayée de ce poste sur hbbr (`ss -K`
+  directement sur l’hôte, les conteneurs étant en `network_mode: host`), puis vérifie qu’elle a
+  disparu ; sinon il le dit (redémarrer hbbr coupe toutes les sessions, proposé à part avec
+  avertissement). Le poste peut se reconnecter aussitôt (pas de blocage).
+- **Installer les mises à jour** : bouton « Mettre à jour » pour RustDesk et pour le système
+  (`apt upgrade`…). Avant : sessions en cours signalées, clé et base sauvegardées, image actuelle
+  étiquetée pour y revenir, compose relu. Mise à jour RustDesk = `docker compose pull` puis
+  `docker compose up -d` dans le dossier du compose. Après : versions, ports et clé (inchangée)
+  vérifiés ; retour à l’image précédente si RustDesk ne repart pas.
+- **Mise à jour planifiée** : fenêtre choisie (ex. dimanche 3 h), RustDesk, système ou les deux,
+  sécurité seulement ou tout, redémarrage du serveur permis ou non, report si une session relayée
+  est en cours ; faite par l’agent en arrière-plan (note 64) même app fermée ; résultat dans
+  l’historique et alerte en cas d’échec.
