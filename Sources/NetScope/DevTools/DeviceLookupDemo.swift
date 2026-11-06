@@ -8,7 +8,8 @@ import NetScopeCore
 /// - NETSCOPE_APPAREIL_VIDE=1 : aucun appareil choisi (panneau « Ouvrir une fiche ») ;
 /// - NETSCOPE_APPAREIL_SAISIE="10.182" : texte du champ principal (suggestions) ;
 /// - NETSCOPE_APPAREIL_FORMULAIRE=1 : formulaire « Saisir un appareil à la main » rempli ;
-/// - NETSCOPE_APPAREIL_MANUEL=1 : fiche d'un appareil saisi à la main, vérifié par ping.
+/// - NETSCOPE_APPAREIL_MANUEL=1 : fiche d'un appareil saisi à la main, vérifié par ping ;
+/// - NETSCOPE_APPAREIL_FERMEE=1 : fiche fermée par « Fermer la fiche » (Retour actif).
 @MainActor
 enum DeviceLookupDemo {
     private static var environment: [String: String] { ProcessInfo.processInfo.environment }
@@ -52,6 +53,12 @@ enum DeviceLookupDemo {
         }
         if environment["NETSCOPE_APPAREIL_MANUEL"] == "1" {
             state.selectedDeviceID = manualEntry(now: now).deviceID
+        }
+        // « Fermer la fiche » : la fiche ouverte est fermée (en tête de « Consultés récemment »),
+        // et Retour la rouvrirait (l'historique n'est pas tenu pendant les captures : posé ici).
+        if environment["NETSCOPE_APPAREIL_FERMEE"] == "1", state.selectedDeviceID != nil {
+            state.history.leave(state.location(of: .appareil))
+            state.closeDevice()
         }
     }
 }

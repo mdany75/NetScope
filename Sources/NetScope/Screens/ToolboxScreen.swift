@@ -204,6 +204,8 @@ private struct ToolMainPanel: View {
     @ObservedObject private var mtu = PathMTUModel.shared
     /// Note 78 : la commande de l’en-tête suit la vue Client ou Serveur de l’outil iperf3.
     @ObservedObject private var iperfServer = IperfServerModel.shared
+    /// Ressources d'un poste : la commande de l'en-tête suit le poste ouvert.
+    @ObservedObject private var hostResources = HostResourcesModel.shared
 
     var body: some View {
         let tool = store.selectedTool
@@ -313,6 +315,7 @@ private struct ToolMainPanel: View {
         case .disques: DiskSpeedView(model: disks, store: store)
         case .snmp: SNMPBrowserView(model: snmp, store: store)
         case .bilan: LinkCheckView(model: linkCheck, store: store)
+        case .ressources: HostResourcesView(store: store)
         }
     }
 
@@ -351,6 +354,7 @@ private struct ToolMainPanel: View {
         case .disques: return disks.command
         case .snmp: return snmp.command
         case .bilan: return linkCheck.command
+        case .ressources: return hostResources.command
         }
     }
 }

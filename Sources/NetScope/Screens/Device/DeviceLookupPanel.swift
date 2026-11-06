@@ -234,7 +234,7 @@ struct DeviceLookupPanel: View {
 }
 
 /// Une suggestion : type, nom, IP, MAC, fabricant, origine et état.
-private struct DeviceSuggestionRow: View {
+struct DeviceSuggestionRow: View {
     let match: DeviceLookupMatch
     let highlighted: Bool
 
@@ -300,7 +300,7 @@ private struct DeviceSuggestionRow: View {
 }
 
 /// Une fiche consultée récemment.
-private struct DeviceRecentRow: View {
+struct DeviceRecentRow: View {
     @EnvironmentObject private var state: AppState
     let recent: DeviceRecentView
 

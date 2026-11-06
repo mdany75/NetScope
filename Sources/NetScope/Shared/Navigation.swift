@@ -149,6 +149,21 @@ extension AppState {
         }
     }
 
+    /// « Fermer la fiche » : l'écran Appareil revient à « Ouvrir une fiche », comme si aucun appareil
+    /// n'était choisi. La fiche fermée reste dans « Consultés récemment » et Retour la rouvre ;
+    /// rien n'est oublié (saisies à la main et fiches reprises restent, « Oublier cette saisie » à part).
+    func closeDevice() {
+        guard let id = selectedDeviceID else { return }
+        if let device = shownDevice(withID: id) { recordDeviceView(device) }
+        let here = location(of: screen)
+        isNavigating = true
+        selectedDeviceID = nil
+        if screen != .appareil { screen = .appareil }
+        isNavigating = false
+        if recordsHistory { history.leave(here, to: location(of: .appareil)) }
+        DeviceLookupModel.shared.prepareAfterClose()
+    }
+
     var canGoBack: Bool { history.canGoBack }
     var canGoForward: Bool { history.canGoForward }
 
@@ -169,7 +184,12 @@ extension AppState {
         defer { isNavigating = false }
         searchTexts[target] = location.search.isEmpty ? nil : location.search
         navFilters[target] = location.filter
-        if let id = location.deviceID { selectedDeviceID = id }
+        if let id = location.deviceID {
+            selectedDeviceID = id
+        } else if target == .appareil {
+            // Fiche fermée (« Fermer la fiche ») : Avancer rend l'écran « Ouvrir une fiche ».
+            selectedDeviceID = nil
+        }
         if let sites = location.sites, SiteScopeStore.screens.contains(target) {
             SiteScopeStore.shared.set(sites, for: target, persist: false)
         }

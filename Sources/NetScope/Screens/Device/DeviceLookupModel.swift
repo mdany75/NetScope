@@ -224,6 +224,14 @@ final class DeviceLookupModel: ObservableObject {
         }
     }
 
+    /// Fiche fermée (« Fermer la fiche ») : champ vide et focus dans le champ (un formulaire de
+    /// saisie à la main en cours reste ouvert, avec son focus).
+    func prepareAfterClose() {
+        query = ""
+        notice = nil
+        if !formShown { searchFocusRequest += 1 }
+    }
+
     private func finish(_ action: () -> Void) {
         action()
         query = ""

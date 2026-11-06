@@ -177,6 +177,8 @@ public enum ShortcutID {
     public static let copyIP = "selection.copierIP"
     public static let copyMAC = "selection.copierMAC"
     public static let openBrowser = "selection.navigateur"
+    /// Fermer la fiche ouverte : écran Appareil sans appareil choisi (« Ouvrir une fiche »).
+    public static let closeDevice = "selection.fermerFiche"
     public static let search = "navigation.rechercher"
     public static let export = "navigation.exporter"
     public static let settings = "navigation.reglages"
@@ -201,6 +203,8 @@ public enum ShortcutCatalog {
         ShortcutAction(id: ShortcutID.copyIP, title: "Copier l’IP", group: .selection, defaultCombo: KeyCombo("c", [.shift, .command])),
         ShortcutAction(id: ShortcutID.copyMAC, title: "Copier la MAC", group: .selection, defaultCombo: KeyCombo("m", [.shift, .command])),
         ShortcutAction(id: ShortcutID.openBrowser, title: "Ouvrir dans le navigateur", group: .selection, defaultCombo: KeyCombo("o")),
+        ShortcutAction(id: ShortcutID.closeDevice, title: "Fermer la fiche appareil", group: .selection,
+                       defaultCombo: KeyCombo("w", [.shift, .command])),
         ShortcutAction(id: ShortcutID.search, title: "Rechercher partout", group: .navigation, defaultCombo: KeyCombo("f")),
         ShortcutAction(id: ShortcutID.export, title: "Exporter les résultats", group: .navigation, defaultCombo: KeyCombo("e")),
         ShortcutAction(id: ShortcutID.settings, title: "Réglages", group: .navigation, defaultCombo: KeyCombo(",")),

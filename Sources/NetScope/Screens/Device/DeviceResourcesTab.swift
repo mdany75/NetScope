@@ -9,10 +9,16 @@ import SwiftUI
 struct DeviceResourcesTab: View {
     @EnvironmentObject private var state: AppState
     let device: Device
+    /// Boîte à outils › « Ressources d'un poste » : vrai, le poste ouvert par l'utilisateur est
+    /// interrogé aussitôt, même sans agent SNMP connu ; nil (fiche) : règle de la fiche.
+    var startsOnOpen: Bool? = nil
 
     var body: some View {
         if Self.isThisMac(device, state: state) {
             LocalResourcesSection()
+        } else if let startsOnOpen {
+            SNMPResourcesSection(device: device, monitor: ResourceMonitors.snmp(device.ip.description),
+                                 autoStart: startsOnOpen, requiresKnownAgent: false)
         } else {
             // Fiche hors Scanner (saisie, reprise) : l'interrogation SNMP ne part que sur clic.
             SNMPResourcesSection(device: device, monitor: ResourceMonitors.snmp(device.ip.description),
@@ -162,6 +168,8 @@ private struct SNMPResourcesSection: View {
     @ObservedObject var monitor: SNMPResourceMonitor
     /// Interroge de lui-même un appareil SNMP connu (faux : seulement sur clic).
     var autoStart = true
+    /// Vrai (fiche) : l'interrogation automatique attend un agent SNMP vu au scan.
+    var requiresKnownAgent = true
     @State private var selectedPort: String?
 
     /// Version réellement utilisée par le dernier relevé (v3 du site, sinon v2c).
@@ -195,7 +203,7 @@ private struct SNMPResourcesSection: View {
                 interfacesPanel
             }
         }
-        .onAppear { monitor.retain(autoStart: autoStart && device.snmpKind != nil) }
+        .onAppear { monitor.retain(autoStart: autoStart && (!requiresKnownAgent || device.snmpKind != nil)) }
         .onDisappear { monitor.release() }
     }
 

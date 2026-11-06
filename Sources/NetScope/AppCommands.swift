@@ -60,6 +60,10 @@ struct AppCommands: Commands {
             Button("Ouvrir la fiche appareil") { AppActions.openDevice(state) }
                 .regShortcut(ShortcutID.openDevice, shortcuts)
                 .disabled(device == nil)
+            // Écran Appareil : revenir à « Ouvrir une fiche » (Retour rouvre la fiche).
+            Button("Fermer la fiche") { state.closeDevice() }
+                .regShortcut(ShortcutID.closeDevice, shortcuts)
+                .disabled(device == nil || state.screen != .appareil)
             Divider()
             Button("Copier l’IP") { AppActions.copyIP(state) }
                 .regShortcut(ShortcutID.copyIP, shortcuts)
