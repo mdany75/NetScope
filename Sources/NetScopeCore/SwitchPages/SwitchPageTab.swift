@@ -9,6 +9,8 @@ import Foundation
 /// Onglet de l'écran Switchs et ports.
 public enum SwitchPageTab: String, CaseIterable, Sendable, Codable {
     case switchs, ports, trafic, appareils, voisins
+    /// Note 40 (0.31.0) : sauvegarde et historique des configurations du site.
+    case configurations
 
     public var label: String {
         switch self {
@@ -17,6 +19,7 @@ public enum SwitchPageTab: String, CaseIterable, Sendable, Codable {
         case .trafic: return "Trafic"
         case .appareils: return "Appareils"
         case .voisins: return "Voisins et liens"
+        case .configurations: return "Configurations"
         }
     }
 
@@ -28,6 +31,7 @@ public enum SwitchPageTab: String, CaseIterable, Sendable, Codable {
         case .trafic: return "chart.xyaxis.line"
         case .appareils: return "laptopcomputer.and.iphone"
         case .voisins: return "point.3.connected.trianglepath.dotted"
+        case .configurations: return "doc.badge.clock"
         }
     }
 
@@ -39,6 +43,7 @@ public enum SwitchPageTab: String, CaseIterable, Sendable, Codable {
         case .trafic: return "Ports les plus chargés, trafic en direct et historique du port choisi"
         case .appareils: return "Table MAC du switch choisi et appareils par VLAN"
         case .voisins: return "Voisins LLDP, liens entre switchs, uplinks et ce Mac"
+        case .configurations: return "Sauvegarde des configurations de la FortiGate et des switchs du site, historique et comparaison avant/après"
         }
     }
 
@@ -50,6 +55,7 @@ public enum SwitchPageTab: String, CaseIterable, Sendable, Codable {
         guard let badge, badge > 0 else { return label }
         switch self {
         case .ports: return "\(label) (\(badge) en erreur)"
+        case .configurations: return "\(label) (\(badge) modifiée\(badge > 1 ? "s" : ""))"
         default: return "\(label) (\(badge))"
         }
     }
@@ -71,6 +77,7 @@ public enum SwitchPageTab: String, CaseIterable, Sendable, Codable {
         case "trafic", "traffic", "historique", "charge": self = .trafic
         case "appareils", "appareil", "mac", "table-mac", "vlan", "vlans": self = .appareils
         case "voisins", "voisins-et-liens", "liens", "lldp", "topologie", "uplinks": self = .voisins
+        case "configurations", "configuration", "config", "configs", "sauvegarde", "sauvegardes": self = .configurations
         default: return nil
         }
     }

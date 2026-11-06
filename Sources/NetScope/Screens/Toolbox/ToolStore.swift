@@ -32,6 +32,8 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     case snmp
     /// Vérificateur de certificat TLS (note 70) : chaîne, SAN, expiration, versions TLS, confiance.
     case tls
+    /// IPv6 (0.31.0) : voisins NDP, ping et traceroute IPv6, état IPv6 de ce Mac.
+    case ipv6
 
     var id: String { rawValue }
 
@@ -53,7 +55,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
 
     var group: Group {
         switch self {
-        case .subnet, .mac: return .adressage
+        case .subnet, .mac, .ipv6: return .adressage
         case .ports, .dns, .whois, .mtu, .capture, .snmp: return .diagnostic
         case .bilan, .ressources: return .diagnostic
         case .tls: return .diagnostic
@@ -100,6 +102,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .bilan: return "Bilan de raccordement"
         case .tls: return "Certificat TLS"
         case .ressources: return "Ressources d’un poste"
+        case .ipv6: return "IPv6"
         }
     }
 
@@ -133,6 +136,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .snmp: return "GET, GETNEXT et parcours d’un OID en SNMP v2c ou v3\u{00A0}: tables courantes nommées, valeurs lisibles, export CSV."
         case .tls: return "Chaîne, noms couverts, expiration, versions TLS et verdict de macOS d’un serveur (HTTPS, LDAPS, courriel)\u{00A0}; tout le site d’un clic."
         case .ressources: return "Processeur, mémoire et trafic d’un poste ou d’un serveur par SNMP, sans passer par sa fiche\u{00A0}: tapez son IP, son nom ou sa MAC."
+        case .ipv6: return "Adresses IPv6 de ce Mac, voisins de la table NDP rattachés aux appareils, ping ff02::1, ping et traceroute IPv6."
         case .bilan: return "En un clic sur cette prise\u{00A0}: lien, switch et port, VLAN, PoE, DHCP, passerelle, DNS et Internet\u{00A0}; comparaison avant/après."
         }
     }
@@ -168,6 +172,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .bilan: return "checklist"
         case .tls: return "lock.shield"
         case .ressources: return "gauge.with.dots.needle.33percent"
+        case .ipv6: return "6.circle"
         }
     }
 
@@ -177,7 +182,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
 
     /// Outils qui prennent toute la largeur (sans le panneau des favoris et de l'historique).
     var usesFullWidth: Bool { self == .bilan || self == .ressources || self == .capture || self == .snmp || self == .dhcpScopes || self == .wan || self == .firmware || self == .tftp || self == .speedtest || self == .iperf
-        || self == .tls }
+        || self == .tls || self == .ipv6 }
 
     /// Recherche multiple (note 26) : `nom:dns`, `groupe:courriel` ; un mot seul lit le nom, la
     /// clé et le résumé, comme avant.

@@ -10,13 +10,16 @@ public enum PingProbeKind: Hashable, Sendable {
     case icmp
     case tcp(port: UInt16)
     case http(URL)
+    /// IPv6 (0.31.0) : ping ICMPv6 d'une adresse IPv6 (l'hôte de la cible).
+    case icmpv6
 
-    /// « ICMP », « TCP 443 », « HTTPS ».
+    /// « ICMP », « TCP 443 », « HTTPS », « ICMPv6 ».
     public var label: String {
         switch self {
         case .icmp: return "ICMP"
         case let .tcp(port): return "TCP \(port)"
         case let .http(url): return url.scheme?.lowercased() == "https" ? "HTTPS" : "HTTP"
+        case .icmpv6: return "ICMPv6"
         }
     }
 
@@ -25,7 +28,7 @@ public enum PingProbeKind: Hashable, Sendable {
     /// Port TCP sondé (TCP) ou servi (HTTP), pour le traceroute TCP.
     public var tcpPort: UInt16? {
         switch self {
-        case .icmp: return nil
+        case .icmp, .icmpv6: return nil
         case let .tcp(port): return port
         case let .http(url):
             if let port = url.port, let value = UInt16(exactly: port) { return value }
@@ -51,7 +54,7 @@ public struct PingTargetSpec: Equatable, Sendable {
         self.kind = kind
         self.host = host
         switch kind {
-        case .icmp: canonical = host
+        case .icmp, .icmpv6: canonical = host
         case let .tcp(port): canonical = "tcp://\(host):\(port)"
         case let .http(url): canonical = url.absoluteString
         }
@@ -60,7 +63,7 @@ public struct PingTargetSpec: Equatable, Sendable {
     /// Libellé de la cible : adresse (ICMP), « adresse:port » (TCP), URL sans « https:// » (HTTP).
     public static func endpoint(kind: PingProbeKind, address: String) -> String {
         switch kind {
-        case .icmp: return address
+        case .icmp, .icmpv6: return address
         case let .tcp(port): return "\(address):\(port)"
         case let .http(url):
             var text = url.absoluteString
@@ -75,6 +78,10 @@ public struct PingTargetSpec: Equatable, Sendable {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !text.contains(where: { $0.isWhitespace }) else { return nil }
         let lower = text.lowercased()
+        // IPv6 (0.31.0) : une adresse IPv6 (zone permise pour le lien local) est pingée en ICMPv6.
+        if let (address, zone) = IPv6Address.parseZoned(text) {
+            return PingTargetSpec(kind: .icmpv6, host: address.description + (zone.map { "%\($0)" } ?? ""))
+        }
         if lower.hasPrefix("http://") || lower.hasPrefix("https://") {
             guard let url = URL(string: text), let host = url.host, !host.isEmpty else { return nil }
             // Pas d'identifiants dans l'URL : ils finiraient en clair dans la session, le journal et l'export.

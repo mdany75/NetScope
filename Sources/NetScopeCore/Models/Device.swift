@@ -56,6 +56,9 @@ public struct Device: Identifiable, Codable, Hashable, Sendable {
     /// Note 68 : indices d'empreinte (services lus par un scan de ports demandé, sysDescr, TTL…).
     /// Nil dans les fichiers antérieurs à la 0.30.0 (lus sans changement).
     public var fingerprint: FPEvidence?
+    /// IPv6 (0.31.0) : adresses IPv6 rattachées par la MAC (table NDP), triées lien local, ULA,
+    /// globales. Nil dans les fichiers antérieurs à la 0.31.0 (lus sans changement).
+    public var ipv6: [IPv6Address]? = nil
 
     public init(ip: IPv4Address, mac: MACAddress? = nil, vendor: String? = nil, hostname: String? = nil,
                 customName: String? = nil, isOnline: Bool = true, latencyMs: Double? = nil,

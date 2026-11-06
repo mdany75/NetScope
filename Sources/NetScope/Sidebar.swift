@@ -11,6 +11,8 @@ struct Sidebar: View {
     @EnvironmentObject private var state: AppState
     /// Note 35 : erreurs récentes du journal pas encore consultées, en pastille sur Réglages.
     @ObservedObject private var diagnostics = RegDiagnosticController.shared
+    /// IPv6 (0.31.0) : état IPv6 de ce Mac, en bas de la carte de l'interface.
+    @ObservedObject private var ipv6 = IPv6Model.shared
 
     /// Hauteur de la barre latérale (sous la barre de titre) à partir de laquelle la carte
     /// « Interface active » s'affiche entière au-dessus de Réglages : logo, quatre groupes d'écrans,
@@ -201,10 +203,13 @@ struct Sidebar: View {
                 .font(Theme.caption)
                 .foregroundStyle(.secondary)
             }
+            ipv6Line
             if let update = state.updateAvailable {
                 updateButton(update)
             }
         }
+        .onAppear { ipv6.refresh(interface: state.activeInterface?.name, state: state) }
+        .onChange(of: state.activeInterface?.name) { _, name in ipv6.refresh(interface: name, state: state) }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -237,6 +242,27 @@ struct Sidebar: View {
         }
         .buttonStyle(.plain)
         .help("Mise à jour disponible\u{00A0}: NetScope \(update). Ouvrir les réglages Mises à jour")
+    }
+
+    /// « IPv6 globale · 2001:db8:a00:10:… » ; un clic ouvre l'outil IPv6.
+    private var ipv6Line: some View {
+        let status = ipv6.status
+        return Button {
+            ToolStore.shared.open(.ipv6, in: state)
+        } label: {
+            ViewThatFits(in: .horizontal) {
+                (Text("IPv6 \(status.level.label)") + Text(verbatim: status.mainAddress.map { " · " + $0.description } ?? "").font(Theme.mono(10.5)))
+                    .lineLimit(1).fixedSize()
+                Text("IPv6 \(status.level.label)").lineLimit(1)
+            }
+            .font(Theme.caption)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(status.addresses.isEmpty ? "Aucune adresse IPv6 sur l’interface active"
+              : status.addresses.map { "\($0.address.scope.label)\u{00A0}: \($0.cidr)" }.joined(separator: "\n"))
     }
 
     private var gatewayLines: [String] {

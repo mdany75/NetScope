@@ -35,6 +35,8 @@ final class ScanController: ObservableObject {
     @Published private(set) var plannedPhases: [ScanPhase] = []
     @Published private(set) var startedAt: Date?
     @Published private(set) var finishedAt: Date?
+    /// Dernier scan arrêté (par l'utilisateur ou à l'étape SNMP) : résultats partiels.
+    @Published private(set) var lastScanInterrupted = false
     /// Plages du dernier scan lancé (la Carte du réseau ne montre que ses appareils).
     @Published private(set) var lastScanRanges: [IPRange] = []
     @Published private(set) var status: [UUID: RangeStatus] = [:]
@@ -130,6 +132,9 @@ final class ScanController: ObservableObject {
         return pingerCache
     }
 
+    /// Note 63 : même socket pour les scans planifiés des autres sites.
+    var sharedPinger: ICMPPinger? { pinger }
+
     /// Durée du scan en cours, ou du dernier.
     func duration(at now: Date = Date()) -> TimeInterval? {
         guard let startedAt else { return nil }
@@ -138,8 +143,16 @@ final class ScanController: ObservableObject {
 
     // MARK: Scan
 
-    func start(_ state: AppState) {
+    /// `unattended` (note 63, scan planifié du site actif) : aucune question (plages publiques, plages
+    /// modifiées) ; `profile` remplace le profil choisi dans le Scanner.
+    func start(_ state: AppState, unattended: Bool = false, profile chosen: ScanProfile? = nil) {
         guard !isRunning else { return }
+        // Note 63 : jamais deux scans à la fois (scan planifié d'un autre site en cours).
+        if !unattended, let site = ScanScheduleStore.shared.runningSiteName {
+            show("Scan planifié de «\u{00A0}\(site)\u{00A0}» en cours\u{00A0}: attendez sa fin pour lancer un scan.", tone: .warning)
+            return
+        }
+        let profile = chosen ?? state.scanProfile
         neighborTask?.cancel()
         neighborTask = nil
         // Un nouveau scan sonde lui-même les ports : la sonde en cours s'arrête.
@@ -150,7 +163,7 @@ final class ScanController: ObservableObject {
             return
         }
         // Note 28 : plages qui ne sont plus celles du site actif → le scan irait dans son inventaire.
-        guard SiteModel.shared.confirmScan(state) else { return }
+        guard unattended || SiteModel.shared.confirmScan(state) else { return }
         let enabled = state.ranges.filter(\.isEnabled)
         var targets: [ScanTarget] = []
         var invalid: [String] = []
@@ -163,7 +176,7 @@ final class ScanController: ObservableObject {
         }
         let prefs = RegPrefs.shared
         let publicRanges = targets.filter(Self.hasPublicAddresses)
-        if prefs.confirmPublicRanges, !publicRanges.isEmpty, !confirmPublic(publicRanges) { return }
+        if !unattended, prefs.confirmPublicRanges, !publicRanges.isEmpty, !confirmPublic(publicRanges) { return }
         if !invalid.isEmpty {
             show("Plage ignorée (invalide)\u{00A0}: \(invalid.joined(separator: ", "))", tone: .warning)
         }
@@ -174,14 +187,14 @@ final class ScanController: ObservableObject {
             show("Toutes les adresses cochées sont dans les plages exclues de «\u{00A0}\(SiteModel.shared.activeName)\u{00A0}»\u{00A0}: rien à scanner (Réglages › Sites et plages).", tone: .warning)
             return
         }
-        var options = ScanOptions(profile: state.scanProfile, customPorts: prefs.tuning.ports)
+        var options = ScanOptions(profile: profile, customPorts: prefs.tuning.ports)
         options.exclusions = exclusions
         options.portOverride = portPreset.ports
         // Méthodes de découverte du profil (Réglages › Profils de scan).
-        options.methods = prefs.methods(for: state.scanProfile)
+        options.methods = prefs.methods(for: profile)
         let plan = ScanPlan(options: options, autoDiscoverSwitches: prefs.autoDiscoverSwitches)
         guard !plan.findsNothing else {
-            show("Le profil « \(state.scanProfile.label) » n’a aucune méthode de présence (ICMP, ARP, TCP ou UDP)\u{00A0}: voir Réglages › Profils de scan.", tone: .warning)
+            show("Le profil « \(profile.label) » n’a aucune méthode de présence (ICMP, ARP, TCP ou UDP)\u{00A0}: voir Réglages › Profils de scan.", tone: .warning)
             return
         }
         lastScanPortLabel = portPreset.label
@@ -211,6 +224,7 @@ final class ScanController: ObservableObject {
         })
         startedAt = begin
         finishedAt = nil
+        lastScanInterrupted = false
         lastScanRanges = targets.map(\.range)
         isRunning = true
         phase = .ping
@@ -460,11 +474,14 @@ final class ScanController: ObservableObject {
         }
         for id in status.keys { status[id]?.finishedAt = end }
         finishedAt = end
+        lastScanInterrupted = engineCancelled || snmpCancelled
         isRunning = false
         phase = nil
         scanTask = nil
         // Note 30 : téléphones IP d'après les voisins LLDP / CDP et le VLAN voix déjà connus.
         applyVoIPHints(state)
+        // IPv6 (0.31.0) : voisins de la table NDP (lecture locale, aucun paquet) rattachés par la MAC.
+        IPv6Model.shared.refresh(interface: state.activeInterface?.name, state: state)
         // Note 28 : date du scan du site, MAC de sa passerelle, résultats écrits dans le dossier du site.
         SiteModel.shared.scanFinished(state)
         let online = state.devices.filter { device in device.isOnline && targets.contains { $0.range.contains(device.ip) } }.count

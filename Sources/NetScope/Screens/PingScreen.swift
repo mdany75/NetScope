@@ -370,13 +370,13 @@ struct PingScreen: View {
             if let target = controller.selectedTarget {
                 if width >= 1000 {
                     HStack(alignment: .top, spacing: 16) {
-                        PingMTRPanel(controller: controller, target: target)
+                        traceroutePanel(target)
                             .frame(width: (width - 16) * 1.6 / 2.6)
                         PingJournalPanel(controller: controller)
                             .frame(width: (width - 16) / 2.6)
                     }
                 } else {
-                    PingMTRPanel(controller: controller, target: target)
+                    traceroutePanel(target)
                     PingJournalPanel(controller: controller)
                 }
             } else {
@@ -456,4 +456,15 @@ struct PingScreen: View {
             }
         }
     }
+
+    /// IPv6 (0.31.0) : une cible ICMPv6 a son traceroute IPv6 ; les autres gardent le MTR.
+    @ViewBuilder
+    private func traceroutePanel(_ target: PingTarget) -> some View {
+        if target.kind == .icmpv6 {
+            PingIPv6TracePanel(target: target)
+        } else {
+            PingMTRPanel(controller: controller, target: target)
+        }
+    }
+
 }

@@ -6,6 +6,18 @@ final class ToolSubnetModel: ObservableObject {
     @Published var cidr = "10.182.122.0/24"
     /// Préfixe de découpage choisi (corrigé s'il ne convient pas au réseau saisi).
     @Published var splitPrefix = 26
+    /// IPv6 (0.31.0) : longueur de découpage et MAC du bloc EUI-64.
+    @Published var splitLength6 = 64
+    @Published var eui64MAC = "94:DD:F8:18:15:7D"
+
+    init() {
+        // Captures (--snapshot) : NETSCOPE_CALCUL=2001:db8:a00::/48 ouvre le calculateur sur ce préfixe.
+        let arguments = CommandLine.arguments
+        if arguments.contains("--snapshot") || arguments.contains("--demo"),
+           let value = ProcessInfo.processInfo.environment["NETSCOPE_CALCUL"], !value.isEmpty {
+            cidr = value
+        }
+    }
 }
 
 /// Analyse de la saisie du calculateur.
@@ -78,8 +90,17 @@ struct SubnetCalculatorView: View {
     private static let maxRows = 16
 
     var body: some View {
+        // IPv6 (0.31.0) : une saisie avec « : » passe au calculateur IPv6.
+        if model.cidr.contains(":") {
+            IPv6CalculatorView(model: model, store: store)
+        } else {
+            ipv4Body
+        }
+    }
+
+    private var ipv4Body: some View {
         let parsed = SubnetCalculation.parse(model.cidr)
-        VStack(alignment: .leading, spacing: 16) {
+        return VStack(alignment: .leading, spacing: 16) {
             inputs(current: try? parsed.get())
             quickRanges
             switch parsed {
@@ -142,6 +163,9 @@ struct SubnetCalculatorView: View {
             Text("Plages récentes\u{00A0}:").font(Theme.small).foregroundStyle(Theme.textSecondary).frame(height: 28)
             ForEach(Array(unique), id: \.self) { text in
                 ToolChoiceChip(label: text, isSelected: text == current) { model.cidr = text }
+            }
+            ToolChoiceChip(label: "IPv6 …", isSelected: false) {
+                model.cidr = IPv6Model.shared.status.routedPrefix?.description ?? "2001:db8:a00::/48"
             }
         }
     }

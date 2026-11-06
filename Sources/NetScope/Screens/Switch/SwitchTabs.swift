@@ -5,7 +5,7 @@ import SwiftUI
 // Les règles (onglets, ports, VLAN, voisins, résumé) sont dans NetScopeCore/SwitchPages ; ce
 // fichier garde l'onglet choisi, dessine la barre des onglets et les tuiles.
 //
-// Captures : NETSCOPE_SWITCH_ONGLET=switchs | ports | trafic | appareils | voisins ;
+// Captures : NETSCOPE_SWITCH_ONGLET=switchs | ports | trafic | appareils | voisins | configurations ;
 // NETSCOPE_SWITCH_PORTS=tous | actifs | inactifs | poe | uplinks | erreurs (filtre de l'onglet Ports).
 
 /// Onglet et filtres de Switchs et ports, gardés d'une visite à l'autre (l'onglet aussi d'un
@@ -72,6 +72,8 @@ final class SwitchTabState: ObservableObject {
 struct SwitchTabBar: View {
     @ObservedObject var tabs: SwitchTabState
     @ObservedObject var store: SwitchStore
+    /// Note 40 : compteur des configurations modifiées sur l'onglet Configurations.
+    @ObservedObject private var configs = ConfigBackupModel.shared
     /// Switchs relevés du site (ordre des cartes).
     let snapshots: [SNMPSwitchSnapshot]
     let shown: SNMPSwitchSnapshot?
@@ -109,6 +111,7 @@ struct SwitchTabBar: View {
         case .ports: return summary.errorPorts.count
         case .voisins: return summary.neighbors
         case .trafic, .appareils: return nil
+        case .configurations: return configs.pendingCount
         }
     }
 

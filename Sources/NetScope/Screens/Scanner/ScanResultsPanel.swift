@@ -303,6 +303,7 @@ struct ScanDeviceTable: View {
         // Note 27 : client Wi-Fi vu par la FortiGate (borne FortiAP et SSID), comme Switch / port.
         StandardColumn(id: "borneWifi", title: "Borne Wi-Fi", isDefaultVisible: false),
         StandardColumn(id: "ssid", title: "SSID", isDefaultVisible: false),
+        StandardColumn(id: "ipv6", title: "IPv6", isDefaultVisible: false),
     ]
 
     static let sortKeys: [String: KeyPathComparator<Device>] = [
@@ -326,6 +327,7 @@ struct ScanDeviceTable: View {
         "systeme": KeyPathComparator(\Device.scanSortSystem),
         "version": KeyPathComparator(\Device.scanSortVersions),
         "oui": KeyPathComparator(\Device.scanSortVendorOUI),
+        "ipv6": KeyPathComparator(\Device.scanSortIPv6),
     ]
 
     @MainActor
@@ -538,6 +540,16 @@ struct ScanDeviceTable: View {
                 }
                 .width(min: 90, ideal: 180)
                 .customizationID("version")
+                .defaultVisibility(.hidden)
+            }
+
+            // IPv6 (0.31.0) : adresses rattachées par la MAC (table NDP), masquable.
+            Group {
+                TableColumn(StandardTableHeading("IPV6"), sortUsing: table.sort("ipv6")) { device in
+                    ScanIPv6Cell(addresses: device.ipv6 ?? [])
+                }
+                .width(min: 120, ideal: 250)
+                .customizationID("ipv6")
                 .defaultVisibility(.hidden)
             }
         }

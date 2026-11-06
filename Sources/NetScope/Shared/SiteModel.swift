@@ -376,6 +376,15 @@ final class SiteModel: ObservableObject {
         shelf.shelve(collect(from: state), for: activeKey)
     }
 
+    /// Note 63 : scan planifié d'un autre site, écrit dans ses fichiers : ses résultats gardés en
+    /// mémoire sont oubliés (relus au besoin) et la date de son dernier scan est notée.
+    func scheduledScanFinished(key: String, date: Date) {
+        shelf.forget(key)
+        guard let index = list.sites.firstIndex(where: { SiteFiles.key(for: $0.id) == key }) else { return }
+        list.sites[index].lastScan = date
+        save()
+    }
+
     /// Avant un scan : si les plages ne sont plus celles du site actif, on demande (le scan irait
     /// dans l'inventaire de ce site). Faux : le scan n'est pas lancé.
     func confirmScan(_ state: AppState) -> Bool {

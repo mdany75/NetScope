@@ -95,6 +95,8 @@ struct PingTerminalCard: View {
         switch target.kind {
         case .icmp:
             return "\(payloadSize + 8) octets de \(target.addressLabel)\u{00A0}: seq=\(sample.sequence) temps=\(PingFormat.decimal(rtt)) ms"
+        case .icmpv6:
+            return "\(payloadSize + 8) octets de \(target.endpointLabel)\u{00A0}: icmp_seq=\(sample.sequence) temps=\(PingFormat.decimal(rtt)) ms"
         case .tcp:
             return "Connecté à \(target.endpointLabel)\u{00A0}: seq=\(sample.sequence) temps=\(PingFormat.decimal(rtt)) ms"
         case .http:

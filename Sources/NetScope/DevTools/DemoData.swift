@@ -125,7 +125,8 @@ enum DemoData {
 
     /// Appareils datés par rapport à `now` (« à l'instant », « il y a 3 h »).
     static func devices(now: Date = Date()) -> [Device] {
-        rows.map { row in
+        // IPv6 (0.31.0) : adresses IPv6 rattachées par la MAC, comme après la lecture de la table NDP.
+        IPv6Demo.attach(rows.map { row in
             let seen = now.addingTimeInterval(-row.minutesAgo * 60)
             return Device(ip: IPv4Address(row.ip)!, mac: MACAddress(row.mac), vendor: row.vendor,
                           hostname: row.host, customName: row.name, isOnline: row.online,
@@ -136,6 +137,6 @@ enum DemoData {
                           nameSource: names[row.ip]?.0, nameDomain: names[row.ip]?.1, snmpKind: snmpKinds[row.ip],
                           voipSignals: voipSignals[row.ip], fingerprint: FingerprintDemo.evidence[row.ip])
         }
-        .sorted { $0.ip < $1.ip }
+        .sorted { $0.ip < $1.ip })
     }
 }
