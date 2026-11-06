@@ -1706,8 +1706,17 @@ Dany : étendre la synchronisation iCloud Drive de la note 56 (0.18.0) au lieu d
 - **Mises à jour** : version de hbbs et hbbr lue par SSH (binaire ou image Docker), comparée à la
   dernière version publiée de rustdesk-server sur GitHub ; mises à jour du système du serveur
   lues par SSH en lecture seule (`apt list --upgradable`, `dnf check-update`…), avec le nombre de
-  correctifs de sécurité et « redémarrage requis ». Installer reste à faire à la main, ou plus
-  tard avec confirmation.
+  correctifs de sécurité et « redémarrage requis ».
+- **Installer les mises à jour** (précision de Dany, 6 novembre 2026) : bouton « Mettre à jour »
+  pour RustDesk (nouvelle image Docker ou nouveaux binaires, puis redémarrage de hbbs et hbbr) et
+  pour le système (`apt upgrade`…), avec confirmation, sessions en cours signalées avant, clé du
+  serveur et base `db_v2.sqlite3` sauvegardées avant, vérification après (versions, ports, clé
+  inchangée) et retour à la version précédente si RustDesk ne repart pas. Mot de passe sudo au
+  Trousseau seulement.
+- **Mise à jour planifiée** : fenêtre choisie (ex. dimanche 3 h), RustDesk, système ou les deux,
+  sécurité seulement ou tout, redémarrage du serveur permis ou non, report si une session relayée
+  est en cours ; exécutée par l’agent en arrière-plan (note 64) même app fermée ; résultat dans
+  l’historique et alerte en cas d’échec.
 - **Déconnecter un usager** : le serveur libre (hbbs/hbbr) n’a pas d’API pour couper une session.
   Possible par SSH en fermant la connexion relayée de ce poste (`ss -K`, droits root), sinon
   redémarrer hbbr coupe toutes les sessions. RustDesk Server Pro a une API qui le fait proprement.
@@ -1718,3 +1727,22 @@ Dany : étendre la synchronisation iCloud Drive de la note 56 (0.18.0) au lieu d
 - **Nom ou note sur un ID** : nom et note libres pour chaque ID RustDesk, gardés dans NetScope et
   synchronisés entre les Mac (note 86) ; affichés dans le tableau de bord, l’assistance et le carnet.
 - À vérifier avant : quel serveur tourne chez Groupe Couture (libre ou Pro, Docker ou non).
+- **Associer un ID à une MAC automatiquement** : la fiche d’inventaire a déjà un champ « ID
+  RustDesk » (0.26.1), retenu par la MAC. Le serveur ne voit que l’IP publique du site (NAT) ; à la
+  connexion, la table des sessions de la FortiGate du site (jeton en lecture) donne le poste
+  interne qui parle au serveur (21116/21117), puis ARP ou bail DHCP donnent la MAC. NetScope
+  propose l’association, Dany confirme (l’IP seule ne tranche jamais). Poste sur le réseau local
+  du serveur : IP privée, correspondance directe avec le dernier scan. Le tableau de bord montre
+  alors le nom de la fiche au lieu de « Hors carnet », avec lien vers la fiche Appareil.
+- **Autres suggestions retenues** :
+  - clé publique du serveur affichée et copiable, alerte si elle change ;
+  - santé : durée de fonctionnement, processeur, mémoire, redémarrages de hbbs et hbbr ;
+  - historique des demandes conservé jour après jour, rapport mensuel par poste et par
+    technicien (CSV, PDF) ;
+  - alertes de Surveillance par l’agent : hbbs ou hbbr arrêté, disque > 90 %, clé changée, ports
+    21115 à 21119 injoignables de l’extérieur ;
+  - tentatives suspectes (ID hors carnet, rafale depuis une même IP), quarantaine en un clic ;
+  - site probable du poste quand son IP publique est le WAN d’une FortiGate connue (indice
+    seulement) ;
+  - clic droit sur une ligne : se connecter, ajouter au carnet, ouvrir la fiche, copier l’ID ;
+  - journaux de hbbs et hbbr dans NetScope, avec recherche et filtre par ID.
