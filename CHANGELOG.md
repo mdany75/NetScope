@@ -1,5 +1,27 @@
 # Changements
 
+## 0.36.0 — 2026-11-06
+
+Relevé Wi-Fi sur plan (note 94).
+
+### Ajouté
+- **Wi-Fi › Relevé sur plan** : plan d’étage importé (PDF ou image), échelle par deux points et
+  une distance, plusieurs étages par site. Un clic sur le plan mesure le signal, le bruit, le
+  débit, la borne et le canal captés par ce Mac (bornes voisines sur demande).
+- Carte de chaleur du signal, du rapport signal/bruit, du débit, de la borne ou du canal ;
+  zones mortes (sous −75 dBm), chevauchements de canaux, emplacement suggéré d’une borne et
+  bilan de l’étage.
+- Bornes FortiAP placées à la main sur le plan (liste lue sur la FortiGate) ; mesures nommées
+  d’après la borne captée.
+- Export PDF et section « Relevé Wi-Fi sur plan » dans les rapports ; relevés synchronisés
+  entre les Mac avec le site.
+
+### Limites connues
+- Rien n’a été essayé sur un vrai Mac en Wi-Fi (mesure au clic, balayage des voisines, import
+  d’un vrai plan).
+- La carte ne tient pas compte des murs (interpolation par distance). Le plan est gardé dans
+  le fichier du relevé, qui peut peser quelques Mo par étage.
+
 ## 0.35.0 — 2026-11-06
 
 Câbles et VLAN (notes 89 et 90).
