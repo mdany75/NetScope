@@ -74,7 +74,8 @@ struct UDPScanToolSection: View {
                 if hostState.isRunning {
                     Text("En cours · \(hostState.done) / \(hostState.total) ports UDP · \(MonText.plural(hostState.partial.filter { $0.state == .open }.count, "ouvert", "ouverts"))")
                 } else if let summary = hostState.summary {
-                    Text((summary.wasCancelled ? "Interrompu · " : "Terminé · ") + summary.summary
+                    // « ouvert|filtré » ne se coupe pas au « | » (gluon U+2060 de part et d'autre).
+                    Text((summary.wasCancelled ? "Interrompu · " : "Terminé · ") + summary.summary.replacingOccurrences(of: "|", with: "\u{2060}|\u{2060}")
                          + (hostState.communityNote.map { " · SNMP\u{00A0}: \($0)" } ?? ""))
                 }
                 Spacer()

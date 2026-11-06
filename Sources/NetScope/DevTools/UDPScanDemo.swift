@@ -113,8 +113,8 @@ enum UDPScanDemo {
                                   details: [engine] + (community == .site ? ["Aucune réponse en v2c avec la communauté choisie."] : []))
         }
         return UDPProbeResult(service: .snmp, state: .open, rttMs: 3.4,
-                              summary: "SNMP v2c · Brother NC-8300h, Firmware Ver.1.12 ,MID 8CE-K2F,FID 2",
-                              details: [v3, "sysDescr\u{00A0}: Brother NC-8300h, Firmware Ver.1.12 ,MID 8CE-K2F,FID 2", engine],
+                              summary: "SNMP v2c · Brother NC-8300w, Firmware Ver.1.07  ,MID 8C5-K9F,FID 2",
+                              details: [v3, "sysDescr\u{00A0}: Brother NC-8300w, Firmware Ver.1.07  ,MID 8C5-K9F,FID 2", engine],
                               findings: [.snmpPublic])
     }
 

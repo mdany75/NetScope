@@ -48,7 +48,13 @@ extension ReportBuilder {
                     case "HTTP": severity = infrastructure.contains(device.deviceType) ? .moyen : .faible
                     default: severity = .moyen
                     }
-                    let detail = clear + (service.productLabel.map { $0 == clear ? "" : " (\($0))" } ?? "")
+                    // « VNC (RFB) 3.889 » commence déjà par « VNC » : pas de « VNC (VNC (RFB) 3.889) ».
+                    let detail: String
+                    if let label = service.productLabel, label != clear {
+                        detail = label.hasPrefix(clear + " ") ? label : "\(clear) (\(label))"
+                    } else {
+                        detail = clear
+                    }
                     append(ReportFingerprintFinding(host: host, ip: device.ip, port: service.port, ports: [service.port],
                                                     kind: kind, detail: detail, system: system, severity: severity), to: &result)
                 } else if service.exposesVersion, let label = service.productLabel {

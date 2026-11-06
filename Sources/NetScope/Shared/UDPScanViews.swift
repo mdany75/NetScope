@@ -303,7 +303,8 @@ struct UDPServicesPanel: View {
         guard let summary = hostState.summary else {
             return inSheet ? "Lancé seulement sur clic" : "Scan UDP ciblé (DNS, NTP, SNMP, SIP, IPMI…), lancé seulement sur clic"
         }
-        var parts = ["Dernier scan\u{00A0}: \(ToolText.time(summary.date))", summary.summary]
+        // « ouvert|filtré » ne se coupe pas au « | » (gluon U+2060 de part et d'autre).
+        var parts = ["Dernier scan\u{00A0}: \(ToolText.time(summary.date))", summary.summary.replacingOccurrences(of: "|", with: "\u{2060}|\u{2060}")]
         if let note = hostState.communityNote, summary.results.contains(where: { $0.service == .snmp }) { parts.append("SNMP\u{00A0}: " + note) }
         return (summary.wasCancelled ? "Interrompu · " : "") + parts.joined(separator: " · ")
     }
