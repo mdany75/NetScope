@@ -458,6 +458,14 @@ private struct MonConditionFields: View {
             MonFirmwareConditionFields(probe: $probe)
         case .syslogSeverity, .trapReceived:
             MonLogConditionFields(probe: $probe)
+        case .tlsCertificate:
+            HStack(spacing: 8) {
+                Text("Alerter").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
+                MonInput(placeholder: "\(MonTLSChecks.defaultDays)", text: double($probe.resourceLimit), mono: true)
+                    .frame(width: 56)
+                Text("jours avant l’expiration\u{00A0}; panne une fois expiré (STARTTLS pour 25, 587, 143 et 110)")
+                    .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
+            }
         }
     }
 

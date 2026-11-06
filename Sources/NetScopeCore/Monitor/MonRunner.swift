@@ -152,6 +152,8 @@ public enum MonRunner {
                                                       siteErrors: context.firmwareSiteErrors, now: context.now)
         case .syslogSeverity, .trapReceived:
             return MonLogChecks.run(probe, target: target, logs: context.logs, listening: context.logsListening, now: context.now)
+        case .tlsCertificate:
+            return MonRunOutcome(result: await MonTLSChecks.run(probe, target: target, now: context.now))
         }
     }
 

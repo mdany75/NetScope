@@ -177,6 +177,47 @@ func registerTLSCertificateTests(_ suite: TestSuite) {
         try expect(TLSCipherSuite.isWeak("TLS_RSA_WITH_AES_128_CBC_SHA"), "RSA statique faible")
     }
 
+    suite.add("Certificat TLS : sonde de Surveillance (cible, jours restants, alerte et panne)") {
+        try expect(MonTLSChecks.target("nas.exemple.ca")! == ("nas.exemple.ca", 443), "443 par défaut")
+        try expect(MonTLSChecks.target("https://fw.exemple.ca:8443/login")! == ("fw.exemple.ca", 8443), "adresse web")
+        try expect(MonTLSChecks.target("mail.exemple.ca:587")! == ("mail.exemple.ca", 587), "port de soumission")
+        try expect(MonTLSChecks.target("hôte:abc") == nil, "port invalide")
+        let nas = try X509Certificate(der: TLSFixtures.nas)
+        let inspection = TLSInspection(date: now, host: "nas.exemple.ca", port: 443, serverName: "nas.exemple.ca", chain: [nas])
+        let ok = MonTLSChecks.evaluate(inspection, days: 30, now: now)
+        try expect(ok.reachable && ok.problem == nil, "valide : ni alerte ni panne")
+        try expectEqual(ok.value, "8822\u{00A0}j · Exemple CA interne", "jours restants et émetteur")
+        let soon = MonTLSChecks.evaluate(inspection, days: 30, now: date("2050-12-20T00:00:00Z"))
+        try expect(soon.reachable && soon.problem?.contains("expire dans 12") == true, "alerte sous le seuil")
+        let printer = try X509Certificate(der: TLSFixtures.printer)
+        let expired = MonTLSChecks.evaluate(TLSInspection(date: now, host: "10.182.122.111", port: 443, serverName: nil, chain: [printer]),
+                                            days: 30, now: now)
+        try expect(!expired.reachable && expired.value == "Expiré · auto-signé", "panne si expiré")
+        let failed = MonTLSChecks.evaluate(TLSInspection(date: now, host: "x", port: 443, serverName: nil, error: "Délai dépassé"), days: 30, now: now)
+        try expectEqual(failed.error, "Délai dépassé", "panne sans certificat")
+        try expectEqual(MonProbe.defaultResourceLimit(.tlsCertificate), 30, "seuil par défaut")
+    }
+
+    // Essai facultatif, vers 127.0.0.1 seulement : serveur local lancé à la main avec le certificat
+    // du NAS et son autorité (openssl s_server, ou un petit serveur STARTTLS), par exemple
+    // NETSCOPE_TLS_LOCAL_PORT=18443 [NETSCOPE_TLS_LOCAL_MODE=smtp]. Ignoré sinon.
+    suite.add("Certificat TLS : poignée réelle sur 127.0.0.1 (facultatif)") {
+        let environment = ProcessInfo.processInfo.environment
+        guard let raw = environment["NETSCOPE_TLS_LOCAL_PORT"], let port = UInt16(raw) else {
+            throw TestSkipped(reason: "NETSCOPE_TLS_LOCAL_PORT absent (serveur TLS local)")
+        }
+        let mode = environment["NETSCOPE_TLS_LOCAL_MODE"].flatMap(TLSStartMode.init(rawValue:)) ?? .direct
+        let result = await TLSProbe.inspect(host: "127.0.0.1", port: port, serverName: "nas.exemple.ca", mode: mode, timeout: 4)
+        print("    " + TLSAnalysis.report(result).replacingOccurrences(of: "\n", with: "\n    "))
+        for support in result.versions { print("    \(support.version.label) : \(String(describing: support.accepted)) \(support.detail ?? "")") }
+        try expectEqual(result.error, nil, "poignée réussie")
+        try expectEqual(result.leaf?.subject.commonName, "nas.exemple.ca", "certificat du serveur lu")
+        try expectEqual(result.chain.count, 2, "chaîne envoyée : serveur et autorité")
+        try expect(!result.trusted, "autorité interne inconnue de macOS")
+        try expect(result.negotiatedVersion != nil, "version négociée")
+        try expect(result.versions.contains { $0.version == .tls12 && $0.accepted == true }, "TLS 1.2 accepté")
+    }
+
     suite.add("Certificat TLS : vérification du site (cibles, concurrence limitée, expirés d'abord)") {
         let devices = [
             Device(ip: IPv4Address("10.0.0.20")!, hostname: "nas", openPorts: [80, 443, 5001]),
