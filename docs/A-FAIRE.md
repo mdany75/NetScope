@@ -130,7 +130,9 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       d’essai sur une vraie FortiGate, un site et un scan restent à faire et seront corrigés au
       fil de l’eau en 0.23.x.
     - **0.29.0, synchronisation complète entre les Mac** : note 86 (demande de Dany, 5 novembre 2026).
-    - **0.30.0, sauvegarde des configurations** (ex-0.24.0, puis 0.29.0, renumérotée le 5 novembre
+    - **0.30.0, empreinte, UDP, TLS et autres contrôleurs** : notes 68, 69, 70 et 77 (demandées
+      par Dany le 5 novembre 2026).
+    - **0.31.0, sauvegarde des configurations** (ex-0.24.0, puis 0.29.0 et 0.30.0, renumérotée le 5 novembre
       2026 ; reprend la 0.19.0) : note 40 (FortiGate par
       l’API, puis switchs en SSH grâce au terminal de la 0.22.0) ; la note 61 (export de la carte
       et section « Carte » du rapport) est livrée dans la 0.28.0.
@@ -179,21 +181,21 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       (collecteur NetFlow, sFlow et IPFIX dans Trafic) et 76 (notifications ntfy et Pushover),
       demandées par Dany le 5 novembre 2026 et avancées de « plus tard ». Essais réels à faire
       (draw.io, NAS et postes Windows, vrais exportateurs de flux, vrais envois ntfy et Pushover).
-    - **0.31.0, automatique en arrière-plan** (prévue en 0.28.0, repoussée par la
+    - **0.32.0, automatique en arrière-plan** (prévue en 0.28.0, repoussée par la
       livraison des notes 61, 72, 75 et 76) : notes 63 (scan planifié par site) et 64 (agent
       sans fenêtre) ; sonde « débit Internet » planifiée (note 78, livrée dans la 0.27.0).
-    - **0.32.0, IPv6** (idée sans numéro, venue de l’ancienne feuille de route) : découverte par
+    - **0.33.0, IPv6** (idée sans numéro, venue de l’ancienne feuille de route) : découverte par
       la table des voisins NDP (lue par sysctl, sans paquet), ping multicast lien local, ping et
       traceroute IPv6, calculateur IPv6.
-    - **0.33.0, accès distant, suite** : note 67 (commande envoyée à plusieurs sessions) ;
+    - **0.34.0, accès distant, suite** : note 67 (commande envoyée à plusieurs sessions) ;
       le meilleur canal, le relevé enregistré, la note 80 et XMODEM/YMODEM (note 78) sont livrés
       dans la 0.27.0. Notes 71 et 66 et import de `~/.ssh/config` livrés dans la 0.26.0.
     - ~~**À décider avec Dany avant la 0.24.0**~~ : notes 73 (cycle PoE) et 79 (Ookla caché,
       nouveaux noms des deux « analyses », outils de courriel regroupés) décidées et livrées dans
       la 0.25.0 ; reste à décider : avancer la note 66 (tunnels SSH) en 0.24.0 si le VNC non chiffré ou
       le réseau FortiLink posent problème pendant les essais (livrée dans la 0.26.0).
-    - **Plus tard** : note 13 (anglais) ; la note 11 est retirée par Dany le 5 novembre 2026 ; notes 68 à 70 (empreinte des services, ports UDP, certificats
-      TLS), 77 (autres contrôleurs ; les notes 72, 75 et 76 sont livrées dans la 0.28.0) ; idées
+    - **Plus tard** : note 13 (anglais) ; la note 11 est retirée par Dany le 5 novembre 2026 ; les notes 68, 69, 70 et 77
+      passent en 0.30.0, et les notes 72, 75 et 76 sont livrées dans la 0.28.0 ; idées
       d’un cran en dessous : relevé Wi-Fi sur plan, qualité VoIP (MOS) avec les décodeurs
       SIP/RTP, toner des imprimantes, test de câble, scan d’un VLAN tagué, retour à la version
       précédente.
@@ -202,16 +204,16 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 
 | Module | Livrées | À venir |
 | --- | --- | --- |
-| Scanner et sites | 18, 19, 20, 26, 28, 48, 49, 81, 82 (0.27.0), 72 (0.28.0) | 63 (0.31.0), IPv6 (0.32.0), 68, 69 (plus tard) |
+| Scanner et sites | 18, 19, 20, 26, 28, 48, 49, 81, 82 (0.27.0), 72 (0.28.0) | 68, 69 (0.30.0), 63 (0.32.0), IPv6 (0.33.0) |
 | Navigation entre les modules | 31, 33, 34, 36, 45 | — |
-| Switchs et ports, Fortinet | 12, 24, 25, 29, 39, 41, 54, 59, 73, 74, navigateur SNMP / MIB walk (0.25.0), 83 (0.27.0), 75 (0.28.0) | 40 (0.30.0), 77 (plus tard) |
+| Switchs et ports, Fortinet | 12, 24, 25, 29, 39, 41, 54, 59, 73, 74, navigateur SNMP / MIB walk (0.25.0), 83 (0.27.0), 75 (0.28.0) | 77 (0.30.0), 40 (0.31.0) |
 | Wi-Fi | 1, 27, 46, 47, 71 (0.26.0), 80 et 78 : meilleur canal, relevé (0.27.0) | — |
 | Carte du réseau | 32, 78 : liens LLDP, VLAN, disposition (0.27.0), 61 (0.28.0) | — |
 | Inventaire | 8, 10, 30 | 60 (0.23.0) |
 | Ping continu | 11 (en partie, 0.21.0 ; reste retiré par Dany), 65 (0.26.0) | — |
-| Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22, 37, 51, 53, 55, 58 (0.26.0) | 70 (plus tard) |
-| Accès distant | 5, 50, 52, 57, 66 (0.26.0), 6 (0.26.1 ; tableau de bord du serveur, 0.26.2), 85 (0.27.3) | 67 (0.33.0) |
-| Surveillance, alertes et journaux | 3, 23, 43, 62 et 78 (0.27.0), 76 (0.28.0) | 64 (0.31.0) |
+| Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22, 37, 51, 53, 55, 58 (0.26.0) | 70 (0.30.0) |
+| Accès distant | 5, 50, 52, 57, 66 (0.26.0), 6 (0.26.1 ; tableau de bord du serveur, 0.26.2), 85 (0.27.3) | 67 (0.34.0) |
+| Surveillance, alertes et journaux | 3, 23, 43, 62 et 78 (0.27.0), 76 (0.28.0) | 64 (0.32.0) |
 | Rapports | 4, 42, 62 et 78 : SMTP, DOCX (0.27.0), 61 (0.28.0) | — |
 | Réglages, sauvegarde, aide | 9, 13, 38, 56 | 86 (0.29.0), 35 (0.23.0), 13 (plus tard) |
 | Toute l’app (analyse du marché) | 79 (0.25.0), 78 en partie (Trafic, 0.25.0 ; Test MTU, Ping continu, Inventaire, Wake-on-LAN, Alertes, Accès distant, 0.26.0), 78 (reste, 0.27.0) | — |
@@ -906,7 +908,7 @@ entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 3
 - Liens WAN et SD-WAN (état, latence, perte, gigue), tunnels VPN IPsec (montés ou tombés),
   par site ; sondes « tunnel tombé » et « lien WAN dégradé » ; vue de tous les sites.
 
-## 40. Sauvegarde des configurations — 0.30.0, ex-0.24.0 (analyse, retenue par Dany)
+## 40. Sauvegarde des configurations — 0.31.0, ex-0.24.0 (analyse, retenue par Dany)
 
 - Copie de la configuration de chaque FortiGate (API, lecture), puis des switchs en SSH ;
   historique par site, comparaison avant/après (différences surlignées), avant une intervention.
@@ -1271,7 +1273,7 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 - **Référence du marché** : PRTG, Nagios XI, Uptime Kuma, PingPlotter.
 - **Effort** : moyen.
 
-## 63. Scan planifié par site — 0.31.0 (analyse du marché, à valider par Dany)
+## 63. Scan planifié par site — 0.32.0 (analyse du marché, à valider par Dany)
 
 - **Ce que ça apporte** : aujourd’hui les rapports planifiés reprennent un vieux scan. Un scan
   à l’heure choisie (quand NetScope est ouvert, ou par l’agent de la note 64) alimente la courbe
@@ -1279,7 +1281,7 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 - **Référence du marché** : Fing, Lansweeper, PRTG, phpIPAM.
 - **Effort** : moyen.
 
-## 64. Surveillance en arrière-plan sans fenêtre — 0.31.0 (analyse du marché, à valider par Dany)
+## 64. Surveillance en arrière-plan sans fenêtre — 0.32.0 (analyse du marché, à valider par Dany)
 
 - **Ce que ça apporte** : sondes, Syslog et scans planifiés qui continuent après la fermeture
   de l’app. Agent de connexion ou LaunchAgent qui fait tourner le moteur de sondes ; l’app
@@ -1306,7 +1308,7 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 - **Référence du marché** : Royal TSX, Termius, SecureCRT.
 - **Effort** : petit (arguments de `/usr/bin/ssh`).
 
-## 67. Envoi d’une commande à plusieurs sessions et extraits personnalisés — 0.33.0 (analyse du marché, à valider par Dany)
+## 67. Envoi d’une commande à plusieurs sessions et extraits personnalisés — 0.34.0 (analyse du marché, à valider par Dany)
 
 - **Ce que ça apporte** : `show run` sur tous les switchs d’un site en une fois. Envoi d’une
   même commande à plusieurs sessions ouvertes du terminal intégré (note 57) et extraits
@@ -1315,7 +1317,7 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 - **Référence du marché** : SecureCRT, Royal TSX, iTerm2.
 - **Effort** : petit (le terminal de la 0.22.0 est livré).
 
-## 68. Empreinte légère des services et du système — plus tard (analyse du marché, à valider par Dany)
+## 68. Empreinte légère des services et du système — 0.30.0 (analyse du marché, demandée par Dany le 5 novembre 2026)
 
 - **Ce que ça apporte** : type et système plus justes, versions visibles dans le rapport
   Sécurité, sans Nmap : en-tête HTTP « Server », certificat TLS, dialecte SMB, sysDescr, TXT
@@ -1323,14 +1325,14 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 - **Référence du marché** : Nmap, SoftPerfect, Lansweeper.
 - **Effort** : moyen.
 
-## 69. Scan de ports UDP ciblé — plus tard (analyse du marché, à valider par Dany)
+## 69. Scan de ports UDP ciblé — 0.30.0 (analyse du marché, demandée par Dany le 5 novembre 2026)
 
 - **Ce que ça apporte** : repérer un SNMP ouvert, un SIP ou un IPMI exposés. Charge propre à
   chaque protocole : DNS 53, NTP 123, SNMP 161, TFTP 69, SIP 5060, IPMI 623, mDNS.
 - **Référence du marché** : Nmap, SoftPerfect, NetScanTools.
 - **Effort** : petit à moyen.
 
-## 70. Vérificateur de certificat TLS — plus tard (analyse du marché, à valider par Dany)
+## 70. Vérificateur de certificat TLS — 0.30.0 (analyse du marché, demandée par Dany le 5 novembre 2026)
 
 - **Ce que ça apporte** : trouver les pare-feu, portails, imprimantes et NAS aux certificats
   expirés. Outil de la Boîte à outils (chaîne, SAN, expiration, versions TLS) qui réutilise la
@@ -1395,7 +1397,7 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 - **Référence du marché** : Uptime Kuma, PRTG.
 - **Effort** : petit.
 
-## 77. Autres contrôleurs : UniFi, Omada, Meraki — plus tard (analyse du marché, à valider par Dany)
+## 77. Autres contrôleurs : UniFi, Omada, Meraki — 0.30.0 (analyse du marché, demandée par Dany le 5 novembre 2026)
 
 - **Ce que ça apporte** : les clients sans Fortinet retrouvent switchs, bornes et clients Wi-Fi.
 - **Référence du marché** : Domotz, WiFiman, Meraki Dashboard.
@@ -1671,6 +1673,7 @@ Dany : étendre la synchronisation iCloud Drive de la note 56 (0.18.0) au lieu d
   suppressions venues d’ailleurs confirmées.
 - Tableau de bord Réglages › Synchronisation (Mac vus, dernière synchro, changements, conflits) ;
   dossier au choix (iCloud Drive par défaut, OneDrive, NAS, dossier partagé).
-- La sauvegarde des configurations (note 40) passe en 0.30.0, l’automatique en arrière-plan en
-  0.31.0, IPv6 en 0.32.0 et la note 67 en 0.33.0.
+- La sauvegarde des configurations (note 40) passe en 0.31.0, l’automatique en arrière-plan en
+  0.32.0, IPv6 en 0.33.0 et la note 67 en 0.34.0 (décalage du 5 novembre 2026, notes 68, 69, 70
+  et 77 en 0.30.0).
 
