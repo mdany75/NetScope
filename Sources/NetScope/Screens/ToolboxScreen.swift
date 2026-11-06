@@ -371,26 +371,7 @@ private struct ToolSidePanel: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            box {
-                ToolFieldLabel("Favoris")
-                VStack(spacing: 2) {
-                    ForEach(ToolKind.favorites) { tool in
-                        Button { store.selectedTool = tool } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: "star.fill").font(.system(size: 10)).foregroundStyle(Color(hex: 0xF59E0B))
-                                Text(tool.listLabel).font(Theme.bodyMedium).foregroundStyle(Theme.text)
-                                Spacer()
-                            }
-                            .padding(.horizontal, 6)
-                            .frame(height: 30)
-                            .background(RoundedRectangle(cornerRadius: Theme.buttonRadius)
-                                .fill(store.selectedTool == tool ? Theme.neutralSoft : Color.clear))
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
+            // Section « Favoris » retirée à la demande de Dany (5 novembre 2026).
             box {
                 ToolFieldLabel("Résultats récents")
                 // Note 26 : la recherche de la barre d'outils filtre aussi l'historique.

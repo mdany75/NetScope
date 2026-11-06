@@ -174,7 +174,6 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     /// Outils qui renvoient vers un autre écran (aucun depuis le Test MTU réel de la 0.26.0).
     var redirect: Screen? { nil }
 
-    static let favorites: [ToolKind] = [.subnet, .ports, .dns, .wol]
 
     /// Outils qui prennent toute la largeur (sans le panneau des favoris et de l'historique).
     var usesFullWidth: Bool { self == .bilan || self == .ressources || self == .capture || self == .snmp || self == .dhcpScopes || self == .wan || self == .firmware || self == .tftp || self == .speedtest || self == .iperf
