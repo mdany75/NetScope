@@ -15,9 +15,11 @@ struct WifiScreen: View {
     @ObservedObject private var sites = SiteModel.shared
     /// Note 77 : contrôleurs UniFi, Omada et Meraki du site actif.
     @ObservedObject private var controllers = SiteControllerStore.shared
+    /// Note 94 : relevé Wi-Fi sur plan.
+    @ObservedObject private var floorStore = WifiFloorStore.shared
     /// Partie affichée ; captures : NETSCOPE_WIFI_VUE=fortiap (ou controleurs).
     @AppStorage("NetScope.wifi.partie") private var savedPart = WifiScreenPart.local.rawValue
-    @State private var part: WifiScreenPart = FortiAPDemo.opensFortiAP ? .fortiap : (Self.opensControllers ? .controllers : .local)
+    @State private var part: WifiScreenPart = FortiAPDemo.opensFortiAP ? .fortiap : (Self.opensControllers ? .controllers : (WifiFloorDemo.opensPlan ? .plan : .local))
 
     /// Captures : NETSCOPE_WIFI_VUE=controleurs ouvre la partie des contrôleurs.
     private static var opensControllers: Bool {
@@ -59,6 +61,8 @@ struct WifiScreen: View {
                     FortiAPView()
                 } else if part == .controllers {
                     ControllerWifiView()
+                } else if part == .plan {
+                    WifiFloorView(wifi: store)
                 } else {
                 WifiConnectionPanel(store: store)
 
@@ -124,6 +128,8 @@ struct WifiScreen: View {
                 fortiToolbar
             } else if part == .controllers {
                 controllersToolbar
+            } else if part == .plan {
+                planToolbar
             } else {
                 localToolbar
             }
@@ -143,6 +149,8 @@ struct WifiScreen: View {
                     let name = kinds.count == 1 ? kinds.first!.shortLabel : "Contrôleurs"
                     Text("\(name) (\(count) borne\(count > 1 ? "s" : ""))").tag(WifiScreenPart.controllers)
                 }
+                // Note 94 : relevé Wi-Fi sur plan.
+                Text("Relevé sur plan").tag(WifiScreenPart.plan)
             }
             .labelsHidden()
             .pickerStyle(.segmented)
@@ -201,6 +209,17 @@ struct WifiScreen: View {
         .buttonStyle(.secondary)
         .disabled(controllers.isBusy || !(controllers.hasReadyControllers || controllers.isDemo))
         .help("Relit les contrôleurs UniFi, Omada et Meraki du site actif (HTTPS, lecture seule).")
+    }
+
+    /// Note 94 : import d'un plan et export PDF de l'étage affiché.
+    @ViewBuilder private var planToolbar: some View {
+        Button { floorStore.importPlan() } label: { Label("Importer un plan…", systemImage: "square.and.arrow.down") }
+            .buttonStyle(.secondary)
+            .help("Ajoute un étage au site à partir de son plan (PDF ou image).")
+        Button { floorStore.exportPDF(siteName: sites.activeName) } label: { Label("Exporter le PDF", systemImage: "doc.richtext") }
+            .buttonStyle(.secondary)
+            .disabled(floorStore.floor == nil)
+            .help("Plan de l’étage affiché avec sa carte de chaleur et son bilan. Le rapport a aussi une section «\u{00A0}Relevé Wi-Fi sur plan\u{00A0}».")
     }
 
     @ViewBuilder private var localToolbar: some View {

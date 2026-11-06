@@ -118,6 +118,7 @@ registerRustDeskAssistanceTests(suite)
 registerDeviceLookupTests(suite)
 // Note 78 (0.27.0) : Wi-Fi de ce Mac (meilleur canal, historique d'une heure, relevé par pièce).
 registerWifiLocalTests(suite)
+registerWifiFloorTests(suite)
 // Note 83 (0.27.0) : Switchs et ports en onglets.
 registerSwitchPageTests(suite)
 // Note 81 (0.27.0) : mise à jour automatique de la base des fabricants.

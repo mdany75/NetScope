@@ -78,12 +78,19 @@ final class RapportModel: ObservableObject {
     /// Données de chaque site du rapport (clé du site et entrée), dans l'ordre du menu « Site ▾ ».
     func siteInputs(state: AppState) -> [(key: String, site: ReportSiteInput)] {
         let keys = SiteScopeStore.shared.keys(for: .rapports)
+        let floors = config.includes(.releveWifi)
         if keys == [SiteModel.shared.activeKey] {
-            let input = RapportData.input(state: state, demo: isDemo, map: config.includes(.carte))
+            var input = RapportData.input(state: state, demo: isDemo, map: config.includes(.carte))
+            // Note 94 : relevé Wi-Fi sur plan (images dessinées seulement si la section est cochée).
+            if floors { input.floorSurvey = WifiFloorStore.shared.reportFloors(siteKey: keys[0]) }
             return [(keys[0], ReportSiteInput(name: SiteModel.shared.activeName, input: input))]
         }
         return zip(keys, RapportData.inputs(state: state, demo: isDemo, keys: keys, map: config.includes(.carte)))
-            .map { (key: $0.0, site: $0.1) }
+            .map { pair in
+                var site = pair.1
+                if floors { site.input.floorSurvey = WifiFloorStore.shared.reportFloors(siteKey: pair.0) }
+                return (key: pair.0, site: site)
+            }
     }
 
     func document(for inputs: [(key: String, site: ReportSiteInput)]) -> ReportDocument {
@@ -337,6 +344,7 @@ final class RapportModel: ObservableObject {
             ? RapportData.input(state: state, demo: isDemo, now: now, followUpBase: .last, map: schedule.config.includes(.carte))
             : RapportData.input(forSite: siteKey, now: now, followUpBase: .last, map: schedule.config.includes(.carte), state: state)
         input.now = now
+        if schedule.config.includes(.releveWifi) { input.floorSurvey = WifiFloorStore.shared.reportFloors(siteKey: siteKey) }
         var config = schedule.config
         config.site = name
         config.date = ReportText.isoDay(now)

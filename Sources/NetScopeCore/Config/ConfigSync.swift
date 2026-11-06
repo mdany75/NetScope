@@ -435,6 +435,7 @@ public struct ConfigSyncLocalSite: Sendable {
         case SiteFiles.notesName: return "Notes des appareils"
         case SiteFiles.resultsName: return "Derniers résultats du scan"
         case WifiRoomSurvey.fileName: return "Relevé Wi-Fi par pièce"
+        case WifiFloorPlans.fileName: return "Relevé Wi-Fi sur plan"
         case TopoManualLayout.fileName: return "Carte placée à la main"
         default: return name
         }

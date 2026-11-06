@@ -65,12 +65,15 @@ enum WifiScreenPart: String, CaseIterable, Identifiable {
     case local, fortiap
     /// Note 77 : bornes et clients des contrôleurs UniFi, Omada et Meraki du site.
     case controllers
+    /// Note 94 : relevé Wi-Fi sur plan (carte de chaleur).
+    case plan
     var id: String { rawValue }
     var label: String {
         switch self {
         case .local: return "Ce Mac"
         case .fortiap: return "FortiAP"
         case .controllers: return "Contrôleurs"
+        case .plan: return "Relevé sur plan"
         }
     }
 }

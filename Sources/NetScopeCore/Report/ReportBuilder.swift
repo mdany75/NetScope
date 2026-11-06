@@ -182,6 +182,8 @@ public struct ReportInput: Sendable {
     public var availability: ReportAvailability?
     /// Note 61 : carte du réseau du site (image dessinée par l'application, liens entre équipements).
     public var map: ReportMap?
+    /// Note 94 : relevé Wi-Fi sur plan du site, par étage (images dessinées par l'application).
+    public var floorSurvey: [ReportFloorSurveyFloor] = []
     public var now: Date
 
     public init(devices: [Device], records: [InvRecord] = [], ranges: [ReportRange] = [], switches: [ReportSwitch] = [],
@@ -413,6 +415,7 @@ public enum ReportBuilder {
             case .suivi: blocks = ReportFollowUp.blocks(input.followUp, now: input.now)
             case .disponibilite: blocks = availabilityBlocks(input.availability)
             case .carte: blocks = mapBlocks(input.map)
+            case .releveWifi: blocks = floorSurveyBlocks(input.floorSurvey)
             case .annexe: blocks = annex(input, masked: config.maskMAC)
             }
             sections.append(ReportSection(kind: kind, heading: heading, blocks: blocks))
