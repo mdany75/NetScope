@@ -200,10 +200,8 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       la 0.25.0 ; reste à décider : avancer la note 66 (tunnels SSH) en 0.24.0 si le VNC non chiffré ou
       le réseau FortiLink posent problème pendant les essais (livrée dans la 0.26.0).
     - **Plus tard** : note 13 (anglais) ; la note 11 est retirée par Dany le 5 novembre 2026 ; les notes 68, 69, 70 et 77
-      sont livrées dans la 0.30.0, et les notes 72, 75 et 76 sont livrées dans la 0.28.0 ; idées
-      d’un cran en dessous : relevé Wi-Fi sur plan, qualité VoIP (MOS) avec les décodeurs
-      SIP/RTP, toner des imprimantes, test de câble, scan d’un VLAN tagué, retour à la version
-      précédente.
+      sont livrées dans la 0.30.0, et les notes 72, 75 et 76 sont livrées dans la 0.28.0 ; les idées
+      d’un cran en dessous sont devenues les notes 89 à 94 le 6 novembre 2026 (0.34.0 à 0.36.0).
 
 ## Index par module
 
@@ -1761,3 +1759,69 @@ avant chaque action, tout est noté dans l’historique.
   sécurité seulement ou tout, redémarrage du serveur permis ou non, report si une session relayée
   est en cours ; faite par l’agent en arrière-plan (note 64) même app fermée ; résultat dans
   l’historique et alerte en cas d’échec.
+
+## 89. Test de câble depuis le switch (TDR) — 0.34.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
+
+Le Mac ne peut pas tester un câble : c’est le switch qui le fait (réflectométrie, TDR), NetScope
+le lui demande et montre le résultat.
+
+- Clic droit sur un port dans Switchs et ports › « Tester le câble ».
+- Résultat par paire (1 à 4) : correcte, ouverte, court-circuit, mal terminée, avec la distance du
+  défaut (« paire 3 coupée à 27 m ») et la longueur approximative du câble.
+- Par marque : FortiSwitch (par la FortiGate ou en SSH), Cisco (`test cable-diagnostics tdr`),
+  Aruba (`virtual-cable-test`) ; marque non prise en charge : bouton grisé avec la raison.
+- Le test peut couper le lien quelques secondes : désactivé par défaut, confirmation, comme le
+  cycle PoE (note 73). Résultat gardé dans l’historique du port et ajouté au bilan de
+  raccordement.
+- Indices déjà présents sans test : lien à 100 Mb/s au lieu de 1 Gb/s, erreurs CRC qui augmentent.
+
+## 90. Scanner un VLAN tagué depuis le Mac — 0.34.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
+
+Branché sur un port en trunk, scanner un autre VLAN sans changer de port.
+
+- Choix du VLAN (numéro) dans le Scanner ou le bilan de raccordement : NetScope crée une
+  interface 802.1Q temporaire sur l’Ethernet (`networksetup -createVLAN`, droits administrateur
+  demandés par macOS), obtient une adresse par DHCP ou une IP fixe saisie, scanne, puis retire
+  l’interface.
+- VLAN proposés à partir de ceux vus par LLDP/CDP, sur la FortiGate et sur les switchs.
+- Interface toujours retirée à la fin, même après une erreur ou à la fermeture de l’app.
+- Aucun scan dans les tests ni les captures (règle du projet).
+
+## 91. Niveau du toner et des consommables des imprimantes — 0.35.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
+
+- Lecture par SNMP (Printer-MIB : `prtMarkerSuppliesTable`) : toner ou encre par couleur,
+  tambour, kit de maintenance, bac de récupération ; compteur de pages ; état et alertes de
+  l’imprimante (bourrage, bac vide).
+- Affiché dans la fiche Appareil des imprimantes et dans une vue « Imprimantes » de l’Inventaire
+  (tri par niveau le plus bas).
+- Sonde de Surveillance « consommable bas » (seuil réglable, 15 % par défaut) et section dans les
+  rapports par site.
+
+## 92. Qualité VoIP (MOS) — 0.35.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
+
+- À partir des appels captés (décodeurs SIP/RTP de la capture de paquets, 0.27.0) : gigue, pertes,
+  latence et note MOS (modèle E, 1 à 5) par appel et par sens, avec le codec.
+- Test synthétique sans appel réel : flux RTP simulé vers un serveur (iperf3 en UDP ou serveur
+  iperf3 de NetScope) pour estimer la note MOS d’un lien avant d’installer des téléphones.
+- Lien avec le type « Téléphone IP » (note 37) et le VLAN voix ; section dans les rapports.
+
+## 93. Revenir à la version précédente de NetScope — 0.35.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
+
+- Dans Réglages › Mises à jour (historique des versions, 0.23.1) : « Réinstaller cette version »
+  pour une version publiée, à partir de sa Release GitHub (image signée et notarisée, signature
+  vérifiée avant l’installation).
+- Données gardées ; avertissement si une version plus ancienne ne lit pas des données plus
+  récentes (synchronisation, note 86) ; mise à jour automatique suspendue tant que Dany ne la
+  réactive pas.
+
+## 94. Relevé Wi-Fi sur plan (carte de chaleur) — 0.36.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
+
+- Importer le plan d’un étage (PDF ou image), indiquer l’échelle (deux points et une distance).
+- Marcher avec le Mac et cliquer sur le plan à l’endroit où on se trouve : NetScope mesure le
+  signal, le bruit, le débit et la borne captée (et les bornes voisines par balayage).
+- Carte de chaleur par mesure (signal, rapport signal/bruit, borne, canal, débit) ; zones
+  mortes, chevauchement de canaux et emplacement suggéré d’une borne ajoutée.
+- Bornes FortiAP placées sur le plan (lues sur la FortiGate) ; plusieurs étages par site ; export
+  PDF dans les rapports.
+- Prolonge le relevé par pièce (0.27.0), qui reste une liste. Plus gros des chantiers de cette
+  série.
