@@ -37,7 +37,14 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         /// Parc Fortinet (note 41) : firmware et licences de chaque site.
         case parc = "Parc Fortinet"
         /// Entrées de la liste (note 79 : les onglets de courriel n'en font qu'une, « Courriel »).
-        var tools: [ToolKind] { ToolKind.listed.filter { $0.group == self } }
+        /// En ordre alphabétique dans chaque catégorie (demande de Dany, 5 novembre 2026), en
+        /// français : sans tenir compte des majuscules ni des accents (« Étendues DHCP » avec les E).
+        var tools: [ToolKind] {
+            ToolKind.listed.filter { $0.group == self }.sorted {
+                $0.listLabel.compare($1.listLabel, options: [.caseInsensitive, .diacriticInsensitive, .numeric],
+                                     locale: Locale(identifier: "fr_CA")) == .orderedAscending
+            }
+        }
     }
 
     var group: Group {
