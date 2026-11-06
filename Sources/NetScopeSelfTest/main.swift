@@ -146,6 +146,8 @@ registerUDPScanTests(suite)
 registerTLSCertificateTests(suite)
 // Note 77 (0.30.0) : contrôleurs UniFi, Omada et Meraki (réponses fixes, aucun réseau).
 registerControllerTests(suite)
+// IPv6 (0.31.0) : adresses, préfixes, EUI-64, table NDP sur octets fixes, ICMPv6 (rien n’est envoyé).
+registerIPv6Tests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

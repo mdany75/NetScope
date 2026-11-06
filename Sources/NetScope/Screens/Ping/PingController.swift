@@ -194,7 +194,7 @@ final class PingController: ObservableObject {
         targets.append(target)
         if selectedID == nil { selectedID = target.id }
         if shouldLog { log(.info, target.endpointLabel, spec.kind.isICMP ? "cible ajoutée à la surveillance" : "cible \(spec.kind.label) ajoutée à la surveillance") }
-        if address != nil {
+        if address != nil || spec.kind == .icmpv6 {
             startMonitor(target.id)
         } else if !isSimulated {
             let id = target.id
@@ -230,6 +230,14 @@ final class PingController: ObservableObject {
             target.role = "Internet"
             return
         }
+        // IPv6 (0.31.0) : appareil connu par une de ses adresses IPv6, sinon la portée.
+        if target.kind == .icmpv6, let v6 = IPv6Address.parseZoned(target.host)?.address {
+            if let device = appState?.devices.first(where: { ($0.ipv6 ?? []).contains(v6) }) {
+                target.name = device.displayName
+            }
+            target.role = "IPv6 · \(v6.scope == .documentation ? IPv6Scope.global.label.lowercased() : v6.scope.label.lowercased())"
+            return
+        }
         guard let address = target.address else {
             target.role = "Nom d’hôte"
             return
@@ -260,8 +268,11 @@ final class PingController: ObservableObject {
 
     private func startMonitor(_ id: PingTarget.ID) {
         guard !isSimulated, !isPaused, monitors[id] == nil,
-              let target = targets.first(where: { $0.id == id }), !target.isPaused,
-              let address = target.address else { return }
+              let target = targets.first(where: { $0.id == id }), !target.isPaused else { return }
+        // IPv6 (0.31.0) : la cible ICMPv6 n'a pas d'adresse IPv4 ; l'adresse IPv6 est son hôte.
+        let ipv6 = target.kind == .icmpv6 ? IPv6Address.parseZoned(target.host) : nil
+        guard target.address != nil || ipv6 != nil else { return }
+        let address = target.address.map(\.description) ?? target.host
         let handler: PingMonitor.Handler = { sample in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated { PingController.shared.enqueue(id, sample) }
@@ -269,9 +280,16 @@ final class PingController: ObservableObject {
         }
         let monitor: any PingSampler
         switch target.kind {
-        case .icmp: monitor = PingMonitor(address: address, options: options, handler: handler)
-        case let .tcp(port): monitor = PingProbeMonitor.tcp(address: address, port: port, options: options, handler: handler)
-        case let .http(url): monitor = PingProbeMonitor.http(url: url, options: options, handler: handler)
+        case .icmpv6:
+            guard let ipv6 else { return }
+            monitor = PingProbeMonitor.icmpv6(address: ipv6.address, zone: ipv6.zone, options: options, handler: handler)
+        case .icmp, .tcp, .http:
+            guard let v4 = target.address else { return }
+            switch target.kind {
+            case let .tcp(port): monitor = PingProbeMonitor.tcp(address: v4, port: port, options: options, handler: handler)
+            case let .http(url): monitor = PingProbeMonitor.http(url: url, options: options, handler: handler)
+            default: monitor = PingMonitor(address: v4, options: options, handler: handler)
+            }
         }
         do {
             try monitor.start()
@@ -279,7 +297,7 @@ final class PingController: ObservableObject {
             update(id) { $0.error = nil }
         } catch {
             update(id) { $0.error = error.localizedDescription }
-            log(.alerte, address.description, error.localizedDescription)
+            log(.alerte, address, error.localizedDescription)
         }
     }
 
@@ -597,6 +615,8 @@ final class PingController: ObservableObject {
         var inputs = PingDemo.profiles.map(\.input)
         // Note 78 : NETSCOPE_PING_COMPACT=1 ajoute des cibles (tableau compact au-delà de 9).
         inputs += PingSessionDemo.extraInputs
+        // IPv6 (0.31.0) : NETSCOPE_PING_IPV6=1 ajoute une cible ICMPv6.
+        inputs += IPv6Demo.pingInputs
         for extra in state.pingTargets where !inputs.contains(extra) { inputs.append(extra) }
         for input in inputs.prefix(Self.maxTargets) {
             let profile = PingDemo.profile(for: input) ?? PingSessionDemo.profile(for: input)
@@ -606,6 +626,9 @@ final class PingController: ObservableObject {
                                     thresholdMs: profile?.threshold ?? PingEventDetector.defaultThreshold(for: address),
                                     kind: spec.kind, host: spec.host)
             if profile == nil { describe(&target) }
+            if profile == nil, spec.kind == .icmpv6 {
+                target.history = PingDemo.prefill(PingDemo.genericProfile(for: input, address: nil), now: now)
+            }
             if let profile { target.history = PingProtocolsDemo.decorate(PingDemo.prefill(profile, now: now), kind: spec.kind) }
             // Note 78 : 24 h d'agrégats horaires (rapport pour le fournisseur Internet).
             target.longLog = PingSessionDemo.longLog(for: input, threshold: target.thresholdMs, now: now)
