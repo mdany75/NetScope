@@ -43,12 +43,18 @@ public struct ConfigPart: Identifiable, Hashable, Sendable {
     public var secrets: [String]
     /// Partie qui prend ce qu'aucune autre ne reconnaît.
     public var catchAll: Bool
+    /// Ce que la synchronisation porte (sans ce qui reste propre à chaque Mac) ; nil : `detail`.
+    public var syncDetailOverride: String?
+
+    /// Détail montré dans Réglages › Synchronisation.
+    public var syncDetail: String { syncDetailOverride ?? detail }
 
     public init(id: String, title: String, detail: String, systemImage: String, files: [String] = [], preferences: [String] = [],
-                secrets: [String] = [], catchAll: Bool = false) {
+                secrets: [String] = [], catchAll: Bool = false, syncDetail: String? = nil) {
         self.id = id
         self.title = title
         self.detail = detail
+        self.syncDetailOverride = syncDetail
         self.systemImage = systemImage
         self.files = files
         self.preferences = preferences
@@ -62,7 +68,9 @@ public struct ConfigPart: Identifiable, Hashable, Sendable {
                    detail: "Sites, plages, préréglages de ports du Scanner, plages et noms en cours.",
                    systemImage: "building.2",
                    files: ["sites.json", "etat.json"],
-                   preferences: ["scan.*"]),
+                   preferences: ["scan.*"],
+                   // Les plages et noms en cours (etat.json) restent propres à chaque Mac.
+                   syncDetail: "Sites, leurs plages et leur carte placée à la main, préréglages de ports du Scanner."),
         ConfigPart(id: "fortigate", title: "FortiGate et leurs jetons",
                    detail: "FortiGate de chaque site (adresse, VDOM, plages, certificat) et leurs jetons d’API.",
                    systemImage: "shield.lefthalf.filled",
@@ -110,12 +118,16 @@ public struct ConfigPart: Identifiable, Hashable, Sendable {
                    systemImage: "archivebox",
                    files: ["sites/*", "inventory*.json", "inventaire*.json", "notes-appareils*.json",
                            "disques.json", "speedtest.json", "diagnostics-wifi.json", "wifi-signal.json", "Rapports/*",
-                           "appareils-saisis.json", "bilans-raccordement.json"]),
+                           "appareils-saisis.json", "bilans-raccordement.json"],
+                   // Disques, diagnostics et signal Wi-Fi : mesures de chaque Mac, jamais synchronisées.
+                   syncDetail: "Inventaire, derniers résultats et relevé Wi-Fi par pièce de chaque site, notes des appareils, saisies à la main, historique Speedtest, bilans de raccordement."),
         ConfigPart(id: "reglages", title: "Réglages",
                    detail: "Tous les autres réglages\u{00A0}: général, interface, notifications, colonnes, Boîte à outils, services en ligne, mises à jour.",
                    systemImage: "gearshape",
                    secrets: ["*"],
-                   catchAll: true),
+                   catchAll: true,
+                   // Colonnes des tableaux et mises à jour : propres à chaque Mac.
+                   syncDetail: "Tous les autres réglages\u{00A0}: général, notifications, Boîte à outils, services en ligne."),
     ]
 }
 

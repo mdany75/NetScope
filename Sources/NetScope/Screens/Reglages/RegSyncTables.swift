@@ -22,6 +22,21 @@ struct RegSyncDeviceRow: Identifiable {
     let isOlder: Bool
 
     var stateSort: Int { isThisMac ? 0 : (isOlder ? 2 : 1) }
+    /// Tri numérique des versions (« 0.9.0 » avant « 0.29.0 ») ; inconnue (0.28 ou plus
+    /// ancienne) en premier.
+    var versionSort: RegSyncVersionSort { RegSyncVersionSort(text: version) }
+}
+
+/// Version de NetScope comparée composant par composant.
+struct RegSyncVersionSort: Comparable {
+    let text: String
+
+    private var known: Bool { text.first?.isNumber ?? false }
+
+    static func < (lhs: Self, rhs: Self) -> Bool {
+        if lhs.known != rhs.known { return !lhs.known }
+        return lhs.text.compare(rhs.text, options: .numeric) == .orderedAscending
+    }
 }
 
 /// Ce Mac et les autres Mac vus dans le dossier de synchronisation.
@@ -41,7 +56,7 @@ struct RegSyncDeviceTable: View {
     static let sortKeys: [String: KeyPathComparator<RegSyncDeviceRow>] = [
         "mac": KeyPathComparator(\RegSyncDeviceRow.name),
         "modele": KeyPathComparator(\RegSyncDeviceRow.model),
-        "version": KeyPathComparator(\RegSyncDeviceRow.version),
+        "version": KeyPathComparator(\RegSyncDeviceRow.versionSort),
         "synchro": KeyPathComparator(\RegSyncDeviceRow.lastSync),
         "etat": KeyPathComparator(\RegSyncDeviceRow.stateSort),
     ]
@@ -145,7 +160,7 @@ struct RegSyncCategoryTable: View {
         return ConfigPartRegistry.standard.parts.map { part in
             let count = counts[part.id]
             let total = count.map { $0.files + $0.elements + $0.preferences + $0.secrets + $0.siteItems } ?? 0
-            return RegSyncCategoryRow(id: part.id, title: part.title, detail: part.detail, systemImage: part.systemImage,
+            return RegSyncCategoryRow(id: part.id, title: part.title, detail: part.syncDetail, systemImage: part.systemImage,
                                       summary: count?.summary ?? "—", total: total, isOn: sync.isCategoryOn(part.id))
         }
         .sorted(using: table.sortOrder)

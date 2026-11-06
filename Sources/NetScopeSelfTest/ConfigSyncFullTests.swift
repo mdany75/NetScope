@@ -262,11 +262,18 @@ func registerConfigSyncFullTests(_ suite: TestSuite) {
         _ = try a2.sync(sites: [], global: true, snapshot: F.snapshot(), state: &stateA2, now: F.t0.addingTimeInterval(30))
         let rawA = try BackupEngine.decoder().decode(ConfigSyncBundle.self, from: Data(contentsOf: a.globalBundleURL(device: "A")))
         try expect(rawA.removed == nil, "décocher n’est pas supprimer")
-        // Sites décochés : aucun dossier de site écrit.
+        // Toutes les catégories des sites décochées : aucun dossier de site écrit.
         var stateS = ConfigSyncState()
-        let s = F.engine(root, device: "S", disabled: ["sites"])
+        let s = F.engine(root, device: "S", disabled: ConfigSyncPolicy.siteCategories)
         _ = try s.sync(sites: [C.siegeID], global: true, snapshot: C.snapshot(), state: &stateS, now: F.t0)
         try expect(!FileManager.default.fileExists(atPath: s.bundleURL(site: C.siegeID, device: "S").path), "sites décochés")
+        // « Sites » seule décochée : inventaires et FortiGate voyagent encore, sans la fiche du site.
+        var stateT = ConfigSyncState()
+        let t = F.engine(root, device: "T", disabled: ["sites"])
+        _ = try t.sync(sites: [C.siegeID], global: true, snapshot: C.snapshot(), state: &stateT, now: F.t0)
+        let rawT = try BackupEngine.decoder().decode(ConfigSyncBundle.self, from: Data(contentsOf: t.bundleURL(site: C.siegeID, device: "T")))
+        try expect(!rawT.items.contains { $0.key == "site" }, "fiche du site jamais écrite")
+        try expect(rawT.items.contains { $0.key.hasPrefix("fortigate:") || $0.key.hasPrefix("fichier:") }, "inventaires et FortiGate écrits")
     }
 
     suite.add("Synchronisation complète : ancien format relu (état, plan en attente, fichiers de la 0.28)") {
@@ -291,6 +298,8 @@ func registerConfigSyncFullTests(_ suite: TestSuite) {
         bundle.schema = nil
         bundle.appVersion = nil
         bundle.deviceModel = nil
+        bundle.signature = nil
+        bundle.signatureIterations = nil
         try BackupEngine.encoder().encode(bundle).write(to: legacy.bundleURL(site: C.siegeID, device: "A"))
         var stateB = ConfigSyncState()
         let report = try F.engine(root, device: "B").sync(sites: [C.siegeID], global: true, snapshot: ConfigSnapshot(), state: &stateB, now: F.t0.addingTimeInterval(10))

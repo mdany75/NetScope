@@ -80,12 +80,19 @@ public struct ReportSchedule: Codable, Hashable, Sendable, Identifiable {
     public var lastStatus: ReportScheduleStatus?
     public var lastMessage: String?
     public var lastFiles: [String]
+    /// Note 86 : Mac qui produit et envoie ce rapport (identifiant de la synchronisation) ; les
+    /// autres Mac le montrent sans le produire. nil : rapport d'avant, réclamé par le premier Mac
+    /// qui le produit (ou le modifie).
+    public var runOn: String?
+
+    /// Vrai si ce Mac produit ce rapport.
+    public func runsHere(device: String) -> Bool { runOn == nil || runOn == device }
 
     public init(id: UUID = UUID(), name: String, isEnabled: Bool = true, siteKeys: [String], cadence: ReportCadence = .weekly,
                 weekday: Int = 2, monthDay: Int = 1, hour: Int = 7, minute: Int = 0, config: ReportConfig = ReportConfig(),
                 folder: String? = nil, fileNamePattern: String = ReportSchedule.defaultPattern, email: ReportScheduleEmail = .none,
                 emailTo: String = "", mailRecipients: [String: [String]] = [:], activeSince: Date = Date(), lastSlot: Date? = nil, lastProduced: Date? = nil,
-                lastStatus: ReportScheduleStatus? = nil, lastMessage: String? = nil, lastFiles: [String] = []) {
+                lastStatus: ReportScheduleStatus? = nil, lastMessage: String? = nil, lastFiles: [String] = [], runOn: String? = nil) {
         self.id = id
         self.name = name
         self.isEnabled = isEnabled
@@ -107,11 +114,12 @@ public struct ReportSchedule: Codable, Hashable, Sendable, Identifiable {
         self.lastStatus = lastStatus
         self.lastMessage = lastMessage
         self.lastFiles = lastFiles
+        self.runOn = runOn
     }
 
     enum CodingKeys: String, CodingKey {
         case id, name, isEnabled, siteKeys, cadence, weekday, monthDay, hour, minute, config, folder, fileNamePattern, email,
-             emailTo, mailRecipients, activeSince, lastSlot, lastProduced, lastStatus, lastMessage, lastFiles
+             emailTo, mailRecipients, activeSince, lastSlot, lastProduced, lastStatus, lastMessage, lastFiles, runOn
     }
 
     /// Lecture tolérante : un champ absent ou d'une autre version prend sa valeur par défaut.
@@ -138,7 +146,8 @@ public struct ReportSchedule: Codable, Hashable, Sendable, Identifiable {
             lastProduced: try? c.decodeIfPresent(Date.self, forKey: .lastProduced),
             lastStatus: (try? c.decodeIfPresent(String.self, forKey: .lastStatus)).flatMap { $0.flatMap(ReportScheduleStatus.init(rawValue:)) },
             lastMessage: try? c.decodeIfPresent(String.self, forKey: .lastMessage),
-            lastFiles: (try? c.decodeIfPresent([String].self, forKey: .lastFiles)) ?? [])
+            lastFiles: (try? c.decodeIfPresent([String].self, forKey: .lastFiles)) ?? [],
+            runOn: (try? c.decodeIfPresent(String.self, forKey: .runOn)) ?? nil)
     }
 }
 

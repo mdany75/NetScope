@@ -106,6 +106,11 @@ final class RegSyncController: ObservableObject {
     private var suppressUntil = Date.distantPast
     /// Empreinte des réglages synchronisés (un clic sur un onglet ne relance rien).
     private var preferencesSignature = ""
+    /// Décisions prises pendant une synchronisation (conflits écartés, suppressions oubliées ou
+    /// gardées) : la synchro réécrit l'état à sa fin, elles y sont donc rejouées ensuite.
+    private var decidedConflicts: Set<UUID> = []
+    private var forgottenDeletions: Set<String> = []
+    private var keptDeletions: [String: Date] = [:]
 
     private init() {
         defaults = RegEnvironment.isSandboxed ? nil : UserDefaults.standard
@@ -177,6 +182,10 @@ final class RegSyncController: ObservableObject {
         engine.deviceModel = deviceModel
         engine.appVersion = appVersion
         engine.disabledCategories = disabledCategories
+        // Dossier choisi (OneDrive, NAS, partage) : jamais recréé en local s'il manque, et sans
+        // mot de passe de synchronisation, rien d'y venu n'est authentifié.
+        engine.createsRoot = customFolder == nil
+        engine.untrustedFolder = customFolder != nil
         return engine
     }
 
@@ -228,7 +237,8 @@ final class RegSyncController: ObservableObject {
             Task { @MainActor in RegSyncController.shared.localFilesChanged(paths, base: data) }
         }) { watchers.append(watcher) }
         if let root = syncRoot?.standardizedFileURL {
-            try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            // Seul iCloud Drive › NetScope › Sync est créé : un partage non monté reste absent.
+            if usesICloud { try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true) }
             let mine = ConfigSyncEngine.safeFileName(deviceID) + ".json"
             if let watcher = RegSyncWatcher(path: root.path, handler: { paths in
                 // Nos propres fichiers ne comptent pas ; ceux d'un autre Mac, oui.
@@ -330,7 +340,10 @@ final class RegSyncController: ObservableObject {
     }
 
     func useICloudDrive() {
-        guard !RegEnvironment.isSandboxed else { return }
+        if RegEnvironment.isSandboxed {
+            message = ("Démonstration\u{00A0}: le dossier n’est pas changé.", .neutral)
+            return
+        }
         customFolder = nil
         defaults?.removeObject(forKey: Key.folder)
         message = ("Synchronisation par iCloud Drive › NetScope › Sync.", .success)
@@ -464,6 +477,7 @@ final class RegSyncController: ObservableObject {
         Task {
             defer {
                 isSyncing = false
+                replayDecisions()
                 if rerun { rerun = false; scheduleSync(reason: "changement pendant la synchro") }
             }
             let outcome = await Task.detached(priority: .utility) { () -> Result<(ConfigSyncReport, ConfigSyncState, ConfigSyncState, [ConfigSyncGlobal.CategoryCount]), Error> in
@@ -473,8 +487,10 @@ final class RegSyncController: ObservableObject {
                     engine.password = password
                     // Secrets du Trousseau lus seulement avec le mot de passe (sinon jamais envoyés).
                     let secrets = password == nil ? [] : ((try? BackupKeychainSecrets().readSecrets()) ?? [])
+                    // Sans mot de passe, les secrets sont comptés par leur nom (comme à l'ouverture).
                     let snapshot = ConfigSnapshot.read(dataDirectory: RegBackupController.dataDirectory,
-                                                       preferences: RegConfigController.currentPreferences(), secrets: secrets)
+                                                       preferences: RegConfigController.currentPreferences(), secrets: secrets,
+                                                       secretNames: password == nil ? RegConfigController.secretNames() : [])
                     var state = ConfigSyncEngine.loadState(from: Self.stateURL)
                     let before = state
                     let report = try engine.sync(sites: ids, global: true, snapshot: snapshot, state: &state)
@@ -620,8 +636,9 @@ final class RegSyncController: ObservableObject {
                 message = ("Redémarrage annulé\u{00A0}: la sauvegarde de sécurité de l’état actuel a échoué.", .critical)
                 return
             }
-            if UpdInstaller.runningBundle() == nil {
+            guard UpdInstaller.runningBundle() != nil else {
                 message = ("Quittez NetScope et rouvrez-le pour appliquer les changements reçus.", .warning)
+                return
             }
             RegBackupController.shared.relaunch()
         }
@@ -668,6 +685,8 @@ final class RegSyncController: ObservableObject {
     func dismiss(_ conflict: ConfigSyncConflict) {
         conflicts.removeAll { $0.id == conflict.id }
         guard !RegEnvironment.isSandboxed else { return }
+        // Pendant une synchro, l'état sera réécrit à sa fin : la décision y est rejouée.
+        if isSyncing { decidedConflicts.insert(conflict.id); return }
         var state = ConfigSyncEngine.loadState(from: Self.stateURL)
         state.conflicts.removeAll { $0.id == conflict.id }
         try? ConfigSyncEngine.saveState(state, to: Self.stateURL)
@@ -683,8 +702,23 @@ final class RegSyncController: ObservableObject {
         }
         if deletion.isWholeSite, let id = deletion.siteID {
             guard let state = appState else { return }
-            SiteModel.shared.remove(id, state: state)
-            guard SiteModel.shared.site(id) == nil else { return }
+            if let site = SiteModel.shared.site(id) {
+                // Même avertissement que Réglages › Sites : le site part avec son inventaire.
+                let count = SiteModel.shared.inventoryCount(site)
+                let alert = NSAlert()
+                alert.messageText = "Supprimer le site «\u{00A0}\(site.displayName)\u{00A0}» sur ce Mac aussi\u{00A0}?"
+                alert.informativeText = "«\u{00A0}\(deletion.device)\u{00A0}» l’a supprimé. L’inventaire du site sera supprimé ici\u{00A0}: \(count) fiche\(count > 1 ? "s" : ""), leur historique, leurs événements, l’archive, les notes, ainsi que ses derniers résultats de scan. Une sauvegarde (Réglages › Export et sauvegarde) permet de le retrouver."
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: "Supprimer le site et son inventaire")
+                alert.addButton(withTitle: "Annuler")
+                alert.buttons.first?.hasDestructiveAction = true
+                guard alert.runModal() == .alertFirstButtonReturn else { return }
+                SiteModel.shared.remove(id, state: state)
+                guard SiteModel.shared.site(id) == nil else {
+                    message = ("Site actif occupé\u{00A0}: réessayez après le scan.", .warning)
+                    return
+                }
+            }
             forgetDeletion(deletion, keep: false)
             message = ("Site «\u{00A0}\(deletion.scopeName)\u{00A0}» supprimé sur ce Mac aussi.", .success)
             return
@@ -692,11 +726,16 @@ final class RegSyncController: ObservableObject {
         RegSyncReload.flushStores()
         Task {
             let plan = await Task.detached {
-                ConfigSyncEngine.deletionPlan(deletion, snapshot: ConfigSnapshot.read(dataDirectory: RegBackupController.dataDirectory,
-                                                                                      preferences: RegConfigController.currentPreferences()))
+                // Base commune de la dernière synchro : un élément changé depuis n'est pas retiré.
+                let base = ConfigSyncEngine.loadState(from: Self.stateURL).sites[deletion.scope]?.items[deletion.key]?.synced
+                return ConfigSyncEngine.deletionPlan(deletion, snapshot: ConfigSnapshot.read(dataDirectory: RegBackupController.dataDirectory,
+                                                                                             preferences: RegConfigController.currentPreferences()),
+                                                     base: base)
             }.value
             guard let plan else {
-                message = ("«\u{00A0}\(deletion.label)\u{00A0}» ne se supprime pas d’ici\u{00A0}: retirez-le à la main sur ce Mac.", .warning)
+                // Jamais une demande qui reste en attente pour toujours.
+                forgetDeletion(deletion, keep: false)
+                message = ("«\u{00A0}\(deletion.label)\u{00A0}» n’est pas retiré d’ici\u{00A0}: retirez-le à la main sur ce Mac au besoin.", .warning)
                 return
             }
             applyReceived(plan)
@@ -714,10 +753,31 @@ final class RegSyncController: ObservableObject {
     private func forgetDeletion(_ deletion: ConfigSyncDeletion, keep: Bool) {
         pendingDeletions.removeAll { $0.id == deletion.id }
         guard !RegEnvironment.isSandboxed else { return }
+        // Pendant une synchro, l'état sera réécrit à sa fin : la décision y est rejouée.
+        if isSyncing {
+            forgottenDeletions.insert(deletion.id)
+            if keep { keptDeletions[deletion.id] = deletion.date }
+            return
+        }
         var state = ConfigSyncEngine.loadState(from: Self.stateURL)
         state.pendingDeletions.removeAll { $0.id == deletion.id }
         if keep { state.dismissed[deletion.id] = deletion.date }
         try? ConfigSyncEngine.saveState(state, to: Self.stateURL)
+    }
+
+    /// Rejoue sur l'état écrit par la synchro les décisions prises pendant qu'elle tournait.
+    private func replayDecisions() {
+        guard !decidedConflicts.isEmpty || !forgottenDeletions.isEmpty, !RegEnvironment.isSandboxed else { return }
+        var state = ConfigSyncEngine.loadState(from: Self.stateURL)
+        state.conflicts.removeAll { decidedConflicts.contains($0.id) }
+        state.pendingDeletions.removeAll { forgottenDeletions.contains($0.id) }
+        for (id, date) in keptDeletions { state.dismissed[id] = date }
+        decidedConflicts = []
+        forgottenDeletions = []
+        keptDeletions = [:]
+        try? ConfigSyncEngine.saveState(state, to: Self.stateURL)
+        conflicts = state.conflicts
+        pendingDeletions = state.pendingDeletions
     }
 
     // MARK: Démonstration
@@ -755,6 +815,10 @@ enum RegSyncFormat {
         if seconds < 60 { return "à l’instant" }
         if seconds < 3600 { return "il y a \(Int(seconds / 60))\u{00A0}min" }
         if seconds < 86_400 { return "il y a \(Int(seconds / 3600))\u{00A0}h" }
+        if Calendar.current.isDateInYesterday(date) {
+            let time = date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).locale(Locale(identifier: "fr_FR")))
+            return "hier à \(time)"
+        }
         return "le " + RegFormat.moment(date)
     }
 }

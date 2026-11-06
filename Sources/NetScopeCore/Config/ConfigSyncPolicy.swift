@@ -69,14 +69,18 @@ public struct ConfigSyncList: Sendable, Hashable {
     public var volatileFields: [String]
     /// « Connexion », « Sonde ».
     public var elementLabel: String
+    /// Liste d'historique élaguée toute seule (mesures de plus de 90 jours, lancements au-delà de
+    /// 300) : un élément retiré n'est ni publié comme suppression ni signalé aux autres Mac.
+    public var silentRemoval: Bool
 
     public init(arrayKey: String?, idField: String = "id", nameFields: [String] = ["name"], volatileFields: [String] = [],
-                elementLabel: String) {
+                elementLabel: String, silentRemoval: Bool = false) {
         self.arrayKey = arrayKey
         self.idField = idField
         self.nameFields = nameFields
         self.volatileFields = volatileFields
         self.elementLabel = elementLabel
+        self.silentRemoval = silentRemoval
     }
 
     /// Clé du tableau dans les clés d'éléments (« » pour la racine).
@@ -164,6 +168,7 @@ public enum ConfigSyncPolicy {
         ("alertes.journal", "Journal des alertes envoyées par ce Mac"),
         ("sites-migration.*", "Migration faite sur ce Mac"),
         ("navigation.*", "Navigation de ce Mac"),
+        ("reglages.majs.*", "Mises à jour de ce Mac (dernière vérification, versions installées)"),
     ]
 
     /// Fichiers et préférences synchronisés par les dossiers des sites (jamais dans le global).
@@ -181,7 +186,8 @@ public enum ConfigSyncPolicy {
         ConfigSyncFileRule(pattern: "connexions.json", label: "Carnet d’Accès distant",
                            lists: [ConfigSyncList(arrayKey: "connections", nameFields: ["name", "host"], elementLabel: "Connexion")]),
         ConfigSyncFileRule(pattern: "rustdesk.json", label: "RustDesk",
-                           lists: [ConfigSyncList(arrayKey: "history", nameFields: ["name", "rustDeskID"], elementLabel: "Lancement RustDesk")]),
+                           lists: [ConfigSyncList(arrayKey: "history", nameFields: ["name", "rustDeskID"], elementLabel: "Lancement RustDesk",
+                                                  silentRemoval: true)]),
         // Compte du serveur synchronisé ; les mesures relevées par ce Mac restent ici.
         ConfigSyncFileRule(pattern: "rustdesk-serveur.json", label: "Serveur RustDesk", localKeys: ["samples", "samplesAccount"]),
         ConfigSyncFileRule(pattern: "identifiants.json", label: "Identifiants SSH et WMI",
@@ -191,9 +197,11 @@ public enum ConfigSyncPolicy {
                            lists: [ConfigSyncList(arrayKey: "probes", nameFields: ["name", "target"], elementLabel: "Sonde")],
                            localKeys: ["trackers", "history", "journal"]),
         ConfigSyncFileRule(pattern: "rapports/planifies.json", label: "Rapports planifiés",
-                           lists: [ConfigSyncList(arrayKey: "schedules", elementLabel: "Rapport planifié")]),
+                           // Fichiers produits : chemins propres au Mac qui a produit le rapport.
+                           lists: [ConfigSyncList(arrayKey: "schedules", volatileFields: ["lastFiles"], elementLabel: "Rapport planifié")]),
         ConfigSyncFileRule(pattern: "speedtest.json", label: "Historique Speedtest",
-                           lists: [ConfigSyncList(arrayKey: "records", nameFields: ["serverName", "server"], elementLabel: "Mesure Speedtest")]),
+                           lists: [ConfigSyncList(arrayKey: "records", nameFields: ["serverName", "server"], elementLabel: "Mesure Speedtest",
+                                                  silentRemoval: true)]),
         ConfigSyncFileRule(pattern: "appareils-saisis.json", label: "Appareils saisis à la main",
                            lists: [ConfigSyncList(arrayKey: "entries", nameFields: ["name", "ip"], elementLabel: "Appareil saisi")],
                            localKeys: ["recents"]),
@@ -245,6 +253,24 @@ public enum ConfigSyncPolicy {
         BackupKeychainScan.isOwnService(service) && !ConfigSecrets.neverCopied.contains(service)
             && service != BackupKeychainScan.servicePrefix + ".fortigate"
     }
+
+    /// Vrai si le retrait d'un élément est publié aux autres Mac (pierre tombale) et leur est
+    /// signalé. Jamais pour une préférence ni une FortiGate (qui suit la fiche de son site), ni
+    /// pour un élément d'une liste d'historique élaguée toute seule.
+    public static func signalsRemoval(ofKey key: String) -> Bool {
+        switch ConfigSyncKey.parse(key) {
+        case .preference, .fortiGate, .site, .other:
+            return false
+        case .element(let path, let arrayKey, _):
+            return !(rule(for: path)?.lists.first { $0.arrayKey == arrayKey }?.silentRemoval ?? false)
+        case .file, .document:
+            return true
+        }
+    }
+
+    /// Catégories refusées à la réception depuis un dossier partagé autre qu'iCloud Drive quand
+    /// aucun mot de passe de synchronisation n'authentifie les fichiers des autres Mac.
+    public static let sensitiveCategories: Set<String> = ["alertes", "acces", "identifiants", "surveillance", "fortigate"]
 
     /// Libellé lisible d'un fichier global.
     public static func label(forFile path: String) -> String {

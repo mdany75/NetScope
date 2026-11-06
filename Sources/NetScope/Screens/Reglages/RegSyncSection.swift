@@ -41,6 +41,10 @@ struct RegSyncSection: View {
                                  : "iCloud Drive n’est pas activé sur ce Mac\u{00A0}: activez-le, ou choisissez un autre dossier.",
                              isOn: $sync.enabled)
                     .regDisabled(!sync.isAvailable && sync.usesICloud)
+                // Sans iCloud Drive : le choix d'un autre dossier reste possible (sinon impasse).
+                if !sync.enabled, !sync.isAvailable, sync.usesICloud {
+                    folderBox.padding(.top, 10)
+                }
                 if sync.enabled {
                     statusBox.padding(.top, 4)
                     ForEach(sync.olderDevices) { device in
@@ -138,6 +142,11 @@ struct RegSyncSection: View {
                 }
                 if !sync.usesICloud {
                     Text("Autre dossier qu’iCloud Drive\u{00A0}: choisissez le même sur chacun de vos Mac. Un partage réseau doit être monté pour synchroniser, et un autre Mac n’y est vu qu’à la minuterie de 15\u{00A0}minutes. Les secrets restent chiffrés.")
+                        .font(Theme.small).foregroundStyle(Theme.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if !sync.usesICloud, !sync.hasPassword {
+                    Text("Sans mot de passe de synchronisation, rien n’authentifie les fichiers de ce dossier partagé\u{00A0}: Accès distant, alertes, identifiants, Surveillance et FortiGate venus d’un autre Mac sont ignorés.")
                         .font(Theme.small).foregroundStyle(Theme.warning)
                         .fixedSize(horizontal: false, vertical: true)
                 }

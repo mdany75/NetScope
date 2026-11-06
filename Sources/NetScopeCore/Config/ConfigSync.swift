@@ -18,7 +18,10 @@ import Foundation
 // ses fichiers (inventaire, notes, derniers résultats, relevé Wi-Fi, carte), ses FortiGate ; pour
 // le global, une connexion, une sonde, un identifiant, un fichier entier ou une préférence par
 // élément (`ConfigSyncPolicy`, `ConfigSyncDocument`). Les secrets du Trousseau liés à ces données
-// sont chiffrés par le mot de passe de synchronisation (même chiffrement que la note 38).
+// sont chiffrés par le mot de passe de synchronisation (même chiffrement que la note 38). Avec ce
+// mot de passe, chaque fichier est aussi SIGNÉ (HMAC-SHA256, clé tirée par PBKDF2) : un fichier
+// non signé ou mal signé, déposé par quiconque peut écrire dans le dossier partagé, est refusé
+// (sauf celui d'un site écrit par la 0.28 ou avant, qui ne signe pas).
 //
 // Fusion : élément par élément, par date de modification. Un élément changé d'un seul côté depuis
 // la dernière synchronisation prend la version changée ; changé des deux côtés : CONFLIT, la
@@ -93,6 +96,11 @@ public struct ConfigSyncBundle: Codable, Sendable, Equatable {
     public var deviceModel: String?
     /// Éléments retirés sur ce Mac depuis qu'ils étaient communs (clé → date), signalés aux autres.
     public var removed: [String: Date]?
+    /// Signature HMAC-SHA256 du contenu (clé tirée du mot de passe de synchronisation par PBKDF2,
+    /// sel tiré de l'identifiant du Mac) ; nil : pas de mot de passe sur ce Mac, ou 0.28 et avant.
+    public var signature: String?
+    /// Itérations PBKDF2 de la clé de signature.
+    public var signatureIterations: Int?
 
     public init(siteID: UUID, siteName: String, deviceID: String, deviceName: String, updated: Date, items: [ConfigSyncItem],
                 secrets: Data? = nil, secretCount: Int = 0, deleted: Bool = false, schema: Int? = ConfigSyncBundle.currentSchema,
@@ -355,10 +363,13 @@ public struct ConfigSyncReport: Sendable {
 
 public enum ConfigSyncError: Error, LocalizedError, Equatable {
     case folderUnavailable(String)
+    /// Dossier choisi absent (partage non monté, OneDrive déconnecté) : jamais recréé en local.
+    case folderMissing(String)
 
     public var errorDescription: String? {
         switch self {
         case .folderUnavailable(let path): return "Dossier de synchronisation inaccessible\u{00A0}: \(path)."
+        case .folderMissing(let path): return "Dossier de synchronisation introuvable\u{00A0}: montez le partage (\(path))."
         }
     }
 }
@@ -457,6 +468,13 @@ public struct ConfigSyncEngine: Sendable {
     /// Fichiers dont des changements reçus attendent le redémarrage : laissés de côté à ce
     /// passage (ni envoyés, ni reçus), pour que la version d'ici, pas encore remplacée, ne reparte pas.
     public var heldPaths: Set<String> = []
+    /// Dossier partagé autre qu'iCloud Drive (OneDrive, NAS, partage) : sans mot de passe de
+    /// synchronisation, rien n'y authentifie les fichiers des autres Mac ; les catégories
+    /// sensibles (`ConfigSyncPolicy.sensitiveCategories`) n'en sont alors jamais reçues.
+    public var untrustedFolder = false
+    /// Crée la racine si elle manque (iCloud Drive, tests) ; faux pour un dossier choisi : un
+    /// partage non monté ne doit jamais devenir un dossier local du même chemin.
+    public var createsRoot = true
 
     public init(root: URL, deviceID: String, deviceName: String, password: String?, iterations: Int = BackupCrypto.defaultIterations) {
         self.root = root
@@ -617,15 +635,90 @@ public struct ConfigSyncEngine: Sendable {
                                      appVersion: "", appBuild: "", fileCount: 0, preferenceCount: 0, secretCount: items.count)
     }
 
-    func openSecrets(_ bundle: ConfigSyncBundle, allowed: (String) -> Bool) throws -> [ConfigSyncSecretItem] {
+    func openSecrets(_ bundle: ConfigSyncBundle, allowed: (String, String) -> Bool) throws -> [ConfigSyncSecretItem] {
         guard let sealed = bundle.secrets else { return [] }
         guard let password else { throw BackupCryptoError.passwordRequired }
         let opened = try BackupCrypto.open(sealed, password: password)
         guard let items = try? BackupEngine.decoder().decode([ConfigSyncSecretItem].self, from: opened.plaintext),
               items.count == opened.header.secretCount else { throw BackupCryptoError.tampered }
         // Jamais un secret hors de ce que le dossier peut porter (un jeton FortiGate pour un site).
-        guard items.allSatisfy({ allowed($0.service) }) else { throw BackupCryptoError.tampered }
+        guard items.allSatisfy({ allowed($0.service, $0.account) }) else { throw BackupCryptoError.tampered }
         return items
+    }
+
+    // MARK: Signature des fichiers
+
+    /// Message de « ce Mac n'a pas de mot de passe ici » (dossier partagé non authentifié).
+    static let untrustedMessage = "Dossier partagé sans mot de passe de synchronisation\u{00A0}: Accès distant, alertes, identifiants, Surveillance et FortiGate venus d’un autre Mac sont ignorés. Définissez le même mot de passe de synchronisation sur chaque Mac."
+
+    /// Clés de signature tirées pendant un passage (une dérivation PBKDF2 par Mac et par nombre
+    /// d'itérations, jamais une par fichier).
+    final class SignatureKeys {
+        var keys: [String: SymmetricKey] = [:]
+    }
+
+    /// Bornes des itérations acceptées d'un autre Mac (jamais un calcul démesuré imposé).
+    static let signatureIterationRange = 1...5_000_000
+
+    func signatureKey(device: String, iterations: Int, keys: SignatureKeys) -> SymmetricKey? {
+        guard let password, Self.signatureIterationRange.contains(iterations) else { return nil }
+        let id = device + "|" + String(iterations)
+        if let key = keys.keys[id] { return key }
+        let salt = Data(SHA256.hash(data: Data(("netscope-synchro-signature|" + device).utf8)).prefix(16))
+        guard let material = try? BackupCrypto.pbkdf2(password: password, salt: salt, iterations: iterations) else { return nil }
+        let key = SymmetricKey(data: material)
+        keys.keys[id] = key
+        return key
+    }
+
+    /// Contenu signé d'un fichier, tel que relu (dates comprises) : tout sauf la signature.
+    static func signedMessage(_ bundle: ConfigSyncBundle) -> Data {
+        func time(_ date: Date) -> String { String(date.timeIntervalSince1970) }
+        var lines = [bundle.format, String(bundle.version), bundle.siteID.uuidString, bundle.siteName, bundle.deviceID, bundle.deviceName,
+                     time(bundle.updated), bundle.deleted ? "1" : "0", String(bundle.schema ?? 0), bundle.appVersion ?? "",
+                     bundle.deviceModel ?? "", String(bundle.secretCount), bundle.secrets.map(ConfigHash.sha256) ?? "-",
+                     String(bundle.signatureIterations ?? 0)]
+        for item in bundle.items {
+            lines.append([item.key, item.label, time(item.modified), item.hash, ConfigHash.sha256(item.data)].joined(separator: "\u{1F}"))
+        }
+        for (key, date) in (bundle.removed ?? [:]).sorted(by: { $0.key < $1.key }) {
+            lines.append("-" + key + "\u{1F}" + time(date))
+        }
+        return Data(lines.joined(separator: "\u{1E}").utf8)
+    }
+
+    static func hex(_ code: HashedAuthenticationCode<SHA256>) -> String { code.map { String(format: "%02x", $0) }.joined() }
+
+    /// Fichier signé avec la clé de ce Mac (inchangé sans mot de passe de synchronisation).
+    func signed(_ bundle: ConfigSyncBundle, keys: SignatureKeys) throws -> ConfigSyncBundle {
+        guard password != nil, let key = signatureKey(device: deviceID, iterations: iterations, keys: keys) else { return bundle }
+        var copy = bundle
+        copy.signature = nil
+        copy.signatureIterations = iterations
+        // Signé tel que les autres Mac le reliront (dates arrondies par l'encodage).
+        let reread = try BackupEngine.decoder().decode(ConfigSyncBundle.self, from: BackupEngine.encoder().encode(copy))
+        copy.signature = Self.hex(HMAC<SHA256>.authenticationCode(for: Self.signedMessage(reread), using: key))
+        return copy
+    }
+
+    func hasValidSignature(_ bundle: ConfigSyncBundle, keys: SignatureKeys) -> Bool {
+        guard let signature = bundle.signature, let iterations = bundle.signatureIterations,
+              let key = signatureKey(device: bundle.deviceID, iterations: iterations, keys: keys) else { return false }
+        return Self.hex(HMAC<SHA256>.authenticationCode(for: Self.signedMessage(bundle), using: key)) == signature
+    }
+
+    /// Avec un mot de passe de synchronisation, seuls les fichiers signés par le même mot de passe
+    /// sont lus ; exception : le fichier d'un site écrit par la 0.28 ou une version plus ancienne
+    /// (sans schéma ni signature), toujours accepté pour garder ces Mac dans la boucle.
+    func authenticated(_ bundles: [ConfigSyncBundle], isSite: Bool, keys: SignatureKeys, report: inout ConfigSyncReport) -> [ConfigSyncBundle] {
+        guard password != nil else { return bundles }
+        return bundles.filter { bundle in
+            if bundle.signature == nil, isSite, bundle.schema == nil { return true }
+            if hasValidSignature(bundle, keys: keys) { return true }
+            let text = "Fichiers de «\u{00A0}\(bundle.deviceName)\u{00A0}» refusés\u{00A0}: signature absente ou invalide (pas de mot de passe de synchronisation sur ce Mac-là, ou un mot de passe différent)."
+            if !report.errors.contains(text) { report.errors.append(text) }
+            return false
+        }
     }
 
     // MARK: Portées
@@ -640,14 +733,21 @@ public struct ConfigSyncEngine: Sendable {
         var local: ConfigSyncLocalSite
         /// Catégorie d'une clé (locale ou reçue) ; nil : refusée dans ce dossier.
         var category: (String) -> String?
-        var secretAllowed: (String) -> Bool
+        /// Secret admis (service, compte), d'ici (fichier nil) ou d'un fichier reçu.
+        var secretAllowed: (String, String, ConfigSyncBundle?) -> Bool
     }
 
     func siteScope(_ id: UUID, snapshot: ConfigSnapshot) -> Scope {
         let local = ConfigSyncLocalSite.make(siteID: id, snapshot: snapshot)
         let fortiService = BackupKeychainScan.servicePrefix + ".fortigate"
+        // Seulement les jetons des FortiGate de CE site : d'ici, ou publiées dans le même fichier.
+        let localIDs = Set(local.items.keys.filter { $0.hasPrefix("fortigate:") }.map { String($0.dropFirst("fortigate:".count)) })
         return Scope(folder: id.uuidString, id: id, name: local.name, exists: local.exists, isSite: true, local: local,
-                     category: { ConfigSyncLocalSite.category(forSiteKey: $0) }, secretAllowed: { $0 == fortiService })
+                     category: { ConfigSyncLocalSite.category(forSiteKey: $0) },
+                     secretAllowed: { service, account, bundle in
+                         guard service == fortiService else { return false }
+                         return localIDs.contains(account) || (bundle?.items.contains { $0.key == "fortigate:" + account } ?? false)
+                     })
     }
 
     func globalScope(snapshot: ConfigSnapshot) -> Scope {
@@ -655,7 +755,7 @@ public struct ConfigSyncEngine: Sendable {
         let registry = self.registry
         return Scope(folder: ConfigSyncPolicy.globalFolder, id: ConfigSyncPolicy.globalID, name: "Données globales", exists: true,
                      isSite: false, local: local, category: { ConfigSyncGlobal.category(forKey: $0, registry: registry) },
-                     secretAllowed: { ConfigSyncPolicy.isGlobalSecret($0) })
+                     secretAllowed: { service, _, _ in ConfigSyncPolicy.isGlobalSecret(service) })
     }
 
     // MARK: Synchronisation
@@ -671,20 +771,30 @@ public struct ConfigSyncEngine: Sendable {
     public func sync(sites ids: [UUID], global: Bool, snapshot: ConfigSnapshot, state: inout ConfigSyncState,
                      now: Date = Date()) throws -> ConfigSyncReport {
         let manager = FileManager.default
-        do {
-            try manager.createDirectory(at: root, withIntermediateDirectories: true)
-        } catch {
-            throw ConfigSyncError.folderUnavailable(root.path)
+        if createsRoot {
+            do {
+                try manager.createDirectory(at: root, withIntermediateDirectories: true)
+            } catch {
+                throw ConfigSyncError.folderUnavailable(root.path)
+            }
+        } else {
+            var isDirectory: ObjCBool = false
+            guard manager.fileExists(atPath: root.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+                throw ConfigSyncError.folderMissing(root.path)
+            }
         }
         var report = ConfigSyncReport(plan: ConfigApplyPlan(origin: "synchro", createdAt: now))
-        let sitesOn = !disabledCategories.contains("sites")
+        let keys = SignatureKeys()
+        // Les dossiers des sites portent aussi les inventaires et les FortiGate : parcourus dès
+        // qu'une de leurs catégories est cochée (la fiche du site suit la case « Sites »).
+        let sitesOn = !ConfigSyncPolicy.siteCategories.isSubset(of: disabledCategories)
         if sitesOn {
             for id in ids {
-                try sync(siteScope(id, snapshot: snapshot), snapshot: snapshot, state: &state, report: &report, now: now)
+                try sync(siteScope(id, snapshot: snapshot), snapshot: snapshot, state: &state, report: &report, signing: keys, now: now)
             }
         }
         if global {
-            try sync(globalScope(snapshot: snapshot), snapshot: snapshot, state: &state, report: &report, now: now)
+            try sync(globalScope(snapshot: snapshot), snapshot: snapshot, state: &state, report: &report, signing: keys, now: now)
         }
         state.conflicts = Array((report.conflicts + state.conflicts).prefix(50))
         // Suppressions signalées : les nouvelles en tête, une seule fois par élément.
@@ -703,12 +813,12 @@ public struct ConfigSyncEngine: Sendable {
     }
 
     private func sync(_ scope: Scope, snapshot: ConfigSnapshot, state: inout ConfigSyncState, report: inout ConfigSyncReport,
-                      now: Date) throws {
+                      signing: SignatureKeys, now: Date) throws {
         let id = scope.id
         let local = scope.local
         var siteState = state.sites[scope.folder] ?? ConfigSyncState.Site()
         let folderURL = scope.isSite ? folder(for: id) : globalFolder
-        let all = remoteBundles(in: folderURL, id: id)
+        let all = authenticated(remoteBundles(in: folderURL, id: id), isSite: scope.isSite, keys: signing, report: &report)
         let remotes = all.filter { !$0.deleted }
         let siteName = scope.exists && !scope.name.isEmpty ? scope.name : (remotes.max(by: { $0.updated < $1.updated })?.siteName ?? id.uuidString)
         let older = Set(remotes.filter { isOlder(schema: $0.schema, appVersion: $0.appVersion) }.map(\.deviceID))
@@ -739,12 +849,16 @@ public struct ConfigSyncEngine: Sendable {
             if siteState.published != "supprime" || !FileManager.default.fileExists(atPath: bundleURL(site: id, device: deviceID).path) {
                 let bundle = ConfigSyncBundle(siteID: id, siteName: siteName, deviceID: deviceID, deviceName: deviceName, updated: now,
                                               items: [], deleted: true, appVersion: appVersion, deviceModel: deviceModel)
-                try write(bundle, to: bundleURL(site: id, device: deviceID))
+                try write(signed(bundle, keys: signing), to: bundleURL(site: id, device: deviceID))
             }
             siteState.published = "supprime"
             state.sites[scope.folder] = siteState
+            // Plus rien de ce site ici : ses suppressions en attente sont caduques.
+            state.pendingDeletions.removeAll { $0.scope == scope.folder }
             return
         }
+        // Site d'un autre Mac jamais reçu ici, « Sites » décochée : ni ses fichiers ni ses FortiGate.
+        if scope.isSite, !scope.exists, !included("site") { return }
         // Site supprimé sur un autre Mac : signalé, jamais appliqué.
         if scope.isSite {
             for bundle in all where bundle.deleted && scope.exists {
@@ -752,7 +866,10 @@ public struct ConfigSyncEngine: Sendable {
                 let deletion = ConfigSyncDeletion(scope: scope.folder, scopeName: siteName, key: "site", label: "Site «\u{00A0}\(siteName)\u{00A0}»",
                                                   category: "sites", device: bundle.deviceName, date: bundle.updated)
                 if let dismissed = state.dismissed[deletion.id], dismissed >= bundle.updated { continue }
-                if !state.pendingDeletions.contains(where: { $0.id == deletion.id }) { report.pendingDeletions.append(deletion) }
+                if !state.pendingDeletions.contains(where: { $0.id == deletion.id }),
+                   !report.pendingDeletions.contains(where: { $0.id == deletion.id }) {
+                    report.pendingDeletions.append(deletion)
+                }
             }
         }
 
@@ -778,8 +895,13 @@ public struct ConfigSyncEngine: Sendable {
             ConfigSyncItem(key: key, label: mine.item.label, modified: mine.modified, hash: mine.item.hash, data: mine.item.data)
         }
         func take(_ remote: ConfigSyncItem, from bundle: ConfigSyncBundle) -> Bool {
-            accept(remote, from: bundle, scope: scope, siteName: siteName, category: scope.category(remote.key) ?? "reglages",
-                   fromOlder: older.contains(bundle.deviceID), snapshot: snapshot, into: &report)
+            let category = scope.category(remote.key) ?? "reglages"
+            if password == nil, untrustedFolder, ConfigSyncPolicy.sensitiveCategories.contains(category) {
+                if !report.errors.contains(Self.untrustedMessage) { report.errors.append(Self.untrustedMessage) }
+                return false
+            }
+            return accept(remote, from: bundle, scope: scope, siteName: siteName, category: category,
+                          fromOlder: older.contains(bundle.deviceID), snapshot: snapshot, into: &report)
         }
         for key in keys.sorted() {
             let mine = localItems[key]
@@ -803,11 +925,17 @@ public struct ConfigSyncEngine: Sendable {
             guard let mine else {
                 // Absent ici : reçu, sauf s'il a été retiré ici depuis (base inchangée ailleurs).
                 if base != nil, remote.hash == base, scope.exists {
-                    if siteState.removed[key] == nil { siteState.removed[key] = now }
+                    if siteState.removed[key] == nil, ConfigSyncPolicy.signalsRemoval(ofKey: key) { siteState.removed[key] = now }
                     continue
                 }
                 if take(remote, from: remoteBundle) { final[key] = remote }
                 continue
+            }
+            // Trois Mac ou plus : retiré sur l'un, inchangé ici et chez tous ceux qui le publient
+            // encore. La pierre tombale, plus récente que la dernière version connue, est signalée.
+            if base != nil, mine.item.hash == base, candidates.allSatisfy({ $0.1.hash == base }) {
+                signalRemoval(key: key, label: mine.item.label, scope: scope, scopeName: scopeLabel(key), category: category,
+                              bundles: all, state: state, after: siteState.items[key]?.modified, report: &report)
             }
             if mine.item.hash == remote.hash {
                 final[key] = ConfigSyncItem(key: key, label: mine.item.label, modified: max(mine.modified, remote.modified),
@@ -856,13 +984,18 @@ public struct ConfigSyncEngine: Sendable {
 
         // Pierres tombales : éléments communs retirés ici (catégories cochées seulement).
         for (key, item) in siteState.items where item.synced != nil && localItems[key] == nil && final[key] == nil && included(key) && scope.exists {
-            if siteState.removed[key] == nil { siteState.removed[key] = now }
+            if siteState.removed[key] == nil, ConfigSyncPolicy.signalsRemoval(ofKey: key) { siteState.removed[key] = now }
         }
+        // Pierres tombales éteintes après 180 jours : l'élément est aussi oublié de l'état, sinon
+        // il recréerait une pierre tombale neuve (et la suppression serait redemandée partout).
         let horizon = now.addingTimeInterval(-180 * 86_400)
+        for (key, date) in siteState.removed where date <= horizon && final[key] == nil {
+            siteState.items.removeValue(forKey: key)
+        }
         siteState.removed = siteState.removed.filter { $0.value > horizon && final[$0.key] == nil }
 
         // 3. Secrets, seulement avec le mot de passe de synchronisation.
-        let localSecrets = local.secrets.filter { scope.secretAllowed($0.service) && included("secret:" + $0.service + "|" + $0.account) }
+        let localSecrets = local.secrets.filter { scope.secretAllowed($0.service, $0.account, nil) && included("secret:" + $0.service + "|" + $0.account) }
         var finalSecrets: [ConfigSyncSecretItem] = []
         if password == nil {
             if !localSecrets.isEmpty || remotes.contains(where: { $0.secrets != nil }) { report.secretsSkipped = true }
@@ -871,7 +1004,7 @@ public struct ConfigSyncEngine: Sendable {
             let what = scope.isSite ? "jetons de «\u{00A0}\(siteName)\u{00A0}»" : "secrets des données globales"
             for bundle in remotes where bundle.secrets != nil {
                 do {
-                    remoteSecrets += try openSecrets(bundle, allowed: scope.secretAllowed)
+                    remoteSecrets += try openSecrets(bundle, allowed: { scope.secretAllowed($0, $1, bundle) })
                         .filter { included("secret:" + $0.service + "|" + $0.account) }.map { (bundle, $0) }
                 } catch BackupCryptoError.wrongPassword {
                     report.errors.append("Mot de passe de synchronisation différent sur «\u{00A0}\(bundle.deviceName)\u{00A0}»\u{00A0}: \(what) non reçus.")
@@ -973,17 +1106,30 @@ public struct ConfigSyncEngine: Sendable {
             let bundle = ConfigSyncBundle(siteID: id, siteName: siteName, deviceID: deviceID, deviceName: deviceName, updated: now,
                                           items: items, secrets: sealed, secretCount: sealed == nil ? 0 : finalSecrets.count,
                                           appVersion: appVersion, deviceModel: deviceModel, removed: removed.isEmpty ? nil : removed)
-            try write(bundle, to: url)
+            try write(signed(bundle, keys: signing), to: url)
             siteState.published = signature
         }
         siteState.lastSync = now
         state.sites[scope.folder] = siteState
+
+        // 6. Suppressions en attente devenues caduques : plus aucune pierre tombale ailleurs,
+        // élément déjà absent ici, ou élément changé depuis (version d'un autre Mac reçue, ou
+        // modifiée ici) : la confirmer retirerait une version que personne n'a supprimée.
+        state.pendingDeletions.removeAll { deletion in
+            guard deletion.scope == scope.folder else { return false }
+            if deletion.isWholeSite { return !scope.exists || !all.contains(where: \.deleted) }
+            guard all.contains(where: { $0.removed?[deletion.key] != nil }), let mine = local.items[deletion.key],
+                  ConfigSyncPolicy.signalsRemoval(ofKey: deletion.key) else { return true }
+            return mine.hash != siteState.items[deletion.key]?.synced
+        }
     }
 
     /// Un élément retiré sur un autre Mac (pierre tombale plus récente qu'un refus) : à confirmer ici.
     private func signalRemoval(key: String, label: String, scope: Scope, scopeName: String, category: String,
-                               bundles: [ConfigSyncBundle], state: ConfigSyncState, report: inout ConfigSyncReport) {
-        guard let (bundle, date) = bundles.compactMap({ bundle in bundle.removed?[key].map { (bundle, $0) } }).max(by: { $0.1 < $1.1 }) else { return }
+                               bundles: [ConfigSyncBundle], state: ConfigSyncState, after: Date? = nil, report: inout ConfigSyncReport) {
+        guard ConfigSyncPolicy.signalsRemoval(ofKey: key),
+              let (bundle, date) = bundles.compactMap({ bundle in bundle.removed?[key].map { (bundle, $0) } }).max(by: { $0.1 < $1.1 }) else { return }
+        if let after, date <= after { return }
         let deletion = ConfigSyncDeletion(scope: scope.folder, scopeName: scopeName, key: key, label: label, category: category,
                                           device: bundle.deviceName, date: date)
         if let dismissed = state.dismissed[deletion.id], dismissed >= date { return }
@@ -1108,17 +1254,28 @@ public struct ConfigSyncEngine: Sendable {
     }
 
     /// Plan qui applique ici une suppression confirmée ; nil pour un site entier (retiré par
-    /// l'app, avec son dossier) ou un élément qu'on ne retire pas ainsi (FortiGate, préférence).
-    public static func deletionPlan(_ deletion: ConfigSyncDeletion, snapshot: ConfigSnapshot, now: Date = Date()) -> ConfigApplyPlan? {
+    /// l'app, avec son dossier) ou un élément qu'on ne retire pas ainsi (FortiGate, préférence) ;
+    /// vide si l'élément n'est déjà plus ici. `base` : empreinte commune à la dernière
+    /// synchronisation (état de la synchro) : un élément changé depuis n'est jamais retiré.
+    public static func deletionPlan(_ deletion: ConfigSyncDeletion, snapshot: ConfigSnapshot, base: String? = nil,
+                                    now: Date = Date()) -> ConfigApplyPlan? {
         var plan = ConfigApplyPlan(origin: "synchro", createdAt: now)
-        let global = ConfigSyncGlobal.make(snapshot: snapshot)
         switch ConfigSyncKey.parse(deletion.key) {
         case .element(let path, let arrayKey, let id):
             guard let list = ConfigSyncPolicy.rule(for: path)?.lists.first(where: { $0.arrayKey == arrayKey }) else { return nil }
+            guard let current = ConfigSyncGlobal.make(snapshot: snapshot).items[deletion.key] else { return plan }
             plan.documents.append(.init(path: path, arrayKey: arrayKey, idField: list.idField, id: id, json: nil,
-                                        expected: global.items[deletion.key]?.hash, label: deletion.label))
-        case .file(let path), .document(let path):
-            guard BackupEngine.isSafeRelativePath(path), let file = snapshot.file(path) else { return nil }
+                                        expected: base ?? current.hash, label: deletion.label))
+        case .file(let path):
+            guard BackupEngine.isSafeRelativePath(path) else { return nil }
+            guard let file = snapshot.file(path) else { return plan }
+            plan.documents.append(.init(path: path, json: nil, expected: base ?? ConfigHash.sha256(file.data), label: deletion.label))
+        case .document(let path):
+            // L'empreinte de base est celle du « reste » du fichier : comparée ici, le fichier
+            // entier est retiré seulement s'il n'a pas changé depuis.
+            guard BackupEngine.isSafeRelativePath(path) else { return nil }
+            guard let file = snapshot.file(path) else { return plan }
+            if let base, ConfigSyncGlobal.make(snapshot: snapshot).items[deletion.key]?.hash != base { return plan }
             plan.documents.append(.init(path: path, json: nil, expected: ConfigHash.sha256(file.data), label: deletion.label))
         default:
             return nil

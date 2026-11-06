@@ -67,7 +67,9 @@ final class RapportScheduleStore: ObservableObject {
         guard !ScanController.shared.isRunning else { return }
         let now = Date()
         guard ReportScheduler.canProduce(lastProduction: lastProduction, now: now),
-              let next = ReportScheduler.pending(book.schedules, now: now, calendar: calendar).first else { return }
+              // Note 86 : seulement les rapports produits par ce Mac (jamais en double sur chaque Mac).
+              let next = ReportScheduler.pending(book.schedules.filter { $0.runsHere(device: deviceID) }, now: now, calendar: calendar).first
+        else { return }
         produce(next.id, slot: next.slot, now: now)
     }
 
@@ -108,6 +110,8 @@ final class RapportScheduleStore: ObservableObject {
             return
         }
         var updated = schedule
+        // Rapport d'avant la synchronisation : ce Mac le réclame (les autres ne le produisent plus).
+        if updated.runOn == nil { updated.runOn = deviceID }
         if let slot { updated.lastSlot = slot }
         updated.lastProduced = now
         updated.lastFiles = files.map(\.lastPathComponent)
@@ -272,6 +276,12 @@ final class RapportScheduleStore: ObservableObject {
             draft.lastStatus = old.lastStatus
             draft.lastMessage = old.lastMessage
             draft.lastFiles = old.lastFiles
+            // Modifié ici : produit ici désormais. Le dossier d'un autre Mac absent ici est oublié
+            // (jamais des fichiers écrits à un chemin choisi sur un autre Mac).
+            if let owner = old.runOn, owner != deviceID, let folder = draft.folder, !FileManager.default.fileExists(atPath: folder) {
+                draft.folder = nil
+            }
+            draft.runOn = deviceID
             if let opened = editedFrom, opened.id == draft.id, opened.isEnabled == draft.isEnabled {
                 draft.isEnabled = old.isEnabled
             }
@@ -282,6 +292,7 @@ final class RapportScheduleStore: ObservableObject {
             book.schedules[index] = draft
         } else {
             draft.activeSince = now
+            draft.runOn = deviceID
             book.schedules.append(draft)
         }
         self.draft = nil
@@ -341,7 +352,18 @@ final class RapportScheduleStore: ObservableObject {
         guard schedule.isEnabled else { return "en pause" }
         guard !schedule.siteKeys.isEmpty else { return "aucun site choisi" }
         guard let next = ReportScheduler.nextSlot(after: now, schedule, calendar: calendar) else { return "—" }
-        return ReportScheduler.dateLabel(next, now: now, calendar: calendar)
+        let date = ReportScheduler.dateLabel(next, now: now, calendar: calendar)
+        guard !schedule.runsHere(device: deviceID) else { return date }
+        return date + " sur «\u{00A0}" + runnerName(schedule) + "\u{00A0}»"
+    }
+
+    /// Identifiant de ce Mac pour la synchronisation (Mac qui produit un rapport planifié).
+    var deviceID: String { RegSyncController.shared.deviceID }
+
+    /// Nom du Mac qui produit le rapport (vu dans le dossier de synchronisation).
+    func runnerName(_ schedule: ReportSchedule) -> String {
+        guard let id = schedule.runOn else { return "ce Mac" }
+        return RegSyncController.shared.devices.first { $0.id == id }?.name ?? "un autre Mac"
     }
 
     func sitesLabel(_ schedule: ReportSchedule) -> String {

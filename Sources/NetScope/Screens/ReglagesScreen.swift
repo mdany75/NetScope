@@ -187,7 +187,7 @@ struct ReglagesScreen: View {
             }
         case .synchro:
             if sync.attentionCount > 0 {
-                CountBadge(count: sync.attentionCount, color: Theme.warning)
+                CountBadge(count: sync.attentionCount, color: Theme.warningDot)
                     .help("Conflits et suppressions venues d’un autre Mac à voir")
             } else if sync.enabled {
                 Image(systemName: "checkmark.icloud").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)

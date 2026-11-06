@@ -20,7 +20,7 @@ public enum ConfigSyncGlobal {
             }
         }
         for (key, data) in snapshot.preferences where ConfigSyncPolicy.isGlobalPreference(key, registry: registry) {
-            items[ConfigSyncKey.preference(key)] = ConfigSyncLocalSite.Item(label: preferenceLabel(key), data: data, hash: ConfigPlist.hash(data),
+            items[ConfigSyncKey.preference(key)] = ConfigSyncLocalSite.Item(label: preferenceLabel(key, registry: registry), data: data, hash: ConfigPlist.hash(data),
                                                                             modifiedHint: nil)
         }
         let secrets = snapshot.secrets.filter { ConfigSyncPolicy.isGlobalSecret($0.service) && registry.part(forSecret: $0.service, account: $0.account) != nil }
@@ -48,8 +48,14 @@ public enum ConfigSyncGlobal {
         }
     }
 
-    /// « Réglage reglages.scan.threads » : libellé lisible d'une préférence.
-    static func preferenceLabel(_ key: String) -> String {
+    /// Noms des écrans dans les clés des seuils (« NetScope.wifi.seuils »).
+    static let thresholdScreens: [String: String] = [
+        "wifi": "Wi-Fi", "trafic": "Trafic", "wan": "Liens WAN", "firmware": "Micrologiciels", "fortiap": "FortiAP",
+        "switchs": "Switchs", "surveillance": "Surveillance", "disques": "Disques", "vitesse": "Vitesse",
+    ]
+
+    /// Libellé lisible d'une préférence (« Profil de scan · fils ») ; jamais la clé interne.
+    static func preferenceLabel(_ key: String, registry: ConfigPartRegistry = .standard) -> String {
         let known: [String: String] = [
             "reglages.raccourcis": "Raccourcis clavier",
             "reglages.notifications": "Notifications",
@@ -69,10 +75,21 @@ public enum ConfigSyncGlobal {
             "NetScope.relecture.intervalles": "Relecture automatique",
             "smb.utilisateurs": "Utilisateurs SMB",
             "acces.serie.reglages": "Console série",
+            "reglages.general.confirmerPlagePublique": "Confirmation des plages publiques",
+            "reglages.identifiants.adresseTest": "Adresse de test des identifiants",
+            "reglages.switchs.arpPasserelle": "Table ARP de la passerelle",
+            "reglages.fortiswitch": "Réglages FortiSwitch",
+            "reglages.export.format": "Format d’export",
+            "reglages.plages": "Plages enregistrées",
         ]
         if let label = known[key] { return label }
-        if key.hasSuffix(".seuils") { return "Seuils · " + key.split(separator: ".").dropFirst().dropLast().joined(separator: " ") }
-        return "Réglage " + key
+        if key.hasSuffix(".seuils") {
+            let screen = key.split(separator: ".").dropFirst().dropLast().joined(separator: " ")
+            let name = thresholdScreens[screen] ?? (screen.prefix(1).uppercased() + screen.dropFirst())
+            return "Seuils d’alerte · " + name
+        }
+        if let part = registry.part(forPreference: key) { return "Réglage de la catégorie «\u{00A0}\(part.title)\u{00A0}»" }
+        return "Réglage"
     }
 
     // MARK: Compteurs par catégorie (écran Réglages › Synchronisation)
