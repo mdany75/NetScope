@@ -181,7 +181,7 @@ struct PortScanView: View {
                                  table: table, probedAt: model.isRunning ? nil : model.finishedAt)
                 hostFooter
             } else {
-                Text("Choisissez un profil ou saisissez une liste (22, 80, 8000-8100), puis lancez le scan. Les ports sont testés en TCP\u{00A0}; une bannière est lue sur SSH, FTP, SMTP et HTTP.")
+                Text("Choisissez un profil ou saisissez une liste (22, 80, 8000-8100), puis lancez le scan. Les ports sont testés en TCP\u{00A0}; la détection de services lit les bannières (SSH, FTP, SMTP, HTTP), le certificat TLS et le dialecte SMB pour reconnaître produit, version et système.")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
