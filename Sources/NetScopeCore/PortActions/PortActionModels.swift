@@ -53,6 +53,8 @@ public struct PortActionSettings: Codable, Equatable, Sendable {
     public var followUpSeconds: Int
     /// Durée de la coupure du lien d'un FortiSwitch (« bounce-port »), en secondes.
     public var bounceSeconds: Int
+    /// Note 89 : « Autoriser le test de câble (TDR) » : DÉSACTIVÉ par défaut (le lien peut tomber).
+    public var cableTestEnabled: Bool
 
     public static let offRange = 2...60
     public static let followUpRange = 30...600
@@ -60,8 +62,9 @@ public struct PortActionSettings: Codable, Equatable, Sendable {
     public static let defaultOffSeconds = 5
 
     public init(enabled: Bool = false, allowRiskyPorts: Bool = false, poeOffSeconds: Int = PortActionSettings.defaultOffSeconds,
-                followUpSeconds: Int = 180, bounceSeconds: Int = 5) {
+                followUpSeconds: Int = 180, bounceSeconds: Int = 5, cableTestEnabled: Bool = false) {
         self.enabled = enabled
+        self.cableTestEnabled = cableTestEnabled
         self.allowRiskyPorts = allowRiskyPorts
         self.poeOffSeconds = poeOffSeconds
         self.followUpSeconds = followUpSeconds
@@ -81,7 +84,7 @@ public struct PortActionSettings: Codable, Equatable, Sendable {
     }
 
     // Décodage tolérant : une clé absente prend sa valeur d'origine (jamais « activé » par défaut).
-    private enum CodingKeys: String, CodingKey { case enabled, allowRiskyPorts, poeOffSeconds, followUpSeconds, bounceSeconds }
+    private enum CodingKeys: String, CodingKey { case enabled, allowRiskyPorts, poeOffSeconds, followUpSeconds, bounceSeconds, cableTestEnabled }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -89,7 +92,8 @@ public struct PortActionSettings: Codable, Equatable, Sendable {
                   allowRiskyPorts: (try? c.decodeIfPresent(Bool.self, forKey: .allowRiskyPorts)) ?? false,
                   poeOffSeconds: (try? c.decodeIfPresent(Int.self, forKey: .poeOffSeconds)) ?? Self.defaultOffSeconds,
                   followUpSeconds: (try? c.decodeIfPresent(Int.self, forKey: .followUpSeconds)) ?? 180,
-                  bounceSeconds: (try? c.decodeIfPresent(Int.self, forKey: .bounceSeconds)) ?? 5)
+                  bounceSeconds: (try? c.decodeIfPresent(Int.self, forKey: .bounceSeconds)) ?? 5,
+                  cableTestEnabled: (try? c.decodeIfPresent(Bool.self, forKey: .cableTestEnabled)) ?? false)
         self = clamped
     }
 }

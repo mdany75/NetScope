@@ -47,6 +47,7 @@ struct ScannerScreen: View {
             .scrollBounceBehavior(.basedOnSize, axes: .vertical)
         }
         .screenToolbar { toolbar }
+        .vlanScanPrompt()
         // Passerelle et DNS de la barre latérale : lus sur la machine, sans trafic.
         .task(id: state.activeInterface.map { "\($0.name) \($0.subnet)" }) { scan.fillLocalInfo(state) }
         .onAppear {
@@ -75,6 +76,11 @@ struct ScannerScreen: View {
             .help("Effacer les résultats du scan")
         profileMenu
         portsMenu
+        // Note 90 : scanner un autre VLAN par une interface 802.1Q temporaire.
+        Button { VLANScanModel.shared.isPresented = true } label: { Label("VLAN tagué…", systemImage: "point.3.connected.trianglepath.dotted") }
+            .buttonStyle(.secondary)
+            .disabled(scan.isRunning)
+            .help("Scanner un VLAN tagué depuis ce Mac (port en trunk), sans changer de port")
         Button { scan.export(exportRows, state: state) } label: { Label("Exporter", systemImage: "square.and.arrow.down") }
             .buttonStyle(.secondary)
             .disabled(state.devices.isEmpty)

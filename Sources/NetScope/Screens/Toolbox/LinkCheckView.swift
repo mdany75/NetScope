@@ -174,6 +174,14 @@ struct LinkCheckView: View {
                 }
                 .help("Le bilan «\u{00A0}avant\u{00A0}» sert de référence\u{00A0}: les bilans suivants lui sont comparés.")
                 Button(model.isReported(result) ? "Retirer du rapport" : "Ajouter au rapport") { model.toggleReport(result) }
+                // Note 90 : scanner un autre VLAN depuis cette prise (port en trunk).
+                Button("VLAN tagué…") {
+                    let vlan = VLANScanModel.shared
+                    if vlan.vlanText.isEmpty, let text = result.vlan, VLANScanRequest.parseID(text) != nil { vlan.vlanText = text }
+                    state.open(.scanner)
+                    vlan.isPresented = true
+                }
+                .help("Scanner un VLAN tagué depuis ce Mac par une interface 802.1Q temporaire")
                 Menu {
                     Button("Exporter en PDF…") { model.exportPDF(result) }
                     Button("Copier le texte") { model.copyText(result) }
@@ -199,6 +207,23 @@ struct LinkCheckView: View {
                 } else {
                     stepCard(kind, step: model.partial[kind], running: model.inProgress.contains(kind))
                 }
+            }
+            // Note 89 : test de câble du port de ce raccordement (fait depuis Switchs et ports).
+            if let cable = result?.cableTest {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 7) {
+                        Image(systemName: "cable.connector").font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Theme.textSecondary).frame(width: 16)
+                        Text("Test de câble").font(Theme.bodySemibold)
+                        Spacer(minLength: 6)
+                        Chip(text: cable.status.label, tone: cable.status.tone)
+                    }
+                    CableTestResultView(result: cable)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
+                .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
             }
         }
     }

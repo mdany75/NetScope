@@ -145,7 +145,7 @@ final class ScanController: ObservableObject {
 
     /// `unattended` (note 63, scan planifié du site actif) : aucune question (plages publiques, plages
     /// modifiées) ; `profile` remplace le profil choisi dans le Scanner.
-    func start(_ state: AppState, unattended: Bool = false, profile chosen: ScanProfile? = nil) {
+    func start(_ state: AppState, unattended: Bool = false, profile chosen: ScanProfile? = nil, onlyRanges: [ScanRangeConfig]? = nil) {
         guard !isRunning else { return }
         // Note 63 : jamais deux scans à la fois (scan planifié d'un autre site en cours).
         if !unattended, let site = ScanScheduleStore.shared.runningSiteName {
@@ -163,8 +163,9 @@ final class ScanController: ObservableObject {
             return
         }
         // Note 28 : plages qui ne sont plus celles du site actif → le scan irait dans son inventaire.
-        guard unattended || SiteModel.shared.confirmScan(state) else { return }
-        let enabled = state.ranges.filter(\.isEnabled)
+        // Note 90 : scan d'un VLAN tagué : seulement le sous-réseau de l'interface temporaire.
+        guard unattended || onlyRanges != nil || SiteModel.shared.confirmScan(state) else { return }
+        let enabled = onlyRanges ?? state.ranges.filter(\.isEnabled)
         var targets: [ScanTarget] = []
         var invalid: [String] = []
         for config in enabled {

@@ -20,7 +20,10 @@ struct RegPortActionsPanel: View {
             RegToggleRow(title: "Permettre aussi un uplink ou le port de ce Mac",
                          detail: "Déconseillé. Refusé par défaut\u{00A0}: couper un uplink isole tout ce qui est derrière, couper le port de ce Mac coupe NetScope. Même permis, une case à cocher est exigée dans la confirmation.",
                          isOn: $model.settings.allowRiskyPorts,
-                         isEnabled: model.settings.enabled)
+                         isEnabled: model.settings.enabled || model.settings.cableTestEnabled)
+            RegToggleRow(title: "Autoriser le test de câble (TDR)",
+                         detail: "Désactivé par défaut. Le switch mesure chaque paire du câble (ouverte, court-circuit, mal terminée, distance du défaut)\u{00A0}; le lien du port peut tomber quelques secondes. Cisco et HPE Aruba\u{00A0}: SSH, avec l’identifiant choisi dans Switchs et ports › Configurations. FortiSwitch géré\u{00A0}: API REST de la FortiGate. Clic droit sur un port ou détail du port › «\u{00A0}Tester le câble\u{00A0}».",
+                         isOn: $model.settings.cableTestEnabled)
             durations
                 .padding(.vertical, 10)
                 .overlay(alignment: .top) { Rectangle().fill(Theme.neutralSoft).frame(height: 1) }

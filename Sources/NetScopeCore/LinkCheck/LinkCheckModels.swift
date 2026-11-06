@@ -145,9 +145,13 @@ public struct LinkCheckResult: Codable, Hashable, Sendable, Identifiable {
     public var steps: [LinkCheckStep]
     /// Durée totale, en secondes.
     public var duration: Double
+    /// Note 89 : dernier test de câble (TDR) du port de ce raccordement, s'il a été fait.
+    public var cableTest: CableTestResult?
 
     public init(id: UUID = UUID(), date: Date, siteKey: String? = nil, siteName: String = "", location: String = "",
-                interfaceName: String, interfaceKind: String = "", steps: [LinkCheckStep], duration: Double = 0) {
+                interfaceName: String, interfaceKind: String = "", steps: [LinkCheckStep], duration: Double = 0,
+                cableTest: CableTestResult? = nil) {
+        self.cableTest = cableTest
         self.id = id
         self.date = date
         self.siteKey = siteKey

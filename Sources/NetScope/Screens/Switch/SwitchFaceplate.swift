@@ -85,6 +85,8 @@ struct SwitchFaceplate: View {
     var minWidth: CGFloat = 0
     /// Note 33 : double-clic sur un port → l'appareil branché (ou une liste, ou un message).
     var onOpen: (Int) -> Void = { _ in }
+    /// Note 89 : clic droit › « Tester le câble… » (nil : pas proposé).
+    var onCableTest: ((Int) -> Void)? = nil
     let onSelect: (Int) -> Void
 
     var body: some View {
@@ -177,6 +179,11 @@ struct SwitchFaceplate: View {
         .contextMenu {
             Button("Ouvrir l’appareil branché") { onOpen(iface.index) }
             OpenInMenu(object: .port(NavPortRef(host: snapshot.id, ifIndex: iface.index)))
+            if let onCableTest {
+                Divider()
+                Button("Tester le câble…") { onCableTest(iface.index) }
+                    .disabled(!CableTestModel.shared.isEnabled)
+            }
         }
         .help("\(iface.name) · \(state.label)\(iface.alias.isEmpty ? "" : " · " + iface.alias) · double-clic\u{00A0}: appareil branché")
     }
