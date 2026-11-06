@@ -137,6 +137,8 @@ registerSMBSharesTests(suite)
 registerFlowTests(suite)
 // Note 76 (0.28.0) : alertes sur téléphone par ntfy et Pushover.
 registerAlertPhoneTests(suite)
+// Note 70 (0.30.0) : vérificateur de certificat TLS (certificats recopiés, aucun réseau).
+registerTLSCertificateTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)
