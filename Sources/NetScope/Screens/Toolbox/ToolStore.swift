@@ -93,7 +93,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .subnet: return "Adresse réseau, masques, broadcast, plage d’hôtes et découpage."
         case .mac: return "Formats MAC, fabricant OUI et correspondance avec l’inventaire."
-        case .ports: return "Ports TCP ouverts et bannières des services texte (SSH, FTP, SMTP, HTTP)."
+        case .ports: return "Ports TCP ouverts et bannières des services texte (SSH, FTP, SMTP, HTTP)\u{00A0}; UDP ciblé (DNS, NTP, SNMP, SIP, IPMI…)."
         case .dns: return "Résolution A, AAAA, MX, TXT, SOA, SRV, CAA, DNSSEC…\u{00A0}; comparaison de serveurs et propagation."
         case .whois: return "Propriétaire d’une adresse, d’un ASN ou d’un domaine."
         case .mtu: return "MTU du chemin vers une cible, par dichotomie avec le bit Don’t Fragment\u{00A0}: PPPoE, tunnels, trames jumbo et historique des mesures."

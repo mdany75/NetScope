@@ -140,7 +140,7 @@ struct DevicePortsTab: View {
             : []
         let findings = risky.filter { ports.contains($0.0) } + rustDeskDirect
         if findings.isEmpty {
-            Text("Ports TCP seulement. Une bannière est lue sur SSH, FTP, SMTP, Telnet, VNC et les ports HTTP en clair.")
+            Text("Ports TCP. Une bannière est lue sur SSH, FTP, SMTP, Telnet, VNC et les ports HTTP en clair\u{00A0}; les services UDP sont sondés plus bas.")
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
         } else {
             VStack(alignment: .leading, spacing: 6) {

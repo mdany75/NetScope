@@ -50,6 +50,8 @@ private struct DeviceDetailView: View {
                     if SMBRelevance.isRelevant(openPorts: device.openPorts, vendor: device.vendor) {
                         SMBSharesPanel(host: device.ip.description, name: device.displayName)
                     }
+                    // Note 69 : scan UDP ciblé (sondes propres à chaque protocole), sur clic.
+                    UDPServicesPanel(host: device.ip.description, name: device.displayName)
                 case .web:
                     DeviceWebTab(device: device, model: session.webModel(for: device), store: store)
                 case .ressources:
@@ -279,6 +281,12 @@ private struct DeviceDetailView: View {
         .buttonStyle(.primary)
         Button { scanPorts() } label: { Label("Scanner les ports", systemImage: "door.left.hand.open") }
             .buttonStyle(.secondary)
+            // Note 69 : « Scanner les ports › UDP ciblé » au clic droit (TCP au clic).
+            .contextMenu {
+                Button("Ports TCP (profil choisi)") { scanPorts() }
+                Button("UDP ciblé") { scanUDP() }
+            }
+            .help("Scanner les ports TCP du profil choisi (clic droit\u{00A0}: UDP ciblé)")
         Button {
             let wol = store.wol
             if let mac = device.mac { wol.macText = mac.formatted(.upperColon) }
@@ -430,6 +438,12 @@ private struct DeviceDetailView: View {
     private func scanPorts() {
         session.tab = .ports
         DevicePortsTab.start(session.portModel(for: device), device: device, state: state, store: store)
+    }
+
+    /// Note 69 : scan UDP ciblé, résultats dans l'onglet Ports et services.
+    private func scanUDP() {
+        session.tab = .ports
+        UDPScanModel.shared.scan(host: device.ip.description, store: store)
     }
 
     private func commitName() {
