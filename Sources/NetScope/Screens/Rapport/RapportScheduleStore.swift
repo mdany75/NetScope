@@ -354,6 +354,12 @@ final class RapportScheduleStore: ObservableObject {
         schedule.folder.map { ($0 as NSString).abbreviatingWithTildeInPath } ?? "Dossier des rapports de NetScope"
     }
 
+    /// Note 86 : rapports planifiés reçus d'un autre Mac, relus sans redémarrer.
+    func reloadFromDisk() {
+        guard !isDemo else { return }
+        book = ReportScheduleBook.load(from: ReportLibrary.defaultDirectory)
+    }
+
     private func save() {
         guard !isDemo else { return }
         do {

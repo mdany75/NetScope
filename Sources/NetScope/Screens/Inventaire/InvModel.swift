@@ -89,6 +89,15 @@ final class InvModel: ObservableObject {
         writer.flush()
     }
 
+    /// Note 86 : inventaire du site actif reçu d'un autre Mac (écrit après `flushAndSave`), relu
+    /// sans redémarrer ; celui d'un autre site est relu à la demande (date du fichier).
+    func reloadFromDisk(siteKey key: String) {
+        readCache.removeValue(forKey: key)
+        guard !isEphemeral, key == siteKey, let url else { return }
+        store = Self.load(url)
+        lastSignature = nil
+    }
+
     /// Écrit tout de suite les enregistrements différés (sauvegarde, dossier de site déplacé).
     func flushPendingWrites() {
         writer.flush()

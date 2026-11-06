@@ -20,7 +20,7 @@ import Foundation
 // │ NetScope.fortigate.controleurs        │ par site (ses FortiGate)  │ une FortiGate par élément │
 // │ connexions.json (carnet, tunnels)     │ global (_global)          │ une connexion par élément │
 // │ rustdesk.json (carnet, historique)    │ global                    │ réglages + un lancement   │
-// │ rustdesk-serveur.json                 │ global                    │ fichier entier            │
+// │ rustdesk-serveur.json                 │ global (mesures locales)  │ compte du serveur         │
 // │ ssh-utilisateurs.json                 │ global                    │ fichier entier            │
 // │ identifiants.json (SSH, WMI)          │ global                    │ un identifiant par élément│
 // │ surveillance.json                     │ global : sondes, planning │ une sonde par élément ;   │
@@ -182,6 +182,8 @@ public enum ConfigSyncPolicy {
                            lists: [ConfigSyncList(arrayKey: "connections", nameFields: ["name", "host"], elementLabel: "Connexion")]),
         ConfigSyncFileRule(pattern: "rustdesk.json", label: "RustDesk",
                            lists: [ConfigSyncList(arrayKey: "history", nameFields: ["name", "rustDeskID"], elementLabel: "Lancement RustDesk")]),
+        // Compte du serveur synchronisé ; les mesures relevées par ce Mac restent ici.
+        ConfigSyncFileRule(pattern: "rustdesk-serveur.json", label: "Serveur RustDesk", localKeys: ["samples", "samplesAccount"]),
         ConfigSyncFileRule(pattern: "identifiants.json", label: "Identifiants SSH et WMI",
                            lists: [ConfigSyncList(arrayKey: "credentials", nameFields: ["name", "username"], elementLabel: "Identifiant")]),
         // États des sondes, historique et journal : ce que CE Mac a mesuré, jamais envoyé.
@@ -199,7 +201,6 @@ public enum ConfigSyncPolicy {
 
     /// Libellés des fichiers globaux synchronisés en entier.
     static let fileLabels: [String: String] = [
-        "rustdesk-serveur.json": "Serveur RustDesk",
         "ssh-utilisateurs.json": "Utilisateurs SSH retenus",
         "outils.json": "Boîte à outils",
         "services-en-ligne.json": "Services en ligne",

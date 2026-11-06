@@ -398,6 +398,14 @@ final class ToolStore: ObservableObject {
 
     // MARK: Persistance
 
+    /// Note 86 : commandes, récents et réveils reçus d'un autre Mac, relus sans redémarrer.
+    func reloadFromDisk() {
+        guard !isEphemeral, let data = try? Data(contentsOf: url), let saved = try? JSONDecoder().decode(Snapshot.self, from: data) else { return }
+        commands = saved.commands
+        recents = saved.recents
+        wakeLog = saved.wakeLog
+    }
+
     private func save() {
         guard !isEphemeral else { return }
         do {

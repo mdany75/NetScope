@@ -533,6 +533,16 @@ final class MonStore: ObservableObject {
         }
     }
 
+    /// Note 86 : sondes et fenêtres reçues d'un autre Mac, relues sans redémarrer (les états,
+    /// l'historique et le journal de ce Mac, enregistrés juste avant, sont relus tels quels).
+    func reloadFromDisk() {
+        guard !isSimulated else { return }
+        let selected = selectedID
+        load()
+        if let selected, probes.contains(where: { $0.id == selected }) { selectedID = selected }
+        updateBadge()
+    }
+
     /// « surveillance.illisible-20261103-143010.json » : horodaté, une copie n'en écrase jamais une autre.
     private func backupURL(_ label: String) -> URL {
         let formatter = DateFormatter()

@@ -300,6 +300,13 @@ final class RustDeskModel: ObservableObject {
 
     var hasFortiGate: Bool { RegEnvironment.isDemo || !FortiGateStore.shared.enabledControllers.isEmpty }
 
+    /// Note 86 : réglages et historique reçus d'un autre Mac, relus sans redémarrer.
+    func reloadFromDisk() {
+        guard let contents = store?.load() else { return }
+        if settings != contents.settings { settings = contents.settings }
+        history = contents.history
+    }
+
     private func save() {
         guard let store else { return }
         do {

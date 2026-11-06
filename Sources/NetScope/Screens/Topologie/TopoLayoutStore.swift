@@ -18,6 +18,12 @@ final class TopoLayoutStore: ObservableObject {
         self.files = files
     }
 
+    /// Note 86 : disposition reçue d'un autre Mac, relue au prochain affichage.
+    func forget(_ key: String) {
+        layouts[key] = nil
+        objectWillChange.send()
+    }
+
     /// Disposition du site (vide : tout est placé automatiquement).
     func layout(for key: String) -> TopoManualLayout {
         if let cached = layouts[key] { return cached }

@@ -87,6 +87,15 @@ public enum ConfigSyncGlobal {
         /// Éléments des sites (fiches, inventaires, FortiGate).
         public var siteItems: Int = 0
 
+        public init(part: ConfigPart, files: Int = 0, elements: Int = 0, preferences: Int = 0, secrets: Int = 0, siteItems: Int = 0) {
+            self.part = part
+            self.files = files
+            self.elements = elements
+            self.preferences = preferences
+            self.secrets = secrets
+            self.siteItems = siteItems
+        }
+
         public var id: String { part.id }
         public var isEmpty: Bool { files + elements + preferences + secrets + siteItems == 0 }
 

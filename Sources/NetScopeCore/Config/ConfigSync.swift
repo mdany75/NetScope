@@ -454,6 +454,9 @@ public struct ConfigSyncEngine: Sendable {
     public var registry = ConfigPartRegistry.standard
     /// Catégories décochées sur ce Mac (`ConfigPart.id`) : ni envoyées, ni reçues.
     public var disabledCategories: Set<String> = []
+    /// Fichiers dont des changements reçus attendent le redémarrage : laissés de côté à ce
+    /// passage (ni envoyés, ni reçus), pour que la version d'ici, pas encore remplacée, ne reparte pas.
+    public var heldPaths: Set<String> = []
 
     public init(root: URL, deviceID: String, deviceName: String, password: String?, iterations: Int = BackupCrypto.defaultIterations) {
         self.root = root
@@ -473,6 +476,9 @@ public struct ConfigSyncEngine: Sendable {
     public func globalBundleURL(device: String) -> URL {
         globalFolder.appendingPathComponent(Self.safeName(device) + ".json")
     }
+
+    /// Nom de fichier d'un Mac dans le dossier de synchronisation (sans extension).
+    public static func safeFileName(_ text: String) -> String { safeName(text) }
 
     static func safeName(_ text: String) -> String {
         String(text.map { $0.isLetter || $0.isNumber || $0 == "-" ? $0 : "_" })
@@ -713,6 +719,14 @@ public struct ConfigSyncEngine: Sendable {
         /// Clés retenues : catégorie connue et cochée.
         func included(_ key: String) -> Bool {
             guard let category = scope.category(key) else { return false }
+            if !heldPaths.isEmpty {
+                switch ConfigSyncKey.parse(key) {
+                case .file(let path), .document(let path), .element(let path, _, _):
+                    if heldPaths.contains(path) { return false }
+                default:
+                    break
+                }
+            }
             return !disabledCategories.contains(category)
         }
         func scopeLabel(_ key: String) -> String {

@@ -51,6 +51,13 @@ final class RegNotifStore: ObservableObject {
         }
     }
 
+    /// Note 86 : réglages des notifications reçus d'un autre Mac, relus sans redémarrer.
+    func reloadFromDisk() {
+        guard defaults != nil else { return }
+        let saved = NotificationSettings.decoded(UserDefaults.standard.data(forKey: Self.key))
+        if saved != settings { settings = saved }
+    }
+
     func record(_ event: NetScopeEvent, decision: NotificationDecision) {
         log.insert(LogEntry(event: event, decision: decision), at: 0)
         if log.count > 30 { log.removeLast(log.count - 30) }

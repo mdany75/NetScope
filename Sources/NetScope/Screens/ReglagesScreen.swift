@@ -16,6 +16,8 @@ struct ReglagesScreen: View {
     @ObservedObject private var backupStore = RegBackupController.shared
     /// Pastille « Journal et diagnostic » : erreurs récentes pas encore consultées (note 35).
     @ObservedObject private var diagnostics = RegDiagnosticController.shared
+    /// Pastille « Synchronisation » : conflits et suppressions à confirmer (note 86).
+    @ObservedObject private var sync = RegSyncController.shared
     @State private var query = ""
 
     var body: some View {
@@ -183,6 +185,14 @@ struct ReglagesScreen: View {
                 CountBadge(count: diagnostics.unseenErrorCount, color: Theme.criticalBadge)
                     .help("Erreurs récentes pas encore consultées")
             }
+        case .synchro:
+            if sync.attentionCount > 0 {
+                CountBadge(count: sync.attentionCount, color: Theme.warning)
+                    .help("Conflits et suppressions venues d’un autre Mac à voir")
+            } else if sync.enabled {
+                Image(systemName: "checkmark.icloud").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                    .help("Synchronisation activée")
+            }
         case .export:
             if !backupStore.backups.isEmpty {
                 Text("\(backupStore.backups.count)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
@@ -210,19 +220,20 @@ struct ReglagesScreen: View {
         case .raccourcis: RegShortcutsSection()
         case .diagnostic: RegDiagnosticSection()
         case .export:
-            // Note 56 : configuration (export, import) et synchronisation entre Mac, après les sauvegardes
-            // (en premier pour les captures « NETSCOPE_REGLAGES_SECTION=configuration »).
+            // Note 56 : configuration (export, import) après les sauvegardes (en premier pour les
+            // captures « NETSCOPE_REGLAGES_SECTION=configuration »).
             VStack(alignment: .leading, spacing: 14) {
                 if ConfigSyncDemo.focusOnConfiguration {
                     RegConfigSection()
-                    RegSyncSection()
                     RegBackupSection()
                 } else {
                     RegBackupSection()
                     RegConfigSection()
-                    RegSyncSection()
                 }
             }
+        case .synchro:
+            // Note 86 : tableau de bord de la synchronisation entre les Mac.
+            RegSyncSection()
         }
     }
 }
