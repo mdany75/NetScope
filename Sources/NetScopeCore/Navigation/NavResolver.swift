@@ -318,11 +318,9 @@ public enum NavResolver {
             add("Accès distant", NavDestination(.acces, focus: .remote(id)))
             deviceItems(NavDeviceRef(ip: host), in: context, add: add)
         }
-        return items.sorted { lhs, rhs in
-            let a = NavModule.allCases.firstIndex(of: lhs.destination.module) ?? 0
-            let b = NavModule.allCases.firstIndex(of: rhs.destination.module) ?? 0
-            return a < b
-        }
+        // Ordre alphabétique (demande de Dany, 5 novembre 2026) ; les raccourcis ⌥⌘ suivent le
+        // module, pas la position dans le menu.
+        return items.sortedFrench(by: \.title)
     }
 
     private static func switchSearch(_ name: String) -> String {

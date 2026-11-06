@@ -125,7 +125,7 @@ struct DiskShareSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             ToolFieldLabel("Type")
             ToolFlowLayout(spacing: 6, lineSpacing: 6) {
-                ForEach(DiskShareKind.allCases) { kind in
+                ForEach(DiskShareKind.ordered) { kind in
                     ToolChoiceChip(label: kind == .dossier ? "Autre (dossier)" : kind.label, isSelected: draft.kind == kind, mono: false) {
                         choose(kind)
                     }

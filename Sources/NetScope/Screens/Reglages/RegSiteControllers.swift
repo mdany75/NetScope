@@ -64,7 +64,7 @@ struct RegSiteControllersBox: View {
             }
             HStack {
                 Menu {
-                    ForEach(ControllerKind.allCases) { kind in
+                    ForEach(ControllerKind.ordered) { kind in
                         Button(kind.label) {
                             editing = RegSiteControllerDraft(controller: SiteController(kind: kind, siteRef: kind == .meraki ? site.displayName : ""),
                                                              siteID: site.id, isNew: true)
@@ -248,7 +248,7 @@ struct RegSiteControllerEditor: View {
             }
             if isNew {
                 Picker("Marque", selection: $kind) {
-                    ForEach(ControllerKind.allCases) { Text($0.label).tag($0) }
+                    ForEach(ControllerKind.ordered) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()

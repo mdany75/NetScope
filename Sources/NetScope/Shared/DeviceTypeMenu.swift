@@ -66,7 +66,7 @@ struct DeviceTypeMenuItems: View {
     var body: some View {
         let choices = originals.map { inventory.typeChoice(for: $0) }
         let current = DeviceTypeChoice.common(choices)
-        ForEach(DeviceType.allCases, id: \.self) { type in
+        ForEach(DeviceType.ordered, id: \.self) { type in
             Toggle(isOn: Binding(get: { current == type }, set: { _ in apply(type) })) {
                 Label(type.label, systemImage: type.symbolName)
             }

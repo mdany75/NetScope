@@ -357,7 +357,7 @@ struct InvDetail: View {
                 updated.customType = value == record.detectedType ? nil : value
                 setDraft(updated)
             })) {
-                ForEach(DeviceType.allCases, id: \.self) { type in
+                ForEach(DeviceType.ordered, id: \.self) { type in
                     Text(type.label).tag(type)
                 }
             }

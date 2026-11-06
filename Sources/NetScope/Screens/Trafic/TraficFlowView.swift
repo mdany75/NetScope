@@ -295,9 +295,9 @@ struct FlowGuidePanel: View {
                 Chip(text: "\(step.kind.label) · UDP \(step.port)", tone: .accent, mono: true)
             }
             Picker("Équipement", selection: $brand) {
-                ForEach(FlowDeviceGuide.Brand.families, id: \.self) { family in
+                ForEach(FlowDeviceGuide.Brand.orderedFamilies, id: \.self) { family in
                     Section(family) {
-                        ForEach(FlowDeviceGuide.Brand.allCases.filter { $0.family == family }) { item in
+                        ForEach(FlowDeviceGuide.Brand.ordered(in: family)) { item in
                             Text(item.label).tag(item)
                         }
                     }

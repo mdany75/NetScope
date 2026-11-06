@@ -17,11 +17,7 @@ enum RegSection: String, CaseIterable, Identifiable {
     /// français, sauf « Général » toujours en tête et « À propos » toujours à la fin, comme
     /// dans les réglages de macOS.
     static let ordered: [RegSection] = {
-        let middle = allCases.filter { $0 != .general && $0 != .apropos }.sorted {
-            $0.label.compare($1.label, options: [.caseInsensitive, .diacriticInsensitive],
-                             locale: Locale(identifier: "fr_CA")) == .orderedAscending
-        }
-        return [.general] + middle + [.apropos]
+        allCases.sortedFrench(by: \.label, first: [RegSection.general.label], last: [RegSection.apropos.label])
     }()
 
     var label: String {

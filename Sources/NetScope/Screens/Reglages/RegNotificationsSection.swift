@@ -25,7 +25,8 @@ struct RegNotificationsSection: View {
                 VStack(alignment: .leading, spacing: 0) {
                     authorizationNotice
                         .padding(.bottom, 8)
-                    ForEach(NetScopeEventKind.configurable) { kind in
+                    // Cases à cocher en ordre alphabétique (demande de Dany, 5 novembre 2026).
+                    ForEach(NetScopeEventKind.configurable.sortedFrench(by: \.label)) { kind in
                         eventRow(kind)
                     }
                     AdaptiveStack(breakpoint: 640, spacing: 14, horizontalAlignment: .top) {

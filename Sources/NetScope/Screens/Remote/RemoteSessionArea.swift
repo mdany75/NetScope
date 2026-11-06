@@ -487,7 +487,7 @@ struct RemoteForm: View {
                 VStack(alignment: .leading, spacing: 4) {
                     fieldLabel("Protocole")
                     HStack(spacing: 2) {
-                        ForEach(RemoteProtocol.allCases) { option in
+                        ForEach(RemoteProtocol.ordered) { option in
                             let on = proto == option
                             Button {
                                 draft.wrappedValue.switchProtocol(to: option)

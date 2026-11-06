@@ -49,7 +49,7 @@ struct DeviceManualForm: View {
                         macField
                         labeled("Type d’appareil") {
                             Picker("Type d’appareil", selection: $model.form.type) {
-                                ForEach(DeviceType.allCases, id: \.self) { Label($0.label, systemImage: $0.symbolName).tag($0) }
+                                ForEach(DeviceType.ordered, id: \.self) { Label($0.label, systemImage: $0.symbolName).tag($0) }
                             }
                             .labelsHidden()
                         }

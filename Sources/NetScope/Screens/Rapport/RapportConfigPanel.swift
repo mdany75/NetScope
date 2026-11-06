@@ -48,7 +48,7 @@ struct RapportConfigPanel: View {
                 }
                 .padding(.bottom, 10)
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
-                    ForEach(ReportTemplate.allCases) { template in
+                    ForEach(ReportTemplate.ordered) { template in
                         templateButton(template)
                     }
                 }

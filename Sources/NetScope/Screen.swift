@@ -126,6 +126,8 @@ enum Screen: String, CaseIterable, Identifiable, Codable {
             }
         }
 
-        var screens: [Screen] { Screen.allCases.filter { $0.group == self } }
+        /// Écrans de la section, en ordre alphabétique (demande de Dany, 5 novembre 2026) ; les
+        /// sections gardent leur ordre et les raccourcis suivent l'écran, pas sa position.
+        var screens: [Screen] { Screen.allCases.filter { $0.group == self }.sortedFrench(by: \.title) }
     }
 }

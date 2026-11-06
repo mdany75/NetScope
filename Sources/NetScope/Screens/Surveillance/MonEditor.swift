@@ -111,7 +111,7 @@ struct MonEditor: View {
         HStack(alignment: .top, spacing: 8) {
             field("Type") {
                 MonMenuField(title: draft.wrappedValue.kind.label) {
-                    ForEach(MonProbeKind.allCases) { kind in
+                    ForEach(MonProbeKind.ordered) { kind in
                         Button(kind.label) {
                             // La limite n'a pas la même unité d'un type à l'autre (%, Mb/s) :
                             // le nouveau type part de sa valeur par défaut.

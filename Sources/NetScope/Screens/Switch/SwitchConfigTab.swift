@@ -206,7 +206,7 @@ struct SwitchConfigTab: View {
         } else {
             Picker("Type", selection: Binding(get: { model.kind(of: equipment) }, set: { model.setKind($0, for: equipment.id) })) {
                 Text("À choisir").tag(ConfigDeviceKind?.none)
-                ForEach(ConfigDeviceKind.allCases.filter { !$0.usesAPI }) { kind in
+                ForEach(ConfigDeviceKind.ordered.filter { !$0.usesAPI }) { kind in
                     Text(kind.label).tag(Optional(kind))
                 }
             }

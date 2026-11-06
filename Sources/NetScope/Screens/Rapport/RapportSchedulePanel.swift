@@ -202,7 +202,7 @@ struct RapportScheduleEditor: View {
                 HStack(spacing: 6) {
                     Picker("Modèle", selection: Binding(get: { draft.wrappedValue.config.template },
                                                         set: { draft.wrappedValue.config.apply($0) })) {
-                        ForEach(ReportTemplate.allCases) { Text($0.label).tag($0) }
+                        ForEach(ReportTemplate.ordered) { Text($0.label).tag($0) }
                     }
                     .labelsHidden()
                     Menu {

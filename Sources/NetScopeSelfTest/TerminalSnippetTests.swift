@@ -13,6 +13,16 @@ func registerTerminalSnippetTests(_ suite: TestSuite) {
         try expect(FrenchOrder.precedes("Zébra", "zz"), "accent ignoré")
     }
 
+    suite.add("Ordre alphabétique : listes des sélecteurs (types, guides, partages)") {
+        try expectEqual(DeviceType.ordered.last, .inconnu, "« Inconnu » à la fin")
+        try expectEqual(DeviceType.ordered.first?.label, "Caméra IP", "types triés")
+        try expectEqual(DeviceType.ordered.count, DeviceType.allCases.count, "aucun type perdu")
+        try expectEqual(LogDeviceGuide.Brand.orderedFamilies, ["Cisco", "Fortinet", "HP/Aruba", "Ubiquiti", "Autres"], "familles syslog")
+        try expectEqual(DiskShareKind.ordered.last, .dossier, "« Autre » à la fin")
+        try expectEqual(RemoteProtocol.ordered.first?.label, "FTP", "protocoles triés")
+        try expectEqual(MonProbeKind.ordered.map(\.label), MonProbeKind.allCases.map(\.label).sortedFrench(), "sondes à ajouter")
+    }
+
     suite.add("Extraits : marque déduite et extraits par marque triés") {
         try expectEqual(TerminalSnippetBrand.detect(description: "Cisco Catalyst 9300 SW-CORE-01", isSSH: true), .cisco, "Cisco")
         try expectEqual(TerminalSnippetBrand.detect(description: "FortiGate-60F", isSSH: true), .fortinet, "FortiGate")

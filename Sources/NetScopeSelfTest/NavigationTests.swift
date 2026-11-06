@@ -194,8 +194,10 @@ func registerNavigationTests(_ suite: TestSuite) {
     suite.add("Navigation : « Ouvrir dans › » d'un appareil propose les modules pertinents, dans l'ordre") {
         let items = NavResolver.openIn(.device(desk), in: context())
         let modules = items.map(\.destination.module)
-        try expectEqual(modules, [.scanner, .carte, .appareil, .ping, .switchs, .wifi, .analyse, .acces],
+        try expectEqual(Set(modules), [.scanner, .carte, .appareil, .ping, .switchs, .wifi, .analyse, .acces],
                         "modules du portable (pas de fiche d’inventaire ni de sonde)")
+        // Ordre alphabétique des titres (demande de Dany, 5 novembre 2026).
+        try expectEqual(items.map(\.title), items.map(\.title).sortedFrench(), "menu en ordre alphabétique")
         try expectEqual(items.first { $0.destination.module == .switchs }?.destination.focus,
                         .switchPort(host: "10.182.122.3", port: "1/3"), "port du switch")
         try expectEqual(items.first { $0.destination.module == .wifi }?.destination.focus, .accessPoint("siege|FP231F0001"), "borne du client")

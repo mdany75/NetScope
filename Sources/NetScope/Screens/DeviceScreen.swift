@@ -123,7 +123,7 @@ private struct DeviceDetailView: View {
                         Menu {
                             if let manual {
                                 // Appareil hors Scanner : le type est celui de la saisie.
-                                ForEach(DeviceType.allCases, id: \.self) { type in
+                                ForEach(DeviceType.ordered, id: \.self) { type in
                                     Toggle(isOn: Binding(get: { manual.type == type }, set: { _ in
                                         var updated = manual
                                         updated.type = type

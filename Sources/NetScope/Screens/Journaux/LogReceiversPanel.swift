@@ -222,9 +222,9 @@ struct LogReceiversPanel: View {
 
     private var brandPicker: some View {
         Picker("Équipement", selection: $brand) {
-            ForEach(Self.families, id: \.self) { family in
+            ForEach(LogDeviceGuide.Brand.orderedFamilies, id: \.self) { family in
                 Section(family) {
-                    ForEach(LogDeviceGuide.Brand.allCases.filter { $0.family == family }) { item in
+                    ForEach(LogDeviceGuide.Brand.ordered(in: family)) { item in
                         Text(item.label).tag(item)
                     }
                 }

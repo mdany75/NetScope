@@ -113,7 +113,7 @@ struct InvManualSheet: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Type").font(Theme.captionSemibold).foregroundStyle(Theme.textSecondary)
                         Picker("Type", selection: $type) {
-                            ForEach(DeviceType.allCases, id: \.self) { Label($0.label, systemImage: $0.symbolName).tag($0) }
+                            ForEach(DeviceType.ordered, id: \.self) { Label($0.label, systemImage: $0.symbolName).tag($0) }
                         }
                         .labelsHidden()
                     }
