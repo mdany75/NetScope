@@ -141,7 +141,9 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
 - Navigateur de fichiers en deux volets (FTP, FTPS, SFTP) et serveur FTP temporaire.
 - **Assistance RustDesk** dans son propre onglet : ID de l’usager, ajout au carnet, lien
   d’assistance à copier et historique complet des sessions (recherche, reconnexion) ; onglet
-  **Serveur RustDesk** pour suivre le serveur auto-hébergé.
+  **Serveur RustDesk** pour suivre le serveur auto-hébergé : santé, mises à jour à vérifier,
+  clé et sauvegarde, historique et rapport mensuel, tentatives suspectes, journaux, nom et note
+  par ID, ID associé à la MAC du poste (0.33.0).
 
 ### Rapports
 

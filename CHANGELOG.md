@@ -1,5 +1,39 @@
 # Changements
 
+## 0.33.0 — 2026-11-06
+
+Serveur RustDesk, en lecture seulement (note 87) : rien n’est modifié sur le serveur.
+
+### Ajouté
+- **Accès distant › Serveur RustDesk** :
+  - mises à jour à vérifier : version de RustDesk (image Docker comparée à Docker Hub, ou
+    GitHub), mises à jour du système (apt ou dnf, correctifs de sécurité, redémarrage requis),
+    nouvelle version du client ; au clic ou une fois par jour ;
+  - santé : durée de fonctionnement, charge, processeur, mémoire, redémarrages de hbbs et hbbr ;
+  - clé publique copiable, alerte si elle change (« C’est voulu » pour l’accepter) ;
+  - « Sauvegarder la clé et la base » : copie chiffrée sur ce Mac, alerte sans copie de moins
+    de 7 jours ;
+  - historique des demandes gardé jour après jour, rapport mensuel par poste et par technicien
+    (CSV, PDF) ;
+  - tentatives suspectes : rafale depuis une même IP, ID hors carnet, refus de la FortiGate ;
+  - colonne « Site probable » (WAN d’une FortiGate connue, indice seulement) ;
+  - journaux de hbbs et hbbr avec recherche et filtre par ID ;
+  - clic droit : se connecter, ajouter au carnet, ouvrir ou associer la fiche, nom et note,
+    nommer le technicien, copier l’ID.
+- **Nom et note sur chaque ID RustDesk**, synchronisés entre les Mac et affichés aussi dans
+  l’assistance et le carnet.
+- **ID associé à la MAC d’un poste**, proposé d’après le dernier scan ou les sessions de la
+  FortiGate du site, confirmé à la main ; jamais par l’IP seule, seulement dans le site ouvert.
+- **Sonde « Serveur RustDesk »** dans Surveillance (aussi par l’agent) : hbbs ou hbbr arrêté,
+  disque plein, clé changée ; ports surveillés au choix.
+- Réglages › RustDesk : mot de passe sudo (Trousseau seulement).
+
+### Limites connues
+- Rien n’a été essayé sur un vrai serveur : versions, journaux, lecture de la clé dans le volume
+  Docker, sauvegarde (base copiée pendant que hbbs tourne).
+- Les sondes de ports partent de ce Mac : elles ne prouvent pas qu’un port est joignable
+  d’Internet.
+
 ## 0.31.0 — 2026-11-05
 
 Les trois priorités réunies : sauvegarde des configurations de la FortiGate et des switchs, scans
