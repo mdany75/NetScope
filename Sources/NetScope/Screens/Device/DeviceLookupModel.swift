@@ -73,11 +73,11 @@ final class DeviceLookupModel: ObservableObject {
         candidates = Self.buildCandidates(state)
     }
 
-    /// Scanner du site actif, saisies à la main, Inventaire du site actif, puis les résultats et
-    /// l'inventaire des autres sites ; doublons retirés (même site, même MAC, sinon même IP).
+    /// Scanner du site actif, saisies à la main et Inventaire du site actif seulement : les
+    /// appareils des autres sites ne sont jamais proposés (demande de Dany, 5 novembre 2026 ;
+    /// plusieurs sites peuvent partager les mêmes plages IP). Doublons retirés (même MAC, sinon même IP).
     static func buildCandidates(_ state: AppState) -> [DeviceLookupCandidate] {
         let inventory = InvModel.shared
-        let sites = SiteModel.shared
         var list: [DeviceLookupCandidate] = []
         for device in inventory.withManualTypes(state.devices) {
             list.append(DeviceLookupCandidate(device: device, origin: .scanner, id: "scan|" + device.id))
@@ -87,23 +87,6 @@ final class DeviceLookupModel: ObservableObject {
         }
         for record in inventory.store.records.values {
             list.append(candidate(record, siteKey: nil, siteName: nil))
-        }
-        for site in sites.sortedSites {
-            let key = SiteFiles.key(for: site.id)
-            guard key != sites.activeKey else { continue }
-            if let results = sites.storedResults(for: key) {
-                for device in results.devices {
-                    var copy = device
-                    copy.customName = results.customNames[device.id] ?? device.customName
-                    list.append(DeviceLookupCandidate(device: copy, origin: .otherSite, id: "site|\(key)|\(device.id)",
-                                                      siteKey: key, siteName: site.displayName))
-                }
-            }
-            for record in inventory.inventory(for: key).records.values {
-                var item = candidate(record, siteKey: key, siteName: site.displayName)
-                item.origin = .otherSite
-                list.append(item)
-            }
         }
         return DeviceLookup.deduplicated(list)
     }
