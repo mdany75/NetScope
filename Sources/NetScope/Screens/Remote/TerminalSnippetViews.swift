@@ -71,6 +71,7 @@ struct TerminalSnippetEditor: View {
     @State private var brand: TerminalSnippetBrand?
     @State private var sendsReturn: Bool
     @State private var error: String?
+    @State private var confirmingDelete = false
 
     init(draft: TerminalSnippetDraft, dismiss: @escaping () -> Void) {
         self.draft = draft
@@ -116,21 +117,29 @@ struct TerminalSnippetEditor: View {
             Divider()
             HStack(spacing: 8) {
                 if !draft.isNew {
-                    Button("Supprimer", role: .destructive) {
-                        store.delete(draft.snippet.id)
-                        dismiss()
-                    }
-                    .buttonStyle(.secondary)
+                    Button("Supprimer…", role: .destructive) { confirmingDelete = true }
+                        .buttonStyle(.secondary)
                 }
                 Spacer()
+                // Retour passe à la ligne dans la commande : l'enregistrement se fait par ⌘Retour.
+                Text("⌘↩ pour enregistrer").font(Theme.caption).foregroundStyle(Theme.textSecondary)
                 Button("Annuler", action: dismiss).buttonStyle(.secondary).keyboardShortcut(.cancelAction)
-                Button("Enregistrer", action: save).buttonStyle(.primary).keyboardShortcut(.defaultAction)
+                Button("Enregistrer", action: save).buttonStyle(.primary).keyboardShortcut(.return, modifiers: .command)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
         }
         .frame(width: 480)
         .background(Theme.panel)
+        .confirmationDialog("Supprimer l’extrait «\u{00A0}\(draft.snippet.name)\u{00A0}»\u{00A0}?", isPresented: $confirmingDelete) {
+            Button("Supprimer", role: .destructive) {
+                store.delete(draft.snippet.id)
+                dismiss()
+            }
+            Button("Annuler", role: .cancel) {}
+        } message: {
+            Text("La commande enregistrée sera perdue.")
+        }
     }
 
     private func save() {
@@ -168,7 +177,8 @@ struct TerminalBroadcastSheet: View {
     @State private var command: String
     @State private var sendsReturn: Bool
     @State private var selected: Set<UUID>
-    @State private var confirming = false
+    /// Plan figé à l'ouverture de la confirmation : seules les sessions qu'elle nomme recevront la commande.
+    @State private var confirmedPlan: TerminalBroadcast.Plan?
     @State private var refresh = 0
 
     init(store: RemoteSessionStore, request: TerminalBroadcastRequest, inline: Bool = false, dismiss: @escaping () -> Void) {
@@ -187,7 +197,7 @@ struct TerminalBroadcastSheet: View {
 
     private var targets: [TerminalBroadcast.Target] {
         sessions.map { TerminalBroadcast.Target(id: $0.id, name: $0.connection.name, address: $0.addressLabel,
-                                                isConnected: $0.phase == .connected) }
+                                                site: $0.connection.folder, isConnected: $0.phase == .connected) }
     }
 
     private var plan: TerminalBroadcast.Plan {
@@ -226,16 +236,29 @@ struct TerminalBroadcastSheet: View {
         .frame(width: inline ? 580 : nil)
         .frame(minWidth: 540, idealWidth: 580)
         .background(Theme.panel)
-        // L'état de chaque session (ouverte ou fermée) change sans passer par le magasin d'onglets.
-        .onReceive(Publishers.MergeMany(sessions.map(\.objectWillChange)).receive(on: RunLoop.main)) { _ in
+        // Seul le passage d'une session à ouverte ou fermée compte ici (pas le texte reçu, le titre ou la
+        // taille) ; dropFirst : la valeur actuelle, renvoyée à chaque abonnement, ne redessine rien.
+        .onReceive(Publishers.MergeMany(sessions.map { $0.$phase.dropFirst().map { _ in () } }).receive(on: RunLoop.main)) { _ in
             refresh &+= 1
         }
-        .alert(TerminalBroadcast.confirmationTitle(plan), isPresented: $confirming) {
+        .alert(confirmedPlan.map(TerminalBroadcast.confirmationTitle) ?? "",
+               isPresented: Binding(get: { confirmedPlan != nil }, set: { if !$0 { confirmedPlan = nil } }),
+               presenting: confirmedPlan) { frozen in
             Button("Annuler", role: .cancel) {}
-            Button("Envoyer") { send() }
-        } message: {
-            Text(TerminalBroadcast.confirmationMessage(plan, command: command, sendsReturn: sendsReturn))
+            Button("Envoyer") { send(frozen) }
+        } message: { frozen in
+            Text(TerminalBroadcast.confirmationMessage(frozen, command: command, sendsReturn: sendsReturn))
         }
+    }
+
+    /// Noms portés par plusieurs onglets : leur site (dossier) est affiché pour les distinguer.
+    private var duplicateNames: Set<String> {
+        var seen = Set<String>(), twice = Set<String>()
+        for session in sessions {
+            let key = session.connection.name.lowercased()
+            if !seen.insert(key).inserted { twice.insert(key) }
+        }
+        return twice
     }
 
     private var sessionList: some View {
@@ -253,9 +276,10 @@ struct TerminalBroadcastSheet: View {
                     Text("Aucune session de terminal ouverte.").font(Theme.small).foregroundStyle(Theme.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading).padding(10)
                 }
+                let twins = duplicateNames
                 ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
                     if index > 0 { Divider() }
-                    row(session)
+                    row(session, showsSite: twins.contains(session.connection.name.lowercased()))
                 }
             }
             .background(RoundedRectangle(cornerRadius: 6).fill(Theme.panelMuted))
@@ -263,7 +287,7 @@ struct TerminalBroadcastSheet: View {
         }
     }
 
-    private func row(_ session: TerminalSession) -> some View {
+    private func row(_ session: TerminalSession, showsSite: Bool) -> some View {
         let connected = session.phase == .connected
         let binding = Binding<Bool>(
             get: { selected.contains(session.id) },
@@ -275,6 +299,10 @@ struct TerminalBroadcastSheet: View {
             .toggleStyle(.checkbox)
             .disabled(!connected)
             Text(session.addressLabel).font(Theme.mono(11.5)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            if showsSite {
+                Text(session.connection.folder.isEmpty ? "Non classé" : session.connection.folder)
+                    .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            }
             Spacer(minLength: 8)
             Chip(text: kindLabel(session), tone: session.kind == .telnet ? .warning : .neutral)
             Chip(text: connected ? "Ouverte" : "Fermée", tone: connected ? .success : .neutral)
@@ -327,22 +355,28 @@ struct TerminalBroadcastSheet: View {
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
             }
             Spacer()
+            // Retour passe à la ligne dans la commande : l'envoi se fait par ⌘Retour.
+            Text("⌘↩ pour envoyer").font(Theme.caption).foregroundStyle(Theme.textSecondary)
             Button("Annuler", action: dismiss).buttonStyle(.secondary).keyboardShortcut(.cancelAction)
-            Button(plan.recipients.count > 1 ? "Envoyer aux \(plan.recipients.count)\u{00A0}sessions…" : "Envoyer…") { confirming = true }
+            Button(plan.recipients.count > 1 ? "Envoyer aux \(plan.recipients.count)\u{00A0}sessions…" : "Envoyer…") {
+                let current = plan
+                if current.canSend { confirmedPlan = current }
+            }
                 .buttonStyle(.primary)
-                .keyboardShortcut(.defaultAction)
+                .keyboardShortcut(.return, modifiers: .command)
                 .disabled(!plan.canSend)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
     }
 
-    private func send() {
-        let current = plan
-        guard current.canSend else { return }
-        let ids = Set(current.recipients.map(\.id))
-        for session in sessions where ids.contains(session.id) {
-            session.sendText(current.payload)
+    /// N'envoie qu'aux sessions nommées dans la confirmation et encore ouvertes : une session cochée
+    /// puis rouverte entre-temps ne reçoit rien.
+    private func send(_ frozen: TerminalBroadcast.Plan) {
+        guard frozen.canSend else { return }
+        let ids = Set(frozen.recipients.map(\.id))
+        for session in sessions where ids.contains(session.id) && session.phase == .connected {
+            session.sendText(frozen.payload)
         }
         dismiss()
     }

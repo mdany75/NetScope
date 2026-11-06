@@ -15,6 +15,8 @@ struct TerminalSessionView: View {
     @State private var editingSnippet: TerminalSnippetDraft?
     /// Note 67 : envoi à plusieurs sessions demandé.
     @State private var broadcast: TerminalBroadcastRequest?
+    /// Extrait personnalisé dont la suppression attend confirmation.
+    @State private var deletingSnippet: TerminalSnippet?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,6 +39,14 @@ struct TerminalSessionView: View {
         }
         .sheet(item: $broadcast) { request in
             TerminalBroadcastSheet(store: store, request: request) { broadcast = nil }
+        }
+        .confirmationDialog(deletingSnippet.map { "Supprimer l’extrait «\u{00A0}\($0.name)\u{00A0}»\u{00A0}?" } ?? "",
+                            isPresented: Binding(get: { deletingSnippet != nil }, set: { if !$0 { deletingSnippet = nil } }),
+                            presenting: deletingSnippet) { snippet in
+            Button("Supprimer", role: .destructive) { snippetStore.delete(snippet.id) }
+            Button("Annuler", role: .cancel) {}
+        } message: { _ in
+            Text("La commande enregistrée sera perdue.")
         }
         .overlay {
             // Captures (NETSCOPE_REMOTE_VIEW=terminal-plusieurs) : la feuille d'envoi dessinée dans la page.
@@ -559,8 +569,7 @@ struct TerminalSessionView: View {
         .frame(height: 22)
         .background(RoundedRectangle(cornerRadius: 5).fill(item.isCustom ? Theme.accentSoft : Theme.panelMuted))
         .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.border))
-        .help(item.sendsReturn ? "Exécuter « \(item.command) » dans la session"
-                               : "Taper « \(item.command) » dans la session (sans Entrée)")
+        .help(snippetHelp(item))
         .disabled(session.phase != .connected)
         .contextMenu {
             Button("Envoyer à plusieurs sessions…") {
@@ -570,9 +579,20 @@ struct TerminalSessionView: View {
             if let id = item.customID, let snippet = snippetStore.snippet(id) {
                 Divider()
                 Button("Modifier…") { editingSnippet = TerminalSnippetDraft(snippet: snippet, isNew: false) }
-                Button("Supprimer", role: .destructive) { snippetStore.delete(id) }
+                Button("Supprimer…", role: .destructive) { deletingSnippet = snippet }
             }
         }
+    }
+
+    /// Infobulle d'un extrait : sans Entrée finale, les lignes avant la dernière s'exécutent quand même.
+    private func snippetHelp(_ item: TerminalSnippetItem) -> String {
+        let lines = TerminalBroadcast.lineCount(item.command)
+        if lines > 1 {
+            return "Taper «\u{00A0}\(item.command)\u{00A0}» dans la session. "
+                + TerminalBroadcast.executionNote(lineCount: lines, sendsReturn: item.sendsReturn)
+        }
+        return item.sendsReturn ? "Exécuter «\u{00A0}\(item.command)\u{00A0}» dans la session"
+                                : "Taper «\u{00A0}\(item.command)\u{00A0}» dans la session (sans Entrée)"
     }
 
     // MARK: Barre d'état

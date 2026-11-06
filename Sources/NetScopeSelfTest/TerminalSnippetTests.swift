@@ -68,9 +68,29 @@ func registerTerminalSnippetTests(_ suite: TestSuite) {
         try expect(plan.canSend, "envoi possible")
         try expectEqual(TerminalBroadcast.confirmationTitle(plan), "Envoyer la commande à 2\u{00A0}sessions\u{00A0}?", "titre")
         let message = TerminalBroadcast.confirmationMessage(plan, command: "show running-config", sendsReturn: true)
-        try expect(message.contains("SW-CORE-01, SW-ETG2-01") && message.contains("Entrée") && message.contains("FortiGate-60F"), message)
+        try expect(message.contains("SW-CORE-01 (10.182.122.2), SW-ETG2-01 (10.182.122.3)") && message.contains("Entrée")
+                   && message.contains("FortiGate-60F (10.182.122.1)"), message)
         let none = TerminalBroadcast.plan(command: "x", sendsReturn: false, targets: [c], selected: [c.id])
         try expect(!none.canSend, "aucune session ouverte")
         try expectEqual(TerminalBroadcast.lineCount("a\nb\n"), 2, "deux lignes")
+
+        // Deux onglets du même nom (deux sites) : l'adresse et le site les distinguent dans la confirmation.
+        let laval = TerminalBroadcast.Target(id: UUID(), name: "Switch-cœur", address: "10.0.0.2", site: "Laval", isConnected: true)
+        let quebec = TerminalBroadcast.Target(id: UUID(), name: "Switch-cœur", address: "10.0.0.2", site: "Québec", isConnected: true)
+        let twins = TerminalBroadcast.plan(command: "show clock", sendsReturn: true, targets: [laval, quebec],
+                                           selected: [laval.id, quebec.id])
+        let twinMessage = TerminalBroadcast.confirmationMessage(twins, command: "show clock", sendsReturn: true)
+        try expect(twinMessage.contains("Switch-cœur (10.0.0.2, Laval)") && twinMessage.contains("Switch-cœur (10.0.0.2, Québec)"),
+                   twinMessage)
+
+        // Sans Entrée finale, les lignes avant la dernière s'exécutent quand même : la confirmation le dit.
+        let multi = TerminalBroadcast.plan(command: "conf t\nhostname X\nend", sendsReturn: false, targets: [a], selected: [a.id])
+        let multiMessage = TerminalBroadcast.confirmationMessage(multi, command: "conf t\nhostname X\nend", sendsReturn: false)
+        try expect(multiMessage.contains("Les 2\u{00A0}premières lignes seront exécutées") && !multiMessage.contains("ne sera pas validée"),
+                   multiMessage)
+        try expectEqual(TerminalBroadcast.executionNote(lineCount: 2, sendsReturn: false),
+                        "La première ligne sera exécutée\u{00A0}; la dernière restera à valider.", "deux lignes sans Entrée")
+        try expectEqual(TerminalBroadcast.executionNote(lineCount: 1, sendsReturn: false),
+                        "Elle ne sera pas validée (sans Entrée).", "une ligne sans Entrée")
     }
 }

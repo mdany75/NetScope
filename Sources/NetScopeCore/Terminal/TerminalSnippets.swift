@@ -131,13 +131,22 @@ public enum TerminalBroadcast {
         public var id: UUID
         public var name: String
         public var address: String
+        /// Dossier ou site de la connexion (vide : non classé).
+        public var site: String
         public var isConnected: Bool
 
-        public init(id: UUID, name: String, address: String, isConnected: Bool) {
+        public init(id: UUID, name: String, address: String, site: String = "", isConnected: Bool) {
             self.id = id
             self.name = name
             self.address = address
+            self.site = site
             self.isConnected = isConnected
+        }
+
+        /// Nom suivi de l'adresse et du site : deux onglets du même nom restent distincts.
+        public var label: String {
+            let details = [address, site].map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            return details.isEmpty ? name : "\(name) (\(details.joined(separator: ", ")))"
         }
     }
 
@@ -180,15 +189,29 @@ public enum TerminalBroadcast {
         return count == 1 ? "Envoyer la commande à 1\u{00A0}session\u{00A0}?" : "Envoyer la commande à \(count)\u{00A0}sessions\u{00A0}?"
     }
 
+    /// Ce que fait l'envoi selon le nombre de lignes et l'Entrée finale. Sans Entrée finale, les lignes
+    /// sont tout de même séparées par Entrée : toutes sauf la dernière s'exécutent.
+    public static func executionNote(lineCount: Int, sendsReturn: Bool) -> String {
+        if sendsReturn {
+            return lineCount > 1 ? "Les \(lineCount)\u{00A0}lignes seront exécutées (Entrée après chacune)."
+                                 : "Elle sera validée par Entrée."
+        }
+        if lineCount > 2 {
+            return "Les \(lineCount - 1)\u{00A0}premières lignes seront exécutées\u{00A0}; la dernière restera à valider."
+        }
+        if lineCount == 2 { return "La première ligne sera exécutée\u{00A0}; la dernière restera à valider." }
+        return "Elle ne sera pas validée (sans Entrée)."
+    }
+
     /// Détail de la confirmation : commande (première ligne), sessions, Entrée ou non.
     public static func confirmationMessage(_ plan: Plan, command: String, sendsReturn: Bool) -> String {
         let first = payload(command: command, sendsReturn: false).components(separatedBy: "\r").first ?? ""
         let more = plan.lineCount > 1 ? " (et \(plan.lineCount - 1)\u{00A0}autre\(plan.lineCount > 2 ? "s" : "") ligne\(plan.lineCount > 2 ? "s" : ""))" : ""
-        var text = "«\u{00A0}\(first)\u{00A0}»\(more) sera tapée dans\u{00A0}: " + plan.recipients.map(\.name).joined(separator: ", ") + "."
-        text += sendsReturn ? " Elle sera validée par Entrée dans chaque session." : " Elle ne sera pas validée (sans Entrée)."
+        var text = "«\u{00A0}\(first)\u{00A0}»\(more) sera tapée dans\u{00A0}: " + plan.recipients.map(\.label).joined(separator: ", ") + "."
+        text += " " + executionNote(lineCount: plan.lineCount, sendsReturn: sendsReturn)
         if !plan.skipped.isEmpty {
             text += " Session\(plan.skipped.count > 1 ? "s" : "") fermée\(plan.skipped.count > 1 ? "s" : ""), ignorée\(plan.skipped.count > 1 ? "s" : "")\u{00A0}: "
-                + plan.skipped.map(\.name).joined(separator: ", ") + "."
+                + plan.skipped.map(\.label).joined(separator: ", ") + "."
         }
         return text
     }
