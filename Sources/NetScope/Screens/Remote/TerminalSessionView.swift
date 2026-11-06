@@ -10,6 +10,11 @@ struct TerminalSessionView: View {
     @ObservedObject var model: RemoteModel
     @ObservedObject private var preferences = TerminalPreferences.shared
     @ObservedObject private var store = RemoteSessionStore.shared
+    @ObservedObject private var snippetStore = TerminalSnippetStore.shared
+    /// Note 67 : extrait en cours de création ou de modification.
+    @State private var editingSnippet: TerminalSnippetDraft?
+    /// Note 67 : envoi à plusieurs sessions demandé.
+    @State private var broadcast: TerminalBroadcastRequest?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -20,12 +25,29 @@ struct TerminalSessionView: View {
             banners
             if session.searchVisible { searchBar }
             terminalBox
-            if session.kind != .serial, !snippets.isEmpty { snippetBar }
+            if session.kind != .serial { snippetBar }
             statusBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .sheet(isPresented: $session.transferSheetVisible) {
             SerialTransferSheet(session: session) { session.transferSheetVisible = false }
+        }
+        .sheet(item: $editingSnippet) { draft in
+            TerminalSnippetEditor(draft: draft) { editingSnippet = nil }
+        }
+        .sheet(item: $broadcast) { request in
+            TerminalBroadcastSheet(store: store, request: request) { broadcast = nil }
+        }
+        .overlay {
+            // Captures (NETSCOPE_REMOTE_VIEW=terminal-plusieurs) : la feuille d'envoi dessinée dans la page.
+            if let request = TerminalDemo.broadcastRequest, store.activeID == session.id {
+                ZStack {
+                    Color.black.opacity(0.18)
+                    TerminalBroadcastSheet(store: store, request: request, inline: true) {}
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .shadow(color: Color.black.opacity(0.25), radius: 16, y: 6)
+                }
+            }
         }
         .overlay {
             // Captures (NETSCOPE_REMOTE_VIEW=terminal-serie-fichier) : la feuille dessinée dans la page.
@@ -484,14 +506,14 @@ struct TerminalSessionView: View {
 
     // MARK: Extraits
 
-    /// Commandes courantes selon l'appareil (description de la connexion).
-    private var snippets: [String] {
-        let note = (session.connection.note + " " + session.connection.name).lowercased()
-        if note.contains("cisco") { return ["show interfaces status", "show vlan brief", "show mac address-table", "show lldp neighbors", "show version", "show running-config"] }
-        if note.contains("forti") { return ["get system status", "get router info routing-table all", "diagnose sys top", "show system interface"] }
-        if note.contains("aruba") || note.contains("hpe") { return ["show interfaces brief", "show vlans", "show lldp info remote-device", "show running-config"] }
-        if session.kind == .ssh { return ["uptime", "df -h", "uname -a", "ip addr"] }
-        return []
+    /// Note 67 : extraits de l'utilisateur (de la marque de la session ou pour toutes), puis
+    /// commandes courantes de la marque (description et nom de la connexion).
+    private var brand: TerminalSnippetBrand? {
+        TerminalSnippetBrand.detect(description: session.connection.note + " " + session.connection.name, isSSH: session.kind == .ssh)
+    }
+
+    private var snippets: [TerminalSnippetItem] {
+        TerminalSnippetLibrary.items(brand: brand, custom: snippetStore.snippets)
     }
 
     private var snippetBar: some View {
@@ -499,23 +521,58 @@ struct TerminalSessionView: View {
             Text("EXTRAITS").font(Theme.captionSemibold).kerning(0.4).foregroundStyle(Theme.textSecondary)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    ForEach(snippets, id: \.self) { snippet in
-                        Button(snippet) { session.sendText(snippet) }
-                            .buttonStyle(.plain)
-                            .font(Theme.mono(11.5))
-                            .foregroundStyle(Theme.text)
-                            .padding(.horizontal, 8)
-                            .frame(height: 22)
-                            .background(RoundedRectangle(cornerRadius: 5).fill(Theme.panelMuted))
-                            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.border))
-                            .help("Taper « \(snippet) » dans la session (sans Entrée)")
-                            .disabled(session.phase != .connected)
+                    ForEach(snippets) { item in snippetButton(item) }
+                    Button {
+                        editingSnippet = TerminalSnippetDraft(snippet: TerminalSnippet(name: "", command: "", brand: brand), isNew: true)
+                    } label: {
+                        Image(systemName: "plus")
                     }
+                    .buttonStyle(RemoteSmallButtonStyle())
+                    .help("Nouvel extrait personnalisé")
                 }
             }
+            Button {
+                broadcast = TerminalBroadcastRequest(command: "", sendsReturn: true, selected: [session.id])
+            } label: {
+                Label("Plusieurs sessions…", systemImage: "rectangle.stack").labelStyle(RemoteCompactLabelStyle())
+            }
+            .buttonStyle(RemoteSmallButtonStyle())
+            .help("Envoyer une même commande à plusieurs sessions ouvertes")
         }
         .padding(.horizontal, 12)
         .padding(.top, 8)
+    }
+
+    private func snippetButton(_ item: TerminalSnippetItem) -> some View {
+        Button {
+            session.sendText(TerminalBroadcast.payload(command: item.command, sendsReturn: item.sendsReturn))
+        } label: {
+            HStack(spacing: 4) {
+                if item.isCustom { Image(systemName: "star.fill").font(.system(size: 8)).foregroundStyle(Theme.accentStrong) }
+                Text(item.title)
+            }
+        }
+        .buttonStyle(.plain)
+        .font(item.isCustom ? Theme.small : Theme.mono(11.5))
+        .foregroundStyle(Theme.text)
+        .padding(.horizontal, 8)
+        .frame(height: 22)
+        .background(RoundedRectangle(cornerRadius: 5).fill(item.isCustom ? Theme.accentSoft : Theme.panelMuted))
+        .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.border))
+        .help(item.sendsReturn ? "Exécuter « \(item.command) » dans la session"
+                               : "Taper « \(item.command) » dans la session (sans Entrée)")
+        .disabled(session.phase != .connected)
+        .contextMenu {
+            Button("Envoyer à plusieurs sessions…") {
+                broadcast = TerminalBroadcastRequest(command: item.command, sendsReturn: item.sendsReturn || !item.isCustom,
+                                                     selected: [session.id])
+            }
+            if let id = item.customID, let snippet = snippetStore.snippet(id) {
+                Divider()
+                Button("Modifier…") { editingSnippet = TerminalSnippetDraft(snippet: snippet, isNew: false) }
+                Button("Supprimer", role: .destructive) { snippetStore.delete(id) }
+            }
+        }
     }
 
     // MARK: Barre d'état

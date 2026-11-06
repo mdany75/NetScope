@@ -155,6 +155,8 @@ registerConfigBackupTests(suite)
 registerAutomationTests(suite)
 // IPv6 (0.31.0) : adresses, préfixes, EUI-64, table NDP sur octets fixes, ICMPv6 (rien n’est envoyé).
 registerIPv6Tests(suite)
+// Note 67 (0.34.0) : extraits personnalisés, envoi à plusieurs sessions, ordre alphabétique.
+registerTerminalSnippetTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

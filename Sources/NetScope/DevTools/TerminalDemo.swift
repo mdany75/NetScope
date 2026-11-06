@@ -130,6 +130,24 @@ enum TerminalDemo {
             store.add(telnet, activate: true)
             telnetTarget = etg
         }
+        // Note 67 : « terminal-plusieurs » : SW-CORE-01, SW-ETG2-01 (Telnet) et le FortiGate ouverts,
+        // feuille « Envoyer à plusieurs sessions » avec les deux switchs cochés (rien n'est envoyé).
+        if view == "terminal-plusieurs" {
+            var opened = [ssh]
+            for name in ["SW-ETG2-01", "FortiGate-60F"] {
+                guard let connection = connections.first(where: { $0.name == name }) else { continue }
+                let session = TerminalSession(connection: connection)
+                session.demoTransport = transportFactory(for: connection)
+                session.start()
+                store.add(session, activate: false)
+                opened.append(session)
+            }
+            store.activeID = ssh.id
+            RemoteModel.shared.selectedID = core.id
+            RemoteModel.shared.showDetails = false
+            let switches = opened.filter { $0.connection.name.hasPrefix("SW-") }.map(\.id)
+            broadcastRequest = TerminalBroadcastRequest(command: "show running-config", sendsReturn: true, selected: Set(switches))
+        }
         if view == "terminal" || serialView || telnetTarget != nil {
             // Capture : la connexion de l'onglet choisie, le terminal sur toute la largeur.
             RemoteModel.shared.selectedID = (telnetTarget ?? (view == "terminal" ? core : usb)).id
@@ -327,6 +345,9 @@ enum TerminalDemo {
         "",
         "",
     ]
+
+    /// Captures (note 67) : feuille « Envoyer à plusieurs sessions » dessinée dans la page.
+    static var broadcastRequest: TerminalBroadcastRequest?
 
     /// Captures : feuille « Transfert de fichier » dessinée dans la page.
     static var showsTransferSheet: Bool {
