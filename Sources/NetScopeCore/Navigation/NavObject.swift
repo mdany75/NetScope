@@ -109,6 +109,8 @@ public struct NavProbeRef: Hashable, Sendable {
             return nil
         case .syslogSeverity, .trapReceived:
             return MonTrafficChecks.isAll(text) ? nil : text
+        case .tlsCertificate:
+            return MonTLSChecks.target(text)?.host
         }
     }
 }

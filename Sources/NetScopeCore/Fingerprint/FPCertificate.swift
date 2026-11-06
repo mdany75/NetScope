@@ -12,11 +12,11 @@ public struct FPCertificate: Hashable, Sendable {
     /// Lit un certificat DER ; nil s'il est illisible.
     public static func parse(der: Data) -> FPCertificate? {
         let bytes = [UInt8](der)
-        var reader = DERReader(bytes)
+        var reader = FPDERReader(bytes)
         guard let certificate = reader.next(), certificate.tag == 0x30 else { return nil }
-        var outer = DERReader(certificate.content)
+        var outer = FPDERReader(certificate.content)
         guard let tbs = outer.next(), tbs.tag == 0x30 else { return nil }
-        var fields = DERReader(tbs.content)
+        var fields = FPDERReader(tbs.content)
         guard var first = fields.next() else { return nil }
         // [0] version (facultatif), puis numéro de série.
         if first.tag == 0xA0 { guard let serial = fields.next() else { return nil }; first = serial }
@@ -25,7 +25,7 @@ public struct FPCertificate: Hashable, Sendable {
               let issuer = fields.next(), issuer.tag == 0x30,
               let validity = fields.next(), validity.tag == 0x30,
               let subject = fields.next(), subject.tag == 0x30 else { return nil }
-        var times = DERReader(validity.content)
+        var times = FPDERReader(validity.content)
         _ = times.next()
         let notAfter = times.next().flatMap(decodeTime)
         return FPCertificate(subject: name(subject.content), issuer: name(issuer.content), notAfter: notAfter,
@@ -36,11 +36,11 @@ public struct FPCertificate: Hashable, Sendable {
 
     static func name(_ content: [UInt8]) -> FPCertName {
         var result = FPCertName()
-        var sets = DERReader(content)
+        var sets = FPDERReader(content)
         while let set = sets.next() {
-            var attributes = DERReader(set.content)
+            var attributes = FPDERReader(set.content)
             while let attribute = attributes.next() {
-                var parts = DERReader(attribute.content)
+                var parts = FPDERReader(attribute.content)
                 guard let oid = parts.next(), oid.tag == 0x06, let value = parts.next(),
                       let text = decodeString(value) else { continue }
                 switch oid.content {
@@ -54,7 +54,7 @@ public struct FPCertificate: Hashable, Sendable {
         return result
     }
 
-    static func decodeString(_ element: DERElement) -> String? {
+    static func decodeString(_ element: FPDERElement) -> String? {
         let text: String?
         switch element.tag {
         case 0x0C, 0x13, 0x16, 0x14, 0x1A: text = String(decoding: element.content, as: UTF8.self)
@@ -73,7 +73,7 @@ public struct FPCertificate: Hashable, Sendable {
     }
 
     /// UTCTime « 251231235959Z » ou GeneralizedTime « 20491231235959Z ».
-    static func decodeTime(_ element: DERElement) -> Date? {
+    static func decodeTime(_ element: FPDERElement) -> Date? {
         let text = String(decoding: element.content, as: UTF8.self)
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -91,19 +91,19 @@ public struct FPCertificate: Hashable, Sendable {
 }
 
 /// Élément DER : étiquette et contenu.
-struct DERElement {
+struct FPDERElement {
     var tag: UInt8
     var content: [UInt8]
 }
 
 /// Lecture séquentielle d'éléments DER (longueurs définies seulement).
-struct DERReader {
+struct FPDERReader {
     private let bytes: [UInt8]
     private var index = 0
 
     init(_ bytes: [UInt8]) { self.bytes = bytes }
 
-    mutating func next() -> DERElement? {
+    mutating func next() -> FPDERElement? {
         guard index + 2 <= bytes.count else { return nil }
         let tag = bytes[index]
         var length = Int(bytes[index + 1])
@@ -117,6 +117,6 @@ struct DERReader {
         }
         guard length >= 0, cursor + length <= bytes.count else { return nil }
         index = cursor + length
-        return DERElement(tag: tag, content: Array(bytes[cursor..<(cursor + length)]))
+        return FPDERElement(tag: tag, content: Array(bytes[cursor..<(cursor + length)]))
     }
 }

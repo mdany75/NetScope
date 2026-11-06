@@ -141,6 +141,8 @@ registerFlowTests(suite)
 registerAlertPhoneTests(suite)
 // Note 69 (0.30.0) : scan de ports UDP ciblé (sondes par protocole, 127.0.0.1 seulement).
 registerUDPScanTests(suite)
+// Note 70 (0.30.0) : vérificateur de certificat TLS (certificats recopiés, aucun réseau).
+registerTLSCertificateTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

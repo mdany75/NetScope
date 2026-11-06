@@ -22,6 +22,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
     case licenseExpiring, firmwareOutdated
     /// Journaux (note 43) : message Syslog (ou de la FortiGate) de gravité ≥ X, trap SNMP reçue.
     case syslogSeverity, trapReceived
+    /// Certificat TLS (note 70) : jours restants avant l'expiration d'un service HTTPS, LDAPS ou de courriel.
+    case tlsCertificate
 
     public var id: String { rawValue }
 
@@ -51,6 +53,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .firmwareOutdated: return "Firmware pas à jour"
         case .syslogSeverity: return "Message Syslog de gravité ≥ X"
         case .trapReceived: return "Trap SNMP reçue"
+        case .tlsCertificate: return "Certificat TLS (jours restants)"
         }
     }
 
@@ -80,6 +83,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .firmwareOutdated: return "Firmware"
         case .syslogSeverity: return "Syslog"
         case .trapReceived: return "Trap"
+        case .tlsCertificate: return "Certificat"
         }
     }
 
@@ -106,6 +110,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .licenseExpiring: return "Service (IPS, FortiCare…), «\u{00A0}Siège / *\u{00A0}», ou «\u{00A0}*\u{00A0}» pour toutes"
         case .firmwareOutdated: return "Équipement, modèle ou famille (FortiAP), «\u{00A0}Siège / *\u{00A0}», ou «\u{00A0}*\u{00A0}»"
         case .syslogSeverity, .trapReceived: return "Adresse ou nom de l’appareil, ou «\u{00A0}*\u{00A0}» pour tous"
+        case .tlsCertificate: return "Hôte:port (fw.exemple.ca:443, 10.0.0.1:8443, mail.exemple.ca:587)"
         }
     }
 
@@ -360,6 +365,9 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
         case .trapReceived:
             let filter = trapFilter?.trimmingCharacters(in: .whitespaces) ?? ""
             return filter.isEmpty ? "Alerte à chaque trap reçue" : "Alerte à chaque trap «\(nbsp)\(filter)\(nbsp)» reçue"
+        case .tlsCertificate:
+            let days = Int(resourceLimit ?? MonProbe.defaultResourceLimit(.tlsCertificate))
+            return "Alerte si le certificat expire dans \(days)\(nbsp)j ou moins, panne s’il est expiré"
         }
     }
 
@@ -369,6 +377,7 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
         case .portLoad, .linkSaturated: return 80
         case .heavyDevice: return 50
         case .licenseExpiring: return Double(MonFirmwareChecks.defaultDays)
+        case .tlsCertificate: return Double(MonTLSChecks.defaultDays)
         default: return 90
         }
     }
