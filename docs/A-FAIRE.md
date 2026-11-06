@@ -1699,7 +1699,7 @@ Dany : étendre la synchronisation iCloud Drive de la note 56 (0.18.0) au lieu d
   et 77 en 0.30.0).
 
 
-## 87. Serveur RustDesk : mises à jour, déconnexion et quarantaine, nom et note par ID — 0.33.0 (demande de Dany, 6 novembre 2026)
+## 87. Serveur RustDesk : mises à jour, nom et note par ID, surveillance — 0.33.0 (demande de Dany, 6 novembre 2026)
 
 À noter seulement (« c’est juste pour la feuille de route »). Dans Accès distant › Serveur RustDesk :
 
@@ -1717,15 +1717,9 @@ Dany : étendre la synchronisation iCloud Drive de la note 56 (0.18.0) au lieu d
   sécurité seulement ou tout, redémarrage du serveur permis ou non, report si une session relayée
   est en cours ; exécutée par l’agent en arrière-plan (note 64) même app fermée ; résultat dans
   l’historique et alerte en cas d’échec.
-- **Déconnecter un usager** : le serveur libre (hbbs/hbbr) n’a pas d’API pour couper une session.
-  Possible par SSH en fermant la connexion relayée de ce poste (`ss -K`, droits root), sinon
-  redémarrer hbbr coupe toutes les sessions. RustDesk Server Pro a une API qui le fait proprement.
-- **Quarantaine** : avec le serveur libre, bloquer l’IP publique du poste au pare-feu du serveur
-  (ufw/nftables par SSH) ou à la FortiGate (devant les VIP RustDesk ; jeton en écriture requis).
-  Attention : une IP publique peut être partagée par tout un site. Avec Server Pro : désactiver
-  l’ID ou l’appareil. Toujours avec confirmation, durée au choix et levée en un clic.
 - **Nom ou note sur un ID** : nom et note libres pour chaque ID RustDesk, gardés dans NetScope et
   synchronisés entre les Mac (note 86) ; affichés dans le tableau de bord, l’assistance et le carnet.
+- Déconnecter un usager et la quarantaine : retirés par Dany le 6 novembre 2026.
 - À vérifier avant : quel serveur tourne chez Groupe Couture (libre ou Pro, Docker ou non).
 - **Associer un ID à une MAC automatiquement** : la fiche d’inventaire a déjà un champ « ID
   RustDesk » (0.26.1), retenu par la MAC. Le serveur ne voit que l’IP publique du site (NAT) ; à la
@@ -1741,7 +1735,7 @@ Dany : étendre la synchronisation iCloud Drive de la note 56 (0.18.0) au lieu d
     technicien (CSV, PDF) ;
   - alertes de Surveillance par l’agent : hbbs ou hbbr arrêté, disque > 90 %, clé changée, ports
     21115 à 21119 injoignables de l’extérieur ;
-  - tentatives suspectes (ID hors carnet, rafale depuis une même IP), quarantaine en un clic ;
+  - tentatives suspectes signalées (ID hors carnet, rafale depuis une même IP) ;
   - site probable du poste quand son IP publique est le WAN d’une FortiGate connue (indice
     seulement) ;
   - clic droit sur une ligne : se connecter, ajouter au carnet, ouvrir la fiche, copier l’ID ;
