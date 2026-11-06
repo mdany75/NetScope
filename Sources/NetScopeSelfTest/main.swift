@@ -139,6 +139,8 @@ registerFingerprintTests(suite)
 registerFlowTests(suite)
 // Note 76 (0.28.0) : alertes sur téléphone par ntfy et Pushover.
 registerAlertPhoneTests(suite)
+// Note 69 (0.30.0) : scan de ports UDP ciblé (sondes par protocole, 127.0.0.1 seulement).
+registerUDPScanTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

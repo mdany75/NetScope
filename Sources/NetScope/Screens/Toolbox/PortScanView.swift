@@ -31,10 +31,26 @@ enum ToolPortProfile: String, CaseIterable, Identifiable {
     }
 }
 
+/// Note 69 : protocole de l'outil Scan de ports.
+enum ToolPortProtocol: String, CaseIterable, Identifiable {
+    case tcp, udp
+
+    var id: String { rawValue }
+
+    var label: String { self == .tcp ? "TCP" : "UDP ciblé" }
+}
+
 /// Scan de ports d'un hôte : état observable, partagé entre la boîte à outils et la fiche appareil.
 @MainActor
 final class ToolPortScanModel: ObservableObject {
     @Published var target = ""
+    /// Note 69 : TCP (profils de ports) ou UDP ciblé (une sonde par protocole).
+    @Published var protocolMode: ToolPortProtocol = ToolPortScanModel.initialProtocol
+
+    /// Captures : NETSCOPE_PORTS_UDP=1 ouvre l'outil en UDP ciblé.
+    private static var initialProtocol: ToolPortProtocol {
+        CommandLine.arguments.contains("--snapshot") && ProcessInfo.processInfo.environment["NETSCOPE_PORTS_UDP"] != nil ? .udp : .tcp
+    }
     @Published var portsText = ToolPortProfile.courant.ports
     @Published var profile: ToolPortProfile? = .courant
     @Published var grabBanners = true
@@ -66,6 +82,7 @@ final class ToolPortScanModel: ObservableObject {
 
     /// Commande équivalente pour l'historique.
     var command: String {
+        if protocolMode == .udp { return UDPScanModel.shared.command(host: target.trimmingCharacters(in: .whitespaces)) }
         let ports = portsText.replacingOccurrences(of: " ", with: "")
         return "scan " + (grabBanners ? "-sV " : "") + "-p \(ports) \(target.trimmingCharacters(in: .whitespaces))"
     }
@@ -142,52 +159,67 @@ struct PortScanView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            ToolAdaptiveRow(spacing: 12) {
-                ToolLabeledField(label: "Cible (IP ou hostname)") {
-                    ToolTextField(placeholder: "10.182.122.111", text: $model.target) { startScan() }
-                        .frame(minWidth: 170)
-                }
-                ToolLabeledField(label: "Plage de ports") {
-                    ToolTextField(placeholder: "1-1024, 3389", text: $model.portsText,
-                                  invalid: model.parsedPorts == nil) { startScan() }
-                        .frame(minWidth: 170)
-                        .help(model.portsText)
-                        .onChange(of: model.portsText) { _, text in
-                            if model.profile?.ports != text { model.profile = nil }
-                        }
-                }
+            // Note 69 : TCP ou UDP ciblé.
+            Picker("Protocole", selection: $model.protocolMode) {
+                ForEach(ToolPortProtocol.allCases) { Text($0.label).tag($0) }
             }
-            // Profils, case et bouton sur une ligne ; en petite fenêtre, la case et le bouton passent dessous.
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .center, spacing: 12) {
-                    profiles.fixedSize()
-                    Spacer(minLength: 0)
-                    launchControls
-                }
-                VStack(alignment: .leading, spacing: 10) {
-                    profiles
-                    HStack(spacing: 12) {
-                        Spacer(minLength: 0)
-                        launchControls
-                    }
-                }
-            }
-            if let error = model.error {
-                ToolNotice(tone: .critical, message: error)
-            }
-            if model.isRunning || model.summary != nil {
-                progressBlock
-                PortResultsTable(host: model.target.trimmingCharacters(in: .whitespaces), results: tableRows,
-                                 table: table, probedAt: model.isRunning ? nil : model.finishedAt)
-                hostFooter
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            if model.protocolMode == .udp {
+                UDPScanToolSection(target: $model.target, store: store)
             } else {
-                Text("Choisissez un profil ou saisissez une liste (22, 80, 8000-8100), puis lancez le scan. Les ports sont testés en TCP\u{00A0}; la détection de services lit les bannières (SSH, FTP, SMTP, HTTP), le certificat TLS et le dialecte SMB pour reconnaître produit, version et système.")
-                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                tcpBody
             }
         }
         .onAppear {
             if model.target.isEmpty { model.target = state.selectedDevice?.ip.description ?? "" }
+        }
+    }
+
+    @ViewBuilder private var tcpBody: some View {
+        ToolAdaptiveRow(spacing: 12) {
+            ToolLabeledField(label: "Cible (IP ou hostname)") {
+                ToolTextField(placeholder: "10.182.122.111", text: $model.target) { startScan() }
+                    .frame(minWidth: 170)
+            }
+            ToolLabeledField(label: "Plage de ports") {
+                ToolTextField(placeholder: "1-1024, 3389", text: $model.portsText,
+                              invalid: model.parsedPorts == nil) { startScan() }
+                    .frame(minWidth: 170)
+                    .help(model.portsText)
+                    .onChange(of: model.portsText) { _, text in
+                        if model.profile?.ports != text { model.profile = nil }
+                    }
+            }
+        }
+        // Profils, case et bouton sur une ligne ; en petite fenêtre, la case et le bouton passent dessous.
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 12) {
+                profiles.fixedSize()
+                Spacer(minLength: 0)
+                launchControls
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                profiles
+                HStack(spacing: 12) {
+                    Spacer(minLength: 0)
+                    launchControls
+                }
+            }
+        }
+        if let error = model.error {
+            ToolNotice(tone: .critical, message: error)
+        }
+        if model.isRunning || model.summary != nil {
+            progressBlock
+            PortResultsTable(host: model.target.trimmingCharacters(in: .whitespaces), results: tableRows,
+                             table: table, probedAt: model.isRunning ? nil : model.finishedAt)
+            hostFooter
+        } else {
+            Text("Choisissez un profil ou saisissez une liste (22, 80, 8000-8100), puis lancez le scan. Les ports sont testés en TCP\u{00A0}; la détection de services lit les bannières (SSH, FTP, SMTP, HTTP), le certificat TLS et le dialecte SMB pour reconnaître produit, version et système.")
+                .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

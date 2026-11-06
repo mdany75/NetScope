@@ -42,6 +42,8 @@ struct ContentView: View {
             .portActionPrompt()
             // Note 72 : feuille « Partages SMB » du menu du Scanner.
             .smbSharesPrompt()
+            // Note 69 : feuille « Scan UDP ciblé » du menu du Scanner.
+            .udpScanPrompt()
             // Note 6 : « RustDesk n'est pas installé », une seule alerte pour tous les écrans
             // (Accès distant, Inventaire, fiche Appareil, Scanner).
             .rustDeskInstallAlert()

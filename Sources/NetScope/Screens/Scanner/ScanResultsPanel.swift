@@ -662,6 +662,12 @@ struct ScanPortPresetMenu: View {
                 Button(preset.label) { scan.probePorts(of: devices, preset: preset, state: state) }
             }
             Divider()
+            // Note 69 : sonde propre à chaque protocole UDP (DNS, NTP, SNMP, SIP, IPMI…), un appareil à la fois.
+            Button(devices.count == 1 ? "UDP ciblé…" : "UDP ciblé… (un appareil à la fois)") {
+                if let device = devices.first { UDPScanModel.shared.ask(device) }
+            }
+            .disabled(devices.count != 1)
+            Divider()
             Button("Modifier les préréglages…") {
                 RegNavigation.shared.section = .profils
                 state.open(.reglages)
