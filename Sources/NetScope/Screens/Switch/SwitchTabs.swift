@@ -145,7 +145,7 @@ struct SwitchTabBar: View {
                 Text("Switch").font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize()
                 Picker("Switch", selection: Binding(get: { shown.id }, set: { store.select(host: $0) })) {
                     ForEach(snapshots) { snapshot in
-                        Text(snapshot.displayName + (snapshot.isViaController ? " · FortiGate" : "")).tag(snapshot.id)
+                        Text(snapshot.displayName + (snapshot.isViaController ? " · \(snapshot.controllerSourceLabel)" : "")).tag(snapshot.id)
                     }
                 }
                 .pickerStyle(.menu)
@@ -166,13 +166,19 @@ struct SwitchSummaryTiles: View {
     let summary: SwitchPageSummary
     let snapshots: [SNMPSwitchSnapshot]
 
+    /// Note 77 : « FortiGate », « UniFi »… ou « contrôleur » quand les sources sont mêlées.
+    private var viaLabel: String {
+        let sources = Set(snapshots.filter(\.isViaController).map(\.controllerSourceLabel))
+        return sources.count == 1 ? sources.first! : "contrôleur"
+    }
+
     var body: some View {
         let tabs = SwitchTabState.shared
         // Six tuiles sur une seule ligne, même en petite fenêtre : les onglets restent en vue.
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 96), spacing: 12, alignment: .top), count: 6),
                   alignment: .leading, spacing: 12) {
             InvTile(title: "Switchs", value: "\(summary.answered) / \(summary.switches)",
-                    subtitle: "en ligne" + (summary.viaController > 0 ? " · \(summary.viaController) via FortiGate" : ""),
+                    subtitle: "en ligne" + (summary.viaController > 0 ? " · \(summary.viaController) via \(viaLabel)" : ""),
                     valueSize: 20, action: { tabs.jump(.switchs, in: state) })
             InvTile(title: "Ports actifs", value: "\(summary.activePorts) / \(summary.ports)", subtitle: "ports physiques",
                     valueSize: 20, action: { tabs.jump(.ports, filter: .active, in: state) })

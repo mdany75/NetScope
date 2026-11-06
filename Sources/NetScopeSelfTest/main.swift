@@ -143,6 +143,8 @@ registerAlertPhoneTests(suite)
 registerUDPScanTests(suite)
 // Note 70 (0.30.0) : vérificateur de certificat TLS (certificats recopiés, aucun réseau).
 registerTLSCertificateTests(suite)
+// Note 77 (0.30.0) : contrôleurs UniFi, Omada et Meraki (réponses fixes, aucun réseau).
+registerControllerTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

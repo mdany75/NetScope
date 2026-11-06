@@ -37,6 +37,11 @@ final class SwitchStore: ObservableObject {
            let site = SiteModel.shared.sites.first(where: { $0.fortiGateIDs.contains(controller) }) {
             return SiteFiles.key(for: site.id)
         }
+        // Note 77 : switch lu par un contrôleur UniFi, Omada ou Meraki : le site de ce contrôleur.
+        if let controller = vendorOwners[host],
+           let site = SiteModel.shared.sites.first(where: { $0.controllers.contains { $0.id == controller } }) {
+            return SiteFiles.key(for: site.id)
+        }
         return SiteModel.shared.activeKey
     }
     /// FortiSwitch lus par la FortiGate (note 24) : adresses FortiLink, jamais interrogées en SNMP.
@@ -45,6 +50,12 @@ final class SwitchStore: ObservableObject {
     private(set) var controllerNames: [MACAddress: String] = [:]
     /// FortiGate de chaque FortiSwitch affiché (adresse du relevé → contrôleur), note 28.
     private var controllerOwners: [String: UUID] = [:]
+    /// Note 77 : FortiSwitch reçus des FortiGate, avant la fusion avec les switchs des contrôleurs
+    /// UniFi, Omada et Meraki (`vendorSnapshots`) ; les deux listes forment `controllerHosts`.
+    private var fortiSnapshots: [SNMPSwitchSnapshot] = []
+    private(set) var vendorSnapshots: [SNMPSwitchSnapshot] = []
+    /// Contrôleur (UniFi, Omada, Meraki) de chaque switch qu'il a fourni (adresse → identifiant).
+    private var vendorOwners: [String: UUID] = [:]
     /// Réseau sur lequel les FortiSwitch ont été lus : sur un autre réseau, ils ne servent plus à
     /// situer les appareils (une table MAC périmée donnerait un faux port).
     private var controllerNetwork: NetworkContext?
@@ -287,9 +298,17 @@ final class SwitchStore: ObservableObject {
 
     /// Remplace les FortiSwitch lus par la FortiGate (une lecture remplace la précédente).
     func setControllerSnapshots(_ list: [SNMPSwitchSnapshot]) {
+        fortiSnapshots = list
+        installControllerSnapshots()
+    }
+
+    /// FortiSwitch, puis switchs des contrôleurs UniFi, Omada et Meraki (note 77).
+    private func installControllerSnapshots() {
         for host in controllerHosts { snapshots[host] = nil }
-        // Une adresse déjà relevée en SNMP garde son relevé : le FortiSwitch est écarté.
-        let fresh = list.filter { !hosts.contains($0.host.description) }
+        // Une adresse déjà relevée en SNMP garde son relevé : le FortiSwitch est écarté. Un switch
+        // lu par UniFi, Omada ou Meraki (adresse de gestion réelle) passe avant son relevé SNMP.
+        let fortiHosts = Set(fortiSnapshots.map(\.host))
+        let fresh = fortiSnapshots.filter { !hosts.contains($0.host.description) } + vendorSnapshots.filter { !fortiHosts.contains($0.host) }
         controllerHosts = fresh.map(\.host.description)
         for snapshot in fresh {
             snapshots[snapshot.host.description] = snapshot
@@ -297,6 +316,39 @@ final class SwitchStore: ObservableObject {
         }
         if selectedHost == nil || snapshots[selectedHost!] == nil { selectedHost = allHosts.first { snapshots[$0] != nil } }
     }
+
+    // MARK: Note 77 : contrôleurs UniFi, Omada et Meraki
+
+    /// Lectures des contrôleurs du site actif : switchs affichés (marqués du site et de la marque),
+    /// puis, si `locate`, MAC, noms, emplacement des appareils filaires et borne des clients Wi-Fi.
+    func applyVendorControllers(_ readings: [ControllerSiteReading], state: AppState, locate: Bool = true) {
+        let list = ControllerConvert.snapshots(readings, avoiding: Set(fortiSnapshots.map(\.host)))
+        var owners: [String: UUID] = [:]
+        var index = 0
+        for reading in readings {
+            for _ in reading.report.switches where index < list.count {
+                owners[list[index].host.description] = reading.controllerID
+                index += 1
+            }
+        }
+        vendorSnapshots = list
+        vendorOwners = owners
+        installControllerSnapshots()
+        for (mac, name) in ControllerConvert.names(readings) where controllerNames[mac] == nil { controllerNames[mac] = name }
+        if !isDemo {
+            for snapshot in list { PortHistoryStore.shared.record(snapshot, siteKey: historySiteKey(for: snapshot.id)) }
+        }
+        guard locate, !readings.isEmpty else { return }
+        let result = ControllerConvert.apply(readings, to: state.devices, controller: controllerSnapshots, snmp: snmpSnapshots)
+        state.devices = result.devices
+        let ports = FortiLocate.accessPorts(controller: controllerSnapshots, snmp: snmpSnapshots)
+        let placed = result.devices.filter { device in device.mac.map { ports[$0] != nil } ?? false }.map(\.ip)
+        locations.record(placed, network: isDemo ? NetworkContext(DemoData.interface) : state.currentNetwork)
+        if !isDemo, let readAt = readings.map(\.report.readAt).max() { lastPoll = max(lastPoll ?? readAt, readAt) }
+    }
+
+    /// Contrôleur (UniFi, Omada, Meraki) qui a fourni ce switch, s'il y en a un.
+    func vendorOwner(_ host: String) -> UUID? { vendorOwners[host] }
 
     /// Retire les FortiSwitch lus par la FortiGate (lecture échouée, FortiGate changée ou désactivée).
     func clearController() {
@@ -392,7 +444,8 @@ final class SwitchStore: ObservableObject {
     func candidates(from devices: [Device]) -> [Device] {
         let brands = ["cisco", "aruba", "hpe", "juniper", "ubiquiti"]
         return devices.filter { device in
-            guard !hosts.contains(device.id) else { return false }
+            // Note 77 : un switch déjà lu par son contrôleur (ou une FortiGate) n'est pas proposé.
+            guard !hosts.contains(device.id), !controllerHosts.contains(device.id) else { return false }
             if device.snmpKind == .switch || device.deviceType == .switch { return true }
             let vendor = device.vendorLabel.lowercased()
             return brands.contains { vendor.contains($0) } && device.deviceType != .pointAcces
@@ -446,6 +499,8 @@ final class SwitchStore: ObservableObject {
         locations.record(located.values.flatMap { $0 }, network: state.currentNetwork)
         // FortiSwitch gérés : relus par la FortiGate (prioritaire sur SNMP).
         await FortiGateStore.shared.refreshAfterScan(state: state, ranges: state.checkedRanges)
+        // Note 77 : switchs, bornes et clients des contrôleurs UniFi, Omada et Meraki du site.
+        await SiteControllerStore.shared.refreshAfterScan(state: state)
     }
 
     /// Relève les switchs donnés (quatre à la fois), chacun avec sa communauté. Renvoie les
@@ -633,7 +688,8 @@ final class SwitchStore: ObservableObject {
         let sites = SiteModel.shared
         guard ignoringShowAll || !sites.showAllSwitches else { return allHosts }
         let candidates = allHosts.map { host in
-            SiteSwitchFilter.Candidate(host: host, controllerID: isController(host) ? (controllerOwners[host] ?? Self.unknownOwner) : nil)
+            SiteSwitchFilter.Candidate(host: host, controllerID: isController(host)
+                                       ? (controllerOwners[host] ?? vendorOwners[host] ?? Self.unknownOwner) : nil)
         }
         return SiteSwitchFilter.visible(candidates, activeSite: sites.activeSite, sites: sites.sites,
                                         scanRanges: ScanController.shared.lastScanRanges)

@@ -133,11 +133,13 @@ public struct PortActionTarget: Equatable, Sendable {
     public var fortiGate: FortiPortRef?
     /// Relevé « via FortiGate » : le switch n'a de moyen d'action que par l'API de sa FortiGate.
     public var viaFortiGate: Bool
+    /// Note 77 : marque du contrôleur (UniFi, Omada, Meraki) qui gère ce switch ; aucune action.
+    public var readOnlyController: String?
 
     public init(switchName: String, switchHost: IPv4Address?, portName: String, ifIndex: Int, isUplink: Bool = false,
                 isThisMacPort: Bool = false, deviceName: String? = nil, deviceIP: IPv4Address? = nil, deviceMAC: MACAddress? = nil,
                 macCount: Int = 0, poe: SNMPPoEPort? = nil, fortiGate: FortiPortRef? = nil,
-                viaFortiGate: Bool = false) {
+                viaFortiGate: Bool = false, readOnlyController: String? = nil) {
         self.switchName = switchName
         self.switchHost = switchHost
         self.portName = portName
@@ -151,6 +153,7 @@ public struct PortActionTarget: Equatable, Sendable {
         self.poe = poe
         self.fortiGate = fortiGate
         self.viaFortiGate = viaFortiGate || fortiGate != nil
+        self.readOnlyController = readOnlyController
     }
 
     /// Le switch est un FortiSwitch lu par une FortiGate.
@@ -218,6 +221,8 @@ public enum PortActionRefusal: Equatable, Sendable {
     /// Relevé « via FortiGate » dont le FortiSwitch n'est pas retrouvé (sans ambiguïté) dans la
     /// lecture de la FortiGate de son site.
     case fortiSwitchNotFound
+    /// Note 77 : switch lu par un contrôleur UniFi, Omada ou Meraki, en lecture seule.
+    case readOnlyController(String)
     /// Action déjà en cours sur ce port.
     case busy
 
@@ -246,6 +251,8 @@ public enum PortActionRefusal: Equatable, Sendable {
             return "Aucun identifiant SNMP d’écriture\u{00A0}: enregistrez une communauté d’écriture ou un utilisateur v3 dédié dans Réglages › Switchs."
         case .fortiSwitchNotFound:
             return "FortiSwitch introuvable dans la dernière lecture de la FortiGate de son site (ou nom porté par plusieurs switchs)\u{00A0}: relisez la FortiGate dans Réglages › Switchs."
+        case .readOnlyController(let brand):
+            return "Switch géré par \(brand)\u{00A0}: NetScope lit ce contrôleur en lecture seule, sans aucune action sur ses ports. Agissez depuis la console \(brand)."
         case .busy:
             return "Une action est déjà en cours sur ce port."
         }
@@ -287,6 +294,11 @@ public enum PortActionGuard {
             if settings.allowRiskyPorts { warnings.append(risky) } else { refusals.append(risky) }
         }
         var channel: PortActionChannel?
+        if let brand = target.readOnlyController {
+            // Note 77 : jamais d'écriture vers UniFi, Omada ou Meraki (ni repli SNMP).
+            refusals.append(.readOnlyController(brand))
+            return PortActionDecision(kind: kind, refusals: refusals, warnings: warnings, channel: nil)
+        }
         if target.viaFortiGate && target.fortiGate == nil {
             // Jamais de repli SNMP ni de FortiGate d'un autre site : le switch n'est pas identifié.
             if kind == .poeCycle && target.poe == nil { refusals.append(.noPoE) }

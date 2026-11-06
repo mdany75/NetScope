@@ -162,6 +162,8 @@ struct SwitchScreen: View {
                     }
                 }
             }
+            // Note 77 : contrôleurs UniFi, Omada et Meraki du site actif, au-dessus des sources.
+            ControllerSitePanel(subject: "switchs")
             SwitchSourcesPanel(store: store)
             SwitchFortiGatePanel()
         }

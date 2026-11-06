@@ -87,6 +87,8 @@ public struct Site: Codable, Hashable, Sendable, Identifiable {
     public var hints: SiteHints
     /// Note 82 : plages exclues, jamais sondées (même si elles sont dans une plage du site).
     public var exclusions: [ExcludedRange]
+    /// Note 77 : contrôleurs UniFi, Omada ou Meraki du site (sans secret : il est au Trousseau).
+    public var controllers: [SiteController]
     /// Fin du dernier scan fait dans ce site.
     public var lastScan: Date?
     /// Fiches de son inventaire, à la dernière écriture (pour la liste des sites).
@@ -95,7 +97,8 @@ public struct Site: Codable, Hashable, Sendable, Identifiable {
 
     public init(id: UUID = UUID(), name: String, notes: String = "", ranges: [ScanRangeConfig] = [],
                 fortiGateIDs: [UUID] = [], switchHosts: [String] = [], hints: SiteHints = SiteHints(),
-                lastScan: Date? = nil, inventoryCount: Int? = nil, created: Date = Date(), exclusions: [ExcludedRange] = []) {
+                lastScan: Date? = nil, inventoryCount: Int? = nil, created: Date = Date(), exclusions: [ExcludedRange] = [],
+                controllers: [SiteController] = []) {
         self.id = id
         self.name = name
         self.notes = notes
@@ -104,6 +107,7 @@ public struct Site: Codable, Hashable, Sendable, Identifiable {
         self.switchHosts = switchHosts
         self.hints = hints
         self.exclusions = exclusions
+        self.controllers = controllers
         self.lastScan = lastScan
         self.inventoryCount = inventoryCount
         self.created = created
@@ -157,7 +161,7 @@ public struct Site: Codable, Hashable, Sendable, Identifiable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, notes, ranges, fortiGateIDs, switchHosts, hints, exclusions, lastScan, inventoryCount, created
+        case id, name, notes, ranges, fortiGateIDs, switchHosts, hints, exclusions, controllers, lastScan, inventoryCount, created
     }
 
     /// Lecture tolérante : champ absent ou mal typé → valeur par défaut ; plage illisible ignorée.
@@ -173,6 +177,8 @@ public struct Site: Codable, Hashable, Sendable, Identifiable {
         switchHosts = (((try? c.decodeIfPresent([String].self, forKey: .switchHosts)) ?? nil) ?? []).compactMap { IPv4Address($0)?.description }
         hints = ((try? c.decodeIfPresent(SiteHints.self, forKey: .hints)) ?? nil) ?? SiteHints()
         exclusions = ((try? c.decodeIfPresent([SiteLenient<ExcludedRange>].self, forKey: .exclusions)) ?? nil)?.compactMap(\.value) ?? []
+        // Note 77 : un contrôleur illisible (marque inconnue) est ignoré sans perdre les autres.
+        controllers = ((try? c.decodeIfPresent([SiteLenient<SiteController>].self, forKey: .controllers)) ?? nil)?.compactMap(\.value) ?? []
         lastScan = (try? c.decodeIfPresent(Date.self, forKey: .lastScan)) ?? nil
         inventoryCount = (try? c.decodeIfPresent(Int.self, forKey: .inventoryCount)) ?? nil
         created = ((try? c.decodeIfPresent(Date.self, forKey: .created)) ?? nil) ?? Date(timeIntervalSince1970: 0)
@@ -189,6 +195,8 @@ public struct Site: Codable, Hashable, Sendable, Identifiable {
         try c.encode(hints, forKey: .hints)
         // Écrite seulement si le site en a : un sites.json sans exclusion reste identique (synchronisation).
         if !exclusions.isEmpty { try c.encode(exclusions, forKey: .exclusions) }
+        // Note 77 : idem pour les contrôleurs (un sites.json sans contrôleur reste identique).
+        if !controllers.isEmpty { try c.encode(controllers, forKey: .controllers) }
         try c.encodeIfPresent(lastScan, forKey: .lastScan)
         try c.encodeIfPresent(inventoryCount, forKey: .inventoryCount)
         try c.encode(created, forKey: .created)
@@ -255,7 +263,8 @@ public struct SiteList: Codable, Hashable, Sendable {
     }
 
     /// Copie du site (plages, plages exclues, FortiGate, switchs, notes) sous un nouveau nom ; ni l'inventaire, ni
-    /// les résultats, ni les indices de détection (une MAC de passerelle ne désigne qu'un site).
+    /// les résultats, ni les indices de détection (une MAC de passerelle ne désigne qu'un site), ni les
+    /// contrôleurs UniFi, Omada ou Meraki (note 77 : leur secret est propre à chacun, au Trousseau).
     @discardableResult
     public mutating func duplicate(_ id: UUID, newID: UUID = UUID(), now: Date = Date()) -> Site? {
         guard let source = site(id) else { return nil }

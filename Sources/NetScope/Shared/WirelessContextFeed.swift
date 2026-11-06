@@ -10,7 +10,8 @@ enum WirelessContextFeed {
     /// Contexte du site actif, pour la fusion d'un scan, la sonde « Port de switch » et la carte
     /// d'occupation.
     static func current(devices: [Device], records: [InvRecord] = [], interface: LocalInterface?) -> InvWirelessContext {
-        let overview = FortiAPStore.shared.overview
+        // Note 77 : clients Wi-Fi des contrôleurs UniFi, Omada et Meraki du site, avec ceux des FortiAP.
+        let overview = ControllerConvert.merged(FortiAPStore.shared.overview, SiteControllerStore.shared.wifiOverview)
         let neighbors = InvWirelessContext.accessPointPorts(in: SwitchStore.shared.orderedSnapshots)
         let local: Set<IPv4Address> = interface.map { $0.kind == .wifi ? [$0.address] : [] } ?? []
         return InvWirelessContext(overview: overview.isEmpty ? nil : overview, devices: devices, records: records,

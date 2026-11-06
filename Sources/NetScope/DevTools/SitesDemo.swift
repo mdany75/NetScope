@@ -70,7 +70,10 @@ enum SitesDemo {
                             ranges: [ScanRangeConfig(text: "192.168.1.0/24", label: "Postes", vlan: 1),
                                      ScanRangeConfig(text: "192.168.20.0/24", label: "Imagerie", vlan: 20)],
                             hints: SiteHints(ssid: "Clinique-Personnel"), created: created.addingTimeInterval(40 * 86_400))
-        return SiteList(sites: [siege, laval, quebec, drummond, clinique], activeID: siegeID)
+        // Note 77 : un contrôleur UniFi (Clinique Exemple), Omada (Bureau Québec) et Meraki (Drummondville).
+        var withControllers = [siege, laval, quebec, drummond, clinique]
+        for index in withControllers.indices { withControllers[index].controllers = ControllerDemo.controllers(for: withControllers[index].id) }
+        return SiteList(sites: withControllers, activeID: siegeID)
     }
 
     /// Résultats gardés des autres sites (le Siège a ceux de DemoData, déjà dans AppState).
@@ -83,7 +86,8 @@ enum SitesDemo {
         let laval = SiteResults(devices: devices, customNames: names, newIDs: ["10.20.40.24"],
                                 lastScanRanges: ["10.20.0.0/24", "10.20.10.0/24", "10.20.40.0/24"],
                                 startedAt: finished.addingTimeInterval(-41), finishedAt: finished, portLabel: "Rapide")
-        return [lavalKey: laval]
+        // Note 77 : appareils des sites qui ont un contrôleur UniFi, Omada ou Meraki.
+        return ControllerDemo.results(now: now).merging([lavalKey: laval]) { _, laval in laval }
     }
 
     /// Inventaire d'un site la première fois qu'on l'ouvre en démonstration (Laval seulement).

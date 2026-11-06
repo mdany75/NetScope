@@ -41,6 +41,7 @@ public enum BackupKeychainScan {
         case "smtp": return "Alertes par courriel (SMTP)"
         case "webhook": return "Alertes par webhook"
         case "fortigate": return "Jeton de l’API REST de la FortiGate"
+        case "controleurs": return "Secrets des contrôleurs UniFi, Omada et Meraki"
         case "alertes": return "Alertes (mot de passe SMTP, webhooks, ntfy, Pushover)"
         case "sauvegarde": return "Mot de passe des sauvegardes chiffrées"
         case "ftp": return "Mots de passe FTP, FTPS et SFTP (Accès distant)"

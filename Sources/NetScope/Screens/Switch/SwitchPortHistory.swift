@@ -94,7 +94,7 @@ struct SwitchPortHistoryPanel: View {
 
     private func emptyText(_ range: PortHistoryRange) -> String {
         if !iface.isUp { return "Port inactif\u{00A0}: aucun trafic gardé sur \(range.phrase)." }
-        let source = snapshot.isViaController ? "chaque lecture de la FortiGate" : "chaque relevé du switch"
+        let source = snapshot.isViaController ? (snapshot.controllerKind.map { "chaque lecture du contrôleur \($0)" } ?? "chaque lecture de la FortiGate") : "chaque relevé du switch"
         return "Aucune mesure sur \(range.phrase). L’historique se remplit à \(source) (interrogation, fin de scan, relecture automatique) et tant que le trafic du port est affiché\u{00A0}; il est gardé 90\u{00A0}jours."
     }
 
