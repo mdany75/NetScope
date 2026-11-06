@@ -1733,6 +1733,19 @@ Dany : étendre la synchronisation iCloud Drive de la note 56 (0.18.0) au lieu d
   étiquette ; clé et base dans le volume monté, sauvegardés avant ; « Déconnecter » coupe la
   connexion dans l’espace réseau du conteneur hbbr (`ss -K` via `nsenter` ou `docker exec`).
   Pas d’API Server Pro.
+- Précisions sur l’installation (6 novembre 2026, sans aucune valeur réelle, à la demande de Dany) :
+  - conteneurs en `network_mode: host` : « Déconnecter » se fait directement sur l’hôte (`ss -K`) ;
+  - image en `:latest` : version lue par l’empreinte (digest) comparée à Docker Hub et par
+    `hbbs --version` ; avant une mise à jour, étiqueter l’image actuelle pour pouvoir y revenir ;
+    mise à jour = `docker compose pull` puis `docker compose up -d` dans le dossier du compose ;
+  - sudo avec mot de passe : mot de passe sudo au Trousseau (`sudo -S`), jamais ailleurs ;
+  - bouton « Sauvegarder la clé et la base » (dossier de données du serveur, copie chiffrée sur
+    le Mac) et alerte tant qu’aucune sauvegarde récente n’existe ;
+  - ports surveillés configurables (WebSocket 21118 et 21119 souvent fermés : pas d’alerte) ;
+  - tentatives refusées par la FortiGate (filtre géographique) montrées dans « tentatives
+    suspectes » ;
+  - nouvelle version du client RustDesk signalée (client portable à remplacer sur la page
+    d’assistance).
 - **Associer un ID à une MAC automatiquement** : la fiche d’inventaire a déjà un champ « ID
   RustDesk » (0.26.1), retenu par la MAC. Le serveur ne voit que l’IP publique du site (NAT) ; à la
   connexion, la table des sessions de la FortiGate du site (jeton en lecture) donne le poste
