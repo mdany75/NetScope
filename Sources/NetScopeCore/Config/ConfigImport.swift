@@ -94,6 +94,45 @@ public struct ConfigApplyPlan: Codable, Sendable, Equatable {
         public var json: Data
         public var expected: String?
         public var label: String
+        /// Note 86 : reçu d'un Mac d'une version plus ancienne : les champs d'ici absents de
+        /// l'élément reçu sont gardés (jamais retirés par une version qui ne les connaît pas).
+        public var preserveUnknown: Bool? = nil
+    }
+
+    /// Note 86 : partie d'un fichier JSON global découpé (`ConfigSyncDocument`).
+    /// `id` nil et `json` : le « reste » du fichier ; `id` et `json` : un élément ajouté ou
+    /// remplacé ; `id` sans `json` : un élément retiré ; ni l'un ni l'autre : fichier supprimé.
+    public struct DocumentOp: Codable, Sendable, Equatable {
+        public var path: String
+        public var arrayKey: String?
+        public var idField: String?
+        public var id: String?
+        public var json: Data?
+        /// Empreinte de la partie sur ce Mac au moment de la synchronisation ; nil : absente.
+        public var expected: String?
+        public var label: String
+        /// Clés de premier niveau jamais remplacées par le reste (listes, clés propres au Mac).
+        public var preserve: [String]
+        public var preserveUnknown: Bool?
+
+        public init(path: String, arrayKey: String? = nil, idField: String? = nil, id: String? = nil, json: Data?, expected: String?,
+                    label: String, preserve: [String] = [], preserveUnknown: Bool? = nil) {
+            self.path = path
+            self.arrayKey = arrayKey
+            self.idField = idField
+            self.id = id
+            self.json = json
+            self.expected = expected
+            self.label = label
+            self.preserve = preserve
+            self.preserveUnknown = preserveUnknown
+        }
+
+        /// Clé de l'élément synchronisé visé.
+        public var syncKey: String {
+            guard let id else { return ConfigSyncKey.document(path) }
+            return "element:\(path)#\(arrayKey ?? "")#\(id)"
+        }
     }
 
     public var origin: String
@@ -101,6 +140,8 @@ public struct ConfigApplyPlan: Codable, Sendable, Equatable {
     public var files: [FileOp] = []
     public var preferences: [PreferenceOp] = []
     public var elements: [ElementOp] = []
+    /// Note 86 : parties des fichiers globaux découpés.
+    public var documents: [DocumentOp] = []
     /// Secrets à remettre au Trousseau (jamais gardés dans le plan écrit sur le disque : voir `withoutSecrets`).
     public var secrets: [BackupSecret] = []
 
@@ -109,8 +150,45 @@ public struct ConfigApplyPlan: Codable, Sendable, Equatable {
         self.createdAt = createdAt
     }
 
-    public var isEmpty: Bool { files.isEmpty && preferences.isEmpty && elements.isEmpty && secrets.isEmpty }
-    public var operationCount: Int { files.count + preferences.count + elements.count + secrets.count }
+    private enum CodingKeys: String, CodingKey { case origin, createdAt, files, preferences, elements, documents, secrets }
+
+    /// Un plan écrit par une version d'avant la note 86 (sans `documents`) se relit tel quel.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        origin = try c.decode(String.self, forKey: .origin)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        files = try c.decodeIfPresent([FileOp].self, forKey: .files) ?? []
+        preferences = try c.decodeIfPresent([PreferenceOp].self, forKey: .preferences) ?? []
+        elements = try c.decodeIfPresent([ElementOp].self, forKey: .elements) ?? []
+        documents = try c.decodeIfPresent([DocumentOp].self, forKey: .documents) ?? []
+        secrets = try c.decodeIfPresent([BackupSecret].self, forKey: .secrets) ?? []
+    }
+
+    public var isEmpty: Bool { files.isEmpty && preferences.isEmpty && elements.isEmpty && documents.isEmpty && secrets.isEmpty }
+    public var operationCount: Int { files.count + preferences.count + elements.count + documents.count + secrets.count }
+
+    /// Chemins des fichiers que le plan écrit (fichiers entiers, listes en fichier, fichiers découpés).
+    public var touchedFiles: Set<String> {
+        var paths = Set(files.map(\.path)).union(documents.map(\.path))
+        for op in elements where op.collection.hasSuffix(".json") { paths.insert(op.collection) }
+        return paths
+    }
+
+    /// Préférences que le plan écrit (préférences, listes en préférence).
+    public var touchedPreferences: Set<String> {
+        Set(preferences.map(\.key)).union(elements.filter { !$0.collection.hasSuffix(".json") }.map(\.collection))
+    }
+
+    /// Le plan réduit aux opérations retenues (fichiers et préférences touchés), sans secret.
+    public func filtered(files keepFile: (String) -> Bool, preferences keepPreference: (String) -> Bool) -> ConfigApplyPlan {
+        var copy = self
+        copy.files = files.filter { keepFile($0.path) }
+        copy.documents = documents.filter { keepFile($0.path) }
+        copy.preferences = preferences.filter { keepPreference($0.key) }
+        copy.elements = elements.filter { $0.collection.hasSuffix(".json") ? keepFile($0.collection) : keepPreference($0.collection) }
+        copy.secrets = []
+        return copy
+    }
 
     /// Ajoute les opérations de `other` à ce plan ; une opération de même clé (chemin, préférence
     /// ou élément d'une liste) est remplacée par celle de `other`. Sert à ajouter une restauration
@@ -128,6 +206,10 @@ public struct ConfigApplyPlan: Codable, Sendable, Equatable {
         for op in other.elements {
             merged.elements.removeAll { $0.collection == op.collection && $0.id == op.id }
             merged.elements.append(op)
+        }
+        for op in other.documents {
+            merged.documents.removeAll { $0.path == op.path && $0.arrayKey == op.arrayKey && $0.id == op.id }
+            merged.documents.append(op)
         }
         for secret in other.secrets {
             merged.secrets.removeAll { $0.service == secret.service && $0.account == secret.account }
@@ -373,7 +455,9 @@ public enum ConfigImporter {
             var incoming: [ConfigCollection.Element] = []
             for op in ops {
                 let now = localElements.first { $0.id == op.id }
-                guard let element = (try? JSONSerialization.jsonObject(with: op.json)).flatMap(collection.element) else {
+                // Note 86 : reçu d'un Mac plus ancien, les champs d'ici qu'il ne connaît pas restent.
+                let json = (op.preserveUnknown ?? false) ? ConfigSyncDocument.overlay(op.json, on: now?.json) : op.json
+                guard let element = (try? JSONSerialization.jsonObject(with: json)).flatMap(collection.element) else {
                     outcome.failed.append(op.label)
                     continue
                 }
@@ -400,6 +484,47 @@ public enum ConfigImporter {
                 }
             default:
                 break
+            }
+        }
+        // Note 86 : fichiers globaux découpés, chaque fichier relu puis réécrit une fois.
+        let byPath = Dictionary(grouping: plan.documents, by: \.path)
+        for path in byPath.keys.sorted() {
+            let ops = byPath[path] ?? []
+            guard BackupEngine.isSafeRelativePath(path) else {
+                outcome.failed += ops.map(\.label)
+                continue
+            }
+            let rule = ConfigSyncPolicy.rule(for: path)
+            let current = snapshot.file(path)?.data
+            let parts = current.flatMap { data in rule.flatMap { ConfigSyncDocument.split(data, path: path, rule: $0) } } ?? []
+            var accepted: [ConfigApplyPlan.DocumentOp] = []
+            for op in ops {
+                let now: String?
+                if op.id == nil, op.json == nil {
+                    now = current.map(ConfigHash.sha256)
+                } else {
+                    now = parts.first { $0.key == op.syncKey }?.hash
+                }
+                guard now == op.expected || (now != nil && now == ConfigSyncDocument.hash(of: op, rule: rule)) else {
+                    outcome.skipped.append(op.label)
+                    continue
+                }
+                accepted.append(op)
+            }
+            guard !accepted.isEmpty else { continue }
+            let result = ConfigSyncDocument.apply(accepted, to: current, rule: rule)
+            do {
+                if result.deleteFile {
+                    if current != nil { try manager.removeItem(at: directory.appendingPathComponent(path)) }
+                } else if let data = result.data {
+                    try write(data, to: path)
+                } else {
+                    outcome.failed += accepted.map(\.label)
+                    continue
+                }
+                outcome.applied += accepted.map(\.label)
+            } catch {
+                outcome.failed += accepted.map(\.label)
             }
         }
         return outcome
