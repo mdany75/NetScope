@@ -1,5 +1,36 @@
 # Changements
 
+## 0.31.0 — 2026-11-05
+
+Les trois priorités réunies : sauvegarde des configurations de la FortiGate et des switchs, scans
+planifiés et agent qui continue l’app fermée, et IPv6.
+
+### Ajouté
+- **Switchs et ports › Configurations** (note 40) : sauvegarde en lecture seule de la FortiGate
+  (API REST, jeton du site) et des switchs par SSH (Cisco IOS, HPE Aruba, FortiSwitch, MikroTik ;
+  liste fermée de commandes de lecture). Historique par équipement dans le dossier du site,
+  nombre de versions gardées réglable, comparaison avant/après avec les secrets masqués, bandeau
+  quand une configuration a changé. « Sauvegarder maintenant » ou « Sauvegarder le site ».
+- **Scans planifiés par site** (note 63, Réglages › Surveillance) : jours, heure et profil ; ils
+  alimentent Historique et adressage, l’alerte « nouvel appareil » et les rapports planifiés.
+  Heure d’été gérée, échéance manquée pendant la veille rattrapée une fois, journal des exécutions.
+- **Agent sans fenêtre** (note 64), désactivé par défaut : sondes de Surveillance, réception
+  Syslog et scans planifiés continuent quand l’app est fermée ; l’app reprend la main dès
+  qu’elle s’ouvre. macOS demande de l’autoriser à la première activation.
+- **IPv6** : voisins IPv6 lus dans la table NDP, adresses IPv6 dans la fiche Appareil et une
+  colonne IPv6 (masquable) dans le Scanner, ping et traceroute IPv6, calculateur IPv6 (préfixe,
+  plage, découpage, formes courte et complète, EUI-64), état IPv6 de ce Mac dans la barre latérale.
+
+### Modifié
+- Boîte à outils : la section « Favoris » est retirée de la colonne de droite.
+
+### Limites connues
+- Rien n’a été essayé sur de vrais équipements : sortie SSH réelle de chaque marque, réponse de
+  FortiOS au GET de sauvegarde (certaines versions exigent super_admin), agent après une veille,
+  accès de l’agent aux secrets du Trousseau pour les alertes.
+- L’alerte « configuration changée » reste dans l’app (pas encore par courriel ou téléphone), et
+  les sauvegardes ne sont pas encore planifiées.
+
 ## 0.30.1 — 2026-11-05
 
 Deux raccourcis demandés : fermer la fiche d’un appareil d’un clic, et voir les ressources d’un

@@ -915,6 +915,8 @@ entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 3
 
 ## 40. Sauvegarde des configurations — 0.31.0, ex-0.24.0 (analyse, retenue par Dany)
 
+**Livrée dans la 0.31.0** (5 novembre 2026). Essais réels à faire.
+
 - Copie de la configuration de chaque FortiGate (API, lecture), puis des switchs en SSH ;
   historique par site, comparaison avant/après (différences surlignées), avant une intervention.
 
@@ -1278,7 +1280,9 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 - **Référence du marché** : PRTG, Nagios XI, Uptime Kuma, PingPlotter.
 - **Effort** : moyen.
 
-## 63. Scan planifié par site — 0.32.0 (analyse du marché, à valider par Dany)
+## 63. Scan planifié par site — 0.31.0 (analyse du marché, à valider par Dany)
+
+**Livrée dans la 0.31.0** (5 novembre 2026). Essais réels à faire.
 
 - **Ce que ça apporte** : aujourd’hui les rapports planifiés reprennent un vieux scan. Un scan
   à l’heure choisie (quand NetScope est ouvert, ou par l’agent de la note 64) alimente la courbe
@@ -1286,7 +1290,9 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 - **Référence du marché** : Fing, Lansweeper, PRTG, phpIPAM.
 - **Effort** : moyen.
 
-## 64. Surveillance en arrière-plan sans fenêtre — 0.32.0 (analyse du marché, à valider par Dany)
+## 64. Surveillance en arrière-plan sans fenêtre — 0.31.0 (analyse du marché, à valider par Dany)
+
+**Livrée dans la 0.31.0** (5 novembre 2026). Essais réels à faire.
 
 - **Ce que ça apporte** : sondes, Syslog et scans planifiés qui continuent après la fermeture
   de l’app. Agent de connexion ou LaunchAgent qui fait tourner le moteur de sondes ; l’app
