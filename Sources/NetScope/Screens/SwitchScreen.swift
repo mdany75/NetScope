@@ -123,6 +123,9 @@ struct SwitchScreen: View {
                     }
                 }
             }
+        case .configurations:
+            // Note 40 (0.31.0) : sauvegarde des configurations du site.
+            SwitchConfigTab(snapshots: snapshots)
         }
     }
 

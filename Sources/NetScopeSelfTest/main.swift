@@ -146,6 +146,8 @@ registerUDPScanTests(suite)
 registerTLSCertificateTests(suite)
 // Note 77 (0.30.0) : contrôleurs UniFi, Omada et Meraki (réponses fixes, aucun réseau).
 registerControllerTests(suite)
+// Note 40 (0.31.0) : sauvegarde des configurations (diff, secrets masqués, réponses fixes, aucun ssh lancé).
+registerConfigBackupTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)
