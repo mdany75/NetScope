@@ -206,6 +206,8 @@ private struct ToolMainPanel: View {
     @ObservedObject private var iperfServer = IperfServerModel.shared
     /// Note 70 : vérificateur de certificat TLS.
     @ObservedObject private var tls = TLSCheckModel.shared
+    /// Ressources d'un poste : la commande de l'en-tête suit le poste ouvert.
+    @ObservedObject private var hostResources = HostResourcesModel.shared
 
     var body: some View {
         let tool = store.selectedTool
@@ -316,6 +318,7 @@ private struct ToolMainPanel: View {
         case .snmp: SNMPBrowserView(model: snmp, store: store)
         case .bilan: LinkCheckView(model: linkCheck, store: store)
         case .tls: TLSCheckView(model: tls, store: store)
+        case .ressources: HostResourcesView(store: store)
         }
     }
 
@@ -355,6 +358,7 @@ private struct ToolMainPanel: View {
         case .snmp: return snmp.command
         case .bilan: return linkCheck.command
         case .tls: return tls.command
+        case .ressources: return hostResources.command
         }
     }
 }

@@ -234,7 +234,7 @@ struct DeviceLookupPanel: View {
 }
 
 /// Une suggestion : type, nom, IP, MAC, fabricant, origine et état.
-private struct DeviceSuggestionRow: View {
+struct DeviceSuggestionRow: View {
     let match: DeviceLookupMatch
     let highlighted: Bool
 
@@ -300,9 +300,12 @@ private struct DeviceSuggestionRow: View {
 }
 
 /// Une fiche consultée récemment.
-private struct DeviceRecentRow: View {
+struct DeviceRecentRow: View {
     @EnvironmentObject private var state: AppState
     let recent: DeviceRecentView
+    /// Faux (Boîte à outils › « Ressources d'un poste ») : aucune pastille pour un poste ni dans le
+    /// Scanner ni saisi à la main (adresse tapée dans l'outil, jamais passée par le Scanner).
+    var marksMissing = true
 
     var body: some View {
         HStack(spacing: 10) {
@@ -337,7 +340,7 @@ private struct DeviceRecentRow: View {
             } else {
                 Chip(text: "Hors Scanner", tone: .neutral)
             }
-        } else {
+        } else if marksMissing {
             Chip(text: "Plus dans les résultats", tone: .neutral).opacity(0.7)
         }
     }

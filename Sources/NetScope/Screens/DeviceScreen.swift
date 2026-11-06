@@ -81,6 +81,12 @@ private struct DeviceDetailView: View {
                 Label("Copier la fiche", systemImage: "doc.on.clipboard")
             }
             .buttonStyle(.secondary)
+            // Revient à « Ouvrir une fiche », comme si aucun appareil n'était choisi (Retour la rouvre).
+            Button { state.closeDevice() } label: {
+                Label("Fermer la fiche", systemImage: "xmark.circle")
+            }
+            .buttonStyle(.secondary)
+            .help("Fermer la fiche et revenir à «\u{00A0}Ouvrir une fiche\u{00A0}»\u{00A0}; Retour la rouvre")
         }
     }
 

@@ -189,6 +189,9 @@ func registerDeviceLookupTests(_ suite: TestSuite) {
         let viewA = DeviceRecentView(ip: IPv4Address("10.0.0.5")!, name: "A", type: .poste, viewed: now, siteKey: "a")
         let viewB = DeviceRecentView(ip: IPv4Address("10.0.0.5")!, name: "B", type: .poste, viewed: now, siteKey: "b")
         try expectEqual(DeviceRecents.record(viewB, in: [viewA]).count, 2, "même IP dans deux sites : deux visites")
+        // Fiche fermée puis revue : une ancienne visite sans site (visible partout) est remplacée, pas doublée.
+        let legacyView = DeviceRecentView(ip: IPv4Address("10.0.0.5")!, name: "A", type: .poste, viewed: now.addingTimeInterval(-240))
+        try expectEqual(DeviceRecents.record(viewA, in: [legacyView]), [viewA], "visite sans site remplacée par celle du site")
 
         // Fichier d'avant les sites : la saisie se lit (sans site, visible partout).
         let legacy = String(decoding: try JSONEncoder().encode(old), as: UTF8.self)
@@ -212,5 +215,35 @@ func registerDeviceLookupTests(_ suite: TestSuite) {
         try expectEqual(entry.device.openPorts, [22, 443], "ports trouvés par un outil de la fiche")
         entry.lastCheck = ManualDeviceEntry.Check(date: now, latencyMs: 2)
         try expect(entry.device.isOnline, "vérifiée : en ligne")
+    }
+
+    suite.add("Ressources d'un poste : ce que la saisie désigne (appareil connu, adresse, nom, MAC)") {
+        let server = DeviceLookupCandidate(id: "s", origin: .scanner, ip: IPv4Address("10.10.0.10"),
+                                           mac: MACAddress("00:15:5D:0A:10:01"), name: "SRV-AD-01", type: .serveur)
+        let noAddress = DeviceLookupCandidate(id: "i", origin: .inventory, ip: nil, mac: printerMAC, name: "Imprimante entrepôt")
+        let list = [server, noAddress]
+        try expectEqual(DeviceLookup.target(for: "  ", in: list), .empty, "vide")
+        try expectEqual(DeviceLookup.target(for: "10.10.0.10", in: list), .known(server), "IP connue")
+        try expectEqual(DeviceLookup.target(for: "srv-ad-01", in: list), .known(server), "nom connu, casse ignorée")
+        try expectEqual(DeviceLookup.target(for: "00-15-5d-0a-10-01", in: list), .known(server), "MAC connue")
+        try expectEqual(DeviceLookup.target(for: "10.10.0.10", in: list).address, IPv4Address("10.10.0.10"), "adresse à interroger")
+        try expectEqual(DeviceLookup.target(for: "10.10.0.99", in: list), .address(IPv4Address("10.10.0.99")!), "IP inconnue")
+        try expectEqual(DeviceLookup.target(for: "10.10.0.99", in: list).address, IPv4Address("10.10.0.99"), "interrogée telle quelle")
+        try expectEqual(DeviceLookup.target(for: "poste-compta-3", in: list), .hostname("poste-compta-3"), "nom inconnu : à résoudre")
+        try expect(DeviceLookup.target(for: "poste-compta-3", in: list).address == nil, "un nom n'est jamais résolu sans demande")
+        try expectEqual(DeviceLookup.target(for: "94:dd:f8:18:15:7d", in: list), .unknownMAC(printerMAC),
+                        "MAC connue sans adresse : rien à interroger")
+        try expectEqual(DeviceLookup.target(for: "10.10", in: list), .invalid("Adresse IP incomplète\u{00A0}: 2 octets sur 4"), "incomplète")
+    }
+
+    suite.add("Fermer la fiche : aucun raccourci par défaut, ⇧⌘W et ⌥⌘W réservés à macOS") {
+        let action = ShortcutCatalog.fixedActions.first { $0.id == ShortcutID.closeDevice }
+        try expect(action != nil, "commande au catalogue")
+        try expect(action?.defaultCombo == nil, "aucun raccourci par défaut")
+        try expect(ShortcutCatalog.systemReserved[KeyCombo("w", [.shift, .command])] != nil, "⇧⌘W : Fermer la fenêtre (onglets)")
+        try expect(ShortcutCatalog.systemReserved[KeyCombo("w", [.option, .command])] != nil, "⌥⌘W : Tout fermer")
+        let actions = ShortcutCatalog.fixedActions + ShortcutCatalog.screenActions(NavModule.allCases.map { ($0.rawValue, $0.title) })
+        let settings = ShortcutSettings(overrides: [ShortcutID.closeDevice: KeyCombo("w", [.shift, .command])])
+        try expect(settings.conflicts(in: actions)[ShortcutID.closeDevice] != nil, "⇧⌘W choisi : conflit signalé")
     }
 }

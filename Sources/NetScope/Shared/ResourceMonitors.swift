@@ -267,6 +267,9 @@ final class SNMPResourceMonitor: ObservableObject {
 
     let isDemo: Bool
     private var users = 0
+    /// Relevés lancés par une vue (`retain(autoStart: true)`), pas par « Interroger » : oubliés
+    /// quand plus personne ne regarde, pour qu'une fiche sans agent connu attende de nouveau un clic.
+    private var startedByRetain = false
     private var task: Task<Void, Never>?
     private var toastTask: Task<Void, Never>?
     private var previous: (date: Date, ports: [SNMPPortCounters])?
@@ -284,7 +287,10 @@ final class SNMPResourceMonitor: ObservableObject {
     func retain(autoStart: Bool) {
         users += 1
         let wasStarted = started
-        if autoStart { started = true }
+        if autoStart, !started {
+            started = true
+            startedByRetain = true
+        }
         // Aussi quand une vue précédente regardait sans lancer les relevés (autoStart faux).
         if users == 1 || (!wasStarted && started) { restart() }
     }
@@ -295,12 +301,17 @@ final class SNMPResourceMonitor: ObservableObject {
             task?.cancel()
             task = nil
             isPolling = false
+            if startedByRetain {
+                started = false
+                startedByRetain = false
+            }
         }
     }
 
     /// « Interroger » : premier relevé demandé par l'utilisateur.
     func start() {
         started = true
+        startedByRetain = false
         isPaused = false
         restart()
     }

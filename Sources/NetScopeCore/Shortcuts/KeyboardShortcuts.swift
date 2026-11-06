@@ -177,6 +177,8 @@ public enum ShortcutID {
     public static let copyIP = "selection.copierIP"
     public static let copyMAC = "selection.copierMAC"
     public static let openBrowser = "selection.navigateur"
+    /// Fermer la fiche ouverte : écran Appareil sans appareil choisi (« Ouvrir une fiche »).
+    public static let closeDevice = "selection.fermerFiche"
     public static let search = "navigation.rechercher"
     public static let export = "navigation.exporter"
     public static let settings = "navigation.reglages"
@@ -201,6 +203,9 @@ public enum ShortcutCatalog {
         ShortcutAction(id: ShortcutID.copyIP, title: "Copier l’IP", group: .selection, defaultCombo: KeyCombo("c", [.shift, .command])),
         ShortcutAction(id: ShortcutID.copyMAC, title: "Copier la MAC", group: .selection, defaultCombo: KeyCombo("m", [.shift, .command])),
         ShortcutAction(id: ShortcutID.openBrowser, title: "Ouvrir dans le navigateur", group: .selection, defaultCombo: KeyCombo("o")),
+        // Aucun raccourci par défaut : ⇧⌘W et ⌥⌘W appartiennent aux menus de macOS
+        // (« Fermer la fenêtre » quand les onglets sont affichés, « Tout fermer ») ; réglable.
+        ShortcutAction(id: ShortcutID.closeDevice, title: "Fermer la fiche appareil", group: .selection, defaultCombo: nil),
         ShortcutAction(id: ShortcutID.search, title: "Rechercher partout", group: .navigation, defaultCombo: KeyCombo("f")),
         ShortcutAction(id: ShortcutID.export, title: "Exporter les résultats", group: .navigation, defaultCombo: KeyCombo("e")),
         ShortcutAction(id: ShortcutID.settings, title: "Réglages", group: .navigation, defaultCombo: KeyCombo(",")),
@@ -227,6 +232,8 @@ public enum ShortcutCatalog {
         KeyCombo("h"): "Masquer NetScope",
         KeyCombo("h", [.option, .command]): "Masquer les autres",
         KeyCombo("w"): "Fermer la fenêtre",
+        KeyCombo("w", [.shift, .command]): "Fermer la fenêtre (onglets affichés)",
+        KeyCombo("w", [.option, .command]): "Tout fermer",
         KeyCombo("m"): "Placer dans le Dock",
         KeyCombo("c"): "Copier",
         KeyCombo("v"): "Coller",

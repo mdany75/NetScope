@@ -237,7 +237,9 @@ public enum DeviceRecents {
     public static func record(_ view: DeviceRecentView, in list: [DeviceRecentView],
                               limit: Int = keptCount) -> [DeviceRecentView] {
         var kept = list.filter { other in
-            if other.siteKey != view.siteKey { return true }
+            // Deux sites différents : deux appareils. Une visite sans site (visible partout) est la
+            // même que celle d'un site (sinon deux lignes de même identifiant dans la liste).
+            if let otherSite = other.siteKey, let site = view.siteKey, otherSite != site { return true }
             if let mac = view.mac, let otherMAC = other.mac { return mac != otherMAC }
             return other.ip != view.ip
         }
