@@ -13,7 +13,7 @@ final class RustDeskServerWatchModel: ObservableObject {
     static let shared = RustDeskServerWatchModel()
 
     /// Mot de passe sudo au Trousseau (service RustDesk), lié au compte du serveur.
-    nonisolated static let sudoPrefix = "tableau-serveur-sudo:"
+    nonisolated static let sudoPrefix = RustDeskServerCredentials.sudoPrefix
     /// Clé de chiffrement des copies du dossier de données (Trousseau de ce Mac).
     nonisolated static let backupKeyAccount = "sauvegarde-serveur-cle"
 
@@ -67,6 +67,8 @@ final class RustDeskServerWatchModel: ObservableObject {
     /// lecture détaillée et versions publiées une fois par jour.
     func ingest(_ status: RustDeskServerStatus) {
         guard !RegEnvironment.isDemo else { return }
+        // Note 88 : résultats de la mise à jour planifiée écrits par l'agent.
+        reloadFromDisk()
         var updated = contents
         updated.history = RustDeskRequestArchive.merge(updated.history, adding: status.punchRequests, now: Date())
         updated.observeKey(status.publicKey.value, now: Date())
@@ -553,17 +555,45 @@ final class RustDeskServerWatchModel: ObservableObject {
         if merged != contents { contents = merged }
     }
 
+    // MARK: Note 88 : actions et mise à jour planifiée
+
+    /// Mot de passe sudo d'une action confirmée (jamais en démonstration).
+    func actionSudoPassword() -> String? {
+        sudoRefused = false
+        return sudoPassword(automatic: false)
+    }
+
+    /// Actions faites (ou simulées en démonstration), notées dans l'historique.
+    func addActions(_ records: [RustDeskActionRecord]) {
+        guard !records.isEmpty else { return }
+        contents.actions = RustDeskActionRecord.union(records, contents.actions)
+        if !RegEnvironment.isDemo { save() }
+    }
+
+    /// Réglages de la mise à jour planifiée (synchronisés ; le Mac choisi l'exécute par son agent).
+    func setSchedule(_ schedule: RustDeskUpdateSchedule) {
+        guard schedule != contents.schedule else { return }
+        // changedAt n'avance que si l'échéance change : une option cochée ne fait pas oublier un report.
+        contents.schedule = schedule.changed(from: contents.schedule, now: Date())
+        if !RegEnvironment.isDemo { save() }
+    }
+
     /// Relit le fichier (peut-être écrit par un autre Mac) et fusionne avant d'écrire : rien de ce
     /// que l'autre Mac a écrit n'est perdu.
     private func save() {
         guard let store else { return }
         do {
-            if let disk = store.load() {
-                let merged = RustDeskWatchStore.merge(local: contents, base: baseline, disk: disk, now: Date())
-                if merged != contents { contents = merged }
+            // Sous le verrou partagé avec l'agent : il n'écrit pas entre cette relecture et l'écriture.
+            let saved = try store.withLock { () throws -> RustDeskWatchStore.Contents in
+                var merged = contents
+                if let disk = store.load() {
+                    merged = RustDeskWatchStore.merge(local: contents, base: baseline, disk: disk, now: Date())
+                }
+                try store.save(merged)
+                return merged
             }
-            try store.save(contents)
-            baseline = contents
+            if saved != contents { contents = saved }
+            baseline = saved
         } catch {
             AppLog.shared.error("RustDesk", "Suivi du serveur non enregistré\u{00A0}: \(error.localizedDescription)")
         }

@@ -14,7 +14,7 @@ import SwiftUI
 @MainActor
 final class RemoteSessionStore: ObservableObject {
     static let shared = RemoteSessionStore()
-    nonisolated static let keychainService = "com.danymenard.netscope.acces"
+    nonisolated static let keychainService = RustDeskServerCredentials.connectionService
     nonisolated static let keychain = UpdKeychain(service: keychainService)
 
     /// Contenu d'un onglet.

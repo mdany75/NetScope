@@ -38,6 +38,7 @@ enum RustDeskRelayColumns {
     static let columns: [StandardColumn] = [
         StandardColumn(id: "adresse", title: "Adresse", isRequired: true),
         StandardColumn(id: "poste", title: "Poste"),
+        StandardColumn(id: "action", title: "Déconnecter"),
         StandardColumn(id: "duree", title: "Durée"),
         StandardColumn(id: "volume", title: "Volume"),
         StandardColumn(id: "actuel", title: "Débit actuel"),
@@ -53,12 +54,14 @@ enum RustDeskRelayColumns {
         "moyen": KeyPathComparator(\RustDeskRelayRow.averageKbps),
         "max": KeyPathComparator(\RustDeskRelayRow.maxKbps),
     ]
-    static let widths: [String: CGFloat] = ["adresse": 150, "poste": 150, "duree": 70, "volume": 70, "actuel": 90, "moyen": 90, "max": 90]
+    static let widths: [String: CGFloat] = ["adresse": 150, "poste": 150, "duree": 70, "volume": 70, "actuel": 90, "moyen": 90, "max": 90, "action": 110]
 }
 
 struct RustDeskRelayTable: View {
     let rows: [RustDeskRelayRow]
     @ObservedObject var watch: RustDeskServerWatchModel
+    /// Note 88 : « Déconnecter » une session (confirmation d'abord).
+    var onDisconnect: (RustDeskRelayRow) -> Void = { _ in }
     @StateObject private var table = StandardTableModel<RustDeskRelayRow>(
         id: "rustdesk-serveur-sessions", columns: RustDeskRelayColumns.columns, sortKeys: RustDeskRelayColumns.sortKeys,
         defaultSort: "duree", defaultAscending: false)
@@ -91,6 +94,13 @@ struct RustDeskRelayTable: View {
                         }
                         .width(min: 90, ideal: RustDeskRelayColumns.widths["poste"])
                         .customizationID("poste")
+                        TableColumn(StandardTableHeading("")) { row in
+                            Button("Déconnecter…") { onDisconnect(row) }
+                                .buttonStyle(RemoteSmallButtonStyle())
+                                .help("Ferme la connexion relayée de \(row.address) sur hbbr (confirmation d’abord)\u{00A0}; le poste peut se reconnecter aussitôt.")
+                        }
+                        .width(min: 96, ideal: RustDeskRelayColumns.widths["action"])
+                        .customizationID("action")
                         TableColumn(StandardTableHeading("DURÉE"), sortUsing: table.sort("duree")) { row in
                             Text(RustDeskServerFormat.duration(row.seconds)).font(Theme.mono(12)).lineLimit(1)
                         }
@@ -122,6 +132,8 @@ struct RustDeskRelayTable: View {
                     .contextMenu(forSelectionType: String.self) { ids in
                         if let row = ids.first.flatMap({ id in rows.first { $0.id == id } }) {
                             RustDeskRowMenu(id: row.targetID, station: row.station, targetIP: "", technicianIP: nil, watch: watch)
+                            Divider()
+                            Button("Déconnecter cette session…") { onDisconnect(row) }
                         }
                     }
                 }

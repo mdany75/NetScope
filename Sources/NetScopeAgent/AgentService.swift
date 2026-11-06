@@ -60,6 +60,9 @@ actor AgentService {
     private var scanning: String?
     private var alerts = AgentAlerts()
     private var notedProblems: [String: Date] = [:]
+    /// Note 88 : mise à jour planifiée du serveur RustDesk en cours, dernière vérification.
+    var rustDeskTask: Task<Void, Never>?
+    var rustDeskChecked = Date.distantPast
 
     init(files: AutomationFiles) {
         self.files = files
@@ -97,6 +100,8 @@ actor AgentService {
             work(settings, now: now)
             saveShared()
         }
+        // Note 88 : la mise à jour planifiée du serveur RustDesk se fait même NetScope ouvert.
+        rustDeskSchedule(now)
         saveJournal()
         writeStatus(heartbeat: now)
     }
@@ -361,7 +366,7 @@ actor AgentService {
     }
 
     /// Alerte de l'agent ; un même problème (réglages, Trousseau) n'est noté qu'une fois par heure.
-    private func sendAlert(_ event: AlertEvent, defaults: UserDefaults?) {
+    func sendAlert(_ event: AlertEvent, defaults: UserDefaults?) {
         let now = Date()
         for problem in alerts.submit(event, defaults: defaults) {
             if let last = notedProblems[problem], now.timeIntervalSince(last) < 3600 { continue }
@@ -370,7 +375,7 @@ actor AgentService {
         }
     }
 
-    private func note(_ text: String, level: AgentJournalEntry.Level = .info) {
+    func note(_ text: String, level: AgentJournalEntry.Level = .info) {
         journal.add(AgentJournalEntry(date: Date(), level: level, text: text))
         journalDirty = true
     }
