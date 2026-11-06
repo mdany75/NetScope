@@ -129,8 +129,8 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       « Exporter un diagnostic ») et 60 (fiche matériel remplie automatiquement). Les retours
       d’essai sur une vraie FortiGate, un site et un scan restent à faire et seront corrigés au
       fil de l’eau en 0.23.x.
-    - **0.24.0, sauvegarde des configurations** (reprend la 0.19.0 ; toujours à faire, la 0.25.0
-      est sortie avant) : note 40 (FortiGate par
+    - **0.29.0, sauvegarde des configurations** (ex-0.24.0, renumérotée le 5 novembre 2026 pour
+      suivre la 0.28.0 ; reprend la 0.19.0) : note 40 (FortiGate par
       l’API, puis switchs en SSH grâce au terminal de la 0.22.0) ; la note 61 (export de la carte
       et section « Carte » du rapport) est livrée dans la 0.28.0.
     - ~~**0.25.0, SNMP complet**~~ (livrée le 5 novembre 2026, avant la 0.24.0) : note 59 (SNMP
@@ -178,20 +178,20 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       (collecteur NetFlow, sFlow et IPFIX dans Trafic) et 76 (notifications ntfy et Pushover),
       demandées par Dany le 5 novembre 2026 et avancées de « plus tard ». Essais réels à faire
       (draw.io, NAS et postes Windows, vrais exportateurs de flux, vrais envois ntfy et Pushover).
-    - **Version suivante, automatique en arrière-plan** (prévue en 0.28.0, repoussée par la
+    - **0.30.0, automatique en arrière-plan** (prévue en 0.28.0, repoussée par la
       livraison des notes 61, 72, 75 et 76) : notes 63 (scan planifié par site) et 64 (agent
       sans fenêtre) ; sonde « débit Internet » planifiée (note 78, livrée dans la 0.27.0).
-    - **0.29.0, IPv6** (idée sans numéro, venue de l’ancienne feuille de route) : découverte par
+    - **0.31.0, IPv6** (idée sans numéro, venue de l’ancienne feuille de route) : découverte par
       la table des voisins NDP (lue par sysctl, sans paquet), ping multicast lien local, ping et
       traceroute IPv6, calculateur IPv6.
-    - **0.30.0, Wi-Fi et accès distant pro** : note 67 (commande envoyée à plusieurs sessions) ;
+    - **0.32.0, accès distant, suite** : note 67 (commande envoyée à plusieurs sessions) ;
       le meilleur canal, le relevé enregistré, la note 80 et XMODEM/YMODEM (note 78) sont livrés
       dans la 0.27.0. Notes 71 et 66 et import de `~/.ssh/config` livrés dans la 0.26.0.
     - ~~**À décider avec Dany avant la 0.24.0**~~ : notes 73 (cycle PoE) et 79 (Ookla caché,
       nouveaux noms des deux « analyses », outils de courriel regroupés) décidées et livrées dans
       la 0.25.0 ; reste à décider : avancer la note 66 (tunnels SSH) en 0.24.0 si le VNC non chiffré ou
       le réseau FortiLink posent problème pendant les essais (livrée dans la 0.26.0).
-    - **Plus tard** : note 11 (reste : préréglages du Ping continu), 13 (anglais) ; notes 68 à 70 (empreinte des services, ports UDP, certificats
+    - **Plus tard** : note 13 (anglais) ; la note 11 est retirée par Dany le 5 novembre 2026 ; notes 68 à 70 (empreinte des services, ports UDP, certificats
       TLS), 77 (autres contrôleurs ; les notes 72, 75 et 76 sont livrées dans la 0.28.0) ; idées
       d’un cran en dessous : relevé Wi-Fi sur plan, qualité VoIP (MOS) avec les décodeurs
       SIP/RTP, toner des imprimantes, test de câble, scan d’un VLAN tagué, retour à la version
@@ -201,16 +201,16 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 
 | Module | Livrées | À venir |
 | --- | --- | --- |
-| Scanner et sites | 18, 19, 20, 26, 28, 48, 49, 81, 82 (0.27.0), 72 (0.28.0) | 63 (version suivante), IPv6 (0.29.0), 68, 69 (plus tard) |
+| Scanner et sites | 18, 19, 20, 26, 28, 48, 49, 81, 82 (0.27.0), 72 (0.28.0) | 63 (0.30.0), IPv6 (0.31.0), 68, 69 (plus tard) |
 | Navigation entre les modules | 31, 33, 34, 36, 45 | — |
-| Switchs et ports, Fortinet | 12, 24, 25, 29, 39, 41, 54, 59, 73, 74, navigateur SNMP / MIB walk (0.25.0), 83 (0.27.0), 75 (0.28.0) | 40 (0.24.0), 77 (plus tard) |
+| Switchs et ports, Fortinet | 12, 24, 25, 29, 39, 41, 54, 59, 73, 74, navigateur SNMP / MIB walk (0.25.0), 83 (0.27.0), 75 (0.28.0) | 40 (0.29.0), 77 (plus tard) |
 | Wi-Fi | 1, 27, 46, 47, 71 (0.26.0), 80 et 78 : meilleur canal, relevé (0.27.0) | — |
 | Carte du réseau | 32, 78 : liens LLDP, VLAN, disposition (0.27.0), 61 (0.28.0) | — |
 | Inventaire | 8, 10, 30 | 60 (0.23.0) |
-| Ping continu | 11 (en partie, 0.21.0), 65 (0.26.0) | 11 : préréglages (plus tard) |
+| Ping continu | 11 (en partie, 0.21.0 ; reste retiré par Dany), 65 (0.26.0) | — |
 | Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22, 37, 51, 53, 55, 58 (0.26.0) | 70 (plus tard) |
-| Accès distant | 5, 50, 52, 57, 66 (0.26.0), 6 (0.26.1 ; tableau de bord du serveur, 0.26.2), 85 (0.27.3) | 67 (0.30.0) |
-| Surveillance, alertes et journaux | 3, 23, 43, 62 et 78 (0.27.0), 76 (0.28.0) | 64 (version suivante) |
+| Accès distant | 5, 50, 52, 57, 66 (0.26.0), 6 (0.26.1 ; tableau de bord du serveur, 0.26.2), 85 (0.27.3) | 67 (0.32.0) |
+| Surveillance, alertes et journaux | 3, 23, 43, 62 et 78 (0.27.0), 76 (0.28.0) | 64 (0.30.0) |
 | Rapports | 4, 42, 62 et 78 : SMTP, DOCX (0.27.0), 61 (0.28.0) | — |
 | Réglages, sauvegarde, aide | 9, 13, 38, 56 | 35 (0.23.0), 13 (plus tard) |
 | Toute l’app (analyse du marché) | 79 (0.25.0), 78 en partie (Trafic, 0.25.0 ; Test MTU, Ping continu, Inventaire, Wake-on-LAN, Alertes, Accès distant, 0.26.0), 78 (reste, 0.27.0) | — |
@@ -430,7 +430,7 @@ paragraphe « Tableau de bord du serveur » plus bas) ; le reste de la note est 
 
 ## 11. Repenser le module Ping continu — PHASE 4 (demande de Dany)
 
-**Livrée en partie dans la 0.21.0** (4 novembre 2026) : pause par cible, tableau MTR complet qui défile à gauche et à droite, écran vide à l'ouverture ; restent les préréglages et le traceroute relancé tout seul.
+**Livrée en partie dans la 0.21.0** (4 novembre 2026) : pause par cible, tableau MTR complet qui défile à gauche et à droite, écran vide à l'ouverture. **Le reste (préréglages, traceroute relancé tout seul) est retiré à la demande de Dany le 5 novembre 2026** : la note est close.
 
 - **Disposition livrée dans la 0.20.2** (croquis C choisi par Dany) : clic sur une carte → elle
   se retourne en Terminal (réponses de la cible), traceroute (MTR) et journal dessous, grand
@@ -905,7 +905,7 @@ entre ces modules. » Règle commune à tout NetScope (englobe les notes 31 et 3
 - Liens WAN et SD-WAN (état, latence, perte, gigue), tunnels VPN IPsec (montés ou tombés),
   par site ; sondes « tunnel tombé » et « lien WAN dégradé » ; vue de tous les sites.
 
-## 40. Sauvegarde des configurations — 0.24.0 (analyse, retenue par Dany)
+## 40. Sauvegarde des configurations — 0.29.0, ex-0.24.0 (analyse, retenue par Dany)
 
 - Copie de la configuration de chaque FortiGate (API, lecture), puis des switchs en SSH ;
   historique par site, comparaison avant/après (différences surlignées), avant une intervention.
@@ -1270,7 +1270,7 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 - **Référence du marché** : PRTG, Nagios XI, Uptime Kuma, PingPlotter.
 - **Effort** : moyen.
 
-## 63. Scan planifié par site — 0.28.0 (analyse du marché, à valider par Dany)
+## 63. Scan planifié par site — 0.30.0 (analyse du marché, à valider par Dany)
 
 - **Ce que ça apporte** : aujourd’hui les rapports planifiés reprennent un vieux scan. Un scan
   à l’heure choisie (quand NetScope est ouvert, ou par l’agent de la note 64) alimente la courbe
@@ -1278,7 +1278,7 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 - **Référence du marché** : Fing, Lansweeper, PRTG, phpIPAM.
 - **Effort** : moyen.
 
-## 64. Surveillance en arrière-plan sans fenêtre — 0.28.0 (analyse du marché, à valider par Dany)
+## 64. Surveillance en arrière-plan sans fenêtre — 0.30.0 (analyse du marché, à valider par Dany)
 
 - **Ce que ça apporte** : sondes, Syslog et scans planifiés qui continuent après la fermeture
   de l’app. Agent de connexion ou LaunchAgent qui fait tourner le moteur de sondes ; l’app
@@ -1305,7 +1305,7 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 - **Référence du marché** : Royal TSX, Termius, SecureCRT.
 - **Effort** : petit (arguments de `/usr/bin/ssh`).
 
-## 67. Envoi d’une commande à plusieurs sessions et extraits personnalisés — 0.30.0 (analyse du marché, à valider par Dany)
+## 67. Envoi d’une commande à plusieurs sessions et extraits personnalisés — 0.32.0 (analyse du marché, à valider par Dany)
 
 - **Ce que ça apporte** : `show run` sur tous les switchs d’un site en une fois. Envoi d’une
   même commande à plusieurs sessions ouvertes du terminal intégré (note 57) et extraits
