@@ -133,6 +133,7 @@ registerSerialFileTransferTests(suite)
 registerWirelessRoamingTests(suite)
 // Note 72 (0.28.0) : partages SMB d'un hôte (sorties de smbutil recopiées, aucun smbutil lancé).
 registerSMBSharesTests(suite)
+registerFingerprintTests(suite)
 // Note 75 (0.28.0) : collecteur NetFlow, sFlow et IPFIX.
 registerFlowTests(suite)
 // Note 76 (0.28.0) : alertes sur téléphone par ntfy et Pushover.

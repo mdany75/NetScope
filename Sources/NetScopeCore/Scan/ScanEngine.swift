@@ -287,7 +287,11 @@ public actor ScanEngine {
         entry.done += 1
         if let rtt {
             entry.online += 1
-            let device = makeDevice(job.ip, rangeID: job.rangeID, latency: rtt >= 0 ? rtt : nil, mac: nil)
+            var device = makeDevice(job.ip, rangeID: job.rangeID, latency: rtt >= 0 ? rtt : nil, mac: nil)
+            // Note 68 : TTL de la réponse au ping (aucun envoi de plus).
+            if rtt >= 0, let ttl = (pinger as? any ScanTTLReporting)?.replyTTL(for: job.ip) {
+                device.fingerprint = FPEvidence(ttl: ttl)
+            }
             found[job.ip] = device
             continuation.yield(.deviceFound(device, rangeID: job.rangeID))
         }
@@ -391,7 +395,14 @@ public enum ScanDeviceClassifier {
 
     /// Type d'un appareil d'après tout ce qu'on en sait (ports, fabricant, nom, découverte SNMP).
     public static func guess(_ device: Device) -> DeviceType {
-        guess(ports: device.openPorts, vendor: device.vendor, hostname: device.hostname, mac: device.mac,
+        // Note 68 : une empreinte forte (certificat Fortinet, sysDescr, en-tête d'imprimante…) passe
+        // avant les ports et le fabricant, mais pas avant la découverte SNMP. Le type choisi à la main
+        // reste prioritaire à l'affichage (fiche d'inventaire).
+        if device.snmpKind == nil || device.snmpKind == .autre, device.fingerprint != nil,
+           let type = device.fingerprintReport.strongType {
+            return type
+        }
+        return guess(ports: device.openPorts, vendor: device.vendor, hostname: device.hostname, mac: device.mac,
               snmpKind: device.snmpKind, voip: device.voipSignals ?? [])
     }
 

@@ -53,6 +53,9 @@ public struct Device: Identifiable, Codable, Hashable, Sendable {
     /// Indices de téléphonie IP connus hors du scan (note 30) : capacité « téléphone » annoncée par
     /// LLDP ou CDP, VLAN voix. Nil dans les fichiers antérieurs à la 0.14.0 (lus sans changement).
     public var voipSignals: VoIPSignals?
+    /// Note 68 : indices d'empreinte (services lus par un scan de ports demandé, sysDescr, TTL…).
+    /// Nil dans les fichiers antérieurs à la 0.30.0 (lus sans changement).
+    public var fingerprint: FPEvidence?
 
     public init(ip: IPv4Address, mac: MACAddress? = nil, vendor: String? = nil, hostname: String? = nil,
                 customName: String? = nil, isOnline: Bool = true, latencyMs: Double? = nil,
@@ -60,7 +63,7 @@ public struct Device: Identifiable, Codable, Hashable, Sendable {
                 vlan: Int? = nil, firstSeen: Date = Date(), lastSeen: Date = Date(),
                 rangeLabel: String? = nil, deviceType: DeviceType = .inconnu,
                 nameSource: NameDetails.Source? = nil, nameDomain: String? = nil, snmpKind: SNMPDeviceKind? = nil,
-                voipSignals: VoIPSignals? = nil) {
+                voipSignals: VoIPSignals? = nil, fingerprint: FPEvidence? = nil) {
         self.ip = ip
         self.mac = mac
         self.vendor = vendor
@@ -80,6 +83,7 @@ public struct Device: Identifiable, Codable, Hashable, Sendable {
         self.nameDomain = nameDomain
         self.snmpKind = snmpKind
         self.voipSignals = voipSignals
+        self.fingerprint = fingerprint
     }
 
     /// Nom d'hôte à afficher, sans le suffixe « .local » de mDNS.

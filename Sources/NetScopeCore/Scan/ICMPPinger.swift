@@ -6,6 +6,11 @@ public protocol ScanPinging: Sendable {
     func ping(_ ip: IPv4Address, timeout: Duration) async -> Double?
 }
 
+/// Note 68 : sonde qui retient le TTL des réponses (indice faible du système : 64, 128 ou 255).
+public protocol ScanTTLReporting: Sendable {
+    func replyTTL(for ip: IPv4Address) -> Int?
+}
+
 public enum ICMPPingerError: Error, LocalizedError, Equatable {
     case socket(Int32)
 
@@ -22,7 +27,7 @@ public enum ICMPPingerError: Error, LocalizedError, Equatable {
 /// Un seul socket est partagé par toutes les sondes : chaque requête reçoit un numéro de séquence
 /// unique, et les réponses sont distribuées d'après ce numéro, l'adresse source et une signature
 /// placée dans la charge utile. Des centaines de pings peuvent donc être en vol en même temps.
-public final class ICMPPinger: ScanPinging, @unchecked Sendable {
+public final class ICMPPinger: ScanPinging, ScanTTLReporting, @unchecked Sendable {
     /// Signature de la charge utile : « NSCP ».
     static let magic: [UInt8] = [0x4E, 0x53, 0x43, 0x50]
 
@@ -38,6 +43,8 @@ public final class ICMPPinger: ScanPinging, @unchecked Sendable {
     private let lock = NSLock()
     private var nextSequence: UInt16
     private var pending: [UInt16: Pending] = [:]
+    /// TTL de la dernière réponse de chaque hôte (note 68), plafonné à 65 536 hôtes.
+    private var ttls: [IPv4Address: Int] = [:]
     private var source: DispatchSourceRead?
 
     public init(identifier: UInt16 = UInt16.random(in: 1...UInt16.max)) throws {
@@ -111,6 +118,18 @@ public final class ICMPPinger: ScanPinging, @unchecked Sendable {
         }
     }
 
+    public func replyTTL(for ip: IPv4Address) -> Int? {
+        lock.lock()
+        defer { lock.unlock() }
+        return ttls[ip]
+    }
+
+    /// TTL de l'en-tête IP fourni par le noyau (nil s'il est absent).
+    public static func replyTTL(_ bytes: [UInt8]) -> Int? {
+        guard bytes.count >= 20, bytes[0] >> 4 == 4 else { return nil }
+        return Int(bytes[8])
+    }
+
     /// Termine une sonde : réponse reçue (`reply`) ou délai écoulé (nil).
     private func resolve(_ sequence: UInt16, reply: (source: IPv4Address, time: UInt64)?) {
         lock.lock()
@@ -151,6 +170,11 @@ public final class ICMPPinger: ScanPinging, @unchecked Sendable {
             guard let reply = ICMPPinger.parseEchoReply(Array(buffer[0..<count])),
                   reply.payloadIdentifier == identifier else { continue }
             let sourceIP = IPv4Address(UInt32(bigEndian: from.sin_addr.s_addr))
+            if let ttl = ICMPPinger.replyTTL(Array(buffer[0..<count])) {
+                lock.lock()
+                if ttls.count < 65_536 || ttls[sourceIP] != nil { ttls[sourceIP] = ttl }
+                lock.unlock()
+            }
             resolve(reply.sequence, reply: (sourceIP, now))
         }
     }
