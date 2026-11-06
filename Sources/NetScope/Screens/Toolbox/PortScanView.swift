@@ -144,12 +144,12 @@ struct PortScanView: View {
         VStack(alignment: .leading, spacing: 14) {
             ToolAdaptiveRow(spacing: 12) {
                 ToolLabeledField(label: "Cible (IP ou hostname)") {
-                    ToolTextField(placeholder: "10.182.122.111", text: $model.target) { model.start(store: store) }
+                    ToolTextField(placeholder: "10.182.122.111", text: $model.target) { startScan() }
                         .frame(minWidth: 170)
                 }
                 ToolLabeledField(label: "Plage de ports") {
                     ToolTextField(placeholder: "1-1024, 3389", text: $model.portsText,
-                                  invalid: model.parsedPorts == nil) { model.start(store: store) }
+                                  invalid: model.parsedPorts == nil) { startScan() }
                         .frame(minWidth: 170)
                         .help(model.portsText)
                         .onChange(of: model.portsText) { _, text in
@@ -181,7 +181,7 @@ struct PortScanView: View {
                                  table: table, probedAt: model.isRunning ? nil : model.finishedAt)
                 hostFooter
             } else {
-                Text("Choisissez un profil ou saisissez une liste (22, 80, 8000-8100), puis lancez le scan. Les ports sont testés en TCP\u{00A0}; une bannière est lue sur SSH, FTP, SMTP et HTTP.")
+                Text("Choisissez un profil ou saisissez une liste (22, 80, 8000-8100), puis lancez le scan. Les ports sont testés en TCP\u{00A0}; la détection de services lit les bannières (SSH, FTP, SMTP, HTTP), le certificat TLS et le dialecte SMB pour reconnaître produit, version et système.")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -189,6 +189,11 @@ struct PortScanView: View {
         .onAppear {
             if model.target.isEmpty { model.target = state.selectedDevice?.ip.description ?? "" }
         }
+    }
+
+    /// Lance le scan ; les services lus rejoignent l'empreinte de l'appareil (note 68).
+    private func startScan() {
+        model.start(store: store) { summary in state.recordServices(host: summary.host, results: summary.results) }
     }
 
     private var profiles: some View {
@@ -207,7 +212,7 @@ struct PortScanView: View {
                 if model.isRunning {
                     Button("Arrêter") { model.cancel() }.buttonStyle(.secondary)
                 } else {
-                    Button("Lancer le scan") { model.start(store: store) }.buttonStyle(.primary)
+                    Button("Lancer le scan") { startScan() }.buttonStyle(.primary)
                 }
             }
             .fixedSize()
@@ -280,6 +285,8 @@ struct PortResultsTable: View {
             StandardColumn(id: "etat", title: "État"),
             StandardColumn(id: "service", title: "Service"),
             StandardColumn(id: "banniere", title: "Bannière / version"),
+            // Note 68 : produit et version reconnus (en-tête, certificat, SMB…), système en infobulle.
+            StandardColumn(id: "produit", title: "Produit et version"),
             StandardColumn(id: "delai", title: "Délai"),
             StandardColumn(id: "action", title: "Action"),
             StandardColumn(id: "url", title: "Adresse web", isDefaultVisible: false),
@@ -293,6 +300,7 @@ struct PortResultsTable: View {
         "etat": KeyPathComparator(\PortScanResult.toolSortState),
         "service": KeyPathComparator(\PortScanResult.toolSortService),
         "banniere": KeyPathComparator(\PortScanResult.toolSortBanner),
+        "produit": KeyPathComparator(\PortScanResult.toolSortProduct),
         "delai": KeyPathComparator(\PortScanResult.toolSortDelay),
         "url": KeyPathComparator(\PortScanResult.toolSortWeb),
     ]
@@ -343,6 +351,12 @@ struct PortResultsTable: View {
                 }
                 .width(min: 100, ideal: 140)
                 .customizationID("banniere")
+
+                TableColumn("PRODUIT ET VERSION", sortUsing: table.sort("produit")) { result in
+                    PortProductCell(result: result)
+                }
+                .width(min: 90, ideal: 150)
+                .customizationID("produit")
 
                 TableColumn("DÉLAI", sortUsing: table.sort("delai")) { result in
                     ToolTableText(result.rttMs.map(ToolFormat.milliseconds) ?? "—", alignment: .trailing)

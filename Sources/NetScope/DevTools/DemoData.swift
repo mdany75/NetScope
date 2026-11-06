@@ -134,7 +134,7 @@ enum DemoData {
                           firstSeen: now.addingTimeInterval(-14 * 86_400), lastSeen: seen,
                           rangeLabel: row.range, deviceType: row.type,
                           nameSource: names[row.ip]?.0, nameDomain: names[row.ip]?.1, snmpKind: snmpKinds[row.ip],
-                          voipSignals: voipSignals[row.ip])
+                          voipSignals: voipSignals[row.ip], fingerprint: FingerprintDemo.evidence[row.ip])
         }
         .sorted { $0.ip < $1.ip }
     }

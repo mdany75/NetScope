@@ -29,7 +29,8 @@ final class DeviceWebModel: ObservableObject {
     @Published private(set) var probedAt: Date?
     @Published var error: String?
 
-    func run(store: ToolStore) {
+    /// `onResult` : réponse reçue (note 68 : en-tête Server, titre et certificat vont à l'empreinte).
+    func run(store: ToolStore, onResult: ((HTTPProbeResult) -> Void)? = nil) {
         let text = urlText.trimmingCharacters(in: .whitespaces)
         guard let url = URL(string: text), let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme), url.host != nil else {
             error = "Adresse web invalide (exemple\u{00A0}: https://10.182.122.111/)."
@@ -43,6 +44,7 @@ final class DeviceWebModel: ObservableObject {
                 let result = try await HTTPProbe.probe(url)
                 self.result = result
                 self.probedAt = Date()
+                onResult?(result)
                 let summary = [result.statusText, result.title, result.server].compactMap { $0 }.joined(separator: " · ")
                 let warning = result.certificate.map { !$0.isTrusted } ?? false
                 store.record(ToolRecent(tool: .ports, target: url.host ?? text, summary: summary,

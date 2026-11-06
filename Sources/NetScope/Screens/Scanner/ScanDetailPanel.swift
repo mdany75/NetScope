@@ -81,6 +81,10 @@ struct ScanDetailIdentity: View {
                     KeyValueRow(key: "MAC", value: device.mac?.formatted(.upperColon) ?? "—", mono: true, keyWidth: 110)
                     KeyValueRow(key: "OUI", value: ouiLabel, keyWidth: 110)
                     KeyValueRow(key: "Découverte", value: ScanFormat.discovery(device), keyWidth: 110)
+                    // Note 68 : système déduit de l'empreinte légère, avec sa confiance.
+                    if let system = device.fingerprintReport.system {
+                        KeyValueRow(key: "Système", value: "\(system.label) · \(system.confidence.label)", keyWidth: 110)
+                    }
                     // Note 6 : rôle RustDesk reconnu aux ports (sans toucher au type choisi à la main).
                     if let role = RustDeskPorts.role(openPorts: device.openPorts) {
                         KeyValueRow(key: "Rôle", value: role.label, keyWidth: 110)

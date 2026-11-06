@@ -266,6 +266,8 @@ final class ScanController: ObservableObject {
                                                 communitiesTried: swept.communities, readGatewayARP: readGatewayARP) { phase in
                     self.phase = phase
                 }
+                // Note 68 : sysDescr des agents qui ont répondu, pour l'empreinte (déjà lu, rien n'est renvoyé).
+                state.recordSysDescr(swept.found)
             } else {
                 sweep?.cancel()
             }
@@ -411,6 +413,8 @@ final class ScanController: ObservableObject {
             device.vlan = known.vlan ?? incoming.vlan
             device.rangeLabel = incoming.rangeLabel ?? known.rangeLabel
             device.openPorts = known.openPorts
+            // Note 68 : services lus par un scan de ports, sysDescr… gardés ; TTL du ping renouvelé.
+            device.fingerprint = FPEvidence.merged(known.fingerprint, incoming.fingerprint)
             let guessed = ScanDeviceClassifier.guess(device)
             device.deviceType = guessed == .inconnu ? known.deviceType : guessed
         }

@@ -295,6 +295,9 @@ struct ScanDeviceTable: View {
         StandardColumn(id: "groupe", title: "Groupe NetBIOS", isDefaultVisible: false),
         StandardColumn(id: "plage", title: "Plage", isDefaultVisible: false),
         StandardColumn(id: "snmp", title: "Nature SNMP", isDefaultVisible: false),
+        // Note 68 : empreinte légère (système déduit, versions annoncées).
+        StandardColumn(id: "systeme", title: "Système", isDefaultVisible: false),
+        StandardColumn(id: "version", title: "Versions", isDefaultVisible: false),
         StandardColumn(id: "oui", title: "OUI", isDefaultVisible: false),
         StandardColumn(id: "emplacement", title: "État de l’emplacement", isDefaultVisible: false),
         // Note 27 : client Wi-Fi vu par la FortiGate (borne FortiAP et SSID), comme Switch / port.
@@ -320,6 +323,8 @@ struct ScanDeviceTable: View {
         "groupe": KeyPathComparator(\Device.scanSortDomain),
         "plage": KeyPathComparator(\Device.scanSortRange),
         "snmp": KeyPathComparator(\Device.scanSortSNMP),
+        "systeme": KeyPathComparator(\Device.scanSortSystem),
+        "version": KeyPathComparator(\Device.scanSortVersions),
         "oui": KeyPathComparator(\Device.scanSortVendorOUI),
     ]
 
@@ -518,6 +523,23 @@ struct ScanDeviceTable: View {
                 .customizationID("ssid")
                 .defaultVisibility(.hidden)
             }
+
+            // Note 68 : système déduit (confiance, indices en infobulle) et versions annoncées.
+            Group {
+                TableColumn(StandardTableHeading("SYSTÈME"), sortUsing: table.sort("systeme")) { device in
+                    ScanSystemCell(device: device)
+                }
+                .width(min: 90, ideal: 190)
+                .customizationID("systeme")
+                .defaultVisibility(.hidden)
+
+                TableColumn(StandardTableHeading("VERSIONS"), sortUsing: table.sort("version")) { device in
+                    ScanVersionsCell(device: device)
+                }
+                .width(min: 90, ideal: 180)
+                .customizationID("version")
+                .defaultVisibility(.hidden)
+            }
         }
         .standardTableStyle()
         // Note 34 : double-clic ou ↩︎ → fiche Appareil ; clic droit → « Ouvrir dans › ».
@@ -529,7 +551,10 @@ struct ScanDeviceTable: View {
                 ScanDeviceMenu(devices: devices, scan: scan)
             }
         }
-        .onAppear { selection = state.selectedDeviceID.map { [$0] } ?? [] }
+        .onAppear {
+            selection = state.selectedDeviceID.map { [$0] } ?? []
+            Self.applySnapshotColumns(to: table)
+        }
         // Note 45 : au retour, l'appareil choisi est ramené en vue (même position dans la liste).
         .revealRow(id: state.selectedDeviceID) { state.selectedDeviceID.flatMap { id in rows.firstIndex { $0.id == id } } }
         .onChange(of: selection) { _, ids in

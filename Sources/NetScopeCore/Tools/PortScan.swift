@@ -25,13 +25,17 @@ public struct PortScanResult: Identifiable, Hashable, Sendable, Codable {
     /// Délai d'établissement de la connexion.
     public var rttMs: Double?
     public var banner: String?
+    /// Note 68 : ce que le service a répondu (en-têtes HTTP, certificat TLS, dialecte SMB…), pour l'empreinte.
+    public var observation: FPServiceObservation?
     public var id: UInt16 { port }
 
-    public init(port: UInt16, state: PortState, rttMs: Double? = nil, banner: String? = nil) {
+    public init(port: UInt16, state: PortState, rttMs: Double? = nil, banner: String? = nil,
+                observation: FPServiceObservation? = nil) {
         self.port = port
         self.state = state
         self.rttMs = rttMs
         self.banner = banner
+        self.observation = observation
     }
 
     public var service: String? { PortScanner.serviceName(port) }
@@ -144,8 +148,9 @@ public enum PortScanner {
                 switch state {
                 case .ready:
                     let rtt = Date().timeIntervalSince(start) * 1000
-                    readBanner(connection, host: host, strategy: strategy, timeout: options.bannerTimeout, queue: queue) { banner in
-                        finish(PortScanResult(port: port, state: .open, rttMs: rtt, banner: banner))
+                    grabService(connection, host: host, port: port, strategy: strategy, timeout: options.bannerTimeout,
+                                queue: queue) { banner, observation in
+                        finish(PortScanResult(port: port, state: .open, rttMs: rtt, banner: banner, observation: observation))
                     }
                 case .waiting(let error), .failed(let error):
                     if case .posix(let code) = error, code == .ECONNREFUSED {
@@ -176,33 +181,16 @@ public enum PortScanner {
     // MARK: Bannières
 
     enum BannerStrategy: Equatable {
-        case none, listen, httpHead
+        /// Note 68 : `tls` (certificat, puis HEAD sur un port web), `smb` (négociation SMB2 seule).
+        case none, listen, httpHead, tls, smb
     }
 
     static func bannerStrategy(_ port: UInt16, extra: Set<UInt16>) -> BannerStrategy {
         if listenBannerPorts.contains(port) || extra.contains(port) { return .listen }
         if httpPorts.contains(port) { return .httpHead }
+        if tlsBannerPorts.contains(port) { return .tls }
+        if port == 445 { return .smb }
         return .none
-    }
-
-    private static func readBanner(_ connection: NWConnection, host: String, strategy: BannerStrategy,
-                                   timeout: TimeInterval, queue: DispatchQueue,
-                                   completion: @escaping (String?) -> Void) {
-        guard strategy != .none else { return completion(nil) }
-        let once = ToolOnce()
-        let deliver: (String?) -> Void = { text in if once.claim() { completion(text) } }
-        queue.asyncAfter(deadline: .now() + timeout) { deliver(nil) }
-        let receive = {
-            connection.receive(minimumIncompleteLength: 1, maximumLength: 2048) { data, _, _, _ in
-                deliver(data.flatMap { cleanBanner($0, http: strategy == .httpHead) })
-            }
-        }
-        if strategy == .httpHead {
-            let request = "HEAD / HTTP/1.0\r\nHost: \(host)\r\nUser-Agent: NetScope\r\nConnection: close\r\n\r\n"
-            connection.send(content: Data(request.utf8), completion: .contentProcessed { _ in receive() })
-        } else {
-            receive()
-        }
     }
 
     /// Première ligne lisible ; pour HTTP, ligne d'état + en-tête Server.

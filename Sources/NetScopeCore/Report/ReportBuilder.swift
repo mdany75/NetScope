@@ -618,6 +618,7 @@ public enum ReportBuilder {
         let ports = riskyPorts(input.devices)
         guard !ports.isEmpty else {
             return [.paragraph("Aucun port à risque (Telnet, FTP, SMB, RDP, VNC…) trouvé parmi les ports ouverts relevés.")]
+                + fingerprintBlocks(input.devices)
         }
         let rows = ports.map { item in
             ReportRow([ReportCell(item.host, bold: true), ReportCell(item.ip.description), ReportCell("\(item.port)"),
@@ -628,6 +629,7 @@ public enum ReportBuilder {
                                           ReportColumn("Risque", weight: 0.7)],
                                 rows: rows, wraps: true)
         return [.table(table), .note("Ports relevés par le scan (TCP). Un port ouvert n’est pas une faille en soi\u{00A0}: le risque dépend de l’exposition et du mot de passe.")]
+            + fingerprintBlocks(input.devices)
     }
 
     static func problemBlocks(_ problems: [ReportProblem]) -> [ReportBlock] {
