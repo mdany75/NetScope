@@ -204,6 +204,8 @@ private struct ToolMainPanel: View {
     @ObservedObject private var mtu = PathMTUModel.shared
     /// Note 78 : la commande de l’en-tête suit la vue Client ou Serveur de l’outil iperf3.
     @ObservedObject private var iperfServer = IperfServerModel.shared
+    /// Note 70 : vérificateur de certificat TLS.
+    @ObservedObject private var tls = TLSCheckModel.shared
 
     var body: some View {
         let tool = store.selectedTool
@@ -313,6 +315,7 @@ private struct ToolMainPanel: View {
         case .disques: DiskSpeedView(model: disks, store: store)
         case .snmp: SNMPBrowserView(model: snmp, store: store)
         case .bilan: LinkCheckView(model: linkCheck, store: store)
+        case .tls: TLSCheckView(model: tls, store: store)
         }
     }
 
@@ -351,6 +354,7 @@ private struct ToolMainPanel: View {
         case .disques: return disks.command
         case .snmp: return snmp.command
         case .bilan: return linkCheck.command
+        case .tls: return tls.command
         }
     }
 }

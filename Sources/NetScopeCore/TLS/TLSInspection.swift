@@ -225,9 +225,9 @@ public enum TLSExpiry: Hashable, Sendable {
     }
 }
 
-enum TLSText {
+public enum TLSText {
     /// « 1 jour », « 213 jours », « 1 041 jours » (espaces insécables).
-    static func days(_ count: Int) -> String {
+    public static func days(_ count: Int) -> String {
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "fr_CA")
         formatter.numberStyle = .decimal

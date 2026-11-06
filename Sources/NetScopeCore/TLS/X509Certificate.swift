@@ -155,6 +155,26 @@ public struct X509Certificate: Hashable, Sendable, Identifiable {
 
     // MARK: Lecture
 
+    /// Certificat décrit champ par champ (données de démonstration, résumé d'un autre outil) ;
+    /// sans DER, l'empreinte est celle qu'on donne.
+    public init(subject: X509Name, issuer: X509Name, serialNumber: String, notBefore: Date, notAfter: Date,
+                publicKey: X509PublicKey, signatureAlgorithmOID: String, subjectAltNames: [X509AltName] = [],
+                isCA: Bool? = nil, extendedKeyUsages: [String] = [], sha256Fingerprint: String, version: Int = 3) {
+        der = Data()
+        self.version = version
+        self.serialNumber = serialNumber
+        self.signatureAlgorithmOID = signatureAlgorithmOID
+        self.subject = subject
+        self.issuer = issuer
+        self.notBefore = notBefore
+        self.notAfter = notAfter
+        self.publicKey = publicKey
+        self.subjectAltNames = subjectAltNames
+        self.isCA = isCA
+        self.extendedKeyUsages = extendedKeyUsages
+        self.sha256Fingerprint = sha256Fingerprint
+    }
+
     public init(der: Data) throws {
         self.der = der
         let bytes = [UInt8](der)
@@ -395,6 +415,10 @@ public enum X509OID {
     public static let ed25519 = "1.3.101.112"
     public static let ed448 = "1.3.101.113"
     public static let dsa = "1.2.840.10040.4.1"
+    public static let sha256WithRSA = "1.2.840.113549.1.1.11"
+    public static let sha1WithRSA = "1.2.840.113549.1.1.5"
+    public static let ecdsaWithSHA256 = "1.2.840.10045.4.3.2"
+    public static let ecdsaWithSHA384 = "1.2.840.10045.4.3.3"
 
     static let attributeNames: [String: String] = [
         "2.5.4.3": "CN", "2.5.4.4": "SN", "2.5.4.5": "serialNumber", "2.5.4.6": "C", "2.5.4.7": "L", "2.5.4.8": "ST",
