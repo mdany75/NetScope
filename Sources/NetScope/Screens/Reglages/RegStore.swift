@@ -11,6 +11,17 @@ enum RegSection: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// Ordre de la colonne de gauche (demande de Dany, 5 novembre 2026) : alphabétique en
+    /// français, sauf « Général » toujours en tête et « À propos » toujours à la fin, comme
+    /// dans les réglages de macOS.
+    static let ordered: [RegSection] = {
+        let middle = allCases.filter { $0 != .general && $0 != .apropos }.sorted {
+            $0.label.compare($1.label, options: [.caseInsensitive, .diacriticInsensitive],
+                             locale: Locale(identifier: "fr_CA")) == .orderedAscending
+        }
+        return [.general] + middle + [.apropos]
+    }()
+
     var label: String {
         switch self {
         case .general: return "Général"

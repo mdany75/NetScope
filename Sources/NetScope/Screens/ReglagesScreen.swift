@@ -80,8 +80,8 @@ struct ReglagesScreen: View {
     private var visibleSections: [RegSection] {
         let local = SearchQuery(query, schema: .reglages)
         let global = state.searchQuery(for: .reglages)
-        guard !local.isEmpty || !global.isEmpty else { return RegSection.allCases }
-        return RegSection.allCases.filter { section in
+        guard !local.isEmpty || !global.isEmpty else { return RegSection.ordered }
+        return RegSection.ordered.filter { section in
             let item = SearchDocument(["section": [section.label]], freeText: [section.label + " " + section.keywords])
             return local.matches(item) && global.matches(item)
         }
