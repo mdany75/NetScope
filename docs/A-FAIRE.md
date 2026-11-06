@@ -201,7 +201,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       le réseau FortiLink posent problème pendant les essais (livrée dans la 0.26.0).
     - **Plus tard** : note 13 (anglais) ; la note 11 est retirée par Dany le 5 novembre 2026 ; les notes 68, 69, 70 et 77
       sont livrées dans la 0.30.0, et les notes 72, 75 et 76 sont livrées dans la 0.28.0 ; les idées
-      d’un cran en dessous sont devenues les notes 89 à 94 le 6 novembre 2026 (0.35.0 à 0.37.0).
+      d’un cran en dessous sont devenues les notes 89 à 94 le 6 novembre 2026 (0.35.0 à 0.37.0 ; la note 94 est sortie en 0.36.0, les notes 91 à 93 passent en 0.37.0).
 
 ## Index par module
 
@@ -1317,7 +1317,7 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 - **Référence du marché** : Royal TSX, Termius, SecureCRT.
 - **Effort** : petit (arguments de `/usr/bin/ssh`).
 
-## 67. Envoi d’une commande à plusieurs sessions et extraits personnalisés — 0.34.0 (analyse du marché, à valider par Dany)
+## 67. Envoi d’une commande à plusieurs sessions et extraits personnalisés — livrée dans la 0.34.0 (analyse du marché, demandée par Dany le 6 novembre 2026)
 
 - **Ce que ça apporte** : `show run` sur tous les switchs d’un site en une fois. Envoi d’une
   même commande à plusieurs sessions ouvertes du terminal intégré (note 57) et extraits
@@ -1760,7 +1760,7 @@ avant chaque action, tout est noté dans l’historique.
   est en cours ; faite par l’agent en arrière-plan (note 64) même app fermée ; résultat dans
   l’historique et alerte en cas d’échec.
 
-## 89. Test de câble depuis le switch (TDR) — 0.35.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
+## 89. Test de câble depuis le switch (TDR) — livrée dans la 0.35.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
 
 Le Mac ne peut pas tester un câble : c’est le switch qui le fait (réflectométrie, TDR), NetScope
 le lui demande et montre le résultat.
@@ -1775,7 +1775,7 @@ le lui demande et montre le résultat.
   raccordement.
 - Indices déjà présents sans test : lien à 100 Mb/s au lieu de 1 Gb/s, erreurs CRC qui augmentent.
 
-## 90. Scanner un VLAN tagué depuis le Mac — 0.35.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
+## 90. Scanner un VLAN tagué depuis le Mac — livrée dans la 0.35.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
 
 Branché sur un port en trunk, scanner un autre VLAN sans changer de port.
 
@@ -1787,7 +1787,7 @@ Branché sur un port en trunk, scanner un autre VLAN sans changer de port.
 - Interface toujours retirée à la fin, même après une erreur ou à la fermeture de l’app.
 - Aucun scan dans les tests ni les captures (règle du projet).
 
-## 91. Niveau du toner et des consommables des imprimantes — 0.36.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
+## 91. Niveau du toner et des consommables des imprimantes — 0.37.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
 
 - Lecture par SNMP (Printer-MIB : `prtMarkerSuppliesTable`) : toner ou encre par couleur,
   tambour, kit de maintenance, bac de récupération ; compteur de pages ; état et alertes de
@@ -1797,7 +1797,7 @@ Branché sur un port en trunk, scanner un autre VLAN sans changer de port.
 - Sonde de Surveillance « consommable bas » (seuil réglable, 15 % par défaut) et section dans les
   rapports par site.
 
-## 92. Qualité VoIP (MOS) — 0.36.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
+## 92. Qualité VoIP (MOS) — 0.37.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
 
 - À partir des appels captés (décodeurs SIP/RTP de la capture de paquets, 0.27.0) : gigue, pertes,
   latence et note MOS (modèle E, 1 à 5) par appel et par sens, avec le codec.
@@ -1805,7 +1805,7 @@ Branché sur un port en trunk, scanner un autre VLAN sans changer de port.
   iperf3 de NetScope) pour estimer la note MOS d’un lien avant d’installer des téléphones.
 - Lien avec le type « Téléphone IP » (note 37) et le VLAN voix ; section dans les rapports.
 
-## 93. Revenir à la version précédente de NetScope — 0.36.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
+## 93. Revenir à la version précédente de NetScope — 0.37.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
 
 - Dans Réglages › Mises à jour (historique des versions, 0.23.1) : « Réinstaller cette version »
   pour une version publiée, à partir de sa Release GitHub (image signée et notarisée, signature
@@ -1814,7 +1814,7 @@ Branché sur un port en trunk, scanner un autre VLAN sans changer de port.
   récentes (synchronisation, note 86) ; mise à jour automatique suspendue tant que Dany ne la
   réactive pas.
 
-## 94. Relevé Wi-Fi sur plan (carte de chaleur) — 0.37.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
+## 94. Relevé Wi-Fi sur plan (carte de chaleur) — livrée dans la 0.36.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
 
 - Importer le plan d’un étage (PDF ou image), indiquer l’échelle (deux points et une distance).
 - Marcher avec le Mac et cliquer sur le plan à l’endroit où on se trouve : NetScope mesure le
