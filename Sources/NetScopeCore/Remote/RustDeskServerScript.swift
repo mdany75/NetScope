@@ -146,9 +146,20 @@ public enum RustDeskServerScript {
     sleep 1
     printf 'cpu2=%s\n' "$(head -n 1 /proc/stat 2>/dev/null)"
 
+    # Dossier de données : volume monté sur /root du conteneur hbbs (souvent ./data, à côté
+    # du fichier des conteneurs ; seulement si le compte est dans le groupe docker), sinon
+    # /opt/rustdesk/data, /opt/rustdesk, /var/lib/rustdesk-server.
+    DATA=
+    if command -v docker >/dev/null 2>&1 && { [ "$(id -u)" = 0 ] || id -Gn 2>/dev/null | tr ' ' '\n' | grep -qx docker; }; then
+      for n in $(timeout 5 docker ps --all --format '{{.Names}}' </dev/null 2>/dev/null | grep -Ei 'hbbs'); do
+        m=$(timeout 5 docker inspect --format '{{range .Mounts}}{{if eq .Destination "/root"}}{{.Source}}{{end}}{{end}}' "$n" </dev/null 2>/dev/null)
+        if [ -n "$m" ]; then DATA=$m; break; fi
+      done
+    fi
+
     # Clé publique du serveur (fichier public ; la clé privée n'est jamais lue ici).
     section CLE
-    for f in "$D/data/id_ed25519.pub" "$D/id_ed25519.pub"; do
+    for f in ${DATA:+"$DATA/id_ed25519.pub"} "$D/data/id_ed25519.pub" "$D/id_ed25519.pub" /var/lib/rustdesk-server/id_ed25519.pub; do
       if [ -r "$f" ]; then printf 'cle=%s\n' "$(head -c 200 "$f")"; break
       elif [ -e "$f" ]; then echo 'ETAT illisible'; break
       fi
@@ -169,6 +180,7 @@ public enum RustDeskServerScript {
 
     section POSTES
     DB="$D/data/db_v2.sqlite3"
+    if [ -n "$DATA" ] && [ -e "$DATA/db_v2.sqlite3" ]; then DB="$DATA/db_v2.sqlite3"; fi
     if [ ! -e "$DB" ]; then echo 'ETAT introuvable'
     elif [ ! -r "$DB" ]; then echo 'ETAT illisible'
     elif ! command -v sqlite3 >/dev/null 2>&1; then echo 'ETAT sans-sqlite3'

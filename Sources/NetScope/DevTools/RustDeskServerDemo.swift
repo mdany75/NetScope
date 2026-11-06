@@ -115,11 +115,16 @@ enum RustDeskServerDemo {
     /// Adresses WAN fictives des FortiGate.
     static let wanAddresses: [(site: String, ip: String)] = [("Siège", "203.0.113.58"), ("Laval", "203.0.113.90")]
 
+    /// Site ouvert en démonstration.
+    static let activeSite = "Siège"
+
     static let candidates = [
         RustDeskAssociationCandidate(ip: "10.182.122.113", mac: "3C:52:82:4A:19:E7", name: "Portable Marc",
-                                     reason: "session relayée (21117) sur la FortiGate de Siège", relay: true),
+                                     reason: "session relayée (21117) sur la FortiGate de Siège", relay: true, site: "Siège"),
         RustDeskAssociationCandidate(ip: "10.182.122.152", mac: "F4:39:09:11:7C:2A", name: "POSTE-COMPTA-03",
-                                     reason: "session FortiGate de Siège vers le serveur"),
+                                     reason: "session FortiGate de Siège vers le serveur", site: "Siège"),
+        RustDeskAssociationCandidate(ip: "10.182.122.187", mac: nil, name: "10.182.122.187",
+                                     reason: "session FortiGate de Siège vers le serveur", site: "Siège"),
     ]
 
     /// Journaux de hbbs et hbbr (texte fictif dans le format du serveur).

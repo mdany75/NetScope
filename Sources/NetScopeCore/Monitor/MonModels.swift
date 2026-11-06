@@ -276,6 +276,12 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
     public var trapFilter: String?
     /// Note 78 : site de la sonde (heures ouvrables, maintenance, rapport) ; nil : déduit de la cible.
     public var siteID: UUID?
+    /// Serveur RustDesk (note 87) : paramètres non secrets du compte SSH du tableau de bord, pour
+    /// que l'agent lise comme l'app : clé privée (chemin), rebond (-J) et connexion du carnet dont
+    /// le mot de passe est au Trousseau (nil : compte saisi).
+    public var sshKeyPath: String?
+    public var sshJump: String?
+    public var sshConnection: UUID?
 
     public init(id: UUID = UUID(), name: String, kind: MonProbeKind, target: String, subtitle: String = "",
                 isEnabled: Bool = true, interval: Int = 60, thresholds: MonThresholds = MonThresholds(),
@@ -453,6 +459,9 @@ extension MonProbe {
         logSeverity = try? c.decodeIfPresent(LogSeverity.self, forKey: .logSeverity)
         trapFilter = try? c.decodeIfPresent(String.self, forKey: .trapFilter)
         siteID = try? c.decodeIfPresent(UUID.self, forKey: .siteID)
+        sshKeyPath = try? c.decodeIfPresent(String.self, forKey: .sshKeyPath)
+        sshJump = try? c.decodeIfPresent(String.self, forKey: .sshJump)
+        sshConnection = try? c.decodeIfPresent(UUID.self, forKey: .sshConnection)
     }
 }
 

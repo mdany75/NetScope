@@ -38,6 +38,13 @@ final class RustDeskServerWatchModel: ObservableObject {
     private let store: RustDeskWatchStore?
     private let sandboxed: Bool
     private var lastDetailAccount: String?
+    /// Dernière lecture détaillée tentée (réussie ou non) : relancée seule une fois par jour au plus.
+    private var lastDetailAttempt: Date?
+    /// Sudo a refusé le mot de passe envoyé : plus d'envoi automatique avant qu'il change ou
+    /// que l'utilisateur clique sur « Vérifier maintenant » (pam_faillock compte chaque échec).
+    private var sudoRefused = false
+    /// Contenu lu ou écrit en dernier (fusion à trois avec le fichier synchronisé, note 86).
+    private var baseline = RustDeskWatchStore.Contents()
 
     private init() {
         sandboxed = RegEnvironment.isSandboxed
@@ -49,6 +56,7 @@ final class RustDeskServerWatchModel: ObservableObject {
             hasSudoPassword = true
         } else {
             contents = store?.load() ?? RustDeskWatchStore.Contents()
+            baseline = contents
             refreshSudoFlag()
         }
     }
@@ -69,8 +77,8 @@ final class RustDeskServerWatchModel: ObservableObject {
             if keyChanged { AppLog.shared.warning("RustDesk", "Clé publique du serveur changée.") }
         }
         let account = RustDeskServerModel.shared.accountLabel
-        if detail == nil || lastDetailAccount != account || RustDeskVersionCheck.isDue(lastCheck: detail?.readAt, now: Date()) {
-            readDetails()
+        if lastDetailAccount != account || RustDeskVersionCheck.isDue(lastCheck: lastDetailAttempt, now: Date()) {
+            readDetails(automatic: true)
         }
         if RustDeskVersionCheck.isDue(lastCheck: contents.published.checkedAt, now: Date()) { checkPublished() }
     }
@@ -80,6 +88,9 @@ final class RustDeskServerWatchModel: ObservableObject {
         guard !RegEnvironment.isDemo else { return }
         detail = nil
         detailError = nil
+        lastDetailAttempt = nil
+        lastDetailAccount = nil
+        sudoRefused = false
         logs = []
         logsError = nil
         refreshSudoFlag()
@@ -107,6 +118,7 @@ final class RustDeskServerWatchModel: ObservableObject {
     func setSudoPassword(_ value: String) {
         guard let key = sudoKey else { return }
         hasSudoPassword = !value.isEmpty
+        sudoRefused = false
         guard !sandboxed else { return }
         do {
             try RustDeskModel.keychain.set(value.isEmpty ? nil : value, for: key)
@@ -115,23 +127,32 @@ final class RustDeskServerWatchModel: ObservableObject {
         }
     }
 
-    /// Mot de passe sudo : celui enregistré, sinon celui du compte SSH (souvent le même).
-    private func sudoPassword() -> String? {
-        guard !sandboxed else { return nil }
+    /// Le compte SSH s'authentifie par mot de passe (aucune clé privée) : ce mot de passe peut
+    /// servir à sudo. Avec une clé, le secret du compte est peut-être sa phrase de passe : jamais
+    /// envoyé à sudo.
+    var sshPasswordUsableForSudo: Bool {
+        guard let account = try? RustDeskServerModel.shared.resolvedAccount().get() else { return false }
+        return account.keyPath.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    /// Mot de passe sudo : celui enregistré, sinon celui du compte SSH s'il s'authentifie par mot de
+    /// passe ; sinon aucun (sudo -n). Lecture automatique après un refus : aucun.
+    private func sudoPassword(automatic: Bool) -> String? {
+        guard !sandboxed, !(automatic && sudoRefused) else { return nil }
         if let key = sudoKey, let value = RustDeskModel.keychain.string(for: key) { return value }
-        return RustDeskServerModel.shared.secret()
+        return sshPasswordUsableForSudo ? RustDeskServerModel.shared.secret() : nil
     }
 
     // MARK: Lectures à la demande
 
-    private func runDetail(_ script: String, timeout: TimeInterval = 120, limit: Int = 4_000_000,
+    private func runDetail(_ script: String, timeout: TimeInterval = 120, limit: Int = 4_000_000, automatic: Bool = false,
                            completion: @escaping @MainActor (Result<String, RustDeskServerReadError>) -> Void) {
         guard let account = try? RustDeskServerModel.shared.resolvedAccount().get() else {
             completion(.failure(RustDeskServerReadError(kind: .account, detail: "Aucun compte SSH n’est choisi pour le serveur.")))
             return
         }
         let secret = RustDeskServerModel.shared.secret()
-        let sudo = sudoPassword()
+        let sudo = sudoPassword(automatic: automatic)
         Task {
             let result = await RustDeskServerSSH.runDetail(account, secret: secret, sudoPassword: sudo, script: script,
                                                            timeout: timeout, outputLimit: limit)
@@ -140,7 +161,8 @@ final class RustDeskServerWatchModel: ObservableObject {
     }
 
     /// Mises à jour du système, version de hbbs, conteneurs, images et clé (avec sudo si besoin).
-    func readDetails() {
+    /// `automatic` : lancée par une lecture du tableau de bord (pas de mot de passe après un refus).
+    func readDetails(automatic: Bool = false) {
         guard !detailReading else { return }
         if RegEnvironment.isDemo {
             detail = RustDeskServerDemo.detail(now: Date())
@@ -149,14 +171,16 @@ final class RustDeskServerWatchModel: ObservableObject {
         guard !sandboxed else { return }
         detailReading = true
         let account = RustDeskServerModel.shared.accountLabel
-        runDetail(RustDeskServerDetailScript.details) { result in
+        lastDetailAttempt = Date()
+        lastDetailAccount = account
+        runDetail(RustDeskServerDetailScript.details, automatic: automatic) { result in
             self.detailReading = false
             switch result {
             case .success(let output):
                 let parsed = RustDeskServerReading.parse(output, readAt: Date())
                 self.detail = parsed
-                self.lastDetailAccount = account
-                self.detailError = parsed.sudo == "refuse" ? "sudo refusé\u{00A0}: mot de passe sudo absent ou incorrect (Réglages › RustDesk). Lecture partielle." : nil
+                if parsed.sudo == "refuse" { self.sudoRefused = true } else if parsed.sudo == "ok" { self.sudoRefused = false }
+                self.detailError = parsed.sudo == "refuse" ? "sudo refusé\u{00A0}: mot de passe sudo absent ou incorrect (Réglages › RustDesk). Lecture partielle\u{00A0}; plus d’envoi automatique avant «\u{00A0}Vérifier maintenant\u{00A0}»." : nil
                 var updated = self.contents
                 updated.observeKey(parsed.publicKey.value, now: Date())
                 if updated != self.contents {
@@ -171,6 +195,7 @@ final class RustDeskServerWatchModel: ObservableObject {
 
     /// « Vérifier maintenant » : lecture détaillée et versions publiées (Docker Hub, GitHub).
     func checkNow() {
+        sudoRefused = false
         readDetails()
         checkPublished()
     }
@@ -295,11 +320,17 @@ final class RustDeskServerWatchModel: ObservableObject {
 
     // MARK: Clé publique
 
-    /// L'utilisateur reconnaît la nouvelle clé : elle devient la clé connue.
+    /// L'utilisateur reconnaît la nouvelle clé : elle devient la clé connue, ici et dans les
+    /// sondes « Serveur RustDesk » de Surveillance (sinon elles resteraient en panne).
     func acceptKey(_ key: String) {
         contents.knownKey = key
         contents.keyChangedAt = nil
         save()
+        let monitor = MonStore.shared
+        for var probe in monitor.probes where probe.kind == .rustdeskServer {
+            probe.knownThreats = (probe.knownThreats ?? []).filter { !$0.hasPrefix(MonRustDeskChecks.keyPrefix) } + [MonRustDeskChecks.keyPrefix + key]
+            monitor.save(probe)
+        }
     }
 
     // MARK: Noms et notes
@@ -336,7 +367,8 @@ final class RustDeskServerWatchModel: ObservableObject {
     func setNote(_ id: String, name: String, note: String) {
         let key = RustDeskNames.key(id)
         guard !key.isEmpty else { return }
-        let value = RustDeskIDNote(name: name.trimmingCharacters(in: .whitespaces), note: note.trimmingCharacters(in: .whitespacesAndNewlines))
+        let value = RustDeskIDNote(name: name.trimmingCharacters(in: .whitespaces), note: note.trimmingCharacters(in: .whitespacesAndNewlines),
+                                   updatedAt: Date())
         contents.notes[key] = value.isEmpty ? nil : value
         save()
     }
@@ -408,7 +440,8 @@ final class RustDeskServerWatchModel: ObservableObject {
             let candidates = RustDeskAssociation.candidates(
                 targetIP: targetIP, serverIPs: serverIPs, wan: self.wanAddresses,
                 sessions: TrafficStore.shared.monitorOverview?.sessions ?? []) { ip, site in
-                    // Le site vient du WAN de la FortiGate : la fiche n'est cherchée que dans ce site.
+                    // Le site vient du WAN de la FortiGate : la fiche n'est cherchée que dans ce site
+                    // (un autre site peut avoir les mêmes IP privées) ; la MAC trouvée l'identifie.
                     guard site == nil || site == activeName, let address = IPv4Address(ip) else { return nil }
                     if let record = store.record(forIP: address) {
                         return (record.mac?.formatted(.upperColon), record.displayName)
@@ -424,11 +457,16 @@ final class RustDeskServerWatchModel: ObservableObject {
         }
     }
 
-    /// Confirmé par l'utilisateur : l'ID va dans la fiche (retenue par la MAC) du site actif.
+    var activeSiteName: String? {
+        RegEnvironment.isDemo ? RustDeskServerDemo.activeSite : SiteModel.shared.activeName
+    }
+
+    /// Confirmé par l'utilisateur : l'ID va dans la fiche du site actif retrouvée par la MAC (jamais
+    /// par l'IP seule). Sans MAC, ou candidat d'un autre site : refusé (simple indice).
     @discardableResult
     func associate(_ candidate: RustDeskAssociationCandidate, id: String) -> Bool {
-        guard let address = IPv4Address(candidate.ip), let record = InvModel.shared.store.record(forIP: address),
-              candidate.mac == nil || record.mac?.formatted(.upperColon) == candidate.mac else { return false }
+        guard candidate.canAssociate(activeSite: activeSiteName), let text = candidate.mac, let mac = MACAddress(text),
+              let record = InvModel.shared.store.record(InventoryStore.key(mac: mac)) else { return false }
         var annotations = record.annotations
         annotations.rustdeskID = RustDeskNames.key(id)
         InvModel.shared.setAnnotations(annotations, for: record.key)
@@ -440,18 +478,33 @@ final class RustDeskServerWatchModel: ObservableObject {
 
     /// Ajoute à Surveillance la sonde du serveur (lecture SSH) et une sonde TCP par port surveillé.
     func addProbes() -> Int {
-        guard let account = RustDeskServerModel.shared.accountLabel,
-              let host = try? RustDeskServerModel.shared.resolvedAccount().get().host else { return 0 }
+        guard let resolved = try? RustDeskServerModel.shared.resolvedAccount().get() else { return 0 }
+        let account = resolved.label
+        let host = resolved.host
         let monitor = MonStore.shared
         var added = 0
-        if !monitor.probes.contains(where: { $0.kind == .rustdeskServer && $0.target == account }) {
-            monitor.addProbe(MonProbe(name: "Serveur RustDesk", kind: .rustdeskServer, target: account, interval: 300))
+        // Paramètres non secrets du compte (clé, rebond, connexion du carnet) : l'agent lit comme l'app.
+        func configure(_ probe: inout MonProbe) {
+            probe.sshKeyPath = resolved.keyPath.isEmpty ? nil : resolved.keyPath
+            probe.sshJump = resolved.jump.isEmpty ? nil : resolved.jump
+            probe.sshConnection = RustDeskServerModel.shared.settings.connectionID
+        }
+        if var existing = monitor.probes.first(where: { $0.kind == .rustdeskServer && $0.target == account }) {
+            let before = existing
+            configure(&existing)
+            if existing != before { monitor.save(existing) }
+        } else {
+            var probe = MonProbe(name: "Serveur RustDesk", kind: .rustdeskServer, target: account, interval: 300)
+            configure(&probe)
+            monitor.addProbe(probe)
             added += 1
         }
+        // Sondes TCP lancées depuis ce Mac (réseau local ou VPN) : elles ne prouvent pas que le port
+        // est joignable d'Internet (NAT, filtre géographique) ; le nom le dit.
         for port in contents.monitoredPorts {
             let target = (host.contains(":") ? "[\(host)]" : host) + ":\(port)"
             guard !monitor.probes.contains(where: { $0.kind == .tcp && $0.target == target }) else { continue }
-            monitor.addProbe(MonProbe(name: "RustDesk \(port)", kind: .tcp, target: target, interval: 120))
+            monitor.addProbe(MonProbe(name: "RustDesk \(port) (depuis ce Mac)", kind: .tcp, target: target, interval: 120))
             added += 1
         }
         return added
@@ -494,14 +547,23 @@ final class RustDeskServerWatchModel: ObservableObject {
 
     /// Note 86 : suivi reçu d'un autre Mac.
     func reloadFromDisk() {
-        guard let loaded = store?.load(), loaded != contents else { return }
-        contents = loaded
+        guard let loaded = store?.load() else { return }
+        let merged = RustDeskWatchStore.merge(local: contents, base: baseline, disk: loaded, now: Date())
+        baseline = loaded
+        if merged != contents { contents = merged }
     }
 
+    /// Relit le fichier (peut-être écrit par un autre Mac) et fusionne avant d'écrire : rien de ce
+    /// que l'autre Mac a écrit n'est perdu.
     private func save() {
         guard let store else { return }
         do {
+            if let disk = store.load() {
+                let merged = RustDeskWatchStore.merge(local: contents, base: baseline, disk: disk, now: Date())
+                if merged != contents { contents = merged }
+            }
             try store.save(contents)
+            baseline = contents
         } catch {
             AppLog.shared.error("RustDesk", "Suivi du serveur non enregistré\u{00A0}: \(error.localizedDescription)")
         }

@@ -9,6 +9,16 @@ public enum MonRustDeskChecks {
     /// Trousseau du mot de passe d'un compte saisi (même nom que le tableau de bord).
     public static let keychainService = "com.danymenard.netscope.rustdesk"
     public static let passwordPrefix = "tableau-serveur-ssh:"
+    /// Trousseau des connexions du carnet d'Accès distant (mot de passe sous l'UUID de la connexion).
+    public static let connectionKeychainService = "com.danymenard.netscope.acces"
+
+    /// Compte lu par l'agent : cible « utilisateur@hôte[:port] » et paramètres non secrets de la sonde.
+    public static func account(for probe: MonProbe, target: String) throws -> RustDeskServerAccount {
+        var account = try RustDeskServerAccount.parse(target)
+        account.keyPath = probe.sshKeyPath ?? ""
+        account.jump = probe.sshJump ?? ""
+        return try account.validated()
+    }
 
     public static func run(_ probe: MonProbe, target: String,
                            read: (@Sendable (String) async -> Result<RustDeskServerStatus, RustDeskServerReadError>)?,
@@ -17,10 +27,15 @@ public enum MonRustDeskChecks {
         if let read {
             result = await read(target)
         } else {
-            guard let account = try? RustDeskServerAccount.parse(target) else {
+            guard let account = try? account(for: probe, target: target) else {
                 return MonRunOutcome(result: .failure(now, error: "Compte attendu\u{00A0}: utilisateur@hôte"))
             }
-            let secret = UpdKeychain(service: keychainService).lookup(passwordPrefix + account.label.lowercased()).value
+            let secret: String?
+            if let connection = probe.sshConnection {
+                secret = UpdKeychain(service: connectionKeychainService).lookup(connection.uuidString).value
+            } else {
+                secret = UpdKeychain(service: keychainService).lookup(passwordPrefix + account.label.lowercased()).value
+            }
             result = await RustDeskServerSSH.run(account, secret: secret)
         }
         return evaluate(result, probe: probe, now: now)

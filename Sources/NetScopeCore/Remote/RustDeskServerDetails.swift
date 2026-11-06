@@ -338,6 +338,20 @@ public enum RustDeskServerDetailScript {
     if command -v docker >/dev/null 2>&1; then
       NOMS=$(dk ps --all --format '{{.Names}}' 2>/dev/null | grep -Ei 'hbbs|hbbr|rustdesk')
     fi
+    # Dossier de données : volume monté sur /root du conteneur hbbs, sinon
+    # /opt/rustdesk/data, /opt/rustdesk, /var/lib/rustdesk-server.
+    DATA=
+    for n in $NOMS; do
+      case "$n" in *hbbs*)
+        m=$(dk inspect --format '{{range .Mounts}}{{if eq .Destination "/root"}}{{.Source}}{{end}}{{end}}' "$n" 2>/dev/null)
+        if [ -n "$m" ]; then DATA=$m; break; fi ;;
+      esac
+    done
+    if [ -z "$DATA" ]; then
+      for d in "$D/data" "$D" /var/lib/rustdesk-server; do
+        if [ -e "$d/id_ed25519.pub" ] || asroot test -e "$d/id_ed25519.pub" 2>/dev/null; then DATA=$d; break; fi
+      done
+    fi
     """#
 
     /// Mises à jour du système, version de hbbs, conteneurs et images, clé publique.
@@ -380,11 +394,11 @@ public enum RustDeskServerDetailScript {
       dk image inspect --format '{{.Id}}|{{join .RepoDigests " "}}' "$i" 2>/dev/null
     done
     section CLE
-    for f in "$D/data/id_ed25519.pub" "$D/id_ed25519.pub"; do
-      if [ -r "$f" ]; then printf 'cle=%s\n' "$(head -c 200 "$f")"; break
-      elif asroot test -e "$f" 2>/dev/null; then printf 'cle=%s\n' "$(asroot head -c 200 "$f" 2>/dev/null)"; break
-      fi
-    done
+    f="$DATA/id_ed25519.pub"
+    if [ -z "$DATA" ]; then :
+    elif [ -r "$f" ]; then printf 'cle=%s\n' "$(head -c 200 "$f")"
+    elif asroot test -e "$f" 2>/dev/null; then printf 'cle=%s\n' "$(asroot head -c 200 "$f" 2>/dev/null)"
+    fi
     NETSCOPE_MDP=
     section FIN
     """#
@@ -411,18 +425,6 @@ public enum RustDeskServerDetailScript {
     /// rien n'est écrit sur le serveur. Dossier : volume monté sur /root du conteneur hbbs, sinon
     /// /opt/rustdesk/data, /opt/rustdesk, /var/lib/rustdesk-server.
     public static let backup: String = prelude + "\n" + #"""
-    DATA=
-    for n in $NOMS; do
-      case "$n" in *hbbs*)
-        m=$(dk inspect --format '{{range .Mounts}}{{if eq .Destination "/root"}}{{.Source}}{{end}}{{end}}' "$n" 2>/dev/null)
-        if [ -n "$m" ]; then DATA=$m; fi ;;
-      esac
-    done
-    if [ -z "$DATA" ]; then
-      for d in "$D/data" "$D" /var/lib/rustdesk-server; do
-        if asroot test -e "$d/id_ed25519.pub" 2>/dev/null; then DATA=$d; break; fi
-      done
-    fi
     section DOSSIER
     printf '%s\n' "$DATA"
     section ARCHIVE

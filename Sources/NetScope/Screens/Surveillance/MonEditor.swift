@@ -474,6 +474,16 @@ private struct MonConditionFields: View {
                 Text("%\u{00A0}; hbbs ou hbbr arrêté et clé publique changée alertent toujours (lecture SSH en lecture seule)")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
             }
+            if probe.knownThreats?.contains(where: { $0.hasPrefix(MonRustDeskChecks.keyPrefix) }) == true {
+                HStack(spacing: 8) {
+                    Button("Accepter la nouvelle clé") {
+                        probe.knownThreats = probe.knownThreats?.filter { !$0.hasPrefix(MonRustDeskChecks.keyPrefix) }
+                    }
+                    .help("Oublie la clé retenue\u{00A0}: la clé lue au prochain passage devient la clé connue.")
+                    Text("Après un changement de clé voulu")
+                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                }
+            }
         }
     }
 

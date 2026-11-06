@@ -41,17 +41,35 @@ struct RustDeskServerDashboard: View {
         }
         .onAppear {
             if server.status == nil, server.error == nil, server.settings.hasAccount { server.refresh() }
-            // Captures : NETSCOPE_RUSTDESK_DEFILER=maj (mises à jour, clé, suspects) ou =journaux (historique, journaux).
+            // Captures : NETSCOPE_RUSTDESK_DEFILER=maj (mises à jour, clé, suspects), =journaux (historique,
+            // journaux), =alertes (Surveillance) ou =associer (association proposée d'un ID, démonstration).
             guard CommandLine.arguments.contains("--snapshot"),
                   let anchor = ProcessInfo.processInfo.environment["NETSCOPE_RUSTDESK_DEFILER"] else { return }
+            if anchor == "associer", RegEnvironment.isDemo {
+                watch.proposeAssociation(id: "263418095", targetIP: RustDeskServerDemo.wanAddresses[0].ip)
+                return
+            }
             DispatchQueue.main.async { proxy.scrollTo("rd-" + anchor, anchor: .top) }
         }
         }
         .sheet(item: $watch.editing) { target in
             RustDeskNoteSheet(target: target, watch: watch)
         }
-        .sheet(item: $watch.associating) { request in
+        .sheet(item: RegEnvironment.isSnapshot ? .constant(nil) : $watch.associating) { request in
             RustDeskAssociationSheet(request: request, watch: watch)
+        }
+        // Captures : une vraie feuille ne se capture pas hors écran ; elle est dessinée par-dessus.
+        .overlay(alignment: .top) {
+            if RegEnvironment.isSnapshot, let request = watch.associating {
+                ZStack(alignment: .top) {
+                    Color(nsColor: .shadowColor).opacity(0.18)
+                    RustDeskAssociationSheet(request: request, watch: watch)
+                        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+                        .shadow(color: Color(nsColor: .shadowColor).opacity(0.3), radius: 18, y: 8)
+                        .padding(.top, 8)
+                }
+            }
         }
     }
 
@@ -214,7 +232,7 @@ struct RustDeskServerDashboard: View {
         RustDeskHistoryPanel(watch: watch).id("rd-journaux")
         RustDeskLogsPanel(watch: watch)
         serverPanel(status)
-        RustDeskAlertsPanel(watch: watch)
+        RustDeskAlertsPanel(watch: watch).id("rd-alertes")
         Text("Une session pair-à-pair (directe) ne passe plus par le serveur une fois établie\u{00A0}: seules les sessions relayées par hbbr apparaissent «\u{00A0}en cours\u{00A0}». Les demandes de connexion montrent toutes les tentatives, relayées ou directes, depuis le dernier démarrage de hbbs (liste gardée en mémoire). Le poste est nommé par son nom donné ici, le carnet ou sa fiche d’inventaire (clic droit\u{00A0}: se connecter, nommer, associer, ouvrir la fiche).")
             .font(Theme.caption).foregroundStyle(Theme.textTertiary)
             .fixedSize(horizontal: false, vertical: true)

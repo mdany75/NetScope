@@ -375,7 +375,7 @@ struct RustDeskAlertsPanel: View {
         Panel {
             VStack(alignment: .leading, spacing: 8) {
                 SectionHeader("Alertes de Surveillance")
-                Text("L’agent de NetScope (application fermée) lit le serveur toutes les 5\u{00A0}minutes et alerte si hbbs ou hbbr s’arrête, si le disque dépasse 90\u{00A0}% ou si la clé publique change\u{00A0}; une sonde TCP par port surveillé signale un port injoignable. 21118 et 21119 (WebSocket) sont souvent fermés\u{00A0}: retirez-les pour éviter de fausses alertes.")
+                Text("L’agent de NetScope (application fermée) lit le serveur toutes les 5\u{00A0}minutes et alerte si hbbs ou hbbr s’arrête, si le disque dépasse 90\u{00A0}% ou si la clé publique change\u{00A0}; une sonde TCP par port surveillé, lancée depuis ce Mac (réseau local ou VPN), signale un port injoignable\u{00A0}; elle ne prouve pas que le port est joignable d’Internet (NAT, filtre géographique). 21118 et 21119 (WebSocket) sont souvent fermés\u{00A0}: retirez-les pour éviter de fausses alertes.")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 8) {
                     Text("Ports surveillés").font(Theme.small).foregroundStyle(Theme.textSecondary)
@@ -476,12 +476,21 @@ struct RustDeskAssociationSheet: View {
                                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
                         }
                         Spacer()
-                        Button("Associer") {
-                            if watch.associate(candidate, id: request.id) { dismiss() } else {
-                                failed = "Aucune fiche avec cette IP et cette MAC dans le site actif\u{00A0}: ouvrez le bon site, ou lancez un scan."
+                        if let site = candidate.site, site != watch.activeSiteName {
+                            Text("Ouvrir le site «\u{00A0}\(site)\u{00A0}» pour associer")
+                                .font(Theme.caption).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.trailing)
+                        } else if !candidate.canAssociate(activeSite: watch.activeSiteName) {
+                            Text("Indice seulement (MAC inconnue)")
+                                .font(Theme.caption).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.trailing)
+                                .help("Sans MAC, la fiche ne peut pas être retrouvée sûrement\u{00A0}: l’IP seule ne choisit jamais un appareil. Lancez un scan du site, puis réessayez.")
+                        } else {
+                            Button("Associer") {
+                                if watch.associate(candidate, id: request.id) { dismiss() } else {
+                                    failed = "Aucune fiche avec cette MAC dans le site actif\u{00A0}: ouvrez le bon site, ou lancez un scan."
+                                }
                             }
+                            .buttonStyle(RemoteSmallButtonStyle(primary: candidate.relay))
                         }
-                        .buttonStyle(RemoteSmallButtonStyle(primary: candidate.relay))
                     }
                     .padding(8)
                     .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
@@ -499,7 +508,8 @@ struct RustDeskAssociationSheet: View {
 
     private var explanation: String {
         if RustDeskSiteHint.isPrivate(request.targetIP) {
-            return "hbbs voit le poste à \(request.targetIP), une adresse privée\u{00A0}: NetScope propose l’appareil qui a cette IP au dernier scan. Vérifiez avant d’associer\u{00A0}: l’ID sera retenu par la MAC de la fiche."
+            let site = watch.activeSiteName.map { " du site «\u{00A0}\($0)\u{00A0}»" } ?? ""
+            return "hbbs voit le poste à \(request.targetIP), une adresse privée\u{00A0}: NetScope propose l’appareil qui a cette IP au dernier scan\(site) (un autre site peut avoir la même IP). Vérifiez avant d’associer\u{00A0}: l’ID sera retenu par la MAC de la fiche."
         }
         let site = watch.probableSite(request.targetIP).map { "site probable\u{00A0}: \($0)" } ?? "site inconnu"
         return "hbbs voit le poste derrière \(request.targetIP) (NAT, \(site)). Les postes proposés parlent au serveur (21116, 21117) dans la table des sessions de la FortiGate de ce site\u{00A0}; l’IP seule ne tranche jamais, c’est vous qui confirmez."

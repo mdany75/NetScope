@@ -195,6 +195,19 @@ public enum RustDeskRequestArchive {
         for request in new.map(RustDeskArchivedRequest.init) where seen.insert(request.dedupeKey).inserted {
             result.append(request)
         }
+        return trimmed(result, now: now)
+    }
+
+    /// Union de deux historiques (sans doublon), même rétention.
+    public static func union(_ a: [RustDeskArchivedRequest], _ b: [RustDeskArchivedRequest], now: Date) -> [RustDeskArchivedRequest] {
+        var seen = Set(a.map(\.dedupeKey))
+        var result = a
+        for request in b where seen.insert(request.dedupeKey).inserted { result.append(request) }
+        return trimmed(result, now: now)
+    }
+
+    static func trimmed(_ list: [RustDeskArchivedRequest], now: Date) -> [RustDeskArchivedRequest] {
+        var result = list
         let since = now.addingTimeInterval(-retention)
         result = result.filter { $0.date >= since && $0.date <= now.addingTimeInterval(86_400) }.sorted { $0.date < $1.date }
         return Array(result.suffix(limit))
@@ -419,13 +432,23 @@ public struct RustDeskAssociationCandidate: Equatable, Identifiable, Sendable {
     public var reason: String
     /// Session relayée en cours (21117) : indice plus fort qu'une simple inscription (21116).
     public var relay: Bool
+    /// Site déduit par le WAN de la FortiGate (IP publique) ; nil : site actif (IP privée).
+    public var site: String?
 
-    public init(ip: String, mac: String?, name: String, reason: String, relay: Bool = false) {
+    public init(ip: String, mac: String?, name: String, reason: String, relay: Bool = false, site: String? = nil) {
         self.ip = ip
         self.mac = mac
         self.name = name
         self.reason = reason
         self.relay = relay
+        self.site = site
+    }
+
+    /// Association permise seulement avec une MAC (la fiche est retrouvée par elle, jamais par
+    /// l'IP) et dans le site ouvert ; sinon, simple indice.
+    public func canAssociate(activeSite: String?) -> Bool {
+        guard let mac, MACAddress(mac) != nil else { return false }
+        return site == nil || site == activeSite
     }
 }
 
@@ -453,7 +476,7 @@ public enum RustDeskAssociation {
             let relay = port == 21_117
             var candidate = seen[source] ?? RustDeskAssociationCandidate(
                 ip: source, mac: found?.mac, name: found?.name ?? source,
-                reason: "session FortiGate de \(site) vers le serveur", relay: relay)
+                reason: "session FortiGate de \(site) vers le serveur", relay: relay, site: site)
             if relay {
                 candidate.relay = true
                 candidate.reason = "session relayée (21117) sur la FortiGate de \(site)"
@@ -578,6 +601,39 @@ public struct RustDeskWatchStore: Sendable {
                 keyChangedAt = now
             }
         }
+    }
+
+    /// Note 86 : fusion à trois (fichier synchronisé par plusieurs Mac). `base` : contenu lu ou
+    /// écrit en dernier par ce Mac ; `local` : contenu en mémoire ; `disk` : fichier actuel (peut-être
+    /// écrit par un autre Mac). Ce qui a changé ici depuis `base` l'emporte ; le reste vient du
+    /// disque. Historique et sauvegardes : union. Note changée des deux côtés : la plus récente.
+    public static func merge(local: Contents, base: Contents, disk: Contents, now: Date) -> Contents {
+        func threeWay<V: Equatable>(_ l: [String: V], _ b: [String: V], _ d: [String: V],
+                                    both: (V?, V?) -> V? = { l, _ in l }) -> [String: V] {
+            var result: [String: V] = [:]
+            for key in Set(l.keys).union(b.keys).union(d.keys) {
+                let localChanged = l[key] != b[key], diskChanged = d[key] != b[key]
+                result[key] = localChanged ? (diskChanged ? both(l[key], d[key]) : l[key]) : d[key]
+            }
+            return result
+        }
+        var merged = disk
+        merged.notes = threeWay(local.notes, base.notes, disk.notes) { l, d in
+            guard let l, let d else { return l ?? d }
+            return l.updatedAt >= d.updatedAt ? l : d
+        }
+        merged.technicians = threeWay(local.technicians, base.technicians, disk.technicians)
+        merged.history = RustDeskRequestArchive.union(local.history, disk.history, now: now)
+        merged.backups = Array(Set(local.backups).union(disk.backups).sorted().suffix(50))
+        if local.knownKey != base.knownKey || local.keyChangedAt != base.keyChangedAt {
+            merged.knownKey = local.knownKey
+            merged.keyChangedAt = local.keyChangedAt
+        }
+        if (local.published.checkedAt ?? .distantPast) > (disk.published.checkedAt ?? .distantPast) {
+            merged.published = local.published
+        }
+        if local.monitoredPorts != base.monitoredPorts { merged.monitoredPorts = local.monitoredPorts }
+        return merged
     }
 
     public let url: URL

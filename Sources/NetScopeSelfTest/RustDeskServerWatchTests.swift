@@ -129,6 +129,9 @@ func registerRustDeskServerWatchTests(_ suite: TestSuite) {
             try expect(script.contains("NETSCOPE_MDP=\n"), "mot de passe oublié à la fin")
         }
         try expect(!RustDeskServerDetailScript.details.contains("id_ed25519 "), "clé privée jamais lue par les détails")
+        try expect(RustDeskServerDetailScript.details.contains(#"{{if eq .Destination "/root"}}"#) && RustDeskServerScript.text.contains(#"{{if eq .Destination "/root"}}"#),
+                   "clé cherchée dans le volume /root de hbbs (Docker compose)")
+        try expect(RustDeskServerDetailScript.details.contains(#"f="$DATA/id_ed25519.pub""#), "clé lue dans le dossier trouvé")
         try expect(RustDeskServerDetailScript.remoteCommand.contains("read -r NETSCOPE_MDP"), "mot de passe lu sur l'entrée")
         let account = RustDeskServerAccount(user: "admin", host: "assistance.exemple.ca")
         let args = RustDeskServerSSH.arguments(account, command: RustDeskServerDetailScript.remoteCommand)
@@ -250,6 +253,42 @@ func registerRustDeskServerWatchTests(_ suite: TestSuite) {
             site == nil ? ("00:11:22:33:44:55", "Poste réception") : nil
         }
         try expectEqual(local.map(\.name), ["Poste réception"], "IP privée : poste du dernier scan")
+        try expectEqual(found[0].site, "Siège", "site du candidat gardé")
+        try expect(found[0].canAssociate(activeSite: "Siège"), "MAC et site ouvert : association permise")
+        try expect(!found[0].canAssociate(activeSite: "Laval"), "autre site ouvert : refusée (même plage IP possible)")
+        try expect(!found[1].canAssociate(activeSite: "Siège"), "sans MAC : simple indice")
+        try expect(local[0].site == nil && local[0].canAssociate(activeSite: "Laval"), "IP privée : site actif, MAC exigée")
+    }
+
+    suite.add("Serveur RustDesk : suivi synchronisé, fusion à trois sans perte (note 86)") {
+        func request(_ minutes: Double, _ id: String) -> RustDeskArchivedRequest {
+            RustDeskArchivedRequest(date: now.addingTimeInterval(-minutes * 60), fromIP: "198.51.100.7", targetID: id, targetIP: "203.0.113.58")
+        }
+        var base = RustDeskWatchStore.Contents()
+        base.notes["111"] = RustDeskIDNote(name: "Ancien", updatedAt: now.addingTimeInterval(-100))
+        base.notes["222"] = RustDeskIDNote(name: "À effacer", updatedAt: now.addingTimeInterval(-100))
+        base.technicians["198.51.100.7"] = "Marc"
+        base.history = [request(60, "111")]
+        var local = base
+        local.notes["333"] = RustDeskIDNote(name: "Ici", updatedAt: now)
+        local.notes["222"] = nil
+        local.history.append(request(30, "333"))
+        local.backups = [now]
+        var disk = base
+        disk.notes["111"] = RustDeskIDNote(name: "Autre Mac", updatedAt: now.addingTimeInterval(-10))
+        disk.technicians["198.51.100.8"] = "Julie"
+        disk.history.append(request(20, "111"))
+        disk.backups = [now.addingTimeInterval(-86_400)]
+        let merged = RustDeskWatchStore.merge(local: local, base: base, disk: disk, now: now)
+        try expectEqual(merged.notes["111"]?.name, "Autre Mac", "note changée sur l'autre Mac gardée")
+        try expectEqual(merged.notes["333"]?.name, "Ici", "note ajoutée ici gardée")
+        try expect(merged.notes["222"] == nil, "note effacée ici : pas ressuscitée")
+        try expectEqual(merged.technicians, ["198.51.100.7": "Marc", "198.51.100.8": "Julie"], "techniciens des deux Mac")
+        try expectEqual(merged.history.count, 3, "historiques réunis sans doublon")
+        try expectEqual(merged.backups.count, 2, "sauvegardes des deux Mac")
+        local.notes["111"] = RustDeskIDNote(name: "Plus récent ici", updatedAt: now)
+        try expectEqual(RustDeskWatchStore.merge(local: local, base: base, disk: disk, now: now).notes["111"]?.name, "Plus récent ici",
+                        "changée des deux côtés : la plus récente")
     }
 
     suite.add("Serveur RustDesk : noms et notes par ID, fichier du suivi tolérant") {
@@ -288,6 +327,13 @@ func registerRustDeskServerWatchTests(_ suite: TestSuite) {
         let failed = MonRustDeskChecks.evaluate(.failure(RustDeskServerReadError(kind: .timeout, detail: "")), probe: probe, now: now)
         try expect(!failed.result.reachable, "lecture impossible : panne")
         try expect(MonBackground.supportedKinds.contains(.rustdeskServer), "exécutée aussi par l'agent")
+        probe.sshKeyPath = "~/.ssh/id_ed25519_exemple"
+        probe.sshJump = "admin@10.20.0.1"
+        let account = try MonRustDeskChecks.account(for: probe, target: probe.target)
+        try expect(account.keyPath == "~/.ssh/id_ed25519_exemple" && account.jump == "admin@10.20.0.1",
+                   "l'agent lit avec la clé et le rebond du tableau de bord")
+        let encoded = try JSONDecoder().decode(MonProbe.self, from: JSONEncoder().encode(probe))
+        try expectEqual(encoded.sshJump, "admin@10.20.0.1", "paramètres gardés dans surveillance.json")
     }
 }
 

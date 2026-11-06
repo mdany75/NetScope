@@ -91,7 +91,7 @@ struct RegRustDeskServerPanel: View {
                          VStack(alignment: .leading, spacing: 4) {
                              RegLabel("Mot de passe sudo (facultatif)")
                              HStack(spacing: 8) {
-                                 RegTextField(placeholder: watch.hasSudoPassword ? "Enregistré au Trousseau (inchangé)" : "Aucun\u{00A0}: celui du compte SSH",
+                                 RegTextField(placeholder: watch.hasSudoPassword ? "Enregistré au Trousseau (inchangé)" : (watch.sshPasswordUsableForSudo ? "Aucun\u{00A0}: celui du compte SSH" : "Aucun\u{00A0}: sudo sans mot de passe seulement"),
                                               text: $sudoPassword, secure: true)
                                      .onSubmit { if !sudoPassword.isEmpty { saveSudo() } }
                                      .disabled(!server.settings.hasAccount)
