@@ -1,5 +1,26 @@
 # Changements
 
+## 0.30.1 — 2026-11-05
+
+Deux raccourcis demandés : fermer la fiche d’un appareil d’un clic, et voir les ressources d’un
+poste directement depuis la Boîte à outils.
+
+### Ajouté
+- **Appareil › Fermer la fiche** (barre d’outils et menu Appareil, ⇧⌘W) : revient à « Ouvrir une
+  fiche », comme si aucun appareil n’était choisi, le curseur dans le champ. Retour rouvre la
+  fiche ; une saisie à la main n’est pas effacée.
+- **Outils › Diagnostic › Ressources d’un poste** : tapez l’IP, le nom ou la MAC d’un poste du
+  site actif (mêmes suggestions qu’« Ouvrir une fiche ») pour voir tout de suite son processeur,
+  sa mémoire, ses disques et son trafic par SNMP, sans passer par sa fiche. Identifiants SNMP du
+  site affichés, « Ouvrir la fiche complète », derniers postes consultés.
+
+### Corrigé
+- « Consultés récemment » ne double plus une fiche visitée avant qu’un site soit choisi.
+
+### Limites connues
+- Pas encore essayé sur un vrai poste SNMP ; un poste tapé à la main est interrogé aussitôt,
+  même s’il n’a pas répondu en SNMP au scan.
+
 ## 0.30.0 — 2026-11-05
 
 NetScope reconnaît mieux ce qui tourne sur chaque appareil (système, produit et version, sans
