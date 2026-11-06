@@ -148,6 +148,8 @@ registerTLSCertificateTests(suite)
 registerControllerTests(suite)
 // Note 40 (0.31.0) : sauvegarde des configurations (diff, secrets masqués, réponses fixes, aucun ssh lancé).
 registerConfigBackupTests(suite)
+// Notes 63 et 64 (0.31.0) : scans planifiés par site et agent en arrière-plan (aucun réseau).
+registerAutomationTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

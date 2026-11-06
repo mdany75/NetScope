@@ -234,6 +234,9 @@ struct ReglagesScreen: View {
         case .synchro:
             // Note 86 : tableau de bord de la synchronisation entre les Mac.
             RegSyncSection()
+        case .surveillance:
+            // Notes 63 et 64 : scans planifiés, journal des exécutions, agent en arrière-plan.
+            RegSurveillanceSection()
         }
     }
 }

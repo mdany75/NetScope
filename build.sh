@@ -12,12 +12,14 @@
 #   NOTARY_PROFILE=nom  profil de « xcrun notarytool store-credentials » (défaut : notarisation)
 #
 # Étapes :
-#   1. swift build -c release --product NetScope
+#   1. swift build -c release --product NetScope, puis --product NetScopeAgent (note 64)
 #   2. icône : Resources/AppIcon.icns est régénérée seulement si elle manque
 #      ou si scripts/make-icon.swift est plus récent
 #   3. assemblage de « NetScope.app » dans un dossier temporaire (avec Resources/oui.tsv,
-#      la base des fabricants)
-#   4. signature : Developer ID et runtime durci (ad hoc sans certificat), avec les droits de
+#      la base des fabricants, l'agent Contents/MacOS/NetScopeAgent et son LaunchAgent
+#      Contents/Library/LaunchAgents/com.danymenard.netscope.agent.plist)
+#   4. signature : l'agent d'abord (même identité, runtime durci), puis l'application, Developer ID
+#      et runtime durci (ad hoc sans certificat), avec les droits de
 #      Resources/NetScope.entitlements (localisation), puis vérification
 #   5. installation dans /Applications, seulement avec --install
 #   6. image disque « build/NetScope.dmg » (application + raccourci vers Applications)
@@ -46,6 +48,11 @@ OUI_FILE="${RESOURCES_DIR}/oui.tsv"
 # Droits de l'application (runtime durci) : localisation, exigée par macOS pour lire le nom
 # des réseaux Wi-Fi. Sans ce droit, macOS refuse la localisation sans afficher de fenêtre.
 ENTITLEMENTS="${RESOURCES_DIR}/NetScope.entitlements"
+# Note 64 : agent sans fenêtre (sondes, Syslog et scans planifiés quand l'app est fermée) et son
+# LaunchAgent, enregistré par l'app avec SMAppService (désactivé par défaut).
+AGENT_PRODUCT="NetScopeAgent"
+AGENT_ID="com.danymenard.netscope.agent"
+AGENT_PLIST="${RESOURCES_DIR}/${AGENT_ID}.plist"
 
 DIST_DIR="${ROOT_DIR}/build"
 
@@ -86,6 +93,8 @@ done
 plutil -lint "${INFO_PLIST}" >/dev/null || die "Info.plist invalide : ${INFO_PLIST}"
 [[ -f "${ENTITLEMENTS}" ]] || die "fichier manquant : ${ENTITLEMENTS}"
 plutil -lint "${ENTITLEMENTS}" >/dev/null || die "fichier de droits invalide : ${ENTITLEMENTS}"
+[[ -f "${AGENT_PLIST}" ]] || die "fichier manquant : ${AGENT_PLIST}"
+plutil -lint "${AGENT_PLIST}" >/dev/null || die "LaunchAgent invalide : ${AGENT_PLIST}"
 
 # --- Signature et notarisation ------------------------------------------------
 #
@@ -165,6 +174,10 @@ BIN_DIR="$(swift build -c release --product "${PRODUCT}" --package-path "${ROOT_
 BINARY="${BIN_DIR}/${PRODUCT}"
 [[ -f "${BINARY}" && -x "${BINARY}" ]] || die "exécutable introuvable après la compilation : ${BINARY}"
 
+swift build -c release --product "${AGENT_PRODUCT}" --package-path "${ROOT_DIR}"
+AGENT_BINARY="${BIN_DIR}/${AGENT_PRODUCT}"
+[[ -f "${AGENT_BINARY}" && -x "${AGENT_BINARY}" ]] || die "agent introuvable après la compilation : ${AGENT_BINARY}"
+
 # --- 2. Icône -----------------------------------------------------------------
 
 if [[ ! -f "${ICON_FILE}" || "${ICON_SCRIPT}" -nt "${ICON_FILE}" ]]; then
@@ -210,6 +223,12 @@ mkdir -p "${CONTENTS_DIR}/MacOS" "${CONTENTS_DIR}/Resources/fr.lproj"
 cp "${BINARY}" "${CONTENTS_DIR}/MacOS/${PRODUCT}"
 chmod 755 "${CONTENTS_DIR}/MacOS/${PRODUCT}"
 
+# Note 64 : agent et LaunchAgent (BundleProgram : Contents/MacOS/NetScopeAgent).
+cp "${AGENT_BINARY}" "${CONTENTS_DIR}/MacOS/${AGENT_PRODUCT}"
+chmod 755 "${CONTENTS_DIR}/MacOS/${AGENT_PRODUCT}"
+mkdir -p "${CONTENTS_DIR}/Library/LaunchAgents"
+cp "${AGENT_PLIST}" "${CONTENTS_DIR}/Library/LaunchAgents/${AGENT_ID}.plist"
+
 cp "${INFO_PLIST}" "${CONTENTS_DIR}/Info.plist"
 printf 'APPL????' > "${CONTENTS_DIR}/PkgInfo"
 
@@ -240,6 +259,8 @@ plutil -lint "${CONTENTS_DIR}/Info.plist" >/dev/null || die "Info.plist invalide
 step "Signature (${SIGN_IDENTITY})"
 # Les attributs étendus (informations du Finder, etc.) font échouer codesign.
 xattr -cr "${STAGE_APP}"
+# L'agent d'abord (code imbriqué), avec la même identité et le runtime durci ; sans droits.
+sign_code --identifier "${AGENT_ID}" "${SIGN_ARGS[@]}" "${CONTENTS_DIR}/MacOS/${AGENT_PRODUCT}"
 # Les droits s'appliquent à l'application seulement (pas à l'image disque).
 sign_code --entitlements "${ENTITLEMENTS}" "${SIGN_ARGS[@]}" "${STAGE_APP}"
 

@@ -8,6 +8,8 @@ import ServiceManagement
 /// Sections de la colonne de gauche, dans l'ordre du croquis (docs/croquis/Reglages.dc.html).
 enum RegSection: String, CaseIterable, Identifiable {
     case general, sites, profils, identifiants, switchs, notifications, alertes, interface, rustdesk, export, synchro, majs, raccourcis, diagnostic, apropos
+    // Notes 63 et 64 : scans planifiés et agent en arrière-plan.
+    case surveillance
 
     var id: String { rawValue }
 
@@ -39,6 +41,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .raccourcis: return "Raccourcis"
         case .diagnostic: return "Journal et diagnostic"
         case .apropos: return "À propos"
+        case .surveillance: return "Surveillance"
         }
     }
 
@@ -59,6 +62,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .raccourcis: return "command"
         case .diagnostic: return "stethoscope"
         case .apropos: return "info.circle"
+        case .surveillance: return "clock.badge.checkmark"
         }
     }
 
@@ -80,6 +84,7 @@ enum RegSection: String, CaseIterable, Identifiable {
         case .majs: return "version github release bêta stable signature télécharger installer jeton"
         case .diagnostic: return "journal log erreurs avertissements modules diagnostic exporter zip plantage crash rapport secrets masqués signalement"
         case .apropos: return "version licence oui journaux"
+        case .surveillance: return "scan planifié planification nuit heure jours profil agent arrière-plan fermé launchagent sondes syslog journal exécutions rattrapage veille"
         }
     }
 }
