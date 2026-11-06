@@ -7,7 +7,7 @@
 
 ## Priorités (revues le 5 novembre 2026, réorganisées avec les notes 45 à 79 après l’analyse du marché)
 
-Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0 ; notes 42 et 10 dans la 0.20.0 ; notes 41 et 43, et la note 11 en partie (pause par cible, tableau MTR, écran vide), dans la 0.21.0 ; note 57 dans la 0.22.0 ; notes 35 et 60 dans la 0.23.0 ; erreurs récentes des ports dans la 0.23.1 ; notes 59, 73, 74 et 79, la partie « Trafic » de la note 78 et le navigateur SNMP dans la 0.25.0 ; notes 58, 65, 66 et 71, et les parties « Test MTU », « Ping continu », « Inventaire », « Wake-on-LAN », « Alertes » et « Accès distant » de la note 78 dans la 0.26.0 ; note 6 (RustDesk) dans la 0.26.1 ; tableau de bord du serveur RustDesk (note 6), « Ouvrir une fiche » et saisie à la main dans Appareil, et correctif des clients Wi-Fi de FortiOS 7.4.13 dans la 0.26.2 ; notes 62, 80, 81, 82 et 83 et le reste de la note 78 (Surveillance, Carte du réseau, Analyse, Wi-Fi ce Mac, Speedtest, iperf3, Capture de paquets, Rapports, Journaux, XMODEM/YMODEM, Vitesse des disques) dans la 0.27.0 ; note 84 dans la 0.27.1 ; correctif d’affichage de l’Accès distant (panneau de détails qui recouvrait la session et dépassait de la fenêtre, signalé par Dany le 5 novembre 2026) et fermeture de l’app à l’enregistrement d’une connexion dans la 0.27.2 ; note 85 (onglet « Assistance RustDesk ») dans la 0.27.3 ; notes 61, 72, 75 et 76 (demandées par Dany le 5 novembre 2026) dans la 0.28.0 (la 0.24.0, note 40, reste à faire).
+Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 et 9 dans la 0.4.0 ; types Console de jeu et Domotique dans la 0.4.1 ; notes 12, 21, 17 et 16 dans la 0.5.0 ; notes 15 et 14 dans la 0.6.0 ; notes 7 et 22 dans la 0.7.0 ; notes 13 et 23 dans la 0.8.0 ; note 24 dans la 0.9.0 ; note 25 dans la 0.10.0 ; notes 26 et 27 dans la 0.11.0 ; note 28 et correction de la Carte dans la 0.12.0 ; notes 34, 33, 31 et 36 dans la 0.13.0 ; notes 32, 30, 37 et 38 dans la 0.14.0 ; notes 49, 48, 45 et 52 dans la 0.15.0 ; notes 46 et 47, et correctif iCloud de Vitesse des disques, dans la 0.16.0 ; notes 29, 39 et 54 dans la 0.17.0 ; notes 50, 51, 53, 55 et 56 dans la 0.18.0 ; notes 42 et 10 dans la 0.20.0 ; notes 41 et 43, et la note 11 en partie (pause par cible, tableau MTR, écran vide), dans la 0.21.0 ; note 57 dans la 0.22.0 ; notes 35 et 60 dans la 0.23.0 ; erreurs récentes des ports dans la 0.23.1 ; notes 59, 73, 74 et 79, la partie « Trafic » de la note 78 et le navigateur SNMP dans la 0.25.0 ; notes 58, 65, 66 et 71, et les parties « Test MTU », « Ping continu », « Inventaire », « Wake-on-LAN », « Alertes » et « Accès distant » de la note 78 dans la 0.26.0 ; note 6 (RustDesk) dans la 0.26.1 ; tableau de bord du serveur RustDesk (note 6), « Ouvrir une fiche » et saisie à la main dans Appareil, et correctif des clients Wi-Fi de FortiOS 7.4.13 dans la 0.26.2 ; notes 62, 80, 81, 82 et 83 et le reste de la note 78 (Surveillance, Carte du réseau, Analyse, Wi-Fi ce Mac, Speedtest, iperf3, Capture de paquets, Rapports, Journaux, XMODEM/YMODEM, Vitesse des disques) dans la 0.27.0 ; note 84 dans la 0.27.1 ; correctif d’affichage de l’Accès distant (panneau de détails qui recouvrait la session et dépassait de la fenêtre, signalé par Dany le 5 novembre 2026) et fermeture de l’app à l’enregistrement d’une connexion dans la 0.27.2 ; note 85 (onglet « Assistance RustDesk ») dans la 0.27.3 ; notes 61, 72, 75 et 76 (demandées par Dany le 5 novembre 2026) dans la 0.28.0 ; notes 68, 69, 70 et 77 (demandées par Dany le 5 novembre 2026) dans la 0.30.0 (la note 40, en 0.31.0, reste à faire).
 
 1. **0.13.x à 0.22.x, retours d'essai** (0.8.1 : plantage de Vitesse des disques sur le NAS corrigé ; 0.9.0 : FortiGate essayée avec succès ; 0.10.0 : plusieurs FortiGate à essayer ; 0.11.0 : recherche multiple et FortiAP à essayer ; 0.12.0 : sites à essayer ; 0.13.0 : navigation et gros sites à essayer ; 0.14.0 : recherche de la Carte, téléphones IP, étendues DHCP et sauvegarde chiffrée à essayer ; 0.15.0 : choix du site, Switchs et Wi-Fi d'un autre site, Retour et nom d'utilisateur SSH à essayer ; 0.16.0 : clients Wi-Fi, fiche du client, historique du signal et diagnostic Wi-Fi à essayer sur de vraies bornes FortiAP ; 0.17.0 : relecture automatique, WAN et VPN, Trafic FortiView et analyse complète à essayer sur de vraies FortiGate ; 0.18.0 : FTP, FTPS, SFTP, TFTP, « Bloqué ici », NAS dans Vitesse des disques, export, import et synchronisation à essayer sur de vrais appareils et deux Mac ; 0.20.0 : rapport de suivi, rapports planifiés et Inventaire repensé à essayer sur les vrais sites ; 0.21.0 : firmware et licences, Syslog, traps SNMP, journaux de la FortiGate et pause par cible du Ping à essayer sur de vrais équipements ; 0.22.0 : terminal intégré SSH, Telnet et série, et session VNC intégrée à essayer sur de vrais équipements, câbles console et serveurs VNC ; 0.23.0 : journal de l’app, « Exporter un diagnostic » et fiche matériel automatique à essayer sur de vrais switchs, imprimantes et FortiGate ; 0.25.0 : SNMP v3, navigateur SNMP, graphes des ports et cycle PoE à essayer sur de vrais switchs, FortiSwitch et FortiGate, d’abord sur un port sans risque) : essais réels de la 0.3.x (localisation, DHCP, capture,
    notifications, VNC, mise à jour), de la 0.4.0 (menus de colonnes, type, ports, sombre) et
@@ -130,8 +130,11 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       d’essai sur une vraie FortiGate, un site et un scan restent à faire et seront corrigés au
       fil de l’eau en 0.23.x.
     - **0.29.0, synchronisation complète entre les Mac** : note 86 (demande de Dany, 5 novembre 2026).
-    - **0.30.0, empreinte, UDP, TLS et autres contrôleurs** : notes 68, 69, 70 et 77 (demandées
-      par Dany le 5 novembre 2026).
+    - ~~**0.30.0, empreinte, UDP, TLS et autres contrôleurs**~~ (livrée le 5 novembre 2026) :
+      **Livrée dans la 0.30.0.** Notes 68 (empreinte légère des services et du système), 69 (scan
+      de ports UDP ciblé), 70 (vérificateur de certificat TLS) et 77 (contrôleurs UniFi, Omada et
+      Meraki), demandées par Dany le 5 novembre 2026. Essais réels à faire (imprimantes, NAS,
+      pare-feu, vrais services UDP, certificats, vrais contrôleurs).
     - **0.31.0, sauvegarde des configurations** (ex-0.24.0, puis 0.29.0 et 0.30.0, renumérotée le 5 novembre
       2026 ; reprend la 0.19.0) : note 40 (FortiGate par
       l’API, puis switchs en SSH grâce au terminal de la 0.22.0) ; la note 61 (export de la carte
@@ -195,7 +198,7 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
       la 0.25.0 ; reste à décider : avancer la note 66 (tunnels SSH) en 0.24.0 si le VNC non chiffré ou
       le réseau FortiLink posent problème pendant les essais (livrée dans la 0.26.0).
     - **Plus tard** : note 13 (anglais) ; la note 11 est retirée par Dany le 5 novembre 2026 ; les notes 68, 69, 70 et 77
-      passent en 0.30.0, et les notes 72, 75 et 76 sont livrées dans la 0.28.0 ; idées
+      sont livrées dans la 0.30.0, et les notes 72, 75 et 76 sont livrées dans la 0.28.0 ; idées
       d’un cran en dessous : relevé Wi-Fi sur plan, qualité VoIP (MOS) avec les décodeurs
       SIP/RTP, toner des imprimantes, test de câble, scan d’un VLAN tagué, retour à la version
       précédente.
@@ -204,14 +207,14 @@ Notes 1 à 5 : livrées dans la 0.3.0 ; note 18 dans la 0.3.1 ; notes 8, 19, 20 
 
 | Module | Livrées | À venir |
 | --- | --- | --- |
-| Scanner et sites | 18, 19, 20, 26, 28, 48, 49, 81, 82 (0.27.0), 72 (0.28.0) | 68, 69 (0.30.0), 63 (0.32.0), IPv6 (0.33.0) |
+| Scanner et sites | 18, 19, 20, 26, 28, 48, 49, 81, 82 (0.27.0), 72 (0.28.0), 68, 69 (0.30.0) | 63 (0.32.0), IPv6 (0.33.0) |
 | Navigation entre les modules | 31, 33, 34, 36, 45 | — |
-| Switchs et ports, Fortinet | 12, 24, 25, 29, 39, 41, 54, 59, 73, 74, navigateur SNMP / MIB walk (0.25.0), 83 (0.27.0), 75 (0.28.0) | 77 (0.30.0), 40 (0.31.0) |
+| Switchs et ports, Fortinet | 12, 24, 25, 29, 39, 41, 54, 59, 73, 74, navigateur SNMP / MIB walk (0.25.0), 83 (0.27.0), 75 (0.28.0), 77 (0.30.0) | 40 (0.31.0) |
 | Wi-Fi | 1, 27, 46, 47, 71 (0.26.0), 80 et 78 : meilleur canal, relevé (0.27.0) | — |
 | Carte du réseau | 32, 78 : liens LLDP, VLAN, disposition (0.27.0), 61 (0.28.0) | — |
 | Inventaire | 8, 10, 30 | 60 (0.23.0) |
 | Ping continu | 11 (en partie, 0.21.0 ; reste retiré par Dany), 65 (0.26.0) | — |
-| Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22, 37, 51, 53, 55, 58 (0.26.0) | 70 (0.30.0) |
+| Boîte à outils | 2, 7, 14, 15, 16, 17, 21, 22, 37, 51, 53, 55, 58 (0.26.0), 70 (0.30.0) | — |
 | Accès distant | 5, 50, 52, 57, 66 (0.26.0), 6 (0.26.1 ; tableau de bord du serveur, 0.26.2), 85 (0.27.3) | 67 (0.34.0) |
 | Surveillance, alertes et journaux | 3, 23, 43, 62 et 78 (0.27.0), 76 (0.28.0) | 64 (0.32.0) |
 | Rapports | 4, 42, 62 et 78 : SMTP, DOCX (0.27.0), 61 (0.28.0) | — |
@@ -1319,6 +1322,8 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 
 ## 68. Empreinte légère des services et du système — 0.30.0 (analyse du marché, demandée par Dany le 5 novembre 2026)
 
+**Livrée dans la 0.30.0** (5 novembre 2026) : système, produit et version déduits des bannières (SSH, FTP, SMTP, Telnet, VNC), des en-têtes HTTP et du titre, du certificat TLS, du dialecte SMB2, du sysDescr et du TTL, avec confiance et indices ; carte « Système et versions » de la fiche Appareil, colonnes « Système » et « Versions » du Scanner, type plus juste quand l’empreinte est sûre (jamais à la place d’un type choisi à la main), tableau « Versions visibles et services en clair » du rapport Sécurité ; sans Nmap ni base de CVE ; essai réel à faire sur des imprimantes, NAS, pare-feu et serveurs variés.
+
 - **Ce que ça apporte** : type et système plus justes, versions visibles dans le rapport
   Sécurité, sans Nmap : en-tête HTTP « Server », certificat TLS, dialecte SMB, sysDescr, TXT
   mDNS, TTL. Pas de base de CVE ni de détection d’OS façon Nmap (voir note 79).
@@ -1327,12 +1332,16 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 
 ## 69. Scan de ports UDP ciblé — 0.30.0 (analyse du marché, demandée par Dany le 5 novembre 2026)
 
+**Livrée dans la 0.30.0** (5 novembre 2026) : vraie requête par protocole (DNS 53, TFTP 69, NTP 123, NetBIOS 137, SNMP 161, IPMI 623, SSDP 1900, SIP 5060, mDNS 5353), états ouvert, ouvert|filtré, fermé ou filtré ; section « Services UDP » de la fiche Appareil, « UDP ciblé… » du Scanner, choix TCP ou UDP ciblé dans la Boîte à outils ; constats SNMP public, IPMI, SIP, NTP modes 6 et 7, TFTP ; communauté SNMP du site, « public » sur choix ou aucune ; plages exclues jamais sondées ; essai réel à faire sur de vrais services UDP.
+
 - **Ce que ça apporte** : repérer un SNMP ouvert, un SIP ou un IPMI exposés. Charge propre à
   chaque protocole : DNS 53, NTP 123, SNMP 161, TFTP 69, SIP 5060, IPMI 623, mDNS.
 - **Référence du marché** : Nmap, SoftPerfect, NetScanTools.
 - **Effort** : petit à moyen.
 
 ## 70. Vérificateur de certificat TLS — 0.30.0 (analyse du marché, demandée par Dany le 5 novembre 2026)
+
+**Livrée dans la 0.30.0** (5 novembre 2026) : outil « Certificat TLS » de la Boîte à outils (chaîne, SAN, validité et jours restants, clé, signature, empreintes SHA-256, verdict de macOS), versions TLS 1.0 à 1.3 acceptées, STARTTLS pour SMTP, IMAP et POP3, SNI au choix, « Vérifier tous les HTTPS du site » et sonde de Surveillance « Certificat TLS (jours restants) » ; essai réel à faire sur de vrais serveurs Web et de courriel.
 
 - **Ce que ça apporte** : trouver les pare-feu, portails, imprimantes et NAS aux certificats
   expirés. Outil de la Boîte à outils (chaîne, SAN, expiration, versions TLS) qui réutilise la
@@ -1398,6 +1407,8 @@ Terminal » et « Partage d'écran » restent en secours dans le menu de « Conn
 - **Effort** : petit.
 
 ## 77. Autres contrôleurs : UniFi, Omada, Meraki — 0.30.0 (analyse du marché, demandée par Dany le 5 novembre 2026)
+
+**Livrée dans la 0.30.0** (5 novembre 2026) : Réglages › Sites › Contrôleur (UniFi Network, TP-Link Omada, Cisco Meraki), lecture seule, secret au Trousseau, certificat par empreinte, « Tester » ; switchs « via UniFi / Omada / Meraki » dans Switchs et ports (façade, ports, PoE, VLAN, voisins), bornes et clients Wi-Fi dans Wi-Fi, switch, port et borne dans le Scanner ; aucune action sur les ports de ces switchs ; essai réel à faire sur de vrais contrôleurs.
 
 - **Ce que ça apporte** : les clients sans Fortinet retrouvent switchs, bornes et clients Wi-Fi.
 - **Référence du marché** : Domotz, WiFiman, Meraki Dashboard.

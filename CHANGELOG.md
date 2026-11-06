@@ -1,5 +1,101 @@
 # Changements
 
+## 0.30.0 — 2026-11-05
+
+NetScope reconnaît mieux ce qui tourne sur chaque appareil (système, produit et version, sans
+Nmap), sonde les ports UDP avec de vraies requêtes de chaque protocole, vérifie les certificats
+TLS de tout un site, et lit les contrôleurs UniFi, Omada et Meraki pour les clients qui ne sont
+pas en Fortinet.
+
+### Ajouté
+- **Empreinte légère des appareils** : système, produit et version déduits des bannières (SSH,
+  FTP, SMTP, Telnet, VNC), des en-têtes HTTP et du titre de page, du certificat TLS, du dialecte
+  SMB, du sysDescr SNMP et du TTL, avec une confiance (faible, moyenne ou forte) et les indices
+  qui la justifient.
+- **Fiche Appareil, carte « Système et versions »** dans l’Aperçu (système, confiance, type
+  indiqué, versions annoncées, services en clair, indices) et colonne « Produit et version »
+  dans Ports et services.
+- **Scanner** : colonnes facultatives « Système » et « Versions » (menu Colonnes) et ligne
+  « Système » dans le panneau de détail.
+- **Rapport Sécurité** : tableau « Versions visibles et services en clair » (Telnet, FTP, HTTP,
+  SMB1, versions annoncées).
+- **Scan de ports UDP ciblé** : chaque port reçoit une vraie requête de son protocole (DNS 53,
+  TFTP 69, NTP 123, NetBIOS 137, SNMP 161, IPMI 623, SSDP 1900, SIP 5060, mDNS 5353) au lieu
+  d’un paquet vide. Les états sont ouvert, ouvert|filtré, fermé (refus ICMP) ou filtré.
+- **Fiche Appareil, section « Services UDP »** dans Ports et services (version DNS, strate NTP,
+  sysDescr SNMP, User-Agent SIP, capacités IPMI, services mDNS…), avec export CSV ; le clic droit
+  sur « Scanner les ports » lance l’UDP ciblé.
+- **Scanner, « Scanner les ports › UDP ciblé… »** : une feuille avec les résultats de l’appareil
+  choisi. Dans la Boîte à outils, l’outil Scan de ports propose « TCP » ou « UDP ciblé », avec la
+  commande équivalente et l’historique des résultats.
+- **Constats de sécurité UDP** : SNMP « public » ouvert, IPMI exposé ou anonyme, SIP exposé, NTP
+  mode 6 (ntpq) et mode 7 (monlist, amplification), SNMP v2c en clair, TFTP joignable.
+- **Outil « Certificat TLS »** dans la Boîte à outils : chaîne complète envoyée par le serveur,
+  noms couverts (SAN), dates de validité et jours restants, clé (algorithme et taille),
+  signature, empreintes SHA-256 et verdict de confiance de macOS avec sa raison.
+- **Versions TLS acceptées** (TLS 1.0 à 1.3, chacune tentée seule) et suite négociée ; TLS 1.0
+  et 1.1 encore acceptés sont signalés comme obsolètes.
+- **Serveurs de courriel en STARTTLS** (SMTP 25 et 587, IMAP 143, POP3 110), en plus de HTTPS,
+  8443, SMTPS, IMAPS, POP3S et LDAPS ; nom SNI au choix.
+- **Problèmes signalés clairement** : nom qui ne correspond pas, certificat auto-signé, expiré ou
+  qui expire bientôt (seuil réglable de 7 à 90 jours), chaîne incomplète, clé ou signature
+  faible.
+- **« Vérifier tous les HTTPS du site »** : d’un clic, tous les appareils du dernier scan avec
+  443 ou 8443 ouvert sont vérifiés ; les certificats expirés ou bientôt expirés sont listés en
+  premier.
+- **Surveillance, sonde « Certificat TLS (jours restants) »** : une alerte avant l’expiration et
+  une panne une fois le certificat expiré.
+- **Réglages › Sites › Contrôleur** : ajouter le contrôleur UniFi Network, TP-Link Omada ou Cisco
+  Meraki d’un site, en lecture seule. Le secret (clé d’API, mot de passe ou client secret) est
+  gardé au Trousseau, le certificat est accepté par son empreinte, et un bouton « Tester »
+  vérifie l’accès.
+- **Switchs et ports** montre les switchs gérés par UniFi, Omada ou Meraki (« via UniFi »,
+  « via Omada », « via Meraki ») : façade, ports, PoE, VLAN, voisins et appareils branchés, avec
+  un bandeau du contrôleur et le bouton « Relire ».
+- **Wi-Fi** gagne une partie pour le contrôleur du site : bornes (canaux, clients, utilisation,
+  switch et port où elles sont branchées) et clients Wi-Fi (SSID, borne, bande, signal).
+- **Scanner** : switch et port des appareils filaires lus par ces contrôleurs, et borne des
+  clients Wi-Fi.
+- **Démonstration** : empreintes, réponses UDP, certificats et contrôleurs fictifs, sans aucun
+  envoi réel sur le réseau.
+
+### Modifié
+- **Scan de ports, case « Détection de services »** : lit aussi le certificat TLS des ports
+  chiffrés et fait la négociation SMB2 sur le port 445 (dialecte, signature exigée, Samba), sans
+  session ni authentification ; produit et version s’affichent dans le tableau.
+- **Type d’appareil plus juste** quand l’empreinte est sûre (certificat Fortinet, en-tête
+  d’imprimante, sysDescr…), sans jamais remplacer un type choisi à la main ni ce que dit la
+  découverte SNMP.
+- **Communauté SNMP au choix** pour le scan UDP : celle du site (gardée au Trousseau),
+  « public » seulement si vous la choisissez, ou aucune (découverte SNMP v3 sans secret). Les
+  tests NTP des modes 6 et 7 se désactivent dans le menu « Sondes ».
+- **Sondes lancées seulement sur clic** : les adresses des plages exclues du site actif ne sont
+  jamais sondées.
+
+### Corrigé
+- **Itinérance Wi-Fi** des clients vus par un contrôleur UniFi, Omada ou Meraki : elle ne lève
+  plus d’alerte de port.
+- **Sécurité** : aucune action sur les ports (coupure ou cycle PoE) n’est proposée pour un switch
+  géré par UniFi, Omada ou Meraki ; NetScope lit ces contrôleurs sans jamais rien modifier.
+
+### Limites connues
+- L’empreinte est légère : elle ne lit que ce que les services annoncent d’eux-mêmes. Ce n’est
+  pas une détection de système façon Nmap, et il n’y a aucune base de vulnérabilités (CVE) : une
+  version affichée n’est pas jugée vulnérable ou non. Un service qui masque sa bannière reste
+  « inconnu », et le TTL ne donne qu’un indice faible.
+- En UDP, l’absence de réponse ne prouve rien : « ouvert|filtré » veut dire qu’on ne sait pas.
+  Seuls les ports listés reçoivent une requête propre à leur protocole ; ce n’est pas un balayage
+  UDP complet.
+- Le verdict de confiance du certificat est celui de macOS sur ce Mac : une autorité interne non
+  installée dans le Trousseau rend une chaîne « non approuvée ».
+- Les contrôleurs UniFi, Omada et Meraki sont lus en lecture seule ; les données dépendent de la
+  version du contrôleur et des droits du compte ou de la clé. Meraki passe par l’API infonuagique
+  (accès Internet requis).
+- Testé sur des données de démonstration et des réponses recopiées seulement ; essais réels à
+  faire : imprimantes, NAS, pare-feu et serveurs variés pour l’empreinte, vrais services UDP
+  (SNMP, NTP, SIP, IPMI), certificats de serveurs Web et de courriel, et vrais contrôleurs UniFi,
+  Omada et Meraki.
+
 ## 0.28.0 — 2026-11-05
 
 La carte du réseau s’exporte enfin en livrable pour le client (PNG, PDF, SVG, draw.io) et entre
