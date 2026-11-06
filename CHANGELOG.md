@@ -1,5 +1,26 @@
 # Changements
 
+## 0.35.0 — 2026-11-06
+
+Câbles et VLAN (notes 89 et 90).
+
+### Ajouté
+- **Test de câble (TDR)** demandé au switch : clic droit sur un port › « Tester le câble… », ou
+  section « Test de câble » du détail du port. Résultat par paire (correcte, ouverte,
+  court-circuit, distance du défaut), historique du port, ajout au bilan de raccordement.
+  Cisco, Aruba AOS-S et AOS-CX, FortiSwitch (SSH ou par la FortiGate). Désactivé par défaut
+  (Réglages), confirmation qui prévient que le lien peut tomber ; liste fermée de commandes.
+- **Scanner un VLAN tagué** depuis le Mac (Scanner › « VLAN tagué… ») : interface 802.1Q
+  temporaire sur l’Ethernet (macOS demande le mot de passe administrateur), DHCP ou IP fixe,
+  scan, puis retrait de l’interface, même après une erreur ou à la fermeture ; reste nettoyé
+  au lancement suivant. VLAN proposés d’après LLDP/CDP, la FortiGate et les switchs.
+
+### Limites connues
+- Rien n’a été essayé sur de vrais switchs : formats de sortie TDR écrits d’après la
+  documentation, à confirmer ; Aruba AOS-S ne dit pas quelle paire est en défaut.
+- `networksetup -createVLAN` pas encore essayé en vrai ; macOS redemande le mot de passe
+  administrateur pour retirer l’interface.
+
 ## 0.34.0 — 2026-11-06
 
 Suite de l’Accès distant (note 67) et ordre alphabétique partout.

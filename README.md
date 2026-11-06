@@ -147,6 +147,8 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   RustDesk et le système, mise à jour planifiée la nuit par l’agent (0.33.1).
 - Terminal intégré : extraits personnalisés et envoi d’une commande à plusieurs sessions avec
   confirmation (0.34.0).
+- Test de câble demandé au switch (TDR, état de chaque paire et distance du défaut) et scan
+  d’un VLAN tagué depuis le Mac (0.35.0).
 
 ### Rapports
 
