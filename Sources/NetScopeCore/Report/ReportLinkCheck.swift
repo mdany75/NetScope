@@ -75,9 +75,15 @@ extension ReportBuilder {
         var title = r.location.isEmpty ? "Prise de \(r.interfaceName)" : r.location
         title += " — \(LinkCheckText.dateLabel(r.date)) · \(r.interfaceName)" + (r.interfaceKind.isEmpty ? "" : " (\(r.interfaceKind))")
         var blocks: [ReportBlock] = [.paragraph(clean(title + "\u{00A0}: " + r.headline.prefix(1).lowercased() + r.headline.dropFirst() + " (" + r.countsLabel + ")."))]
-        let rows = r.steps.map { s in
+        var rows = r.steps.map { s in
             ReportRow([ReportCell(s.kind.title, bold: true), ReportCell(s.status.label, badge: s.status.reportTone),
                        ReportCell(clean(s.summary)), ReportCell(clean(s.explanation), tone: .muted)])
+        }
+        // Note 89 : test de câble (TDR) du port, demandé au switch.
+        if let cable = r.cableTest {
+            rows.append(ReportRow([ReportCell("Test de câble", bold: true), ReportCell(cable.status.label, badge: cable.status.reportTone),
+                                   ReportCell(cable.headline),
+                                   ReportCell("\(cable.portLabel) · \(LinkCheckText.dateLabel(cable.date)) · " + cable.pairs.map(\.summary).joined(separator: ", "), tone: .muted)]))
         }
         blocks.append(.table(ReportTable(columns: [ReportColumn("Étape", weight: 0.9), ReportColumn("État", weight: 0.9),
                                                    ReportColumn("Résultat", weight: 1.6), ReportColumn("Explication", weight: 3.2)],

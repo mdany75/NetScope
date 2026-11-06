@@ -514,6 +514,13 @@ struct SwitchFaceplatePanel: View {
                                     onOpen: { index in
                                         store.select(host: snapshot.id, port: index)
                                         state.perform(.port(NavPortRef(host: snapshot.id, ifIndex: index)))
+                                    },
+                                    onCableTest: { index in
+                                        // Note 89 : clic droit › « Tester le câble… » (confirmation demandée).
+                                        store.select(host: snapshot.id, port: index)
+                                        if let iface = snapshot.interfaces.first(where: { $0.index == index }) {
+                                            CableTestModel.shared.ask(snapshot: snapshot, iface: iface, state: state)
+                                        }
                                     }) { index in
                         if let onSelect { onSelect(index) } else { store.select(host: snapshot.id, port: index) }
                     }
@@ -743,6 +750,8 @@ struct SwitchPortDetail: View {
             if iface.isPhysical {
                 divider
                 PortActionsSection(snapshot: snapshot, iface: iface)
+                divider
+                CableTestSection(snapshot: snapshot, iface: iface)
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)

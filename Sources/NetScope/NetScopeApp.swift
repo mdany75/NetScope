@@ -48,6 +48,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Exécutable SwiftPM lancé hors paquet : il faut le déclarer comme application ordinaire.
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        // Note 90 : interface VLAN temporaire restée d'un arrêt brutal : retirée.
+        MainActor.assumeIsolated { VLANScanModel.shared.cleanupLeftovers() }
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -71,6 +73,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             LogStore.saveOnQuitIfLoaded()
             // Note 64 : l'agent (s'il est activé) reprend les sondes, Syslog et les scans planifiés.
             AppPresenceKeeper.quit()
+            // Note 90 : l'interface VLAN temporaire n'est jamais laissée derrière.
+            VLANScanModel.shared.removeOnQuit()
         }
     }
 }

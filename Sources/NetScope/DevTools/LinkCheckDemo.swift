@@ -66,8 +66,13 @@ enum LinkCheckDemo {
             LinkCheckEvaluator.dns(dns(after: after), link: link),
             LinkCheckEvaluator.internet(internet(after: after), link: link),
         ]
+        // Note 89 : test de câble du port fait avant le bilan « après » (paires correctes).
+        let cable = after ? CableTestResult(date: date.addingTimeInterval(-900), switchName: "SW-ETG2-01", switchHost: "10.182.122.3",
+                                            portName: "1/22", vendor: .aruba, channel: "SSH (HPE Aruba)",
+                                            pairs: [1, 2, 3, 4].map { CablePairResult(pair: $0, status: .ok, meters: 38) }) : nil
         return LinkCheckResult(id: id, date: date, siteKey: SitesDemo.siegeKey, siteName: "Siège", location: location,
-                               interfaceName: "en7", interfaceKind: "Ethernet", steps: steps, duration: after ? 14.2 : 27.8)
+                               interfaceName: "en7", interfaceKind: "Ethernet", steps: steps, duration: after ? 14.2 : 27.8,
+                               cableTest: cable)
     }
 
     /// Bilan d'une autre prise, quelques jours plus tôt (historique).

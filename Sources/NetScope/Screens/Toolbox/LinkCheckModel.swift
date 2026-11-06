@@ -231,6 +231,12 @@ final class LinkCheckModel: ObservableObject {
 
     private func finish(_ result: LinkCheckResult, key: String, token: UUID, store: ToolStore) {
         guard token == runToken else { return }
+        // Note 89 : test de câble de ce port fait dans les dernières 24 h, ajouté au bilan.
+        var result = result
+        if result.cableTest == nil, let step = result.step(.switchPort), let name = step.fact("switch")?.value,
+           let port = step.fact("port")?.value {
+            result.cableTest = CableTestModel.shared.latest(switchName: name, port: port, since: Date().addingTimeInterval(-86_400))
+        }
         update(key) { $0.add(result) }
         shownID = result.id
         phase = .finished
