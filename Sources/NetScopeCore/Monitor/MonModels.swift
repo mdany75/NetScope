@@ -26,6 +26,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
     case tlsCertificate
     /// Serveur RustDesk (note 87) : hbbs ou hbbr arrêté, disque plein, clé publique changée (lecture SSH).
     case rustdeskServer
+    /// Serveur WireGuard (note 100) : conteneur wg-easy arrêté, clé publique du serveur changée (lecture SSH).
+    case wireguardServer
     /// Imprimante (note 91) : consommable sous le seuil (15 % par défaut), bourrage ou bac vide (Printer-MIB).
     case printerSupply
     /// Note 96 : serveur DHCP pirate (DHCPDISCOVER) et conflits d'adresses IP (ARP, scans, FortiGate).
@@ -65,6 +67,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .trapReceived: return "Trap SNMP reçue"
         case .tlsCertificate: return "Certificat TLS (jours restants)"
         case .rustdeskServer: return "Serveur RustDesk"
+        case .wireguardServer: return "Serveur WireGuard"
         case .printerSupply: return "Consommable bas (imprimante)"
         case .rogueDHCP: return "Serveur DHCP pirate"
         case .ipConflict: return "Conflit d’adresse IP"
@@ -101,6 +104,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .trapReceived: return "Trap"
         case .tlsCertificate: return "Certificat"
         case .rustdeskServer: return "RustDesk"
+        case .wireguardServer: return "WireGuard"
         case .printerSupply: return "Imprimante"
         case .rogueDHCP: return "DHCP pirate"
         case .ipConflict: return "Conflit IP"
@@ -133,7 +137,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .firmwareOutdated: return "Équipement, modèle ou famille (FortiAP), «\u{00A0}Siège / *\u{00A0}», ou «\u{00A0}*\u{00A0}»"
         case .syslogSeverity, .trapReceived: return "Adresse ou nom de l’appareil, ou «\u{00A0}*\u{00A0}» pour tous"
         case .tlsCertificate: return "Hôte:port (fw.exemple.ca:443, 10.0.0.1:8443, mail.exemple.ca:587)"
-        case .rustdeskServer: return "Compte SSH du serveur (admin@assistance.exemple.ca)"
+        case .rustdeskServer, .wireguardServer: return "Compte SSH du serveur (admin@assistance.exemple.ca)"
         case .printerSupply: return "Adresse IP ou nom de l’imprimante (SNMP)"
         case .rogueDHCP: return "Interface de ce Mac (en0)"
         case .ipConflict, .rogueAP: return "Site, ou «\u{00A0}*\u{00A0}» pour tous les sites"
@@ -404,6 +408,8 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
         case .rustdeskServer:
             let limit = Int(resourceLimit ?? MonProbe.defaultResourceLimit(.rustdeskServer))
             return "Alerte si hbbs ou hbbr s’arrête, si le disque dépasse \(limit)\(nbsp)% ou si la clé publique change"
+        case .wireguardServer:
+            return "Panne si le conteneur wg-easy s’arrête ou si la clé publique du serveur change"
         case .printerSupply:
             let limit = Int(resourceLimit ?? MonProbe.defaultResourceLimit(.printerSupply))
             return "Alerte si un consommable descend à \(limit)\(nbsp)% ou moins, panne si l’impression est bloquée (bourrage, bac vide)"

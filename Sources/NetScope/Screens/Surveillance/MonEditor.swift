@@ -488,6 +488,14 @@ private struct MonConditionFields: View {
                 Text("min d’autonomie, ou si la batterie est à changer\u{00A0}; panne au passage sur batterie (UPS-MIB, APC, Eaton, CyberPower)")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
             }
+        case .wireguardServer:
+            note("Lecture SSH en lecture seule (compte du serveur RustDesk)\u{00A0}: panne si le conteneur wg-easy s’arrête ou si la clé publique du serveur change. Clients surveillés et expirations\u{00A0}: onglet «\u{00A0}Serveur WireGuard\u{00A0}» d’Accès distant.")
+            if probe.knownThreats?.contains(where: { $0.hasPrefix(MonWireGuardChecks.keyPrefix) }) == true {
+                Button("Accepter la nouvelle clé") {
+                    probe.knownThreats = probe.knownThreats?.filter { !$0.hasPrefix(MonWireGuardChecks.keyPrefix) }
+                }
+                .help("Oublie la clé retenue\u{00A0}: la clé lue au prochain passage devient la clé connue.")
+            }
         case .rustdeskServer:
             HStack(spacing: 8) {
                 Text("Disque au-delà de").font(Theme.small).foregroundStyle(Theme.text).fixedSize()

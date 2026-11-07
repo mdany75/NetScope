@@ -558,6 +558,9 @@ final class RustDeskServerWatchModel: ObservableObject {
     // MARK: Note 88 : actions et mise à jour planifiée
 
     /// Mot de passe sudo d'une action confirmée (jamais en démonstration).
+    /// Note 100 : mot de passe sudo des lectures du serveur WireGuard (même compte que RustDesk).
+    func readSudoPassword() -> String? { sudoPassword(automatic: true) }
+
     func actionSudoPassword() -> String? {
         sudoRefused = false
         return sudoPassword(automatic: false)

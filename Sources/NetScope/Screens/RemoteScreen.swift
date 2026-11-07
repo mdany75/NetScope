@@ -12,6 +12,7 @@ struct RemoteScreen: View {
     @ObservedObject private var server = RustDeskServerModel.shared
     /// Correctif 0.27.3 : onglet « Assistance RustDesk » (mêmes règles que le tableau de bord).
     @ObservedObject private var rustdesk = RustDeskModel.shared
+    @ObservedObject private var wireguard = WireGuardServerModel.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -47,7 +48,7 @@ struct RemoteScreen: View {
                 // Note 57 : petite fenêtre et onglet de session affiché (terminal ou VNC) : la session
                 // prend toute la largeur (l'onglet « Sessions » ramène la liste des connexions).
                 // Note 6 (0.26.2) : le tableau de bord du serveur RustDesk se comporte comme un onglet de session.
-                let sessionShown = (sessions.activeTab != nil || server.isShown || rustdesk.isAssistanceShown) && model.draft == nil && model.tunnelDraft == nil
+                let sessionShown = (sessions.activeTab != nil || server.isShown || rustdesk.isAssistanceShown || wireguard.isShown) && model.draft == nil && model.tunnelDraft == nil
                 if !model.compactLayout || (browsing == nil && !sessionShown) {
                     RemoteConnectionList(model: model)
                         .frame(width: 272)
@@ -82,8 +83,14 @@ struct RemoteScreen: View {
             }
         }
         // Note 6 (0.26.2) : le tableau de bord du serveur ne lit que pendant que l'écran est affiché.
-        .onAppear { server.screenVisible = true }
-        .onDisappear { server.screenVisible = false }
+        .onAppear {
+            server.screenVisible = true
+            wireguard.screenVisible = true
+        }
+        .onDisappear {
+            server.screenVisible = false
+            wireguard.screenVisible = false
+        }
         .overlay {
             if model.showImport { RemoteImportOverlay(model: model) }
             if ftpServer.isPresented { FTPServerOverlay() }
@@ -135,7 +142,7 @@ struct RemoteScreen: View {
     /// Tableau de bord du serveur RustDesk ou page d'assistance RustDesk affichés : ils prennent la
     /// place de la colonne des détails (ni l'un ni l'autre ne porte sur la connexion choisie).
     private var dashboardShown: Bool {
-        (server.isShown || rustdesk.isAssistanceShown) && sessions.activeTab == nil && model.draft == nil && model.tunnelDraft == nil
+        (server.isShown || rustdesk.isAssistanceShown || wireguard.isShown) && sessions.activeTab == nil && model.draft == nil && model.tunnelDraft == nil
     }
 
     @ViewBuilder private var detailColumn: some View {

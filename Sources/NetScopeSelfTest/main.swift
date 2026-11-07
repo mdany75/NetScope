@@ -165,6 +165,8 @@ registerPrinterVoIPRollbackTests(suite)
 registerPirateTests(suite)
 // Notes 98 et 99 (1.2.0) : onduleurs par SNMP et historique des adresses MAC.
 registerUPSMACHistoryTests(suite)
+// Note 100 (1.3.0) : serveur WireGuard (wg-easy) : wg show, API de wg-easy 15, alertes.
+registerWireGuardTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

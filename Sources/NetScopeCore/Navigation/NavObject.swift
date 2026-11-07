@@ -113,7 +113,7 @@ public struct NavProbeRef: Hashable, Sendable {
             return MonTLSChecks.target(text)?.host
         case .printerSupply, .upsStatus:
             return text
-        case .rustdeskServer:
+        case .rustdeskServer, .wireguardServer:
             return (try? RustDeskServerAccount.parse(text))?.host
         }
     }
