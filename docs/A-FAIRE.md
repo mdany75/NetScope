@@ -1946,3 +1946,17 @@ les Mac, site probable d’après l’IP d’origine, réglages DNS et pare-feu 
 l’interface, historique des changements gardé sur disque (aujourd’hui en mémoire seulement),
 HTTPS avec certificat auto-signé (refusé), sonde de l’agent sans sudo par mot de passe. Les
 routes et champs de l’API de wg-easy 15 n’ont pas encore été essayés contre un vrai serveur.
+
+## 101. Serveur WireGuard : gestion désactivée expliquée — 1.3.1 (demande de Dany, 7 novembre 2026, à faire après la remise à zéro de l’usage du 8 novembre)
+
+Retour de Dany sur la 1.3.0 : les clients s’affichent « Pair pvPMc2cu… » (« ça me dit rien ») et
+« Ajouter un client » reste grisé sans explication (« ça fonctionne pas »). Cause : l’API de
+wg-easy n’est pas branchée (lecture seule) et sqlite3 manque sur le serveur.
+
+1. Bandeau clair quand l’API n’est pas branchée ou refusée : « Gestion désactivée : entrez
+   l’adresse et le mot de passe de l’API », avec les boutons « Réglages » et « Ouvrir
+   l’interface web ».
+2. Noms lisibles pour les pairs sans fiche : « Client sans nom · clé pvPMc2cu… », et un
+   rappel dans le tableau que les noms viennent de l’API.
+3. Lien vers l’interface web toujours accessible : adresse des réglages, sinon déduite de
+   l’hôte SSH et du port 51821 (`http://<hôte>:51821`), en ouvrant seulement le navigateur.
