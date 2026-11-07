@@ -1825,3 +1825,19 @@ Branché sur un port en trunk, scanner un autre VLAN sans changer de port.
   PDF dans les rapports.
 - Prolonge le relevé par pièce (0.27.0), qui reste une liste. Plus gros des chantiers de cette
   série.
+
+## 95. Petits restes des versions 0.33 à 0.37 — 0.37.1 (relevés le 6 novembre 2026, retenus par Dany)
+
+1. **Ordre alphabétique** des listes restées dans leur ordre : formats d’export (Inventaire,
+   Carte, Rapport), sources (Trafic, Speedtest, import), préréglages de capture, types
+   d’enregistrement courriel, services UDP (mêmes règles et exceptions que la 0.34.0).
+2. **Réglages › Sites et plages** en sombre et petite fenêtre (1000 × 650) : panneau de droite
+   coupé (« Plus… », colonne FortiGate).
+3. **Relevé Wi-Fi sur plan** : sortir les images des plans de `wifi-plans.json` dans des fichiers
+   à part (`wifi-plans/<id>.jpg`), pour ne plus resynchroniser tout le plan à chaque mesure ;
+   relecture des anciens fichiers et synchronisation (note 86) adaptées.
+4. **Extraits du terminal** : barre « Extraits » aussi dans la console série ; extraits
+   personnalisés synchronisés entre les Mac (note 86) et inclus dans les sauvegardes.
+5. **Captures du README** (`docs/captures/`) refaites avec la barre latérale actuelle.
+
+Reste du côté de Dany : essais sur le vrai réseau des versions 0.31.0 à 0.37.0.
