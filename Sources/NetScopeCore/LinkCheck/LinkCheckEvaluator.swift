@@ -116,7 +116,7 @@ public enum LinkCheckEvaluator {
             }
         }
         if measure.fromPreviousCapture {
-            explanation += " L’écoute directe n’était pas possible\(nb); lancez la Capture LLDP/CDP pour la confirmer."
+            explanation += " L’écoute n’a pas pu se faire cette fois\(nb): annonce reprise de la dernière écoute sur ce même lien."
         }
         let summary = neighbor.switchLabel + (neighbor.portLabel.map { " · port \($0)" } ?? "")
         return LinkCheckStep(kind: .switchPort, status: status, summary: summary, explanation: explanation, facts: facts,

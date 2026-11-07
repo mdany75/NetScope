@@ -39,7 +39,10 @@ struct LiveLinkCheckProbes: LinkCheckProbing {
         let start = Date()
         guard await Task.detached(operation: { BPFCapture.readableDevice() != nil }).value,
               let capture = try? BPFCapture(interface: link.name, filter: BPFFilter.neighbors, promiscuous: true) else {
-            return previousOrNothing(link, reason: "L’accès direct aux trames (/dev/bpf) n’est pas permis sur ce Mac\u{00A0}: lancez une fois la Capture LLDP/CDP (avec l’autorisation d’administrateur) sur cette prise, puis relancez le bilan.")
+            // Sans accès direct aux trames : le bilan écoute lui-même avec l'autorisation
+            // d'administrateur (même tcpdump que la Capture LLDP/CDP), sans renvoyer vers l'outil.
+            if let measure = await listenPrivileged(link, seconds: seconds) { return measure }
+            return previousOrNothing(link, reason: "Écoute LLDP/CDP non faite\u{00A0}: l’autorisation d’administrateur a été refusée ou n’a pas abouti.")
         }
         defer { capture.stop() }
         var frames: [CapturedFrame] = []
@@ -55,6 +58,43 @@ struct LiveLinkCheckProbes: LinkCheckProbing {
             }
         }
         return LinkCheckNeighborMeasure(neighbor: nil, listenedSeconds: Date().timeIntervalSince(start))
+    }
+
+    /// Écoute LLDP/CDP par tcpdump avec l'autorisation d'administrateur (fenêtre de macOS) ; nil si
+    /// l'autorisation est refusée ou si l'écoute n'a jamais commencé.
+    private func listenPrivileged(_ link: LinkCheckLink, seconds: TimeInterval) async -> LinkCheckNeighborMeasure? {
+        guard let session = try? PrivilegedCaptureSession(interface: link.name, purpose: .neighbors,
+                                                           seconds: max(5, Int(seconds.rounded(.up)))) else { return nil }
+        let ended = LinkCheckEndFlag()
+        do { try session.start { _ in ended.set() } } catch { return nil }
+        let authorizationDeadline = Date().addingTimeInterval(120)
+        var listeningSince: Date?
+        var found: NetworkNeighbor?
+        while !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            if listeningSince == nil, session.isListening { listeningSince = Date() }
+            if listeningSince != nil {
+                let frames = await Task.detached { session.frames(final: false) }.value
+                let decoded = NeighborFrameDecoder.neighbors(in: frames, interface: link.name)
+                if let first = decoded.first(where: { $0.protocols.contains(.lldp) }) ?? decoded.first { found = first; break }
+            }
+            if ended.isSet { break }
+            if listeningSince == nil, Date() > authorizationDeadline { break }
+            if let start = listeningSince, Date().timeIntervalSince(start) > seconds { break }
+        }
+        let started = listeningSince
+        if !ended.isSet {
+            session.stop()
+            for _ in 0..<40 where !ended.isSet { try? await Task.sleep(nanoseconds: 100_000_000) }
+            if !ended.isSet { session.cancel() }
+        }
+        if found == nil, started != nil {
+            let decoded = NeighborFrameDecoder.neighbors(in: session.frames(final: true), interface: link.name)
+            found = decoded.first(where: { $0.protocols.contains(.lldp) }) ?? decoded.first
+        }
+        session.cleanup()
+        guard let start = started else { return nil }
+        return LinkCheckNeighborMeasure(neighbor: found, listenedSeconds: Date().timeIntervalSince(start))
     }
 
     /// Voisin de la dernière capture, s'il a été entendu sur ce même lien (même interface, même
@@ -132,4 +172,12 @@ struct LiveLinkCheckProbes: LinkCheckProbing {
             return LinkCheckInternetMeasure(url: url, error: (error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
         }
     }
+}
+
+/// Fin de la session tcpdump, signalée depuis un fil quelconque.
+private final class LinkCheckEndFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    func set() { lock.lock(); value = true; lock.unlock() }
+    var isSet: Bool { lock.lock(); defer { lock.unlock() }; return value }
 }

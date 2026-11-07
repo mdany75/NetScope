@@ -23,7 +23,11 @@ final class ToolNeighborModel: ObservableObject {
     @Published private(set) var deadline: Date?
     @Published private(set) var startedAt: Date?
     /// Voisins de la capture en cours (ou de la dernière).
-    @Published private(set) var neighbors: [NetworkNeighbor] = []
+    /// Voisins entendus pendant la capture en cours. Le premier est retenu dès qu'il arrive (et pas
+    /// seulement à l'arrêt de la capture) : le bilan de raccordement lancé pendant l'écoute le reprend.
+    @Published private(set) var neighbors: [NetworkNeighbor] = [] {
+        didSet { if isRunning, !isDemo { rememberPrimary() } }
+    }
     /// Dernier voisin reçu, gardé entre les lancements (encart de Switchs et ports).
     @Published private(set) var lastNeighbor: NetworkNeighbor?
     /// Réseau de la dernière capture (interface, sous-réseau, passerelle), gardé avec le voisin :
@@ -246,6 +250,16 @@ final class ToolNeighborModel: ObservableObject {
         session.cleanup()
         self.session = nil
         finish(recordResult: outcome == .finished && error == nil)
+    }
+
+    /// Retient le voisin principal et son réseau (même règle qu'à la fin de la capture).
+    private func rememberPrimary() {
+        guard let primary else { return }
+        let name = interfaceName
+        lastNeighbor = primary
+        lastContext = Self.context(of: interfaces.first { $0.name == name } ?? LocalInterface(name: name, address: IPv4Address(0), netmask: IPv4Address(0)),
+                                   active: activeHint, linkStamp: LocalInterfaces.linkStamps()[name])
+        save()
     }
 
     private func finish(recordResult: Bool = true) {

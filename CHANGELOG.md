@@ -1,5 +1,16 @@
 # Changements
 
+## 1.2.1 — 2026-11-06
+
+### Corrigé
+- **Bilan de raccordement** : le port de switch, le VLAN et le PoE restaient « Non mesuré »
+  quand l’accès direct aux trames n’est pas permis. Le bilan écoute maintenant lui-même les
+  annonces LLDP/CDP avec l’autorisation d’administrateur (fenêtre de macOS), sans renvoyer vers
+  la Capture LLDP/CDP. Si l’autorisation est refusée, il reprend la dernière annonce entendue
+  sur ce même lien.
+- **Capture LLDP/CDP** : le voisin est retenu dès qu’il est entendu, et non plus seulement à
+  l’arrêt de la capture ; un bilan lancé pendant l’écoute le reprend.
+
 ## 1.2.0 — 2026-11-06
 
 Onduleurs et historique des MAC (notes 98 et 99).
