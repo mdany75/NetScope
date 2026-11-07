@@ -122,7 +122,7 @@ struct SpeedServersView: View {
         let all = model.allServers
         return Picker("Source", selection: $model.serverSourceFilter) {
             Text("Toutes \(all.count)").tag(SpeedServerSource?.none)
-            ForEach(SpeedServerSource.allCases, id: \.self) { source in
+            ForEach(SpeedServerSource.ordered, id: \.self) { source in
                 let count = all.filter { $0.source == source }.count
                 if count > 0 || (source == .ookla && model.ooklaEnabled) {
                     Text("\(source == .custom ? "Perso." : source.label) \(count)").tag(SpeedServerSource?.some(source))

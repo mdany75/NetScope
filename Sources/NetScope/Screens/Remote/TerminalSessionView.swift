@@ -27,7 +27,7 @@ struct TerminalSessionView: View {
             banners
             if session.searchVisible { searchBar }
             terminalBox
-            if session.kind != .serial { snippetBar }
+            snippetBar
             statusBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

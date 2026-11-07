@@ -84,6 +84,9 @@ public struct TerminalSnippet: Codable, Hashable, Identifiable, Sendable {
         return nil
     }
 
+    /// Préférence des extraits personnalisés (synchronisée et sauvegardée avec « Accès distant »).
+    public static let preferenceKey = "acces.terminal.extraits"
+
     /// Extraits enregistrés (JSON des réglages) ; une donnée illisible donne une liste vide.
     public static func decodeList(_ data: Data?) -> [TerminalSnippet] {
         guard let data, let list = try? JSONDecoder().decode([TerminalSnippet].self, from: data) else { return [] }
@@ -111,9 +114,10 @@ public struct TerminalSnippetItem: Hashable, Identifiable, Sendable {
 
 public enum TerminalSnippetLibrary {
     /// Extraits d'une session : d'abord ceux de l'utilisateur (de sa marque ou pour toutes),
-    /// puis ceux de la marque, chaque groupe en ordre alphabétique.
+    /// puis ceux de la marque, chaque groupe en ordre alphabétique. Session sans marque connue
+    /// (console série, Telnet ; note 95) : tous les extraits de l'utilisateur.
     public static func items(brand: TerminalSnippetBrand?, custom: [TerminalSnippet]) -> [TerminalSnippetItem] {
-        let mine = custom.filter { $0.brand == nil || $0.brand == brand }
+        let mine = custom.filter { brand == nil || $0.brand == nil || $0.brand == brand }
             .sortedFrench(by: \.name)
             .map { TerminalSnippetItem(id: "perso-" + $0.id.uuidString, title: $0.name, command: $0.command,
                                        sendsReturn: $0.sendsReturn, customID: $0.id) }

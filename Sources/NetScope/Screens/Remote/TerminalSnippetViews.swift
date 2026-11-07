@@ -6,12 +6,14 @@ import SwiftUI
 // Note 67 (0.34.0) : extraits personnalisés du terminal intégré et envoi d'une même commande à
 // plusieurs sessions ouvertes (choix des sessions, puis confirmation). Les extraits sont des
 // commandes, jamais des secrets : ils vont dans les réglages (UserDefaults), pas au Trousseau.
+// Note 95 : la préférence voyage avec la synchronisation (partie « Accès distant ») et les
+// sauvegardes, et elle est relue à chaud quand un autre Mac la change.
 
 /// Extraits enregistrés par l'utilisateur.
 @MainActor
 final class TerminalSnippetStore: ObservableObject {
     static let shared = TerminalSnippetStore()
-    private static let key = "acces.terminal.extraits"
+    static let key = TerminalSnippet.preferenceKey
 
     private let defaults: UserDefaults?
     @Published private(set) var snippets: [TerminalSnippet]
@@ -33,6 +35,13 @@ final class TerminalSnippetStore: ObservableObject {
     ]
 
     func snippet(_ id: UUID) -> TerminalSnippet? { snippets.first { $0.id == id } }
+
+    /// Synchronisation (note 86) : extraits changés sur un autre Mac.
+    func reloadFromDisk() {
+        guard let defaults else { return }
+        let list = TerminalSnippet.decodeList(defaults.data(forKey: Self.key))
+        if list != snippets { snippets = list }
+    }
 
     func save(_ snippet: TerminalSnippet) {
         if let index = snippets.firstIndex(where: { $0.id == snippet.id }) {

@@ -7,6 +7,9 @@ import Foundation
 public enum SpeedServerSource: String, Codable, CaseIterable, Sendable {
     case cloudflare, mlab, librespeed, ookla, custom
 
+    /// Sources en ordre alphabétique, « Personnalisé » à la fin.
+    public static var ordered: [SpeedServerSource] { allCases.sortedFrench(by: \.label, last: [custom.label]) }
+
     public var label: String {
         switch self {
         case .cloudflare: return "Cloudflare"

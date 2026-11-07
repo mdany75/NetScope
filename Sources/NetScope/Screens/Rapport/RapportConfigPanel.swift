@@ -214,7 +214,7 @@ struct RapportConfigPanel: View {
                 SectionHeader("Format de sortie").padding(.bottom, 8)
                 // Contrôle segmenté natif, sur toute la largeur de la colonne.
                 Picker("Format de sortie", selection: $model.config.format) {
-                    ForEach(ReportFormat.allCases) { format in
+                    ForEach(ReportFormat.ordered) { format in
                         Text(format.label).tag(format)
                     }
                 }

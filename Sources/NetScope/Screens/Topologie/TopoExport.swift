@@ -140,6 +140,9 @@ struct TopoExportView: View {
 enum TopoExportFormat: String, CaseIterable, Identifiable {
     case png, pdf, svg, drawio
 
+    /// Formats en ordre alphabétique.
+    static var ordered: [TopoExportFormat] { allCases.sortedFrench(by: \.menuLabel) }
+
     var id: String { rawValue }
 
     var menuLabel: String {

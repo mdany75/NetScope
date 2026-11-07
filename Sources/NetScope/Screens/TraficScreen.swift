@@ -47,6 +47,9 @@ enum TrafficTab: Hashable {
 enum TrafficSourceKind: String, CaseIterable {
     case fortiView, flows
 
+    /// Sources en ordre alphabétique.
+    static var ordered: [TrafficSourceKind] { allCases.sortedFrench(by: \.label) }
+
     var label: String {
         switch self {
         case .fortiView: return "FortiView"
@@ -294,7 +297,7 @@ struct TraficScreen: View {
     @ViewBuilder private var sourcePicker: some View {
         if screen.part == .trafic {
             Picker("Source", selection: $screen.source) {
-                ForEach(TrafficSourceKind.allCases, id: \.self) { Text($0.label).tag($0) }
+                ForEach(TrafficSourceKind.ordered, id: \.self) { Text($0.label).tag($0) }
             }
             .labelsHidden()
             .pickerStyle(.menu)

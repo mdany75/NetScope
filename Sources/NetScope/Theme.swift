@@ -130,8 +130,9 @@ enum Theme {
     static let chipRadius: CGFloat = 4
     static let controlHeight: CGFloat = 28
     static let contentPadding: CGFloat = 16
-    /// Note 79 : 232 (au lieu de 220) pour que « Historique et adressage » et sa pastille tiennent.
-    static let sidebarWidth: CGFloat = 232
+    /// Note 79 : 232 (au lieu de 220) pour que « Historique et adressage » et sa pastille tiennent ;
+    /// 248 depuis la 0.37.1 (marges des barres latérales plus larges dans les macOS récents).
+    static let sidebarWidth: CGFloat = 248
     /// Largeur sous laquelle le panneau de droite d'un écran se replie (bouton pour l'afficher).
     static let compactWidth: CGFloat = 980
 }

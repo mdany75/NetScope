@@ -113,7 +113,7 @@ struct PacketCaptureView: View {
 
     private var presetMenu: some View {
         Menu {
-            ForEach(CapturePreset.allCases) { preset in
+            ForEach(CapturePreset.ordered) { preset in
                 Button {
                     model.applyPreset(preset, gateway: state.activeInterface?.gateway)
                 } label: {

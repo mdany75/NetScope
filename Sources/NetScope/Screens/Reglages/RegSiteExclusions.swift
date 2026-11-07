@@ -71,19 +71,40 @@ struct RegSiteExclusionsBox: View {
         .padding(.horizontal, 10).padding(.vertical, 7)
     }
 
+    /// Une ligne en grande fenêtre ; en petite (note 95), la plage, puis la note et le bouton.
     private var addForm: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            TextField("Plage", text: $newText, prompt: Text("10.93.226.254, 10.93.226.1-50 ou 10.255.1.0/24"))
-                .textFieldStyle(.roundedBorder).font(Theme.mono(12))
-                .frame(minWidth: 200, maxWidth: .infinity)
-                .onSubmit(add)
-            TextField("Note", text: $newNote, prompt: Text("Note (ex. automates, FortiLink)"))
-                .textFieldStyle(.roundedBorder)
-                .frame(minWidth: 140, maxWidth: 240)
-                .onSubmit(add)
-            Button("Exclure", action: add)
-                .disabled(newText.trimmingCharacters(in: .whitespaces).isEmpty)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .bottom, spacing: 8) {
+                rangeField.frame(minWidth: 200, maxWidth: .infinity)
+                noteField.frame(minWidth: 140, maxWidth: 240)
+                excludeButton
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                rangeField
+                HStack(alignment: .bottom, spacing: 8) {
+                    noteField.frame(maxWidth: .infinity)
+                    excludeButton
+                }
+            }
         }
+    }
+
+    private var rangeField: some View {
+        TextField("Plage", text: $newText, prompt: Text("10.93.226.254, 10.93.226.1-50 ou 10.255.1.0/24"))
+            .textFieldStyle(.roundedBorder).font(Theme.mono(12))
+            .onSubmit(add)
+    }
+
+    private var noteField: some View {
+        TextField("Note", text: $newNote, prompt: Text("Note (ex. automates, FortiLink)"))
+            .textFieldStyle(.roundedBorder)
+            .onSubmit(add)
+    }
+
+    private var excludeButton: some View {
+        Button("Exclure", action: add)
+            .disabled(newText.trimmingCharacters(in: .whitespaces).isEmpty)
+            .fixedSize()
     }
 
     private func add() {
