@@ -1891,3 +1891,29 @@ Inspiré de Netdisco.
   fiche Appareil ; export CSV.
 - Alimenté par les scans, les relevés des switchs et de la FortiGate déjà faits (rien de plus
   sur le réseau) ; durée de conservation réglable ; par site.
+
+## 100. Accès distant : onglet « Serveur WireGuard » — 1.3.0 (demande de Dany, 7 novembre 2026)
+
+« J’ai WireGuard d’installé aussi sur le même serveur : est-ce que tu peux avoir un onglet de
+gestion aussi ? » Même serveur que RustDesk, même compte SSH (sudo au Trousseau), onglet à côté
+de « Serveur RustDesk ». Aucune valeur réelle dans ce dépôt.
+
+- **Lecture (sans risque)** : interfaces WireGuard (`wg show all dump`) : clé publique du serveur,
+  port d’écoute, état du service (`wg-quick@wg0` ou conteneur Docker, ex. wg-easy) ; pour chaque
+  pair : nom, adresse VPN, IP publique d’origine, dernière poignée de main, octets reçus et
+  envoyés, connecté ou non ; débit dans le temps et historique des connexions, comme le
+  tableau de bord RustDesk.
+- **Gestion (avec confirmation)** : ajouter un pair (clés générées sur le serveur ou sur ce Mac,
+  adresse VPN libre proposée, fichier `.conf` et code QR pour un téléphone), désactiver ou
+  retirer un pair, renommer et noter (nom et note par pair, synchronisés entre les Mac),
+  redémarrer l’interface. Configuration sauvegardée avant chaque changement, retour arrière.
+- **Surveillance** : sonde « Serveur WireGuard » (service arrêté, port UDP injoignable, pair
+  important déconnecté depuis X heures), section des rapports, alerte si la clé du serveur
+  change.
+- **FortiGate** : vérifier la VIP du port UDP de WireGuard, comme pour les VIP RustDesk.
+- **Mises à jour** : version de WireGuard et de l’image Docker, avec la mise à jour du système
+  déjà faite par l’onglet RustDesk (note 88).
+- Les clés privées des pairs ne sont jamais gardées par NetScope (seulement dans le fichier
+  remis à l’usager) ; jamais rien dans les tests ni en démo.
+- À préciser avant de commencer : WireGuard installé à la main (`wg-quick`) ou par un conteneur
+  (wg-easy, linuxserver/wireguard).
