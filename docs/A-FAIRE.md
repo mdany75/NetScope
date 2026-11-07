@@ -1920,5 +1920,16 @@ de « Serveur RustDesk ». Aucune valeur réelle dans ce dépôt.
   création, activation et suppression des clients, fichier `.conf` et code QR), et par SSH pour
   `wg show`, les journaux du conteneur et sa mise à jour. Le mot de passe de wg-easy est saisi
   par Dany dans NetScope et rangé au Trousseau, jamais ailleurs ; HTTPS conseillé (sinon
-  avertissement : l’interface est en HTTP simple sur le réseau local). Version 14 ou 15 de
-  wg-easy à reconnaître (API différente).
+  avertissement : l’interface est en HTTP simple sur le réseau local).
+- Version reconnue d’après la capture de Dany (7 novembre 2026) : **wg-easy 14 ou plus ancienne**
+  (« Clients », « Restore », « Backup », « New », « © 2021-2024 », bouton « Logout »).
+  API : `POST /api/session` (mot de passe), `GET /api/wireguard/client` (nom, adresse, activé,
+  dernière poignée de main, octets reçus et envoyés), `POST /api/wireguard/client` (nouveau),
+  `POST …/client/<id>/enable` et `…/disable`, `DELETE …/client/<id>`, `PUT …/client/<id>/name`,
+  `GET …/client/<id>/configuration` et `…/qrcode.svg`, `GET /api/wireguard/backup` (sauvegarde
+  avant chaque changement) et `PUT /api/wireguard/restore`. Reconnaître aussi la 15 (nouvelle
+  API) et le dire si elle n’est pas prise en charge.
+- Ce que l’onglet doit reprendre de l’interface web : nom, adresse VPN, interrupteur
+  activé/désactivé, débit actuel ↓ ↑ et totaux, « il y a 2 minutes », code QR, téléchargement du
+  `.conf`, suppression, sauvegarde et restauration. Ajouts de NetScope : IP d’origine (par
+  `wg show`), historique et graphe, nom et note, sonde, rapport, VIP de la FortiGate.
