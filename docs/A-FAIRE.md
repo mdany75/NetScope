@@ -1915,5 +1915,10 @@ de « Serveur RustDesk ». Aucune valeur réelle dans ce dépôt.
   déjà faite par l’onglet RustDesk (note 88).
 - Les clés privées des pairs ne sont jamais gardées par NetScope (seulement dans le fichier
   remis à l’usager) ; jamais rien dans les tests ni en démo.
-- À préciser avant de commencer : WireGuard installé à la main (`wg-quick`) ou par un conteneur
-  (wg-easy, linuxserver/wireguard).
+- Précisé par Dany le 7 novembre 2026 : **wg-easy** (conteneur Docker, interface web sur le port
+  TCP 51821). NetScope passe donc d’abord par l’API de wg-easy (session par mot de passe, liste,
+  création, activation et suppression des clients, fichier `.conf` et code QR), et par SSH pour
+  `wg show`, les journaux du conteneur et sa mise à jour. Le mot de passe de wg-easy est saisi
+  par Dany dans NetScope et rangé au Trousseau, jamais ailleurs ; HTTPS conseillé (sinon
+  avertissement : l’interface est en HTTP simple sur le réseau local). Version 14 ou 15 de
+  wg-easy à reconnaître (API différente).
