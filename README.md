@@ -25,46 +25,26 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
 - **Fortinet en profondeur** : FortiSwitch, bornes FortiAP, liens WAN et VPN, FortiView,
   firmware, licences et journaux, lus par l’API ; seules les actions sur les ports (cycle PoE,
   désactivées par défaut) modifient quelque chose, après confirmation.
-- **Une seule fenêtre pour tout le travail** : scan, ping, Wi-Fi, outils de diagnostic,
-  rapports PDF, terminal SSH et Telnet, console série et VNC intégrés, et depuis la 0.23.0 un
-  journal de l’app avec « Exporter un diagnostic » et une fiche matériel remplie toute seule ;
-  depuis la 0.25.0, SNMP v3 partout, un Navigateur SNMP, le trafic de chaque port sur 30 jours
-  et le cycle PoE d’un port à distance ; depuis la 0.26.0, un Bilan de raccordement en un clic
-  (avant/après), le vrai MTU du chemin, le Ping continu en TCP et HTTP(S), les éléments des
-  balises Wi-Fi, les tunnels SSH et le saut par bastion ; depuis la 0.26.1, l’assistance à
-  distance par RustDesk avec ton propre serveur (carnet des postes, test du serveur, ports
-  RustDesk reconnus dans les scans) ; depuis la 0.26.2, un tableau de bord du serveur RustDesk
-  lu par SSH en lecture seule (sessions relayées, demandes de connexion, état de hbbs et hbbr) ;
-  depuis la 0.27.0, Switchs et ports et FortiAP en onglets, le meilleur canal Wi-Fi et le
-  relevé par pièce, les plages exclues, la base des fabricants tenue à jour toute seule, un
-  Speedtest planifié par site, les fenêtres de maintenance de la Surveillance, le rapport de
-  disponibilité (aussi en DOCX et envoyé par courriel), les liens LLDP sur la Carte, Syslog en
-  TCP, les décodeurs et constats de la Capture de paquets, un serveur iperf3 intégré et
-  XMODEM/YMODEM en console série ; depuis la 0.27.1, plus d’alerte « Appareil déplacé » quand
-  un appareil Wi-Fi passe d’une borne à l’autre, et une carte d’occupation qui distingue Wi-Fi,
-  filaire et adresses DHCP ; la 0.27.2 garde le panneau de détails de l’Accès distant
-  dans sa colonne et corrige une fermeture de l’app à l’enregistrement d’une connexion ; la
-  0.27.3 donne à l’assistance RustDesk son propre onglet, avec l’historique complet des
-  sessions dans un tableau ; la 0.28.0 exporte la carte du réseau (PNG, PDF, SVG, draw.io) et
-  l’ajoute aux rapports, reçoit les flux NetFlow, sFlow et IPFIX de toute marque dans Trafic,
-  liste les partages SMB d’un hôte et envoie les alertes sur téléphone par ntfy ou Pushover ;
-  la 0.29.0 synchronise toutes les données entre tes Mac (sites, inventaires, Accès distant,
-  Surveillance, alertes, réglages), secrets chiffrés et remis au Trousseau de chaque Mac ;
-  la 0.30.0 reconnaît le système et les versions des services sans Nmap, sonde les ports UDP
-  avec de vraies requêtes, vérifie les certificats TLS (seul ou tout un site) et lit en lecture
-  seule les contrôleurs UniFi, Omada et Meraki.
+- **Une seule fenêtre pour tout le travail** : scan, ping, Wi-Fi, switchs, outils de diagnostic,
+  surveillance, rapports PDF, terminal SSH, Telnet et série, VNC et assistance RustDesk, sans
+  passer d’une application à l’autre.
+- **Sécurité du réseau** : serveur DHCP pirate, conflits d’adresses IP, bornes Wi-Fi pirates,
+  certificats TLS, firmware et licences à mettre à jour, sauvegarde des configurations.
+- **Même quand l’app est fermée** : un agent en arrière-plan garde les sondes, Syslog, les scans
+  planifiés et la mise à jour planifiée du serveur RustDesk.
 
-> **État du projet** : NetScope est en développement actif (0.x). Les fonctions réseau
-> (FortiGate, FortiAP, SNMP, Syslog, sessions SSH, Telnet, série et VNC) sont testées sur des
-> données de démonstration et attendent encore des essais sur de vrais équipements ; voir les
-> limites connues dans le [CHANGELOG](CHANGELOG.md).
+> **État du projet** : NetScope est stable depuis la 1.0.0 et utilisé sur de vrais réseaux
+> (FortiGate, FortiSwitch, FortiAP, SNMP). Les fonctions les plus récentes (onduleurs, bornes
+> pirates, test de câble, relevé Wi-Fi sur plan…) attendent encore des essais sur le terrain ;
+> voir les limites connues de chaque version dans le [CHANGELOG](CHANGELOG.md).
 
 ## Fonctions
 
 ### Découverte
 
 - Plusieurs plages IPv4 à la fois (`10.0.0.0/24`, `192.168.1.1-254`, liste…), ping ICMP sans droits
-  administrateur, table ARP et 22 ports essentiels sondés à chaque scan.
+  administrateur, table ARP et 22 ports essentiels sondés à chaque scan ; voisins IPv6 (NDP),
+  plages exclues, **scans planifiés** par site et **scan d’un VLAN tagué** depuis le Mac.
 - Nom de chaque appareil avec sa source (DNS inverse, mDNS/Bonjour, NetBIOS, sysName SNMP),
   fabricant d’après le registre IEEE complet (environ 53 700 préfixes) et type d’appareil.
 - Colonnes **Switch / Port** et **VLAN** remplies seules : découverte SNMP v2c ou v3 des switchs
@@ -75,7 +55,10 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   avec **export de la carte entière** en PNG, PDF, SVG ou draw.io modifiable,
   et **Inventaire** permanent : chronologie des changements d’IP et de port, garantie, pièces
   jointes, étiquettes, import et export CSV ; modèle, numéro de série et
-  firmware lus tout seuls (SNMP ENTITY-MIB, sysDescr, FortiGate).
+  firmware lus tout seuls (SNMP ENTITY-MIB, sysDescr, FortiGate) ; vues **Imprimantes** (toner
+  et consommables) et **Onduleurs** (batterie, autonomie).
+- **Historique et adressage** : occupation de chaque plage, changements d’IP, et « Où était cet
+  appareil ? » : ports, IP, VLAN et bornes où une adresse MAC a été vue, sur des mois.
 
 ### Diagnostic
 
@@ -86,8 +69,13 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   **Ressources** (processeur, mémoire, disques et trafic par SNMP).
   Sans appareil choisi, une fiche s’ouvre par IP, nom ou MAC, et un appareil absent du
   Scanner se saisit à la main.
-- Capture **LLDP/CDP** : le switch, le port, le VLAN et le PoE où ce Mac est branché.
-- **Test DHCP** sans prendre de bail, avec alerte si un serveur n’est pas autorisé.
+- **Bilan de raccordement** en un clic sur une prise : lien, switch et port, VLAN, PoE, DHCP,
+  passerelle, DNS et Internet, avec comparaison avant/après ; **Capture LLDP/CDP** du switch,
+  du port, du VLAN et du PoE où ce Mac est branché.
+- **Test DHCP** sans prendre de bail : chaque serveur qui répond est jugé attendu ou **pirate** ;
+  **Conflits d’adresses IP** (même IP sur deux MAC, réponses ARP contradictoires).
+- Test MTU réel, traceroute UDP et TCP, empreinte du système et des services, scan de ports UDP,
+  vérification des **certificats TLS**, **qualité VoIP** (note MOS des appels captés ou simulés).
 - **Journal de l’app** (Réglages › Journal et diagnostic) : erreurs et avertissements de chaque
   module, secrets masqués, et « Exporter un diagnostic… » en .zip à joindre à un signalement.
 
@@ -95,7 +83,10 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
 
 - Connexion de ce Mac (RSSI, bruit, SNR, canal, débit), réseaux voisins et graphe des canaux
   2,4, 5 et 6 GHz, avec recommandations.
-- **Bornes FortiAP** de chaque site : état, radios, clients, SSID, AP voisins ou non autorisés.
+- **Bornes FortiAP** de chaque site : état, radios, clients, SSID, AP voisins ou non autorisés ;
+  onglet **Pirates** (sosies de tes SSID, bornes inconnues branchées sur un port de switch).
+- **Relevé sur plan** : plan d’étage importé, mesures en marchant, carte de chaleur, zones
+  mortes, chevauchements de canaux et emplacement suggéré d’une borne.
 - **« Diagnostiquer »** un client, une borne ou un SSID : signal, canal, interférences, charge,
   authentification, DHCP, puis les actions à faire dans l’ordre.
 
@@ -114,12 +105,19 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
 - **Firmware et licences** : versions FortiOS, FortiSwitch et FortiAP, licences FortiGuard et
   FortiCare avec alerte avant l’expiration.
 - **Étendues DHCP** de la FortiGate, avec leur taux d’occupation.
+- **Configurations** : sauvegarde de la FortiGate (API) et des switchs (SSH, commandes de lecture
+  seulement), historique et comparaison avant/après, secrets masqués.
+- **Test de câble** demandé au switch (TDR) : état de chaque paire et distance du défaut ;
+  désactivé par défaut, avec confirmation.
+- Contrôleurs **UniFi, Omada et Meraki** en lecture seule.
 
 ### Suivi
 
 - **Surveillance** : sondes ping, TCP, HTTP(S) (certificat, mot-clé), DNS, SNMP, port de switch,
   nouveaux appareils, licences et plus, avec seuils, plages horaires et dépendances ;
-  disponibilité sur 24 h et icône dans la barre des menus.
+  disponibilité sur 24 h et icône dans la barre des menus ; aussi DHCP pirate, conflit d’IP,
+  borne pirate, consommable d’imprimante bas, onduleur et serveur RustDesk. Un **agent** les
+  garde actives quand l’app est fermée (désactivé par défaut).
 - Alertes par notification macOS, courriel, webhook (Teams, Slack, JSON) ou sur téléphone par
   ntfy et Pushover, avec un filtre par canal.
 - **Journaux** : récepteur Syslog et traps SNMP sur ce Mac, journaux d’événements de la
@@ -140,30 +138,19 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   observation seule, presse-papiers texte. RDP s’ouvre dans Windows App.
 - Navigateur de fichiers en deux volets (FTP, FTPS, SFTP) et serveur FTP temporaire.
 - **Assistance RustDesk** dans son propre onglet : ID de l’usager, ajout au carnet, lien
-  d’assistance à copier et historique complet des sessions (recherche, reconnexion) ; onglet
-  **Serveur RustDesk** pour suivre le serveur auto-hébergé : santé, mises à jour à vérifier,
-  clé et sauvegarde, historique et rapport mensuel, tentatives suspectes, journaux, nom et note
-  par ID, ID associé à la MAC du poste (0.33.0) ; déconnecter une session, mettre à jour
-  RustDesk et le système, mise à jour planifiée la nuit par l’agent (0.33.1).
-- Terminal intégré : extraits personnalisés et envoi d’une commande à plusieurs sessions avec
-  confirmation (0.34.0).
-- Test de câble demandé au switch (TDR, état de chaque paire et distance du défaut) et scan
-  d’un VLAN tagué depuis le Mac (0.35.0).
-- Relevé Wi-Fi sur plan : carte de chaleur, zones mortes, chevauchements de canaux, bornes
-  placées, export PDF et section des rapports (0.36.0).
-- Consommables des imprimantes par SNMP, qualité VoIP (MOS) et retour à une version précédente
-  de NetScope (0.37.0).
-- **1.0.0** : première version stable ; vue « Imprimantes » de l’Inventaire, extraits dans la
-  console série, ordre alphabétique partout.
-- **1.1.0** : serveur DHCP pirate, conflits d’adresses IP et bornes Wi-Fi pirates, avec sondes et
-  rapport.
-- **1.2.0** : onduleurs par SNMP (fiche, Inventaire, sonde, rapport) et historique d’une adresse
-  MAC sur plusieurs mois.
+  d’assistance à copier et historique complet des sessions (recherche, reconnexion).
+- **Serveur RustDesk** auto-hébergé (lu par SSH) : sessions relayées, santé, mises à jour de
+  RustDesk et du système, clé publique et sauvegarde de la clé et de la base, historique et
+  rapport mensuel, tentatives suspectes, journaux, nom et note par ID, ID associé à la MAC du
+  poste ; « Déconnecter » une session, mise à jour (avec retour arrière) et mise à jour
+  planifiée la nuit, toujours avec confirmation.
+- Extraits personnalisés et **envoi d’une commande à plusieurs sessions**, avec confirmation.
 
 ### Rapports
 
 - Rapport client en **PDF** (format lettre, pagination, signature), quatre modèles et des
-  sections tirées du scan, de l’inventaire, des switchs, du Wi-Fi et de la carte du réseau.
+  sections tirées du scan, de l’inventaire, des switchs, du Wi-Fi, de la carte du réseau, des
+  pirates et conflits, des imprimantes, des onduleurs, de la VoIP et du relevé Wi-Fi sur plan.
 - Exports CSV, JSON et HTML ; brouillon Mail avec le PDF joint.
 - Section « Depuis le dernier rapport », rapports passés par site et rapports planifiés
   (chaque jour, semaine ou mois, quand NetScope est ouvert).
@@ -248,24 +235,24 @@ vérifiée avant l’installation).
 - **Secrets au Trousseau** : jetons FortiGate et mots de passe des connexions sont rangés
   dans le Trousseau de macOS. Les sauvegardes et exports qui incluent un
   secret sont chiffrés (AES-GCM 256 bits).
-- **Lecture seule chez Fortinet** : NetScope lit la FortiGate par son API et ne modifie rien.
-  L’empreinte de son certificat est acceptée une fois, de façon explicite.
+- **Lecture seule par défaut** : NetScope lit la FortiGate par son API et ne modifie rien.
+  Les rares actions (cycle PoE, test de câble, actions sur le serveur RustDesk) sont
+  désactivées par défaut ou demandent une confirmation. L’empreinte du certificat de la
+  FortiGate est acceptée une fois, de façon explicite.
 - **Rien n’est envoyé sans toi** : pas de compte, pas de serveur NetScope, pas de télémétrie ;
   la synchronisation (iCloud Drive, OneDrive ou NAS) et les alertes par courriel, webhook, ntfy
   ou Pushover ne fonctionnent que si tu les actives. Le scan reste sur les plages choisies, la découverte
   SNMP ne vise que des adresses privées, les rapports partent en brouillon Mail et la base des
-  fabricants n’est mise à jour que sur demande. La vérification des mises à jour (GitHub) se
+  fabricants se met à jour une fois par mois (désactivable). La vérification des mises à jour (GitHub) se
   désactive dans Réglages.
 - Chaque nouvelle empreinte SSH est montrée avant la connexion, pour que tu l’approuves.
 
 ## Feuille de route
 
 La feuille de route complète est dans [docs/feuille-de-route.html](docs/feuille-de-route.html),
-et le détail des notes dans [docs/A-FAIRE.md](docs/A-FAIRE.md). Les prochaines versions prévues :
-
-- **0.24.0, sauvegarde des configurations** : FortiGate par l’API, puis switchs en SSH.
-- **Automatique en arrière-plan** (version suivante) : scan planifié par site et surveillance sans
-  fenêtre.
+et le détail des notes dans [docs/A-FAIRE.md](docs/A-FAIRE.md). Tout ce qui était prévu est
+livré jusqu’à la 1.2 ; il reste l’interface en anglais, plus tard. L’historique de chaque
+version est dans le [CHANGELOG](CHANGELOG.md).
 
 ## Construire depuis les sources
 
