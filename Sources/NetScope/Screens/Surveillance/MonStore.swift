@@ -417,6 +417,20 @@ final class MonStore: ObservableObject {
                     context.rustdeskServerRead = { _ in await RustDeskServerSSH.run(account, secret: secret) }
                 }
             }
+            // Note 100 : sonde du serveur WireGuard ; même compte que le tableau de bord RustDesk, données fixes en démonstration.
+            if probe.kind == .wireguardServer {
+                if RegEnvironment.isSandboxed {
+                    let demo = WireGuardServerDemo.status(now: Date())
+                    context.wireguardServerRead = { _ in .success(demo) }
+                } else if let account = try? RustDeskServerModel.shared.resolvedAccount().get(), account.label == probe.target {
+                    let secret = RustDeskServerModel.shared.secret()
+                    let sudo = RustDeskServerWatchModel.shared.readSudoPassword()
+                    let container = WireGuardServerModel.shared.settings.container
+                    context.wireguardServerRead = { _ in
+                        await RustDeskServerSSH.readWireGuard(account, secret: secret, sudoPassword: sudo, container: container)
+                    }
+                }
+            }
             context.wireless = wireless
             // Notes 96 et 97 : DHCP pirate (DISCOVER sans bail, jamais en démonstration), conflits
             // d'IP et bornes pirates calculés à partir des relevés déjà faits.

@@ -52,6 +52,8 @@ public struct MonRunContext: Sendable {
     /// Note 87 : lecture du serveur RustDesk pour un compte (« utilisateur@hôte[:port] ») ; nil :
     /// compte saisi et mot de passe au Trousseau (RustDesk), comme dans l'agent.
     public var rustdeskServerRead: (@Sendable (String) async -> Result<RustDeskServerStatus, RustDeskServerReadError>)?
+    /// Note 100 : lecture du serveur WireGuard pour un compte ; nil : comme l'agent (Trousseau, sans sudo).
+    public var wireguardServerRead: (@Sendable (String) async -> Result<WireGuardServerStatus, RustDeskServerReadError>)?
     /// Note 96 : DHCPDISCOVER sur une interface (nil : jamais d'envoi, en démonstration notamment)
     /// et serveurs attendus.
     public var rogueDHCPDiscover: (@Sendable (String) async -> Result<[DHCPOffer], RogueDHCPError>)?
@@ -176,6 +178,8 @@ public enum MonRunner {
             return MonRunOutcome(result: await MonTLSChecks.run(probe, target: target, now: context.now))
         case .rustdeskServer:
             return await MonRustDeskChecks.run(probe, target: target, read: context.rustdeskServerRead, now: context.now)
+        case .wireguardServer:
+            return await MonWireGuardChecks.run(probe, target: target, read: context.wireguardServerRead, now: context.now)
         case .printerSupply:
             return await MonPrinterChecks.run(probe, host: target, context: context)
         case .upsStatus:

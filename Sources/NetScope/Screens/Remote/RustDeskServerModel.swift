@@ -54,7 +54,10 @@ final class RustDeskServerModel: ObservableObject {
         didSet {
             guard isShown != oldValue else { return }
             // Correctif 0.27.3 : l'onglet « Assistance RustDesk » et celui-ci s'excluent.
-            if isShown { RustDeskModel.shared.isAssistanceShown = false }
+            if isShown {
+                RustDeskModel.shared.isAssistanceShown = false
+                WireGuardServerModel.shared.isShown = false
+            }
             updateLoop()
         }
     }

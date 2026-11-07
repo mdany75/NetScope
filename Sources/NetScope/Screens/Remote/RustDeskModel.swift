@@ -24,7 +24,12 @@ final class RustDeskModel: ObservableObject {
     /// comme l'onglet « Serveur RustDesk » (même règle pour la colonne des détails et la petite
     /// fenêtre) et l'un remplace l'autre.
     @Published var isAssistanceShown = false {
-        didSet { if isAssistanceShown, !oldValue { RustDeskServerModel.shared.isShown = false } }
+        didSet {
+            if isAssistanceShown, !oldValue {
+                RustDeskServerModel.shared.isShown = false
+                WireGuardServerModel.shared.isShown = false
+            }
+        }
     }
     /// ID à placer dans le champ de l'onglet d'assistance (fiche d'un appareil, menu d'une connexion).
     @Published var assistancePrefill: String?

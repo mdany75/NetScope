@@ -11,6 +11,8 @@ struct RemoteSessionTabBar: View {
     @ObservedObject private var server = RustDeskServerModel.shared
     /// Correctif 0.27.3 : onglet fixe « Assistance RustDesk » (ID de l'usager, sessions récentes).
     @ObservedObject private var rustdesk = RustDeskModel.shared
+    /// Note 100 (1.3.0) : onglet fixe « Serveur WireGuard » (même serveur et même compte SSH).
+    @ObservedObject private var wireguard = WireGuardServerModel.shared
     /// Largeur de la barre : en petite fenêtre (liste des connexions affichée), les onglets fixes
     /// prennent un titre court pour ne pas élargir la colonne et chevaucher la liste.
     @State private var barWidth: CGFloat = 0
@@ -23,6 +25,7 @@ struct RemoteSessionTabBar: View {
             homeTab
             assistanceTab
             if server.isAvailable { serverTab }
+            if wireguard.isAvailable { wireguardTab }
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(alignment: .bottom, spacing: 2) {
@@ -65,11 +68,12 @@ struct RemoteSessionTabBar: View {
     }
 
     private var homeTab: some View {
-        let selected = store.activeID == nil && !dashboardShown && !assistanceShown
+        let selected = store.activeID == nil && !dashboardShown && !assistanceShown && !wireguardShown
         return Button {
             store.select(nil)
             server.isShown = false
             rustdesk.isAssistanceShown = false
+            wireguard.isShown = false
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "rectangle.stack").font(.system(size: 12))
@@ -167,6 +171,43 @@ struct RemoteSessionTabBar: View {
         // Toujours lisible en entier : ce sont les onglets de session qui défilent.
         .fixedSize()
         .help("Tableau de bord du serveur RustDesk\u{00A0}: sessions relayées, demandes de connexion, état de hbbs et hbbr (lecture seule par SSH)")
+    }
+
+    /// Onglet WireGuard affiché (aucun onglet de session ni formulaire par-dessus).
+    private var wireguardShown: Bool {
+        store.activeID == nil && wireguard.isShown && model.draft == nil && model.tunnelDraft == nil
+    }
+
+    /// Note 100 (1.3.0) : serveur WireGuard (wg-easy) : clients, état, gestion par l'API.
+    private var wireguardTab: some View {
+        let selected = wireguardShown
+        let connected = wireguard.rows.filter { $0.isConnected(now: wireguard.status?.readAt ?? Date()) }.count
+        return Button {
+            model.draft = nil
+            model.tunnelDraft = nil
+            store.select(nil)
+            wireguard.isShown = true
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "lock.shield").font(.system(size: 12))
+                Text(shortTitles ? "WireGuard" : "Serveur WireGuard").font(.system(size: 12, weight: selected ? .semibold : .medium)).lineLimit(1)
+                if wireguard.status != nil, connected > 0 {
+                    CountBadge(count: connected, color: Color(nsColor: .systemTeal))
+                        .help("Clients WireGuard connectés")
+                }
+                if wireguard.error != nil {
+                    Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 10)).foregroundStyle(Theme.warning)
+                }
+            }
+            .foregroundStyle(selected ? Theme.text : Theme.textSecondary)
+            .padding(.horizontal, 10)
+            .frame(height: 32)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(RemoteTabShape(selected: selected))
+        .fixedSize()
+        .help("Serveur WireGuard (wg-easy)\u{00A0}: clients connectés, débit, expiration, gestion par l’API (même compte SSH que RustDesk)")
     }
 
     private var addMenu: some View {
