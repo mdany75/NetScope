@@ -1787,7 +1787,7 @@ Branché sur un port en trunk, scanner un autre VLAN sans changer de port.
 - Interface toujours retirée à la fin, même après une erreur ou à la fermeture de l’app.
 - Aucun scan dans les tests ni les captures (règle du projet).
 
-## 91. Niveau du toner et des consommables des imprimantes — 0.37.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
+## 91. Niveau du toner et des consommables des imprimantes — livrée dans la 0.37.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
 
 - Lecture par SNMP (Printer-MIB : `prtMarkerSuppliesTable`) : toner ou encre par couleur,
   tambour, kit de maintenance, bac de récupération ; compteur de pages ; état et alertes de
@@ -1797,7 +1797,7 @@ Branché sur un port en trunk, scanner un autre VLAN sans changer de port.
 - Sonde de Surveillance « consommable bas » (seuil réglable, 15 % par défaut) et section dans les
   rapports par site.
 
-## 92. Qualité VoIP (MOS) — 0.37.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
+## 92. Qualité VoIP (MOS) — livrée dans la 0.37.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
 
 - À partir des appels captés (décodeurs SIP/RTP de la capture de paquets, 0.27.0) : gigue, pertes,
   latence et note MOS (modèle E, 1 à 5) par appel et par sens, avec le codec.
@@ -1805,7 +1805,7 @@ Branché sur un port en trunk, scanner un autre VLAN sans changer de port.
   iperf3 de NetScope) pour estimer la note MOS d’un lien avant d’installer des téléphones.
 - Lien avec le type « Téléphone IP » (note 37) et le VLAN voix ; section dans les rapports.
 
-## 93. Revenir à la version précédente de NetScope — 0.37.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
+## 93. Revenir à la version précédente de NetScope — livrée dans la 0.37.0 (idée d’un cran en dessous, placée par Dany le 6 novembre 2026)
 
 - Dans Réglages › Mises à jour (historique des versions, 0.23.1) : « Réinstaller cette version »
   pour une version publiée, à partir de sa Release GitHub (image signée et notarisée, signature
@@ -1839,5 +1839,7 @@ Branché sur un port en trunk, scanner un autre VLAN sans changer de port.
 4. **Extraits du terminal** : barre « Extraits » aussi dans la console série ; extraits
    personnalisés synchronisés entre les Mac (note 86) et inclus dans les sauvegardes.
 5. **Captures du README** (`docs/captures/`) refaites avec la barre latérale actuelle.
+
+6. Vue « Imprimantes » de l’Inventaire (tri par niveau le plus bas), prévue à la note 91 et pas faite en 0.37.0.
 
 Reste du côté de Dany : essais sur le vrai réseau des versions 0.31.0 à 0.37.0.
