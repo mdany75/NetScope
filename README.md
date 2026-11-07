@@ -4,7 +4,7 @@
 sur plusieurs plages, dit sur quel switch et quel port chacun est branché, puis diagnostique,
 surveille, documente et ouvre une session à distance, site par site, dans une seule fenêtre.
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-lightgrey?logo=apple)](#installation)
 [![Licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
@@ -155,6 +155,8 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   de NetScope (0.37.0).
 - **1.0.0** : première version stable ; vue « Imprimantes » de l’Inventaire, extraits dans la
   console série, ordre alphabétique partout.
+- **1.1.0** : serveur DHCP pirate, conflits d’adresses IP et bornes Wi-Fi pirates, avec sondes et
+  rapport.
 
 ### Rapports
 

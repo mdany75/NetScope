@@ -1,5 +1,28 @@
 # Changements
 
+## 1.1.0 — 2026-11-06
+
+Sécurité du réseau (notes 96 et 97).
+
+### Ajouté
+- **Serveur DHCP pirate** : chaque serveur qui répond au Test DHCP est jugé attendu (déclaré),
+  FortiGate du site ou pirate, avec sa MAC, sa passerelle, ses DNS et sa plage ; la demande ne
+  prend jamais de bail. Sans serveur déclaré, un serveur inconnu reste « non vérifié ».
+- **Conflits d’adresses IP** (Outils › Adressage) : même IP sur deux MAC, réponses ARP
+  contradictoires (usurpation possible, la passerelle en tête), MAC qui change souvent d’IP ;
+  d’après la table ARP de ce Mac, les scans et l’ARP de la FortiGate.
+- **Bornes Wi-Fi pirates** (Wi-Fi › FortiAP › Pirates) : sosies d’un SSID du site, bornes
+  inconnues branchées sur le réseau filaire (port du switch indiqué), bornes non autorisées
+  dans FortiOS ; classes pirates, voisines et connues, « Accepter » avec confirmation,
+  « Balayer depuis ce Mac ».
+- Trois sondes de Surveillance (DHCP pirate, conflit d’IP, borne pirate) et une section
+  « Pirates et conflits » des rapports.
+
+### Limites connues
+- Rien n’a été essayé sur un vrai réseau. Le lien entre une borne et sa MAC filaire est déduit
+  (adresses proches) ; une imprimante en Wi-Fi Direct peut apparaître comme « branchée ».
+- Conflits d’IP : site actif seulement, rien n’est gardé dans le temps.
+
 ## 1.0.0 — 2026-11-06
 
 Première version stable de NetScope. Elle réunit tout ce qui est livré depuis la 0.1.0 et
