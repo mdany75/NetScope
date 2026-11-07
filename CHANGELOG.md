@@ -1,5 +1,31 @@
 # Changements
 
+## 1.0.0 — 2026-11-06
+
+Première version stable de NetScope. Elle réunit tout ce qui est livré depuis la 0.1.0 et
+termine les petits restes des versions 0.33 à 0.37 (note 95). Les versions suivantes
+continuent en 1.x.
+
+### Ajouté
+- **Inventaire › Imprimantes** : imprimantes du site triées du consommable le plus bas au plus
+  haut (relevés de la fiche et de la sonde « Consommable bas »).
+- **Extraits dans la console série** ; extraits personnalisés relus à chaud quand un autre Mac
+  les change.
+
+### Modifié
+- Ordre alphabétique des dernières listes : formats d’export (Inventaire, Carte, Rapport),
+  sources (Trafic, Speedtest, import), préréglages de capture, types d’enregistrement courriel,
+  menu des services UDP (les résultats gardent l’ordre des ports).
+- Réglages › Sites et plages en petite fenêtre : panneau de droite plus coupé.
+- Barre latérale un peu plus large : « Historique et adressage » s’affiche en entier ;
+  colonnes de la Surveillance resserrées.
+- Captures du README refaites.
+
+### Limites connues
+- Le plan du relevé Wi-Fi reste dans le même fichier que les mesures (synchronisation plus
+  lourde) : le découpage demande de revoir le transport de la synchronisation.
+- Six captures de la galerie montrent encore l’ancienne barre latérale.
+
 ## 0.37.0 — 2026-11-06
 
 Imprimantes, VoIP et retour arrière (notes 91, 92 et 93).
