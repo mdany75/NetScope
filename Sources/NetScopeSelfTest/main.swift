@@ -159,6 +159,8 @@ registerAutomationTests(suite)
 registerIPv6Tests(suite)
 // Note 67 (0.34.0) : extraits personnalisés, envoi à plusieurs sessions, ordre alphabétique.
 registerTerminalSnippetTests(suite)
+// Notes 91, 92 et 93 (0.37.0) : consommables des imprimantes, note MOS, retour à une version précédente.
+registerPrinterVoIPRollbackTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

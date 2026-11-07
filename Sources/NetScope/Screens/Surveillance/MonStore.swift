@@ -419,8 +419,21 @@ final class MonStore: ObservableObject {
             }
             context.wireless = wireless
             let outcome = await MonRunner.run(probe, context: context)
+            if let reading = outcome.printerReading, let address = outcome.printerAddress {
+                MonStore.shared.recordPrinter(reading, address: address, probe: probe)
+            }
             MonStore.shared.finish(probe.id, outcome: outcome, manual: manual)
         }
+    }
+
+    /// Note 91 : relevé de la sonde « Consommable bas » rangé avec ceux de la fiche de l'imprimante,
+    /// seulement quand la sonde appartient au site actif (dont l'inventaire est chargé) et que
+    /// l'appareil de cette adresse y a une MAC : l'IP seule ne choisit ni le site ni l'appareil.
+    private func recordPrinter(_ reading: PrinterReading, address: IPv4Address, probe: MonProbe) {
+        let sites = SiteModel.shared
+        guard let active = sites.activeID, site(of: probe) == active,
+              let device = appState?.devices.first(where: { $0.ip == address && $0.mac != nil }) else { return }
+        PrinterStore.shared.record(reading, for: device, siteKey: sites.activeKey)
     }
 
     private func finish(_ id: UUID, outcome: MonRunOutcome, manual: Bool) {

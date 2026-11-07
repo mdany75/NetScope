@@ -83,14 +83,28 @@ final class RapportModel: ObservableObject {
             var input = RapportData.input(state: state, demo: isDemo, map: config.includes(.carte))
             // Note 94 : relevé Wi-Fi sur plan (images dessinées seulement si la section est cochée).
             if floors { input.floorSurvey = WifiFloorStore.shared.reportFloors(siteKey: keys[0]) }
+            Self.addPrintersAndVoIP(&input, siteKey: keys[0], config: config, active: true)
             return [(keys[0], ReportSiteInput(name: SiteModel.shared.activeName, input: input))]
         }
         return zip(keys, RapportData.inputs(state: state, demo: isDemo, keys: keys, map: config.includes(.carte)))
             .map { pair in
                 var site = pair.1
                 if floors { site.input.floorSurvey = WifiFloorStore.shared.reportFloors(siteKey: pair.0) }
+                Self.addPrintersAndVoIP(&site.input, siteKey: pair.0, config: config, active: pair.0 == SiteModel.shared.activeKey)
                 return (key: pair.0, site: site)
             }
+    }
+
+    /// Notes 91 et 92 : imprimantes relevées du site ; mesures VoIP (appels de la dernière capture,
+    /// test simulé) seulement pour le site actif, où elles ont été faites.
+    static func addPrintersAndVoIP(_ input: inout ReportInput, siteKey: String, config: ReportConfig, active: Bool) {
+        if config.includes(.imprimantes) {
+            input.printers = PrinterStore.shared.reportPrinters(devices: input.devices, siteKey: siteKey)
+        }
+        if config.includes(.voip), active {
+            input.voipCalls = VoIPReportSource.calls()
+            input.voipTests = VoIPReportSource.tests()
+        }
     }
 
     func document(for inputs: [(key: String, site: ReportSiteInput)]) -> ReportDocument {
@@ -345,6 +359,7 @@ final class RapportModel: ObservableObject {
             : RapportData.input(forSite: siteKey, now: now, followUpBase: .last, map: schedule.config.includes(.carte), state: state)
         input.now = now
         if schedule.config.includes(.releveWifi) { input.floorSurvey = WifiFloorStore.shared.reportFloors(siteKey: siteKey) }
+        Self.addPrintersAndVoIP(&input, siteKey: siteKey, config: schedule.config, active: siteKey == sites.activeKey)
         var config = schedule.config
         config.site = name
         config.date = ReportText.isoDay(now)

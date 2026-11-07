@@ -85,6 +85,27 @@ public struct RTPStreamSummary: Identifiable, Sendable, Equatable {
     public var reportedLoss: Double?
     public var reportedJitter: Double?
 
+    public init(id: String, ssrc: UInt32, source: Endpoint, destination: Endpoint, payloadType: UInt8, codec: String,
+                clockRate: Double, packets: Int, expected: Int, lost: Int, jitter: Double, maxDelta: Double,
+                duration: Double, firstPacket: Int, reportedLoss: Double? = nil, reportedJitter: Double? = nil) {
+        self.id = id
+        self.ssrc = ssrc
+        self.source = source
+        self.destination = destination
+        self.payloadType = payloadType
+        self.codec = codec
+        self.clockRate = clockRate
+        self.packets = packets
+        self.expected = expected
+        self.lost = lost
+        self.jitter = jitter
+        self.maxDelta = maxDelta
+        self.duration = duration
+        self.firstPacket = firstPacket
+        self.reportedLoss = reportedLoss
+        self.reportedJitter = reportedJitter
+    }
+
     public var lossRatio: Double { expected > 0 ? Double(lost) / Double(expected) : 0 }
     public var label: String { "\(source.label) → \(destination.label)" }
     public var filter: String { "rtp.ssrc == \(ssrc)" }

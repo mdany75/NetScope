@@ -89,12 +89,17 @@ public struct UpdPreferences: Codable, Hashable, Sendable {
     public var skippedVersion: String?
     /// Versions installées, la plus récente en premier.
     public var history: [UpdHistoryEntry] = []
+    /// Note 93 : retour à une version précédente ; la mise à jour automatique reste suspendue
+    /// (vérification et installation automatiques coupées) jusqu'à « Réactiver ».
+    /// Pas dans le JSON des préférences : les versions plus anciennes le réenregistrent sans ce
+    /// champ. L'application le range sous sa propre clé (`reglages.majs.retourArriere`).
+    public var rollbackHold: UpdRollbackHold?
 
     public init() {}
 
     /// Vrai si la vérification automatique doit avoir lieu maintenant.
     public func isCheckDue(now: Date = Date(), atLaunch: Bool) -> Bool {
-        automaticCheck && frequency.isDue(lastCheck: lastCheck, now: now, atLaunch: atLaunch)
+        automaticCheck && rollbackHold == nil && frequency.isDue(lastCheck: lastCheck, now: now, atLaunch: atLaunch)
     }
 
     /// Note la version en cours si elle diffère de la dernière de l'historique (200 entrées au plus).
@@ -111,6 +116,10 @@ public struct UpdPreferences: Codable, Hashable, Sendable {
         return UpdVersion(skippedVersion) == version
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case channel, frequency, automaticCheck, automaticInstall, lastCheck, skippedVersion, history
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         channel = try container.decodeIfPresent(UpdChannel.self, forKey: .channel) ?? .stable
@@ -120,5 +129,17 @@ public struct UpdPreferences: Codable, Hashable, Sendable {
         lastCheck = try container.decodeIfPresent(Date.self, forKey: .lastCheck)
         skippedVersion = try container.decodeIfPresent(String.self, forKey: .skippedVersion)
         history = try container.decodeIfPresent([UpdHistoryEntry].self, forKey: .history) ?? []
+        rollbackHold = nil
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(channel, forKey: .channel)
+        try container.encode(frequency, forKey: .frequency)
+        try container.encode(automaticCheck, forKey: .automaticCheck)
+        try container.encode(automaticInstall, forKey: .automaticInstall)
+        try container.encodeIfPresent(lastCheck, forKey: .lastCheck)
+        try container.encodeIfPresent(skippedVersion, forKey: .skippedVersion)
+        try container.encode(history, forKey: .history)
     }
 }

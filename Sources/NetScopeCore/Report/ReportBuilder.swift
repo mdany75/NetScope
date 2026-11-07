@@ -184,6 +184,12 @@ public struct ReportInput: Sendable {
     public var map: ReportMap?
     /// Note 94 : relevé Wi-Fi sur plan du site, par étage (images dessinées par l'application).
     public var floorSurvey: [ReportFloorSurveyFloor] = []
+    /// Note 91 : imprimantes du site relevées par SNMP (section « Imprimantes et consommables »).
+    public var printers: [ReportPrinter] = []
+    public var printerThreshold: Double = PrinterMIB.defaultThreshold
+    /// Note 92 : appels captés (flux RTP) et tests simulés (section « Qualité VoIP »).
+    public var voipCalls: [VoIPCall] = []
+    public var voipTests: [VoIPSyntheticTest] = []
     public var now: Date
 
     public init(devices: [Device], records: [InvRecord] = [], ranges: [ReportRange] = [], switches: [ReportSwitch] = [],
@@ -416,6 +422,8 @@ public enum ReportBuilder {
             case .disponibilite: blocks = availabilityBlocks(input.availability)
             case .carte: blocks = mapBlocks(input.map)
             case .releveWifi: blocks = floorSurveyBlocks(input.floorSurvey)
+            case .imprimantes: blocks = printerBlocks(input.printers, threshold: input.printerThreshold)
+            case .voip: blocks = voipBlocks(calls: input.voipCalls, tests: input.voipTests)
             case .annexe: blocks = annex(input, masked: config.maskMAC)
             }
             sections.append(ReportSection(kind: kind, heading: heading, blocks: blocks))

@@ -26,6 +26,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
     case tlsCertificate
     /// Serveur RustDesk (note 87) : hbbs ou hbbr arrêté, disque plein, clé publique changée (lecture SSH).
     case rustdeskServer
+    /// Imprimante (note 91) : consommable sous le seuil (15 % par défaut), bourrage ou bac vide (Printer-MIB).
+    case printerSupply
 
     public var id: String { rawValue }
 
@@ -57,6 +59,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .trapReceived: return "Trap SNMP reçue"
         case .tlsCertificate: return "Certificat TLS (jours restants)"
         case .rustdeskServer: return "Serveur RustDesk"
+        case .printerSupply: return "Consommable bas (imprimante)"
         }
     }
 
@@ -88,6 +91,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .trapReceived: return "Trap"
         case .tlsCertificate: return "Certificat"
         case .rustdeskServer: return "RustDesk"
+        case .printerSupply: return "Imprimante"
         }
     }
 
@@ -116,6 +120,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .syslogSeverity, .trapReceived: return "Adresse ou nom de l’appareil, ou «\u{00A0}*\u{00A0}» pour tous"
         case .tlsCertificate: return "Hôte:port (fw.exemple.ca:443, 10.0.0.1:8443, mail.exemple.ca:587)"
         case .rustdeskServer: return "Compte SSH du serveur (admin@assistance.exemple.ca)"
+        case .printerSupply: return "Adresse IP ou nom de l’imprimante (SNMP)"
         }
     }
 
@@ -382,6 +387,9 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
         case .rustdeskServer:
             let limit = Int(resourceLimit ?? MonProbe.defaultResourceLimit(.rustdeskServer))
             return "Alerte si hbbs ou hbbr s’arrête, si le disque dépasse \(limit)\(nbsp)% ou si la clé publique change"
+        case .printerSupply:
+            let limit = Int(resourceLimit ?? MonProbe.defaultResourceLimit(.printerSupply))
+            return "Alerte si un consommable descend à \(limit)\(nbsp)% ou moins, panne si l’impression est bloquée (bourrage, bac vide)"
         }
     }
 
@@ -392,6 +400,7 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
         case .heavyDevice: return 50
         case .licenseExpiring: return Double(MonFirmwareChecks.defaultDays)
         case .tlsCertificate: return Double(MonTLSChecks.defaultDays)
+        case .printerSupply: return PrinterMIB.defaultThreshold
         default: return 90
         }
     }

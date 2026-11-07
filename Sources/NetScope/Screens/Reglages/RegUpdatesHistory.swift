@@ -9,6 +9,8 @@ struct RegUpdatesHistory: View {
     @State private var expanded: Set<String> = []
     @State private var showAll = false
     @State private var installedOnly = false
+    /// Note 93 : version dont la réinstallation attend la confirmation.
+    @State private var confirming: String?
 
     /// Versions montrées avant « Afficher les … versions plus anciennes ».
     private static let firstPage = 8
@@ -55,14 +57,29 @@ struct RegUpdatesHistory: View {
             .clipShape(RoundedRectangle(cornerRadius: Theme.panelRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
             HStack(spacing: 10) {
-                Button {} label: { Label("Revenir à la version précédente", systemImage: "arrow.uturn.backward") }
-                    .buttonStyle(.secondary)
-                    .regDisabled(true)
-                Text("Retour arrière : bientôt. En attendant, réinstallez l’image disque d’une version précédente depuis GitHub.")
+                let previous = previousVersion(all)
+                Button {
+                    confirming = previous
+                } label: {
+                    Label(previous.map { "Revenir à la \($0)" } ?? "Revenir à la version précédente", systemImage: "arrow.uturn.backward")
+                }
+                .buttonStyle(.secondary)
+                .regDisabled(previous == nil || updates.isBusy)
+                Text("Réinstalle une version publiée depuis sa Release GitHub, signature vérifiée avant l’installation\u{00A0}; vos données sont gardées. Chaque version dépliée a aussi son bouton «\u{00A0}Réinstaller cette version\u{00A0}».")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.top, 2)
+        }
+        .alert(confirmTitle, isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
+               presenting: confirming.flatMap { updates.rollbackPlan($0) }) { plan in
+            Button(plan.confirmLabel, role: plan.warnings.isEmpty ? nil : .destructive) {
+                let version = plan.target.description
+                Task { await updates.reinstall(version) }
+            }
+            Button("Annuler", role: .cancel) {}
+        } message: { plan in
+            Text(plan.message)
         }
         .onAppear {
             // La version qui tourne est dépliée d'emblée : ce qu'elle a apporté se lit sans clic.
@@ -81,6 +98,17 @@ struct RegUpdatesHistory: View {
             changelog.insert(parsed.first ?? ChangelogVersion(version: version.description, date: release.publishedAt, summary: "", sections: []), at: 0)
         }
         return UpdTimeline.rows(changelog: changelog, history: updates.prefs.history, running: UpdController.currentVersionText)
+    }
+
+    private var confirmTitle: String {
+        confirming.flatMap { updates.rollbackPlan($0)?.title } ?? "Réinstaller cette version\u{00A0}?"
+    }
+
+    /// Version précédente : la dernière installée avant celle-ci, sinon la plus récente publiée plus ancienne.
+    private func previousVersion(_ rows: [UpdTimelineRow]) -> String? {
+        if let row = rows.first(where: { $0.state == .previous }) { return row.version }
+        let current = UpdController.currentVersion
+        return UpdRollback.previousVersion(published: rows.compactMap { UpdVersion($0.version) }, current: current)?.description
     }
 
     private static func isoDay(_ date: Date) -> String {
@@ -152,6 +180,16 @@ struct RegUpdatesHistory: View {
             .help(hasDetail ? (isOpen ? "Replier les notes" : "Déplier les notes de la version \(row.version)") : "")
             if isOpen, let notes = row.notes, notes.itemCount > 0 {
                 detail(notes).padding(.leading, 22)
+            }
+            if isOpen, row.state == .previous || row.state == .notInstalled {
+                Button {
+                    confirming = row.version
+                } label: {
+                    Label("Réinstaller cette version", systemImage: "arrow.uturn.backward.circle")
+                }
+                .buttonStyle(RegSmallButtonStyle())
+                .regDisabled(updates.isBusy)
+                .padding(.leading, 22)
             }
         }
         .padding(.horizontal, 12)
