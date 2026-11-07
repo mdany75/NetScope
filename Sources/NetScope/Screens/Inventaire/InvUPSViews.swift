@@ -69,13 +69,15 @@ struct InvUPSPanel: View {
                     .font(Theme.mono(11, weight: .semibold))
                     .foregroundStyle(shortRuntime ? Theme.warning : Theme.text)
                     .frame(width: 64, alignment: .trailing)
-                Text(due == nil ? "Batterie OK" : "Batterie à changer")
-                    .font(Theme.small).foregroundStyle(due == nil ? Theme.textTertiary : Theme.warning).lineLimit(1)
+                let aged = due == nil && reading.batteryAgeNote(now: now) != nil
+                Text(due != nil ? "Batterie à changer" : aged ? "Batterie à vérifier" : "Batterie OK")
+                    .font(Theme.small).foregroundStyle(due != nil || aged ? Theme.warning : Theme.textTertiary).lineLimit(1)
                     .frame(width: 120, alignment: .trailing)
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(reading.summary + (due.map { " · batterie à changer\u{00A0}: \($0)" } ?? ""))
+        .help(reading.summary + (due.map { " · batterie à changer\u{00A0}: \($0)" }
+            ?? reading.batteryAgeNote(now: now).map { " · batterie \($0)" } ?? ""))
     }
 }

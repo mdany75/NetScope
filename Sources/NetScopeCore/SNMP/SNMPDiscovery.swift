@@ -202,7 +202,14 @@ public struct SNMPDiscovery: Sendable {
         // Note 98 : onduleurs : agent UPS-MIB, ou APC (318), Eaton / Powerware (534, 705), CyberPower (3808).
         let upsWords = ["smart-ups", "symmetra", "powerchute", "network management card", "ups network", "powerware",
                         "cyberpower", "eaton 5p", "eaton 5px", "eaton 9", "network-m2", "network-m3", "ups-mib", " ups "]
-        if under("1.3.6.1.2.1.33") || under("1.3.6.1.4.1.318") || under("1.3.6.1.4.1.534") || under("1.3.6.1.4.1.705")
+        // PDU de baie, commutateurs de transfert (ATS) et capteurs d'APC et d'Eaton : même carte
+        // réseau et même numéro d'entreprise, mais pas d'onduleur derrière.
+        let notUPSWords = ["rack pdu", "rpdu", "epdu", "switched pdu", "metered pdu", "netbotz", "transfer switch",
+                           "automatic transfer", " ats ", "mn:ap7", "mn:ap8", "mn:ap44", "environmental monitor"]
+        let notUPS = has(notUPSWords) || descr.hasPrefix("ats ") || under("1.3.6.1.4.1.318.1.1.4") || under("1.3.6.1.4.1.318.1.1.8")
+            || under("1.3.6.1.4.1.318.1.1.12") || under("1.3.6.1.4.1.318.1.3.4")
+            || under("1.3.6.1.4.1.5528")
+        if !notUPS, under("1.3.6.1.2.1.33") || under("1.3.6.1.4.1.318") || under("1.3.6.1.4.1.534") || under("1.3.6.1.4.1.705")
             || under("1.3.6.1.4.1.3808") || has(upsWords) || descr.hasPrefix("ups ") || descr.hasPrefix("ups-") {
             return .onduleur
         }

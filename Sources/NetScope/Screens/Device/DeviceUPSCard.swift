@@ -7,7 +7,18 @@ import SwiftUI
 /// seulement sur clic.
 struct DeviceUPSCard: View {
     @ObservedObject private var store = UPSStore.shared
+    @ObservedObject private var monitors = MonStore.shared
     let device: Device
+
+    /// Seuil d'autonomie de la sonde « Onduleur » qui vise cet appareil, sinon celui proposé.
+    private var minRuntime: Double {
+        let targets = Set([device.ip.description, device.hostname, device.customName].compactMap { $0?.lowercased() })
+        let active = SiteModel.shared.activeID
+        let probe = monitors.probes.first {
+            $0.kind == .upsStatus && targets.contains($0.target.lowercased()) && monitors.site(of: $0) == active
+        }
+        return probe?.resourceLimit ?? UPSMIB.defaultMinRuntime
+    }
 
     var body: some View {
         let reading = store.reading(for: device)
@@ -29,7 +40,7 @@ struct DeviceUPSCard: View {
                     gauge("Charge de sortie", reading.loadPercent, label: reading.loadPercent.map(UPSMIB.percent),
                           low: (reading.loadPercent ?? 0) >= 90)
                     line("Autonomie", reading.runtimeMinutes.map(UPSMIB.minutes) ?? "—",
-                         warn: (reading.runtimeMinutes ?? .infinity) < UPSMIB.defaultMinRuntime)
+                         warn: (reading.runtimeMinutes ?? .infinity) < minRuntime)
                     line("Tensions", voltages(reading))
                     if let temperature = reading.temperature {
                         line("Température", "\(Int(temperature.rounded()))\u{00A0}°C", warn: temperature >= 40)
@@ -37,10 +48,14 @@ struct DeviceUPSCard: View {
                     line("Dernier test", [reading.lastTest?.label, reading.lastTestDate.map(UPSMIB.dateLabel)]
                         .compactMap { $0 }.joined(separator: " · ").nonEmpty ?? "—", warn: reading.lastTest == .failed)
                     let due = reading.batteryDueReason(now: now)
-                    line("Batterie posée", reading.batteryReplacedDate.map(UPSMIB.dateLabel) ?? "—", warn: due != nil)
+                    let ageNote = reading.batteryAgeNote(now: now)
+                    line("Batterie posée", reading.batteryReplacedDate.map(UPSMIB.dateLabel) ?? "—", warn: due != nil || ageNote != nil)
                     if let due {
                         Label("Batterie à changer\u{00A0}: \(due)", systemImage: "exclamationmark.triangle.fill")
                             .font(Theme.small).foregroundStyle(Theme.warning)
+                    } else if let ageNote {
+                        Label("Batterie \(ageNote) (date pas toujours mise à jour au remplacement)", systemImage: "info.circle")
+                            .font(Theme.small).foregroundStyle(Theme.warning).fixedSize(horizontal: false, vertical: true)
                     }
                     ForEach(reading.alarms, id: \.self) { alarm in
                         Label(alarm, systemImage: "bell.fill").font(Theme.small).foregroundStyle(Theme.warning)
@@ -51,6 +66,9 @@ struct DeviceUPSCard: View {
                     Text("Alimentation (secteur, batterie, contournement), charge de la batterie, autonomie, charge, tensions, température, dernier test et remplacement de la batterie, lus par SNMP (UPS-MIB, APC, Eaton, CyberPower).")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+                if store.isUnsaved(device) {
+                    Text(UPSStore.noMACNotice).font(Theme.small).foregroundStyle(Theme.textSecondary)
                 }
                 if let error = store.error(for: device) {
                     Text(error).font(Theme.small).foregroundStyle(Theme.critical).fixedSize(horizontal: false, vertical: true)

@@ -39,8 +39,10 @@ final class MACHistoryStore: ObservableObject {
         if demo {
             histories[SiteModel.shared.activeKey] = MACHistoryDemo.history()
         } else {
+            // À la fermeture, écriture immédiate sur le fil principal : une tâche détachée n'aurait
+            // pas le temps de finir avant la fin de l'application.
             NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
-                MainActor.assumeIsolated { MACHistoryStore.shared.saveNow() }
+                MainActor.assumeIsolated { MACHistoryStore.shared.saveNow(synchronously: true) }
             }
         }
     }
@@ -73,9 +75,23 @@ final class MACHistoryStore: ObservableObject {
         record(MACHistory.observations(devices: devices), siteKey: siteKey, at: date)
     }
 
-    /// Relevé d'un switch (SNMP, ou FortiSwitch lu par la FortiGate).
-    func record(snapshot: SNMPSwitchSnapshot, siteKey: String, source: MACSightingSource = .switchTable) {
-        record(MACHistory.observations(snapshots: [snapshot], source: source), siteKey: siteKey, at: snapshot.polledAt)
+    /// Relevés des switchs d'un site (SNMP, ou FortiSwitch lus par la FortiGate). Les uplinks sont
+    /// reconnus avec tous les relevés du site (`context`), pas relevé par relevé : sinon, sur un petit
+    /// site sans LLDP, les MAC vues par l'uplink seraient rangées sur ce port.
+    func record(snapshots: [SNMPSwitchSnapshot], siteKey: String, source: MACSightingSource = .switchTable,
+                context: [SNMPSwitchSnapshot]) {
+        guard !isDemo, !snapshots.isEmpty else { return }
+        let hosts = Set(snapshots.map(\.host))
+        let uplinks = SNMPLocator.uplinks(in: snapshots + context.filter { !hosts.contains($0.host) })
+        var history = history(siteKey: siteKey)
+        for snapshot in snapshots {
+            let observations = MACHistory.observations(snapshots: [snapshot], source: source, uplinks: uplinks)
+            if !observations.isEmpty { history.record(observations, at: snapshot.polledAt) }
+        }
+        histories[siteKey] = history
+        dirty.insert(siteKey)
+        revision += 1
+        scheduleSave()
     }
 
     /// Clients Wi-Fi lus sur la FortiGate du site.
@@ -111,7 +127,7 @@ final class MACHistoryStore: ObservableObject {
         }
     }
 
-    func saveNow() {
+    func saveNow(synchronously: Bool = false) {
         saveTask?.cancel()
         saveTask = nil
         guard !isDemo else { return }
@@ -122,14 +138,21 @@ final class MACHistoryStore: ObservableObject {
             return (url(key), data)
         }
         dirty.removeAll()
-        Task.detached(priority: .utility) {
-            for (url, data) in jobs {
-                do {
-                    try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-                    try data.write(to: url, options: .atomic)
-                } catch {
-                    AppLog.shared.error("Historique MAC", "Enregistrement impossible\u{00A0}: \(error.localizedDescription)")
-                }
+        guard !jobs.isEmpty else { return }
+        if synchronously {
+            Self.write(jobs)
+        } else {
+            Task.detached(priority: .utility) { Self.write(jobs) }
+        }
+    }
+
+    nonisolated private static func write(_ jobs: [(URL, Data)]) {
+        for (url, data) in jobs {
+            do {
+                try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try data.write(to: url, options: .atomic)
+            } catch {
+                AppLog.shared.error("Historique MAC", "Enregistrement impossible\u{00A0}: \(error.localizedDescription)")
             }
         }
     }
@@ -153,13 +176,17 @@ final class MACHistoryStore: ObservableObject {
         }
     }
 
-    /// « du 2 juin au 5 nov. », « le 5 nov. » (période d'une observation).
+    /// « du 2 juin au 5 nov. », « le 5 nov. » ; plusieurs périodes : les deux plus récentes
+    /// (« du 1 juin au 3 juil., le 5 nov. »), précédées du nombre des plus anciennes.
     static func period(_ sighting: MACSighting) -> String {
         let style = Date.FormatStyle.dateTime.day().month(.abbreviated).year()
         let calendar = Calendar.current
-        if calendar.isDate(sighting.firstSeen, inSameDayAs: sighting.lastSeen) {
-            return "le " + sighting.lastSeen.formatted(style)
+        func label(_ period: DateInterval) -> String {
+            if calendar.isDate(period.start, inSameDayAs: period.end) { return "le " + period.end.formatted(style) }
+            return "du \(period.start.formatted(style)) au \(period.end.formatted(style))"
         }
-        return "du \(sighting.firstSeen.formatted(style)) au \(sighting.lastSeen.formatted(style))"
+        let recent = sighting.periods.suffix(2).map(label).joined(separator: ", ")
+        let older = sighting.periods.count - 2
+        return older > 0 ? "\(older) période\(older > 1 ? "s" : "") avant, puis \(recent)" : recent
     }
 }

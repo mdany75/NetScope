@@ -3,7 +3,7 @@ import NetScopeCore
 
 /// Note 98 : relevé de démonstration (`--demo`) de l'onduleur de la baie réseau, passé par le même
 /// analyseur que les vraies réponses SNMP (aucun réseau). Sur secteur, autonomie de 38 min, mais
-/// batterie posée en mars 2021 : à changer (plus de quatre ans).
+/// batterie posée en mars 2021 : à vérifier (plus de quatre ans ; l'âge seul ne déclenche pas d'alerte).
 /// Captures : NETSCOPE_DEVICE=10.182.122.160 montre la carte « Onduleur » de la fiche ;
 /// NETSCOPE_INV_VUE=onduleurs la vue « Onduleurs » de l'Inventaire.
 enum UPSDemo {

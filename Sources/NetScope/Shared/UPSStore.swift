@@ -3,8 +3,8 @@ import NetScopeCore
 
 /// Note 98 : derniers relevés des onduleurs, un fichier par site (`sites/<clé>/onduleurs.json` dans
 /// Application Support/NetScope), comme les consommables des imprimantes (PrinterStore). Un relevé
-/// est rangé sous l'adresse MAC de l'onduleur (l'IP seulement à défaut), dans le dossier du site
-/// actif : l'IP seule ne choisit jamais le site. Lecture SNMP seulement sur clic (« Lire
+/// est rangé sous l'adresse MAC de l'onduleur, dans le dossier du site actif : l'IP seule ne
+/// choisit jamais le site ni l'appareil. Sans MAC, le relevé est affiché sans être conservé. Lecture SNMP seulement sur clic (« Lire
 /// l'onduleur ») ou par la sonde ; en démonstration et pendant les captures, rien n'est lu sur le
 /// réseau ni écrit sur le disque.
 @MainActor
@@ -19,6 +19,10 @@ final class UPSStore: ObservableObject {
     let isDemo: Bool
     private let files: SiteFiles
     private var sites: [String: [String: UPSReading]] = [:]
+    /// Relevés d'appareils sans MAC (site|IP) : affichés sur la fiche le temps de la session, jamais
+    /// enregistrés ni repris par le rapport, l'Inventaire ou un autre appareil.
+    private var unsaved: [String: UPSReading] = [:]
+    static let noMACNotice = "MAC inconnue\u{00A0}: relevé non conservé"
     static let fileName = "onduleurs.json"
 
     init(demo: Bool = Launcher.isDemo || RegEnvironment.isSnapshot, files: SiteFiles = .standard) {
@@ -27,8 +31,13 @@ final class UPSStore: ObservableObject {
         if demo { sites[SiteModel.shared.activeKey] = UPSDemo.readings() }
     }
 
-    /// Clé d'un appareil dans le fichier du site : MAC, sinon IP.
-    static func deviceKey(_ device: Device) -> String { device.mac?.description ?? device.ip.description }
+    /// Clé d'un appareil dans le fichier du site : sa MAC (nil sans MAC : rien n'est conservé).
+    static func deviceKey(_ device: Device) -> String? { device.mac?.description }
+
+    /// Jeton de lecture en cours et d'erreur (site|MAC, ou site|ip:IP sans MAC, jamais conservé).
+    private static func token(_ device: Device, site: String) -> String {
+        site + "|" + (deviceKey(device) ?? "ip:" + device.ip.description)
+    }
 
     func readings(siteKey: String) -> [String: UPSReading] {
         if let cached = sites[siteKey] { return cached }
@@ -42,17 +51,24 @@ final class UPSStore: ObservableObject {
     }
 
     func reading(for device: Device, siteKey: String? = nil) -> UPSReading? {
-        readings(siteKey: siteKey ?? SiteModel.shared.activeKey)[Self.deviceKey(device)]
+        let site = siteKey ?? SiteModel.shared.activeKey
+        guard let key = Self.deviceKey(device) else { return unsaved[Self.token(device, site: site)] }
+        return readings(siteKey: site)[key]
     }
 
-    func isReading(_ device: Device) -> Bool { reading.contains(SiteModel.shared.activeKey + "|" + Self.deviceKey(device)) }
-    func error(for device: Device) -> String? { errors[SiteModel.shared.activeKey + "|" + Self.deviceKey(device)] }
+    /// Vrai si le relevé affiché pour cet appareil n'est pas conservé (MAC inconnue).
+    func isUnsaved(_ device: Device) -> Bool {
+        device.mac == nil && unsaved[Self.token(device, site: SiteModel.shared.activeKey)] != nil
+    }
+
+    func isReading(_ device: Device) -> Bool { reading.contains(Self.token(device, site: SiteModel.shared.activeKey)) }
+    func error(for device: Device) -> String? { errors[Self.token(device, site: SiteModel.shared.activeKey)] }
 
     /// « Lire l'onduleur » : lecture SNMP de l'UPS-MIB et des MIB des fabricants (identifiants du site).
     func read(_ device: Device) {
         let site = SiteModel.shared.activeKey
         let key = Self.deviceKey(device)
-        let token = site + "|" + key
+        let token = Self.token(device, site: site)
         guard !reading.contains(token) else { return }
         errors[token] = nil
         if isDemo {
@@ -74,7 +90,12 @@ final class UPSStore: ObservableObject {
                     errors[token] = "Site changé pendant la lecture\u{00A0}: rien n’est enregistré"
                     return
                 }
-                store(result, key: key, siteKey: site)
+                if let key {
+                    store(result, key: key, siteKey: site)
+                } else {
+                    unsaved[token] = result
+                    revision += 1
+                }
             } catch is CancellationError {
                 return
             } catch {
@@ -111,7 +132,7 @@ final class UPSStore: ObservableObject {
     func reportUnits(devices: [Device], siteKey: String) -> [ReportUPS] {
         let stored = readings(siteKey: siteKey)
         return devices.compactMap { device in
-            guard let reading = stored[Self.deviceKey(device)] else { return nil }
+            guard let key = Self.deviceKey(device), let reading = stored[key] else { return nil }
             return ReportUPS(name: device.displayName, ip: device.ip.description, reading: reading)
         }
     }

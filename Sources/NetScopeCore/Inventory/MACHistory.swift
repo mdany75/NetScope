@@ -50,35 +50,101 @@ public struct MACObservation: Hashable, Sendable {
     }
 }
 
-/// Une valeur vue pour une MAC, avec la période où elle l'a été.
+/// Une valeur vue pour une MAC, avec les périodes où elle l'a été. Une MAC vue sur l'IP A, puis
+/// sur B, puis de nouveau sur A a deux périodes sur A : elle n'était pas sur A pendant qu'elle était
+/// sur B.
 public struct MACSighting: Codable, Hashable, Sendable, Identifiable {
     public var mac: MACAddress
     public var kind: MACSightingKind
     public var value: String
     public var sources: [MACSightingSource]
-    public var firstSeen: Date
-    public var lastSeen: Date
+    /// Périodes de présence, dans l'ordre chronologique, jamais vide.
+    public internal(set) var periods: [DateInterval]
     /// Nombre de relevés où la valeur a été vue.
     public var count: Int
 
     public var id: String { MACHistory.key(mac, kind, value) }
+    public var firstSeen: Date { periods.first?.start ?? .distantPast }
+    public var lastSeen: Date { periods.last?.end ?? .distantPast }
 
     public init(mac: MACAddress, kind: MACSightingKind, value: String, sources: [MACSightingSource],
                 firstSeen: Date, lastSeen: Date, count: Int = 1) {
+        self.init(mac: mac, kind: kind, value: value, sources: sources,
+                  periods: [DateInterval(start: min(firstSeen, lastSeen), end: max(firstSeen, lastSeen))], count: count)
+    }
+
+    public init(mac: MACAddress, kind: MACSightingKind, value: String, sources: [MACSightingSource],
+                periods: [DateInterval], count: Int = 1) {
         self.mac = mac
         self.kind = kind
         self.value = value
         self.sources = sources
-        self.firstSeen = firstSeen
-        self.lastSeen = lastSeen
+        self.periods = periods.sorted { $0.start < $1.start }
         self.count = count
     }
 
-    /// Vrai si la valeur était vue ce jour-là (de la première à la dernière vue, jours entiers).
+    /// Vrai si la valeur était vue ce jour-là (une de ses périodes, jours entiers).
     public func covers(_ day: Date, calendar: Calendar = .current) -> Bool {
-        let start = calendar.startOfDay(for: firstSeen)
-        let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: lastSeen)) ?? lastSeen
-        return day >= start && day < end
+        periods.contains { period in
+            let start = calendar.startOfDay(for: period.start)
+            let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: period.end)) ?? period.end
+            return day >= start && day < end
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey { case mac, kind, value, sources, periods, firstSeen, lastSeen, count }
+
+    /// Décodage compatible : l'ancien fichier (première et dernière vue seulement) donne une période.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        mac = try container.decode(MACAddress.self, forKey: .mac)
+        kind = try container.decode(MACSightingKind.self, forKey: .kind)
+        value = try container.decode(String.self, forKey: .value)
+        sources = try container.decode([MACSightingSource].self, forKey: .sources)
+        count = try container.decodeIfPresent(Int.self, forKey: .count) ?? 1
+        if let periods = try container.decodeIfPresent([DateInterval].self, forKey: .periods), !periods.isEmpty {
+            self.periods = periods.sorted { $0.start < $1.start }
+        } else {
+            let first = try container.decode(Date.self, forKey: .firstSeen)
+            let last = try container.decode(Date.self, forKey: .lastSeen)
+            periods = [DateInterval(start: min(first, last), end: max(first, last))]
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(mac, forKey: .mac)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(value, forKey: .value)
+        try container.encode(sources, forKey: .sources)
+        try container.encode(periods, forKey: .periods)
+        try container.encode(firstSeen, forKey: .firstSeen)
+        try container.encode(lastSeen, forKey: .lastSeen)
+        try container.encode(count, forKey: .count)
+    }
+
+    /// Ajoute une vue : prolonge la période qui la contient ou la dernière, ou en ouvre une nouvelle
+    /// quand `split` (une autre valeur a été vue entre-temps).
+    mutating func extend(to date: Date, split: Bool) {
+        if periods.contains(where: { $0.contains(date) }) { return }
+        if let index = periods.lastIndex(where: { $0.end <= date }) {
+            if !split {
+                periods[index] = DateInterval(start: periods[index].start, end: date)
+                // Fusion avec la suivante si elles se touchent maintenant.
+                if index + 1 < periods.count, periods[index + 1].start <= date {
+                    periods[index] = DateInterval(start: periods[index].start, end: periods[index + 1].end)
+                    periods.remove(at: index + 1)
+                }
+                return
+            }
+        } else if !split, let first = periods.first {
+            // Relevé plus ancien que tout ce qui est connu (import, horloge) : la première période recule.
+            periods[0] = DateInterval(start: date, end: first.end)
+            return
+        }
+        periods.append(DateInterval(start: date, duration: 0))
+        periods.sort { $0.start < $1.start }
+        if periods.count > MACHistory.maxPeriods { periods.removeFirst(periods.count - MACHistory.maxPeriods) }
     }
 }
 
@@ -98,6 +164,8 @@ public struct MACHistory: Codable, Hashable, Sendable {
     /// Durée de conservation proposée (jours) ; choix offerts dans l'application.
     public static let defaultRetentionDays = 180
     public static let retentionChoices = [30, 90, 180, 365, 730]
+    /// Périodes gardées au plus par valeur (les plus anciennes sont retirées au-delà).
+    static let maxPeriods = 200
 
     public private(set) var sightings: [String: MACSighting]
 
@@ -112,25 +180,38 @@ public struct MACHistory: Codable, Hashable, Sendable {
     public var isEmpty: Bool { sightings.isEmpty }
     public var macCount: Int { Set(sightings.values.map(\.mac)).count }
 
-    /// Fusionne les observations d'un relevé : prolonge la période d'une valeur déjà vue, ou
-    /// en ouvre une nouvelle. Les MAC nulles, de diffusion ou de multidiffusion sont écartées.
+    /// Fusionne les observations d'un relevé : prolonge la période d'une valeur déjà vue, ou en
+    /// ouvre une nouvelle quand une autre valeur de même nature (IP, port, VLAN, borne) a été vue
+    /// pour cette MAC depuis sa dernière vue. Les MAC nulles, de diffusion ou de multidiffusion sont
+    /// écartées.
     @discardableResult
     public mutating func record(_ observations: [MACObservation], at date: Date) -> Int {
         var added = 0
         var seen: Set<String> = []
+        // Valeurs connues par MAC et nature, pour savoir si une autre a été vue entre-temps.
+        var siblings: [String: [String]] = [:]
+        for (key, sighting) in sightings { siblings["\(sighting.mac.description)|\(sighting.kind.rawValue)", default: []].append(key) }
         for observation in observations {
             let value = observation.value.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !value.isEmpty, observation.mac.value != 0, !observation.mac.isBroadcast, !observation.mac.isMulticast else { continue }
             let key = Self.key(observation.mac, observation.kind, value)
+            let group = "\(observation.mac.description)|\(observation.kind.rawValue)"
             if var existing = sightings[key] {
-                existing.firstSeen = min(existing.firstSeen, date)
-                existing.lastSeen = max(existing.lastSeen, date)
+                // Le nom n'est pas un emplacement : plusieurs noms (scan, FortiGate) coexistent.
+                let last = existing.periods.last(where: { $0.end <= date })?.end
+                let split = observation.kind != .name && last.map { last in
+                    (siblings[group] ?? []).contains { other in
+                        other != key && (sightings[other]?.periods.contains { $0.end > last && $0.end < date } ?? false)
+                    }
+                } ?? false
+                existing.extend(to: date, split: split)
                 if !seen.contains(key) { existing.count += 1 }
                 if !existing.sources.contains(observation.source) { existing.sources.append(observation.source) }
                 sightings[key] = existing
             } else {
                 sightings[key] = MACSighting(mac: observation.mac, kind: observation.kind, value: value,
                                              sources: [observation.source], firstSeen: date, lastSeen: date)
+                siblings[group, default: []].append(key)
                 added += 1
             }
             seen.insert(key)
@@ -143,7 +224,11 @@ public struct MACHistory: Codable, Hashable, Sendable {
     public mutating func prune(retentionDays: Int, now: Date) -> Int {
         let limit = now.addingTimeInterval(-Double(max(1, retentionDays)) * 86_400)
         let before = sightings.count
-        sightings = sightings.filter { $0.value.lastSeen >= limit }
+        sightings = sightings.compactMapValues { sighting in
+            var kept = sighting
+            kept.periods = sighting.periods.filter { $0.end >= limit }
+            return kept.periods.isEmpty ? nil : kept
+        }
         return before - sightings.count
     }
 
@@ -167,7 +252,8 @@ public struct MACHistory: Codable, Hashable, Sendable {
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let folded = Self.fold(text)
         let hex = text.lowercased().filter { $0.isHexDigit }
-        let looksLikeMAC = hex.count >= 4 && text.allSatisfy { $0.isHexDigit || ":-. ".contains($0) }
+        let looksLikeMAC = hex.count >= 4 && !Self.looksLikeIPv4(text) && text.allSatisfy { $0.isHexDigit || ":-. ".contains($0) }
+            && (!text.contains(".") || Self.isCiscoMAC(text))
         var macs: Set<MACAddress> = []
         for sighting in sightings.values {
             if text.isEmpty {
@@ -193,6 +279,22 @@ public struct MACHistory: Codable, Hashable, Sendable {
         .sorted { ($0.lastSeen ?? .distantPast, $1.mac) > ($1.lastSeen ?? .distantPast, $0.mac) }
     }
 
+    /// « 10.10.20.5 », « 10.10. » : 1 à 4 groupes décimaux séparés par des points, chacun d'au plus
+    /// 3 chiffres (une IP, entière ou en préfixe), donc pas une MAC.
+    public static func looksLikeIPv4(_ text: String) -> Bool {
+        guard text.contains(".") else { return false }
+        let groups = text.split(separator: ".", omittingEmptySubsequences: false)
+        let filled = groups.last?.isEmpty == true ? groups.dropLast() : groups[...]
+        return (1...4).contains(filled.count) && filled.allSatisfy { !$0.isEmpty && $0.count <= 3 && $0.allSatisfy(\.isNumber) }
+    }
+
+    /// Format Cisco « xxxx.xxxx.xxxx » (complet ou partiel : groupes de 4 au plus, hexadécimaux).
+    static func isCiscoMAC(_ text: String) -> Bool {
+        let groups = text.split(separator: ".", omittingEmptySubsequences: false)
+        return groups.count <= 3 && groups.allSatisfy { $0.count <= 4 && $0.allSatisfy(\.isHexDigit) }
+            && groups.dropLast().allSatisfy { $0.count == 4 }
+    }
+
     static func fold(_ text: String) -> String {
         text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "fr_CA"))
     }
@@ -215,9 +317,11 @@ public struct MACHistory: Codable, Hashable, Sendable {
     }
 
     /// Observations des relevés des switchs : MAC apprises sur les ports d'accès (pas les uplinks),
-    /// avec le VLAN ; IP de la table ARP des switchs de niveau 3.
-    public static func observations(snapshots: [SNMPSwitchSnapshot], source: MACSightingSource = .switchTable) -> [MACObservation] {
-        let uplinkMap = SNMPLocator.uplinks(in: snapshots)
+    /// avec le VLAN ; IP de la table ARP des switchs de niveau 3. `uplinks` : ports d'uplink déjà
+    /// reconnus avec tous les relevés du site (sinon, d'après ces seuls relevés).
+    public static func observations(snapshots: [SNMPSwitchSnapshot], source: MACSightingSource = .switchTable,
+                                    uplinks: [IPv4Address: Set<Int>]? = nil) -> [MACObservation] {
+        let uplinkMap = uplinks ?? SNMPLocator.uplinks(in: snapshots)
         var list: [MACObservation] = []
         for snapshot in snapshots {
             let uplinks = uplinkMap[snapshot.host] ?? []

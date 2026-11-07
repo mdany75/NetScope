@@ -15,8 +15,14 @@ public enum UPSMIBOIDs {
     public static let eaton: SNMPOID = "1.3.6.1.4.1.534.1"
     /// CyberPower : ups (cpsMIB).
     public static let cyberPower: SNMPOID = "1.3.6.1.4.1.3808.1.1.1"
-    /// Sous-arbres parcourus, dans l'ordre (la MIB standard d'abord).
-    public static let roots: [SNMPOID] = [standard, apc, eaton, cyberPower]
+    /// Sous-arbres parcourus, dans l'ordre (la MIB standard d'abord). Pour les fabricants, seulement
+    /// les branches lues (identité, batterie, entrée, sortie, environnement, test) : l'arbre entier
+    /// (packs de batteries, phases, groupes de prises, configuration) dépasse souvent la limite du
+    /// parcours avant d'atteindre le test.
+    public static let roots: [SNMPOID] = [standard]
+        + ["1.1", "2", "3", "4", "7.2"].map { SNMPOID(apc.description + "." + $0)! }
+        + ["1", "2", "3", "4", "6", "8"].map { SNMPOID(eaton.description + "." + $0)! }
+        + ["1.1", "2", "3", "4", "7.2"].map { SNMPOID(cyberPower.description + "." + $0)! }
 
     // UPS-MIB.
     static let manufacturer: SNMPOID = "1.3.6.1.2.1.33.1.1.1.0"
@@ -186,8 +192,9 @@ public struct UPSReading: Codable, Hashable, Sendable {
         batteryReplacedDate.map { max(0, now.timeIntervalSince($0) / (365.25 * 86_400)) }
     }
 
-    /// La batterie est à changer : voyant de l'onduleur, test échoué, batterie en défaut, ou plus
-    /// vieille que `UPSMIB.batteryLifeYears`.
+    /// La batterie est à changer : voyant de l'onduleur, test échoué, batterie en défaut. L'âge seul
+    /// ne suffit pas : beaucoup de cartes gardent la date de fabrication ou une date par défaut, que
+    /// personne ne met à jour au remplacement (voir `batteryAgeNote`).
     public func batteryDue(now: Date) -> Bool { batteryDueReason(now: now) != nil }
 
     public func batteryDueReason(now: Date) -> String? {
@@ -195,10 +202,14 @@ public struct UPSReading: Codable, Hashable, Sendable {
         if lastTest == .failed { return "dernier test échoué" }
         if batteryStatus == .fault { return "batterie en défaut" }
         if alarms.contains(UPSMIB.alarmLabel(1)) { return "batterie défectueuse" }
-        if let age = batteryAgeYears(now: now), age >= UPSMIB.batteryLifeYears {
-            return "batterie posée il y a \(Int(age.rounded(.down)))\u{00A0}ans"
-        }
         return nil
+    }
+
+    /// Information sans alerte : « posée il y a 5 ans, à vérifier » quand la date publiée dépasse
+    /// `UPSMIB.batteryLifeYears` (la date peut ne pas avoir été mise à jour au remplacement).
+    public func batteryAgeNote(now: Date) -> String? {
+        guard let age = batteryAgeYears(now: now), age >= UPSMIB.batteryLifeYears else { return nil }
+        return "posée il y a \(Int(age.rounded(.down)))\u{00A0}ans, à vérifier"
     }
 
     /// « Fabricant Modèle » (« APC Smart-UPS 1500 »).
@@ -336,16 +347,18 @@ public enum UPSMIB {
         } else if let value = int(eaton("8.2.0")) {
             reading.lastTest = [2: .passed, 3: .failed, 4: .inProgress][value]
         }
-        reading.lastTestDate = first(text(apc("7.2.4.0")), text(cps("7.2.4.0"))).flatMap(parseDate)
-        reading.batteryReplacedDate = first(text(apc("2.1.3.0")), text(eaton("2.6.0")), text(cps("2.1.3.0"))).flatMap(parseDate)
+        reading.lastTestDate = first(text(apc("7.2.4.0")), text(cps("7.2.4.0"))).flatMap { parseDate($0, now: now) }
+        reading.batteryReplacedDate = first(text(apc("2.1.3.0")), text(eaton("2.6.0")), text(cps("2.1.3.0")))
+            .flatMap { parseDate($0, now: now) }
         reading.replaceIndicator = first(int(apc("2.2.4.0")), int(cps("2.2.5.0"))) == 2
         reading.alarms = alarmIDs.map(alarmLabel)
         return reading
     }
 
     /// Date des MIB des fabricants : « 03/14/22 », « 03/14/2022 » (mois d'abord) ou « 2022-03-14 ».
-    /// Rendue à midi UTC, pour s'afficher le même jour partout.
-    public static func parseDate(_ text: String) -> Date? {
+    /// Rendue à midi UTC, pour s'afficher le même jour partout. Les dates impossibles sont écartées :
+    /// avant le 2 janvier 2000 (« 01/01/00 », valeur par défaut de certaines cartes) ou dans le futur.
+    public static func parseDate(_ text: String, now: Date = Date()) -> Date? {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
         var year = 0, month = 0, day = 0
         if trimmed.contains("-") {
@@ -361,7 +374,11 @@ public enum UPSMIB {
         guard (1990...2100).contains(year), (1...12).contains(month), (1...31).contains(day) else { return nil }
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC")!
-        return calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12))
+        guard let date = calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12)),
+              calendar.component(.day, from: date) == day,
+              date >= calendar.date(from: DateComponents(year: 2000, month: 1, day: 2))!,
+              date <= now.addingTimeInterval(86_400) else { return nil }
+        return date
     }
 
     /// « 12 mars 2024 » (date rendue par `parseDate`).
@@ -390,6 +407,9 @@ public enum UPSMIB {
         for root in UPSMIBOIDs.roots {
             let result = try await SNMPWalker.walk(root, mode: .bulk(maxRepetitions: 20), limit: 300, fetch: fetch)
             binds += result.binds
+            if result.truncated {
+                AppLog.shared.warning("Onduleurs", "Lecture de \(root) arrêtée à 300\u{00A0}lignes\u{00A0}: valeurs suivantes absentes")
+            }
         }
         guard let reading = reading(binds, now: now) else { throw UPSMIBError.noUPS }
         return reading

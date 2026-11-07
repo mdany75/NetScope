@@ -31,6 +31,12 @@ public enum MonUPSChecks {
     /// batterie ou sortie coupée, alerte sous le seuil d'autonomie ou batterie à changer.
     public static func evaluate(_ reading: UPSReading, minRuntime: Double, now: Date) -> MonResult {
         let value = reading.summary
+        // Autotest de la batterie (souvent hebdomadaire) : la plupart des cartes publient « sur
+        // batterie » pendant le test alors que l'onduleur est sur secteur : ce n'est pas une panne.
+        let selfTest = reading.lastTest == .inProgress || reading.alarms.contains(UPSMIB.alarmLabel(24))
+        if selfTest, reading.source == .battery || reading.alarms.contains(UPSMIB.alarmLabel(2)) {
+            return MonResult(date: now, reachable: true, value: "Autotest en cours · " + value, problem: nil)
+        }
         if reading.source == .battery {
             var text = "Sur batterie"
             if let seconds = reading.secondsOnBattery, seconds > 0 { text += " depuis \(UPSMIB.minutes(Double(seconds) / 60))" }
@@ -47,7 +53,8 @@ public enum MonUPSChecks {
         if let reason = reading.batteryDueReason(now: now) { problems.append("Batterie à changer\u{00A0}: \(reason)") }
         if reading.source == .bypass { problems.append("En contournement (bypass)\u{00A0}: la charge n’est plus protégée") }
         if let load = reading.loadPercent, load >= 90 { problems.append("Charge de la sortie \(UPSMIB.percent(load))") }
-        let known = ["Sur batterie", "Batterie faible", "Batterie défectueuse", "En contournement (bypass)"]
+        // Alarmes déjà traitées plus haut, ou sans conséquence (test en cours, attente du secteur).
+        let known = [1, 2, 3, 9, 21, 24].map { UPSMIB.alarmLabel($0) }
         let others = reading.alarms.filter { !known.contains($0) }
         if !others.isEmpty { problems.append(others.joined(separator: ", ")) }
         return MonResult(date: now, reachable: true, value: value, problem: problems.isEmpty ? nil : problems.joined(separator: " · "))

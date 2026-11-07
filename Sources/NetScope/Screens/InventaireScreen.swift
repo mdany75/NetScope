@@ -341,10 +341,13 @@ struct InventaireScreen: View {
     // MARK: En-tête
 
     private var viewPicker: some View {
+        viewPickerBase.pickerStyle(.segmented)
+    }
+
+    private var viewPickerBase: some View {
         Picker("Vue de l’inventaire", selection: $view) {
             ForEach(InvView.allCases, id: \.self) { Text($0.label).tag($0) }
         }
-        .pickerStyle(.segmented)
         .labelsHidden()
     }
 
@@ -354,11 +357,12 @@ struct InventaireScreen: View {
             // Note 28 : l'inventaire est propre à chaque site ; le menu choisit un, plusieurs ou tous les sites.
             SiteScopeMenu(screen: .inventaire).layoutPriority(1)
             // Segments égaux, plus larges que le plus long libellé : « Disparus > 30 j » n'est pas serré ;
-            // en petite fenêtre (note 95, six vues), les segments prennent la largeur de leur libellé.
+            // plus étroit, les segments prennent la largeur de leur libellé ; en petite fenêtre (sept
+            // vues), un menu déroulant, jamais des segments écrasés sous le menu des sites.
             ViewThatFits(in: .horizontal) {
                 viewPicker.frame(width: 680).fixedSize()
                 viewPicker.fixedSize()
-                viewPicker.frame(minWidth: 420)
+                viewPickerBase.pickerStyle(.menu).fixedSize()
             }
             // Petite fenêtre : seule la date de fusion reste, sinon rien (jamais une phrase coupée ;
             // la légende complète reste au survol).
