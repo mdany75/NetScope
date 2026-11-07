@@ -447,6 +447,9 @@ final class MonStore: ObservableObject {
             if let reading = outcome.printerReading, let address = outcome.printerAddress {
                 MonStore.shared.recordPrinter(reading, address: address, probe: probe)
             }
+            if let reading = outcome.upsReading, let address = outcome.upsAddress {
+                MonStore.shared.recordUPS(reading, address: address, probe: probe)
+            }
             MonStore.shared.finish(probe.id, outcome: outcome, manual: manual)
         }
     }
@@ -459,6 +462,18 @@ final class MonStore: ObservableObject {
         guard let active = sites.activeID, site(of: probe) == active,
               let device = appState?.devices.first(where: { $0.ip == address && $0.mac != nil }) else { return }
         PrinterStore.shared.record(reading, for: device, siteKey: sites.activeKey)
+    }
+
+    /// Note 98 : relevé de la sonde « Onduleur » rangé avec ceux de la fiche, aux mêmes conditions
+    /// que les imprimantes (site actif, appareil avec une MAC), et seulement si un seul appareil du site
+    /// porte cette adresse et qu'il est un onduleur : l'IP seule ne doit pas ranger le relevé sous la
+    /// MAC d'un autre appareil qui aurait repris l'adresse.
+    private func recordUPS(_ reading: UPSReading, address: IPv4Address, probe: MonProbe) {
+        let sites = SiteModel.shared
+        guard let active = sites.activeID, site(of: probe) == active,
+              let candidates = appState?.devices.filter({ $0.ip == address }), candidates.count == 1,
+              let device = candidates.first, device.mac != nil, device.deviceType == .onduleur else { return }
+        UPSStore.shared.record(reading, for: device, siteKey: sites.activeKey)
     }
 
     private func finish(_ id: UUID, outcome: MonRunOutcome, manual: Bool) {

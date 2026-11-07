@@ -210,6 +210,8 @@ final class InvModel: ObservableObject {
             }
         }
         if saving { save() }
+        // Note 99 : historique des MAC du site (IP, nom, port, VLAN vus par ce scan).
+        MACHistoryStore.shared.record(devices: devices, siteKey: site, at: date)
         // Note 60 : lectures SNMP d'appareils qui n'avaient pas encore de fiche.
         InvHardwareFeed.shared.inventoryMerged(site: site)
     }

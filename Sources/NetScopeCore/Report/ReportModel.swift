@@ -88,6 +88,8 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
     case releveWifi
     /// Consommables des imprimantes (note 91), facultative.
     case imprimantes
+    /// Onduleurs : alimentation, autonomie, batterie (note 98), facultative.
+    case onduleurs
     /// Qualité VoIP : appels captés et test simulé (note 92), facultative.
     case voip
     /// Serveurs DHCP pirates, conflits d'adresses IP et bornes Wi-Fi pirates (notes 96 et 97), facultative.
@@ -118,6 +120,7 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
         case .carte: return "Carte du réseau"
         case .releveWifi: return "Relevé Wi-Fi sur plan"
         case .imprimantes: return "Imprimantes et consommables"
+        case .onduleurs: return "Onduleurs"
         case .voip: return "Qualité VoIP"
         case .pirates: return "Pirates et conflits (DHCP, IP, Wi-Fi)"
         case .annexe: return "Annexe brute"
@@ -126,7 +129,7 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
 
     /// Ordre dans le document : le détail (inventaire, annexe) vient après la synthèse. « Santé
     /// courriel » est facultative : aucun modèle ne la coche par défaut.
-    public static let documentOrder: [ReportSectionKind] = [.resume, .suivi, .disponibilite, .carte, .plan, .dhcp, .wan, .firmware, .switchs, .raccordement, .wifi, .fortiap, .wifiDiag, .releveWifi, .voip, .trafic, .imprimantes, .pirates, .securite, .problemes,
+    public static let documentOrder: [ReportSectionKind] = [.resume, .suivi, .disponibilite, .carte, .plan, .dhcp, .wan, .firmware, .switchs, .raccordement, .wifi, .fortiap, .wifiDiag, .releveWifi, .voip, .trafic, .imprimantes, .onduleurs, .pirates, .securite, .problemes,
                                                             .courriel, .disques, .inventaire, .annexe]
 }
 

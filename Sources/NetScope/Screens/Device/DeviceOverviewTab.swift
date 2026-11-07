@@ -79,8 +79,14 @@ struct DeviceOverviewTab: View {
                 if device.deviceType == .imprimante {
                     DevicePrinterCard(device: device)
                 }
+                // Note 98 : onduleurs (SNMP, UPS-MIB et MIB du fabricant).
+                if device.deviceType == .onduleur {
+                    DeviceUPSCard(device: device)
+                }
                 availabilityCard
                 servicesCard
+                // Note 99 : chronologie de la MAC (IP, noms, ports, VLAN, bornes Wi-Fi).
+                DeviceMACHistoryCard(device: device)
                 // Note 68 : empreinte légère (système, confiance, versions, indices).
                 DeviceFingerprintCard(device: device)
             }

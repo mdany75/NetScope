@@ -101,6 +101,10 @@ final class RapportModel: ObservableObject {
         if config.includes(.imprimantes) {
             input.printers = PrinterStore.shared.reportPrinters(devices: input.devices, siteKey: siteKey)
         }
+        // Note 98 : onduleurs relevés du site (fiche ou sonde), comme les imprimantes.
+        if config.includes(.onduleurs) {
+            input.upsUnits = UPSStore.shared.reportUnits(devices: input.devices, siteKey: siteKey)
+        }
         if config.includes(.voip), active {
             input.voipCalls = VoIPReportSource.calls()
             input.voipTests = VoIPReportSource.tests()

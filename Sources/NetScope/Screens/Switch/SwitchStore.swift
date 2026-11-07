@@ -31,6 +31,17 @@ final class SwitchStore: ObservableObject {
 
     /// Note 74 : site dont l'historique du trafic reçoit les relevés d'un switch : celui du relevé
     /// SNMP, sinon celui de la FortiGate du FortiSwitch, sinon le site actif.
+    /// Note 99 : relevés d'une série rangés dans l'historique des MAC de leur site, les uplinks
+    /// reconnus avec tous les relevés du site (SNMP et contrôleurs), pas relevé par relevé.
+    private func recordMACHistory(_ fresh: [SNMPSwitchSnapshot], source: MACSightingSource = .switchTable) {
+        guard !fresh.isEmpty else { return }
+        let groups = Dictionary(grouping: fresh) { historySiteKey(for: $0.id) }
+        for (siteKey, list) in groups {
+            let context = (snmpSnapshots + controllerSnapshots).filter { historySiteKey(for: $0.id) == siteKey }
+            MACHistoryStore.shared.record(snapshots: list, siteKey: siteKey, source: source, context: context)
+        }
+    }
+
     func historySiteKey(for host: String) -> String {
         if let key = readingSites[host] { return key }
         if let controller = controllerOwners[host],
@@ -336,7 +347,11 @@ final class SwitchStore: ObservableObject {
         installControllerSnapshots()
         for (mac, name) in ControllerConvert.names(readings) where controllerNames[mac] == nil { controllerNames[mac] = name }
         if !isDemo {
-            for snapshot in list { PortHistoryStore.shared.record(snapshot, siteKey: historySiteKey(for: snapshot.id)) }
+            for snapshot in list {
+                PortHistoryStore.shared.record(snapshot, siteKey: historySiteKey(for: snapshot.id))
+            }
+            // Note 99 : MAC apprises sur les ports d'accès (contrôleur UniFi, Omada, Meraki).
+            recordMACHistory(list)
         }
         guard locate, !readings.isEmpty else { return }
         let result = ControllerConvert.apply(readings, to: state.devices, controller: controllerSnapshots, snmp: snmpSnapshots)
@@ -376,7 +391,11 @@ final class SwitchStore: ObservableObject {
         controllerNames = FortiMulti.names(sites)
         controllerOwners = SiteSwitchFilter.controllerOwners(sites)
         // Note 74 : compteurs des FortiSwitch dans l'historique de leur site.
-        for snapshot in controllerSnapshots { PortHistoryStore.shared.record(snapshot, siteKey: historySiteKey(for: snapshot.id)) }
+        for snapshot in controllerSnapshots {
+            PortHistoryStore.shared.record(snapshot, siteKey: historySiteKey(for: snapshot.id))
+        }
+        // Note 99 : MAC apprises sur les FortiSwitch, lues par la FortiGate.
+        recordMACHistory(controllerSnapshots, source: .fortigate)
         controllerNetwork = state.currentNetwork
         controllerReadAt = Date()
         if !isDemo {
@@ -568,6 +587,9 @@ final class SwitchStore: ObservableObject {
             }
         }
         if !fresh.isEmpty { lastPoll = Date() }
+        // Note 99 : MAC apprises sur les ports d'accès, dans l'historique du site, une fois la série
+        // finie (les uplinks se reconnaissent avec tous les relevés du site).
+        recordMACHistory(hosts.filter(fresh.contains).compactMap { snapshots[$0] })
         // Note 60 : modèle, numéro de série et version lus avec le relevé, dans l'inventaire du site.
         InvHardwareFeed.shared.recordSwitches(fresh.compactMap { snapshots[$0] }, site: siteKey)
         if selectedHost == nil || snapshots[selectedHost!] == nil {

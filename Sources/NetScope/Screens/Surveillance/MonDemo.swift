@@ -105,6 +105,11 @@ enum MonDemo {
             state: .warning, value: "Toner noir 9\(s)% · 48\u{202F}213 pages · Toner bas", latency: nil, orange: [10, 11, 12, 13, 14], red: [],
             dependsOnGateway: false,
             configure: { $0.resourceLimit = 15; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
+        // Onduleur (note 98) : sur secteur, mais batterie posée en 2021 : à changer.
+        Row(name: "Onduleur baie réseau", kind: .upsStatus, target: "10.182.122.160", sub: "APC Smart-UPS 1500 · UPS-BAIE-RESEAU", iv: 300,
+            state: .warning, value: "Secteur · batterie 100\(s)% · autonomie 38\(s)min · charge 34\(s)%", latency: nil, orange: [12, 13, 14], red: [],
+            dependsOnGateway: false,
+            configure: { $0.resourceLimit = 10; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
         // Notes 96 et 97 : DHCP pirate, conflits d'IP (passerelle usurpée) et bornes pirates.
         Row(name: "DHCP pirate (bureau)", kind: .rogueDHCP, target: "en0", sub: "DHCPDISCOVER · attendu 10.182.122.1", iv: 900,
             state: .ok, value: "1 attendu · 10.182.122.1", latency: nil, orange: [], red: [], dependsOnGateway: false,

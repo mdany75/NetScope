@@ -109,6 +109,7 @@ public extension DeviceType {
         case .poste: terms += ["pc", "workstation", "ordinateur"]
         case .serveur: terms += ["server", "nas"]
         case .imprimante: terms += ["printer"]
+        case .onduleur: terms += ["ups", "batterie", "apc", "eaton"]
         case .camera: terms += ["camera", "cam"]
         case .pointAcces: terms += ["ap", "access point", "wifi"]
         case .switch: terms += ["commutateur"]

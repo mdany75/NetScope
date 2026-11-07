@@ -278,6 +278,8 @@ final class FortiAPStore: ObservableObject {
         for report in reports {
             let key = siteKey(forController: report.controllerID)
             loadSignal(key)
+            // Note 99 : bornes, IP et noms des clients Wi-Fi dans l'historique des MAC du site.
+            MACHistoryStore.shared.record(wifiClients: report.report.clients, siteKey: key, at: report.report.readAt)
             if signal.record(site: key, controller: report.controllerID, clients: report.report.clients, at: report.report.readAt) {
                 changed.insert(key)
             }

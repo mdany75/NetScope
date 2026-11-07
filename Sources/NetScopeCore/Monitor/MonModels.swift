@@ -32,6 +32,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
     case rogueDHCP, ipConflict
     /// Note 97 : borne Wi-Fi pirate (sosie d'un SSID du site, borne branchée sur le réseau).
     case rogueAP
+    /// Note 98 : onduleur (UPS-MIB, APC, Eaton, CyberPower) : sur batterie, autonomie basse, batterie à changer.
+    case upsStatus
 
     public var id: String { rawValue }
 
@@ -67,6 +69,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .rogueDHCP: return "Serveur DHCP pirate"
         case .ipConflict: return "Conflit d’adresse IP"
         case .rogueAP: return "Borne Wi-Fi pirate"
+        case .upsStatus: return "Onduleur (UPS)"
         }
     }
 
@@ -102,6 +105,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .rogueDHCP: return "DHCP pirate"
         case .ipConflict: return "Conflit IP"
         case .rogueAP: return "Borne pirate"
+        case .upsStatus: return "Onduleur"
         }
     }
 
@@ -133,6 +137,7 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .printerSupply: return "Adresse IP ou nom de l’imprimante (SNMP)"
         case .rogueDHCP: return "Interface de ce Mac (en0)"
         case .ipConflict, .rogueAP: return "Site, ou «\u{00A0}*\u{00A0}» pour tous les sites"
+        case .upsStatus: return "Adresse IP ou nom de l’onduleur (SNMP)"
         }
     }
 
@@ -408,6 +413,9 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
             return "Panne si une IP répond avec deux MAC, alerte si une MAC change souvent d’IP"
         case .rogueAP:
             return "Panne si un sosie d’un SSID du site ou une borne branchée sur le réseau apparaît"
+        case .upsStatus:
+            let limit = resourceLimit ?? MonProbe.defaultResourceLimit(.upsStatus)
+            return "Panne au passage sur batterie, alerte si l’autonomie descend sous \(UPSMIB.minutes(limit)) ou si la batterie est à changer"
         }
     }
 
@@ -419,6 +427,7 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
         case .licenseExpiring: return Double(MonFirmwareChecks.defaultDays)
         case .tlsCertificate: return Double(MonTLSChecks.defaultDays)
         case .printerSupply: return PrinterMIB.defaultThreshold
+        case .upsStatus: return UPSMIB.defaultMinRuntime
         default: return 90
         }
     }

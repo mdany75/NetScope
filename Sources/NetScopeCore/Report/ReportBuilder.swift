@@ -187,6 +187,9 @@ public struct ReportInput: Sendable {
     /// Note 91 : imprimantes du site relevées par SNMP (section « Imprimantes et consommables »).
     public var printers: [ReportPrinter] = []
     public var printerThreshold: Double = PrinterMIB.defaultThreshold
+    /// Note 98 : onduleurs du site relevés par SNMP (section « Onduleurs »).
+    public var upsUnits: [ReportUPS] = []
+    public var upsMinRuntime: Double = UPSMIB.defaultMinRuntime
     /// Note 92 : appels captés (flux RTP) et tests simulés (section « Qualité VoIP »).
     public var voipCalls: [VoIPCall] = []
     public var voipTests: [VoIPSyntheticTest] = []
@@ -427,6 +430,7 @@ public enum ReportBuilder {
             case .carte: blocks = mapBlocks(input.map)
             case .releveWifi: blocks = floorSurveyBlocks(input.floorSurvey)
             case .imprimantes: blocks = printerBlocks(input.printers, threshold: input.printerThreshold)
+            case .onduleurs: blocks = upsBlocks(input.upsUnits, minRuntime: input.upsMinRuntime, now: input.now)
             case .voip: blocks = voipBlocks(calls: input.voipCalls, tests: input.voipTests)
             case .pirates: blocks = pirateBlocks(dhcp: input.rogueDHCP, conflicts: input.ipConflicts, aps: input.rogueAPs, masked: config.maskMAC)
             case .annexe: blocks = annex(input, masked: config.maskMAC)
@@ -692,6 +696,7 @@ public enum ReportBuilder {
         case .poste: base = "Poste"
         case .serveur: base = "Serveur"
         case .imprimante: base = "Imprimante"
+        case .onduleur: base = "Onduleur"
         case .camera: base = "Caméra"
         case .pointAcces: return "Point d’accès"
         case .switch: return "Switch"

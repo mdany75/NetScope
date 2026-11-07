@@ -97,6 +97,9 @@ public struct MonRunOutcome: Sendable {
     /// Consommable bas (note 91) : relevé réussi de la Printer-MIB et adresse lue.
     public var printerReading: PrinterReading?
     public var printerAddress: IPv4Address?
+    /// Onduleur (note 98) : relevé réussi et adresse lue.
+    public var upsReading: UPSReading?
+    public var upsAddress: IPv4Address?
 
     public init(result: MonResult, learnedLocation: String? = nil, knownMACs: [String]? = nil, noData: Bool = false) {
         self.result = result
@@ -175,6 +178,8 @@ public enum MonRunner {
             return await MonRustDeskChecks.run(probe, target: target, read: context.rustdeskServerRead, now: context.now)
         case .printerSupply:
             return await MonPrinterChecks.run(probe, host: target, context: context)
+        case .upsStatus:
+            return await MonUPSChecks.run(probe, host: target, context: context)
         case .rogueDHCP, .ipConflict, .rogueAP:
             return await MonPirateChecks.run(probe, target: target, context: context)
         }
