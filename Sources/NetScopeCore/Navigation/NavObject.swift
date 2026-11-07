@@ -105,7 +105,7 @@ public struct NavProbeRef: Hashable, Sendable {
             let withScheme = text.contains("://") ? text : "http://" + text
             return URLComponents(string: withScheme)?.host
         case .switchPort, .newDevices, .onlineService, .fortiAPOffline, .fortiAPOverload, .dhcpScope, .vpnTunnel, .wanLink,
-             .linkSaturated, .heavyDevice, .newThreat, .licenseExpiring, .firmwareOutdated:
+             .linkSaturated, .heavyDevice, .newThreat, .licenseExpiring, .firmwareOutdated, .rogueDHCP, .ipConflict, .rogueAP:
             return nil
         case .syslogSeverity, .trapReceived:
             return MonTrafficChecks.isAll(text) ? nil : text

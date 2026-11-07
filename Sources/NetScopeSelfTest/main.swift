@@ -161,6 +161,8 @@ registerIPv6Tests(suite)
 registerTerminalSnippetTests(suite)
 // Notes 91, 92 et 93 (0.37.0) : consommables des imprimantes, note MOS, retour à une version précédente.
 registerPrinterVoIPRollbackTests(suite)
+// Notes 96 et 97 (1.1.0) : serveur DHCP pirate, conflits d'adresses IP et bornes Wi-Fi pirates.
+registerPirateTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

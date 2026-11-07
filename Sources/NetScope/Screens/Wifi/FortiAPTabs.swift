@@ -9,7 +9,7 @@ import SwiftUI
 
 /// Onglet de la partie FortiAP.
 enum FortiAPTab: String, CaseIterable, Identifiable {
-    case bornes, clients, ssid, canaux, voisins, conseils
+    case bornes, clients, ssid, canaux, voisins, pirates, conseils
 
     var id: String { rawValue }
 
@@ -20,6 +20,7 @@ enum FortiAPTab: String, CaseIterable, Identifiable {
         case .ssid: return "SSID"
         case .canaux: return "Canaux"
         case .voisins: return "Voisins"
+        case .pirates: return "Pirates"
         case .conseils: return "Conseils"
         }
     }
@@ -63,6 +64,7 @@ struct FortiAPTabBar: View {
         case .ssid: return "SSID (\(o.distinctSSIDs.count))"
         case .canaux: return "Canaux"
         case .voisins: return "Voisins (\(o.rogues.count))"
+        case .pirates: return "Pirates"
         case .conseils: return "Conseils (\(store.shownDiagnosis.advice.count))"
         }
     }
@@ -102,6 +104,8 @@ struct FortiAPTabContent: View {
             FortiAPChannelMap(band: $band, selectedAP: $selectedAP)
         case .voisins:
             FortiAPRogueTable()
+        case .pirates:
+            FortiAPPirateTable()
         case .conseils:
             FortiAPAdvicePanel(selectedAP: $selectedAP, band: $band)
         }

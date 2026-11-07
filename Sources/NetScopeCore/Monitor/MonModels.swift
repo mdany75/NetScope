@@ -28,6 +28,10 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
     case rustdeskServer
     /// Imprimante (note 91) : consommable sous le seuil (15 % par défaut), bourrage ou bac vide (Printer-MIB).
     case printerSupply
+    /// Note 96 : serveur DHCP pirate (DHCPDISCOVER) et conflits d'adresses IP (ARP, scans, FortiGate).
+    case rogueDHCP, ipConflict
+    /// Note 97 : borne Wi-Fi pirate (sosie d'un SSID du site, borne branchée sur le réseau).
+    case rogueAP
 
     public var id: String { rawValue }
 
@@ -60,6 +64,9 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .tlsCertificate: return "Certificat TLS (jours restants)"
         case .rustdeskServer: return "Serveur RustDesk"
         case .printerSupply: return "Consommable bas (imprimante)"
+        case .rogueDHCP: return "Serveur DHCP pirate"
+        case .ipConflict: return "Conflit d’adresse IP"
+        case .rogueAP: return "Borne Wi-Fi pirate"
         }
     }
 
@@ -92,6 +99,9 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .tlsCertificate: return "Certificat"
         case .rustdeskServer: return "RustDesk"
         case .printerSupply: return "Imprimante"
+        case .rogueDHCP: return "DHCP pirate"
+        case .ipConflict: return "Conflit IP"
+        case .rogueAP: return "Borne pirate"
         }
     }
 
@@ -121,6 +131,8 @@ public enum MonProbeKind: String, Codable, CaseIterable, Sendable, Identifiable 
         case .tlsCertificate: return "Hôte:port (fw.exemple.ca:443, 10.0.0.1:8443, mail.exemple.ca:587)"
         case .rustdeskServer: return "Compte SSH du serveur (admin@assistance.exemple.ca)"
         case .printerSupply: return "Adresse IP ou nom de l’imprimante (SNMP)"
+        case .rogueDHCP: return "Interface de ce Mac (en0)"
+        case .ipConflict, .rogueAP: return "Site, ou «\u{00A0}*\u{00A0}» pour tous les sites"
         }
     }
 
@@ -390,6 +402,12 @@ public struct MonProbe: Codable, Identifiable, Equatable, Sendable {
         case .printerSupply:
             let limit = Int(resourceLimit ?? MonProbe.defaultResourceLimit(.printerSupply))
             return "Alerte si un consommable descend à \(limit)\(nbsp)% ou moins, panne si l’impression est bloquée (bourrage, bac vide)"
+        case .rogueDHCP:
+            return "Panne si un serveur DHCP ni déclaré ni FortiGate répond (aucun bail pris)"
+        case .ipConflict:
+            return "Panne si une IP répond avec deux MAC, alerte si une MAC change souvent d’IP"
+        case .rogueAP:
+            return "Panne si un sosie d’un SSID du site ou une borne branchée sur le réseau apparaît"
         }
     }
 

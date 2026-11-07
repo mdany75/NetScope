@@ -190,6 +190,10 @@ public struct ReportInput: Sendable {
     /// Note 92 : appels captés (flux RTP) et tests simulés (section « Qualité VoIP »).
     public var voipCalls: [VoIPCall] = []
     public var voipTests: [VoIPSyntheticTest] = []
+    /// Notes 96 et 97 : dernier Test DHCP jugé, conflits d'IP et bornes classées (section « Pirates »).
+    public var rogueDHCP: [RogueDHCPFinding] = []
+    public var ipConflicts: [IPConflict] = []
+    public var rogueAPs: [RogueAPFinding] = []
     public var now: Date
 
     public init(devices: [Device], records: [InvRecord] = [], ranges: [ReportRange] = [], switches: [ReportSwitch] = [],
@@ -424,6 +428,7 @@ public enum ReportBuilder {
             case .releveWifi: blocks = floorSurveyBlocks(input.floorSurvey)
             case .imprimantes: blocks = printerBlocks(input.printers, threshold: input.printerThreshold)
             case .voip: blocks = voipBlocks(calls: input.voipCalls, tests: input.voipTests)
+            case .pirates: blocks = pirateBlocks(dhcp: input.rogueDHCP, conflicts: input.ipConflicts, aps: input.rogueAPs, masked: config.maskMAC)
             case .annexe: blocks = annex(input, masked: config.maskMAC)
             }
             sections.append(ReportSection(kind: kind, heading: heading, blocks: blocks))

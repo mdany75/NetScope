@@ -105,6 +105,13 @@ final class RapportModel: ObservableObject {
             input.voipCalls = VoIPReportSource.calls()
             input.voipTests = VoIPReportSource.tests()
         }
+        // Notes 96 et 97 : relevés du site actif seulement (Test DHCP, ARP de ce Mac, balayage).
+        if config.includes(.pirates), active {
+            let pirates = PirateStore.shared
+            input.rogueDHCP = pirates.dhcpFindings
+            input.ipConflicts = pirates.ipConflicts(devices: input.devices)
+            input.rogueAPs = pirates.rogueAPs(devices: input.devices)
+        }
     }
 
     func document(for inputs: [(key: String, site: ReportSiteInput)]) -> ReportDocument {
