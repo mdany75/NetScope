@@ -47,16 +47,18 @@ public struct RogueDHCPPolicy: Equatable, Sendable {
         self.init(declared: DHCPServerPolicy(text: text).allowed, fortiGates: fortiGates)
     }
 
-    /// Vrai si l'utilisateur a déclaré quelque chose ou si une FortiGate est connue.
-    public var isConfigured: Bool { !declared.isEmpty || !fortiGates.isEmpty }
+    /// Vrai si l'utilisateur a déclaré ses serveurs. Une FortiGate connue ne suffit pas : le site
+    /// peut être servi par un autre serveur (Windows) qu'il faudrait sinon juger pirate.
+    public var isConfigured: Bool { !declared.isEmpty }
 
     /// `isFortinet` : fabricant de la MAC (OUI) ; la FortiGate est passerelle et serveur à la fois.
     public func verdict(of offer: DHCPOffer, isFortinet: (MACAddress) -> Bool = { _ in false }) -> RogueDHCPVerdict {
         let candidates = [offer.serverIdentifier, offer.sourceAddress].compactMap { $0 }
         if candidates.contains(where: declared.contains) { return .attendu }
         if candidates.contains(where: fortiGates.contains) { return .fortiGate }
-        // FortiGate sans adresse déclarée : elle se donne pour passerelle et sa MAC est Fortinet.
-        if let mac = offer.sourceMAC, isFortinet(mac), let server = offer.server, offer.routers.contains(server) {
+        // FortiGate sans adresse connue, rien de déclaré : elle se donne pour passerelle et sa MAC
+        // est Fortinet. Dès qu'une référence existe, une autre FortiGate (labo, prêt) n'est pas exemptée.
+        if declared.isEmpty, fortiGates.isEmpty, let mac = offer.sourceMAC, isFortinet(mac), let server = offer.server, offer.routers.contains(server) {
             return .fortiGate
         }
         return isConfigured ? .pirate : .nonVerifie
@@ -65,7 +67,7 @@ public struct RogueDHCPPolicy: Equatable, Sendable {
 
 /// Offre reçue, jugée et prête à afficher (une par serveur).
 public struct RogueDHCPFinding: Identifiable, Hashable, Sendable {
-    public var id: String { server?.description ?? offered.description }
+    public var id: String { server?.description ?? mac?.description ?? offered.description }
     public var server: IPv4Address?
     public var mac: MACAddress?
     public var vendor: String?
@@ -90,10 +92,10 @@ public enum RogueDHCPAnalyzer {
     /// Une ligne par serveur (première offre reçue), pirates d'abord puis par adresse.
     public static func findings(_ offers: [DHCPOffer], policy: RogueDHCPPolicy,
                                 vendor: (MACAddress) -> String? = { _ in nil }) -> [RogueDHCPFinding] {
-        var seen = Set<UInt32>()
+        var seen = Set<String>()
         var result: [RogueDHCPFinding] = []
         for offer in offers where offer.messageType == .offer || offer.messageType == .ack || offer.messageType == nil {
-            let key = offer.server?.value ?? 0
+            let key = DHCPServerPolicy.serverKey(offer)
             guard seen.insert(key).inserted else { continue }
             let brand = offer.sourceMAC.flatMap(vendor)
             let isFortinet: (MACAddress) -> Bool = { mac in (vendor(mac) ?? "").lowercased().contains("fortinet") }
@@ -126,8 +128,8 @@ public enum RogueDHCPAnalyzer {
     }
 
     /// Résultat de la sonde « Serveur DHCP pirate » : panne si un pirate répond, alerte si aucun
-    /// serveur ne répond ou si rien n'est attendu pour juger.
-    public static func monitorResult(_ findings: [RogueDHCPFinding], policyConfigured: Bool, now: Date) -> MonResult {
+    /// serveur ne répond ou si un serveur n'a pas pu être jugé (rien de déclaré).
+    public static func monitorResult(_ findings: [RogueDHCPFinding], now: Date) -> MonResult {
         let rogues = findings.filter(\.verdict.isRogue)
         if !rogues.isEmpty {
             let names = rogues.prefix(3).map { finding -> String in
@@ -142,16 +144,19 @@ public enum RogueDHCPAnalyzer {
         guard !findings.isEmpty else {
             return MonResult(date: now, reachable: true, value: "Aucune offre", problem: "Aucun serveur DHCP n’a répondu")
         }
-        let list = findings.compactMap { $0.server?.description }.joined(separator: ", ")
-        guard policyConfigured else {
+        let list = findings.map { $0.server?.description ?? $0.mac?.formatted(.upperColon) ?? $0.offered.description }
+            .joined(separator: ", ")
+        let unchecked = findings.filter { $0.verdict == .nonVerifie }
+        guard unchecked.isEmpty else {
+            let names = unchecked.prefix(3).map { $0.server?.description ?? $0.offered.description }.joined(separator: ", ")
             return MonResult(date: now, reachable: true, value: list,
-                             problem: "Aucun serveur attendu déclaré (Test DHCP › Serveurs autorisés) ni FortiGate connue")
+                             problem: "Serveur non vérifié (aucun serveur déclaré dans Test DHCP › Serveurs autorisés)\u{00A0}: \(names)")
         }
         return MonResult(date: now, reachable: true, value: "\(findings.count) attendu\(findings.count > 1 ? "s" : "") · \(list)")
     }
 }
 
-/// DHCPDISCOVER sans droits particuliers (port 68 partagé, sinon port libre) pour la sonde :
+/// DHCPDISCOVER sans droits particuliers (port 68 partagé) pour la sonde :
 /// aucun bail n'est pris (jamais de DHCPREQUEST). L'application ne l'appelle jamais en démonstration.
 public enum RogueDHCPDiscover {
     public static func run(interface: String, mac: MACAddress, seconds: TimeInterval = 4) async -> Result<[DHCPOffer], RogueDHCPError> {
@@ -159,9 +164,11 @@ public enum RogueDHCPDiscover {
             let xid = DHCPDiscover.randomXID()
             let packet = DHCPDiscover.build(xid: xid, mac: mac)
             do {
-                guard let fd = try DHCPProbe.openSocket(interface: interface, port: DHCPProbe.clientPort)
-                        ?? DHCPProbe.openSocket(interface: interface, port: 0) else {
-                    return .failure(RogueDHCPError(message: "Port DHCP indisponible sur \(interface)"))
+                // Les offres (drapeau broadcast) reviennent sur le port 68 : sur un autre port, rien
+                // ne serait reçu et la sonde croirait qu'aucun serveur ne répond.
+                guard let fd = try DHCPProbe.openSocket(interface: interface, port: DHCPProbe.clientPort) else {
+                    return .failure(RogueDHCPError(message: "Port DHCP 68 indisponible\u{00A0}: offres non lisibles sans capture",
+                                                   isUnavailable: true))
                 }
                 defer { close(fd) }
                 let sent = Date()
@@ -177,5 +184,10 @@ public enum RogueDHCPDiscover {
 
 public struct RogueDHCPError: Error, Sendable, Equatable {
     public var message: String
-    public init(message: String) { self.message = message }
+    /// Envoi impossible ici (port 68 occupé) : la sonde n'a rien pu vérifier, ce n'est pas une panne.
+    public var isUnavailable: Bool
+    public init(message: String, isUnavailable: Bool = false) {
+        self.message = message
+        self.isUnavailable = isUnavailable
+    }
 }

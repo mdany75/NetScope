@@ -56,6 +56,8 @@ public struct MonRunContext: Sendable {
     /// et serveurs attendus.
     public var rogueDHCPDiscover: (@Sendable (String) async -> Result<[DHCPOffer], RogueDHCPError>)?
     public var rogueDHCPPolicy = RogueDHCPPolicy()
+    /// Site actif (relevés de conflits d'IP) : une sonde qui vise un autre site est « Site non actif ».
+    public var activeSiteName: String?
     public var vendorOf: (@Sendable (MACAddress) -> String?)?
     /// Note 96 : conflits d'IP déjà calculés par l'application (ARP, scans, FortiGate, Inventaire).
     public var ipConflicts: [IPConflict]?

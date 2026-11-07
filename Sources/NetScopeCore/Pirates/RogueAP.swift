@@ -97,6 +97,8 @@ public enum RogueAPReason: String, Codable, Sendable {
     case voisine
     /// Voisine acceptée par l'utilisateur (ou « accepted » dans FortiOS).
     case acceptee
+    /// Sosie accepté explicitement (SSID générique repris par un voisin, autre site de l'entreprise).
+    case sosieAcceptee
     case fortiAP
 
     public var label: String {
@@ -106,6 +108,7 @@ public enum RogueAPReason: String, Codable, Sendable {
         case .nonAutorisee: return "Non autorisée (FortiOS)"
         case .voisine: return "Voisine"
         case .acceptee: return "Voisine acceptée"
+        case .sosieAcceptee: return "Sosie accepté (SSID du site)"
         case .fortiAP: return "FortiAP du site"
         }
     }
@@ -141,10 +144,18 @@ public enum RogueAPAnalyzer {
     }
 
     /// `siteSSIDs` : SSID diffusés par les FortiAP de chaque site ; `knownBSSIDs` : BSSID des
-    /// bornes du site (relevés de ce Mac connectés, FortiAP) ; `isFortinet` : fabricant de la MAC.
+    /// bornes du site (relevés de ce Mac connectés) ; `knownAPMACs` : MAC filaires des FortiAP du
+    /// site (leurs BSSID en sont dérivés, à ±`wiredOffset`) ; `vendor` : fabricant de la MAC.
     public static func classify(_ sightings: [RogueAPSighting], siteSSIDs: [String: Set<String>],
-                                knownBSSIDs: Set<MACAddress> = [], wired: [RogueAPWiredMAC] = [], accepted: Set<String> = [],
-                                vendor: (MACAddress) -> String? = { _ in nil }) -> [RogueAPFinding] {
+                                knownBSSIDs: Set<MACAddress> = [], knownAPMACs: Set<MACAddress> = [], wired: [RogueAPWiredMAC] = [],
+                                accepted: Set<String> = [], vendor: (MACAddress) -> String? = { _ in nil }) -> [RogueAPFinding] {
+        // Les BSSID secondaires sont souvent administrés localement (bit 0x02) : fabricant de la MAC de base.
+        func isFortinet(_ mac: MACAddress) -> Bool {
+            [mac, baseMAC(mac)].contains { (vendor($0) ?? "").lowercased().contains("fortinet") }
+        }
+        // Une FortiAP connue n'est jamais « branchée sur le réseau » par sa propre MAC filaire.
+        let wired = wired.filter { !knownAPMACs.contains($0.mac) }
+        let apMACs = knownAPMACs.map { RogueAPWiredMAC(site: "", mac: $0, place: "") }
         // Fusion par site et BSSID : la FortiGate et ce Mac peuvent entendre la même borne.
         var merged: [String: RogueAPFinding] = [:]
         var order: [String] = []
@@ -162,7 +173,8 @@ public enum RogueAPAnalyzer {
             } else {
                 order.append(k)
                 merged[k] = RogueAPFinding(site: s.site, ssid: s.ssid, bssid: s.bssid, channel: s.channel, rssi: s.rssi,
-                                           security: s.security, vendor: s.bssid.flatMap(vendor), sources: [s.source],
+                                           security: s.security, vendor: s.bssid.flatMap { vendor($0) ?? vendor(baseMAC($0)) },
+                                           sources: [s.source],
                                            seenBy: s.seenBy, classification: .voisine, reasons: [])
             }
             var flag = flags[k] ?? (false, false, false)
@@ -174,12 +186,14 @@ public enum RogueAPAnalyzer {
         var result: [RogueAPFinding] = []
         for k in order {
             guard var f = merged[k], let flag = flags[k] else { continue }
-            // FortiOS ne liste jamais ses propres bornes ; pour ce Mac, une borne Fortinet qui
-            // diffuse un SSID du site est une FortiAP (sauf si la FortiGate la signale elle-même).
+            // FortiOS ne liste jamais ses propres bornes : une borne Fortinet qui diffuse un SSID du
+            // site est une FortiAP (de ce site ou d'un autre site de l'entreprise), quelle que soit la
+            // source, sauf si FortiOS la marque lui-même non autorisée.
             let siteSSID = f.ssid.map { siteSSIDs[f.site]?.contains($0) == true } ?? false
             let isKnown = f.bssid.map { bssid in
-                knownBSSIDs.contains(bssid)
-                    || (f.sources == [.thisMac] && siteSSID && (vendor(bssid) ?? "").lowercased().contains("fortinet"))
+                knownBSSIDs.contains(bssid) || knownAPMACs.contains(bssid)
+                    || wiredPlace(bssid, site: "", wired: apMACs) != nil
+                    || (siteSSID && !flag.rogue && isFortinet(bssid))
             } ?? false
             if isKnown {
                 f.classification = .connue
@@ -196,13 +210,13 @@ public enum RogueAPAnalyzer {
             }
             if flag.rogue { reasons.append(.nonAutorisee) }
             let isAccepted = accepted.contains(k) || flag.accepted
-            // Un sosie reste pirate même accepté : il imite le réseau du site.
-            if !reasons.isEmpty && !(isAccepted && !reasons.contains(.sosie)) {
+            // Un sosie n'est accepté que par l'utilisateur, explicitement (avertissement dans l'onglet).
+            if !reasons.isEmpty && !isAccepted {
                 f.classification = .pirate
                 f.reasons = reasons
             } else {
                 f.classification = .voisine
-                f.reasons = [isAccepted ? .acceptee : .voisine]
+                f.reasons = [reasons.contains(.sosie) && isAccepted ? .sosieAcceptee : isAccepted ? .acceptee : .voisine]
             }
             result.append(f)
         }
@@ -217,8 +231,10 @@ public enum RogueAPAnalyzer {
 
     /// MAC filaire du même site à moins de `wiredOffset` du BSSID, mêmes trois premiers octets
     /// (ou BSSID administré localement dérivé de la MAC de base : premier octet sans le bit 0x02).
+    static func baseMAC(_ mac: MACAddress) -> MACAddress { MACAddress(value: mac.value & ~(UInt64(0x02) << 40)) }
+
     static func wiredPlace(_ bssid: MACAddress, site: String, wired: [RogueAPWiredMAC]) -> String? {
-        let base = MACAddress(value: bssid.value & ~(UInt64(0x02) << 40))
+        let base = baseMAC(bssid)
         for entry in wired where entry.site == site && entry.mac != bssid {
             for candidate in [bssid, base] where candidate.ouiValue == entry.mac.ouiValue {
                 let diff = candidate.value > entry.mac.value ? candidate.value - entry.mac.value : entry.mac.value - candidate.value

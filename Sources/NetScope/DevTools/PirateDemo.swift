@@ -32,6 +32,7 @@ enum PirateDemo {
             IPObservation(site: site, ip: gw, mac: MACAddress("3C:7C:3F:A1:52:E8")!, source: .arp, date: now.addingTimeInterval(-70)),
             IPObservation(site: site, ip: dup, mac: MACAddress("F8:FF:C2:4A:10:3B")!, source: .scan, date: now.addingTimeInterval(-20 * 60)),
             IPObservation(site: site, ip: dup, mac: MACAddress("B8:27:EB:9E:41:0D")!, source: .fortiGate, date: now.addingTimeInterval(-4 * 60)),
+            IPObservation(site: site, ip: dup, mac: MACAddress("F8:FF:C2:4A:10:3B")!, source: .arp, date: now.addingTimeInterval(-60)),
         ]
     }
 

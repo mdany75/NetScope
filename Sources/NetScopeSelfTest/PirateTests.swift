@@ -46,12 +46,29 @@ func registerPirateTests(_ suite: TestSuite) {
         try expectEqual(findings.first?.pool, "192.168.0.0/24", "plage distribuée")
         try expectEqual(findings.first { $0.server == IPv4Address("10.0.0.1") }?.verdict, .fortiGate, "FortiGate par son adresse")
         try expectEqual(findings.first { $0.server == IPv4Address("10.0.0.5") }?.verdict, .attendu, "serveur déclaré")
-        let result = RogueDHCPAnalyzer.monitorResult(findings, policyConfigured: true, now: now)
+        let result = RogueDHCPAnalyzer.monitorResult(findings, now: now)
         try expect(!result.reachable, "sonde en panne")
         try expect(result.error?.contains("192.168.0.1 (9C:53:22:01:02:03)") == true, "pirate nommé avec sa MAC")
-        let ok = RogueDHCPAnalyzer.monitorResult(Array(findings.dropFirst()), policyConfigured: true, now: now)
+        let ok = RogueDHCPAnalyzer.monitorResult(Array(findings.dropFirst()), now: now)
         try expect(ok.reachable && ok.error == nil && ok.problem == nil, "seulement des serveurs attendus")
-        try expect(RogueDHCPAnalyzer.monitorResult([], policyConfigured: true, now: now).problem != nil, "aucune offre : alerte")
+        try expect(RogueDHCPAnalyzer.monitorResult([], now: now).problem != nil, "aucune offre : alerte")
+        // Une FortiGate connue ne suffit pas à juger : le DHCP Windows du site reste « Non vérifié ».
+        let windows = offer(server: "10.0.0.10", mac: "00:15:5D:01:02:03", offered: "10.0.0.80", router: "10.0.0.1")
+        let gateOnly = RogueDHCPPolicy(text: "", fortiGates: [IPv4Address("10.0.0.1")!])
+        try expect(!gateOnly.isConfigured, "FortiGate seule : rien de déclaré")
+        try expectEqual(gateOnly.verdict(of: windows), .nonVerifie, "serveur inconnu non vérifié")
+        let unchecked = RogueDHCPAnalyzer.monitorResult(RogueDHCPAnalyzer.findings([windows, forti], policy: gateOnly, vendor: vendor), now: now)
+        try expect(unchecked.reachable && unchecked.problem?.contains("10.0.0.10") == true, "non vérifié : alerte, pas panne")
+        // Serveurs déclarés : une autre FortiGate (labo, prêt) passerelle d'elle-même est un pirate.
+        let lab = offer(server: "192.168.1.99", mac: "04:D5:90:11:22:33", offered: "192.168.1.120", router: "192.168.1.99")
+        try expectEqual(site.verdict(of: lab, isFortinet: { vendor($0) == "Fortinet" }), .pirate, "FortiGate étrangère")
+        // Deux serveurs sans option 54 : deux lignes (clé : adresse source, sinon MAC).
+        var noID1 = offer(server: "0.0.0.0", mac: "9C:53:22:01:02:03", offered: "192.168.0.100")
+        noID1.serverIdentifier = nil
+        var noID2 = noID1
+        noID2.sourceMAC = MACAddress("9C:53:22:0A:0B:0C")
+        try expectEqual(RogueDHCPAnalyzer.findings([noID1, noID2], policy: site, vendor: vendor).count, 2, "deux pirates sans identifiant")
+        try expectEqual(DHCPServerPolicy.uniqueServers([noID1, noID2], xid: 7).count, 2, "uniqueServers aussi")
     }
 
     suite.add("DHCP pirate : le Test DHCP accepte la FortiGate du site") {
@@ -60,9 +77,12 @@ func registerPirateTests(_ suite: TestSuite) {
         try expectEqual(policy.status(of: forti), .unauthorized, "sans FortiGate connue")
         policy.fortiGates = [IPv4Address("10.0.0.1")!]
         try expectEqual(policy.status(of: forti), .expected, "adresse de la FortiGate")
-        var byMAC = DHCPServerPolicy(text: "10.0.0.5")
+        var byMAC = DHCPServerPolicy(text: "")
         byMAC.isFortinet = { vendor($0) == "Fortinet" }
-        try expectEqual(byMAC.status(of: forti), .expected, "MAC Fortinet passerelle d'elle-même")
+        try expectEqual(byMAC.status(of: forti), .expected, "MAC Fortinet passerelle d'elle-même, rien de déclaré")
+        var declared = DHCPServerPolicy(text: "10.0.0.5")
+        declared.isFortinet = byMAC.isFortinet
+        try expectEqual(declared.status(of: forti), .unauthorized, "serveurs déclarés : plus d'exception Fortinet")
     }
 
     suite.add("DHCP pirate : la sonde sans envoi possible n'évalue rien") {
@@ -75,6 +95,10 @@ func registerPirateTests(_ suite: TestSuite) {
         withFake.rogueDHCPDiscover = { _ in .success([offer(server: "10.0.0.9", mac: nil, offered: "10.0.0.70")]) }
         let rogue = await MonRunner.run(probe, context: withFake)
         try expect(!rogue.result.reachable, "réponse simulée d'un pirate : panne")
+        var busy = context
+        busy.rogueDHCPDiscover = { _ in .failure(RogueDHCPError(message: "Port DHCP 68 indisponible", isUnavailable: true)) }
+        let busyOutcome = await MonRunner.run(probe, context: busy)
+        try expect(busyOutcome.noData, "port 68 occupé : sans donnée, pas de fausse alerte")
     }
 
     // MARK: Note 96 : conflits d'IP
@@ -89,6 +113,13 @@ func registerPirateTests(_ suite: TestSuite) {
             IPObservation(site: "Siège", ip: gw, mac: b, source: .arp, date: now.addingTimeInterval(-60)),
             IPObservation(site: "Siège", ip: ip, mac: c, source: .scan, date: now.addingTimeInterval(-1200)),
             IPObservation(site: "Siège", ip: ip, mac: d, source: .fortiGate, date: now.addingTimeInterval(-300)),
+            IPObservation(site: "Siège", ip: ip, mac: c, source: .scan, date: now.addingTimeInterval(-120)),
+            // Bail réattribué : l'ancienne MAC (scan, il y a 40 min) remplacée par la nouvelle.
+            IPObservation(site: "Siège", ip: IPv4Address("10.0.0.30")!, mac: c, source: .scan, date: now.addingTimeInterval(-2400)),
+            IPObservation(site: "Siège", ip: IPv4Address("10.0.0.30")!, mac: d, source: .arp, date: now),
+            // Proxy de veille Bonjour : deux MAC Apple, simple alerte.
+            IPObservation(site: "Siège", ip: IPv4Address("10.0.0.40")!, mac: MACAddress("F0:18:98:00:00:01")!, source: .scan, date: now.addingTimeInterval(-60)),
+            IPObservation(site: "Siège", ip: IPv4Address("10.0.0.40")!, mac: MACAddress("F0:18:98:00:00:02")!, source: .arp, date: now),
             // Même IP sur un autre site : jamais un conflit (adresses privées partagées).
             IPObservation(site: "Laval", ip: ip, mac: a, source: .scan, date: now),
             // Trop vieux : hors fenêtre.
@@ -104,7 +135,13 @@ func registerPirateTests(_ suite: TestSuite) {
             IPChange(site: "Siège", mac: mac, ip: IPv4Address($0.0)!, date: now.addingTimeInterval(-$0.1 * 3600))
         }
         let old = IPChange(site: "Siège", mac: c, ip: ip, date: now.addingTimeInterval(-3 * 86_400))
-        let conflicts = IPConflictAnalyzer.analyze(obs, changes: changes + [old, old, old, old], gateways: ["Siège": gw], now: now)
+        let all = IPConflictAnalyzer.analyze(obs, changes: changes + [old, old, old, old], gateways: ["Siège": gw], now: now,
+                                             isApple: { $0.ouiValue == 0xF01898 })
+        try expect(!all.contains { $0.ip == IPv4Address("10.0.0.30") }, "MAC remplacée : pas de conflit")
+        let proxy = all.first { $0.ip == IPv4Address("10.0.0.40") }
+        try expect(proxy?.possibleSleepProxy == true && proxy?.isCritical == false, "proxy de veille : alerte seulement")
+        try expect(MonPirateChecks.conflictResult(proxy.map { [$0] } ?? [], now: now).reachable, "proxy de veille : pas de panne")
+        let conflicts = all.filter { !$0.possibleSleepProxy }
         try expectEqual(conflicts.map(\.kind), [.arpContradictoire, .ipDeuxMAC, .macInstable], "ordre de gravité")
         try expect(conflicts[0].involvesGateway && conflicts[0].ip == gw, "passerelle usurpée en tête")
         try expect(conflicts[0].detail.contains("usurpation possible"), "usurpation signalée")
@@ -117,6 +154,18 @@ func registerPirateTests(_ suite: TestSuite) {
         try expectEqual(result.value, "2 conflits · 1 MAC instable", "valeur de la sonde")
         let unstable = MonPirateChecks.conflictResult([conflicts[2]], now: now)
         try expect(unstable.reachable && unstable.problem != nil, "MAC instable : alerte")
+    }
+
+    suite.add("Conflits d'IP : la sonde visant un site non actif ne conclut rien") {
+        let probe = MonProbe(name: "Conflits", kind: .ipConflict, target: "Laval")
+        var context = MonRunContext(pinger: nil, snmpCommunity: nil, devices: [], now: now)
+        context.ipConflicts = []
+        context.activeSiteName = "Siège"
+        let inactive = await MonRunner.run(probe, context: context)
+        try expect(inactive.noData, "Laval non actif : sans donnée")
+        context.activeSiteName = "Laval"
+        let activeOutcome = await MonRunner.run(probe, context: context)
+        try expect(!activeOutcome.noData, "Laval actif : évalué")
     }
 
     // MARK: Note 97 : bornes Wi-Fi pirates
@@ -143,8 +192,8 @@ func registerPirateTests(_ suite: TestSuite) {
                                                 wired: wired, accepted: accepted, vendor: vendor)
         func find(_ bssid: String) -> RogueAPFinding? { findings.first { $0.bssid == MACAddress(bssid) } }
         try expectEqual(findings.count, 7, "une ligne par borne")
-        try expectEqual(find("D2:6E:0E:41:9B:07")?.classification, .pirate, "sosie d'Invités, même accepté")
-        try expectEqual(find("D2:6E:0E:41:9B:07")?.reasons, [.sosie], "raison : sosie")
+        try expectEqual(find("D2:6E:0E:41:9B:07")?.classification, .voisine, "sosie accepté explicitement")
+        try expectEqual(find("D2:6E:0E:41:9B:07")?.reasons, [.sosieAcceptee], "raison : sosie accepté")
         try expectEqual(find("02:1F:6B:A0:44:93")?.reasons, [.filaire, .nonAutorisee], "on-wire et rogue")
         try expectEqual(find("78:8A:20:4E:C3:05")?.reasons, [.filaire], "MAC filaire voisine du BSSID")
         try expectEqual(find("78:8A:20:4E:C3:05")?.wiredPlace, "SW-ETG2-01 · port 1/22", "port de switch")
@@ -154,12 +203,31 @@ func registerPirateTests(_ suite: TestSuite) {
         try expectEqual(find("96:DD:F8:18:15:7D")?.reasons, [.acceptee], "acceptée dans FortiOS")
         try expectEqual(find("70:4C:A5:1E:22:A2")?.classification, .connue, "FortiAP du site vue par ce Mac")
         try expectEqual(find("A4:2B:B0:11:72:0C")?.classification, .voisine, "Invités de Laval n'est pas un sosie du Siège")
-        try expectEqual(findings.prefix(3).map(\.classification), [.pirate, .pirate, .pirate], "pirates d'abord")
+        try expectEqual(findings.prefix(2).map(\.classification), [.pirate, .pirate], "pirates d'abord")
         let result = RogueAPAnalyzer.monitorResult(RogueAPAnalyzer.filter(findings, target: "siège"), now: now)
-        try expect(!result.reachable, "sosie ou borne branchée : panne")
-        try expectEqual(result.value, "3 pirates · 2 voisines", "valeur de la sonde")
+        try expect(!result.reachable, "borne branchée : panne")
+        try expectEqual(result.value, "2 pirates · 3 voisines", "valeur de la sonde")
+        let unaccepted = RogueAPAnalyzer.classify(local, siteSSIDs: [site: ["Invités"]], vendor: vendor)
+        try expectEqual(unaccepted.first { $0.bssid == MACAddress("D2:6E:0E:41:9B:07") }?.reasons, [.sosie], "sosie non accepté : pirate")
         let quiet = RogueAPAnalyzer.monitorResult(RogueAPAnalyzer.filter(findings, target: "Laval"), now: now)
         try expect(quiet.reachable && quiet.problem == nil, "Laval sans pirate")
+    }
+
+    suite.add("Bornes pirates : FortiAP à BSSID administré localement, vue par la FortiGate, MAC filaire connue") {
+        let site = "Siège"
+        // SSID secondaire d'une FortiAP : BSSID 72:4C:A5:… (bit 0x02), MAC filaire 70:4C:A5:1E:22:A0 sur un port.
+        let local = [WifiNetwork(ssid: "Invités", bssid: MACAddress("72:4C:A5:1E:22:A3"), channel: 36, rssi: -50)]
+            .map { RogueAPSighting($0, site: site) }
+        let other = [FortiRogueAP(site: site, ssid: "Invités", bssid: MACAddress("70:4C:A5:99:00:11"), channel: 1, rssi: -75)]
+            .map(RogueAPSighting.init)
+        let apMAC = MACAddress("70:4C:A5:1E:22:A0")!
+        let wired = [RogueAPWiredMAC(site: site, mac: apMAC, place: "SW-CORE-01 · port 14")]
+        let findings = RogueAPAnalyzer.classify(local + other, siteSSIDs: [site: ["Invités"]], wired: wired, vendor: vendor)
+        try expect(findings.allSatisfy { $0.classification == .connue }, "FortiAP reconnues par la MAC de base, quelle que soit la source")
+        let byMAC = RogueAPAnalyzer.classify([RogueAPSighting(site: site, ssid: "Autre", bssid: MACAddress("70:4C:A5:1E:22:A4"), source: .thisMac)],
+                                             siteSSIDs: [site: ["Invités"]], knownAPMACs: [apMAC], wired: wired, vendor: vendor)
+        try expectEqual(byMAC.first?.classification, .connue, "BSSID dérivé de la MAC filaire d'une FortiAP du site")
+        try expect(byMAC.first?.wiredPlace == nil, "jamais « branchée » par sa propre MAC filaire")
     }
 
     suite.add("Rapport : section Pirates et conflits") {

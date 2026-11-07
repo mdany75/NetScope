@@ -24,6 +24,8 @@ struct FortiAPPirateTable: View {
                                                                           sortKeys: Self.sortKeys, defaultSort: "classe")
     @State private var search = ""
     @State private var selection: FortiAPPirateRow.ID?
+    /// Sosie dont l'acceptation attend confirmation.
+    @State private var pendingTwin: RogueAPFinding?
 
     static let columns: [StandardColumn] = [
         StandardColumn(id: "ssid", title: "SSID", isRequired: true),
@@ -180,6 +182,15 @@ struct FortiAPPirateTable: View {
                 .disabledCustomizationBehavior(.visibility)
         }
         .standardTableStyle()
+        .confirmationDialog("Accepter ce sosie\u{00A0}?", isPresented: Binding(get: { pendingTwin != nil }, set: { if !$0 { pendingTwin = nil } }),
+                            presenting: pendingTwin) { twin in
+            Button("Accepter le sosie") { pirates.setAccepted(twin, true) }
+            Button("Annuler", role: .cancel) {}
+        } message: { twin in
+            Text("«\u{00A0}\(twin.displaySSID)\u{00A0}» (\(twin.bssid?.formatted(.upperColon) ?? "sans BSSID")) diffuse un SSID du site. "
+                 + "Acceptez-le seulement si vous savez d’où il vient (SSID générique d’un voisin, borne d’un autre site de l’entreprise)\u{00A0}: "
+                 + "un vrai sosie sert à capter les identifiants des clients.")
+        }
     }
 
     @ViewBuilder private func actionButton(_ f: RogueAPFinding) -> some View {
@@ -190,7 +201,13 @@ struct FortiAPPirateTable: View {
                 .buttonStyle(.link).font(Theme.small)
                 .help("Ne plus traiter cette borne comme une voisine acceptée")
         } else if f.reasons.contains(.sosie) {
-            WifiCell("—", dimmed: true).help("Un sosie d’un SSID du site ne peut pas être accepté")
+            if f.bssid == nil {
+                WifiCell("—", dimmed: true).help("Un sosie sans BSSID ne peut pas être accepté")
+            } else {
+                Button("Accepter…") { pendingTwin = f }
+                    .buttonStyle(.link).font(Theme.small)
+                    .help("Accepter ce sosie pour ce site et ce BSSID seulement, après confirmation")
+            }
         } else {
             Button("Accepter") { pirates.setAccepted(f, true) }
                 .buttonStyle(.link).font(Theme.small)
@@ -203,7 +220,7 @@ struct FortiAPPirateTable: View {
         case .pirate: return WifiPill(text: "Pirate", foreground: Theme.critical, background: Theme.criticalSoft)
         case .connue: return WifiPill(text: "Connue", foreground: Theme.success, background: Theme.successSoft)
         case .voisine:
-            return f.reasons.contains(.acceptee)
+            return f.reasons.contains(.acceptee) || f.reasons.contains(.sosieAcceptee)
                 ? WifiPill(text: "Acceptée", foreground: Theme.accentStrong, background: Theme.neutralSoft)
                 : WifiPill(text: "Voisine")
         }

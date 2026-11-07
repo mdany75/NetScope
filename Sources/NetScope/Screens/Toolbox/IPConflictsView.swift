@@ -12,7 +12,7 @@ struct IPConflictsView: View {
 
     var body: some View {
         let conflicts = pirates.ipConflicts(devices: state.devices, now: refresh)
-        let critical = conflicts.filter(\.kind.isCritical)
+        let critical = conflicts.filter(\.isCritical)
         let usurp = conflicts.filter { $0.kind == .arpContradictoire }.count
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
@@ -48,7 +48,7 @@ struct IPConflictsView: View {
     }
 
     private func row(_ c: IPConflict) -> some View {
-        let tone = c.kind.isCritical ? Theme.critical : Theme.warning
+        let tone = c.isCritical ? Theme.critical : Theme.warning
         return HStack(alignment: .top, spacing: 12) {
             Image(systemName: c.kind == .macInstable ? "arrow.triangle.2.circlepath" : "exclamationmark.triangle")
                 .font(.system(size: 14, weight: .semibold)).foregroundStyle(tone).frame(width: 18)

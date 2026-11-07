@@ -11,7 +11,7 @@ extension ReportBuilder {
             return masked ? String(m.formatted(.upperColon).prefix(8)) + ":XX:XX:XX" : m.formatted(.upperColon)
         }
         let rogueDHCP = dhcp.filter(\.verdict.isRogue)
-        let critical = conflicts.filter(\.kind.isCritical)
+        let critical = conflicts.filter(\.isCritical)
         let rogueAPs = aps.filter { $0.classification == .pirate }
         var blocks: [ReportBlock] = [
             .paragraph("Serveurs DHCP qui ont répondu au dernier Test DHCP, conflits d’adresses IP (table ARP, scans, FortiGate, Inventaire) et bornes Wi-Fi entendues par les FortiAP et par ce Mac."),
@@ -52,7 +52,7 @@ extension ReportBuilder {
             ], rows: conflicts.map { c in
                 ReportRow([
                     ReportCell(c.ip?.description ?? c.ips.map(\.description).joined(separator: ", "), bold: true),
-                    ReportCell(c.kind.label + (c.involvesGateway ? " (passerelle)" : ""), badge: c.kind.isCritical ? .critical : .warning),
+                    ReportCell(c.kind.label + (c.involvesGateway ? " (passerelle)" : ""), badge: c.isCritical ? .critical : .warning),
                     ReportCell(c.macs.map(mac).joined(separator: ", "), tone: .muted),
                     ReportCell(masked ? c.kind.label : c.detail),
                 ])

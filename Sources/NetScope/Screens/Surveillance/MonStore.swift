@@ -436,6 +436,7 @@ final class MonStore: ObservableObject {
                     }
                 }
             case .ipConflict:
+                context.activeSiteName = SiteModel.shared.activeName
                 context.ipConflicts = inventoryReady ? PirateStore.shared.ipConflicts(devices: devices) : nil
             case .rogueAP:
                 context.rogueAPs = fortiWifi?.readAt == nil ? nil : PirateStore.shared.rogueAPs(devices: devices)

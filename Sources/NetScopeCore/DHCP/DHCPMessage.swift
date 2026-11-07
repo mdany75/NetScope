@@ -277,15 +277,24 @@ public struct DHCPServerPolicy: Equatable, Sendable {
         lhs.allowed == rhs.allowed && lhs.invalid == rhs.invalid && lhs.fortiGates == rhs.fortiGates
     }
 
+    /// Clé d'un serveur : identifiant (option 54), sinon adresse source, sinon MAC source. Deux
+    /// serveurs sans option 54 ne sont jamais fusionnés en une seule ligne.
+    public static func serverKey(_ offer: DHCPOffer) -> String {
+        if let server = offer.serverIdentifier { return "id:" + server.description }
+        if let source = offer.sourceAddress { return "ip:" + source.description }
+        if let mac = offer.sourceMAC { return "mac:" + mac.description }
+        return "offre:" + offer.offeredAddress.description
+    }
+
     /// Une offre par serveur (la première reçue), dans l'ordre d'arrivée, pour le `xid` attendu.
     public static func uniqueServers(_ offers: [DHCPOffer], xid: UInt32) -> [DHCPOffer] {
-        var seen: Set<UInt32> = []
+        var seen: Set<String> = []
         var result: [DHCPOffer] = []
         for offer in offers where offer.xid == xid && (offer.messageType == .offer || offer.messageType == .ack) {
-            let key = offer.server?.value ?? 0
+            let key = serverKey(offer)
             if seen.insert(key).inserted {
                 result.append(offer)
-            } else if let index = result.firstIndex(where: { ($0.server?.value ?? 0) == key }) {
+            } else if let index = result.firstIndex(where: { serverKey($0) == key }) {
                 // Même serveur reçu deux fois (socket et capture) : on complète la MAC source.
                 if result[index].sourceMAC == nil { result[index].sourceMAC = offer.sourceMAC }
             }
