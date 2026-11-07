@@ -1896,40 +1896,38 @@ Inspiré de Netdisco.
 
 « J’ai WireGuard d’installé aussi sur le même serveur : est-ce que tu peux avoir un onglet de
 gestion aussi ? » Même serveur que RustDesk, même compte SSH (sudo au Trousseau), onglet à côté
-de « Serveur RustDesk ». Aucune valeur réelle dans ce dépôt.
+de « Serveur RustDesk ». Aucune valeur réelle dans ce dépôt (ni adresse, ni nom d’usager, ni
+mot de passe) ; démo avec des noms fictifs.
 
-- **Lecture (sans risque)** : interfaces WireGuard (`wg show all dump`) : clé publique du serveur,
-  port d’écoute, état du service (`wg-quick@wg0` ou conteneur Docker, ex. wg-easy) ; pour chaque
-  pair : nom, adresse VPN, IP publique d’origine, dernière poignée de main, octets reçus et
-  envoyés, connecté ou non ; débit dans le temps et historique des connexions, comme le
-  tableau de bord RustDesk.
-- **Gestion (avec confirmation)** : ajouter un pair (clés générées sur le serveur ou sur ce Mac,
-  adresse VPN libre proposée, fichier `.conf` et code QR pour un téléphone), désactiver ou
-  retirer un pair, renommer et noter (nom et note par pair, synchronisés entre les Mac),
-  redémarrer l’interface. Configuration sauvegardée avant chaque changement, retour arrière.
-- **Surveillance** : sonde « Serveur WireGuard » (service arrêté, port UDP injoignable, pair
-  important déconnecté depuis X heures), section des rapports, alerte si la clé du serveur
-  change.
+**Cible : wg-easy 15** (décision de Dany le 7 novembre 2026 : migration depuis la 14, avec le 2FA
+activé pour l’administration). Conséquence : l’API de wg-easy 15 (HTTP Basic) ne fonctionne pas
+quand le 2FA est actif. NetScope **lit tout par SSH** et **ouvre wg-easy** pour les changements.
+
+- **Lecture par SSH (sans risque)** :
+  - `wg show all dump` dans le conteneur : clé publique et port du serveur ; pour chaque pair,
+    clé publique, IP d’origine (endpoint), adresses autorisées, dernière poignée de main, octets
+    reçus et envoyés ;
+  - base `wg-easy.db` (SQLite, lecture seule) : nom du client, adresses IPv4 et IPv6, activé ou
+    non, date d’expiration, pare-feu par client, DNS ; la base est copiée avant lecture, jamais
+    ouverte en écriture ;
+  - conteneur : état, version de l’image comparée à la dernière publiée (étiquette `15`),
+    redémarrages, journaux ;
+  - `INSECURE=true` ou HTTPS : avertissement si l’interface est en HTTP simple.
+- **Tableau de bord** : clients connectés ou non (« il y a 2 minutes »), débit ↓ ↑ et totaux,
+  IP d’origine, expiration proche, historique et graphe dans le temps (gardés par NetScope),
+  nom et note par client (synchronisés entre les Mac), site probable d’après l’IP d’origine
+  (indice seulement).
+- **Changements** : bouton « Ouvrir wg-easy » (navigateur) sur le client ou la page ; pas
+  d’écriture dans la base ni par l’API tant que le 2FA est actif. Option plus tard : API avec un
+  compte d’API séparé si wg-easy en propose un.
+- **Surveillance** : sonde « Serveur WireGuard » (conteneur arrêté, port UDP injoignable depuis
+  ce Mac, client important déconnecté depuis X heures, client qui expire bientôt, clé du serveur
+  changée) ; section des rapports.
 - **FortiGate** : vérifier la VIP du port UDP de WireGuard, comme pour les VIP RustDesk.
-- **Mises à jour** : version de WireGuard et de l’image Docker, avec la mise à jour du système
-  déjà faite par l’onglet RustDesk (note 88).
-- Les clés privées des pairs ne sont jamais gardées par NetScope (seulement dans le fichier
-  remis à l’usager) ; jamais rien dans les tests ni en démo.
-- Précisé par Dany le 7 novembre 2026 : **wg-easy** (conteneur Docker, interface web sur le port
-  TCP 51821). NetScope passe donc d’abord par l’API de wg-easy (session par mot de passe, liste,
-  création, activation et suppression des clients, fichier `.conf` et code QR), et par SSH pour
-  `wg show`, les journaux du conteneur et sa mise à jour. Le mot de passe de wg-easy est saisi
-  par Dany dans NetScope et rangé au Trousseau, jamais ailleurs ; HTTPS conseillé (sinon
-  avertissement : l’interface est en HTTP simple sur le réseau local).
-- Version reconnue d’après la capture de Dany (7 novembre 2026) : **wg-easy 14 ou plus ancienne**
-  (« Clients », « Restore », « Backup », « New », « © 2021-2024 », bouton « Logout »).
-  API : `POST /api/session` (mot de passe), `GET /api/wireguard/client` (nom, adresse, activé,
-  dernière poignée de main, octets reçus et envoyés), `POST /api/wireguard/client` (nouveau),
-  `POST …/client/<id>/enable` et `…/disable`, `DELETE …/client/<id>`, `PUT …/client/<id>/name`,
-  `GET …/client/<id>/configuration` et `…/qrcode.svg`, `GET /api/wireguard/backup` (sauvegarde
-  avant chaque changement) et `PUT /api/wireguard/restore`. Reconnaître aussi la 15 (nouvelle
-  API) et le dire si elle n’est pas prise en charge.
-- Ce que l’onglet doit reprendre de l’interface web : nom, adresse VPN, interrupteur
-  activé/désactivé, débit actuel ↓ ↑ et totaux, « il y a 2 minutes », code QR, téléchargement du
-  `.conf`, suppression, sauvegarde et restauration. Ajouts de NetScope : IP d’origine (par
-  `wg show`), historique et graphe, nom et note, sonde, rapport, VIP de la FortiGate.
+- **Mises à jour** : image wg-easy avec la même méthode que RustDesk (note 88 : sauvegarde,
+  étiquette de l’image d’avant, retour arrière) ; mise à jour du système déjà faite par
+  l’onglet RustDesk.
+- **Migration 14 → 15** : NetScope reconnaît une 14 (fichier `wg0.json`) et le dit, avec un lien
+  vers le guide officiel ; il lit quand même la 14 par `wg show` (noms dans `wg0.json`).
+- Les clés privées des clients ne sont jamais lues ni gardées par NetScope ; jamais rien dans
+  les tests ni en démo.
