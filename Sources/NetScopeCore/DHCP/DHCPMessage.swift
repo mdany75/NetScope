@@ -259,9 +259,22 @@ public struct DHCPServerPolicy: Equatable, Sendable {
     }
 
     public func status(of offer: DHCPOffer) -> Status {
-        guard !allowed.isEmpty else { return .unchecked }
-        let candidates = [offer.serverIdentifier, offer.sourceAddress].compactMap { $0 }
-        return candidates.contains(where: allowed.contains) ? .expected : .unauthorized
+        // Note 96 : serveurs déclarés et FortiGate du site.
+        let verdict = RogueDHCPPolicy(declared: allowed, fortiGates: fortiGates).verdict(of: offer, isFortinet: isFortinet ?? { _ in false })
+        switch verdict {
+        case .attendu, .fortiGate: return .expected
+        case .pirate: return .unauthorized
+        case .nonVerifie: return .unchecked
+        }
+    }
+
+    /// Note 96 : FortiGate du site (adresses de l'API), attendues aussi comme serveurs DHCP.
+    public var fortiGates: [IPv4Address] = []
+    /// Note 96 : fabricant d'une MAC (une FortiGate qui se donne pour passerelle est attendue).
+    public var isFortinet: (@Sendable (MACAddress) -> Bool)?
+
+    public static func == (lhs: DHCPServerPolicy, rhs: DHCPServerPolicy) -> Bool {
+        lhs.allowed == rhs.allowed && lhs.invalid == rhs.invalid && lhs.fortiGates == rhs.fortiGates
     }
 
     /// Une offre par serveur (la première reçue), dans l'ordre d'arrivée, pour le `xid` attendu.

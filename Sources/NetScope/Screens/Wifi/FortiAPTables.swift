@@ -10,7 +10,7 @@ private let fortiRowHeight: CGFloat = 28
 private let last = "\u{10FFFF}"
 
 /// En-tête des tableaux FortiAP : titre, champ de recherche, filtre, « Colonnes ».
-private struct FortiAPTableHeader<Row: Identifiable, Filter: View>: View {
+struct FortiAPTableHeader<Row: Identifiable, Filter: View>: View {
     let title: String
     let summary: String
     @Binding var search: String
@@ -69,7 +69,7 @@ private struct FortiAPTableHeader<Row: Identifiable, Filter: View>: View {
 }
 
 /// Cadre commun des tableaux FortiAP.
-private struct FortiAPTableFrame<Content: View>: View {
+struct FortiAPTableFrame<Content: View>: View {
     @ViewBuilder var content: Content
     var body: some View {
         VStack(spacing: 0) { content }
@@ -101,7 +101,7 @@ private struct FortiSearch {
 
 private func bandTerms(_ band: WifiBand?) -> [String?] { band.map { [$0.label, $0.label.replacingOccurrences(of: "\u{00A0}GHz", with: "")] } ?? [] }
 
-private func emptyLine(_ text: String) -> some View {
+func fortiEmptyLine(_ text: String) -> some View {
     Text(text).font(Theme.small).foregroundStyle(Theme.textSecondary)
         .frame(maxWidth: .infinity).padding(20)
 }
@@ -182,7 +182,7 @@ struct FortiAPTable: View {
                                search: $search, prompt: "Nom, modèle, IP…", model: table) { EmptyView() }
             Rectangle().fill(Theme.border).frame(height: 1)
             if rows.isEmpty {
-                emptyLine(all.isEmpty ? "Aucune borne lue (accès aux bornes absent ou refusé par la FortiGate)."
+                fortiEmptyLine(all.isEmpty ? "Aucune borne lue (accès aux bornes absent ou refusé par la FortiGate)."
                           : (search.isEmpty ? "Aucune borne ne correspond à la recherche." : "Aucune borne ne correspond à «\u{00A0}\(search)\u{00A0}»."))
             } else {
                 tableView(rows).standardTableHeight(rows: rows.count, rowHeight: fortiRowHeight, maxRows: 12)
@@ -391,7 +391,7 @@ struct FortiAPClientTable: View {
             }
             Rectangle().fill(Theme.border).frame(height: 1)
             if rows.isEmpty {
-                emptyLine(all.isEmpty ? "Aucun client Wi-Fi associé (ou liste des clients non lue)." : "Aucun client ne correspond à ce filtre.")
+                fortiEmptyLine(all.isEmpty ? "Aucun client Wi-Fi associé (ou liste des clients non lue)." : "Aucun client ne correspond à ce filtre.")
             } else if store.clientsBySSID {
                 ssidGroups(kept, rows: rows)
             } else {
@@ -767,7 +767,7 @@ struct FortiAPSSIDTable: View {
                                search: $search, prompt: "SSID, VLAN…", model: table) { EmptyView() }
             Rectangle().fill(Theme.border).frame(height: 1)
             if rows.isEmpty {
-                emptyLine(all.isEmpty ? "Aucun SSID lu (configuration des SSID absente ou refusée par la FortiGate)." : "Aucun SSID ne correspond.")
+                fortiEmptyLine(all.isEmpty ? "Aucun SSID lu (configuration des SSID absente ou refusée par la FortiGate)." : "Aucun SSID ne correspond.")
             } else {
                 Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
                     TableColumn(StandardTableHeading("SSID"), sortUsing: table.sort("ssid")) { row in
@@ -900,7 +900,7 @@ struct FortiAPRogueTable: View {
             }
             Rectangle().fill(Theme.border).frame(height: 1)
             if rows.isEmpty {
-                emptyLine(all.isEmpty ? "Aucun AP voisin lu (analyse WIDS désactivée sur les profils, ou liste des AP voisins absente)." : "Aucun AP ne correspond à ce filtre.")
+                fortiEmptyLine(all.isEmpty ? "Aucun AP voisin lu (analyse WIDS désactivée sur les profils, ou liste des AP voisins absente)." : "Aucun AP ne correspond à ce filtre.")
             } else {
                 Table(rows, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
                     TableColumn(StandardTableHeading("SSID"), sortUsing: table.sort("ssid")) { row in

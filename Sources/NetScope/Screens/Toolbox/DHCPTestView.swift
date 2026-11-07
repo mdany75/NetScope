@@ -44,7 +44,7 @@ final class ToolDHCPModel: ObservableObject {
     private(set) var extraLocations: [MACAddress: String] = [:]
 
     static let waits = [5, 10]
-    private static let allowedKey = "NetScope.outils.dhcp.autorises"
+    static let allowedKey = "NetScope.outils.dhcp.autorises"
     private let isDemo: Bool
     private let isEphemeral: Bool
     private var session: PrivilegedCaptureSession?
@@ -74,7 +74,13 @@ final class ToolDHCPModel: ObservableObject {
     }
 
     var isRunning: Bool { phase == .authorizing || phase == .listening }
-    var policy: DHCPServerPolicy { DHCPServerPolicy(text: allowedText) }
+    /// Note 96 : serveurs déclarés et FortiGate du site (adresse, ou passerelle d'elle-même à MAC Fortinet).
+    var policy: DHCPServerPolicy {
+        var policy = DHCPServerPolicy(text: allowedText)
+        if !isDemo { policy.fortiGates = PirateStore.fortiGateAddresses() }
+        policy.isFortinet = { (OUIDatabase.builtIn.vendor(for: $0) ?? "").lowercased().contains("fortinet") }
+        return policy
+    }
     var command: String { "dhcp-probe -i \(interfaceName.isEmpty ? "en0" : interfaceName) -t \(wait)" }
     var selectedInterface: LocalInterface? { interfaces.first { $0.name == interfaceName } }
 
@@ -285,6 +291,7 @@ final class ToolDHCPModel: ObservableObject {
             }
         }
         offers = list
+        PirateStore.shared.recordDHCP(list, allowedText: allowedText)
         selectedServer = list.first { policy.status(of: $0) == .unauthorized }?.server ?? list.first?.server
         phase = .finished
         deadline = nil

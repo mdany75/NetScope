@@ -52,6 +52,15 @@ public struct MonRunContext: Sendable {
     /// Note 87 : lecture du serveur RustDesk pour un compte (« utilisateur@hôte[:port] ») ; nil :
     /// compte saisi et mot de passe au Trousseau (RustDesk), comme dans l'agent.
     public var rustdeskServerRead: (@Sendable (String) async -> Result<RustDeskServerStatus, RustDeskServerReadError>)?
+    /// Note 96 : DHCPDISCOVER sur une interface (nil : jamais d'envoi, en démonstration notamment)
+    /// et serveurs attendus.
+    public var rogueDHCPDiscover: (@Sendable (String) async -> Result<[DHCPOffer], RogueDHCPError>)?
+    public var rogueDHCPPolicy = RogueDHCPPolicy()
+    public var vendorOf: (@Sendable (MACAddress) -> String?)?
+    /// Note 96 : conflits d'IP déjà calculés par l'application (ARP, scans, FortiGate, Inventaire).
+    public var ipConflicts: [IPConflict]?
+    /// Note 97 : bornes classées (FortiGate et dernier balayage de ce Mac).
+    public var rogueAPs: [RogueAPFinding]?
 
     public init(pinger: ScanPinging?, snmpCommunity: String?, devices: [Device], inventoryReady: Bool = true,
                 now: Date = Date()) {
@@ -164,6 +173,8 @@ public enum MonRunner {
             return await MonRustDeskChecks.run(probe, target: target, read: context.rustdeskServerRead, now: context.now)
         case .printerSupply:
             return await MonPrinterChecks.run(probe, host: target, context: context)
+        case .rogueDHCP, .ipConflict, .rogueAP:
+            return await MonPirateChecks.run(probe, target: target, context: context)
         }
     }
 

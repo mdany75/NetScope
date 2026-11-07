@@ -90,6 +90,8 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
     case imprimantes
     /// Qualité VoIP : appels captés et test simulé (note 92), facultative.
     case voip
+    /// Serveurs DHCP pirates, conflits d'adresses IP et bornes Wi-Fi pirates (notes 96 et 97), facultative.
+    case pirates
 
     public var id: String { rawValue }
 
@@ -117,13 +119,14 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
         case .releveWifi: return "Relevé Wi-Fi sur plan"
         case .imprimantes: return "Imprimantes et consommables"
         case .voip: return "Qualité VoIP"
+        case .pirates: return "Pirates et conflits (DHCP, IP, Wi-Fi)"
         case .annexe: return "Annexe brute"
         }
     }
 
     /// Ordre dans le document : le détail (inventaire, annexe) vient après la synthèse. « Santé
     /// courriel » est facultative : aucun modèle ne la coche par défaut.
-    public static let documentOrder: [ReportSectionKind] = [.resume, .suivi, .disponibilite, .carte, .plan, .dhcp, .wan, .firmware, .switchs, .raccordement, .wifi, .fortiap, .wifiDiag, .releveWifi, .voip, .trafic, .imprimantes, .securite, .problemes,
+    public static let documentOrder: [ReportSectionKind] = [.resume, .suivi, .disponibilite, .carte, .plan, .dhcp, .wan, .firmware, .switchs, .raccordement, .wifi, .fortiap, .wifiDiag, .releveWifi, .voip, .trafic, .imprimantes, .pirates, .securite, .problemes,
                                                             .courriel, .disques, .inventaire, .annexe]
 }
 

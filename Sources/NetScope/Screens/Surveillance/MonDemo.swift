@@ -105,6 +105,16 @@ enum MonDemo {
             state: .warning, value: "Toner noir 9\(s)% · 48\u{202F}213 pages · Toner bas", latency: nil, orange: [10, 11, 12, 13, 14], red: [],
             dependsOnGateway: false,
             configure: { $0.resourceLimit = 15; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
+        // Notes 96 et 97 : DHCP pirate, conflits d'IP (passerelle usurpée) et bornes pirates.
+        Row(name: "DHCP pirate (bureau)", kind: .rogueDHCP, target: "en0", sub: "DHCPDISCOVER · attendu 10.182.122.1", iv: 900,
+            state: .ok, value: "1 attendu · 10.182.122.1", latency: nil, orange: [], red: [], dependsOnGateway: false,
+            configure: { $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil, failures: 1) }),
+        Row(name: "Conflits d’adresses IP", kind: .ipConflict, target: "*", sub: "ARP de ce Mac, scans, FortiGate", iv: 600,
+            state: .down, value: "2 conflits · 1 MAC instable", latency: nil, orange: [20], red: [21, 22, 23], dependsOnGateway: false,
+            configure: { $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil, failures: 1) }),
+        Row(name: "Bornes Wi-Fi pirates", kind: .rogueAP, target: "*", sub: "FortiAP et balayage de ce Mac", iv: 900,
+            state: .down, value: "3 pirates · 6 voisines", latency: nil, orange: [], red: [22, 23], dependsOnGateway: false,
+            configure: { $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil, failures: 1) }),
     ]
 
     /// Sonde ouverte dans l'éditeur. Captures : NETSCOPE_SURV_SONDE="Liens WAN du Siège" (ou

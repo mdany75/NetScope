@@ -320,6 +320,7 @@ private struct ToolMainPanel: View {
         case .tls: TLSCheckView(model: tls, store: store)
         case .ressources: HostResourcesView(store: store)
         case .ipv6: IPv6ToolView(store: store)
+        case .conflits: IPConflictsView()
         }
     }
 
@@ -329,6 +330,7 @@ private struct ToolMainPanel: View {
         case .subnet: return "ipcalc \(subnet.cidr.trimmingCharacters(in: .whitespaces))"
         case .mac: return "oui \(mac.text.trimmingCharacters(in: .whitespaces))"
         case .ipv6: return "ndp -an"
+        case .conflits: return "arp -an · arpwatch"
         case .ports: return ports.command
         case .dns: return dns.command
         case .whois: return "whois \(whois.target)"

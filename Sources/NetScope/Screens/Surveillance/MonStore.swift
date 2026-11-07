@@ -316,7 +316,7 @@ final class MonStore: ObservableObject {
         let onlineServices = probe.kind == .onlineService ? SvcStore.shared.services : []
         let onlineGraph = probe.kind == .onlineService ? SvcStore.shared.graphCredentials() : nil
         // Sondes FortiAP (note 27) : lecture Wi-Fi des FortiGate, relue si plus vieille que l'intervalle.
-        let isFortiAP = probe.kind == .fortiAPOffline || probe.kind == .fortiAPOverload
+        let isFortiAP = probe.kind == .fortiAPOffline || probe.kind == .fortiAPOverload || probe.kind == .rogueAP
         let appState = self.appState
         // Note 84 : sonde « Port de switch » : clients Wi-Fi et ports des bornes déjà lus (sans relecture).
         let wireless = probe.kind == .switchPort
@@ -418,6 +418,30 @@ final class MonStore: ObservableObject {
                 }
             }
             context.wireless = wireless
+            // Notes 96 et 97 : DHCP pirate (DISCOVER sans bail, jamais en démonstration), conflits
+            // d'IP et bornes pirates calculés à partir des relevés déjà faits.
+            switch probe.kind {
+            case .rogueDHCP:
+                var policy = RogueDHCPPolicy(text: UserDefaults.standard.string(forKey: ToolDHCPModel.allowedKey) ?? "",
+                                             fortiGates: PirateStore.fortiGateAddresses())
+                if RegEnvironment.isSandboxed { policy = RogueDHCPPolicy() }
+                context.rogueDHCPPolicy = policy
+                context.vendorOf = { OUIDatabase.builtIn.vendor(for: $0) }
+                if !RegEnvironment.isSandboxed {
+                    context.rogueDHCPDiscover = { name in
+                        guard CaptureInterfaceName.isValid(name), let mac = LinkLayer.macAddress(of: name) else {
+                            return .failure(RogueDHCPError(message: "Interface «\u{00A0}\(name)\u{00A0}» introuvable"))
+                        }
+                        return await RogueDHCPDiscover.run(interface: name, mac: mac)
+                    }
+                }
+            case .ipConflict:
+                context.ipConflicts = inventoryReady ? PirateStore.shared.ipConflicts(devices: devices) : nil
+            case .rogueAP:
+                context.rogueAPs = fortiWifi?.readAt == nil ? nil : PirateStore.shared.rogueAPs(devices: devices)
+            default:
+                break
+            }
             let outcome = await MonRunner.run(probe, context: context)
             if let reading = outcome.printerReading, let address = outcome.printerAddress {
                 MonStore.shared.recordPrinter(reading, address: address, probe: probe)

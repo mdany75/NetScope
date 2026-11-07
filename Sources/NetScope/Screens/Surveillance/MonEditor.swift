@@ -466,6 +466,12 @@ private struct MonConditionFields: View {
                 Text("jours avant l’expiration\u{00A0}; panne une fois expiré (STARTTLS pour 25, 587, 143 et 110)")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
             }
+        case .rogueDHCP:
+            note("Envoie un DHCPDISCOVER sur l’interface à chaque passage (aucun bail pris) et compare les offres aux serveurs attendus\u{00A0}: ceux du Test DHCP (Serveurs autorisés) et la FortiGate du site. Panne si un autre serveur répond.")
+        case .ipConflict:
+            note("Compare la table ARP de ce Mac, les scans et la table ARP de la FortiGate\u{00A0}: panne si une IP répond avec deux MAC (usurpation possible si les réponses se contredisent), alerte si une MAC change souvent d’IP. Rien n’est envoyé.")
+        case .rogueAP:
+            note("Classe les bornes entendues par les FortiAP et par le dernier balayage de ce Mac\u{00A0}: panne pour un sosie d’un SSID du site ou une borne branchée sur le réseau, alerte pour une borne non autorisée dans FortiOS. Wi-Fi › FortiAP › Pirates pour accepter une voisine.")
         case .printerSupply:
             HStack(spacing: 8) {
                 Text("Alerter à").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
