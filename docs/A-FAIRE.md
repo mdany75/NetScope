@@ -1826,7 +1826,7 @@ Branché sur un port en trunk, scanner un autre VLAN sans changer de port.
 - Prolonge le relevé par pièce (0.27.0), qui reste une liste. Plus gros des chantiers de cette
   série.
 
-## 95. Petits restes des versions 0.33 à 0.37 — 1.0.0 (prévue en 0.37.1, publiée sous 1.0 à la demande de Dany) (relevés le 6 novembre 2026, retenus par Dany)
+## 95. Petits restes des versions 0.33 à 0.37 — livrée dans la 1.0.0 (prévue en 0.37.1, publiée sous 1.0 à la demande de Dany) (relevés le 6 novembre 2026, retenus par Dany)
 
 1. **Ordre alphabétique** des listes restées dans leur ordre : formats d’export (Inventaire,
    Carte, Rapport), sources (Trafic, Speedtest, import), préréglages de capture, types
@@ -1841,6 +1841,8 @@ Branché sur un port en trunk, scanner un autre VLAN sans changer de port.
 5. **Captures du README** (`docs/captures/`) refaites avec la barre latérale actuelle.
 
 6. Vue « Imprimantes » de l’Inventaire (tri par niveau le plus bas), prévue à la note 91 et pas faite en 0.37.0.
+
+**Livrée dans la 1.0.0** sauf le point 3 (plans du relevé Wi-Fi à part : retiré, il demande de revoir le transport de la synchronisation, publication des images à part nommées par empreinte) et six captures de la galerie (04, 05, 06, 07, 09, 10) encore avec l’ancienne barre latérale.
 
 Reste du côté de Dany : essais sur le vrai réseau des versions 0.31.0 à 0.37.0.
 
