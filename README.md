@@ -4,7 +4,7 @@
 sur plusieurs plages, dit sur quel switch et quel port chacun est branché, puis diagnostique,
 surveille, documente et ouvre une session à distance, site par site, dans une seule fenêtre.
 
-[![Version](https://img.shields.io/badge/version-1.2.2-blue)](https://github.com/mdany75/NetScope/releases/latest)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-lightgrey?logo=apple)](#installation)
 [![Licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
@@ -144,6 +144,11 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   rapport mensuel, tentatives suspectes, journaux, nom et note par ID, ID associé à la MAC du
   poste ; « Déconnecter » une session, mise à jour (avec retour arrière) et mise à jour
   planifiée la nuit, toujours avec confirmation.
+- **Serveur WireGuard** (wg-easy 15, sur le même serveur) : clients connectés, débit et graphe
+  des six dernières heures, expirations, état du conteneur et journaux (lus par SSH, clés
+  masquées) ; ajouter un client (.conf, code QR, lien à usage unique), activer, désactiver,
+  renommer ou supprimer par l’API de wg-easy, avec confirmation et retour arrière ; mise à jour
+  de l’image avec retour arrière. Lecture seule si le 2FA est actif ou si wg-easy 14 est trouvé.
 - Extraits personnalisés et **envoi d’une commande à plusieurs sessions**, avec confirmation.
 
 ### Rapports
@@ -236,7 +241,7 @@ vérifiée avant l’installation).
   dans le Trousseau de macOS. Les sauvegardes et exports qui incluent un
   secret sont chiffrés (AES-GCM 256 bits).
 - **Lecture seule par défaut** : NetScope lit la FortiGate par son API et ne modifie rien.
-  Les rares actions (cycle PoE, test de câble, actions sur le serveur RustDesk) sont
+  Les rares actions (cycle PoE, test de câble, actions sur les serveurs RustDesk et WireGuard) sont
   désactivées par défaut ou demandent une confirmation. L’empreinte du certificat de la
   FortiGate est acceptée une fois, de façon explicite.
 - **Rien n’est envoyé sans toi** : pas de compte, pas de serveur NetScope, pas de télémétrie ;

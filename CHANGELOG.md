@@ -1,5 +1,26 @@
 # Changements
 
+## 1.3.0 — 2026-11-07
+
+### Ajouté
+- **Accès distant, onglet « Serveur WireGuard »** (note 100) pour un serveur wg-easy 15 :
+  - lecture par SSH : `wg show` (clés masquées sur le serveur), base de wg-easy en lecture
+    seule, conteneur, version et journaux ;
+  - huit tuiles, graphe des six dernières heures et tableau des clients (dernière poignée de
+    main, IP d’origine, débit, expiration) ;
+  - gestion par l’API de wg-easy (mot de passe au Trousseau seulement) : ajouter un client,
+    afficher son `.conf` et son code QR (dessiné sur le Mac, jamais gardé), lien à usage
+    unique, activer, désactiver, renommer, supprimer, actions groupées ; chaque changement est
+    confirmé et peut être défait (sauf une suppression) ;
+  - la copie du `.conf` est marquée confidentielle et s’efface après 60 s ;
+  - mise à jour de l’image de wg-easy (seul ce service est recréé) avec sauvegarde et retour
+    arrière automatique ;
+  - lecture seule si le 2FA est actif, si l’API répond comme wg-easy 14 ou si macOS refuse
+    le HTTP simple vers un nom de domaine ; avis quand l’interface est en HTTP simple ;
+  - alertes : conteneur arrêté, clé du serveur changée, client surveillé déconnecté,
+    expiration proche ;
+  - nouvelle sonde de Surveillance « Serveur WireGuard ».
+
 ## 1.2.2 — 2026-11-06
 
 ### Corrigé
