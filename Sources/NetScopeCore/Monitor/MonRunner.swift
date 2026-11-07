@@ -159,6 +159,8 @@ public enum MonRunner {
             return MonRunOutcome(result: await MonTLSChecks.run(probe, target: target, now: context.now))
         case .rustdeskServer:
             return await MonRustDeskChecks.run(probe, target: target, read: context.rustdeskServerRead, now: context.now)
+        case .printerSupply:
+            return MonRunOutcome(result: await MonPrinterChecks.run(probe, host: target, context: context))
         }
     }
 

@@ -75,6 +75,10 @@ struct DeviceOverviewTab: View {
                 networkCard
                 hardwareCard
                 locationCard
+                // Note 91 : consommables des imprimantes (SNMP, Printer-MIB), en tête de la 2e rangée.
+                if device.deviceType == .imprimante {
+                    DevicePrinterCard(device: device)
+                }
                 availabilityCard
                 servicesCard
                 // Note 68 : empreinte légère (système, confiance, versions, indices).

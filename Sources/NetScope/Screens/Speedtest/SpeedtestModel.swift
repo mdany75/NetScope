@@ -131,6 +131,13 @@ final class SpeedtestModel: ObservableObject {
     private var catalogTask: Task<Void, Never>?
     private let serverStore: SpeedServerPrefsStore?
     private var lanTask: Task<Void, Never>?
+    // Note 92 : test VoIP simulé (iperf3 en UDP au débit des appels, lancé seulement sur clic).
+    @Published var voiceCodecName = VoIPCodecProfile.g711.name
+    @Published var voiceCalls = 1
+    @Published private(set) var voiceRunning = false
+    @Published private(set) var voiceTests: [VoIPSyntheticTest] = []
+    @Published private(set) var voiceError: String?
+    private var voiceTask: Task<Void, Never>?
     /// Numéro du test iperf3 en cours : une tâche arrêtée ne modifie plus l'état.
     private var lanGeneration = 0
     private let store: SpeedHistoryStore?
@@ -570,6 +577,68 @@ final class SpeedtestModel: ObservableObject {
         return result
     }
 
+    var voiceCodec: VoIPCodecProfile {
+        VoIPCodecProfile.all.first { $0.name == voiceCodecName } ?? .g711
+    }
+
+    /// Note 92 : test VoIP simulé vers le serveur iperf3 choisi (UDP, un flux au débit des appels).
+    func startVoiceTest() {
+        guard !voiceRunning else { return }
+        voiceError = nil
+        let host = lanHost.trimmingCharacters(in: .whitespaces)
+        let codec = voiceCodec
+        let calls = max(1, voiceCalls)
+        let options = VoIPQuality.syntheticOptions(host: host, port: Int(lanPort) ?? 5201, codec: codec, calls: calls)
+        let path = iperfPath
+        if !Launcher.isDemo, path == nil {
+            voiceError = IperfLocator.missingMessage
+            return
+        }
+        do { _ = try options.arguments() } catch {
+            voiceError = error.localizedDescription
+            return
+        }
+        voiceRunning = true
+        voiceTask = Task { [weak self] in
+            do {
+                let test: VoIPSyntheticTest
+                if Launcher.isDemo {
+                    // Démonstration : aucun iperf3 lancé, résultat fixe après deux secondes.
+                    try await Task.sleep(nanoseconds: 2_000_000_000)
+                    test = Self.demoVoiceTest(host: host, codec: codec, calls: calls, date: Date())
+                } else {
+                    let result = try await IperfRunner.run(options, executable: path)
+                    guard let score = VoIPQuality.score(iperf: result, codec: codec) else {
+                        throw IperfError.invalidOptions("Résultat sans gigue ni pertes (UDP attendu).")
+                    }
+                    test = VoIPSyntheticTest(target: "\(options.host):\(options.port)", codec: codec.name, calls: calls,
+                                             jitterMs: result.jitterMs ?? 0, lossPercent: result.lostPercent ?? 0,
+                                             score: score, date: Date())
+                }
+                guard let self else { return }
+                self.voiceTests = Array(([test] + self.voiceTests).prefix(10))
+                self.voiceRunning = false
+            } catch {
+                guard let self else { return }
+                self.voiceRunning = false
+                if !Task.isCancelled { self.voiceError = error.localizedDescription }
+            }
+        }
+    }
+
+    func stopVoiceTest() {
+        voiceTask?.cancel()
+        voiceTask = nil
+        voiceRunning = false
+    }
+
+    static func demoVoiceTest(host: String, codec: VoIPCodecProfile, calls: Int, date: Date) -> VoIPSyntheticTest {
+        let measures = VoIPMeasures(jitterMs: 3.8, lossPercent: 0.4)
+        return VoIPSyntheticTest(target: "\(host.isEmpty ? "10.182.122.20" : host):5201", codec: codec.name, calls: calls,
+                                 jitterMs: measures.jitterMs, lossPercent: measures.lossPercent,
+                                 score: VoIPQuality.score(measures, codec: codec), date: date)
+    }
+
     func stopLan() {
         lanGeneration += 1
         lanTask?.cancel()
@@ -657,6 +726,7 @@ final class SpeedtestModel: ObservableObject {
         self.history = history
         lanResult = lan
         self.lanHost = lanHost
+        voiceTests = [Self.demoVoiceTest(host: lanHost, codec: .g711, calls: 4, date: Date().addingTimeInterval(-900))]
         planDownText = "1000"
         planUpText = "500"
     }

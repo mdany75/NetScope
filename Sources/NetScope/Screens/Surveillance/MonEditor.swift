@@ -466,6 +466,14 @@ private struct MonConditionFields: View {
                 Text("jours avant l’expiration\u{00A0}; panne une fois expiré (STARTTLS pour 25, 587, 143 et 110)")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
             }
+        case .printerSupply:
+            HStack(spacing: 8) {
+                Text("Alerter à").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
+                MonInput(placeholder: "\(Int(PrinterMIB.defaultThreshold))", text: double($probe.resourceLimit), mono: true)
+                    .frame(width: 56)
+                Text("%\u{00A0}restant ou moins (toner, encre, tambour, kit de maintenance, bac de récupération)\u{00A0}; panne si bourrage ou bac vide")
+                    .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
+            }
         case .rustdeskServer:
             HStack(spacing: 8) {
                 Text("Disque au-delà de").font(Theme.small).foregroundStyle(Theme.text).fixedSize()

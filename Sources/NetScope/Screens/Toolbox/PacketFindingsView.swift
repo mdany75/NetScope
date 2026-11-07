@@ -233,8 +233,14 @@ struct RTPStreamRow: Identifiable {
     var maxDelta: Double { stream.maxDelta }
     var duration: Double { stream.duration }
     var ssrc: String { PacketText.hex(stream.ssrc, digits: 8) }
+    /// Note 92 : note MOS du sens (modèle E, codec du flux).
+    let score: VoIPScore
+    var mos: Double { score.mos }
 
-    init(_ stream: RTPStreamSummary) { self.stream = stream }
+    init(_ stream: RTPStreamSummary) {
+        self.stream = stream
+        score = VoIPQuality.score(stream: stream)
+    }
 }
 
 /// Flux RTP (« outils.paquets.rtp ») : flux, SSRC, codec, paquets, perte, gigue, écart max, RTCP.
@@ -250,6 +256,7 @@ struct RTPStreamTable: View {
         StandardColumn(id: "perte", title: "Perte"),
         StandardColumn(id: "gigue", title: "Gigue"),
         StandardColumn(id: "ecart", title: "Écart max."),
+        StandardColumn(id: "mos", title: "MOS"),
         StandardColumn(id: "duree", title: "Durée", isDefaultVisible: false),
         StandardColumn(id: "rtcp", title: "Vu par l’autre côté (RTCP)"),
     ]
@@ -262,6 +269,7 @@ struct RTPStreamTable: View {
         "perte": KeyPathComparator(\RTPStreamRow.loss, order: .reverse),
         "gigue": KeyPathComparator(\RTPStreamRow.jitter, order: .reverse),
         "ecart": KeyPathComparator(\RTPStreamRow.maxDelta, order: .reverse),
+        "mos": KeyPathComparator(\RTPStreamRow.mos),
         "duree": KeyPathComparator(\RTPStreamRow.duration, order: .reverse),
         "rtcp": KeyPathComparator(\RTPStreamRow.loss, order: .reverse),
     ]
@@ -305,6 +313,13 @@ struct RTPStreamTable: View {
                 }
                 .width(min: 86, ideal: 92)
                 .customizationID("ecart")
+                TableColumn("MOS", sortUsing: table.sort("mos")) { row in
+                    ToolTableText("\(row.score.mosLabel) · \(row.score.grade.label.lowercased())", weight: .semibold,
+                                  color: row.score.grade <= .poor ? Theme.critical : row.score.grade == .fair ? Theme.warning : Theme.success)
+                        .help("Modèle E (ITU-T G.107), codec \(row.score.codec), R = \(Int(row.score.rFactor.rounded())) ; délai dans un sens compté à 0 (non visible depuis la capture)")
+                }
+                .width(min: 90, ideal: 120)
+                .customizationID("mos")
                 TableColumn("DURÉE", sortUsing: table.sort("duree")) { row in
                     ToolTableText(PacketText.seconds(row.duration, decimals: 1) + "\u{00A0}s", color: Theme.textSecondary, alignment: .trailing)
                 }

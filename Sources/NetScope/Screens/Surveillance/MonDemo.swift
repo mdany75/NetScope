@@ -100,6 +100,11 @@ enum MonDemo {
         Row(name: "Nouvelles menaces", kind: .newThreat, target: "*", sub: "FortiView · IPS, antivirus, botnet", iv: 300,
             state: .ok, value: "3 menaces · 3 bloquées", latency: nil, orange: [], red: [], dependsOnGateway: false,
             configure: { $0.knownThreats = []; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
+        // Imprimantes (note 91) : toner noir de la HP sous le seuil de 15 %.
+        Row(name: "Consommables HP étage 2", kind: .printerSupply, target: "10.182.122.140", sub: "HP LaserJet Pro M404dn · NPI7A4410", iv: 3600,
+            state: .warning, value: "Toner noir 9\(s)% · 48\u{202F}213 pages · Toner bas", latency: nil, orange: [10, 11, 12, 13, 14], red: [],
+            dependsOnGateway: false,
+            configure: { $0.resourceLimit = 15; $0.thresholds = MonThresholds(latencyMs: nil, lossPercent: nil) }),
     ]
 
     /// Sonde ouverte dans l'éditeur. Captures : NETSCOPE_SURV_SONDE="Liens WAN du Siège" (ou

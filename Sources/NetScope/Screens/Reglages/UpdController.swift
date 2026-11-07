@@ -45,6 +45,8 @@ final class UpdController: ObservableObject {
     /// Un jeton GitHub est enregistré dans le Trousseau.
     @Published private(set) var hasToken = false
     @Published private(set) var tokenMessage: String?
+    /// Note 93 : version visée par « Réinstaller cette version » (fiche de la version à installer).
+    @Published private(set) var reinstallTarget: String?
 
     private weak var app: AppState?
     private var downloader: UpdDownloader?
@@ -240,6 +242,49 @@ final class UpdController: ObservableObject {
         }
     }
 
+    // MARK: Retour à une version précédente (note 93)
+
+    /// Ce que fera la réinstallation de `version` (texte de la confirmation).
+    func rollbackPlan(_ version: String) -> UpdRollbackPlan? {
+        guard let target = UpdVersion(version) else { return nil }
+        return UpdRollback.plan(target: target, current: UpdController.currentVersion,
+                                syncEnabled: RegSyncController.shared.enabled)
+    }
+
+    /// « Réinstaller cette version », après confirmation : lit la Release GitHub de la version,
+    /// suspend la mise à jour automatique (retour arrière), puis télécharge et vérifie l'image
+    /// comme une mise à jour ; l'installation reste au bouton « Installer et relancer ».
+    /// Jamais en démonstration ni pendant les captures.
+    func reinstall(_ version: String) async {
+        guard !isBusy, let target = UpdVersion(version) else { return }
+        if RegEnvironment.isSandboxed {
+            phase = .failed("Mode démonstration\u{00A0}: aucun téléchargement ni aucune installation.")
+            return
+        }
+        phase = .checking
+        let checker = UpdateChecker(token: UpdKeychain.github.string(for: UpdKeychain.githubAccount))
+        do {
+            let found = try await checker.fetchRelease(version: target)
+            guard found.diskImage != nil else { throw UpdError.missingAsset(version: found.tagName) }
+            if target < UpdController.currentVersion {
+                prefs = UpdRollback.suspend(prefs, target: target)
+            }
+            reinstallTarget = target.description
+            release = found
+            checks = []
+            prepared = nil
+            phase = .available
+            download()
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
+    }
+
+    /// « Réactiver » : fin de la suspension après un retour arrière.
+    func resumeAutomaticUpdates() {
+        prefs = UpdRollback.resume(prefs)
+    }
+
     func later() {
         downloader?.cancel()
         phase = .later
@@ -302,7 +347,9 @@ final class UpdController: ObservableObject {
         // Démonstration : la pastille de la barre latérale seulement sur demande (NETSCOPE_MAJ_DEMO=1),
         // pour que les captures ne montrent pas une fausse version disponible.
         if RegEnvironment.isDemo, ProcessInfo.processInfo.environment["NETSCOPE_MAJ_DEMO"] != "1" { return }
-        if let release, let version = release.version, !prefs.isSkipped(release), phase != .upToDate {
+        // Une version réinstallée (retour arrière) n'est pas une mise à jour disponible.
+        if let release, let version = release.version, version > UpdController.currentVersion,
+           !prefs.isSkipped(release), phase != .upToDate {
             app.updateAvailable = version.description
         } else {
             app.updateAvailable = nil

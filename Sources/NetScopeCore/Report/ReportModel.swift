@@ -86,6 +86,10 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
     case carte
     /// Relevé Wi-Fi sur plan : carte de chaleur par étage (note 94), facultative.
     case releveWifi
+    /// Consommables des imprimantes (note 91), facultative.
+    case imprimantes
+    /// Qualité VoIP : appels captés et test simulé (note 92), facultative.
+    case voip
 
     public var id: String { rawValue }
 
@@ -111,13 +115,15 @@ public enum ReportSectionKind: String, Codable, CaseIterable, Sendable, Identifi
         case .disponibilite: return "Disponibilité (Surveillance)"
         case .carte: return "Carte du réseau"
         case .releveWifi: return "Relevé Wi-Fi sur plan"
+        case .imprimantes: return "Imprimantes et consommables"
+        case .voip: return "Qualité VoIP"
         case .annexe: return "Annexe brute"
         }
     }
 
     /// Ordre dans le document : le détail (inventaire, annexe) vient après la synthèse. « Santé
     /// courriel » est facultative : aucun modèle ne la coche par défaut.
-    public static let documentOrder: [ReportSectionKind] = [.resume, .suivi, .disponibilite, .carte, .plan, .dhcp, .wan, .firmware, .switchs, .raccordement, .wifi, .fortiap, .wifiDiag, .releveWifi, .trafic, .securite, .problemes,
+    public static let documentOrder: [ReportSectionKind] = [.resume, .suivi, .disponibilite, .carte, .plan, .dhcp, .wan, .firmware, .switchs, .raccordement, .wifi, .fortiap, .wifiDiag, .releveWifi, .voip, .trafic, .imprimantes, .securite, .problemes,
                                                             .courriel, .disques, .inventaire, .annexe]
 }
 

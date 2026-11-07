@@ -39,6 +39,13 @@ struct RegUpdatesSection: View {
                                       isOn: $updates.prefs.automaticInstall)
                      }
                      .padding(.top, 12)
+                     if let hold = updates.prefs.rollbackHold {
+                         RegNotice(text: "Mise à jour automatique suspendue depuis le retour à la \(hold.version) (le \(RegFormat.day(hold.date)))\u{00A0}: NetScope ne propose ni n’installe plus de version d’elle-même.",
+                                   tone: .warning) {
+                             Button("Réactiver") { updates.resumeAutomaticUpdates() }.buttonStyle(RegSmallButtonStyle())
+                         }
+                         .padding(.top, 12)
+                     }
                      if let notice = statusNotice {
                          RegNotice(text: notice.text, tone: notice.tone) {
                              if phase == .ignored || (phase == .upToDate && updates.prefs.skippedVersion != nil) {
@@ -150,7 +157,8 @@ struct RegUpdatesSection: View {
                 }
                 .frame(width: 36, height: 36)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Nouvelle version disponible : NetScope \(versionLabel)").font(Theme.bodySemibold)
+                    Text(updates.reinstallTarget == nil ? "Nouvelle version disponible : NetScope \(versionLabel)"
+                                                        : "Réinstallation : NetScope \(versionLabel)").font(Theme.bodySemibold)
                     Text(cardSubtitle(release)).font(Theme.small).foregroundStyle(Theme.textSecondary)
                 }
                 Spacer()

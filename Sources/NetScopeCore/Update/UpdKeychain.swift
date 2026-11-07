@@ -89,12 +89,15 @@ public struct UpdPreferences: Codable, Hashable, Sendable {
     public var skippedVersion: String?
     /// Versions installées, la plus récente en premier.
     public var history: [UpdHistoryEntry] = []
+    /// Note 93 : retour à une version précédente ; la mise à jour automatique reste suspendue
+    /// (vérification et installation automatiques coupées) jusqu'à « Réactiver ».
+    public var rollbackHold: UpdRollbackHold?
 
     public init() {}
 
     /// Vrai si la vérification automatique doit avoir lieu maintenant.
     public func isCheckDue(now: Date = Date(), atLaunch: Bool) -> Bool {
-        automaticCheck && frequency.isDue(lastCheck: lastCheck, now: now, atLaunch: atLaunch)
+        automaticCheck && rollbackHold == nil && frequency.isDue(lastCheck: lastCheck, now: now, atLaunch: atLaunch)
     }
 
     /// Note la version en cours si elle diffère de la dernière de l'historique (200 entrées au plus).
@@ -120,5 +123,6 @@ public struct UpdPreferences: Codable, Hashable, Sendable {
         lastCheck = try container.decodeIfPresent(Date.self, forKey: .lastCheck)
         skippedVersion = try container.decodeIfPresent(String.self, forKey: .skippedVersion)
         history = try container.decodeIfPresent([UpdHistoryEntry].self, forKey: .history) ?? []
+        rollbackHold = try? container.decodeIfPresent(UpdRollbackHold.self, forKey: .rollbackHold)
     }
 }

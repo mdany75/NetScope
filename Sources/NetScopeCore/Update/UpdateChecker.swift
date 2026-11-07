@@ -148,6 +148,19 @@ public struct UpdateChecker: Sendable {
         return channel == .stable ? [try UpdateChecker.decodeRelease(data)] : try UpdateChecker.decodeReleases(data)
     }
 
+    /// Note 93 : version publiée précise (« /releases/tags/v0.36.0 »), pour la réinstaller.
+    public func releaseRequest(version: UpdVersion) -> URLRequest {
+        request(path: "/releases/tags/v\(version)")
+    }
+
+    /// Note 93 : lit la Release d'une version (404 : cette version n'a pas de Release publiée).
+    public func fetchRelease(version: UpdVersion) async throws -> UpdRelease {
+        let (data, status) = try await send(releaseRequest(version: version))
+        if status == 404 { throw UpdError.missingAsset(version: "v\(version)") }
+        if let error = UpdateChecker.error(forStatus: status, hasToken: token != nil) { throw error }
+        return try UpdateChecker.decodeRelease(data)
+    }
+
     /// Vérifie s'il existe une version plus récente que `current` sur le canal.
     public func check(current: UpdVersion, channel: UpdChannel) async throws -> UpdCheckResult {
         let releases = try await fetchReleases(channel: channel)

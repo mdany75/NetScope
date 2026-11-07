@@ -72,6 +72,8 @@ struct SpeedLanView: View {
                     intervalTable
                     rateChart
                 }
+                // Note 92 : note MOS d'un lien avant d'installer des téléphones.
+                SpeedVoiceView(model: model)
             }
         }
     }
