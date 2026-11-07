@@ -1846,7 +1846,7 @@ Branché sur un port en trunk, scanner un autre VLAN sans changer de port.
 
 Reste du côté de Dany : essais sur le vrai réseau des versions 0.31.0 à 0.37.0.
 
-## 96. Serveur DHCP pirate et conflits d’adresses IP — 1.1.0 (idée tirée des projets réseau de GitHub, retenue par Dany le 6 novembre 2026)
+## 96. Serveur DHCP pirate et conflits d’adresses IP — livrée dans la 1.1.0 (idée tirée des projets réseau de GitHub, retenue par Dany le 6 novembre 2026)
 
 Inspiré d’arpwatch et de dhcp_probe.
 
@@ -1858,7 +1858,7 @@ Inspiré d’arpwatch et de dhcp_probe.
   souvent d’IP, réponses ARP contradictoires (usurpation possible) ; alerte et section du rapport.
 - Jamais d’envoi pendant les tests ni en démo.
 
-## 97. Bornes Wi-Fi pirates — 1.1.0 (idée tirée des projets réseau de GitHub, retenue par Dany le 6 novembre 2026)
+## 97. Bornes Wi-Fi pirates — livrée dans la 1.1.0 (idée tirée des projets réseau de GitHub, retenue par Dany le 6 novembre 2026)
 
 Inspiré de Kismet et de Sparrow-wifi.
 
@@ -1869,7 +1869,7 @@ Inspiré de Kismet et de Sparrow-wifi.
 - Liste « pirates », « voisines » et « connues » ; marquer une borne comme voisine acceptée ;
   sonde de Surveillance et section du rapport.
 
-## 98. Onduleurs (UPS) — 1.2.0 (idée tirée des projets réseau de GitHub, retenue par Dany le 6 novembre 2026)
+## 98. Onduleurs (UPS) — livrée dans la 1.2.0 (idée tirée des projets réseau de GitHub, retenue par Dany le 6 novembre 2026)
 
 Inspiré de NUT et de LibreNMS.
 
@@ -1880,7 +1880,7 @@ Inspiré de NUT et de LibreNMS.
   l’Inventaire, sonde de Surveillance (passage sur batterie, autonomie basse, batterie à changer)
   et section des rapports, comme les consommables des imprimantes (0.37.0).
 
-## 99. Historique d’une adresse MAC — 1.2.0 (idée tirée des projets réseau de GitHub, retenue par Dany le 6 novembre 2026)
+## 99. Historique d’une adresse MAC — livrée dans la 1.2.0 (idée tirée des projets réseau de GitHub, retenue par Dany le 6 novembre 2026)
 
 Inspiré de Netdisco.
 
