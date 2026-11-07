@@ -1,5 +1,25 @@
 # Changements
 
+## 1.2.0 — 2026-11-06
+
+Onduleurs et historique des MAC (notes 98 et 99).
+
+### Ajouté
+- **Onduleurs (UPS)** par SNMP (UPS-MIB, puis APC, Eaton et CyberPower) : carte « Onduleur » de
+  la fiche (alimentation, batterie, autonomie, charge, tensions, température, dernier test,
+  date de pose de la batterie), type « Onduleur » détecté au scan, vue « Onduleurs » de
+  l’Inventaire, sonde (sur batterie, autonomie basse, batterie à changer ; un autotest n’est
+  pas une panne) et section des rapports. Relevés rangés sous la MAC.
+- **Historique d’une adresse MAC** : ports de switch, IP, noms, VLAN et bornes Wi-Fi où un
+  appareil a été vu, avec première et dernière vue ; recherche « Où était cet appareil ? »
+  par MAC, IP ou nom et par date, chronologie dans la fiche, export CSV. Alimenté par les
+  scans et les relevés déjà faits, sans rien de plus sur le réseau.
+
+### Limites connues
+- Rien n’a été essayé sur un vrai onduleur : certains numéros des MIB APC, Eaton et CyberPower
+  sont à confirmer.
+- L’historique des MAC commence avec la 1.2.0 (rien de rétroactif), site actif seulement.
+
 ## 1.1.0 — 2026-11-06
 
 Sécurité du réseau (notes 96 et 97).

@@ -4,7 +4,7 @@
 sur plusieurs plages, dit sur quel switch et quel port chacun est branché, puis diagnostique,
 surveille, documente et ouvre une session à distance, site par site, dans une seule fenêtre.
 
-[![Version](https://img.shields.io/badge/version-1.1.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-lightgrey?logo=apple)](#installation)
 [![Licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
@@ -157,6 +157,8 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   console série, ordre alphabétique partout.
 - **1.1.0** : serveur DHCP pirate, conflits d’adresses IP et bornes Wi-Fi pirates, avec sondes et
   rapport.
+- **1.2.0** : onduleurs par SNMP (fiche, Inventaire, sonde, rapport) et historique d’une adresse
+  MAC sur plusieurs mois.
 
 ### Rapports
 
