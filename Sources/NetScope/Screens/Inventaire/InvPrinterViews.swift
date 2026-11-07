@@ -5,11 +5,13 @@ import SwiftUI
 // des consommables (PrinterStore, rangé sous la MAC de l'imprimante dans le dossier de son site),
 // triées du niveau de consommable le plus bas au plus haut ; rien n'est lu sur le réseau ici.
 enum InvPrinters {
-    /// Relevé d'une fiche : clé MAC (l'IP seulement à défaut), dans le dossier du site de la fiche.
+    /// Relevé d'une fiche : clé MAC seulement, dans le dossier du site de la fiche. Un relevé rangé
+    /// sous une IP (imprimante lue sans MAC connue) n'est pas repris ici : l'IP seule ne choisit
+    /// jamais un appareil, et cette IP peut appartenir aujourd'hui à un autre.
     @MainActor
     static func reading(_ row: SiteScopedRecord, store: PrinterStore) -> PrinterReading? {
-        let key = row.record.mac?.description ?? row.record.ip.description
-        return store.readings(siteKey: row.siteKey)[key]
+        guard let mac = row.record.mac else { return nil }
+        return store.readings(siteKey: row.siteKey)[mac.description]
     }
 
     /// Fiches avec un relevé, du consommable le plus bas au plus haut ; niveau inconnu à la fin.

@@ -11,7 +11,7 @@ enum RegSyncReload {
     /// Fichiers relus à chaud (motifs à la fnmatch).
     static let hotFiles = [
         SiteFiles.listName, "sites/*/" + SiteFiles.inventoryName, "sites/*/" + SiteFiles.notesName, "sites/*/" + SiteFiles.resultsName,
-        "sites/*/" + WifiRoomSurvey.fileName, "sites/*/" + WifiFloorPlans.fileName, "sites/*/" + WifiFloorPlans.imageFolder + "/*.jpg",
+        "sites/*/" + WifiRoomSurvey.fileName, "sites/*/" + WifiFloorPlans.fileName,
         "sites/*/" + TopoManualLayout.fileName,
         "connexions.json", "rustdesk.json", "rustdesk-serveur.json", QuickLoginMemory.fileName, "identifiants.json",
         "surveillance.json", "outils.json", "speedtest.json", "rapports/planifies.json", "appareils-saisis.json",
@@ -52,8 +52,7 @@ enum RegSyncReload {
         }
         for path in touched("sites/*/" + SiteFiles.resultsName) { SiteModel.shared.reloadResults(siteKey: siteKey(path)) }
         for path in touched("sites/*/" + WifiRoomSurvey.fileName) { WifiSurveyStore.shared.reloadFromDisk(siteKey: siteKey(path)) }
-        let floorSites = Set((touched("sites/*/" + WifiFloorPlans.fileName) + touched("sites/*/" + WifiFloorPlans.imageFolder + "/*.jpg")).map(siteKey))
-        for key in floorSites.sorted() { WifiFloorStore.shared.reloadFromDisk(siteKey: key) }
+        for path in touched("sites/*/" + WifiFloorPlans.fileName) { WifiFloorStore.shared.reloadFromDisk(siteKey: siteKey(path)) }
         for path in touched("sites/*/" + TopoManualLayout.fileName) { TopoLayoutStore.shared.forget(siteKey(path)) }
         if files.contains("connexions.json") { RemoteModel.shared.reloadFromDisk() }
         if files.contains("rustdesk.json") { RustDeskModel.shared.reloadFromDisk() }

@@ -352,7 +352,7 @@ private struct MonProbeGrid: View {
                     .help("\(line.probe.name)\n\(line.targetLabel)")
                     .monInactive(line)
                 }
-                .width(min: 100, ideal: isCompact ? 130 : 180)
+                .width(min: 100, ideal: isCompact ? 130 : 150)
                 .customizationID("sonde")
                 .disabledCustomizationBehavior(.visibility)
 
@@ -373,7 +373,7 @@ private struct MonProbeGrid: View {
                 TableColumn(StandardTableHeading("INTERVALLE"), sortUsing: table.sort("intervalle")) { line in
                     MonCellText(MonProbe.intervalLabel(line.probe.interval), mono: true).monInactive(line)
                 }
-                .width(min: 66, ideal: isCompact ? 80 : 84)
+                .width(min: 66, ideal: isCompact ? 76 : 78)
                 .customizationID("intervalle")
 
                 TableColumn(StandardTableHeading("ÉTAT"), sortUsing: table.sort("etat")) { line in
@@ -392,7 +392,7 @@ private struct MonProbeGrid: View {
                         .help(line.value)
                         .monInactive(line)
                 }
-                .width(min: 96, ideal: isCompact ? 100 : 116)
+                .width(min: 96, ideal: isCompact ? 100 : 110)
                 .customizationID("valeur")
 
                 // En-tête court : il tient dans la colonne en petite fenêtre (« DISPONIBILITÉ » était coupé).

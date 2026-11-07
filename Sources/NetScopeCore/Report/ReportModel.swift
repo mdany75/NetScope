@@ -135,8 +135,8 @@ public enum ReportFormat: String, Codable, CaseIterable, Sendable, Identifiable 
 
     public var id: String { rawValue }
     public var label: String { rawValue.uppercased() }
-    /// Formats en ordre alphabétique, le PDF (par défaut) en tête.
-    public static var ordered: [ReportFormat] { allCases.sortedFrench(by: \.label, first: [pdf.label]) }
+    /// Formats en ordre alphabétique, sans exception (règle de la 0.34.0) ; le PDF reste le choix par défaut.
+    public static var ordered: [ReportFormat] { allCases.sortedFrench(by: \.label) }
     public var fileExtension: String { rawValue }
 
     public var hint: String {

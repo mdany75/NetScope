@@ -105,7 +105,7 @@ struct RegRangeTable: View {
                 TableColumn("FORMAT", sortUsing: table.sort("format")) { row in
                     Text(row.kind).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 }
-                .width(min: 50, ideal: 90)
+                .width(min: 40, ideal: 90)
                 .customizationID("format")
 
                 TableColumn("VLAN", sortUsing: table.sort("vlan")) { row in
@@ -122,14 +122,15 @@ struct RegRangeTable: View {
                         .font(Theme.mono(12))
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                .width(min: 50, ideal: 84)
+                .width(min: 72, ideal: 84)
                 .customizationID("adresses")
 
-                TableColumn("INCLURE AU SCAN", sortUsing: table.sort("inclure")) { row in
+                // En-tête court (« SCAN ») : « INCLURE AU SCAN » serait coupé en petite fenêtre.
+                TableColumn("SCAN", sortUsing: table.sort("inclure")) { row in
                     RegSwitch(isOn: enabledBinding(row.range))
-                        .help(row.range.isEnabled ? "Plage scannée" : "Plage non scannée")
+                        .help(row.range.isEnabled ? "Plage incluse au scan" : "Plage non incluse au scan")
                 }
-                .width(min: 56, ideal: 120)
+                .width(min: 56, ideal: 70)
                 .customizationID("inclure")
             }
 

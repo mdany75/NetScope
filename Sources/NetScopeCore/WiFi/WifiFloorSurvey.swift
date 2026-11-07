@@ -6,8 +6,7 @@ import Foundation
 // les bornes placées à la main. La carte de chaleur, les zones mortes, les chevauchements de canaux
 // et l'emplacement suggéré d'une borne se calculent ici, sans réseau ni interface : les tests passent
 // des étages fixes. Les étages d'un site vont dans sites/<site>/wifi-plans.json (synchronisé avec
-// le site, note 86) ; depuis la 0.37.1 (note 95), l'image de chaque plan est à part, dans
-// sites/<site>/wifi-plans/<étage>.jpg : une mesure ne renvoie plus le plan entier aux autres Mac.
+// le site, note 86).
 
 /// Point du plan en coordonnées relatives (0 à 1 de la largeur et de la hauteur de l'image).
 public struct WifiPlanPoint: Codable, Hashable, Sendable {
@@ -192,42 +191,12 @@ public struct WifiFloor: Codable, Hashable, Identifiable, Sendable {
 
     public var widthMetres: Double { imageWidth * effectiveMetresPerPixel }
     public var heightMetres: Double { imageHeight * effectiveMetresPerPixel }
-
-    private enum CodingKeys: String, CodingKey { case id, name, image, imageWidth, imageHeight, scale, measures, aps }
-
-    /// Note 95 : l'image n'est plus écrite dans le JSON (fichier à part) ; un ancien fichier qui
-    /// la contient encore est relu tel quel, puis migré à l'enregistrement suivant.
-    public init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = try c.decode(UUID.self, forKey: .id)
-        name = try c.decode(String.self, forKey: .name)
-        image = try c.decodeIfPresent(Data.self, forKey: .image) ?? Data()
-        imageWidth = max(1, try c.decode(Double.self, forKey: .imageWidth))
-        imageHeight = max(1, try c.decode(Double.self, forKey: .imageHeight))
-        scale = try c.decodeIfPresent(WifiFloorScale.self, forKey: .scale)
-        measures = try c.decodeIfPresent([WifiFloorMeasure].self, forKey: .measures) ?? []
-        aps = try c.decodeIfPresent([WifiFloorAP].self, forKey: .aps) ?? []
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(id, forKey: .id)
-        try c.encode(name, forKey: .name)
-        try c.encode(imageWidth, forKey: .imageWidth)
-        try c.encode(imageHeight, forKey: .imageHeight)
-        try c.encodeIfPresent(scale, forKey: .scale)
-        try c.encode(measures, forKey: .measures)
-        try c.encode(aps, forKey: .aps)
-    }
 }
 
 /// Étages d'un site.
 public struct WifiFloorPlans: Codable, Hashable, Sendable {
-    /// 2 (0.37.1, note 95) : images des plans hors du JSON.
-    public static let currentVersion = 2
+    public static let currentVersion = 1
     public static let fileName = "wifi-plans.json"
-    /// Dossier des images des plans, à côté du fichier du site.
-    public static let imageFolder = "wifi-plans"
     public static let maxFloors = 30
     public static let maxMeasuresPerFloor = 1_000
 
@@ -257,14 +226,11 @@ public struct WifiFloorPlans: Codable, Hashable, Sendable {
         }
     }
 
-    /// JSON du site, sans les images des plans (fichiers à part, `write(to:)`).
     public func encoded() -> Data? {
-        var copy = self
-        copy.version = max(version, Self.currentVersion)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         encoder.dateEncodingStrategy = .secondsSince1970
-        return try? encoder.encode(copy)
+        return try? encoder.encode(self)
     }
 
     /// Lecture tolérante : illisible ou d'une version future → nil (le fichier n'est pas écrasé).
@@ -277,69 +243,6 @@ public struct WifiFloorPlans: Codable, Hashable, Sendable {
 
     public static func url(in files: SiteFiles, siteKey: String) -> URL {
         files.folder(for: siteKey).appendingPathComponent(fileName)
-    }
-
-    // MARK: Images des plans (note 95)
-
-    /// Chemin de l'image d'un étage, relatif au dossier du site (« wifi-plans/<id>.jpg »).
-    public static func imagePath(_ floorID: UUID) -> String { imageFolder + "/" + floorID.uuidString + ".jpg" }
-
-    /// Vrai pour le chemin d'une image de plan dans le dossier des données
-    /// (« sites/<site>/wifi-plans/<id>.jpg »).
-    public static func isImagePath(_ path: String) -> Bool {
-        let parts = path.split(separator: "/", omittingEmptySubsequences: false)
-        guard parts.count == 4, parts[0] == Substring(SiteFiles.folderName), parts[2] == Substring(imageFolder),
-              path.lowercased().hasSuffix(".jpg") else { return false }
-        return UUID(uuidString: String(parts[3].dropLast(4))) != nil
-    }
-
-    /// Fichiers d'un site lus dans son dossier.
-    public struct Loaded: Sendable {
-        public var plans: WifiFloorPlans
-        /// Ancien fichier (images dans le JSON) : à réécrire dans le nouveau format.
-        public var needsMigration: Bool
-        /// Étages dont l'image manque encore (pas encore reçue d'un autre Mac).
-        public var missingImages: [UUID]
-    }
-
-    /// Lit le fichier du site et les images de ses plans ; nil : fichier absent ou illisible.
-    /// Un ancien fichier (images dans le JSON) est relu tel quel et signalé à migrer.
-    public static func read(folder: URL) -> Loaded? {
-        guard let data = try? Data(contentsOf: folder.appendingPathComponent(fileName)), var plans = decode(data) else { return nil }
-        var migrate = plans.version < currentVersion
-        var missing: [UUID] = []
-        for index in plans.floors.indices {
-            if !plans.floors[index].image.isEmpty {
-                migrate = true
-                continue
-            }
-            let url = folder.appendingPathComponent(imagePath(plans.floors[index].id))
-            if let image = try? Data(contentsOf: url), !image.isEmpty {
-                plans.floors[index].image = image
-            } else {
-                missing.append(plans.floors[index].id)
-            }
-        }
-        return Loaded(plans: plans, needsMigration: migrate, missingImages: missing)
-    }
-
-    /// Écrit les images des plans (seulement celles qui ont changé), puis le JSON du site, puis
-    /// retire les images des étages supprimés. Une image encore absente (pas reçue) est laissée.
-    public func write(to folder: URL) throws {
-        let manager = FileManager.default
-        let images = folder.appendingPathComponent(Self.imageFolder, isDirectory: true)
-        try manager.createDirectory(at: images, withIntermediateDirectories: true)
-        for floor in floors where !floor.image.isEmpty {
-            let url = folder.appendingPathComponent(Self.imagePath(floor.id))
-            if (try? Data(contentsOf: url)) != floor.image { try floor.image.write(to: url, options: .atomic) }
-        }
-        guard let data = encoded() else { throw CocoaError(.fileWriteUnknown) }
-        try data.write(to: folder.appendingPathComponent(Self.fileName), options: .atomic)
-        let kept = Set(floors.map { $0.id.uuidString + ".jpg" })
-        for name in (try? manager.contentsOfDirectory(atPath: images.path)) ?? []
-        where name.lowercased().hasSuffix(".jpg") && !kept.contains(name) && UUID(uuidString: String(name.dropLast(4))) != nil {
-            try? manager.removeItem(at: images.appendingPathComponent(name))
-        }
     }
 }
 

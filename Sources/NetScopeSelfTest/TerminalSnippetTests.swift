@@ -24,9 +24,8 @@ func registerTerminalSnippetTests(_ suite: TestSuite) {
     }
 
     suite.add("Ordre alphabétique : formats, sources, préréglages, courriel, UDP (note 95)") {
-        try expectEqual(InvExportFormat.ordered.first, .netscope, "format NetScope en tête")
-        try expectEqual(InvExportFormat.ordered.dropFirst().map(\.label), InvExportFormat.allCases.dropFirst().map(\.label).sortedFrench(), "autres formats triés")
-        try expectEqual(ReportFormat.ordered.map(\.label), ["PDF", "CSV", "DOCX", "HTML", "JSON"], "PDF en tête")
+        try expectEqual(InvExportFormat.ordered.map(\.label), InvExportFormat.allCases.map(\.label).sortedFrench(), "formats d’export triés")
+        try expectEqual(ReportFormat.ordered.map(\.label), ["CSV", "DOCX", "HTML", "JSON", "PDF"], "formats de rapport triés")
         try expectEqual(SpeedServerSource.ordered.last, .custom, "« Personnalisé » à la fin")
         try expectEqual(CapturePreset.ordered.first, .all, "« Tout le trafic » en tête")
         try expectEqual(MailRecordKind.ordered.map(\.label), ["BIMI", "DKIM", "DMARC", "MTA-STS", "SPF", "TLS-RPT"], "enregistrements courriel")

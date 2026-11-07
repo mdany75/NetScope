@@ -18,8 +18,7 @@ enum WifiFloorTool: String, CaseIterable, Identifiable {
 }
 
 /// Note 94 : relevé Wi-Fi sur plan, un fichier par site (sites/<site>/wifi-plans.json, synchronisé
-/// avec le site par la note 86) ; note 95 : l'image de chaque plan à part (sites/<site>/wifi-plans/
-/// <étage>.jpg), un ancien fichier étant migré à sa première lecture. Chaque mesure est lancée par un clic de l'utilisateur sur le plan :
+/// avec le site par la note 86). Chaque mesure est lancée par un clic de l'utilisateur sur le plan :
 /// signal, bruit, débit du lien, borne et canal lus localement (CoreWLAN, par WifiStore) ; les
 /// bornes voisines seulement s'il coche « Bornes voisines » (un balayage de quelques secondes).
 ///
@@ -126,12 +125,9 @@ final class WifiFloorStore: ObservableObject {
         cancel()
         siteKey = key
         guard !isDemo else { return }
-        let loaded = Self.read(siteKey: key)
-        plans = loaded?.plans ?? WifiFloorPlans()
+        plans = Self.read(siteKey: key) ?? WifiFloorPlans()
         markReadable(siteKey: key)
         if plans.floor(selectedFloorID) == nil { selectedFloorID = plans.floors.first?.id }
-        // Note 95 : ancien fichier (images dans le JSON) réécrit dans le nouveau format.
-        if loaded?.needsMigration == true { save() }
     }
 
     /// Lecture seule tant que le fichier du site est illisible ; levée dès qu'il redevient lisible.
@@ -143,13 +139,9 @@ final class WifiFloorStore: ObservableObject {
         SiteModel.shared.files.map { WifiFloorPlans.url(in: $0, siteKey: siteKey) }
     }
 
-    private static func folder(siteKey: String) -> URL? {
-        SiteModel.shared.files.map { $0.folder(for: siteKey) }
-    }
-
-    private static func read(siteKey: String) -> WifiFloorPlans.Loaded? {
-        guard let folder = folder(siteKey: siteKey) else { return nil }
-        return WifiFloorPlans.read(folder: folder)
+    private static func read(siteKey: String) -> WifiFloorPlans? {
+        guard let url = url(siteKey: siteKey), let data = try? Data(contentsOf: url) else { return nil }
+        return WifiFloorPlans.decode(data)
     }
 
     private static func isUnreadable(siteKey: String) -> Bool {
@@ -157,20 +149,17 @@ final class WifiFloorStore: ObservableObject {
         return read(siteKey: siteKey) == nil
     }
 
-    /// Enregistre le site hors du fil principal : les images des plans changées seulement (fichiers
-    /// à part, note 95), puis le JSON des mesures et des bornes.
+    /// Enregistre le site ; l'encodage (images des plans comprises, plusieurs Mo) se fait hors du fil principal.
     private func save() {
         guard !isDemo, !RegEnvironment.isSnapshot, let key = siteKey, !readOnly.contains(key),
-              let folder = Self.folder(siteKey: key) else { return }
+              let url = Self.url(siteKey: key) else { return }
         let plans = plans
         let previous = write
         write = Task.detached(priority: .utility) {
             await previous?.value
-            do {
-                try plans.write(to: folder)
-            } catch {
-                AppLog.shared.error("Wi-Fi", "Enregistrement du relevé sur plan impossible\u{00A0}: \(error.localizedDescription)")
-            }
+            guard let data = plans.encoded() else { return }
+            try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? data.write(to: url, options: .atomic)
         }
     }
 
@@ -364,7 +353,7 @@ final class WifiFloorStore: ObservableObject {
             // Fichier changé par la synchronisation pendant le balayage : relu avant d'y ajouter la mesure.
             if self.pendingReload, let key = self.siteKey {
                 self.pendingReload = false
-                self.plans = Self.read(siteKey: key)?.plans ?? self.plans
+                self.plans = Self.read(siteKey: key) ?? self.plans
                 self.markReadable(siteKey: key)
                 if self.plans.floor(self.selectedFloorID) == nil { self.selectedFloorID = self.plans.floors.first?.id }
             }
@@ -431,7 +420,7 @@ final class WifiFloorStore: ObservableObject {
         if isDemo || key == siteKey {
             source = (isDemo && key != SiteModel.shared.activeKey) ? WifiFloorPlans() : plans
         } else {
-            source = Self.read(siteKey: key)?.plans ?? WifiFloorPlans()
+            source = Self.read(siteKey: key) ?? WifiFloorPlans()
         }
         return source.floors.filter { !$0.measures.isEmpty }.map { floor in
             ReportFloorSurveyFloor.make(floor, image: WifiFloorExport.reportImage(floor))
