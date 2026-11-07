@@ -1899,7 +1899,7 @@ gestion aussi ? » Même serveur que RustDesk, même compte SSH (sudo au Trousse
 de « Serveur RustDesk ». Aucune valeur réelle dans ce dépôt (ni adresse, ni nom d’usager, ni
 mot de passe) ; démo avec des noms fictifs.
 
-**Cible : wg-easy 15** (décision de Dany le 7 novembre 2026 : migration depuis la 14, avec le 2FA
+**Cible : wg-easy 15** (migration de la 14 faite par Dany le 7 novembre 2026, avec le 2FA
 activé pour l’administration). Conséquence : l’API de wg-easy 15 (HTTP Basic) ne fonctionne pas
 quand le 2FA est actif. NetScope **lit tout par SSH** et **ouvre wg-easy** pour les changements.
 
