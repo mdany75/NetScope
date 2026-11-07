@@ -1899,10 +1899,19 @@ gestion aussi ? » Même serveur que RustDesk, même compte SSH (sudo au Trousse
 de « Serveur RustDesk ». Aucune valeur réelle dans ce dépôt (ni adresse, ni nom d’usager, ni
 mot de passe) ; démo avec des noms fictifs.
 
-**Cible : wg-easy 15** (migration de la 14 faite par Dany le 7 novembre 2026, avec le 2FA
-activé pour l’administration). Conséquence : l’API de wg-easy 15 (HTTP Basic) ne fonctionne pas
-quand le 2FA est actif. NetScope **lit tout par SSH** et **ouvre wg-easy** pour les changements.
+**Cible : wg-easy 15** (migration de la 14 faite par Dany le 7 novembre 2026). **Sans 2FA** sur le
+compte administrateur, choix de Dany pour que l’API fonctionne : NetScope gère donc les clients
+par l’**API de wg-easy 15** (HTTP Basic avec ce compte, mot de passe saisi par Dany et rangé au
+Trousseau seulement) et lit le reste par SSH.
 
+- **Gestion par l’API (avec confirmation)** : liste des clients, ajouter un client (nom, date
+  d’expiration, adresses proposées), activer ou désactiver, renommer, supprimer, fichier `.conf`
+  et code QR, lien à usage unique, réglages par client (pare-feu, DNS, expiration) ; sauvegarde
+  de la configuration avant chaque changement et retour arrière ; actions groupées.
+- **Sécurité de l’API** : en HTTP simple (`INSECURE=true`), le mot de passe circule en clair sur
+  le réseau local à chaque appel : avertissement dans l’onglet, HTTPS conseillé, et l’interface
+  ne doit jamais être exposée par une VIP. Si le 2FA est activé plus tard, NetScope le détecte
+  (refus de l’API) et passe en lecture seule par SSH, avec « Ouvrir wg-easy » pour les changements.
 - **Lecture par SSH (sans risque)** :
   - `wg show all dump` dans le conteneur : clé publique et port du serveur ; pour chaque pair,
     clé publique, IP d’origine (endpoint), adresses autorisées, dernière poignée de main, octets
@@ -1917,9 +1926,8 @@ quand le 2FA est actif. NetScope **lit tout par SSH** et **ouvre wg-easy** pour 
   IP d’origine, expiration proche, historique et graphe dans le temps (gardés par NetScope),
   nom et note par client (synchronisés entre les Mac), site probable d’après l’IP d’origine
   (indice seulement).
-- **Changements** : bouton « Ouvrir wg-easy » (navigateur) sur le client ou la page ; pas
-  d’écriture dans la base ni par l’API tant que le 2FA est actif. Option plus tard : API avec un
-  compte d’API séparé si wg-easy en propose un.
+- **Changements** : par l’API (ci-dessus) ; jamais d’écriture directe dans la base SQLite ;
+  bouton « Ouvrir wg-easy » pour le reste.
 - **Surveillance** : sonde « Serveur WireGuard » (conteneur arrêté, port UDP injoignable depuis
   ce Mac, client important déconnecté depuis X heures, client qui expire bientôt, clé du serveur
   changée) ; section des rapports.
