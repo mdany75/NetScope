@@ -259,6 +259,18 @@ func registerLinkCheckTests(_ suite: TestSuite) {
         var off = linkCheckNeighbor()
         off.power?.enabled = false
         try expectEqual(LinkCheckEvaluator.poe(LinkCheckNeighborMeasure(neighbor: off), link: link).status, .warning, "PoE désactivé")
+        // LLDP sans TLV d'alimentation (FortiSwitch) : le relevé du switch dit que le port est PoE.
+        var sansTLV = linkCheckNeighbor()
+        sansTLV.power = nil
+        sansTLV.poe = nil
+        let fromSwitch = DevicePoEStatus(switchName: "S108EFTQ22003210", portName: "port6",
+                                         port: SNMPPoEPort(group: 1, port: 6), switchHasPoE: true)
+        let relevé = LinkCheckEvaluator.poe(LinkCheckNeighborMeasure(neighbor: sansTLV, switchPoE: fromSwitch), link: link)
+        try expectEqual(relevé.status, .ok, "port PoE d'après le relevé du switch")
+        try expect(relevé.explanation.contains("S108EFTQ22003210"), "relevé nommé")
+        sansTLV.model = "FortiSwitch-108E-FPOE"
+        let modèle = LinkCheckEvaluator.poe(LinkCheckNeighborMeasure(neighbor: sansTLV), link: link)
+        try expectEqual(modèle.summary, "Switch PoE", "modèle PoE sans relevé")
     }
 
     suite.add("Bilan de raccordement : comparaison avant/après") {

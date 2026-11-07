@@ -187,7 +187,7 @@ final class LinkCheckModel: ObservableObject {
         } else {
             let neighbors = store.neighbors
             probes = LiveLinkCheckProbes(previousNeighbor: neighbors.lastNeighbor, previousContext: neighbors.lastContext,
-                                         pinger: try? ICMPPinger())
+                                         pinger: try? ICMPPinger(), switchSnapshots: SwitchStore.shared.orderedSnapshots)
         }
         store.record(command: command)
         let token = UUID()

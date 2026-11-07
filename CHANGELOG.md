@@ -1,5 +1,13 @@
 # Changements
 
+## 1.2.2 — 2026-11-06
+
+### Corrigé
+- **Bilan de raccordement, PoE** : un FortiSwitch PoE n’annonce pas son alimentation par LLDP,
+  et le bilan affichait « Non annoncé ». Il lit maintenant le PoE du port dans le dernier relevé
+  du switch (FortiGate ou SNMP) : « Port PoE », ou la puissance fournie. Sans relevé, un modèle
+  PoE (ex. FortiSwitch-108E-FPOE) donne « Switch PoE ».
+
 ## 1.2.1 — 2026-11-06
 
 ### Corrigé

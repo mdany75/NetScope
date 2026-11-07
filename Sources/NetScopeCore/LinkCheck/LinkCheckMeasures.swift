@@ -101,9 +101,13 @@ public struct LinkCheckNeighborMeasure: Equatable, Sendable {
     public var fromPreviousCapture: Bool
     /// L'écoute n'a pas pu se faire (droits sur /dev/bpf, interface Wi-Fi…).
     public var unavailableReason: String?
+    /// PoE du port d'après le dernier relevé du switch (SNMP ou FortiGate), quand l'annonce LLDP/CDP
+    /// n'en dit rien.
+    public var switchPoE: DevicePoEStatus?
 
     public init(neighbor: NetworkNeighbor?, listenedSeconds: Double = 0, fromPreviousCapture: Bool = false,
-                unavailableReason: String? = nil) {
+                unavailableReason: String? = nil, switchPoE: DevicePoEStatus? = nil) {
+        self.switchPoE = switchPoE
         self.neighbor = neighbor
         self.listenedSeconds = listenedSeconds
         self.fromPreviousCapture = fromPreviousCapture

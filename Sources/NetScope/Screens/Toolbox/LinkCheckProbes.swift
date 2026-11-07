@@ -13,6 +13,8 @@ struct LiveLinkCheckProbes: LinkCheckProbing {
     let previousNeighbor: NetworkNeighbor?
     let previousContext: NetworkContext?
     let pinger: ICMPPinger?
+    /// Derniers relevés des switchs (SNMP et FortiGate) : PoE du port quand LLDP n'en dit rien.
+    var switchSnapshots: [SNMPSwitchSnapshot] = []
 
     // MARK: Lien
 
@@ -36,6 +38,14 @@ struct LiveLinkCheckProbes: LinkCheckProbing {
     // MARK: Switch, VLAN et PoE
 
     func neighbor(on link: LinkCheckLink, seconds: TimeInterval) async -> LinkCheckNeighborMeasure {
+        var measure = await listenNeighbor(on: link, seconds: seconds)
+        if let neighbor = measure.neighbor, neighbor.power == nil {
+            measure.switchPoE = SNMPPoELookup.status(switchName: neighbor.systemName, portName: neighbor.portID, in: switchSnapshots)
+        }
+        return measure
+    }
+
+    private func listenNeighbor(on link: LinkCheckLink, seconds: TimeInterval) async -> LinkCheckNeighborMeasure {
         let start = Date()
         guard await Task.detached(operation: { BPFCapture.readableDevice() != nil }).value,
               let capture = try? BPFCapture(interface: link.name, filter: BPFFilter.neighbors, promiscuous: true) else {

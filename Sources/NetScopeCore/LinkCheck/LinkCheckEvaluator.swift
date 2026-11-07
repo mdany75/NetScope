@@ -168,6 +168,21 @@ public enum LinkCheckEvaluator {
                 return LinkCheckStep(kind: .poe, status: .ok, summary: poe, explanation: "Le switch annonce\(nb): \(poe).",
                                      facts: [LinkCheckFact("poe", "PoE", poe)])
             }
+            if let fromSwitch = measure?.switchPoE {
+                let facts = [LinkCheckFact("poe", "PoE", fromSwitch.shortLabel)]
+                let delivering = fromSwitch.port?.isDelivering == true
+                return LinkCheckStep(kind: .poe, status: .ok,
+                                     summary: fromSwitch.port != nil ? (delivering ? fromSwitch.shortLabel : "Port PoE") : fromSwitch.shortLabel,
+                                     explanation: "D’après le relevé de \(fromSwitch.switchName)\(nb): \(fromSwitch.detailLabel)."
+                                        + (fromSwitch.port != nil && !delivering ? " Ce Mac n’en consomme pas, c’est normal." : "")
+                                        + " Le switch ne l’annonce pas par LLDP.",
+                                     facts: facts)
+            }
+            if let model = neighbor.model, model.lowercased().contains("poe") {
+                return LinkCheckStep(kind: .poe, status: .ok, summary: "Switch PoE",
+                                     explanation: "Le modèle \(model) fournit du PoE, mais le switch ne dit pas par LLDP si ce port en fournit. Relevez le switch dans Switchs et ports pour le savoir. Ce Mac n’en consomme pas.",
+                                     facts: [LinkCheckFact("modele", "Modèle", model)])
+            }
             return LinkCheckStep(kind: .poe, status: .skipped, summary: "Non annoncé",
                                  explanation: "Le switch n’annonce pas de PoE sur ce port (port non PoE, ou TLV d’alimentation désactivé).")
         }
