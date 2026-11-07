@@ -1826,7 +1826,7 @@ Branché sur un port en trunk, scanner un autre VLAN sans changer de port.
 - Prolonge le relevé par pièce (0.27.0), qui reste une liste. Plus gros des chantiers de cette
   série.
 
-## 95. Petits restes des versions 0.33 à 0.37 — 0.37.1 (relevés le 6 novembre 2026, retenus par Dany)
+## 95. Petits restes des versions 0.33 à 0.37 — 1.0.0 (prévue en 0.37.1, publiée sous 1.0 à la demande de Dany) (relevés le 6 novembre 2026, retenus par Dany)
 
 1. **Ordre alphabétique** des listes restées dans leur ordre : formats d’export (Inventaire,
    Carte, Rapport), sources (Trafic, Speedtest, import), préréglages de capture, types
@@ -1843,3 +1843,49 @@ Branché sur un port en trunk, scanner un autre VLAN sans changer de port.
 6. Vue « Imprimantes » de l’Inventaire (tri par niveau le plus bas), prévue à la note 91 et pas faite en 0.37.0.
 
 Reste du côté de Dany : essais sur le vrai réseau des versions 0.31.0 à 0.37.0.
+
+## 96. Serveur DHCP pirate et conflits d’adresses IP — 1.1.0 (idée tirée des projets réseau de GitHub, retenue par Dany le 6 novembre 2026)
+
+Inspiré d’arpwatch et de dhcp_probe.
+
+- **DHCP pirate** : requête DHCP DISCOVER sur clic (et en option dans le scan planifié) ; toutes
+  les offres reçues sont listées (serveur, MAC, passerelle, DNS, plage) ; alerte si un serveur
+  n’est pas celui attendu pour le site (FortiGate ou serveur déclaré). Le Test DHCP de la 0.3.0
+  sert de base.
+- **Conflits d’IP** : même IP vue avec deux MAC (table ARP, scans, FortiGate), MAC qui change
+  souvent d’IP, réponses ARP contradictoires (usurpation possible) ; alerte et section du rapport.
+- Jamais d’envoi pendant les tests ni en démo.
+
+## 97. Bornes Wi-Fi pirates — 1.1.0 (idée tirée des projets réseau de GitHub, retenue par Dany le 6 novembre 2026)
+
+Inspiré de Kismet et de Sparrow-wifi.
+
+- Bornes qui diffusent un SSID du site sans être des FortiAP connues (sosies, « evil twin »),
+  bornes inconnues branchées sur le réseau filaire (MAC vue sur un port de switch), relevé des
+  bornes voisines par la FortiGate (détection de bornes non autorisées de FortiOS) et par ce Mac
+  (balayage sur clic).
+- Liste « pirates », « voisines » et « connues » ; marquer une borne comme voisine acceptée ;
+  sonde de Surveillance et section du rapport.
+
+## 98. Onduleurs (UPS) — 1.2.0 (idée tirée des projets réseau de GitHub, retenue par Dany le 6 novembre 2026)
+
+Inspiré de NUT et de LibreNMS.
+
+- Lecture SNMP (UPS-MIB RFC 1628, et MIB APC, Eaton, CyberPower) : état (secteur, batterie,
+  contournement), charge de la batterie, autonomie restante, charge en %, tensions, température,
+  date du dernier test et de remplacement de la batterie.
+- Carte « Onduleur » dans la fiche Appareil, type « Onduleur » détecté au scan, vue dans
+  l’Inventaire, sonde de Surveillance (passage sur batterie, autonomie basse, batterie à changer)
+  et section des rapports, comme les consommables des imprimantes (0.37.0).
+
+## 99. Historique d’une adresse MAC — 1.2.0 (idée tirée des projets réseau de GitHub, retenue par Dany le 6 novembre 2026)
+
+Inspiré de Netdisco.
+
+- Pour chaque MAC : sur quels switchs et ports, avec quelles IP et quels noms, sur quels VLAN et
+  quelles bornes Wi-Fi elle a été vue, avec les dates de première et dernière vue, sur plusieurs
+  mois.
+- Recherche « Où était cet appareil ? » par MAC, IP ou nom, et par date ; chronologie dans la
+  fiche Appareil ; export CSV.
+- Alimenté par les scans, les relevés des switchs et de la FortiGate déjà faits (rien de plus
+  sur le réseau) ; durée de conservation réglable ; par site.
