@@ -1892,7 +1892,7 @@ Inspiré de Netdisco.
 - Alimenté par les scans, les relevés des switchs et de la FortiGate déjà faits (rien de plus
   sur le réseau) ; durée de conservation réglable ; par site.
 
-## 100. Accès distant : onglet « Serveur WireGuard » — 1.3.0 (demande de Dany, 7 novembre 2026)
+## 100. Accès distant : onglet « Serveur WireGuard » — livrée dans la 1.3.0 (demande de Dany, 7 novembre 2026)
 
 « J’ai WireGuard d’installé aussi sur le même serveur : est-ce que tu peux avoir un onglet de
 gestion aussi ? » Même serveur que RustDesk, même compte SSH (sudo au Trousseau), onglet à côté
@@ -1939,3 +1939,10 @@ Trousseau seulement) et lit le reste par SSH.
   vers le guide officiel ; il lit quand même la 14 par `wg show` (noms dans `wg0.json`).
 - Les clés privées des clients ne sont jamais lues ni gardées par NetScope ; jamais rien dans
   les tests ni en démo.
+
+Restes de la note 100 (non faits en 1.3.0, à reprendre au besoin) : vérification de la VIP UDP
+de la FortiGate, section des rapports, test du port UDP depuis ce Mac, synchronisation entre
+les Mac, site probable d’après l’IP d’origine, réglages DNS et pare-feu par client dans
+l’interface, historique des changements gardé sur disque (aujourd’hui en mémoire seulement),
+HTTPS avec certificat auto-signé (refusé), sonde de l’agent sans sudo par mot de passe. Les
+routes et champs de l’API de wg-easy 15 n’ont pas encore été essayés contre un vrai serveur.
