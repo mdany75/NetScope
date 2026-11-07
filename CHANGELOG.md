@@ -1,5 +1,28 @@
 # Changements
 
+## 0.37.0 — 2026-11-06
+
+Imprimantes, VoIP et retour arrière (notes 91, 92 et 93).
+
+### Ajouté
+- **Consommables des imprimantes** (SNMP, Printer-MIB) : carte « Consommables » dans la fiche
+  (toner ou encre par couleur, tambour, kit de maintenance, bac de récupération, compteur de
+  pages, bourrage, bac vide, alertes de l’imprimante), lue sur clic. Sonde de Surveillance
+  « Consommable bas » (15 % par défaut) et section « Imprimantes et consommables » des rapports.
+- **Qualité VoIP** : note MOS (modèle E, G.107 simplifié) par appel dans les flux RTP de la
+  capture de paquets ; « Test VoIP simulé » dans Outils › iperf3 (codec, nombre d’appels) ;
+  section « Qualité VoIP » des rapports.
+- **Revenir à une version précédente** : Réglages › Mises à jour › « Réinstaller cette
+  version » depuis sa Release GitHub, signature Developer ID et équipe vérifiées, données
+  gardées. La mise à jour automatique reste coupée jusqu’à « Réactiver ».
+
+### Limites connues
+- Rien n’a été essayé sur de vraies imprimantes ni de vrais appels ; le retour arrière n’a
+  pas été essayé de bout en bout.
+- Le MOS ne compte pas le délai dans un sens (invisible dans une capture) ; le test simulé
+  demande iperf3 installé.
+- La vue « Imprimantes » de l’Inventaire n’est pas faite (tri par niveau dans le rapport).
+
 ## 0.36.1 — 2026-11-06
 
 ### Modifié

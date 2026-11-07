@@ -151,6 +151,8 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   d’un VLAN tagué depuis le Mac (0.35.0).
 - Relevé Wi-Fi sur plan : carte de chaleur, zones mortes, chevauchements de canaux, bornes
   placées, export PDF et section des rapports (0.36.0).
+- Consommables des imprimantes par SNMP, qualité VoIP (MOS) et retour à une version précédente
+  de NetScope (0.37.0).
 
 ### Rapports
 
