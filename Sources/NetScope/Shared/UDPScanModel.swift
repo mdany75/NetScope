@@ -108,7 +108,7 @@ final class UDPScanModel: ObservableObject {
     func state(for host: String) -> UDPHostState { hosts[host] ?? UDPHostState() }
 
     /// Sondes cochées, dans l'ordre des ports.
-    var orderedServices: [UDPService] { UDPService.allCases.filter(services.contains) }
+    var orderedServices: [UDPService] { UDPService.ordered.filter(services.contains) }
 
     func toggle(_ service: UDPService) {
         if services.contains(service) {

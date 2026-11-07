@@ -1,5 +1,5 @@
 import Foundation
-import NetScopeCore
+@testable import NetScopeCore
 
 // Note 94 : relevé Wi-Fi sur plan. Étages et mesures fixes ; aucun appel à CoreWLAN ni au réseau.
 
@@ -120,7 +120,10 @@ func registerWifiFloorTests(_ suite: TestSuite) {
         plans.add(spot(0.2, 0.5, -64), to: id)
         let data = try plans.encoded().floorUnwrap("encodé")
         let decoded = try WifiFloorPlans.decode(data).floorUnwrap("relu")
-        try expectEqual(decoded, plans, "aller-retour JSON")
+        var withoutImages = plans
+        for i in withoutImages.floors.indices { withoutImages.floors[i].image = Data() }
+        try expectEqual(decoded, withoutImages, "aller-retour JSON (images à part, note 95)")
+        try expect(!String(decoding: data, as: UTF8.self).contains("\"image\""), "image hors du JSON")
         var future = plans
         future.version = WifiFloorPlans.currentVersion + 1
         try expect(WifiFloorPlans.decode(future.encoded()!) == nil, "version future : non relue")
@@ -135,5 +138,56 @@ func registerWifiFloorTests(_ suite: TestSuite) {
             try expect(false, "section vide : une note")
         }
         try expect(ReportSectionKind.documentOrder.contains(.releveWifi), "section dans l’ordre du document")
+    }
+
+    suite.add("Relevé sur plan : images à part, ancien fichier migré (note 95)") {
+        let manager = FileManager.default
+        let base = manager.temporaryDirectory.appendingPathComponent("netscope-plans-\(UUID().uuidString)", isDirectory: true)
+        defer { try? manager.removeItem(at: base) }
+        let siteID = UUID().uuidString
+        let folder = base.appendingPathComponent("sites/\(siteID)", isDirectory: true)
+        try manager.createDirectory(at: folder, withIntermediateDirectories: true)
+        var plans = WifiFloorPlans(floors: [floor([spot(0.1, 0.5, -60)]), floor([])])
+        plans.floors[1].image = Data([0xFF, 0xD8, 0x02])
+        // Ancien fichier (0.37.0) : version 1, images dans le JSON.
+        var legacy = try JSONSerialization.jsonObject(with: plans.encoded().floorUnwrap("encodé")) as? [String: Any] ?? [:]
+        legacy["version"] = 1
+        var floors = legacy["floors"] as? [[String: Any]] ?? []
+        for i in floors.indices { floors[i]["image"] = plans.floors[i].image.base64EncodedString() }
+        legacy["floors"] = floors
+        try JSONSerialization.data(withJSONObject: legacy).write(to: folder.appendingPathComponent(WifiFloorPlans.fileName))
+        let old = try WifiFloorPlans.read(folder: folder).floorUnwrap("ancien fichier relu")
+        try expect(old.needsMigration, "ancien fichier : à migrer")
+        try expectEqual(old.plans.floors.map(\.image), plans.floors.map(\.image), "images relues du JSON")
+        try old.plans.write(to: folder)
+        for f in plans.floors {
+            let url = folder.appendingPathComponent(WifiFloorPlans.imagePath(f.id))
+            try expectEqual(try Data(contentsOf: url), f.image, "image écrite à part")
+        }
+        let json = try Data(contentsOf: folder.appendingPathComponent(WifiFloorPlans.fileName))
+        try expect(!String(decoding: json, as: UTF8.self).contains("\"image\""), "JSON migré sans image")
+        let migrated = try WifiFloorPlans.read(folder: folder).floorUnwrap("relu après migration")
+        try expect(!migrated.needsMigration && migrated.missingImages.isEmpty, "migration faite, images trouvées")
+        try expectEqual(migrated.plans.floors.map(\.image), plans.floors.map(\.image), "images relues des fichiers")
+        // Une mesure ne réécrit pas l'image ; un étage supprimé perd la sienne.
+        let imageURL = folder.appendingPathComponent(WifiFloorPlans.imagePath(plans.floors[0].id))
+        let before = try manager.attributesOfItem(atPath: imageURL.path)[.modificationDate] as? Date
+        var next = migrated.plans
+        next.add(spot(0.3, 0.5, -70), to: next.floors[0].id)
+        let removed = next.floors.remove(at: 1)
+        try next.write(to: folder)
+        try expectEqual(try manager.attributesOfItem(atPath: imageURL.path)[.modificationDate] as? Date, before, "image inchangée non réécrite")
+        try expect(!manager.fileExists(atPath: folder.appendingPathComponent(WifiFloorPlans.imagePath(removed.id)).path), "image de l’étage supprimé retirée")
+        // Image pas encore reçue d'un autre Mac : signalée, jamais effacée.
+        try manager.removeItem(at: imageURL)
+        let partial = try WifiFloorPlans.read(folder: folder).floorUnwrap("relu sans image")
+        try expectEqual(partial.missingImages, [next.floors[0].id], "image manquante signalée")
+        // Sauvegardes et synchronisation : l'image est un fichier de données du site.
+        let path = "sites/\(siteID)/" + WifiFloorPlans.imagePath(next.floors[0].id)
+        try expect(BackupEngine.isSafeRelativePath(path), "image sauvegardée et restaurable")
+        try expect(!BackupEngine.isSafeRelativePath("sites/\(siteID)/wifi-plans/oui.jpg"), "autre image refusée")
+        try expect(!BackupEngine.isSafeRelativePath("oui.tsv"), "autre fichier refusé")
+        try next.write(to: folder)
+        try expect(BackupEngine.dataFiles(in: base).files.contains(path), "image recensée")
     }
 }

@@ -6,6 +6,9 @@ import Foundation
 public enum MailRecordKind: String, CaseIterable, Codable, Hashable, Sendable, Identifiable {
     case spf, dmarc, dkim, bimi, mtasts, tlsrpt
 
+    /// Types d'enregistrement en ordre alphabétique.
+    public static var ordered: [MailRecordKind] { allCases.sortedFrench(by: \.label) }
+
     public var id: String { rawValue }
 
     public var label: String {

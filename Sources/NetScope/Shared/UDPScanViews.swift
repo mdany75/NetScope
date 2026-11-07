@@ -210,7 +210,7 @@ struct UDPProbeOptionsMenu: View {
     var body: some View {
         Menu {
             Section("Services sondés") {
-                ForEach(UDPService.allCases) { service in
+                ForEach(UDPService.ordered) { service in
                     Toggle("\(service.label) · \(service.port)", isOn: Binding(get: { model.services.contains(service) },
                                                                                set: { _ in model.toggle(service) }))
                 }

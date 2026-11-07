@@ -11,7 +11,8 @@ enum RegSyncReload {
     /// Fichiers relus à chaud (motifs à la fnmatch).
     static let hotFiles = [
         SiteFiles.listName, "sites/*/" + SiteFiles.inventoryName, "sites/*/" + SiteFiles.notesName, "sites/*/" + SiteFiles.resultsName,
-        "sites/*/" + WifiRoomSurvey.fileName, "sites/*/" + TopoManualLayout.fileName,
+        "sites/*/" + WifiRoomSurvey.fileName, "sites/*/" + WifiFloorPlans.fileName, "sites/*/" + WifiFloorPlans.imageFolder + "/*.jpg",
+        "sites/*/" + TopoManualLayout.fileName,
         "connexions.json", "rustdesk.json", "rustdesk-serveur.json", QuickLoginMemory.fileName, "identifiants.json",
         "surveillance.json", "outils.json", "speedtest.json", "rapports/planifies.json", "appareils-saisis.json",
     ]
@@ -20,7 +21,7 @@ enum RegSyncReload {
     /// où elle s'en sert (écrites dans les préférences, elles prennent effet aussitôt).
     static let hotPreferences = [
         "reglages.scan.*", "reglages.general.*", "reglages.switchs.*", "reglages.export.*", "reglages.raccourcis",
-        "reglages.notifications", "alertes.reglages", "NetScope.switchs.hotes", "NetScope.switchs.ignores",
+        "reglages.notifications", "alertes.reglages", TerminalSnippetStore.key, "NetScope.switchs.hotes", "NetScope.switchs.ignores",
         "NetScope.switchs.decouverts", ConfigCollection.fortiGates.key,
     ]
 
@@ -51,7 +52,8 @@ enum RegSyncReload {
         }
         for path in touched("sites/*/" + SiteFiles.resultsName) { SiteModel.shared.reloadResults(siteKey: siteKey(path)) }
         for path in touched("sites/*/" + WifiRoomSurvey.fileName) { WifiSurveyStore.shared.reloadFromDisk(siteKey: siteKey(path)) }
-        for path in touched("sites/*/" + WifiFloorPlans.fileName) { WifiFloorStore.shared.reloadFromDisk(siteKey: siteKey(path)) }
+        let floorSites = Set((touched("sites/*/" + WifiFloorPlans.fileName) + touched("sites/*/" + WifiFloorPlans.imageFolder + "/*.jpg")).map(siteKey))
+        for key in floorSites.sorted() { WifiFloorStore.shared.reloadFromDisk(siteKey: key) }
         for path in touched("sites/*/" + TopoManualLayout.fileName) { TopoLayoutStore.shared.forget(siteKey(path)) }
         if files.contains("connexions.json") { RemoteModel.shared.reloadFromDisk() }
         if files.contains("rustdesk.json") { RustDeskModel.shared.reloadFromDisk() }
@@ -70,6 +72,7 @@ enum RegSyncReload {
             RegPrefs.shared.reloadFromDisk()
         }
         if pref("reglages.raccourcis") { RegShortcutStore.shared.reloadFromDisk() }
+        if pref(TerminalSnippetStore.key) { TerminalSnippetStore.shared.reloadFromDisk() }
         if pref("reglages.notifications") { RegNotifStore.shared.reloadFromDisk() }
         if pref("alertes.reglages") { AlertDispatcher.shared.reloadFromDisk() }
         if pref("NetScope.switchs.*") { SwitchStore.shared.reloadFromDisk() }

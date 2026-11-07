@@ -23,6 +23,33 @@ func registerTerminalSnippetTests(_ suite: TestSuite) {
         try expectEqual(MonProbeKind.ordered.map(\.label), MonProbeKind.allCases.map(\.label).sortedFrench(), "sondes à ajouter")
     }
 
+    suite.add("Ordre alphabétique : formats, sources, préréglages, courriel, UDP (note 95)") {
+        try expectEqual(InvExportFormat.ordered.first, .netscope, "format NetScope en tête")
+        try expectEqual(InvExportFormat.ordered.dropFirst().map(\.label), InvExportFormat.allCases.dropFirst().map(\.label).sortedFrench(), "autres formats triés")
+        try expectEqual(ReportFormat.ordered.map(\.label), ["PDF", "CSV", "DOCX", "HTML", "JSON"], "PDF en tête")
+        try expectEqual(SpeedServerSource.ordered.last, .custom, "« Personnalisé » à la fin")
+        try expectEqual(CapturePreset.ordered.first, .all, "« Tout le trafic » en tête")
+        try expectEqual(MailRecordKind.ordered.map(\.label), ["BIMI", "DKIM", "DMARC", "MTA-STS", "SPF", "TLS-RPT"], "enregistrements courriel")
+        try expectEqual(UDPService.ordered.map(\.label), UDPService.allCases.map(\.label).sortedFrench(), "services UDP")
+    }
+
+    suite.add("Extraits : synchronisés et sauvegardés (note 95)") {
+        let key = TerminalSnippet.preferenceKey
+        try expectEqual(ConfigPartRegistry.standard.part(forPreference: key)?.id, "acces", "partie « Accès distant »")
+        try expect(ConfigSyncPolicy.isGlobalPreference(key), "synchronisés entre les Mac")
+        try expect(BackupEngine.filterPreferences([key: Data()]).excluded.isEmpty, "gardés dans les sauvegardes")
+        let list = [TerminalSnippet(name: "Sans pagination", command: "terminal length 0", brand: .cisco, sendsReturn: true)]
+        let data = TerminalSnippet.encodeList(list)
+        try expectEqual(TerminalSnippet.decodeList(data), list, "aller-retour de la préférence")
+        // Préférence reçue d'un autre Mac : élément « preference: » du dossier global.
+        guard let encoded = ConfigPlist.encode(data) else { throw TestFailure(message: "préférence non encodée", file: #fileID, line: #line) }
+        let global = ConfigSyncGlobal.make(snapshot: ConfigSnapshot(preferences: [key: encoded]))
+        guard let item = global.items[ConfigSyncKey.preference(key)] else {
+            throw TestFailure(message: "extraits absents du dossier global", file: #fileID, line: #line)
+        }
+        try expectEqual(TerminalSnippet.decodeList(ConfigPlist.decode(item.data) as? Data), list, "extraits publiés tels quels")
+    }
+
     suite.add("Extraits : marque déduite et extraits par marque triés") {
         try expectEqual(TerminalSnippetBrand.detect(description: "Cisco Catalyst 9300 SW-CORE-01", isSSH: true), .cisco, "Cisco")
         try expectEqual(TerminalSnippetBrand.detect(description: "FortiGate-60F", isSSH: true), .fortinet, "FortiGate")

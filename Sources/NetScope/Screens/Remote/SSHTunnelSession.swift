@@ -487,6 +487,9 @@ struct SSHTunnelDraft: Equatable {
 enum RemoteImportSource: String, CaseIterable, Identifiable {
     case scan, sshConfig
 
+    /// Sources en ordre alphabétique.
+    static var ordered: [RemoteImportSource] { allCases.sortedFrench(by: \.label) }
+
     var id: String { rawValue }
 
     var label: String { self == .scan ? "Appareils du scan" : "~/.ssh/config" }

@@ -306,7 +306,7 @@ struct RemoteImportOverlay: View {
                     Spacer()
                     // Note 78 : deuxième source, les hôtes de ~/.ssh/config (lecture seule).
                     Picker("", selection: $model.importSource) {
-                        ForEach(RemoteImportSource.allCases) { Text($0.label).tag($0) }
+                        ForEach(RemoteImportSource.ordered) { Text($0.label).tag($0) }
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()

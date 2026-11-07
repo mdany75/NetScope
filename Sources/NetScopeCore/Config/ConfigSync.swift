@@ -418,6 +418,12 @@ public struct ConfigSyncLocalSite: Sendable {
                                                 modifiedHint: file.modified)
             }
         }
+        // Note 95 : images des plans du relevé Wi-Fi, une par étage (une mesure ne les renvoie pas).
+        let imagePrefix = SiteFiles.folderName + "/" + id + "/" + WifiFloorPlans.imageFolder + "/"
+        for file in snapshot.files where file.path.hasPrefix(imagePrefix) && WifiFloorPlans.isImagePath(file.path) {
+            items["fichier:" + file.path] = Item(label: "Plan du relevé Wi-Fi", data: file.data, hash: ConfigHash.sha256(file.data),
+                                                 modifiedHint: file.modified)
+        }
         let fortiIDs = Set(((try? JSONSerialization.jsonObject(with: site.json)) as? [String: Any])?["fortiGateIDs"] as? [String] ?? [])
         let controllers = snapshot.collectionData(.fortiGates).flatMap(ConfigCollection.fortiGates.elements) ?? []
         for controller in controllers where fortiIDs.contains(controller.id) {

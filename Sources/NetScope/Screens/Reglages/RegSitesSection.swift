@@ -54,6 +54,7 @@ struct RegSitesSection: View {
                      HStack(spacing: 8) {
                          Button { naming = .new } label: { Label("Nouveau site", systemImage: "plus") }
                              .buttonStyle(.secondary)
+                             .fixedSize()
                          Menu {
                              Button("Créer depuis les FortiGate") { show(sites.createFromFortiGates(), .success) }
                                  .disabled(fortigate.controllers.isEmpty)

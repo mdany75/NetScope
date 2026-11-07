@@ -221,7 +221,7 @@ struct RapportScheduleEditor: View {
             }
             field("Format") {
                 Picker("Format", selection: draft.config.format) {
-                    ForEach(ReportFormat.allCases) { Text($0.label).tag($0) }
+                    ForEach(ReportFormat.ordered) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented).labelsHidden()
             }

@@ -245,8 +245,9 @@ public enum BackupEngine {
 
     // MARK: Recensement
 
-    /// Fichiers JSON du dossier de données (sous-dossiers compris), chemins relatifs triés.
-    /// Les fichiers cachés et les autres extensions (oui.tsv, fichiers d'essai) sont laissés.
+    /// Fichiers JSON du dossier de données (sous-dossiers compris) et images des plans du relevé
+    /// Wi-Fi (note 95), chemins relatifs triés. Les fichiers cachés et les autres extensions
+    /// (oui.tsv, fichiers d'essai) sont laissés.
     public static func dataFiles(in directory: URL) -> (files: [String], skipped: [String]) {
         let manager = FileManager.default
         guard let enumerator = manager.enumerator(at: directory, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
@@ -260,7 +261,7 @@ public enum BackupEngine {
             var relative = url.standardizedFileURL.path
             if relative.hasPrefix(base) { relative = String(relative.dropFirst(base.count)) }
             while relative.hasPrefix("/") { relative.removeFirst() }
-            if url.pathExtension.lowercased() == "json", (values?.fileSize ?? 0) <= maxFileBytes {
+            if isDataPath(relative), (values?.fileSize ?? 0) <= maxFileBytes {
                 files.append(relative)
             } else {
                 skipped.append(relative)
@@ -614,8 +615,13 @@ public enum BackupEngine {
     /// Chemin relatif sans « .. » ni racine (rien n'est écrit hors du dossier de données), fichier
     /// JSON seulement (la règle même de `dataFiles`), sans composant vide ni caché : une sauvegarde
     /// fabriquée ne peut pas remplacer « ssh_known_hosts », « oui.tsv » ou un autre fichier de l'app.
+    /// Fichier de données copié : JSON, ou image d'un plan du relevé Wi-Fi (« sites/<site>/wifi-plans/<id>.jpg »).
+    static func isDataPath(_ path: String) -> Bool {
+        path.lowercased().hasSuffix(".json") || WifiFloorPlans.isImagePath(path)
+    }
+
     static func isSafeRelativePath(_ path: String) -> Bool {
-        guard !path.isEmpty, !path.hasPrefix("/"), path.lowercased().hasSuffix(".json") else { return false }
+        guard !path.isEmpty, !path.hasPrefix("/"), isDataPath(path) else { return false }
         let components = path.split(separator: "/", omittingEmptySubsequences: false)
         return components.allSatisfy { !$0.isEmpty && !$0.hasPrefix(".") && $0 != ".." }
     }

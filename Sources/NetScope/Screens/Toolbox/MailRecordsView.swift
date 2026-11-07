@@ -158,7 +158,7 @@ struct MailRecordsView: View {
 
     private var kindPicker: some View {
         Picker("Enregistrement", selection: $model.kind) {
-            ForEach(MailRecordKind.allCases) { kind in
+            ForEach(MailRecordKind.ordered) { kind in
                 Text(kind.label).tag(kind)
             }
         }

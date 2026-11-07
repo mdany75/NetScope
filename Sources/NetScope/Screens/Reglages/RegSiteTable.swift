@@ -99,7 +99,7 @@ struct RegSiteTable: View {
                     .frame(height: Self.rowHeight - 8)
                     .help(row.isActive ? "Site actif" : "Double-clic pour activer ce site")
                 }
-                .width(min: 130, ideal: 170)
+                .width(min: 110, ideal: 170)
                 .customizationID("nom")
                 .disabledCustomizationBehavior(.visibility)
 
@@ -112,14 +112,14 @@ struct RegSiteTable: View {
                         }
                     }
                 }
-                .width(min: 120, ideal: 200)
+                .width(min: 90, ideal: 200)
                 .customizationID("plages")
 
                 TableColumn("FORTIGATE", sortUsing: table.sort("fortigate")) { row in
                     RegSwitchCell(row.fortiGatesSort, secondary: true)
                         .help(row.fortiGates.isEmpty ? "Aucune FortiGate associée\u{00A0}: SNMP seulement" : row.fortiGatesSort)
                 }
-                .width(min: 80, ideal: 130)
+                .width(min: 60, ideal: 130)
                 .customizationID("fortigate")
 
                 TableColumn("SWITCHS", sortUsing: table.sort("switchs")) { row in
@@ -128,7 +128,7 @@ struct RegSiteTable: View {
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .help(row.site.switchHosts.joined(separator: ", "))
                 }
-                .width(min: 60, ideal: 90)
+                .width(min: 50, ideal: 90)
                 .customizationID("switchs")
 
                 TableColumn("APPAREILS", sortUsing: table.sort("appareils")) { row in
@@ -137,7 +137,7 @@ struct RegSiteTable: View {
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .help("Fiches de l’inventaire propre à ce site")
                 }
-                .width(min: 60, ideal: 90)
+                .width(min: 50, ideal: 90)
                 .customizationID("appareils")
 
                 TableColumn("DERNIER SCAN", sortUsing: table.sort("dernierScan")) { row in
@@ -146,7 +146,7 @@ struct RegSiteTable: View {
                         .foregroundStyle(row.site.lastScan == nil ? Theme.textTertiary : Theme.textSecondary)
                         .lineLimit(1)
                 }
-                .width(min: 80, ideal: 110)
+                .width(min: 60, ideal: 110)
                 .customizationID("dernierScan")
             }
             Group {

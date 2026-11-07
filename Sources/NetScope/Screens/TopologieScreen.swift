@@ -739,10 +739,9 @@ struct TopologieScreen: View {
     /// Menu « Exporter » de la barre d'outils : PNG, PDF, SVG, draw.io.
     private func exportMenu(disabled: Bool) -> some View {
         Menu {
-            ForEach(TopoExportFormat.allCases) { format in
+            ForEach(TopoExportFormat.ordered) { format in
                 Button(format.menuLabel) { export(format) }
                     .help(format.help)
-                if format == .pdf { Divider() }
             }
         } label: {
             Label("Exporter", systemImage: "square.and.arrow.up")

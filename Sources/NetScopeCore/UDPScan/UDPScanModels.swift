@@ -8,6 +8,9 @@ import Foundation
 public enum UDPService: String, CaseIterable, Codable, Sendable, Identifiable, Hashable {
     case dns, tftp, ntp, netbios, snmp, ipmi, ssdp, sip, mdns
 
+    /// Services en ordre alphabétique.
+    public static var ordered: [UDPService] { allCases.sortedFrench(by: \.label) }
+
     public var id: String { rawValue }
 
     /// Port standard.

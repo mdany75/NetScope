@@ -92,20 +92,20 @@ struct RegRangeTable: View {
                         .frame(height: Self.rowHeight - 8)
                         .opacity(row.range.isEnabled ? 1 : 0.55)
                 }
-                .width(min: 120, ideal: 160)
+                .width(min: 100, ideal: 160)
                 .customizationID("plage")
                 .disabledCustomizationBehavior(.visibility)
 
                 TableColumn("NOM", sortUsing: table.sort("nom")) { row in
                     RegInlineField(text: labelBinding(row.range), placeholder: "Nom", mono: false)
                 }
-                .width(min: 90, ideal: 170)
+                .width(min: 60, ideal: 170)
                 .customizationID("nom")
 
                 TableColumn("FORMAT", sortUsing: table.sort("format")) { row in
                     Text(row.kind).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 }
-                .width(min: 60, ideal: 90)
+                .width(min: 50, ideal: 90)
                 .customizationID("format")
 
                 TableColumn("VLAN", sortUsing: table.sort("vlan")) { row in
@@ -114,7 +114,7 @@ struct RegRangeTable: View {
                         RegInlineField(text: vlanBinding(row.range), placeholder: "?", mono: true).frame(width: 44)
                     }
                 }
-                .width(min: 90, ideal: 100)
+                .width(min: 84, ideal: 100)
                 .customizationID("vlan")
 
                 TableColumn("ADRESSES", sortUsing: table.sort("adresses")) { row in
@@ -122,14 +122,14 @@ struct RegRangeTable: View {
                         .font(Theme.mono(12))
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                .width(min: 64, ideal: 84)
+                .width(min: 50, ideal: 84)
                 .customizationID("adresses")
 
                 TableColumn("INCLURE AU SCAN", sortUsing: table.sort("inclure")) { row in
                     RegSwitch(isOn: enabledBinding(row.range))
                         .help(row.range.isEnabled ? "Plage scannée" : "Plage non scannée")
                 }
-                .width(min: 100, ideal: 120)
+                .width(min: 56, ideal: 120)
                 .customizationID("inclure")
             }
 

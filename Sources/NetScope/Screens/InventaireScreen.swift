@@ -5,6 +5,8 @@ import SwiftUI
 /// Vues sauvegardées de l'inventaire.
 enum InvView: String, CaseIterable, Hashable {
     case tous, nonIdentifies, disparus, favoris
+    /// Note 95 : imprimantes avec un relevé des consommables, du niveau le plus bas au plus haut.
+    case imprimantes
     /// Note 10 : appareils archivés (restaurables).
     case archives
 
@@ -14,6 +16,7 @@ enum InvView: String, CaseIterable, Hashable {
         case .nonIdentifies: return "Non identifiés"
         case .disparus: return "Disparus > 30 j"
         case .favoris: return "Favoris"
+        case .imprimantes: return "Imprimantes"
         case .archives: return "Archivés"
         }
     }
@@ -25,7 +28,7 @@ enum InvView: String, CaseIterable, Hashable {
         case .nonIdentifies: return record.isUnidentified
         case .disparus: return record.isGone(now: now, excluded: excluded)
         case .favoris: return record.annotations.isFavorite
-        case .archives: return true
+        case .imprimantes, .archives: return true
         }
     }
 }
@@ -102,6 +105,8 @@ struct InventaireScreen: View {
     @State private var initialPick = false
 
     @State private var view: InvView = .tous
+    /// Note 95 : relevés des consommables (vue « Imprimantes »).
+    @ObservedObject private var printerStore = PrinterStore.shared
     @StateObject private var table = InvTable.makeModel()
     @State private var mergeOpen = false
     @State private var ignoredDuplicates: Set<String> = []
@@ -161,11 +166,14 @@ struct InventaireScreen: View {
         let query = state.searchQuery(for: .inventaire)
         // Notes 31 et 33 : filtre transmis (groupe de la Carte, port de switch), ensemble exact d'appareils.
         let navFilter = state.navFilters[.inventaire]
-        let rows = InvTable.sorted((archiveMode ? archived : all).filter {
+        let filtered = InvTable.sorted((archiveMode ? archived : all).filter {
             view.includes($0.record, now: now, excluded: sites.exclusions(forKey: $0.siteKey).contains($0.record.ip)) && query.matches($0)
                 && (archiveMode || (navFilter?.matches($0.record, site: $0.siteKey) ?? true))
                 && filter.matches($0, now: now, shared: shared)
         }, by: table.sortOrder)
+        // Note 95 : vue « Imprimantes » : fiches avec un relevé, du consommable le plus bas au plus haut.
+        let printers = view == .imprimantes ? InvPrinters.rows(filtered, store: printerStore) : []
+        let rows = view == .imprimantes ? printers.map(\.row) : filtered
         let duplicates = inventories.flatMap { inventory in
             inventory.store.probableDuplicates().map { InvSiteDuplicate(site: inventory.key, pair: $0) }
         }.filter { !ignoredDuplicates.contains($0.id) }
@@ -180,6 +188,9 @@ struct InventaireScreen: View {
                 header(now: now, inventories: inventories)
                 tiles(records, now: now, inventories: inventories)
                 if mergeOpen { mergePanel(duplicates, inventories: inventories) }
+                if view == .imprimantes {
+                    InvPrinterPanel(printers: printers, multipleSites: multiple) { id in selection = [id] }
+                }
                 InvTable(rows: rows, total: archiveMode ? archived.count : records.count, selection: selectionBinding(rows), table: table, now: now,
                          inventoryEmpty: records.isEmpty, siteNames: inventories.map(\.name),
                          unreadableNames: inventories.filter { model.unreadableSites.contains($0.key) }.map(\.name), excluded: excluded,
@@ -230,7 +241,7 @@ struct InventaireScreen: View {
                 .help("Importer un CSV dans l’inventaire du site actif «\u{00A0}\(sites.activeName)\u{00A0}»")
             // Note 78 : un choix de format (NetScope, NetBox, GLPI, Snipe-IT) pour les fiches affichées.
             Menu {
-                ForEach(InvExportFormat.allCases) { format in
+                ForEach(InvExportFormat.ordered) { format in
                     Button(format.label) {
                         exportFormat = format
                         let text = format == .netscope
@@ -320,19 +331,26 @@ struct InventaireScreen: View {
 
     // MARK: En-tête
 
+    private var viewPicker: some View {
+        Picker("Vue de l’inventaire", selection: $view) {
+            ForEach(InvView.allCases, id: \.self) { Text($0.label).tag($0) }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+    }
+
     private func header(now: Date, inventories: [SiteInventory]) -> some View {
         let caption = inventories.count > 1 ? "Tous les appareils jamais vus sur ces \(inventories.count) sites" : "Tous les appareils jamais vus sur ce site"
         return HStack(spacing: 12) {
             // Note 28 : l'inventaire est propre à chaque site ; le menu choisit un, plusieurs ou tous les sites.
             SiteScopeMenu(screen: .inventaire).layoutPriority(1)
-            // Segments égaux, plus larges que le plus long libellé : « Disparus > 30 j » n'est pas serré.
-            Picker("Vue de l’inventaire", selection: $view) {
-                ForEach(InvView.allCases, id: \.self) { Text($0.label).tag($0) }
+            // Segments égaux, plus larges que le plus long libellé : « Disparus > 30 j » n'est pas serré ;
+            // en petite fenêtre (note 95, six vues), les segments prennent la largeur de leur libellé.
+            ViewThatFits(in: .horizontal) {
+                viewPicker.frame(width: 680).fixedSize()
+                viewPicker.fixedSize()
+                viewPicker.frame(minWidth: 420)
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(width: 590)
-            .fixedSize()
             // Petite fenêtre : seule la date de fusion reste, sinon rien (jamais une phrase coupée ;
             // la légende complète reste au survol).
             ViewThatFits(in: .horizontal) {
@@ -736,6 +754,8 @@ struct InventaireScreen: View {
             }
         case "garanties":
             filter.warranty = true
+        case "imprimantes":
+            view = .imprimantes
         case "doublons":
             // Note 78 : doublons probables, dont les MAC aléatoires rapprochées.
             mergeOpen = true

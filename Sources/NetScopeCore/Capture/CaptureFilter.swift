@@ -18,6 +18,9 @@ public struct CompiledCaptureFilter: Sendable, Equatable {
 public enum CapturePreset: String, CaseIterable, Sendable, Identifiable {
     case all, host, port, arp, dns, dhcp, icmp, tcp, udp, neighbors
 
+    /// Préréglages en ordre alphabétique, « Tout le trafic » en tête.
+    public static var ordered: [CapturePreset] { allCases.sortedFrench(by: \.label, first: [all.label]) }
+
     public var id: String { rawValue }
 
     public var label: String {

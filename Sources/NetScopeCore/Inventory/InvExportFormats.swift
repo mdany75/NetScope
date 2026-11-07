@@ -11,6 +11,9 @@ public enum InvExportFormat: String, CaseIterable, Sendable, Identifiable {
 
     public var id: String { rawValue }
 
+    /// Formats en ordre alphabétique, le format de NetScope (réimportable) en tête.
+    public static var ordered: [InvExportFormat] { allCases.sortedFrench(by: \.label, first: [netscope.label]) }
+
     public var label: String {
         switch self {
         case .netscope: return "CSV NetScope (réimportable)"
