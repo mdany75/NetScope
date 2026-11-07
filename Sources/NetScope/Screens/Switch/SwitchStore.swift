@@ -336,7 +336,11 @@ final class SwitchStore: ObservableObject {
         installControllerSnapshots()
         for (mac, name) in ControllerConvert.names(readings) where controllerNames[mac] == nil { controllerNames[mac] = name }
         if !isDemo {
-            for snapshot in list { PortHistoryStore.shared.record(snapshot, siteKey: historySiteKey(for: snapshot.id)) }
+            for snapshot in list {
+                PortHistoryStore.shared.record(snapshot, siteKey: historySiteKey(for: snapshot.id))
+                // Note 99 : MAC apprises sur les ports d'accès (contrôleur UniFi, Omada, Meraki).
+                MACHistoryStore.shared.record(snapshot: snapshot, siteKey: historySiteKey(for: snapshot.id))
+            }
         }
         guard locate, !readings.isEmpty else { return }
         let result = ControllerConvert.apply(readings, to: state.devices, controller: controllerSnapshots, snmp: snmpSnapshots)
@@ -376,7 +380,11 @@ final class SwitchStore: ObservableObject {
         controllerNames = FortiMulti.names(sites)
         controllerOwners = SiteSwitchFilter.controllerOwners(sites)
         // Note 74 : compteurs des FortiSwitch dans l'historique de leur site.
-        for snapshot in controllerSnapshots { PortHistoryStore.shared.record(snapshot, siteKey: historySiteKey(for: snapshot.id)) }
+        for snapshot in controllerSnapshots {
+            PortHistoryStore.shared.record(snapshot, siteKey: historySiteKey(for: snapshot.id))
+            // Note 99 : MAC apprises sur les FortiSwitch, lues par la FortiGate.
+            MACHistoryStore.shared.record(snapshot: snapshot, siteKey: historySiteKey(for: snapshot.id), source: .fortigate)
+        }
         controllerNetwork = state.currentNetwork
         controllerReadAt = Date()
         if !isDemo {
@@ -549,6 +557,8 @@ final class SwitchStore: ObservableObject {
                     readingSites[host] = siteKey
                     // Note 74 : compteurs des ports dans l'historique du site.
                     PortHistoryStore.shared.record(snapshot, siteKey: siteKey)
+                    // Note 99 : MAC apprises sur les ports d'accès, dans l'historique du site.
+                    MACHistoryStore.shared.record(snapshot: snapshot, siteKey: siteKey)
                     errors[host] = nil
                     fresh.insert(host)
                     if readsHardware.contains(host) { hardwareReadAt[host] = snapshot.polledAt }

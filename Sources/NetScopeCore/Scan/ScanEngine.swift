@@ -383,6 +383,8 @@ public enum ScanDeviceClassifier {
     static let printerPorts: Set<UInt16> = [9100, 631, 515]
     static let cameraPorts: Set<UInt16> = [554, 8554, 37777]
     static let cameraVendors = ["hikvision", "axis", "dahua", "hanwha", "vivotek", "uniview", "reolink"]
+    /// Note 98 : fabricants de cartes réseau d’onduleurs.
+    static let upsVendors = ["eaton", "powerware", "cyberpower", "cyber-power", "tripp", "riello", "socomec"]
     static let printerVendors = ["brother", "epson", "canon", "xerox", "lexmark", "kyocera", "ricoh", "konica"]
     static let networkVendors = ["cisco", "aruba", "juniper", "netgear", "tp-link", "d-link", "mikrotik", "ubiquiti", "meraki"]
     static let iotVendors = ["espressif", "sonos", "brightsign", "amazon", "google", "roku", "raspberry"]
@@ -415,6 +417,7 @@ public enum ScanDeviceClassifier {
         case .switch?: return .switch
         case .routeur?: return .routeur
         case .imprimante?: return .imprimante
+        case .onduleur?: return .onduleur
         case .autre?, nil: break
         }
         let open = Set(ports)
@@ -428,6 +431,9 @@ public enum ScanDeviceClassifier {
 
         if !open.isDisjoint(with: printerPorts) || vendorIs(printerVendors) { return .imprimante }
         if !open.isDisjoint(with: cameraPorts) || vendorIs(cameraVendors) { return .camera }
+        // Note 98 : cartes réseau d'onduleurs (APC, Eaton, CyberPower) ; le nom IEEE d'APC est
+        // « American Power Conversion ».
+        if vendor.contains("american power conversion") || vendorIs(upsVendors) || host.hasPrefix("ups-") || host.hasPrefix("ups_") { return .onduleur }
         if open.contains(88) && open.contains(389) || open.contains(53) && open.contains(389) { return .serveur }
         // Note 6 : serveur RustDesk (hbbs 21116, relais hbbr 21117).
         if RustDeskPorts.role(openPorts: ports)?.isServer == true { return .serveur }

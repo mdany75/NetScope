@@ -11,6 +11,8 @@ public enum SNMPDeviceKind: String, Hashable, Sendable, Codable, CaseIterable {
     case `switch`
     case routeur
     case imprimante
+    /// Note 98 : onduleur (UPS-MIB, APC, Eaton, CyberPower).
+    case onduleur
     case autre
 
     public var label: String {
@@ -18,6 +20,7 @@ public enum SNMPDeviceKind: String, Hashable, Sendable, Codable, CaseIterable {
         case .switch: return "Switch"
         case .routeur: return "Routeur ou pare-feu"
         case .imprimante: return "Imprimante"
+        case .onduleur: return "Onduleur"
         case .autre: return "Autre"
         }
     }
@@ -196,6 +199,13 @@ public struct SNMPDiscovery: Sendable {
                             "lexmark", "kyocera", "ricoh", "xerox", "brother", "konica", "bizhub", "epson", "canon ir",
                             "imagerunner", "workcentre", "versalink", "ecosys", "mfp"]
         if hasPrinterMIB || under("1.3.6.1.4.1.11.2.3.9") || has(printerWords) { return .imprimante }
+        // Note 98 : onduleurs : agent UPS-MIB, ou APC (318), Eaton / Powerware (534, 705), CyberPower (3808).
+        let upsWords = ["smart-ups", "symmetra", "powerchute", "network management card", "ups network", "powerware",
+                        "cyberpower", "eaton 5p", "eaton 5px", "eaton 9", "network-m2", "network-m3", "ups-mib", " ups "]
+        if under("1.3.6.1.2.1.33") || under("1.3.6.1.4.1.318") || under("1.3.6.1.4.1.534") || under("1.3.6.1.4.1.705")
+            || under("1.3.6.1.4.1.3808") || has(upsWords) || descr.hasPrefix("ups ") || descr.hasPrefix("ups-") {
+            return .onduleur
+        }
 
         let routerWords = ["router", "routeur", "firewall", "pare-feu", "fortigate", "fortios", "pfsense", "opnsense", "sonicwall",
                            "adaptive security appliance", "cisco asa", "isr software", "isr4", "edgerouter", "edgeos", "unifi security gateway",

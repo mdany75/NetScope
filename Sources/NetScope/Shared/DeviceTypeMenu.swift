@@ -25,6 +25,7 @@ extension DeviceType {
         case .poste: return "desktopcomputer"
         case .serveur: return "server.rack"
         case .imprimante: return "printer"
+        case .onduleur: return "minus.plus.batteryblock"
         case .camera: return "video"
         case .pointAcces: return "wifi.router"
         case .switch: return "rectangle.connected.to.line.below"

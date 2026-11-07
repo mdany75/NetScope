@@ -89,6 +89,8 @@ enum DemoData {
         // en invité (SMBSharesDemo) ; après l'imprimante choisie dans le Scanner : le tableau des
         // captures ne se décale pas.
         Row(ip: "10.182.122.154", name: "NAS salle B01", host: "DS920-B01", vendor: "Synology", mac: "00:11:32:9A:4E:07", latency: 1.4, ports: [80, 139, 443, 445, 5000, 5001], sw: "SW-CORE-01", port: "Gi1/0/24", vlan: 1, minutesAgo: 0, type: .serveur, online: true, range: "Bureau"),
+        // Note 98 : onduleur APC de la baie réseau (carte AP9641), après le NAS : le tableau ne se décale pas.
+        Row(ip: "10.182.122.160", name: "Onduleur baie réseau", host: "UPS-BAIE-RESEAU", vendor: "American Power Conversion", mac: "00:C0:B7:5E:21:A0", latency: 2.0, ports: [80, 443], sw: "SW-CORE-01", port: "Gi1/0/46", vlan: 1, minutesAgo: 0, type: .onduleur, online: true, range: "Bureau"),
         Row(ip: "192.168.50.21", name: "Caméra quai", host: "DS-2CD2143G2-I", vendor: "Hikvision", mac: "BC:AD:28:6F:01:5A", latency: 3.0, ports: [80, 443, 554], sw: "SW-CORE-01", port: "Gi1/0/33", vlan: 40, minutesAgo: 0, type: .camera, online: true, range: "Caméras"),
         Row(ip: "192.168.50.22", name: nil, host: "axis-b8a44f2c19e0", vendor: "Axis", mac: "B8:A4:4F:2C:19:E0", latency: 2.7, ports: [80, 443, 554], sw: "SW-CORE-01", port: "Gi1/0/34", vlan: 40, minutesAgo: 0, type: .camera, online: true, range: "Caméras"),
         Row(ip: "10.10.0.10", name: "Contrôleur de domaine", host: "SRV-AD-01", vendor: "Dell", mac: "F4:EE:08:3C:72:A1", latency: 0.9, ports: [53, 88, 389, 445], sw: "SW-CORE-01", port: "Gi1/0/40", vlan: 100, minutesAgo: 0, type: .serveur, online: true, range: "Serveurs"),
@@ -110,11 +112,13 @@ enum DemoData {
         "10.182.122.146": (.netbios, "BUREAU"), "192.168.50.21": (.dns, nil), "192.168.50.22": (.mdns, nil),
         "10.10.0.10": (.dns, nil), "10.10.0.31": (.fortigate, nil), "192.168.50.31": (.fortigate, nil),
         "10.182.122.126": (.netbios, "BUREAU"), "10.10.0.20": (.dns, nil), "10.182.122.154": (.netbios, "BUREAU"),
+        "10.182.122.160": (.snmp, nil),
     ]
 
     /// Nature SNMP des appareils qui ont répondu à la découverte automatique (démonstration).
     private static let snmpKinds: [String: SNMPDeviceKind] = [
         "10.182.122.1": .routeur, "10.182.122.2": .switch, "10.182.122.3": .switch, "10.182.122.111": .imprimante,
+        "10.182.122.160": .onduleur,
     ]
 
     /// Indices de téléphonie IP (note 30) : annonce LLDP-MED « téléphone » relevée sur SW-ETG2-01, VLAN voix 20.

@@ -89,6 +89,7 @@ public struct TopoGraph: Sendable {
         case .poste: return "Postes"
         case .serveur: return "Serveurs"
         case .imprimante: return "Imprimantes"
+        case .onduleur: return "Onduleurs"
         case .camera: return "Caméras"
         case .pointAcces: return "Points d’accès"
         case .switch: return "Switchs"
@@ -102,7 +103,7 @@ public struct TopoGraph: Sendable {
         }
     }
 
-    private static let typeOrder: [DeviceType] = [.serveur, .poste, .telephoneIP, .telephone, .console, .imprimante, .camera, .domotique, .iot, .routeur, .inconnu, .switch, .pointAcces]
+    private static let typeOrder: [DeviceType] = [.serveur, .poste, .telephoneIP, .telephone, .console, .imprimante, .onduleur, .camera, .domotique, .iot, .routeur, .inconnu, .switch, .pointAcces]
 
     /// Construit la carte. `gateway` : passerelle de l'interface active, si connue.
     /// `switches` (note 78) : relevés des switchs du site (SNMP et FortiGate) ; leurs voisins LLDP

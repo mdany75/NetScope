@@ -163,6 +163,8 @@ registerTerminalSnippetTests(suite)
 registerPrinterVoIPRollbackTests(suite)
 // Notes 96 et 97 (1.1.0) : serveur DHCP pirate, conflits d'adresses IP et bornes Wi-Fi pirates.
 registerPirateTests(suite)
+// Notes 98 et 99 (1.2.0) : onduleurs par SNMP et historique des adresses MAC.
+registerUPSMACHistoryTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

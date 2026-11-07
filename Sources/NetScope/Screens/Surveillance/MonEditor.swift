@@ -480,6 +480,14 @@ private struct MonConditionFields: View {
                 Text("%\u{00A0}restant ou moins (toner, encre, tambour, kit de maintenance, bac de récupération)\u{00A0}; panne si bourrage ou bac vide")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
             }
+        case .upsStatus:
+            HStack(spacing: 8) {
+                Text("Alerter sous").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
+                MonInput(placeholder: "\(Int(UPSMIB.defaultMinRuntime))", text: double($probe.resourceLimit), mono: true)
+                    .frame(width: 56)
+                Text("min d’autonomie, ou si la batterie est à changer\u{00A0}; panne au passage sur batterie (UPS-MIB, APC, Eaton, CyberPower)")
+                    .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
+            }
         case .rustdeskServer:
             HStack(spacing: 8) {
                 Text("Disque au-delà de").font(Theme.small).foregroundStyle(Theme.text).fixedSize()
