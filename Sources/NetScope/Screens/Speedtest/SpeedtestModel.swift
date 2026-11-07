@@ -612,7 +612,7 @@ final class SpeedtestModel: ObservableObject {
                         throw IperfError.invalidOptions("Résultat sans gigue ni pertes (UDP attendu).")
                     }
                     test = VoIPSyntheticTest(target: "\(options.host):\(options.port)", codec: codec.name, calls: calls,
-                                             jitterMs: result.jitterMs ?? 0, lossPercent: result.lostPercent ?? 0,
+                                             jitterMs: result.jitterMs ?? 0, lossPercent: VoIPQuality.lossPercent(iperf: result),
                                              score: score, date: Date())
                 }
                 guard let self else { return }

@@ -28,6 +28,11 @@ struct DevicePrinterCard: View {
                             .font(Theme.small)
                             .foregroundStyle(flag.isBlocking ? Theme.critical : Theme.warning)
                     }
+                    // Alertes publiées par l'imprimante (prtAlertDescription).
+                    ForEach(Array(reading.alerts.prefix(4).enumerated()), id: \.offset) { _, alert in
+                        Text(alert).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 } else {
                     Text("Niveaux du toner, de l’encre, du tambour et du kit de maintenance, compteur de pages et alertes, lus par SNMP (Printer-MIB).")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
@@ -51,7 +56,9 @@ struct DevicePrinterCard: View {
     private func supplyRow(_ supply: PrinterSupply) -> some View {
         let low = supply.isLow(threshold: PrinterMIB.defaultThreshold)
         return HStack(spacing: 10) {
+            // Contour fin : la pastille reste lisible en clair (jaune) comme en sombre (noir).
             Circle().fill(color(supply)).frame(width: 9, height: 9)
+                .overlay(Circle().strokeBorder(Theme.border, lineWidth: supply.color == nil ? 0 : 1))
             Text(supply.displayName).font(Theme.small).foregroundStyle(Theme.text)
                 .lineLimit(1)
                 .frame(width: 150, alignment: .leading)
@@ -66,7 +73,7 @@ struct DevicePrinterCard: View {
 
     private func color(_ supply: PrinterSupply) -> Color {
         switch supply.color {
-        case .black: return Theme.text
+        case .black: return Color(white: 0.12)
         case .cyan: return .cyan
         case .magenta: return .pink
         case .yellow: return .yellow

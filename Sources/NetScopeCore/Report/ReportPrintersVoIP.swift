@@ -69,7 +69,12 @@ extension ReportBuilder {
         for printer in blocked {
             advice.append("\(printer.name)\u{00A0}: \(printer.reading.blockingErrors.map(\.label).joined(separator: ", ").lowercased()).")
         }
-        blocks.append(.paragraph(advice.isEmpty ? "Aucun consommable sous le seuil." : advice.joined(separator: " ")))
+        // Alertes publiées par l'imprimante (prtAlertDescription).
+        for printer in sorted where !printer.reading.alerts.isEmpty {
+            advice.append("\(printer.name), alertes\u{00A0}: \(printer.reading.alerts.prefix(4).joined(separator: "\u{00A0}; ")).")
+        }
+        if low.isEmpty { advice.insert("Aucun consommable sous le seuil.", at: 0) }
+        blocks.append(.paragraph(advice.joined(separator: " ")))
         return blocks
     }
 

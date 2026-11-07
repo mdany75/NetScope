@@ -55,6 +55,9 @@ final class UpdController: ObservableObject {
     private var launched = false
 
     private static let prefsKey = "reglages.majs.preferences"
+    /// Suspension après un retour arrière, à part des préférences : les versions plus anciennes
+    /// réenregistrent `prefsKey` sans connaître ce champ, mais ne touchent pas à cette clé.
+    private static let holdKey = "reglages.majs.retourArriere"
     private let defaults: UserDefaults?
 
     private init() {
@@ -64,6 +67,10 @@ final class UpdController: ObservableObject {
             prefs = saved
         } else {
             prefs = UpdPreferences()
+        }
+        if let data = defaults?.data(forKey: UpdController.holdKey),
+           let hold = try? JSONDecoder().decode(UpdRollbackHold.self, from: data) {
+            prefs.rollbackHold = hold
         }
         hasToken = !RegEnvironment.isSandboxed && UpdKeychain.github.string(for: UpdKeychain.githubAccount) != nil
         if RegEnvironment.isDemo { applyDemo() }
@@ -138,6 +145,7 @@ final class UpdController: ObservableObject {
             return
         }
         phase = .checking
+        reinstallTarget = nil
         let checker = UpdateChecker(token: UpdKeychain.github.string(for: UpdKeychain.githubAccount))
         do {
             let result = try await checker.check(current: UpdController.currentVersion, channel: prefs.channel)
@@ -203,13 +211,13 @@ final class UpdController: ObservableObject {
                     self.checks = prepared.checks
                     self.phase = .ready
                 case .failure(let error):
-                    self.phase = .failed(error.localizedDescription)
+                    self.fail(error.localizedDescription)
                 }
             } catch UpdError.cancelled {
                 // « Plus tard » et « Ignorer » annulent aussi : leur état est conservé.
                 if case .downloading = self?.phase { self?.phase = .available }
             } catch {
-                self?.phase = .failed(error.localizedDescription)
+                self?.fail(error.localizedDescription)
             }
             self?.downloader = nil
         }
@@ -218,7 +226,24 @@ final class UpdController: ObservableObject {
     func cancelDownload() {
         downloader?.cancel()
         downloadTask?.cancel()
-        phase = .available
+        if reinstallTarget != nil { endReinstall() } else { phase = .available }
+    }
+
+    /// Échec du téléchargement ou de la vérification. Une réinstallation abandonnée ne laisse pas
+    /// sa fiche (elle se lirait comme une « nouvelle version »).
+    private func fail(_ why: String) {
+        if reinstallTarget != nil { reinstallTarget = nil; release = nil; prepared = nil }
+        phase = .failed(why)
+    }
+
+    /// Fin d'une réinstallation abandonnée (« Annuler », « Plus tard ») : rien n'a été suspendu.
+    private func endReinstall() {
+        reinstallTarget = nil
+        release = nil
+        prepared = nil
+        checks = []
+        phase = .idle
+        syncBadge()
     }
 
     // MARK: Installation
@@ -234,11 +259,18 @@ final class UpdController: ObservableObject {
             return
         }
         phase = .installing
+        // Note 93 : la mise à jour automatique n'est suspendue qu'au moment du retour arrière
+        // lui-même (version plus ancienne, vérifiée et prête), jamais avant.
+        let before = prefs
+        if let text = reinstallTarget, let target = UpdVersion(text), target < UpdController.currentVersion {
+            prefs = UpdRollback.suspend(prefs, target: target)
+        }
         do {
             try UpdInstaller.launchReplacement(prepared: prepared, destination: destination)
             NSApp.terminate(nil)
         } catch {
-            phase = .failed(error.localizedDescription)
+            prefs = before
+            fail(error.localizedDescription)
         }
     }
 
@@ -252,8 +284,8 @@ final class UpdController: ObservableObject {
     }
 
     /// « Réinstaller cette version », après confirmation : lit la Release GitHub de la version,
-    /// suspend la mise à jour automatique (retour arrière), puis télécharge et vérifie l'image
-    /// comme une mise à jour ; l'installation reste au bouton « Installer et relancer ».
+    /// puis télécharge et vérifie l'image comme une mise à jour ; l'installation reste au bouton
+    /// « Installer et relancer », qui suspend alors la mise à jour automatique (retour arrière).
     /// Jamais en démonstration ni pendant les captures.
     func reinstall(_ version: String) async {
         guard !isBusy, let target = UpdVersion(version) else { return }
@@ -266,9 +298,6 @@ final class UpdController: ObservableObject {
         do {
             let found = try await checker.fetchRelease(version: target)
             guard found.diskImage != nil else { throw UpdError.missingAsset(version: found.tagName) }
-            if target < UpdController.currentVersion {
-                prefs = UpdRollback.suspend(prefs, target: target)
-            }
             reinstallTarget = target.description
             release = found
             checks = []
@@ -276,6 +305,7 @@ final class UpdController: ObservableObject {
             phase = .available
             download()
         } catch {
+            reinstallTarget = nil
             phase = .failed(error.localizedDescription)
         }
     }
@@ -287,10 +317,11 @@ final class UpdController: ObservableObject {
 
     func later() {
         downloader?.cancel()
-        phase = .later
+        if reinstallTarget != nil { endReinstall() } else { phase = .later }
     }
 
     func skip() {
+        guard reinstallTarget == nil else { later() ; return }
         guard let version = release?.version else { return }
         downloader?.cancel()
         prefs.skippedVersion = version.description
@@ -359,6 +390,11 @@ final class UpdController: ObservableObject {
     private func savePrefs() {
         guard let defaults, let data = try? JSONEncoder().encode(prefs) else { return }
         defaults.set(data, forKey: UpdController.prefsKey)
+        if let hold = prefs.rollbackHold, let holdData = try? JSONEncoder().encode(hold) {
+            defaults.set(holdData, forKey: UpdController.holdKey)
+        } else {
+            defaults.removeObject(forKey: UpdController.holdKey)
+        }
     }
 
     /// Démonstration (croquis) : version 1.1.0 disponible, historique fictif, aucun réseau.

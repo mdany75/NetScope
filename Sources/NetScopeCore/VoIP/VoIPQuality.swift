@@ -163,11 +163,16 @@ public enum VoIPQuality {
     public static func score(iperf result: IperfResult, codec: VoIPCodecProfile = .g711,
                              oneWayDelayMs: Double? = nil) -> VoIPScore? {
         guard result.isUDP, let jitter = result.jitterMs else { return nil }
-        let loss = result.lostPercent ?? {
-            guard let lost = result.lostPackets, let packets = result.packets, packets > 0 else { return 0 }
-            return Double(lost) / Double(packets) * 100
-        }()
+        let loss = lossPercent(iperf: result)
         return score(VoIPMeasures(oneWayDelayMs: oneWayDelayMs, jitterMs: jitter, lossPercent: loss), codec: codec)
+    }
+
+    /// Pertes d'un test iperf3 en pour cent : celles du serveur, sinon paquets perdus / envoyés.
+    /// La même valeur sert à la note et à l'affichage du test.
+    public static func lossPercent(iperf result: IperfResult) -> Double {
+        if let percent = result.lostPercent { return percent }
+        guard let lost = result.lostPackets, let packets = result.packets, packets > 0 else { return 0 }
+        return Double(lost) / Double(packets) * 100
     }
 
     /// Options iperf3 du test simulé : un flux UDP au débit d'un appel du codec (10 s).

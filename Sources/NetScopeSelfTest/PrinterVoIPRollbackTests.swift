@@ -113,8 +113,19 @@ func registerPrinterVoIPRollbackTests(_ suite: TestSuite) {
         try expect(warn.reachable, "toner bas : joignable")
         try expect(warn.problem?.contains("Toner cyan 9\u{00A0}%") == true, "alerte : \(warn.problem ?? "nil")")
         try expect(warn.problem?.contains("seuil 15\u{00A0}%") == true, "seuil dans le message")
-        let ok = MonPrinterChecks.evaluate(low, threshold: 5, now: now)
-        try expectEqual(ok.problem, nil, "aucun consommable sous 5 %")
+        // Sous 5 % : rien selon les pourcentages, mais le jaune dit seulement « il en reste » :
+        // le drapeau « Toner bas » de l'imprimante peut venir de lui, il reste affiché.
+        let vagueYellow = MonPrinterChecks.evaluate(low, threshold: 5, now: now)
+        try expectEqual(vagueYellow.problem, PrinterErrorFlag.lowToner.label, "jaune sans niveau : drapeau gardé")
+        let known = PrinterMIB.reading(printerBinds(colorLaser.filter { $0.level != -3 }, pages: [48_213], errors: [0x20]))
+        let ok = MonPrinterChecks.evaluate(known, threshold: 5, now: now)
+        try expectEqual(ok.problem, nil, "aucun consommable sous 5 % (tous les niveaux connus)")
+        // Niveau seulement « il en reste » (-3) avec « Toner bas » : l'alerte vient du drapeau.
+        let vague = PrinterReading(supplies: [PrinterSupply(id: "1", description: "Black Toner", kind: .toner, color: .black,
+                                                            level: -3, maxCapacity: 100, someRemaining: true)],
+                                   errors: [.lowToner])
+        let vagueResult = MonPrinterChecks.evaluate(vague, threshold: 15, now: now)
+        try expect(vagueResult.problem?.contains(PrinterErrorFlag.lowToner.label) == true, "toner bas sans pourcentage : \(vagueResult.problem ?? "nil")")
         let jammed = PrinterMIB.reading(printerBinds(colorLaser, errors: [0x04]))
         let down = MonPrinterChecks.evaluate(jammed, threshold: 15, now: now)
         try expect(!down.reachable, "bourrage : panne")
@@ -201,6 +212,7 @@ func registerPrinterVoIPRollbackTests(_ suite: TestSuite) {
         let noPercent = IperfResult(protocolName: "UDP", jitterMs: 4, lostPackets: 5, packets: 500)
         let recomputed = try VoIPQuality.score(iperf: noPercent).orThrow("score")
         try expect(approx(recomputed.mos, score.mos), "pertes recalculées")
+        try expect(approx(VoIPQuality.lossPercent(iperf: noPercent), 1), "pertes affichées = pertes notées")
         let options = VoIPQuality.syntheticOptions(host: "127.0.0.1", codec: .g711, calls: 4)
         let arguments = try options.arguments()
         try expect(arguments.contains("-u"), "UDP")
@@ -256,7 +268,13 @@ func registerPrinterVoIPRollbackTests(_ suite: TestSuite) {
 
         let encoded = try JSONEncoder().encode(held)
         let decoded = try JSONDecoder().decode(UpdPreferences.self, from: encoded)
-        try expectEqual(decoded.rollbackHold, held.rollbackHold, "suspension enregistrée")
+        // La suspension n'est pas dans le JSON des préférences (une version plus ancienne le
+        // réenregistre sans elle) : elle a sa propre clé ; l'automatique coupé, lui, y reste.
+        try expectEqual(decoded.rollbackHold, nil, "suspension hors du JSON des préférences")
+        try expect(!decoded.automaticCheck && !decoded.automaticInstall, "automatique coupé enregistré")
+        try expect(!String(decoding: encoded, as: UTF8.self).contains("rollbackHold"), "aucun champ rollbackHold")
+        let holdData = try JSONEncoder().encode(try held.rollbackHold.orThrow("hold"))
+        try expectEqual(try JSONDecoder().decode(UpdRollbackHold.self, from: holdData), held.rollbackHold, "suspension enregistrée à part")
         let legacy = try JSONDecoder().decode(UpdPreferences.self, from: Data("{\"automaticCheck\":true}".utf8))
         try expectEqual(legacy.rollbackHold, nil, "préférences d'avant la 0.37.0")
 

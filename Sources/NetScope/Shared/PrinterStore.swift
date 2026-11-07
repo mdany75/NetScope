@@ -82,6 +82,12 @@ final class PrinterStore: ObservableObject {
         }
     }
 
+    /// Relevé fait ailleurs (sonde de Surveillance) : rangé sous la MAC de l'appareil, jamais par l'IP seule.
+    func record(_ result: PrinterReading, for device: Device, siteKey: String) {
+        guard let mac = device.mac else { return }
+        store(result, key: mac.description, siteKey: siteKey)
+    }
+
     private func store(_ result: PrinterReading, key: String, siteKey: String) {
         var current = readings(siteKey: siteKey)
         current[key] = result

@@ -83,6 +83,9 @@ public struct MonRunOutcome: Sendable {
     /// Rien à évaluer (inventaire vide, appareil absent, scan en cours) : ni réussite ni échec.
     /// Le suivi reste tel quel, sans événement ni case d'historique.
     public var noData: Bool
+    /// Consommable bas (note 91) : relevé réussi de la Printer-MIB et adresse lue.
+    public var printerReading: PrinterReading?
+    public var printerAddress: IPv4Address?
 
     public init(result: MonResult, learnedLocation: String? = nil, knownMACs: [String]? = nil, noData: Bool = false) {
         self.result = result
@@ -160,7 +163,7 @@ public enum MonRunner {
         case .rustdeskServer:
             return await MonRustDeskChecks.run(probe, target: target, read: context.rustdeskServerRead, now: context.now)
         case .printerSupply:
-            return MonRunOutcome(result: await MonPrinterChecks.run(probe, host: target, context: context))
+            return await MonPrinterChecks.run(probe, host: target, context: context)
         }
     }
 
