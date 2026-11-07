@@ -51,7 +51,7 @@ struct WireGuardServerDashboard: View {
         .sheet(item: RegEnvironment.isSnapshot ? .constant(nil) : $wg.pending) { action in
             WireGuardConfirmSheet(action: action).interactiveDismissDisabled()
         }
-        .sheet(item: $wg.shownConfig) { config in
+        .sheet(item: RegEnvironment.isSnapshot ? .constant(nil) : $wg.shownConfig) { config in
             WireGuardConfigSheet(config: config)
         }
         .sheet(isPresented: $wg.showSettings) { WireGuardSettingsSheet() }
@@ -62,6 +62,16 @@ struct WireGuardServerDashboard: View {
                 ZStack(alignment: .top) {
                     Color(nsColor: .shadowColor).opacity(0.18)
                     WireGuardConfirmSheet(action: action)
+                        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
+                        .shadow(color: Color(nsColor: .shadowColor).opacity(0.3), radius: 18, y: 8)
+                        .padding(.top, 8)
+                }
+            } else if RegEnvironment.isSnapshot, let config = wg.shownConfig {
+                ZStack(alignment: .top) {
+                    Color(nsColor: .shadowColor).opacity(0.18)
+                    WireGuardConfigSheet(config: config)
+                        .fixedSize()
                         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
                         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
                         .shadow(color: Color(nsColor: .shadowColor).opacity(0.3), radius: 18, y: 8)
@@ -676,13 +686,11 @@ struct WireGuardConfigSheet: View {
                 }
                 .frame(width: 320, height: 220)
             }
-            Text("Contient la clé privée du client\u{00A0}: à remettre seulement à son usager. NetScope ne la garde pas.")
-                .font(Theme.caption).foregroundStyle(Theme.warning)
+            Text("Contient la clé privée du client\u{00A0}: à remettre seulement à son usager. NetScope ne la garde pas\u{00A0}; une copie est marquée confidentielle (ni historique ni presse-papiers universel) et s’efface d’elle-même après 60\u{00A0}s.")
+                .font(Theme.caption).foregroundStyle(Theme.warning).fixedSize(horizontal: false, vertical: true)
+                .frame(width: 556, alignment: .leading)
             HStack {
-                Button("Copier") {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(config.text, forType: .string)
-                }
+                Button("Copier") { SecretPasteboard.copy(config.text) }
                 Spacer()
                 Button("Fermer") { wg.shownConfig = nil }.keyboardShortcut(.defaultAction)
             }
@@ -699,6 +707,26 @@ struct WireGuardConfigSheet: View {
         let image = NSImage(size: rep.size)
         image.addRepresentation(rep)
         return image
+    }
+}
+
+/// Copie d'un secret : types « concealed » et « transient » (gestionnaires d'historique, presse-papiers
+/// universel), puis effacement après 60 s si le presse-papiers n'a pas changé entre-temps.
+enum SecretPasteboard {
+    static let lifetime: TimeInterval = 60
+
+    @MainActor static func copy(_ text: String) {
+        let board = NSPasteboard.general
+        board.clearContents()
+        let item = NSPasteboardItem()
+        item.setString(text, forType: .string)
+        item.setString("", forType: NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"))
+        item.setString("", forType: NSPasteboard.PasteboardType("org.nspasteboard.TransientType"))
+        board.writeObjects([item])
+        let stamp = board.changeCount
+        DispatchQueue.main.asyncAfter(deadline: .now() + lifetime) {
+            if NSPasteboard.general.changeCount == stamp { NSPasteboard.general.clearContents() }
+        }
     }
 }
 
@@ -724,7 +752,10 @@ struct WireGuardSettingsSheet: View {
                 Stepper("Client surveillé déconnecté depuis \(Int(hours))\u{00A0}h", value: $hours, in: 1...72)
                 Stepper("Expiration proche\u{00A0}: \(days)\u{00A0}j", value: $days, in: 1...60)
             }
-            if (try? WGEasyAPI.baseURL(url)).map(WGEasyAPI.isInsecure) == true {
+            if (try? WGEasyAPI.baseURL(url)).map(WGEasyAPI.plainHTTPBlocked) == true {
+                Text(WGEasyAPI.plainHTTPAdvice)
+                    .font(Theme.caption).foregroundStyle(Theme.critical).fixedSize(horizontal: false, vertical: true)
+            } else if (try? WGEasyAPI.baseURL(url)).map(WGEasyAPI.isInsecure) == true {
                 Text("HTTP simple\u{00A0}: le mot de passe circule en clair sur le réseau local. HTTPS conseillé.")
                     .font(Theme.caption).foregroundStyle(Theme.warning)
             }

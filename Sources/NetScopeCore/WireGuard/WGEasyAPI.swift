@@ -126,7 +126,7 @@ public struct WGEasyInformation: Equatable, Sendable {
 /// Refus ou panne de l'API ; `readOnly` : NetScope passe en lecture seule par SSH.
 public struct WGEasyAPIError: Error, Equatable, Sendable {
     public enum Kind: String, Sendable {
-        case address, unreachable, unauthorized, twoFactor, notVersion15, server, decoding, missingPassword
+        case address, unreachable, unauthorized, twoFactor, notVersion15, server, decoding, missingPassword, clientNotFound, plainHTTPRefused
     }
     public var kind: Kind
     public var detail: String
@@ -137,7 +137,7 @@ public struct WGEasyAPIError: Error, Equatable, Sendable {
     }
 
     /// Refus d'authentification (mot de passe, 2FA) : gestion coupée, lecture seule par SSH.
-    public var readOnly: Bool { [.unauthorized, .twoFactor, .notVersion15, .missingPassword].contains(kind) }
+    public var readOnly: Bool { [.unauthorized, .twoFactor, .notVersion15, .missingPassword, .plainHTTPRefused].contains(kind) }
 
     public var title: String {
         switch kind {
@@ -149,6 +149,8 @@ public struct WGEasyAPIError: Error, Equatable, Sendable {
         case .server: return "Erreur de wg-easy"
         case .decoding: return "Réponse de wg-easy illisible"
         case .missingPassword: return "Mot de passe de wg-easy à saisir"
+        case .clientNotFound: return "Client introuvable"
+        case .plainHTTPRefused: return "HTTP simple refusé par macOS"
         }
     }
 
@@ -160,6 +162,10 @@ public struct WGEasyAPIError: Error, Equatable, Sendable {
             return "Vérifiez le compte administrateur de wg-easy et son mot de passe (gardé au Trousseau). En attendant, lecture seule par SSH."
         case .notVersion15:
             return "Ce serveur n’est pas un wg-easy 15 (une 14 se lit par SSH en lecture seule)."
+        case .clientNotFound:
+            return "Ce client n’existe plus (supprimé dans wg-easy, par exemple)\u{00A0}: liste relue."
+        case .plainHTTPRefused:
+            return WGEasyAPI.plainHTTPAdvice + " En attendant, lecture seule par SSH."
         default:
             return "La lecture par SSH continue\u{00A0}; les changements attendent le retour de l’API."
         }
@@ -278,6 +284,19 @@ public enum WGEasyAPI {
     /// Mot de passe envoyé en clair sur le réseau (HTTP simple).
     public static func isInsecure(_ base: URL) -> Bool { base.scheme?.lowercased() == "http" }
 
+    /// macOS (App Transport Security, `NSAllowsLocalNetworking` seulement) refuse le HTTP simple vers un nom
+    /// de domaine complet : seuls une adresse IP, un nom sans point ou un nom en .local passent en http://.
+    public static func plainHTTPBlocked(_ base: URL) -> Bool {
+        guard isInsecure(base), var host = base.host?.lowercased(), !host.isEmpty else { return false }
+        if host.hasSuffix(".") { host.removeLast() }
+        if host.hasPrefix("[") || host.contains(":") { return false }            // IPv6
+        if IPv4Address(host) != nil { return false }
+        if !host.contains(".") || host.hasSuffix(".local") { return false }
+        return true
+    }
+
+    public static let plainHTTPAdvice = "macOS refuse le HTTP simple vers un nom de domaine\u{00A0}: utiliser https://, l’adresse IP ou un nom en .local."
+
     /// En-tête « Authorization: Basic … ».
     public static func basicAuthorization(user: String, password: String) -> String {
         "Basic " + Data((user + ":" + password).utf8).base64EncodedString()
@@ -317,8 +336,12 @@ public enum WGEasyAPI {
             }
             return WGEasyAPIError(.unauthorized, "HTTP \(status)")
         }
-        if status == 404, path.hasPrefix("/api/client") || path == "/api/information" {
+        if status == 404, path == "/api/client" || path == "/api/information" {
             return WGEasyAPIError(.notVersion15, "HTTP 404 sur \(path)")
+        }
+        // 404 sur la fiche d'un client : il a été supprimé ailleurs ; rien de bloquant.
+        if status == 404, path.hasPrefix("/api/client/") {
+            return WGEasyAPIError(.clientNotFound, "HTTP 404 sur \(path)")
         }
         let message = (try? JSONSerialization.jsonObject(with: body) as? [String: Any])
             .flatMap { ($0["message"] as? String) ?? ($0["statusMessage"] as? String) }
@@ -406,11 +429,14 @@ public enum WGEasyHTTP {
         configuration.timeoutIntervalForResource = 20
         let session = URLSession(configuration: configuration)
         defer { session.finishTasksAndInvalidate() }
+        if WGEasyAPI.plainHTTPBlocked(base) { return .failure(WGEasyAPIError(.plainHTTPRefused, base.host ?? "")) }
         do {
             let (data, response) = try await session.data(for: WGEasyAPI.request(route, base: base, user: user, password: password))
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             if let error = WGEasyAPI.classify(status: status, body: data, path: route.path) { return .failure(error) }
             return .success(data)
+        } catch let error as URLError where error.code == .appTransportSecurityRequiresSecureConnection {
+            return .failure(WGEasyAPIError(.plainHTTPRefused, base.host ?? ""))
         } catch {
             return .failure(WGEasyAPIError(.unreachable, error.localizedDescription))
         }

@@ -106,7 +106,8 @@ final class WireGuardServerModel: ObservableObject {
             history = [WireGuardChangeRecord(date: now.addingTimeInterval(-2 * 86_400), summary: "Client «\u{00A0}Fournisseur – accès temporaire\u{00A0}» ajouté (expire dans 5 jours).",
                                              ok: true, undo: nil)]
             // Captures : NETSCOPE_REMOTE_VIEW=wireguard-serveur (tableau de bord), « wireguard-serveur-2fa »
-            // (API refusée, lecture seule), « wireguard-serveur-14 » (wg-easy 14), « wireguard-serveur-confirmer ».
+            // (API refusée, lecture seule), « wireguard-serveur-14 » (wg-easy 14), « wireguard-serveur-confirmer »,
+            // « wireguard-serveur-conf » (client ajouté : .conf et code QR fictifs).
             switch ProcessInfo.processInfo.environment["NETSCOPE_REMOTE_VIEW"] {
             case "wireguard-serveur"?:
                 isShown = true
@@ -121,6 +122,11 @@ final class WireGuardServerModel: ObservableObject {
                 apiInfo = nil
                 apiError = WGEasyAPIError(.notVersion15, "HTTP 404 sur /api/client")
                 status = WireGuardServerDemo.status(now: now, edition: .v14)
+            case "wireguard-serveur-conf"?:
+                isShown = true
+                if let client = apiClients?.filter(\.enabled).max(by: { $0.id < $1.id }) {
+                    shownConfig = WireGuardShownConfig(name: client.name, text: WireGuardServerDemo.configuration(for: client))
+                }
             case "wireguard-serveur-confirmer"?:
                 isShown = true
                 if let client = apiClients?.first(where: { $0.id == 6 }) { askToggle(client.id, name: client.name, enable: false) }
@@ -574,7 +580,9 @@ final class WireGuardServerModel: ObservableObject {
             switch outcome {
             case .success(let output):
                 let before = output.values["version_avant"] ?? "", after = output.values["version_apres"] ?? ""
-                let summary = output.outcome == .ok ? (before.isEmpty || after.isEmpty ? "wg-easy mis à jour." : "wg-easy \(before) → \(after).")
+                let summary = output.outcome == .ok
+                    ? (before.isEmpty || after.isEmpty ? "wg-easy mis à jour."
+                       : before == after ? "wg-easy \(after), déjà à jour." : "wg-easy \(before) → \(after).")
                     : output.summary(for: .updateRustDesk)
                 record = WireGuardChangeRecord(date: Date(), summary: summary, ok: output.outcome == .ok, undo: nil, steps: output.steps)
             case .failure(let error):
@@ -605,6 +613,7 @@ final class WireGuardServerModel: ObservableObject {
                 self.shownConfig = WireGuardShownConfig(name: client.name, text: String(decoding: data, as: UTF8.self))
             case .failure(let error):
                 self.lastResult = WireGuardChangeRecord(date: Date(), summary: "Fichier .conf non lu\u{00A0}: \(error.title)", ok: false, undo: nil)
+                if error.kind == .clientNotFound { self.refresh() }
             }
         }
     }

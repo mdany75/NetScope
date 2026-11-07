@@ -75,11 +75,20 @@ public enum WireGuardServerScript {
     section BASE
     if ! command -v sqlite3 >/dev/null 2>&1; then echo 'SQLITE absent'
     elif dk exec "$C" test -f /etc/wireguard/wg-easy.db 2>/dev/null; then
-      T=$(mktemp -d /tmp/netscope-wg.XXXXXX) && chmod 700 "$T"
-      for f in wg-easy.db wg-easy.db-wal wg-easy.db-shm; do dk cp "$C:/etc/wireguard/$f" "$T/$f" >/dev/null 2>&1; done
-      [ "$DKDIRECT" = 1 ] || asroot chown -R "$(id -u)" "$T" 2>/dev/null
-      sqlite3 -readonly -separator '|' "$T/wg-easy.db" "SELECT id, replace(replace(name,'|','/'),char(10),' '), IFNULL(ipv4_address,''), IFNULL(ipv6_address,''), IFNULL(public_key,''), enabled, IFNULL(expires_at,'') FROM clients_table ORDER BY id;" 2>/dev/null | sed 's/^/client|/'
-      if [ "$DKDIRECT" = 1 ]; then rm -rf "$T"; else asroot rm -rf "$T"; fi
+      # Copie de la base (clés des clients) : effacée à la sortie, même si ssh est coupé ou sqlite3 bloqué.
+      T=$(mktemp -d /tmp/netscope-wg.XXXXXX 2>/dev/null) || T=
+      case "$T" in /tmp/netscope-wg.?*) ;; *) T= ;; esac
+      if [ -n "$T" ] && [ -d "$T" ]; then
+        trap 'if [ -n "$T" ]; then asroot rm -rf "$T" 2>/dev/null; rm -rf "$T" 2>/dev/null; fi' EXIT
+        trap 'exit 1' HUP INT TERM PIPE
+        chmod 700 "$T"
+        for f in wg-easy.db wg-easy.db-wal wg-easy.db-shm; do dk cp "$C:/etc/wireguard/$f" "$T/$f" >/dev/null 2>&1; done
+        [ "$DKDIRECT" = 1 ] || asroot chown -R "$(id -u)" "$T" 2>/dev/null
+        timeout 15 sqlite3 -readonly -separator '|' "$T/wg-easy.db" "SELECT id, replace(replace(name,'|','/'),char(10),' '), IFNULL(ipv4_address,''), IFNULL(ipv6_address,''), IFNULL(public_key,''), enabled, IFNULL(expires_at,'') FROM clients_table ORDER BY id;" 2>/dev/null | sed 's/^/client|/'
+        if [ "$DKDIRECT" = 1 ]; then rm -rf "$T"; else asroot rm -rf "$T"; fi
+        rm -rf "$T" 2>/dev/null; T=
+      else echo 'BASE erreur'
+      fi
     fi
     section JOURNAUX
     dk logs --tail 60 "$C" 2>&1 | tail -n 60 | cut -c1-300
@@ -469,7 +478,12 @@ public enum WireGuardServerActionScript {
     DIR=$(lab com.docker.compose.project.working_dir)
     PROJ=$(lab com.docker.compose.project)
     CFG=$(lab com.docker.compose.project.config_files)
+    SVC=$(lab com.docker.compose.service)
     [ -n "$DIR" ] || { etape echec "wg-easy n’a pas été lancé par docker compose : mise à jour automatique non prise en charge."; fin echec; }
+    # Seul le service de wg-easy est tiré et recréé (--no-deps) : les autres services du même compose n’y passent pas.
+    case "$SVC" in
+      ''|-*|*[!A-Za-z0-9._-]*) etape echec "Service compose de wg-easy introuvable (étiquette com.docker.compose.service) : rien n’est changé."; fin echec ;;
+    esac
     if dkl compose version >/dev/null 2>&1; then DCV=2
     elif command -v docker-compose >/dev/null 2>&1; then DCV=1
     else etape echec "Ni « docker compose » ni « docker-compose » sur le serveur."; fin echec; fi
@@ -505,11 +519,11 @@ public enum WireGuardServerActionScript {
     RETOUR="$REPO:netscope-avant-$STAMP"
     if dk tag "$IID" "$RETOUR" >/dev/null 2>&1; then etape ok "Image actuelle étiquetée $RETOUR."; val image_retour "$RETOUR"
     else etape echec "Étiquette de retour impossible : rien n’est changé."; fin echec; fi
-    if dc pull >/dev/null 2>&1; then etape ok "docker compose pull terminé."
+    if dc pull "$SVC" >/dev/null 2>&1; then etape ok "docker compose pull $SVC terminé."
     else etape echec "docker compose pull a échoué (réseau, registre) : rien n’est changé."; fin echec; fi
     NID=$(dk image inspect --format '{{.Id}}' "$IMG" 2>/dev/null)
     if [ "$NID" = "$IID" ]; then etape info "Déjà à jour : aucune nouvelle image, rien n’est redémarré."; val version_apres "$V1"; fin ok; fi
-    if dc up -d >/dev/null 2>&1; then etape ok "docker compose up -d terminé."; else etape attention "docker compose up -d a signalé une erreur."; fi
+    if dc up -d --no-deps "$SVC" >/dev/null 2>&1; then etape ok "docker compose up -d $SVC terminé (autres services intacts)."; else etape attention "docker compose up -d $SVC a signalé une erreur."; fi
     verifier() {
       i=0
       while [ $i -lt 15 ]; do
@@ -527,7 +541,7 @@ public enum WireGuardServerActionScript {
       fin ok
     fi
     etape echec "wg-easy ne repart pas après la mise à jour : retour à l’image précédente."
-    if dk tag "$RETOUR" "$IMG" >/dev/null 2>&1 && dc up -d >/dev/null 2>&1 && verifier; then
+    if dk tag "$RETOUR" "$IMG" >/dev/null 2>&1 && dc up -d --no-deps "$SVC" >/dev/null 2>&1 && verifier; then
       etape ok "Image précédente remise ($RETOUR) : wg-easy tourne de nouveau."
       val retour ok
     else

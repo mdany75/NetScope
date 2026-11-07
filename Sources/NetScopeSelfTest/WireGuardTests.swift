@@ -104,6 +104,15 @@ func registerWireGuardTests(_ suite: TestSuite) {
         try expectEqual(WGEasyAPI.classify(status: 401, body: Data(#"{"message":"Invalid TOTP code"}"#.utf8), path: "/api/client")?.kind, .twoFactor, "2FA détecté")
         try expectEqual(WGEasyAPI.classify(status: 401, body: Data(#"{"message":"Unauthorized"}"#.utf8), path: "/api/client")?.kind, .unauthorized, "refus")
         try expectEqual(WGEasyAPI.classify(status: 404, body: Data(), path: "/api/client")?.kind, .notVersion15, "pas une 15")
+        let gone = try wgUnwrap(WGEasyAPI.classify(status: 404, body: Data(), path: "/api/client/7"), "404 sur un client")
+        try expectEqual(gone.kind, .clientNotFound, "client supprimé ailleurs")
+        try expect(!gone.readOnly, "un client disparu ne coupe pas la gestion")
+        try expectEqual(WGEasyAPI.classify(status: 404, body: Data(), path: "/api/client/7/enable")?.kind, .clientNotFound, "404 sur une action")
+        for (address, blocked) in [("http://wg.exemple.ca:51821", true), ("http://wg-easy.local:51821", false), ("http://192.0.2.10:51821", false),
+                                   ("http://serveur:51821", false), ("https://wg.exemple.ca", false), ("http://[2001:db8::1]:51821", false)] {
+            try expectEqual(WGEasyAPI.plainHTTPBlocked(try WGEasyAPI.baseURL(address)), blocked, "ATS\u{00A0}: \(address)")
+        }
+        try expect(WGEasyAPIError(.plainHTTPRefused).readOnly, "HTTP refusé : lecture seule")
         let failure = try wgUnwrap(WGEasyAPI.classify(status: 500, body: Data(#"{"statusMessage":"boom"}"#.utf8), path: "/api/client/2"), "500")
         try expectEqual(failure.detail, "HTTP 500\u{00A0}: boom", "message du serveur")
         try expect(WGEasyAPIError(.twoFactor).readOnly && WGEasyAPIError(.unauthorized).readOnly && !WGEasyAPIError(.unreachable).readOnly,
@@ -266,5 +275,12 @@ func registerWireGuardTests(_ suite: TestSuite) {
         try expect(update.contains("/var/backups/netscope-wgeasy-"), "configuration sauvegardée")
         try expect(update.contains("retour à l’image précédente"), "retour arrière")
         try expect(update.contains("umask 077"), "sauvegarde lisible par root seulement")
+        try expect(read.contains("trap '") && read.contains(" EXIT"), "copie de la base effacée même si ssh est coupé")
+        try expect(read.contains("timeout 15 sqlite3"), "sqlite3 borné dans le temps")
+        try expect(read.contains("[ -n \"$T\" ] && [ -d \"$T\" ]"), "aucune copie sans dossier temporaire")
+        try expect(update.contains("SVC=$(lab com.docker.compose.service)"), "service compose de wg-easy lu")
+        try expect(update.contains("dc pull \"$SVC\""), "seule l'image de wg-easy est tirée")
+        try expect(update.components(separatedBy: "dc up -d --no-deps \"$SVC\"").count == 3, "seul wg-easy est recréé (mise à jour et retour)")
+        try expect(!update.contains("dc up -d >") && !update.contains("dc pull >"), "jamais tout le projet compose")
     }
 }

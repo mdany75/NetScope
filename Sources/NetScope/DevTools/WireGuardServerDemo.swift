@@ -5,7 +5,8 @@ import NetScopeCore
 /// assistance.exemple.ca). Noms inventés, adresses de documentation (198.51.100.0/24, 203.0.113.0/24),
 /// clés publiques fabriquées ; aucune clé privée, aucun ssh, aucune requête.
 enum WireGuardServerDemo {
-    static let apiURL = "http://assistance.exemple.ca:51821"
+    // Nom en .local : macOS (App Transport Security) refuse le HTTP simple vers un nom de domaine complet.
+    static let apiURL = "http://wg-easy.local:51821"
 
     /// Clé publique fictive (base64 de 32 octets tirés du nom).
     static func key(_ seed: String) -> String {
