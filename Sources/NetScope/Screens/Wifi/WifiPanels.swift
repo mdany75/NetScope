@@ -231,9 +231,8 @@ struct WifiConnectionPanel: View {
                     .font(.system(size: 12, weight: .semibold))
                 if !store.roams.isEmpty {
                     Button(showRoams ? "Masquer l’historique" : "Voir l’historique") { showRoams.toggle() }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Theme.accentStrong)
+                        .buttonStyle(.secondary)
+                        .controlSize(.small)
                 } else {
                     Text("depuis l’ouverture").font(Theme.caption).foregroundStyle(Theme.textSecondary)
                 }
@@ -979,11 +978,6 @@ struct WifiRecommendationsPanel: View {
                     WifiHeading("Recommandations")
                     Text("\(recos.count)").font(Theme.mono(11, weight: .semibold)).foregroundStyle(Theme.neutralText)
                         .padding(.horizontal, 6).padding(.vertical, 1).background(Capsule().fill(Theme.neutralSoft))
-                    Spacer()
-                    if !store.dismissed.isEmpty {
-                        Button("Rétablir (\(store.dismissed.count))") { store.dismissed = [] }
-                            .buttonStyle(.plain).font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.accentStrong)
-                    }
                 }
                 if recos.isEmpty {
                     Text(store.networks.isEmpty ? "Lancez une analyse pour obtenir des recommandations." :
@@ -991,6 +985,12 @@ struct WifiRecommendationsPanel: View {
                         .font(Theme.small).foregroundStyle(Theme.textSecondary).padding(.vertical, 8)
                 }
                 ForEach(recos) { reco in card(reco) }
+                if !store.dismissed.isEmpty {
+                    ActionRow {
+                        Button("Rétablir (\(store.dismissed.count))") { store.dismissed = [] }
+                            .buttonStyle(.secondary)
+                    }
+                }
             }
         }
     }
@@ -1029,10 +1029,11 @@ struct WifiRecommendationsPanel: View {
                 Text(reco.title).font(.system(size: 12, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
                 Text(reco.detail).font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
                 if reco.networkID != nil || reco.band != nil {
-                    Button(reco.networkID != nil ? "Voir le réseau" : "Voir la bande \(reco.band!.label)") { store.focus(reco) }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .padding(.top, 3)
+                    ActionRow {
+                        Button(reco.networkID != nil ? "Voir le réseau" : "Voir la bande \(reco.band!.label)") { store.focus(reco) }
+                            .buttonStyle(.secondary)
+                    }
+                    .padding(.top, 3)
                 }
             }
         }

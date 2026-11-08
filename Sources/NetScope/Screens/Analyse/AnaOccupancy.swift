@@ -338,23 +338,22 @@ struct AnaOccupancyPanel: View {
             Text(note(cell, record: record))
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 2) {
+            ActionRow {
                 if let record, cell.state != .libre, cell.state != .libreDHCP {
                     Button("Ouvrir la fiche") {
                         model.selectedSite = siteKey
                         model.selectedKey = record.key
                         state.open(.inventaire)
                     }
-                    .buttonStyle(.ghost)
+                    .buttonStyle(.secondary)
                 }
                 if cell.state != .reseau, cell.exclusion == nil {
-                    Button("Ping continu") { state.sendToPing(cell.ip.description) }.buttonStyle(.ghost)
+                    Button("Ping continu") { state.sendToPing(cell.ip.description) }.buttonStyle(.secondary)
                 }
                 if cell.state == .libre {
-                    Button(copied == cell.ip ? "Copiée" : "Copier") { copy(cell.ip) }.buttonStyle(.ghost)
+                    Button(copied == cell.ip ? "Copiée" : "Copier") { copy(cell.ip) }.buttonStyle(.secondary)
                 }
             }
-            .padding(.leading, -8)
         }
         .padding(12)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panelMuted))
@@ -456,24 +455,26 @@ struct AnaOccupancyPanel: View {
         return VStack(alignment: .leading, spacing: 4) {
             Text("PROCHAINE IP LIBRE HORS ÉTENDUE DHCP · \(pageSubnet.description)")
                 .font(Theme.captionSemibold).kerning(0.4).foregroundStyle(Theme.textSecondary).lineLimit(1)
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                if let first = candidates.first {
+            if let first = candidates.first {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(first.description).font(Theme.mono(14, weight: .semibold)).foregroundStyle(Theme.success)
                         .textSelection(.enabled)
                     if candidates.count > 1 {
                         Text("puis " + candidates.dropFirst().map(\.description).joined(separator: ", "))
                             .font(Theme.mono(11)).foregroundStyle(Theme.textTertiary).lineLimit(1).truncationMode(.tail)
                     }
-                    Spacer(minLength: 4)
-                    Button(copied == first ? "Copiée" : "Copier") { copy(first) }.buttonStyle(.ghost)
-                    Button("Vérifier par ping") { state.sendToPing(first.description) }.buttonStyle(.ghost)
-                } else {
-                    Text("Aucune adresse libre hors étendue DHCP dans cette page.").foregroundStyle(Theme.textSecondary)
-                    Spacer(minLength: 0)
                 }
+                ActionRow {
+                    Button(copied == first ? "Copiée" : "Copier") { copy(first) }.buttonStyle(.secondary)
+                    Button("Vérifier par ping") { state.sendToPing(first.description) }.buttonStyle(.secondary)
+                }
+                .padding(.top, 4)
+            } else {
+                Text("Aucune adresse libre hors étendue DHCP dans cette page.")
+                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .font(Theme.small)
         .padding(.horizontal, 10).padding(.vertical, 8)
         .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
         .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))

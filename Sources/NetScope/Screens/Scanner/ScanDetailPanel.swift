@@ -287,15 +287,14 @@ struct ScanDetailLatency: View {
                 }
                 .frame(height: 44)
                 .padding(.top, 8)
-                HStack {
-                    Spacer()
+                ActionRow {
                     Button {
                         scan.measureLatency(of: device)
                     } label: {
                         Label(scan.measuring.contains(device.id) ? "Mesure… \(history.count)/30" : "Mesurer",
                               systemImage: "waveform.path.ecg")
                     }
-                    .buttonStyle(.ghost)
+                    .buttonStyle(.secondary)
                     .disabled(scan.measuring.contains(device.id))
                 }
                 .padding(.top, 2)
@@ -405,15 +404,10 @@ struct ScanDetailActions: View {
                 if let toast = scan.toast, toast.place == .actions {
                     ScanToastView(toast: toast).padding(.top, 8)
                 }
-                Button { state.showDevice(device.id) } label: {
-                    HStack(spacing: 6) {
-                        Text("Voir la fiche complète")
-                        Image(systemName: "arrow.right").font(.system(size: 11, weight: .semibold))
-                    }
-                    .font(Theme.bodySemibold)
-                    .foregroundStyle(Theme.accent)
+                ActionRow {
+                    Button("Voir la fiche complète") { state.showDevice(device.id) }
+                        .buttonStyle(.secondary)
                 }
-                .buttonStyle(.plain)
                 .padding(.top, 12)
             }
         }

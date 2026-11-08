@@ -90,20 +90,8 @@ struct DiskSpeedView: View {
     private func shareBar(_ share: DiskShareLocation, location: DiskLocation) -> some View {
         let testing = model.testingServers.contains(share.id)
         return VStack(alignment: .leading, spacing: 8) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) {
-                    shareSummary(share, location: location)
-                    Spacer(minLength: 8)
-                    shareButtons(share, testing: testing)
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                    shareSummary(share, location: location)
-                    HStack(spacing: 8) {
-                        Spacer(minLength: 0)
-                        shareButtons(share, testing: testing)
-                    }
-                }
-            }
+            shareSummary(share, location: location)
+            ActionRow { shareButtons(share, testing: testing) }
             if let report = model.serverReports[share.id] {
                 DiskServerReportView(report: report, kind: share.kind, secure: share.secure, customPort: share.port)
             }

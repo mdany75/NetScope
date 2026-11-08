@@ -106,20 +106,21 @@ struct RegPortActionsPanel: View {
             Text("Distincts de ceux de lecture (Réglages › Identifiants)\u{00A0}: créez sur le switch une communauté RW ou un utilisateur v3 limité à POWER-ETHERNET-MIB, et n’autorisez que ce Mac à écrire. En v2c, la communauté circule en clair.")
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 8) {
                 if let message {
                     Text(message.text).font(Theme.small).foregroundStyle(message.tone.foreground)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer(minLength: 8)
-                Button("Effacer") { erase() }
-                    .buttonStyle(.secondary)
-                    .regDisabled(!model.hasWriteCredentials)
-                Button(action: save) { Label("Enregistrer dans le Trousseau", systemImage: "lock") }
-                    .buttonStyle(.primary)
-                    // Grisé seulement sans saisie : sinon save() explique ce qui ne va pas
-                    // (communauté « public », mot de passe trop court…).
-                    .regDisabled(draftIsEmpty)
+                ActionRow {
+                    Button("Effacer") { erase() }
+                        .buttonStyle(.secondary)
+                        .regDisabled(!model.hasWriteCredentials)
+                    Button(action: save) { Label("Enregistrer dans le Trousseau", systemImage: "lock") }
+                        .buttonStyle(.primary)
+                        // Grisé seulement sans saisie : sinon save() explique ce qui ne va pas
+                        // (communauté « public », mot de passe trop court…).
+                        .regDisabled(draftIsEmpty)
+                }
             }
         }
         .padding(12)

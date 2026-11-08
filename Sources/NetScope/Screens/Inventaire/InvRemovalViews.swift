@@ -146,11 +146,6 @@ struct InvArchivePanel: View {
                             .font(Theme.small).foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    Spacer(minLength: 8)
-                    Button(action: onRestore) { Label("Restaurer", systemImage: "arrow.uturn.backward") }
-                        .buttonStyle(.primary)
-                    Button(role: .destructive, action: onPurge) { Label("Supprimer définitivement…", systemImage: "trash") }
-                        .buttonStyle(.secondary)
                 }
                 Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 6) {
                     row("Adresse", record.addressLabel + " · " + (record.mac?.formatted(.upperColon) ?? "MAC inconnue"), mono: true)
@@ -169,6 +164,12 @@ struct InvArchivePanel: View {
                 }
                 Text("Restaurer remet la fiche telle qu’elle était (notes, garantie, historique, pièces jointes) dans l’inventaire de son site.")
                     .font(Theme.caption).foregroundStyle(Theme.textTertiary)
+                ActionRow {
+                    Button(action: onRestore) { Label("Restaurer", systemImage: "arrow.uturn.backward") }
+                        .buttonStyle(.primary)
+                    Button(role: .destructive, action: onPurge) { Label("Supprimer définitivement…", systemImage: "trash") }
+                        .buttonStyle(.secondary)
+                }
             }
         }
     }

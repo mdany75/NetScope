@@ -26,20 +26,9 @@ struct InvDetectedHardwareBlock: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
-                    title
-                    sourcePill
-                    Spacer(minLength: 4)
-                    readButton
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        title
-                        sourcePill
-                    }
-                    readButton.padding(.leading, -8)
-                }
+            HStack(spacing: 8) {
+                title
+                sourcePill
             }
             if let detected {
                 Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 6) {
@@ -61,6 +50,7 @@ struct InvDetectedHardwareBlock: View {
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            ActionRow { readButton }
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -85,7 +75,7 @@ struct InvDetectedHardwareBlock: View {
         HStack(spacing: 6) {
             if isReading { ProgressView().controlSize(.small) }
             Button(isReading ? "Lecture…" : (detected == nil ? "Lire la fiche matériel" : "Relire la fiche matériel")) { feed.read(record, site: siteKey, state: state) }
-                .buttonStyle(.ghost)
+                .buttonStyle(.secondary)
                 .disabled(isReading || !canRead)
                 .help(canRead ? "Lire le modèle, le numéro de série et le firmware de cet appareil (SNMP, ou la FortiGate pour un appareil Fortinet)"
                       : "Lecture possible seulement pour un appareil du site actif, avec une adresse IP")
@@ -155,17 +145,17 @@ struct DeviceDetectedHardwareRows: View {
                 DeviceKVRow(key: "Fiche lue par", value: detected.sourceLabel, mono: false,
                             detail: InvFormat.relative(detected.readAt).lowercased())
             }
-            HStack(spacing: 6) {
-                if feed.isReading(site: model.siteKey, key: record.key) { ProgressView().controlSize(.small) }
-                Button(record.detectedHardware == nil ? "Lire la fiche matériel" : "Relire la fiche matériel") {
-                    feed.read(record, site: model.siteKey, state: state)
+            ActionRow {
+                HStack(spacing: 6) {
+                    if feed.isReading(site: model.siteKey, key: record.key) { ProgressView().controlSize(.small) }
+                    Button(record.detectedHardware == nil ? "Lire la fiche matériel" : "Relire la fiche matériel") {
+                        feed.read(record, site: model.siteKey, state: state)
+                    }
+                    .buttonStyle(.secondary)
+                    .disabled(feed.isReading(site: model.siteKey, key: record.key))
+                    .help("Modèle, numéro de série et firmware par SNMP, ou par la FortiGate pour un appareil Fortinet")
                 }
-                .buttonStyle(.ghost)
-                .disabled(feed.isReading(site: model.siteKey, key: record.key))
-                .help("Modèle, numéro de série et firmware par SNMP, ou par la FortiGate pour un appareil Fortinet")
-                Spacer(minLength: 0)
             }
-            .padding(.leading, -8)
             .padding(.top, 4)
         }
     }

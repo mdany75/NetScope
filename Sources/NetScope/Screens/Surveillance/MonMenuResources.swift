@@ -11,17 +11,7 @@ struct MonMenuResourceTile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                MonHeading("Ce Mac")
-                Spacer(minLength: 4)
-                if let mac = thisMac {
-                    Button("Détails") { show(mac) }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Theme.accentStrong)
-                        .help("Ouvrir l’onglet Ressources de ce Mac")
-                }
-            }
+            MonHeading("Ce Mac")
             row("Processeur", percent: monitor.cpu?.total, spark: monitor.timeline.series("cpu"))
             row("Mémoire", percent: monitor.memory?.usedPercent, spark: [],
                 note: monitor.memory?.pressure.flatMap { $0 == .normal ? nil : "pression " + $0.label.lowercased() })
@@ -31,6 +21,15 @@ struct MonMenuResourceTile: View {
                 Text("↓\u{00A0}\(ResourceFormat.bitsPerSecond(total?.inBps))  ↑\u{00A0}\(ResourceFormat.bitsPerSecond(total?.outBps))")
                     .font(Theme.mono(11)).foregroundStyle(Theme.text).lineLimit(1)
                 Spacer(minLength: 0)
+            }
+            if let mac = thisMac {
+                // Petite taille : tuile dense du menu de la barre de menus.
+                ActionRow {
+                    Button("Détails") { show(mac) }
+                        .buttonStyle(.secondary)
+                        .controlSize(.small)
+                        .help("Ouvrir l’onglet Ressources de ce Mac")
+                }
             }
         }
         .padding(.top, 7)

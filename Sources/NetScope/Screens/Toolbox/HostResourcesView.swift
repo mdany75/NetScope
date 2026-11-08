@@ -360,17 +360,8 @@ struct HostResourcesView: View {
     private func hostBar(_ host: HostResourcesHost) -> some View {
         let device = host.device
         return VStack(alignment: .leading, spacing: 10) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) {
-                    identity(host)
-                    Spacer(minLength: 8)
-                    hostActions
-                }
-                VStack(alignment: .leading, spacing: 10) {
-                    identity(host)
-                    hostActions
-                }
-            }
+            identity(host)
+            ActionRow { hostActions }
             HStack(spacing: 6) {
                 Image(systemName: "key").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
                 Text(credentials(for: device))
@@ -380,8 +371,8 @@ struct HostResourcesView: View {
                     RegNavigation.shared.section = .identifiants
                     state.open(.reglages)
                 }
-                .buttonStyle(.link)
-                .font(Theme.caption)
+                .buttonStyle(.secondary)
+                .controlSize(.small)
                 .help("Réglages › Identifiants\u{00A0}: communauté SNMP v2c et utilisateurs SNMP v3 par site")
             }
         }
@@ -412,20 +403,17 @@ struct HostResourcesView: View {
         }
     }
 
-    private var hostActions: some View {
-        HStack(spacing: 8) {
-            Button { model.openFullSheet(state: state) } label: {
-                Label("Ouvrir la fiche complète", systemImage: Screen.appareil.symbol)
-            }
-            .buttonStyle(.secondary)
-            .help("Ouvrir la fiche Appareil de ce poste, sur l’onglet Ressources")
-            Button { model.close() } label: {
-                Label("Changer de poste", systemImage: "xmark.circle")
-            }
-            .buttonStyle(.secondary)
-            .help("Fermer ce poste et revenir aux postes récents")
+    @ViewBuilder private var hostActions: some View {
+        Button { model.openFullSheet(state: state) } label: {
+            Label("Ouvrir la fiche complète", systemImage: Screen.appareil.symbol)
         }
-        .fixedSize()
+        .buttonStyle(.secondary)
+        .help("Ouvrir la fiche Appareil de ce poste, sur l’onglet Ressources")
+        Button { model.close() } label: {
+            Label("Changer de poste", systemImage: "xmark.circle")
+        }
+        .buttonStyle(.secondary)
+        .help("Fermer ce poste et revenir aux postes récents")
     }
 
     private func origin(_ host: HostResourcesHost) -> String {
@@ -459,7 +447,8 @@ struct HostResourcesView: View {
                 ToolFieldLabel("Postes consultés récemment")
                 Spacer()
                 if !model.recents.isEmpty {
-                    Button("Effacer") { model.clearRecents() }.buttonStyle(.ghost)
+                    Button("Effacer") { model.clearRecents() }
+                        .buttonStyle(.secondary).controlSize(.small)
                 }
             }
             if model.recents.isEmpty {

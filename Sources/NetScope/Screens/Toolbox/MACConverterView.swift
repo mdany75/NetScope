@@ -73,10 +73,8 @@ struct MACConverterView: View {
         return VStack(alignment: .leading, spacing: 6) {
             ToolFieldLabel("Dans l’inventaire")
             if let device {
-                Button { state.showDevice(device.id) } label: {
-                    Text("\(device.ip.description) · \(device.displayName)").font(Theme.bodySemibold).foregroundStyle(Theme.accent)
-                }
-                .buttonStyle(.plain)
+                Button("\(device.ip.description) · \(device.displayName)") { state.showDevice(device.id) }
+                    .buttonStyle(.secondary)
                 Text([device.switchLocation, device.vlan.map { "VLAN \($0)" }].compactMap { $0 }.joined(separator: " · ").toolIfEmpty("—"))
                     .font(Theme.mono(12)).foregroundStyle(Theme.textSecondary)
             } else {

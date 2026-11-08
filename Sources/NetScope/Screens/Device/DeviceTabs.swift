@@ -411,10 +411,9 @@ struct DeviceNotesTab: View {
                         notes.setNote(text, for: device)
                     }
                 }
-            HStack(spacing: 10) {
-                Text("\(draft.count) caractères · " + (notes.isSaved(device) ? "enregistré localement" : "rien d’enregistré"))
-                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                Spacer()
+            Text("\(draft.count) caractères · " + (notes.isSaved(device) ? "enregistré localement" : "rien d’enregistré"))
+                .font(Theme.small).foregroundStyle(Theme.textSecondary)
+            ActionRow {
                 Button("Ajouter l’horodatage") {
                     let formatter = DateFormatter()
                     formatter.dateFormat = "yyyy-MM-dd HH:mm"

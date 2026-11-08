@@ -306,16 +306,9 @@ struct RegAlertPhoneFooter: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
-                    vaultNote
-                    Spacer(minLength: 8)
-                    testButton
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                    vaultNote
-                    testButton
-                }
+            VStack(alignment: .leading, spacing: 8) {
+                vaultNote
+                ActionRow { testButton }
             }
             RegAlertTestResult(channel: channel)
         }

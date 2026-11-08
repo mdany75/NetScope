@@ -126,17 +126,8 @@ struct InvAttachmentsPanel: View {
         let list = record.attachmentList.sorted { $0.added > $1.added }
         Panel(padding: 16) {
             VStack(alignment: .leading, spacing: 10) {
-                SectionHeader(title: "Pièces jointes",
-                              subtitle: list.isEmpty ? "Factures, contrats, photos…" : "\(list.count) fichier\(list.count > 1 ? "s" : "")") {
-                    HStack(spacing: 6) {
-                        if !list.isEmpty, !model.isEphemeral {
-                            Button("Afficher dans le Finder") { model.revealAttachments(of: record, site: siteKey) }
-                                .buttonStyle(.ghost)
-                        }
-                        Button { importing = true } label: { Label("Ajouter…", systemImage: "paperclip") }
-                            .buttonStyle(.secondary)
-                    }
-                }
+                SectionHeader("Pièces jointes",
+                              subtitle: list.isEmpty ? "Factures, contrats, photos…" : "\(list.count) fichier\(list.count > 1 ? "s" : "")")
                 if list.isEmpty {
                     Text("Aucune pièce jointe. Glissez des fichiers ici ou choisissez «\u{00A0}Ajouter…\u{00A0}»\u{00A0}: ils sont copiés dans le dossier de l’appareil (Application Support/NetScope/Inventaire).")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
@@ -162,6 +153,14 @@ struct InvAttachmentsPanel: View {
                         .accessibilityLabel("Retirer \(attachment.fileName)")
                     }
                     .padding(.vertical, 2)
+                }
+                ActionRow {
+                    if !list.isEmpty, !model.isEphemeral {
+                        Button("Afficher dans le Finder") { model.revealAttachments(of: record, site: siteKey) }
+                            .buttonStyle(.secondary)
+                    }
+                    Button { importing = true } label: { Label("Ajouter…", systemImage: "paperclip") }
+                        .buttonStyle(.secondary)
                 }
             }
         }

@@ -705,12 +705,13 @@ struct SwitchPortDetail: View {
                     }
                     if entries.count > 8 || (uplinks.contains(iface.index) && entries.count > 4) {
                         // Note 83 : la table MAC est dans l'onglet Appareils, filtrée sur ce port.
-                        Button("… et \(entries.count - (uplinks.contains(iface.index) ? 4 : 8)) autres\u{00A0}: voir la table MAC") {
-                            store.tableFilter = "port:\(iface.name)"
-                            SwitchTabState.shared.jump(.appareils, host: snapshot.id, port: iface.index, in: state)
+                        ActionRow {
+                            Button("… et \(entries.count - (uplinks.contains(iface.index) ? 4 : 8)) autres\u{00A0}: voir la table MAC") {
+                                store.tableFilter = "port:\(iface.name)"
+                                SwitchTabState.shared.jump(.appareils, host: snapshot.id, port: iface.index, in: state)
+                            }
+                            .buttonStyle(.secondary)
                         }
-                        .buttonStyle(.link)
-                        .font(Theme.small)
                     }
                 }
             }
@@ -1388,17 +1389,29 @@ struct SwitchFlowLayout: Layout {
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var x = bounds.minX, y = bounds.minY, lineHeight: CGFloat = 0
+        // D'abord répartir les vues en lignes : il faut la hauteur de la ligne pour y centrer chaque vue
+        // (boutons et menus de hauteurs différentes restent alignés).
+        var lines: [[(view: LayoutSubview, size: CGSize)]] = [[]]
+        var cursor = bounds.minX
         for view in subviews {
             let size = view.sizeThatFits(.unspecified)
-            if x > bounds.minX, x + size.width > bounds.maxX {
-                x = bounds.minX
-                y += lineHeight + lineSpacing
-                lineHeight = 0
+            if cursor > bounds.minX, cursor + size.width > bounds.maxX {
+                lines.append([])
+                cursor = bounds.minX
             }
-            view.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-            x += size.width + spacing
-            lineHeight = max(lineHeight, size.height)
+            lines[lines.count - 1].append((view: view, size: size))
+            cursor += size.width + spacing
+        }
+        var y = bounds.minY
+        for line in lines {
+            let lineHeight = line.map { $0.size.height }.max() ?? 0
+            var x = bounds.minX
+            for item in line {
+                item.view.place(at: CGPoint(x: x, y: y + (lineHeight - item.size.height) / 2),
+                                proposal: ProposedViewSize(item.size))
+                x += item.size.width + spacing
+            }
+            y += lineHeight + lineSpacing
         }
     }
 }

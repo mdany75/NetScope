@@ -14,15 +14,6 @@ struct RegShortcutsSection: View {
         let conflicts = store.conflicts
         RegPanel(title: "Raccourcis clavier",
                  subtitle: "Raccourcis de la barre de menus. Les actions sur la sélection s’appliquent à l’appareil choisi dans le tableau.") {
-            Button("Valeurs par défaut") {
-                recorder.stop()
-                rejection = nil
-                store.resetAll()
-            }
-            .buttonStyle(RegSmallButtonStyle())
-            .regDisabled(store.settings.customizedCount == 0)
-            .help("Remet tous les raccourcis à leurs valeurs d’origine")
-        } content: {
             VStack(alignment: .leading, spacing: 12) {
                 summary(conflicts)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 14, alignment: .top)], alignment: .leading, spacing: 14) {
@@ -33,6 +24,16 @@ struct RegShortcutsSection: View {
                 Text("Cliquez sur un raccourci puis tapez la nouvelle combinaison (avec ⌘, ⌃ ou ⌥)\u{00A0}; ⎋ annule, ⌫ retire le raccourci. Les raccourcis standard de macOS (⌘Q, ⌘H, ⌘W, ⌘C…) restent réservés.")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
+                ActionRow {
+                    Button("Valeurs par défaut") {
+                        recorder.stop()
+                        rejection = nil
+                        store.resetAll()
+                    }
+                    .buttonStyle(.secondary)
+                    .regDisabled(store.settings.customizedCount == 0)
+                    .help("Remet tous les raccourcis à leurs valeurs d’origine")
+                }
             }
         }
         .onDisappear { recorder.stop() }

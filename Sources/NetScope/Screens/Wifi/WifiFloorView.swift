@@ -162,7 +162,7 @@ struct WifiFloorView: View {
                 if store.isMeasuring { ProgressView().controlSize(.small) }
                 Spacer(minLength: 0)
                 Button("Annuler la dernière mesure") { store.removeLastMeasure() }
-                    .buttonStyle(.ghost)
+                    .buttonStyle(.secondary)
                     .disabled(floor.measures.isEmpty || store.isMeasuring)
             case .scale:
                 Image(systemName: "ruler").foregroundStyle(Theme.textSecondary)

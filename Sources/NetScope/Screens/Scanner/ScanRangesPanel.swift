@@ -176,15 +176,10 @@ struct ScanPipelineBar: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .help(help)
             Spacer(minLength: 8)
-            Button { state.open(.switchs) } label: {
-                HStack(spacing: 4) {
-                    Text("Voir les switchs")
-                    Image(systemName: "arrow.right").font(.system(size: 10, weight: .semibold))
-                }
-                .font(Theme.small.weight(.semibold))
-                .foregroundStyle(Theme.accent)
-            }
-            .buttonStyle(.plain)
+            Button("Voir les switchs") { state.open(.switchs) }
+                .buttonStyle(.secondary)
+                .controlSize(.small)
+                .fixedSize()
         }
     }
 

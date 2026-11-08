@@ -554,15 +554,14 @@ struct SSHTunnelForm: View {
                 if let error = model.tunnelDraftError {
                     SpeedBanner(text: error, tone: .critical, systemImage: "xmark.octagon")
                 }
-                HStack(spacing: 8) {
+                ActionRow {
                     Button("Enregistrer et ouvrir") { model.commitTunnelDraft(open: true) }
                         .buttonStyle(.primary)
                     Button("Enregistrer seulement") { model.commitTunnelDraft(open: false) }
                         .buttonStyle(.secondary)
                     Button("Annuler") { model.cancelDraft() }
-                        .buttonStyle(.ghost)
+                        .buttonStyle(.secondary)
                 }
-                .fixedSize()
                 helpBox.padding(.top, 4)
             }
             .frame(maxWidth: 560, alignment: .leading)

@@ -202,16 +202,7 @@ struct DeviceLookupPanel: View {
     private var recentsPanel: some View {
         Panel {
             VStack(alignment: .leading, spacing: 10) {
-                SectionHeader(title: "Consultés récemment") {
-                    HStack(spacing: 8) {
-                        if !model.formShown {
-                            Button { model.showForm() } label: { Label("Saisir un appareil à la main…", systemImage: "square.and.pencil") }
-                                .buttonStyle(.secondary)
-                        }
-                        Button { state.open(.scanner) } label: { Label("Ouvrir le Scanner", systemImage: Screen.scanner.symbol) }
-                            .buttonStyle(.secondary)
-                    }
-                }
+                SectionHeader("Consultés récemment")
                 let recents = state.siteRecentDeviceViews
                 if recents.isEmpty {
                     Text("Les fiches que vous ouvrez apparaîtront ici.")
@@ -227,6 +218,14 @@ struct DeviceLookupPanel: View {
                             .help("Ouvrir la fiche de \(recent.name)")
                         }
                     }
+                }
+                ActionRow {
+                    if !model.formShown {
+                        Button { model.showForm() } label: { Label("Saisir un appareil à la main…", systemImage: "square.and.pencil") }
+                            .buttonStyle(.secondary)
+                    }
+                    Button { state.open(.scanner) } label: { Label("Ouvrir le Scanner", systemImage: Screen.scanner.symbol) }
+                        .buttonStyle(.secondary)
                 }
             }
         }

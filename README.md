@@ -4,7 +4,7 @@
 sur plusieurs plages, dit sur quel switch et quel port chacun est branché, puis diagnostique,
 surveille, documente et ouvre une session à distance, site par site, dans une seule fenêtre.
 
-[![Version](https://img.shields.io/badge/version-1.4.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
+[![Version](https://img.shields.io/badge/version-1.5.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-lightgrey?logo=apple)](#installation)
 [![Licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
@@ -151,6 +151,8 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   masquées) ; ajouter un client (.conf, code QR, lien à usage unique), activer, désactiver,
   renommer ou supprimer par l’API de wg-easy, avec confirmation et retour arrière ; mise à jour
   de l’image avec retour arrière. Lecture seule si le 2FA est actif ou si wg-easy 14 est trouvé.
+  À l’ajout d’un client : IP autorisées, keepalive et brouillon de courriel avec les liens de
+  WireGuard, le fichier du tunnel et son code QR (rien ne part sans votre clic sur Envoyer).
 - Extraits personnalisés et **envoi d’une commande à plusieurs sessions**, avec confirmation.
 
 ### Rapports

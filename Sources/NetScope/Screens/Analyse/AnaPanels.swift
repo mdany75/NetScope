@@ -377,7 +377,7 @@ struct AnaAlertsPanel: View {
     }
 }
 
-/// Petit bouton de ligne (Accepter, Ignorer, Annuler, Exporter) : bouton natif de macOS, petite taille.
+/// Petit bouton de ligne (Accepter, Ignorer, Annuler) : bouton natif de macOS, petite taille.
 private extension View {
     func anaSmallButton() -> some View {
         buttonStyle(.bordered).controlSize(.small)
@@ -544,14 +544,15 @@ struct AnaComparePanel: View {
                     .scrollIndicators(rows.count > Self.maxVisibleRows ? .automatic : .never, axes: .vertical)
                     .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
             }
-            HStack {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Base\u{00A0}: \(before.total) appareils avant → \(after.total) après (+\(diff.added.count) −\(diff.removed.count)).")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                Spacer()
-                Button("Exporter l’écart CSV") {
-                    onExport(csv(diff), "ecart-scans-\(InvFormat.day(after.date)).csv")
+                ActionRow {
+                    Button("Exporter l’écart CSV") {
+                        onExport(csv(diff), "ecart-scans-\(InvFormat.day(after.date)).csv")
+                    }
+                    .buttonStyle(.secondary)
                 }
-                .anaSmallButton()
             }
         }
         .padding(16)

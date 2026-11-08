@@ -16,8 +16,8 @@ struct FileTransferQueueView: View {
                 Text(summary).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 Spacer()
                 Button("Effacer les terminés") { session.clearFinished() }
-                    .buttonStyle(.ghost)
-                    .font(Theme.small)
+                    .buttonStyle(.secondary)
+                    .controlSize(.small)
                     .disabled(!session.jobs.contains { $0.state == .done || $0.state == .cancelled })
             }
             .padding(.horizontal, 12)

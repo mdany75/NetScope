@@ -17,13 +17,34 @@ struct WireGuardDashboardSettings: Codable, Equatable {
 
 /// Action à confirmer : modifications par l'API (une ou plusieurs) ou mise à jour de l'image.
 struct WireGuardPendingAction: Identifiable, Equatable {
-    enum Kind: Equatable { case api([WGEasyChange]), updateImage }
+    enum Kind: Equatable { case api([WGEasyChange]), create(WireGuardCreatePlan), updateImage }
     let id = UUID()
     var kind: Kind
     var title: String
     var confirmLabel: String
     var consequences: [String]
     var destructive = false
+}
+
+/// Note 106 : nouveau client, avec son tunnel et le courriel à préparer.
+struct WireGuardCreatePlan: Equatable {
+    var name: String
+    var expiresAt: Date?
+    /// nil : réglage du serveur.
+    var allowedIPs: [String]?
+    /// nil : celui que wg-easy donne par défaut.
+    var keepalive: Int?
+    /// Destinataire du brouillon ; nil : aucun courriel.
+    var mailTo: String?
+    var needsTunnelChange: Bool { allowedIPs != nil || keepalive != nil }
+}
+
+/// Client visé par « Tunnel et keepalive… » ou « Préparer le courriel… ».
+struct WireGuardClientTarget: Identifiable, Equatable {
+    var id: Int
+    var name: String
+    var allowedIPs: [String]? = nil
+    var keepalive: Int? = nil
 }
 
 struct WireGuardShownConfig: Identifiable {
@@ -86,6 +107,8 @@ final class WireGuardServerModel: ObservableObject {
     @Published var selection = Set<String>()
     @Published var showSettings = false
     @Published var addingClient = false
+    @Published var tunnelTarget: WireGuardClientTarget?
+    @Published var mailTarget: WireGuardClientTarget?
     @Published var copied: String?
 
     private let fileURL: URL?
@@ -93,6 +116,9 @@ final class WireGuardServerModel: ObservableObject {
     private let sandboxed: Bool
 
     private init() {
+        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
+            WireGuardServerModel.sweepMailFiles(all: true)
+        }
         sandboxed = RegEnvironment.isSandboxed
         if RegEnvironment.isDemo {
             fileURL = nil
@@ -136,6 +162,8 @@ final class WireGuardServerModel: ObservableObject {
                 if let client = apiClients?.filter(\.enabled).max(by: { $0.id < $1.id }) {
                     shownConfig = WireGuardShownConfig(name: client.name, text: WireGuardServerDemo.configuration(for: client))
                 }
+            case "wireguard-serveur-ajout"?:
+                isShown = true
             case "wireguard-serveur-confirmer"?:
                 isShown = true
                 if let client = apiClients?.first(where: { $0.id == 6 }) { askToggle(client.id, name: client.name, enable: false) }
@@ -360,14 +388,38 @@ final class WireGuardServerModel: ObservableObject {
 
     private func client(_ id: Int) -> WGEasyClient? { apiClients?.first { $0.id == id } }
 
-    func askCreate(name: String, expiresAt: Date?) {
+    func askCreate(name: String, expiresAt: Date?, allowedIPs: [String]? = nil, keepalive: Int? = nil, mailTo: String? = nil) {
         let clean = RemoteShell.sanitizedTitle(name, limit: 60)
         guard !clean.isEmpty else { return }
         let expiry = expiresAt.map { "expire le \(Self.day($0))" } ?? "sans expiration"
-        pending = WireGuardPendingAction(kind: .api([.create(name: clean, expiresAt: expiresAt)]), title: "Ajouter le client «\u{00A0}\(clean)\u{00A0}»\u{00A0}?",
+        var tunnel = ["Tunnel\u{00A0}: \(WireGuardTunnel.label(allowedIPs)) · keepalive\u{00A0}: \(Self.keepaliveLabel(keepalive))."]
+        if let mailTo {
+            tunnel.append("Un brouillon pour \(mailTo) s’ouvrira dans Mail avec le fichier du tunnel et son code QR, qui contiennent la clé privée du client. Rien ne part sans votre clic sur Envoyer.")
+        }
+        pending = WireGuardPendingAction(kind: .create(WireGuardCreatePlan(name: clean, expiresAt: expiresAt, allowedIPs: allowedIPs, keepalive: keepalive, mailTo: mailTo)),
+                                         title: "Ajouter le client «\u{00A0}\(clean)\u{00A0}»\u{00A0}?",
                                          confirmLabel: "Ajouter",
-                                         consequences: ["wg-easy crée les clés du client et lui donne la prochaine adresse libre (\(expiry)).",
+                                         consequences: tunnel + ["wg-easy crée les clés du client et lui donne la prochaine adresse libre (\(expiry)).",
                                                         "Le fichier .conf et le code QR se montrent ensuite depuis la ligne du client\u{00A0}; NetScope ne garde pas la clé privée."])
+    }
+
+    /// Client existant : son tunnel et son keepalive, relus avant de montrer la feuille.
+    func editTunnel(_ id: Int, name: String) {
+        let current = client(id)
+        tunnelTarget = WireGuardClientTarget(id: id, name: name, allowedIPs: current?.allowedIps, keepalive: current?.persistentKeepalive)
+    }
+
+    func askTunnel(_ id: Int, name: String, allowedIPs: [String]?, keepalive: Int?) {
+        pending = WireGuardPendingAction(kind: .api([.setTunnel(id: id, allowedIPs: allowedIPs, keepalive: keepalive)]),
+                                         title: "Modifier le tunnel de «\u{00A0}\(name)\u{00A0}»\u{00A0}?", confirmLabel: "Modifier",
+                                         consequences: ["Tunnel\u{00A0}: \(WireGuardTunnel.label(allowedIPs)) · keepalive\u{00A0}: \(Self.keepaliveLabel(keepalive, unset: "inchangé")).",
+                                                        "Le client doit importer son nouveau fichier .conf\u{00A0}: l’ancien garde les réglages d’avant."])
+    }
+
+    /// `unset` : sens d'une valeur absente (à l'ajout, le réglage de wg-easy ; ensuite, inchangé).
+    static func keepaliveLabel(_ seconds: Int?, unset: String = "réglage de wg-easy") -> String {
+        guard let seconds else { return unset }
+        return seconds == 0 ? "désactivé" : "\(seconds)\u{00A0}s"
     }
 
     func askToggle(_ id: Int, name: String, enable: Bool) {
@@ -435,6 +487,7 @@ final class WireGuardServerModel: ObservableObject {
         case .setEnabled(_, let on): title = on ? "Réactiver le client\u{00A0}?" : "Désactiver de nouveau le client\u{00A0}?"
         case .setExpiry: title = "Remettre l’expiration d’avant\u{00A0}?"
         case .setDNS: title = "Remettre les DNS d’avant\u{00A0}?"
+        case .setTunnel: title = "Remettre le tunnel d’avant\u{00A0}?"
         default: return
         }
         pending = WireGuardPendingAction(kind: .api([change]), title: title, confirmLabel: "Annuler la modification",
@@ -456,6 +509,7 @@ final class WireGuardServerModel: ObservableObject {
         lastResult = nil
         switch action.kind {
         case .api(let changes): apply(changes)
+        case .create(let plan): applyCreate(plan)
         case .updateImage: updateImage()
         }
     }
@@ -505,6 +559,145 @@ final class WireGuardServerModel: ObservableObject {
         }
     }
 
+    /// Note 106 : création, réglage du tunnel, puis brouillon de courriel, dans cet ordre : le fichier
+    /// joint doit porter le tunnel choisi. Une étape ratée arrête les suivantes.
+    private func applyCreate(_ plan: WireGuardCreatePlan) {
+        running = true
+        let create = WGEasyChange.create(name: plan.name, expiresAt: plan.expiresAt)
+        if RegEnvironment.isDemo {
+            Task {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                self.applyDemo(create)
+                let id = self.apiClients?.map(\.id).max() ?? 0
+                if plan.needsTunnelChange { self.applyDemo(.setTunnel(id: id, allowedIPs: plan.allowedIPs, keepalive: plan.keepalive)) }
+                self.finish([WireGuardChangeRecord(date: Date(), summary: "Démonstration, rien n’est envoyé\u{00A0}: " + Self.summary(create, before: nil), ok: true, undo: nil)])
+                if plan.mailTo != nil { self.flash("Brouillon préparé (démonstration)") }
+            }
+            return
+        }
+        guard let base = apiBase, let password = apiPassword() else {
+            running = false
+            lastResult = WireGuardChangeRecord(date: Date(), summary: "Mot de passe de wg-easy absent du Trousseau.", ok: false, undo: nil)
+            return
+        }
+        let user = settings.apiUser
+        AppLog.shared.info("WireGuard", "Ajout d’un client confirmé par l’API de wg-easy.")
+        Task {
+            guard let route = WGEasyAPI.route(for: create) else { return }
+            var records: [WireGuardChangeRecord] = []
+            var createdID: Int?
+            switch await WGEasyHTTP.send(route, base: base, user: user, password: password) {
+            case .failure(let error):
+                records.append(WireGuardChangeRecord(date: Date(), summary: Self.summary(create, before: nil) + " — échec\u{00A0}: \(error.title) (\(error.detail))", ok: false, undo: nil))
+                if error.readOnly { self.apiError = error }
+                self.finish(records)
+                self.refresh()
+                return
+            case .success(let data):
+                records.append(WireGuardChangeRecord(date: Date(), summary: Self.summary(create, before: nil), ok: true, undo: nil))
+                createdID = WGEasyAPI.decodeCreatedClientID(data)
+            }
+            // Anciennes versions sans « clientId » : le plus récent de ce nom.
+            if createdID == nil, case .success(let list) = await WGEasyHTTP.send(WGEasyAPI.clients, base: base, user: user, password: password),
+               let clients = try? WGEasyAPI.decodeClients(list) {
+                createdID = clients.filter { $0.name == plan.name }.map(\.id).max()
+            }
+            var tunnelReady = true
+            if plan.needsTunnelChange {
+                let change = WGEasyChange.setTunnel(id: createdID ?? -1, allowedIPs: plan.allowedIPs, keepalive: plan.keepalive)
+                let result: Result<Void, WGEasyAPIError> = createdID == nil
+                    ? .failure(WGEasyAPIError(.clientNotFound, plan.name))
+                    : await Self.send(change, base: base, user: user, password: password)
+                if case .failure(let error) = result {
+                    tunnelReady = false
+                    records.append(WireGuardChangeRecord(date: Date(), summary: "Client créé, mais tunnel non réglé\u{00A0}: \(error.title).", ok: false, undo: nil))
+                } else {
+                    records.append(WireGuardChangeRecord(date: Date(), summary: "Tunnel de «\u{00A0}\(plan.name)\u{00A0}»\u{00A0}: \(WireGuardTunnel.label(plan.allowedIPs)) · keepalive\u{00A0}: \(Self.keepaliveLabel(plan.keepalive)).", ok: true, undo: nil))
+                }
+            }
+            self.finish(records)
+            self.refresh()
+            if let to = plan.mailTo, tunnelReady, let id = createdID {
+                await self.draftMail(id: id, name: plan.name, to: to, base: base, user: user, password: password)
+            } else if plan.mailTo != nil {
+                self.lastResult = WireGuardChangeRecord(date: Date(), summary: "Courriel non préparé\u{00A0}: reprenez depuis le menu du client, une fois le problème réglé.", ok: false, undo: nil)
+            }
+        }
+    }
+
+    /// Client existant : « Préparer le courriel… ».
+    func prepareMail(_ target: WireGuardClientTarget, to recipient: String) {
+        let to = recipient.trimmingCharacters(in: .whitespaces)
+        if RegEnvironment.isDemo {
+            flash("Brouillon préparé (démonstration)")
+            return
+        }
+        guard let base = apiBase, let password = apiPassword() else {
+            lastResult = WireGuardChangeRecord(date: Date(), summary: "Mot de passe de wg-easy absent du Trousseau\u{00A0}: courriel non préparé.", ok: false, undo: nil)
+            return
+        }
+        let user = settings.apiUser
+        Task { await self.draftMail(id: target.id, name: target.name, to: to, base: base, user: user, password: password) }
+    }
+
+    /// Ouvre le brouillon dans l'app de courriel, rien n'est envoyé. Le .conf contient la clé privée :
+    /// il n'existe sur le disque (accès réservé à l'utilisateur) que le temps que Mail le reprenne.
+    private func draftMail(id: Int, name: String, to: String, base: URL, user: String, password: String) async {
+        Self.sweepMailFiles()
+        // Nom relu chez wg-easy : une seule ligne, sans caractère invisible, avant d'entrer dans le courriel.
+        let name = RemoteShell.sanitizedTitle(name, limit: 60)
+        guard case .success(let data) = await WGEasyHTTP.send(WGEasyAPI.configuration(id), base: base, user: user, password: password) else {
+            flash("Fichier du tunnel non lu\u{00A0}: brouillon non préparé")
+            return
+        }
+        let fileName = WireGuardClientMail.fileName(for: name)
+        let manager = FileManager.default
+        let folder = manager.temporaryDirectory.appendingPathComponent(Self.mailFolderPrefix + UUID().uuidString)
+        let file = folder.appendingPathComponent(fileName)
+        let qrFile = folder.appendingPathComponent(WireGuardClientMail.qrFileName(for: fileName))
+        var attachments = [file]
+        do {
+            try manager.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+            guard manager.createFile(atPath: file.path, contents: data, attributes: [.posixPermissions: 0o600]) else { throw CocoaError(.fileWriteUnknown) }
+            // Code QR : facultatif ; sans lui, le fichier du tunnel suffit.
+            if let png = WireGuardConfigSheet.qrPNG(String(decoding: data, as: UTF8.self)),
+               manager.createFile(atPath: qrFile.path, contents: png, attributes: [.posixPermissions: 0o600]) {
+                attachments.append(qrFile)
+            }
+        } catch {
+            try? manager.removeItem(at: folder)
+            flash("Fichier du tunnel non préparé")
+            return
+        }
+        guard let service = NSSharingService(named: .composeEmail), service.canPerform(withItems: attachments) else {
+            try? manager.removeItem(at: folder)
+            flash("Aucune app de courriel configurée")
+            return
+        }
+        service.recipients = [to]
+        service.subject = WireGuardClientMail.subject(client: name)
+        let hasQR = attachments.count > 1
+        service.perform(withItems: [WireGuardClientMail.body(client: name, fileName: fileName, qrFile: hasQR ? qrFile.lastPathComponent : nil)] + attachments)
+        AppLog.shared.info("WireGuard", "Brouillon de courriel ouvert pour un client (rien n’est envoyé).")
+        flash("Brouillon prêt dans Mail (rien n’est envoyé)")
+        // Horloge murale : la veille d'un portable compte dans le délai.
+        DispatchQueue.main.asyncAfter(wallDeadline: .now() + Self.mailFileLifetime) { try? FileManager.default.removeItem(at: folder) }
+    }
+
+    private nonisolated static let mailFolderPrefix = "NetScope-wg-courriel-"
+    private nonisolated static let mailFileLifetime: TimeInterval = 600
+
+    /// Dossiers de brouillons périmés. `all` : tous, quel que soit leur âge (au lancement et à la
+    /// fermeture, Mail a déjà repris ses pièces jointes).
+    nonisolated static func sweepMailFiles(all: Bool = false) {
+        let manager = FileManager.default
+        let items = (try? manager.contentsOfDirectory(at: manager.temporaryDirectory, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        for item in items where item.lastPathComponent.hasPrefix(mailFolderPrefix) {
+            let date = (try? item.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+            if all || Date().timeIntervalSince(date) > mailFileLifetime { try? manager.removeItem(at: item) }
+        }
+    }
+
     private func finish(_ records: [WireGuardChangeRecord]) {
         running = false
         history.insert(contentsOf: records.reversed(), at: 0)
@@ -543,6 +736,8 @@ final class WireGuardServerModel: ObservableObject {
         case .setEnabled(_, let on): return "Client \(name) \(on ? "activé" : "désactivé")."
         case .setExpiry(_, let date): return "Expiration de \(name)\u{00A0}: " + (date.map(day) ?? "aucune") + "."
         case .setDNS(_, let servers): return "DNS de \(name)\u{00A0}: " + (servers?.joined(separator: ", ") ?? "ceux du serveur") + "."
+        case .setTunnel(_, let addresses, let keepalive):
+            return "Tunnel de \(name)\u{00A0}: \(WireGuardTunnel.label(addresses)) · keepalive\u{00A0}: \(keepaliveLabel(keepalive, unset: "inchangé"))."
         case .delete: return "Client \(name) supprimé."
         }
     }
@@ -558,6 +753,11 @@ final class WireGuardServerModel: ObservableObject {
         case .setEnabled(let id, let on): if let i = clients.firstIndex(where: { $0.id == id }) { clients[i].enabled = on }
         case .setExpiry(let id, let date): if let i = clients.firstIndex(where: { $0.id == id }) { clients[i].expiresAt = date }
         case .setDNS(let id, let dns): if let i = clients.firstIndex(where: { $0.id == id }) { clients[i].dns = dns }
+        case .setTunnel(let id, let addresses, let keepalive):
+            if let i = clients.firstIndex(where: { $0.id == id }) {
+                clients[i].allowedIps = addresses
+                if let keepalive { clients[i].persistentKeepalive = keepalive }
+            }
         case .delete(let id): clients.removeAll { $0.id == id }
         }
         apiClients = clients.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }

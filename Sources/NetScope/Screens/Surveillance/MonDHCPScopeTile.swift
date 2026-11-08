@@ -18,11 +18,6 @@ struct MonDHCPScopeTile: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 MonHeading("Étendues DHCP")
                 RegPill(text: pill(overview, alerting: alerting), tone: tone(overview, alerting: alerting))
-                Spacer(minLength: 4)
-                Button("Ouvrir l’outil") { open(nil) }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.accentStrong)
             }
             Text(summary(overview, active: active))
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
@@ -37,6 +32,10 @@ struct MonDHCPScopeTile: View {
             }
             ForEach(alerting.prefix(4)) { scope in
                 MonDHCPScopeRow(scope: scope, multiSite: overview.isMultiSite) { open(scope.id) }
+            }
+            ActionRow {
+                Button("Ouvrir l’outil") { open(nil) }
+                    .buttonStyle(.secondary)
             }
         }
         .padding(.horizontal, 14)

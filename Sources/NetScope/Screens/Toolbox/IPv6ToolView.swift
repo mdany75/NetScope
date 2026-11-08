@@ -63,6 +63,7 @@ struct IPv6ToolView: View {
                     .disabled(model.isSoliciting)
                     .help("Ping ICMPv6 de tous les nœuds du lien\u{00A0}: ceux qui répondent entrent dans la table NDP")
                 }
+                .controlSize(.small)
                 .fixedSize()
             }
             VStack(spacing: 0) {
@@ -108,7 +109,7 @@ struct IPv6ToolView: View {
         .fixedSize()
         let open = Group {
             if let device {
-                Button("Fiche") { state.showDevice(device.id) }.buttonStyle(.ghost).fixedSize()
+                Button("Fiche") { state.showDevice(device.id) }.buttonStyle(.secondary).controlSize(.small).fixedSize()
             }
         }
         // Adresses jamais coupées : à droite de l'appareil quand tout tient, sinon dessous.
@@ -152,7 +153,7 @@ struct IPv6ToolView: View {
                     }
                     .buttonStyle(.secondary).disabled(model.isTracing)
                     Button("Ping continu") { state.sendToPing(model.target) }
-                        .buttonStyle(.ghost)
+                        .buttonStyle(.secondary)
                         .disabled(model.parsedTarget == nil)
                 }
                 .fixedSize()

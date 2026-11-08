@@ -28,13 +28,17 @@ public struct WGEasyClient: Equatable, Codable, Identifiable, Sendable {
     public var transferRx: Int64?
     public var transferTx: Int64?
     public var dns: [String]?
+    /// Réseaux passant dans le tunnel de ce client (AllowedIPs) ; nil : réglage du serveur.
+    public var allowedIps: [String]?
+    /// Keepalive du client, en secondes (0 : désactivé).
+    public var persistentKeepalive: Int?
     /// Jeton du lien à usage unique en cours (« /cnf/<jeton> »).
     public var oneTimeLink: String?
 
     public init(id: Int, name: String, enabled: Bool = true, ipv4Address: String? = nil, ipv6Address: String? = nil,
                 publicKey: String? = nil, expiresAt: Date? = nil, createdAt: Date? = nil, latestHandshakeAt: Date? = nil,
                 endpoint: String? = nil, transferRx: Int64? = nil, transferTx: Int64? = nil, dns: [String]? = nil,
-                oneTimeLink: String? = nil) {
+                oneTimeLink: String? = nil, allowedIps: [String]? = nil, persistentKeepalive: Int? = nil) {
         self.id = id
         self.name = name
         self.enabled = enabled
@@ -49,11 +53,13 @@ public struct WGEasyClient: Equatable, Codable, Identifiable, Sendable {
         self.transferTx = transferTx
         self.dns = dns
         self.oneTimeLink = oneTimeLink
+        self.allowedIps = allowedIps
+        self.persistentKeepalive = persistentKeepalive
     }
 
     private enum Keys: String, CodingKey {
         case id, name, enabled, ipv4Address, ipv6Address, publicKey, expiresAt, createdAt, latestHandshakeAt, endpoint
-        case transferRx, transferTx, dns, oneTimeLink
+        case transferRx, transferTx, dns, oneTimeLink, allowedIps, persistentKeepalive
     }
 
     /// Décodage tolérant : dates en texte ISO 8601 (ou jour seul), lien à usage unique objet ou texte.
@@ -78,6 +84,8 @@ public struct WGEasyClient: Equatable, Codable, Identifiable, Sendable {
         transferRx = try? c.decode(Int64.self, forKey: .transferRx)
         transferTx = try? c.decode(Int64.self, forKey: .transferTx)
         dns = try? c.decode([String].self, forKey: .dns)
+        allowedIps = try? c.decode([String].self, forKey: .allowedIps)
+        persistentKeepalive = try? c.decode(Int.self, forKey: .persistentKeepalive)
         if let text = try? c.decode(String.self, forKey: .oneTimeLink) {
             oneTimeLink = text
         } else if let object = try? c.decode(OneTimeLink.self, forKey: .oneTimeLink) {
@@ -105,6 +113,8 @@ public struct WGEasyClient: Equatable, Codable, Identifiable, Sendable {
         try c.encodeIfPresent(transferTx, forKey: .transferTx)
         try c.encodeIfPresent(dns, forKey: .dns)
         try c.encodeIfPresent(oneTimeLink, forKey: .oneTimeLink)
+        try c.encodeIfPresent(allowedIps, forKey: .allowedIps)
+        try c.encodeIfPresent(persistentKeepalive, forKey: .persistentKeepalive)
     }
 }
 
@@ -179,6 +189,9 @@ public enum WGEasyChange: Equatable, Sendable {
     case setEnabled(id: Int, Bool)
     case setExpiry(id: Int, Date?)
     case setDNS(id: Int, [String]?)
+    /// Note 106 : réseaux du tunnel du client (nil : réglage du serveur) et keepalive en secondes
+    /// (nil : inchangé).
+    case setTunnel(id: Int, allowedIPs: [String]?, keepalive: Int?)
     case delete(id: Int)
 }
 
@@ -214,7 +227,7 @@ public enum WGEasyAPI {
             return Route(method: "POST", path: "/api/client/\(id)/\(on ? "enable" : "disable")")
         case .delete(let id):
             return Route(method: "DELETE", path: "/api/client/\(id)")
-        case .rename, .setExpiry, .setDNS:
+        case .rename, .setExpiry, .setDNS, .setTunnel:
             return nil
         }
     }
@@ -235,6 +248,9 @@ public enum WGEasyAPI {
         case .rename(_, let name): object["name"] = name
         case .setExpiry(_, let date): object["expiresAt"] = date.map(day) ?? NSNull()
         case .setDNS(_, let servers): object["dns"] = servers ?? NSNull()
+        case .setTunnel(_, let addresses, let keepalive):
+            object["allowedIps"] = addresses ?? NSNull()
+            if let keepalive { object["persistentKeepalive"] = keepalive }
         case .setEnabled(_, let on): object["enabled"] = on
         case .create, .delete: throw WGEasyAPIError(.decoding, "Modification inattendue.")
         }
@@ -245,7 +261,7 @@ public enum WGEasyAPI {
     public static func clientID(_ change: WGEasyChange) -> Int? {
         switch change {
         case .create: return nil
-        case .rename(let id, _), .setEnabled(let id, _), .setExpiry(let id, _), .setDNS(let id, _), .delete(let id): return id
+        case .rename(let id, _), .setEnabled(let id, _), .setExpiry(let id, _), .setDNS(let id, _), .setTunnel(let id, _, _), .delete(let id): return id
         }
     }
 
@@ -259,6 +275,7 @@ public enum WGEasyAPI {
         case .setEnabled(let id, _): return before.map { .setEnabled(id: id, $0.enabled) }
         case .setExpiry(let id, _): return before.map { .setExpiry(id: id, $0.expiresAt) }
         case .setDNS(let id, _): return before.map { .setDNS(id: id, $0.dns) }
+        case .setTunnel(let id, _, _): return before.map { .setTunnel(id: id, allowedIPs: $0.allowedIps, keepalive: $0.persistentKeepalive) }
         }
     }
 
@@ -384,6 +401,13 @@ public enum WGEasyAPI {
         }
         return WGEasyInformation(currentRelease: version(object["currentRelease"]), latestRelease: version(object["latestRelease"]),
                                  updateAvailable: (object["updateAvailable"] as? Bool) ?? false, insecure: object["insecure"] as? Bool)
+    }
+
+    /// Identifiant du client créé (« { success, clientId } » de POST /api/client) ; nil si absent.
+    public static func decodeCreatedClientID(_ data: Data) -> Int? {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        if let number = object["clientId"] as? Int { return number }
+        return (object["clientId"] as? String).flatMap(Int.init)
     }
 
     /// Jeton du lien à usage unique dans la réponse (ou dans la fiche relue).

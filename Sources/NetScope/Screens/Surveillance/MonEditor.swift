@@ -172,13 +172,11 @@ struct MonEditor: View {
             HStack(spacing: 8) {
                 testButton(saved: saved, draft: draft)
                 saveButton(saved: saved, draft: draft)
-                Spacer(minLength: 0)
                 deleteButton
             }
             HStack(spacing: 6) {
                 testButton(saved: saved, draft: draft)
                 saveButton(saved: saved, draft: draft)
-                Spacer(minLength: 0)
                 deleteButton.labelStyle(.iconOnly).help("Supprimer la sonde")
             }
         }

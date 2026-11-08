@@ -245,9 +245,8 @@ struct RapportConfigPanel: View {
                             Spacer(minLength: 0)
                             if model.lastFile != nil && toast.hasPrefix("Rapport généré") {
                                 Button("Afficher") { model.revealLastFile() }
-                                    .buttonStyle(.plain)
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(Theme.success)
+                                    .buttonStyle(.secondary)
+                                    .controlSize(.small)
                             }
                         }
                         .padding(.horizontal, 8)

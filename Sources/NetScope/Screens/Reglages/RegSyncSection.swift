@@ -71,16 +71,9 @@ struct RegSyncSection: View {
 
     private var statusBox: some View {
         RegSyncBox {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) {
-                    statusInfo
-                    Spacer(minLength: 8)
-                    statusButtons
-                }
-                VStack(alignment: .leading, spacing: 10) {
-                    statusInfo
-                    statusButtons
-                }
+            VStack(alignment: .leading, spacing: 10) {
+                statusInfo
+                ActionRow { statusButtons }
             }
         }
     }
@@ -129,16 +122,9 @@ struct RegSyncSection: View {
     private var folderBox: some View {
         RegSyncBox {
             VStack(alignment: .leading, spacing: 8) {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 10) {
-                        folderInfo
-                        Spacer(minLength: 8)
-                        folderButtons
-                    }
-                    VStack(alignment: .leading, spacing: 10) {
-                        folderInfo
-                        folderButtons
-                    }
+                VStack(alignment: .leading, spacing: 10) {
+                    folderInfo
+                    ActionRow { folderButtons }
                 }
                 if !sync.usesICloud {
                     Text("Autre dossier qu’iCloud Drive\u{00A0}: choisissez le même sur chacun de vos Mac. Un partage réseau doit être monté pour synchroniser, et un autre Mac n’y est vu qu’à la minuterie de 15\u{00A0}minutes. Les secrets restent chiffrés.")
@@ -172,9 +158,9 @@ struct RegSyncSection: View {
 
     private var folderButtons: some View {
         HStack(spacing: 8) {
-            Button("Autre dossier…", action: sync.chooseFolder).buttonStyle(RegSmallButtonStyle())
+            Button("Autre dossier…", action: sync.chooseFolder).buttonStyle(.secondary)
             if !sync.usesICloud {
-                Button("Revenir à iCloud Drive", action: sync.useICloudDrive).buttonStyle(RegSmallButtonStyle())
+                Button("Revenir à iCloud Drive", action: sync.useICloudDrive).buttonStyle(.secondary)
             }
         }
         .fixedSize()
@@ -184,16 +170,9 @@ struct RegSyncSection: View {
 
     private var passwordBox: some View {
         RegSyncBox {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) {
-                    passwordInfo
-                    Spacer(minLength: 8)
-                    passwordButtons
-                }
-                VStack(alignment: .leading, spacing: 10) {
-                    passwordInfo
-                    passwordButtons
-                }
+            VStack(alignment: .leading, spacing: 10) {
+                passwordInfo
+                ActionRow { passwordButtons }
             }
         }
     }
@@ -218,9 +197,9 @@ struct RegSyncSection: View {
     private var passwordButtons: some View {
         HStack(spacing: 8) {
             Button(sync.hasPassword ? "Changer…" : "Définir…") { sync.passwordSheet = true }
-                .buttonStyle(RegSmallButtonStyle())
+                .buttonStyle(.secondary)
             if sync.hasPassword {
-                Button("Oublier", action: sync.forgetPassword).buttonStyle(RegSmallButtonStyle())
+                Button("Oublier", action: sync.forgetPassword).buttonStyle(.secondary)
             }
         }
         .fixedSize()

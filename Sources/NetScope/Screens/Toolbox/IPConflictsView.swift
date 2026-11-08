@@ -28,6 +28,8 @@ struct IPConflictsView: View {
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 Spacer(minLength: 8)
                 Button("Relire") { refresh = Date() }
+                    .buttonStyle(.secondary)
+                    .controlSize(.small)
                     .help("Relit la table ARP de ce Mac et recalcule (lecture locale, rien n’est envoyé)")
             }
             if conflicts.isEmpty {

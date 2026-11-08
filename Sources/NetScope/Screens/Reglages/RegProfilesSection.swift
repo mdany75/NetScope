@@ -168,12 +168,12 @@ struct RegProfilesSection: View {
                          invalid: tokens.contains { !$0.valid })
             FlowTokens(tokens: Array(tokens.prefix(24)))
             Text(portSummary).font(Theme.small).foregroundStyle(Theme.textSecondary)
-            HStack(spacing: 6) {
+            ActionRow {
                 Button("Ports courants") { prefs.tuning.portsText = ScanProfile.commonPorts.map(String.init).joined(separator: ",") }
                 Button("Caméras et IoT") { prefs.tuning.portsText = "80,443,554,1883,5000,8000,8080,8443,8883,37777" }
                 Button("Par défaut") { prefs.tuning.portsText = RegScanTuning.defaultPorts }
             }
-            .buttonStyle(RegSmallButtonStyle())
+            .buttonStyle(.secondary)
         }
     }
 

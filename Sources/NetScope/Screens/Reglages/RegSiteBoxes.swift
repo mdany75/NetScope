@@ -86,7 +86,7 @@ struct RegSiteHintsBox: View {
             field("Numéro de série de la FortiGate", text: $serials, placeholder: "FGT60FTK22004711", mono: true)
             field("Nom d’hôte de la FortiGate", text: $hostnames, placeholder: "FGT-SIEGE", mono: true)
             field("SSID (facultatif, indice faible)", text: $ssid, placeholder: "Bureau-Corp", mono: false)
-            HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 8) {
                 if let problem {
                     Text(problem).font(Theme.small).foregroundStyle(Theme.critical).fixedSize(horizontal: false, vertical: true)
                 } else if saved {
@@ -94,10 +94,11 @@ struct RegSiteHintsBox: View {
                 } else if isDirty {
                     Text("Modifications non enregistrées").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.warning)
                 }
-                Spacer(minLength: 0)
-                Button("Enregistrer les indices", action: save)
-                    .buttonStyle(.secondary)
-                    .regDisabled(!isDirty)
+                ActionRow {
+                    Button("Enregistrer les indices", action: save)
+                        .buttonStyle(.secondary)
+                        .regDisabled(!isDirty)
+                }
             }
         }
         .onAppear(perform: load)
@@ -180,8 +181,10 @@ struct RegSiteSwitchesBox: View {
                         .help("Retirer \(host) de ce site")
                 }
             }
-            Button("Choisir dans Réglages › Switchs") { RegNavigation.shared.section = .switchs }
-                .buttonStyle(RegSmallButtonStyle())
+            ActionRow {
+                Button("Choisir dans Réglages › Switchs") { RegNavigation.shared.section = .switchs }
+                    .buttonStyle(.secondary)
+            }
         }
     }
 }

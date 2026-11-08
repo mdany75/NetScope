@@ -77,7 +77,7 @@ struct MailHeaderView: View {
                 Button("Coller et analyser") { model.paste(store: store) }
                     .buttonStyle(.secondary)
                 Button("Effacer") { model.clear() }
-                    .buttonStyle(.ghost)
+                    .buttonStyle(.secondary)
                     .disabled(model.text.isEmpty)
                 Spacer(minLength: 8)
                 // Fenêtre étroite : le cadenas seul, la phrase en infobulle.

@@ -86,16 +86,9 @@ struct RegAlertMailCard: View {
             if alerts.settings.smtp.isEnabled || !alerts.settings.smtp.host.isEmpty, !problems.isEmpty {
                 RegNotice(problems.joined(separator: " "), tone: alerts.settings.smtp.isEnabled ? .warning : .neutral)
             }
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
-                    vaultNote
-                    Spacer(minLength: 8)
-                    testButton
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                    vaultNote
-                    testButton
-                }
+            VStack(alignment: .leading, spacing: 8) {
+                vaultNote
+                ActionRow { testButton }
             }
             RegAlertTestResult(channel: .email)
         }

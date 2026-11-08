@@ -177,7 +177,6 @@ struct SpeedServersView: View {
                     Label("Ajouter et utiliser", systemImage: "plus")
                 }
                 .buttonStyle(.secondary)
-                .controlSize(.small)
                 .speedDisabled(model.customAddress.trimmingCharacters(in: .whitespaces).isEmpty)
                 ForEach(model.serverPrefs.custom) { server in
                     HStack(spacing: 8) {
@@ -231,19 +230,23 @@ struct SpeedServersView: View {
         if model.ooklaEnabled {
             if model.ooklaPath != nil {
                 sourceLine("Ookla", "CLI officiel installé. " + OoklaLocator.licenseNote)
-                Link(destination: OoklaLocator.licenseURL) {
-                    Label("Licence d’Ookla", systemImage: "arrow.up.right.square")
+                ActionRow {
+                    Link(destination: OoklaLocator.licenseURL) {
+                        Label("Licence d’Ookla", systemImage: "arrow.up.right.square")
+                    }
+                    .buttonStyle(.secondary)
                 }
-                .font(Theme.small)
             } else if ookla.presence.isInstalled {
                 sourceLine("Ookla", "Pas d’API publique libre\u{00A0}: NetScope lance le CLI officiel d’Ookla s’il est installé.")
                 // Un « speedtest » est là, mais ce n'est pas celui d'Ookla (speedtest-cli en Python).
                 SpeedBanner(text: "L’outil «\u{00A0}speedtest\u{00A0}» installé n’est pas le CLI d’Ookla (speedtest-cli\u{00A0}?). Installez «\u{00A0}\(InstallableTool.ooklaSpeedtest.displayCommand)\u{00A0}».",
                             tone: .neutral, systemImage: "info.circle")
-                Link(destination: OoklaLocator.downloadURL) {
-                    Label(InstallableTool.ooklaSpeedtest.officialLabel, systemImage: "arrow.up.right.square")
+                ActionRow {
+                    Link(destination: OoklaLocator.downloadURL) {
+                        Label(InstallableTool.ooklaSpeedtest.officialLabel, systemImage: "arrow.up.right.square")
+                    }
+                    .buttonStyle(.secondary)
                 }
-                .font(Theme.small)
             } else {
                 InstallToolPanel(tool: .ooklaSpeedtest, note: OoklaLocator.licenseNote)
             }

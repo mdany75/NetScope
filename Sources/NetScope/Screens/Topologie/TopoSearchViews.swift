@@ -301,7 +301,9 @@ struct TopoSearchPanel: View {
             Text("Essayez une partie de l’IP (\(search.ipExample)), un nom, une MAC ou un préfixe\u{00A0}: switch:, port:, vlan:, type:, borne:.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("Effacer la recherche") { actions.clear() }.buttonStyle(.ghost)
+            ActionRow {
+                Button("Effacer la recherche") { actions.clear() }.buttonStyle(.secondary)
+            }
         }
     }
 }

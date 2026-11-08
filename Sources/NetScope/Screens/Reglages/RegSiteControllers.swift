@@ -453,8 +453,7 @@ struct RegSiteControllerEditor: View {
                     Text("Sujet\u{00A0}: \(pending.subject)").font(Theme.small).foregroundStyle(Theme.textSecondary)
                 }
                 RegFingerprintText(fingerprint: pending.fingerprint)
-                HStack(spacing: 8) {
-                    Spacer()
+                ActionRow {
                     Button("Refuser") {
                         outcome?.pending = nil
                         outcome?.error = nil
@@ -465,16 +464,16 @@ struct RegSiteControllerEditor: View {
                 }
             } else if let pinned {
                 RegFingerprintText(fingerprint: pinned)
-                HStack {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(draft.sameTarget(as: original) || original.pinnedFingerprint != pinned
                          ? "Toute connexion dont le certificat a une autre empreinte est refusée."
                          : "Adresse changée\u{00A0}: cette empreinte sera oubliée à l’enregistrement.")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 8)
-                    Button("Oublier l’empreinte") { self.pinned = nil }
-                        .buttonStyle(.secondary)
-                        .fixedSize()
+                    ActionRow {
+                        Button("Oublier l’empreinte") { self.pinned = nil }
+                            .buttonStyle(.secondary)
+                    }
                 }
             } else {
                 Text("Un contrôleur local utilise en général un certificat autosigné. Au premier «\u{00A0}Tester\u{00A0}», son empreinte SHA-256 s’affiche ici\u{00A0}: vous l’acceptez une fois, puis toute autre empreinte est refusée.")
@@ -504,16 +503,9 @@ struct RegSiteControllerEditor: View {
 
     private var testBox: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
-                    testTitle
-                    Spacer(minLength: 8)
-                    testButtons
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                    testTitle
-                    testButtons
-                }
+            VStack(alignment: .leading, spacing: 8) {
+                testTitle
+                ActionRow { testButtons }
             }
             if acceptedNotice, pinned != nil {
                 RegNotice("Empreinte acceptée\u{00A0}: cliquez sur «\u{00A0}Tester\u{00A0}» pour lire le contrôleur.", tone: .neutral)

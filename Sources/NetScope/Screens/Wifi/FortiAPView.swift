@@ -324,16 +324,17 @@ struct FortiAPAdvicePanel: View {
                     WifiHeading("Conseils")
                     Text("\(advice.count)").font(Theme.mono(11, weight: .semibold)).foregroundStyle(Theme.neutralText)
                         .padding(.horizontal, 6).padding(.vertical, 1).background(Capsule().fill(Theme.neutralSoft))
-                    Spacer()
-                    Button { showThresholds = true } label: { Label("Seuils", systemImage: "slider.horizontal.3") }
-                        .buttonStyle(.bordered).controlSize(.small)
-                        .popover(isPresented: $showThresholds, arrowEdge: .bottom) { FortiAPThresholdsForm() }
-                        .help("Seuils du signal faible et de la surcharge")
                 }
                 diagnoseMenu
                 // Note 80 : onglet Conseils sur toute la largeur, cartes en colonnes.
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 10, alignment: .top)], alignment: .leading, spacing: 10) {
                     ForEach(advice) { item in card(item) }
+                }
+                ActionRow {
+                    Button { showThresholds = true } label: { Label("Seuils", systemImage: "slider.horizontal.3") }
+                        .buttonStyle(.secondary)
+                        .popover(isPresented: $showThresholds, arrowEdge: .bottom) { FortiAPThresholdsForm() }
+                        .help("Seuils du signal faible et de la surcharge")
                 }
             }
         }
@@ -392,14 +393,15 @@ struct FortiAPAdvicePanel: View {
                 Text(item.title).font(.system(size: 12, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
                 Text(item.detail).font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
                 if let name = item.apName, let ap = store.shownOverview.aps.first(where: { $0.name == name && (item.site == nil || $0.site == item.site) }) {
-                    Button("Voir la borne") {
-                        selectedAP = ap.id
-                        if let b = item.band { band = b }
-                        // Note 80 : la borne s'ouvre dans l'onglet Bornes.
-                        store.tab = .bornes
+                    ActionRow {
+                        Button("Voir la borne") {
+                            selectedAP = ap.id
+                            if let b = item.band { band = b }
+                            // Note 80 : la borne s'ouvre dans l'onglet Bornes.
+                            store.tab = .bornes
+                        }
+                        .buttonStyle(.secondary)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
                     .padding(.top, 3)
                 }
             }
@@ -510,13 +512,13 @@ struct FortiAPDetailPanel: View {
                 }
             }
             // Note 47 : diagnostic de la borne entière (radios, clients, port du switch).
-            WifiDiagnoseButton(ap: ap)
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-            if let device {
-                Button("Ouvrir la fiche de la borne →") { state.showDevice(device.id) }
-                    .buttonStyle(.ghost)
-                    .padding(.leading, -8)
+            ActionRow {
+                WifiDiagnoseButton(ap: ap)
+                    .buttonStyle(.secondary)
+                if let device {
+                    Button("Ouvrir la fiche de la borne") { state.showDevice(device.id) }
+                        .buttonStyle(.secondary)
+                }
             }
         }
     }

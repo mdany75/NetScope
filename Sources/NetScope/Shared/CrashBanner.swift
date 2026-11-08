@@ -32,7 +32,7 @@ struct CrashBanner: View {
                 .buttonStyle(.secondary)
                 .fixedSize()
                 Button("Ignorer") { controller.dismissCrash() }
-                    .buttonStyle(.ghost)
+                    .buttonStyle(.secondary)
                     .fixedSize()
                     .help("Masque ce message jusqu’au prochain plantage")
             }

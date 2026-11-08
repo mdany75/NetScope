@@ -399,7 +399,7 @@ private struct SwitchSiteCard: View {
                     Label(note, systemImage: "info.circle").font(Theme.caption).foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                HStack(spacing: 8) {
+                ActionRow {
                     if !group.view.fortiGatesToRead.isEmpty, !group.isActive {
                         Button { fortigate.readForView(group.view.fortiGatesToRead) } label: {
                             HStack(spacing: 6) {
@@ -419,9 +419,8 @@ private struct SwitchSiteCard: View {
                             RegNavigation.shared.section = group.site?.fortiGateIDs.isEmpty == false ? .switchs : .sites
                             state.open(.reglages)
                         }
-                        .buttonStyle(.ghost)
+                        .buttonStyle(.secondary)
                     }
-                    Spacer(minLength: 0)
                 }
             }
         }

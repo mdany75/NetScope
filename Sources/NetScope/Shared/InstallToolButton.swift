@@ -129,7 +129,6 @@ struct InstallToolButton: View {
                 Label("Installer", systemImage: "arrow.down.circle")
             }
             .buttonStyle(.primary)
-            .controlSize(.small)
             .help("Ouvre Terminal avec « \(monitor.tool.displayCommand) » ; rien ne se lance avant Entrée")
         case .missingWithoutHomebrew:
             Button {
@@ -138,7 +137,6 @@ struct InstallToolButton: View {
                 Label("Installer Homebrew…", systemImage: "arrow.down.circle")
             }
             .buttonStyle(.primary)
-            .controlSize(.small)
             .help("Ouvre Terminal avec la commande officielle de brew.sh ; rien ne se lance avant Entrée")
         }
     }
@@ -178,7 +176,7 @@ struct InstallToolPanel: View {
                 if case .missingWithHomebrew = monitor.presence {
                     commandLine(monitor.tool.displayCommand)
                 }
-                FlowLayout(spacing: 8, lineSpacing: 6) {
+                ActionRow {
                     InstallToolButton(tool: monitor.tool)
                     Button {
                         monitor.refresh(manual: true)
@@ -186,19 +184,16 @@ struct InstallToolPanel: View {
                         Label("Vérifier de nouveau", systemImage: "arrow.clockwise")
                     }
                     .buttonStyle(.secondary)
-                    .controlSize(.small)
                     if case .missingWithoutHomebrew = monitor.presence {
                         Link(destination: Homebrew.siteURL) {
                             Label("brew.sh", systemImage: "arrow.up.right.square")
                         }
-                        .font(Theme.small)
-                        .padding(.top, 4)
+                        .buttonStyle(.secondary)
                     }
                     Link(destination: monitor.tool.officialURL) {
                         Label(monitor.tool.officialLabel, systemImage: "arrow.up.right.square")
                     }
-                    .font(Theme.small)
-                    .padding(.top, 4)
+                    .buttonStyle(.secondary)
                 }
                 if monitor.waiting {
                     HStack(spacing: 6) {

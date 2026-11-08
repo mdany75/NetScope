@@ -42,7 +42,6 @@ struct MonTrafficConditionFields: View {
                 if probe.knownThreats != nil {
                     Button("Oublier les menaces connues") { probe.knownThreats = nil }
                         .buttonStyle(.secondary)
-                        .controlSize(.small)
                         .fixedSize()
                 }
             }

@@ -272,15 +272,16 @@ struct SvcIncidentList: View {
                         .textSelection(.enabled)
                 }
                 if let url = incident.url {
-                    Button {
-                        ToolActions.open(url)
-                    } label: {
-                        Label("Page officielle", systemImage: "arrow.up.forward")
-                            .font(.system(size: 12, weight: .medium))
+                    ActionRow {
+                        Button {
+                            ToolActions.open(url)
+                        } label: {
+                            Label("Page officielle", systemImage: "arrow.up.forward")
+                        }
+                        .buttonStyle(.secondary)
+                        .help(url)
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Theme.accentStrong)
-                    .help(url)
+                    .padding(.top, 4)
                 }
             }
         }
@@ -317,9 +318,8 @@ struct SvcHistoryList: View {
                 Spacer()
                 if events.count > 6 {
                     Button(showAll ? "Réduire" : "Tout afficher (\(events.count))") { showAll.toggle() }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Theme.accentStrong)
+                        .buttonStyle(.secondary)
+                        .controlSize(.small)
                 }
             }
             if events.isEmpty {

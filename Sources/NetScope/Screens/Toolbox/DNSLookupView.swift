@@ -358,8 +358,10 @@ struct DNSLookupView: View {
             }
             DNSRecordTable(rows: DNSRecordRow.rows(of: result), table: table)
             if let device = matchingDevice(result) {
-                Button("Ouvrir la fiche de \(device.displayName) →") { state.showDevice(device.id) }
-                    .buttonStyle(.ghost)
+                ActionRow {
+                    Button("Ouvrir la fiche de \(device.displayName)") { state.showDevice(device.id) }
+                        .buttonStyle(.secondary)
+                }
             }
         } else if model.error == nil {
             Text("Sans serveur choisi, la requête passe par le résolveur de macOS (mêmes réponses que les applications). Une adresse IP en PTR est convertie en nom in-addr.arpa.")

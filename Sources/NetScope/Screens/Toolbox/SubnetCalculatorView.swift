@@ -200,14 +200,15 @@ struct SubnetCalculatorView: View {
         }
         let alreadySaved = state.ranges.contains { (try? Subnet(parsing: $0.text)) == subnet }
         return ToolNotice(tone: .accent, message: parts.joined(separator: " · ")) {
-            Button(alreadySaved ? "Ouvrir le Scanner →" : "Scanner cette plage →") {
+            Button(alreadySaved ? "Ouvrir le Scanner" : "Scanner cette plage") {
                 if !alreadySaved, subnet.totalAddresses <= IPRange.maxAddresses {
                     state.ranges.append(ScanRangeConfig(text: subnet.description, label: "Outils"))
                 }
                 store.record(command: "ipcalc \(subnet) → scanner")
                 state.open(.scanner)
             }
-            .buttonStyle(.ghost)
+            .buttonStyle(.secondary)
+            .controlSize(.small)
             .fixedSize()
         }
     }
@@ -327,20 +328,21 @@ struct SubnetCalculatorView: View {
                 Rectangle().fill(Theme.border).frame(height: 1)
                 SubnetSplitTable(rows: SubnetSplitRow.rows(Array(pieces.prefix(Self.maxRows))), table: table,
                                  maxRows: Self.maxRows)
-                HStack {
+                VStack(alignment: .leading, spacing: 6) {
                     if pieces.count > Self.maxRows {
                         Text("… et \(ToolFormat.integer(pieces.count - Self.maxRows)) autres sous-réseaux.")
                             .font(Theme.small).foregroundStyle(Theme.textSecondary)
                     }
-                    Spacer()
-                    Button("Copier en CSV") {
-                        let lines = ["sous_reseau;premier_hote;dernier_hote;broadcast;hotes"] + pieces.map {
-                            "\($0);\($0.firstHost);\($0.lastHost);\($0.broadcast);\($0.hostCount)"
+                    ActionRow {
+                        Button("Copier en CSV") {
+                            let lines = ["sous_reseau;premier_hote;dernier_hote;broadcast;hotes"] + pieces.map {
+                                "\($0);\($0.firstHost);\($0.lastHost);\($0.broadcast);\($0.hostCount)"
+                            }
+                            ToolActions.copy(lines.joined(separator: "\n"))
+                            store.record(command: "ipcalc \(subnet) --split \(sp)")
                         }
-                        ToolActions.copy(lines.joined(separator: "\n"))
-                        store.record(command: "ipcalc \(subnet) --split \(sp)")
+                        .buttonStyle(.secondary)
                     }
-                    .buttonStyle(.ghost)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)

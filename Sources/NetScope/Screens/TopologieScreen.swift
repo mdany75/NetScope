@@ -587,7 +587,7 @@ struct TopologieScreen: View {
             }
             .font(Theme.small).foregroundStyle(Theme.text)
             Spacer(minLength: 8)
-            Button("Tous les VLAN") { vlanFilter = .all }.buttonStyle(.ghost)
+            Button("Tous les VLAN") { vlanFilter = .all }.buttonStyle(.secondary).controlSize(.small)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 4)
@@ -722,7 +722,7 @@ struct TopologieScreen: View {
                 .font(Theme.small)
                 .help(legendNote(hasLLDP))
                 Spacer(minLength: 0)
-                Button("Ouvrir Switchs et ports") { state.open(.switchs) }.buttonStyle(.ghost)
+                Button("Ouvrir Switchs et ports") { state.open(.switchs) }.buttonStyle(.secondary).controlSize(.small)
             }
             .foregroundStyle(Theme.textSecondary)
         }
@@ -802,7 +802,7 @@ struct TopologieScreen: View {
             Text(notice.text).font(Theme.small).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 8)
             if let url = notice.url {
-                Button("Afficher dans le Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }.buttonStyle(.ghost)
+                Button("Afficher dans le Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }.buttonStyle(.secondary).controlSize(.small)
             }
             Button { exportNotice = nil } label: { Image(systemName: "xmark") }
                 .buttonStyle(.plain)

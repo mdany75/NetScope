@@ -135,7 +135,8 @@ struct FileTransferBrowser: View {
             } label: {
                 Label("Journal", systemImage: "list.bullet.rectangle").labelStyle(RemoteCompactLabelStyle())
             }
-            .buttonStyle(.ghost)
+            .buttonStyle(.secondary)
+            .controlSize(.small)
             .help("Journal de la session (connexion, certificat, transferts, erreurs)")
             .popover(isPresented: $showLog, arrowEdge: .bottom) { FileTransferLogView(session: session) }
             Button {
@@ -143,14 +144,16 @@ struct FileTransferBrowser: View {
             } label: {
                 Label("Masquer", systemImage: "rectangle.portrait.and.arrow.right").labelStyle(RemoteCompactLabelStyle())
             }
-            .buttonStyle(.ghost)
+            .buttonStyle(.secondary)
+            .controlSize(.small)
             .help("Revenir à l’aperçu\u{00A0}; les transferts continuent en arrière-plan")
             Button {
                 FileTransferStore.shared.close()
             } label: {
                 Label("Déconnecter", systemImage: "xmark.circle").labelStyle(RemoteCompactLabelStyle())
             }
-            .buttonStyle(.ghost)
+            .buttonStyle(.secondary)
+            .controlSize(.small)
             .help(session.activeCount > 0 ? "Ferme la session et annule " + MonText.plural(session.activeCount, "transfert", "transferts") : "Ferme la session")
         }
         .padding(.horizontal, 12)
@@ -700,11 +703,11 @@ struct FileTransferCredentialsCard: View {
                 }
                 Toggle("Retenir dans le Trousseau macOS", isOn: $session.rememberPassword).toggleStyle(.checkbox).font(Theme.small)
             }
-            HStack(spacing: 8) {
+            ActionRow {
                 Button("Se connecter") { session.submitCredentials() }
                     .buttonStyle(.primary)
                     .keyboardShortcut(.defaultAction)
-                Button("Annuler") { FileTransferStore.shared.close() }.buttonStyle(.ghost)
+                Button("Annuler") { FileTransferStore.shared.close() }.buttonStyle(.secondary)
             }
             if needsPassword {
                 Text(session.rememberPassword ? FileTransferTexts.keychainNote : "Mot de passe utilisé pour cette session seulement, jamais enregistré.")
@@ -740,9 +743,9 @@ struct FileTransferTrustCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.panelMuted))
                 .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
-            HStack(spacing: 8) {
+            ActionRow {
                 Button(action, action: accept).buttonStyle(.primary)
-                Button("Annuler") { FileTransferStore.shared.close() }.buttonStyle(.ghost)
+                Button("Annuler") { FileTransferStore.shared.close() }.buttonStyle(.secondary)
             }
         }
         .frame(maxWidth: 520, alignment: .leading)

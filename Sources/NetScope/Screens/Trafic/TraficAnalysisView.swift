@@ -175,14 +175,15 @@ struct TrafficFindingCard: View {
                     Text(finding.action).font(Theme.small).foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                if finding.target != .none {
+                    ActionRow {
+                        Button("Voir", action: open)
+                            .buttonStyle(.secondary)
+                            .fixedSize()
+                    }
+                }
             }
-            Spacer(minLength: 8)
-            if finding.target != .none {
-                Button("Voir", action: open)
-                    .buttonStyle(.secondary)
-                    .controlSize(.small)
-                    .fixedSize()
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)

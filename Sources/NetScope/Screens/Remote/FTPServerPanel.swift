@@ -145,10 +145,12 @@ struct FTPServerCard: View {
                 Text("Offre un dossier du Mac aux appareils qui viennent chercher leur fichier (firmware, configuration).")
                     .font(Theme.caption).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
+                ActionRow {
+                    Button(server.isRunning ? "Afficher" : "Ouvrir…") { server.isPresented = true }
+                        .buttonStyle(.secondary)
+                }
+                .padding(.top, 6)
             }
-            Spacer(minLength: 6)
-            Button(server.isRunning ? "Afficher" : "Ouvrir…") { server.isPresented = true }
-                .buttonStyle(RemoteSmallButtonStyle())
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -84,21 +84,18 @@ struct FlowCollectorBar: View {
 
     var body: some View {
         Panel(padding: 12) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) {
-                    chip
-                    texts
-                    Spacer(minLength: 8)
-                    button
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) {
                         chip
-                        Spacer(minLength: 8)
-                        button
+                        texts
                     }
-                    texts
+                    VStack(alignment: .leading, spacing: 8) {
+                        chip
+                        texts
+                    }
                 }
+                ActionRow { button }
             }
         }
     }
@@ -221,11 +218,12 @@ struct FlowPortsPanel: View {
                 .font(Theme.caption).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             if !flows.isDemo {
-                Button("Effacer les flux reçus") { flows.clear() }
-                    .buttonStyle(.secondary)
-                    .controlSize(.small)
-                    .fixedSize()
-                    .disabled(flows.status.received == 0)
+                ActionRow {
+                    Button("Effacer les flux reçus") { flows.clear() }
+                        .buttonStyle(.secondary)
+                        .fixedSize()
+                        .disabled(flows.status.received == 0)
+                }
             }
         }
         .padding(14)

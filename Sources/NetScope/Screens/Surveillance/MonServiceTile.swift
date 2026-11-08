@@ -12,11 +12,6 @@ struct MonServiceTile: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 MonHeading("Services en ligne")
                 RegPill(text: pill, tone: svc.overallTone)
-                Spacer(minLength: 4)
-                Button("Ouvrir l’outil") { open(nil) }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.accentStrong)
             }
             Text(svc.summaryLine).font(Theme.small).foregroundStyle(Theme.textSecondary)
             let problems = svc.problemServices
@@ -29,6 +24,10 @@ struct MonServiceTile: View {
             }
             ForEach(problems.prefix(4)) { service in
                 MonServiceRow(service: service) { open(service.id) }
+            }
+            ActionRow {
+                Button("Ouvrir l’outil") { open(nil) }
+                    .buttonStyle(.secondary)
             }
         }
         .padding(.horizontal, 14)

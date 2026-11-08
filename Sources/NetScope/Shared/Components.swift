@@ -718,3 +718,15 @@ struct FlowLayout: Layout {
         }
     }
 }
+
+/// Actions d'un panneau ou d'une carte : boutons `.secondary` (ou `.primary` pour l'action
+/// principale), toujours alignés à gauche à la fin du contenu, et jamais un lien en texte.
+struct ActionRow<Content: View>: View {
+    var spacing: CGFloat = 8
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        SwitchFlowLayout(spacing: spacing, lineSpacing: spacing) { content }
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}

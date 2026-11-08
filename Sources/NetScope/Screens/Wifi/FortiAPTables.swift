@@ -443,8 +443,7 @@ struct FortiAPClientTable: View {
             .fixedSize()
             if filter.isActive {
                 Button("Effacer") { filter = FortiWifiClientFilter() }
-                    .buttonStyle(.borderless)
-                    .font(Theme.small)
+                    .buttonStyle(.secondary)
                     .help("Retirer les filtres SSID, borne, bande et signal faible")
             }
         }

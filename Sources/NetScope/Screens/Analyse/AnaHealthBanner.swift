@@ -107,11 +107,9 @@ struct AnaHealthBanner: View {
     }
 
     private var openButton: some View {
-        Button {
+        Button("Ouvrir le bilan") {
             TrafficScreenState.shared.part = .analyse
             state.open(.trafic)
-        } label: {
-            Label("Ouvrir le bilan", systemImage: "arrow.right")
         }
         .buttonStyle(.secondary)
         .help("Détail du bilan dans Trafic › Bilan de santé")

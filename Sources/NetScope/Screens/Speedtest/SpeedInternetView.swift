@@ -364,15 +364,7 @@ struct SpeedInternetView: View {
         let source = model.plannedServer.source
         return Panel {
             VStack(alignment: .leading, spacing: 10) {
-                SectionHeader(title: "Serveur de test") {
-                    Button {
-                        model.tab = .serveurs
-                    } label: {
-                        Label("Tous les serveurs", systemImage: "arrow.right").labelStyle(SpeedTrailingIconLabelStyle())
-                    }
-                    .buttonStyle(.ghost)
-                    .padding(.trailing, -8)
-                }
+                SectionHeader("Serveur de test")
                 VStack(spacing: 4) {
                     SpeedServerRadio(title: "Automatique (le plus proche)", subtitle: automaticSubtitle,
                                      latency: model.automaticChoice.latencyMs ?? (model.isAutomatic ? model.idleLatency : nil),
@@ -419,6 +411,10 @@ struct SpeedInternetView: View {
                 if source == .ookla {
                     Text(OoklaLocator.licenseNote).font(Theme.caption).foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+                ActionRow {
+                    Button("Tous les serveurs") { model.tab = .serveurs }
+                        .buttonStyle(.secondary)
                 }
             }
         }

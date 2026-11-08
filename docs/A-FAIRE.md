@@ -1988,3 +1988,17 @@ Onglet « Trafic » de la fiche (relu toutes les 5 s) et carte « Trafic en dire
 Sources (FortiView, jusqu'à 1 000 lignes). Le filtre de sessions et les débits par sens sont à
 confirmer sur une vraie FortiGate ; si FortiOS ignore le filtre, une remarque le dit dans l'onglet.
 Seul le trafic qui traverse la FortiGate est visible (rien du trafic local à un VLAN).
+
+## 106. Serveur WireGuard : tunnel, keepalive et courriel au client — livrée dans la 1.5.0 (demande de Dany, 8 novembre 2026)
+
+À l'ajout d'un client et depuis son menu : `allowedIps` (réglage du serveur, tout le trafic ou
+certains réseaux) et `persistentKeepalive`, par la fiche complète de l'API de wg-easy 15. Brouillon
+dans Mail, jamais d'envoi direct : liens officiels de WireGuard, fichier `.conf` et code QR en
+pièces jointes. Ces fichiers contiennent la clé privée : dossier temporaire 0700, effacés après
+10 minutes, à la fermeture et au lancement suivant. Pas encore essayé contre un vrai serveur.
+
+## 107. Boutons d'action standardisés sur tous les menus — livrée dans la 1.5.0 (demande de Dany, 8 novembre 2026)
+
+Actions en texte remplacées par de vrais boutons, alignés à gauche à la fin du panneau
+(`ActionRow`). La règle est dans CLAUDE.md. Exceptions : barres d'outils et de tableaux, feuilles
+de dialogue, bannières, icônes seules, cellules de tableau.

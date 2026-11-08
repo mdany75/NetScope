@@ -154,22 +154,21 @@ struct SMBSharesPanel: View {
                 .frame(minWidth: 140, maxWidth: 220)
                 Toggle("Retenir au Trousseau", isOn: $remember).toggleStyle(.checkbox).font(.system(size: 12))
                     .padding(.bottom, 5)
-                Spacer(minLength: 0)
+            }
+            Text("Le mot de passe est tapé dans smbutil par NetScope\u{00A0}: jamais dans la commande, un fichier ou le journal.")
+                .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            ActionRow {
                 Button("Lister avec cet utilisateur", action: listWithUser)
                     .buttonStyle(.primary)
                     .disabled(user.trimmingCharacters(in: .whitespaces).isEmpty || hostState.isRunning)
-            }
-            HStack(spacing: 8) {
-                Text("Le mot de passe est tapé dans smbutil par NetScope\u{00A0}: jamais dans la commande, un fichier ou le journal.")
-                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
                 if remembered != nil {
                     Button("Oublier cet utilisateur") {
                         model.forgetLogin(host: host)
                         user = ""
                         password = ""
                     }
-                    .buttonStyle(.ghost)
+                    .buttonStyle(.secondary)
                 }
             }
         }

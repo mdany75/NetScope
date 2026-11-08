@@ -55,7 +55,7 @@ struct SSHConfigImportList: View {
                 } label: {
                     Label("Relire le fichier", systemImage: "arrow.clockwise").labelStyle(RemoteCompactLabelStyle())
                 }
-                .buttonStyle(.ghost)
+                .buttonStyle(.secondary)
                 Spacer()
                 Button("Ajouter tous les nouveaux") { _ = model.addAllFromSSHConfig(candidates) }
                     .buttonStyle(.secondary)

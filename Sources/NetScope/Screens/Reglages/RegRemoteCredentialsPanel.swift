@@ -234,8 +234,7 @@ struct RegRemoteCredentialsPanel: View {
                  : WMIReachabilityTest.limitation)
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack {
-                Spacer()
+            ActionRow {
                 Button("Supprimer", role: .destructive) { removing = credential }
                 .buttonStyle(.secondary)
             }

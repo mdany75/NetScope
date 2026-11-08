@@ -219,13 +219,15 @@ struct RemoteSessionArea: View {
             }
             // Correctif 0.27.3 : l'assistance par ID et l'historique complet ont leur onglet.
             if connection.proto == .rustdesk {
-                Button {
-                    rustdesk.showAssistance()
-                } label: {
-                    Label("Toutes les sessions RustDesk", systemImage: RemoteProtocol.rustdesk.symbol)
+                ActionRow {
+                    Button {
+                        rustdesk.showAssistance()
+                    } label: {
+                        Label("Toutes les sessions RustDesk", systemImage: RemoteProtocol.rustdesk.symbol)
+                    }
+                    .buttonStyle(.secondary)
+                    .help("Ouvrir l’onglet «\u{00A0}Assistance RustDesk\u{00A0}»\u{00A0}: ID de l’usager, sessions récentes, reconnexion")
                 }
-                .buttonStyle(.ghost)
-                .help("Ouvrir l’onglet «\u{00A0}Assistance RustDesk\u{00A0}»\u{00A0}: ID de l’usager, sessions récentes, reconnexion")
             }
             // Note 57 : session VNC intégrée ouverte dans un onglet (affiché ou non).
             if connection.proto == .vnc, let tab = sessions.tab(for: connection.id) {
@@ -365,15 +367,7 @@ struct RemoteSessionArea: View {
     /// Note 66 : tunnels de la connexion SSH choisie (ouvrir, revenir à l'onglet, ajouter).
     private func tunnelsBox(_ connection: RemoteConnection) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionHeader(title: "Tunnels par \(connection.name)") {
-                Button {
-                    model.startTunnel(for: connection)
-                } label: {
-                    Label("Nouveau tunnel", systemImage: "plus").labelStyle(RemoteCompactLabelStyle())
-                }
-                .buttonStyle(.ghost)
-                .help("Redirection locale (-L) ou proxy SOCKS (-D) par ce serveur SSH")
-            }
+            SectionHeader("Tunnels par \(connection.name)")
             if connection.tunnels.isEmpty {
                 Text("Aucun tunnel\u{00A0}: une redirection (-L) joint un service derrière ce serveur par 127.0.0.1, un proxy SOCKS (-D) tout son réseau.")
                     .font(Theme.small).foregroundStyle(Theme.textSecondary)
@@ -414,6 +408,15 @@ struct RemoteSessionArea: View {
                     .buttonStyle(.plain)
                     .help("Ouvrir le tunnel \(tunnel.spec()) dans un onglet de session")
                 }
+            }
+            ActionRow {
+                Button {
+                    model.startTunnel(for: connection)
+                } label: {
+                    Label("Nouveau tunnel", systemImage: "plus")
+                }
+                .buttonStyle(.secondary)
+                .help("Redirection locale (-L) ou proxy SOCKS (-D) par ce serveur SSH")
             }
         }
         .padding(.top, 4)
@@ -614,7 +617,7 @@ struct RemoteForm: View {
                 if let error = model.draftError {
                     SpeedBanner(text: error, tone: .critical, systemImage: "xmark.octagon")
                 }
-                HStack(spacing: 8) {
+                ActionRow {
                     Button("Enregistrer et connecter") {
                         if let saved = model.commitDraft() { model.connect(saved) }
                     }
@@ -622,9 +625,8 @@ struct RemoteForm: View {
                     Button("Enregistrer seulement") { model.commitDraft() }
                         .buttonStyle(.secondary)
                     Button("Annuler") { model.cancelDraft() }
-                        .buttonStyle(.ghost)
+                        .buttonStyle(.secondary)
                 }
-                .fixedSize()
                 helpBox.padding(.top, 4)
             }
             .frame(maxWidth: 560, alignment: .leading)

@@ -25,12 +25,6 @@ struct RegAboutSection: View {
                             .foregroundStyle(Theme.textSecondary)
                         Text("L’outil du technicien réseau, pour macOS.").font(Theme.small).foregroundStyle(Theme.textTertiary)
                     }
-                    Spacer()
-                    Button("Rechercher des mises à jour") {
-                        navigation.section = .majs
-                        Task { await updates.check(userInitiated: true) }
-                    }
-                    .buttonStyle(.secondary)
                 }
 
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
@@ -42,10 +36,7 @@ struct RegAboutSection: View {
                     row("Mises à jour") {
                         HStack(spacing: 0) {
                             Text("Releases GitHub · ")
-                            Button("github.com/mdany75/NetScope") { NSWorkspace.shared.open(UpdateChecker().releasesPage) }
-                                .buttonStyle(.plain)
-                                .font(Theme.mono(12))
-                                .foregroundStyle(Theme.accent)
+                            Text("github.com/mdany75/NetScope").font(Theme.mono(12))
                         }
                     }
                     row("Signature") { Text("Developer ID, équipe \(UpdSignature.expectedTeamID)").font(Theme.mono(12)) }
@@ -60,6 +51,17 @@ struct RegAboutSection: View {
                 Text("Aucun : NetScope n’utilise que les frameworks d’Apple (SwiftUI, Network, Security). Polices système SF Pro et SF Mono.")
                     .font(Theme.small).foregroundStyle(Theme.neutralText)
                     .fixedSize(horizontal: false, vertical: true)
+
+                ActionRow {
+                    Button("Rechercher des mises à jour") {
+                        navigation.section = .majs
+                        Task { await updates.check(userInitiated: true) }
+                    }
+                    .buttonStyle(.secondary)
+                    Button("Voir sur GitHub") { NSWorkspace.shared.open(UpdateChecker().releasesPage) }
+                        .buttonStyle(.secondary)
+                }
+                .padding(.top, 16)
             }
         }
     }

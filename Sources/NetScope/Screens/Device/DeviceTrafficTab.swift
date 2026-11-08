@@ -209,11 +209,9 @@ struct DeviceTrafficCard: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.top, 6)
                     }
-                    HStack {
-                        Spacer(minLength: 0)
+                    ActionRow {
                         Button("Voir le trafic") { session.tab = .trafic }
                             .buttonStyle(.secondary)
-                            .controlSize(.small)
                             .help("Destinations, applications, sessions et menaces de cet appareil")
                     }
                     .padding(.top, 8)

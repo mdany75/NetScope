@@ -34,7 +34,8 @@ struct VNCSessionView: View {
             } label: {
                 Label("Ctrl-Alt-Suppr", systemImage: "command").labelStyle(RemoteCompactLabelStyle())
             }
-            .buttonStyle(.ghost)
+            .buttonStyle(.secondary)
+            .controlSize(.small)
             .speedDisabled(session.phase != .connected || session.viewOnly)
             .help("Envoie Ctrl-Alt-Suppr à l’ordinateur distant (ouverture de session Windows)")
             Button {
@@ -42,7 +43,8 @@ struct VNCSessionView: View {
             } label: {
                 Label("Plein écran", systemImage: "arrow.up.left.and.arrow.down.right").labelStyle(RemoteCompactLabelStyle())
             }
-            .buttonStyle(.ghost)
+            .buttonStyle(.secondary)
+            .controlSize(.small)
             .speedDisabled(session.phase != .connected)
             .help("Ouvre la session en plein écran (sortie\u{00A0}: Ctrl-Commande-F ou le bouton du haut)")
             Menu {
@@ -65,14 +67,16 @@ struct VNCSessionView: View {
                 } label: {
                     Label("Déconnecter", systemImage: "xmark.circle").labelStyle(RemoteCompactLabelStyle())
                 }
-                .buttonStyle(.ghost)
+                .buttonStyle(.secondary)
+                .controlSize(.small)
             } else {
                 Button {
                     session.reconnect()
                 } label: {
                     Label("Reconnecter", systemImage: "arrow.triangle.2.circlepath").labelStyle(RemoteCompactLabelStyle())
                 }
-                .buttonStyle(.ghost)
+                .buttonStyle(.secondary)
+                .controlSize(.small)
             }
         }
         .padding(.horizontal, 12)
@@ -276,8 +280,7 @@ private struct VNCCredentialsCard: View {
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(submit)
             Toggle("Mémoriser au Trousseau macOS", isOn: $remember).toggleStyle(.checkbox).font(Theme.small)
-            HStack(spacing: 8) {
-                Spacer()
+            ActionRow {
                 Button("Ouvrir dans Partage d’écran") { RemoteModel.shared.connect(session.connection, external: true) }
                     .buttonStyle(.secondary)
                 Button("Connecter", action: submit)

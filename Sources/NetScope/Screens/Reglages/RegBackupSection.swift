@@ -117,16 +117,9 @@ struct RegBackupSection: View {
     }
 
     private var passwordBox: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 10) {
-                passwordInfo
-                Spacer(minLength: 8)
-                passwordButtons
-            }
-            VStack(alignment: .leading, spacing: 10) {
-                passwordInfo
-                passwordButtons
-            }
+        VStack(alignment: .leading, spacing: 10) {
+            passwordInfo
+            ActionRow { passwordButtons }
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -154,11 +147,11 @@ struct RegBackupSection: View {
     private var passwordButtons: some View {
         HStack(spacing: 8) {
             Button(backups.hasStoredPassword ? "Changer…" : "Définir…") { backups.passwordRequest = .define }
-                .buttonStyle(RegSmallButtonStyle())
+                .buttonStyle(.secondary)
                 .help("Choisir le mot de passe des sauvegardes chiffrées et le mémoriser dans le Trousseau")
             if backups.hasStoredPassword {
                 Button("Oublier", action: backups.forgetPassword)
-                    .buttonStyle(RegSmallButtonStyle())
+                    .buttonStyle(.secondary)
                     .help("Retirer le mot de passe du Trousseau (les sauvegardes déjà chiffrées le demanderont)")
             }
         }
@@ -251,16 +244,9 @@ struct RegBackupSection: View {
     }
 
     private var folderBox: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 10) {
-                folderInfo
-                Spacer(minLength: 8)
-                folderButtons
-            }
-            VStack(alignment: .leading, spacing: 10) {
-                folderInfo
-                folderButtons
-            }
+        VStack(alignment: .leading, spacing: 10) {
+            folderInfo
+            ActionRow { folderButtons }
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)

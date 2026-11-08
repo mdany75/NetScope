@@ -93,7 +93,7 @@ struct FortiAPSitesBanner: View {
                     RegNavigation.shared.section = .sites
                     state.open(.reglages)
                 }
-                .buttonStyle(.ghost)
+                .buttonStyle(.secondary)
                 .fixedSize()
             }
         }

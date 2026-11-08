@@ -167,12 +167,11 @@ struct ServiceCatalogSheet: View {
             TextField("Adresses clés testées d’ici (portail.exemple.com, api.exemple.com)", text: $endpoints)
                 .textFieldStyle(.roundedBorder)
                 .font(Theme.mono(12))
-            HStack {
-                if let addError {
-                    Text(addError).font(Theme.small).foregroundStyle(Theme.critical)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer()
+            if let addError {
+                Text(addError).font(Theme.small).foregroundStyle(Theme.critical)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            ActionRow {
                 Button("Ajouter") {
                     addError = svc.addCustom(name: name, format: format, feedURL: feedURL, pageURL: pageURL, endpoints: endpoints)
                     if addError == nil {
@@ -203,12 +202,11 @@ struct ServiceCatalogSheet: View {
             }
             SecureField(svc.graphSecretSet ? "Secret enregistré au Trousseau (laisser vide pour le garder)" : "Secret client", text: $secret)
                 .textFieldStyle(.roundedBorder)
-            HStack {
-                if let (message, tone) = graphMessage {
-                    Text(message).font(Theme.small).foregroundStyle(tone.foreground)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer()
+            if let (message, tone) = graphMessage {
+                Text(message).font(Theme.small).foregroundStyle(tone.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            ActionRow {
                 if svc.graphSecretSet || !svc.graphTenant.isEmpty {
                     Button("Retirer l’accès", role: .destructive) {
                         svc.clearGraph()

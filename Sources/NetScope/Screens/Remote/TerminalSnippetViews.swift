@@ -276,9 +276,9 @@ struct TerminalBroadcastSheet: View {
                 ToolFieldLabel("Sessions (\(plan.recipients.count) sur \(targets.filter(\.isConnected).count) ouvertes)")
                 Spacer()
                 Button("Tout cocher") { selected = Set(targets.filter(\.isConnected).map(\.id)) }
-                    .buttonStyle(.link).font(Theme.small)
+                    .buttonStyle(.secondary).controlSize(.small)
                 Button("Tout décocher") { selected = [] }
-                    .buttonStyle(.link).font(Theme.small)
+                    .buttonStyle(.secondary).controlSize(.small)
             }
             VStack(spacing: 0) {
                 if sessions.isEmpty {

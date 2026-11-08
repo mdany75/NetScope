@@ -202,9 +202,7 @@ struct MonNotificationPreview: View {
                     HStack(spacing: 8) {
                         Text("Notification ignorée.").font(Theme.small).foregroundStyle(Theme.textSecondary)
                         Button("Réafficher") { hiddenID = nil }
-                            .buttonStyle(.plain)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Theme.accentStrong)
+                            .buttonStyle(.secondary)
                     }
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)

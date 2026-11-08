@@ -178,8 +178,7 @@ struct RegFortiGatePanel: View {
             if let pending {
                 RegFingerprintText(fingerprint: pending.fingerprint)
             }
-            HStack(spacing: 8) {
-                Spacer()
+            ActionRow {
                 Button("Refuser") { fortigate.rejectPendingCertificate(c.id) }.buttonStyle(.secondary)
                 Button("Accepter cette empreinte") { fortigate.acceptPendingCertificate(c.id) }.buttonStyle(.primary)
             }

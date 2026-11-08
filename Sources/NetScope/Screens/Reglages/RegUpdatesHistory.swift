@@ -182,13 +182,15 @@ struct RegUpdatesHistory: View {
                 detail(notes).padding(.leading, 22)
             }
             if isOpen, row.state == .previous || row.state == .notInstalled {
-                Button {
-                    confirming = row.version
-                } label: {
-                    Label("Réinstaller cette version", systemImage: "arrow.uturn.backward.circle")
+                ActionRow {
+                    Button {
+                        confirming = row.version
+                    } label: {
+                        Label("Réinstaller cette version", systemImage: "arrow.uturn.backward.circle")
+                    }
+                    .buttonStyle(.secondary)
+                    .regDisabled(updates.isBusy)
                 }
-                .buttonStyle(RegSmallButtonStyle())
-                .regDisabled(updates.isBusy)
                 .padding(.leading, 22)
             }
         }

@@ -106,7 +106,7 @@ struct SwitchConfigTab: View {
             }
             .buttonStyle(.secondary)
             Button("Marquer comme vue") { model.markSeen(equipment.id) }
-                .buttonStyle(.ghost)
+                .buttonStyle(.secondary)
         }
         .padding(12)
         .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Tone.warning.background))
@@ -269,7 +269,7 @@ struct SwitchConfigTab: View {
                 let list = model.versions[equipment.id] ?? []
                 VStack(alignment: .leading, spacing: 10) {
                     SectionHeader("Historique", subtitle: equipment.name)
-                    HStack(spacing: 8) {
+                    ActionRow {
                         Button {
                             Task { await model.backup(equipment) }
                         } label: {
@@ -283,7 +283,7 @@ struct SwitchConfigTab: View {
                             } label: {
                                 Label("Finder", systemImage: "folder")
                             }
-                            .buttonStyle(.ghost)
+                            .buttonStyle(.secondary)
                             .help("Montrer les fichiers .conf dans le Finder")
                         }
                     }

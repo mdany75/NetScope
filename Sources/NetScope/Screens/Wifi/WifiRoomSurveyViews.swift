@@ -183,7 +183,7 @@ struct WifiRoomSurveyPanel: View {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
                     Text(phase).font(Theme.small).foregroundStyle(Theme.textSecondary)
-                    Button("Annuler") { store.cancel() }.buttonStyle(.borderless).font(Theme.small)
+                    Button("Annuler") { store.cancel() }.buttonStyle(.secondary).controlSize(.small)
                 }
             }
         }

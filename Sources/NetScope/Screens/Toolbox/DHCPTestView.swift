@@ -548,21 +548,18 @@ struct DHCPTestView: View {
                 Text(message).font(Theme.small).foregroundStyle(Color(light: 0x7C2D12, dark: 0xEFAB94))
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
-                // Liens d'action : passent à la ligne en petite fenêtre au lieu de se replier.
-                ToolFlowLayout(spacing: 14, lineSpacing: 4) {
+                // Actions : passent à la ligne en petite fenêtre au lieu de se replier.
+                ActionRow {
                     if let mac = offer.sourceMAC {
-                        Button("Voir le port de switch →") {
+                        Button("Voir le port de switch") {
                             SwitchStore.shared.find(mac.formatted(.upperColon), devices: state.devices)
                             state.open(.switchs)
                         }
                     }
-                    Button("Créer une alerte →") { createAlert(offer, location: location) }
+                    Button("Créer une alerte") { createAlert(offer, location: location) }
                     Button("Copier le rapport") { ToolActions.copy(report()) }
-                        .font(Theme.body)
                 }
-                .buttonStyle(.plain)
-                .font(Theme.bodySemibold)
-                .foregroundStyle(Color(light: 0x9A3412, dark: 0xF2AA91))
+                .buttonStyle(.secondary)
                 .padding(.top, 4)
             }
             Spacer(minLength: 0)

@@ -109,7 +109,7 @@ struct ControllerSitePanel: View {
         let controllers = store.activeControllers
         if !controllers.isEmpty {
             Panel(padding: 14) {
-                AdaptiveStack(breakpoint: 900, spacing: 14) {
+                VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .top, spacing: 10) {
                         ControllerKindIcon(kind: controllers[0].kind)
                         VStack(alignment: .leading, spacing: 5) {
@@ -123,7 +123,7 @@ struct ControllerSitePanel: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    HStack(spacing: 8) {
+                    ActionRow {
                         Button("Réglages…") {
                             RegNavigation.shared.section = .sites
                             state.open(.reglages)
@@ -143,7 +143,6 @@ struct ControllerSitePanel: View {
                         .disabled(store.isBusy || !(store.hasReadyControllers || store.isDemo))
                         .help("Relit les contrôleurs du site actif (HTTPS, lecture seule)\u{00A0}: switchs, ports, bornes et clients.")
                     }
-                    .fixedSize()
                 }
             }
         }

@@ -324,7 +324,7 @@ struct DiskShareSheet: View {
                     .font(Theme.caption).foregroundStyle(Theme.textSecondary)
                 if draft.hasPassword && !passwordChanged {
                     Button("Effacer") { password = ""; passwordChanged = true }
-                        .buttonStyle(.link).controlSize(.small).font(Theme.caption)
+                        .buttonStyle(.secondary).controlSize(.small)
                 }
             }
         }

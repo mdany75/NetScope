@@ -562,31 +562,35 @@ struct InventaireScreen: View {
     /// Plusieurs lignes choisies : leur nombre, leurs sites et « Supprimer de l'inventaire ».
     private func selectionPanel(_ chosen: [SiteScopedRecord], rows: [SiteScopedRecord], archiveMode: Bool) -> some View {
         Panel(padding: 16) {
-            HStack(spacing: 14) {
-                Image(systemName: "checklist").font(.system(size: 20)).foregroundStyle(Theme.accentStrong)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("\(chosen.count) appareils sélectionnés").font(Theme.bodySemibold)
-                    Text((Set(chosen.map(\.siteKey)).count > 1 ? "" : "Site ") + InvDialogs.siteSummary(chosen) + " · ⌘-clic ou ⇧-clic pour changer la sélection, ⌘A pour tout choisir")
-                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 14) {
+                    Image(systemName: "checklist").font(.system(size: 20)).foregroundStyle(Theme.accentStrong)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("\(chosen.count) appareils sélectionnés").font(Theme.bodySemibold)
+                        Text((Set(chosen.map(\.siteKey)).count > 1 ? "" : "Site ") + InvDialogs.siteSummary(chosen) + " · ⌘-clic ou ⇧-clic pour changer la sélection, ⌘A pour tout choisir")
+                            .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
-                Spacer(minLength: 8)
-                Button("Tout désélectionner") { selection = [] }.buttonStyle(.secondary)
-                if archiveMode {
-                    Button { restore(chosen.map(\.id)) } label: { Label("Restaurer", systemImage: "arrow.uturn.backward") }
+                ActionRow {
+                    Button("Tout désélectionner") { selection = [] }.buttonStyle(.secondary)
+                    if archiveMode {
+                        Button { restore(chosen.map(\.id)) } label: { Label("Restaurer", systemImage: "arrow.uturn.backward") }
+                            .buttonStyle(.secondary)
+                        Button(role: .destructive) { confirmPurge(chosen.map(\.id), rows: rows) } label: {
+                            Label("Supprimer définitivement…", systemImage: "trash")
+                        }
                         .buttonStyle(.secondary)
-                    Button(role: .destructive) { confirmPurge(chosen.map(\.id), rows: rows) } label: {
-                        Label("Supprimer définitivement…", systemImage: "trash")
+                    } else {
+                        InvMoveMenu(rows: chosen) { site in move(chosen.map(\.id), to: site, rows: rows) }
+                            .menuStyle(.button)
+                            .controlSize(.large)
+                            .fixedSize()
+                        Button(role: .destructive) { confirmRemove(chosen.map(\.id), rows: rows) } label: {
+                            Label("Retirer de l’inventaire…", systemImage: "trash")
+                        }
+                        .buttonStyle(.secondary)
                     }
-                    .buttonStyle(.secondary)
-                } else {
-                    InvMoveMenu(rows: chosen) { site in move(chosen.map(\.id), to: site, rows: rows) }
-                        .menuStyle(.button)
-                        .fixedSize()
-                    Button(role: .destructive) { confirmRemove(chosen.map(\.id), rows: rows) } label: {
-                        Label("Retirer de l’inventaire…", systemImage: "trash")
-                    }
-                    .buttonStyle(.secondary)
                 }
             }
         }

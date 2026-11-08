@@ -171,7 +171,7 @@ struct RegRustDeskSection: View {
                              RegPill(text: rustdesk.isInstalled ? "RustDesk installé" : "RustDesk absent", tone: rustdesk.isInstalled ? .success : .warning)
                              if !rustdesk.isInstalled {
                                  Button("Télécharger RustDesk") { rustdesk.openDownloadPage() }
-                                     .buttonStyle(.ghost)
+                                     .buttonStyle(.secondary)
                                      .help(RustDeskLink.downloadURL.absoluteString)
                              }
                              Spacer()

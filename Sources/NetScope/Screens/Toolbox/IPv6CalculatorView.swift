@@ -195,15 +195,16 @@ struct IPv6CalculatorView: View {
                         .textSelection(.enabled)
                     }
                 }
-                HStack {
-                    Text(pieces.count >= Self.maxRows ? "Les \(Self.maxRows) premiers sous-réseaux." : "")
+                if pieces.count >= Self.maxRows {
+                    Text("Les \(Self.maxRows) premiers sous-réseaux.")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                    Spacer()
+                }
+                ActionRow {
                     Button("Copier la liste") {
                         ToolActions.copy(pieces.map(\.description).joined(separator: "\n"))
                         store.record(command: "ipcalc \(prefix) --split \(chosen)")
                     }
-                    .buttonStyle(.ghost)
+                    .buttonStyle(.secondary)
                 }
             }
         }

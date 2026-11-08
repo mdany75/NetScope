@@ -179,9 +179,10 @@ struct RegUpdatesSection: View {
                             Text(line).font(Theme.body).fixedSize(horizontal: false, vertical: true)
                         }
                     }
-                    Button("Voir la version sur GitHub") { updates.openReleasePage() }
-                        .buttonStyle(.ghost)
-                        .padding(.leading, -8)
+                    ActionRow {
+                        Button("Voir la version sur GitHub") { updates.openReleasePage() }
+                            .buttonStyle(.secondary)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 VStack(alignment: .leading, spacing: 0) {

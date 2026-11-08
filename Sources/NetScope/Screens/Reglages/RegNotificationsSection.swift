@@ -13,14 +13,8 @@ struct RegNotificationsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             RegPanel(title: "Notifications", subtitle: "Événements signalés pendant les scans et la surveillance.") {
-                HStack(spacing: 8) {
-                    authorizationPill
-                    Button("Valeurs par défaut") { store.reset() }
-                        .buttonStyle(RegSmallButtonStyle())
-                        .regDisabled(store.settings == NotificationSettings())
-                        .help("Remet tous les réglages des notifications à leurs valeurs d’origine")
-                }
-                .fixedSize()
+                authorizationPill
+                    .fixedSize()
             } content: {
                 VStack(alignment: .leading, spacing: 0) {
                     authorizationNotice
@@ -34,6 +28,13 @@ struct RegNotificationsSection: View {
                         quietBox
                     }
                     .padding(.top, 10)
+                    ActionRow {
+                        Button("Valeurs par défaut") { store.reset() }
+                            .buttonStyle(.secondary)
+                            .regDisabled(store.settings == NotificationSettings())
+                            .help("Remet tous les réglages des notifications à leurs valeurs d’origine")
+                    }
+                    .padding(.top, 14)
                 }
             }
             RegPanel(title: "Derniers événements",

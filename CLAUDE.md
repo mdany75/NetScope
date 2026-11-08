@@ -54,6 +54,12 @@ Dans cet ordre :
   natifs, couleur d’accent du système, mode clair ou sombre automatique (couleurs dynamiques de
   `Theme`, jamais de couleur littérale qui casse en sombre). Vérifier en clair, en sombre et en
   petite fenêtre (`--appearance dark`, `--size 1000x650`).
+- Actions : dans un écran, un panneau ou une carte, toute action avec un texte est un vrai bouton
+  (`.buttonStyle(.secondary)`, `.primary` pour l’action principale), alignée à gauche à la fin du
+  contenu avec `ActionRow` (`Shared/Components.swift`) ; jamais un lien en texte. Taille normale
+  dans une carte, `.controlSize(.small)` en barre de tableau ou ligne dense. Gardent leur place :
+  barres d’outils, barres de tableaux, feuilles de dialogue (bas à droite), bannières, boutons à
+  icône seule et cellules de tableau.
 - Pas de dépendance externe (aucun paquet SwiftPM tiers). Mode de langage Swift 5
   (`swiftLanguageVersions: [.v5]`) ; garder les avertissements de concurrence au minimum.
 - `NetScopeCore` n’importe ni SwiftUI ni AppKit (Foundation, Network, Darwin seulement).

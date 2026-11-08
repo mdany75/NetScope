@@ -300,13 +300,13 @@ struct RegDiagnosticSection: View {
                     .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).strokeBorder(Theme.border))
                 }
                 if !RegEnvironment.isSandboxed {
-                    HStack(spacing: 8) {
+                    ActionRow {
                         Button("Afficher les journaux dans le Finder") {
                             let folder = AppLogFile.standardDirectory
                             try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                             NSWorkspace.shared.activateFileViewerSelecting([folder])
                         }
-                        .buttonStyle(.ghost)
+                        .buttonStyle(.secondary)
                         .fixedSize()
                     }
                 }

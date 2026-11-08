@@ -152,16 +152,9 @@ struct MailHealthView: View {
 
     @ViewBuilder private func result(_ report: MailHealthReport) -> some View {
         let summary = report.summary
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .center, spacing: 14) {
-                scoreBlock(summary)
-                Spacer(minLength: 8)
-                actions
-            }
-            VStack(alignment: .leading, spacing: 10) {
-                scoreBlock(summary)
-                actions
-            }
+        VStack(alignment: .leading, spacing: 10) {
+            scoreBlock(summary)
+            ActionRow { actions }
         }
         if let notice = model.notice {
             ToolNotice(tone: .success, message: notice) {
@@ -198,22 +191,19 @@ struct MailHealthView: View {
         .fixedSize()
     }
 
-    private var actions: some View {
-        HStack(spacing: 8) {
-            Button {
-                ToolActions.copy(model.copyText())
-            } label: {
-                Label("Copier le bilan", systemImage: "doc.on.doc")
-            }
-            .buttonStyle(.secondary)
-            Button {
-                model.addToReport()
-            } label: {
-                Label(model.isExported ? "Dans le rapport" : "Ajouter au rapport", systemImage: model.isExported ? "checkmark" : "doc.richtext")
-            }
-            .buttonStyle(.secondary)
-            .disabled(model.isExported)
+    @ViewBuilder private var actions: some View {
+        Button {
+            ToolActions.copy(model.copyText())
+        } label: {
+            Label("Copier le bilan", systemImage: "doc.on.doc")
         }
-        .fixedSize()
+        .buttonStyle(.secondary)
+        Button {
+            model.addToReport()
+        } label: {
+            Label(model.isExported ? "Dans le rapport" : "Ajouter au rapport", systemImage: model.isExported ? "checkmark" : "doc.richtext")
+        }
+        .buttonStyle(.secondary)
+        .disabled(model.isExported)
     }
 }

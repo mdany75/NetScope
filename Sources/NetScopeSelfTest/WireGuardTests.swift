@@ -67,6 +67,59 @@ func registerWireGuardTests(_ suite: TestSuite) {
         try expectThrows(WGEasyAPIError(.decoding, "Liste des clients attendue."), "liste attendue") { _ = try WGEasyAPI.decodeClients(Data("{}".utf8)) }
     }
 
+    suite.add("WireGuard : tunnel et keepalive d’un client") {
+        let parsed = WireGuardTunnel.parse("10.182.122.0/23, 192.168.1.5 ;2001:db8::/32\n10.182.122.0/23, 300.1.1.1/8, 10.0.0.0/33")
+        try expectEqual(parsed.addresses, ["10.182.122.0/23", "192.168.1.5/32", "2001:db8::/32"], "adresses lues, sans doublon")
+        try expectEqual(parsed.invalid, ["300.1.1.1/8", "10.0.0.0/33"], "adresses refusées")
+        try expectEqual(WireGuardTunnel.label(nil), "Réglage du serveur", "libellé serveur")
+        try expectEqual(WireGuardTunnel.label(WireGuardTunnel.fullTunnel), "Tout le trafic", "libellé complet")
+        try expectEqual(WireGuardTunnel.label(["0.0.0.0/0"]), "0.0.0.0/0", "IPv4 seule : pas « tout le trafic »")
+        try expectEqual(WireGuardTunnel.parseKeepalive("25").seconds, 25, "keepalive")
+        try expectEqual(WireGuardTunnel.parseKeepalive("0").seconds, 0, "keepalive désactivé")
+        try expect(WireGuardTunnel.parseKeepalive("").valid && WireGuardTunnel.parseKeepalive("").seconds == nil, "vide : inchangé")
+        try expect(!WireGuardTunnel.parseKeepalive("70000").valid && !WireGuardTunnel.parseKeepalive("2a").valid, "keepalive invalide")
+
+        let fetched = #"{"id":3,"name":"Julie","enabled":true,"privateKey":"secret","publicKey":"pub","allowedIps":null,"persistentKeepalive":0,"mtu":1420}"#
+        func object(_ data: Data) throws -> [String: Any] { try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:] }
+        let set = try object(WGEasyAPI.updateBody(from: Data(fetched.utf8), applying: .setTunnel(id: 3, allowedIPs: ["10.0.0.0/8"], keepalive: 25)))
+        try expectEqual(set["allowedIps"] as? [String], ["10.0.0.0/8"], "IP autorisées envoyées")
+        try expectEqual(set["persistentKeepalive"] as? Int, 25, "keepalive envoyé")
+        try expect(set["privateKey"] == nil && set["id"] == nil, "clés et champs du serveur retirés")
+        try expectEqual(set["mtu"] as? Int, 1420, "reste de la fiche conservé")
+        let reset = try object(WGEasyAPI.updateBody(from: Data(fetched.utf8), applying: .setTunnel(id: 3, allowedIPs: nil, keepalive: nil)))
+        try expect(reset["allowedIps"] is NSNull, "réglage du serveur : null")
+        try expectEqual(reset["persistentKeepalive"] as? Int, 0, "keepalive inchangé")
+
+        try expect(WGEasyAPI.route(for: .setTunnel(id: 3, allowedIPs: nil, keepalive: nil)) == nil, "passe par la fiche complète")
+        try expectEqual(WGEasyAPI.clientID(.setTunnel(id: 3, allowedIPs: nil, keepalive: nil)), 3, "client visé")
+        let before = WGEasyClient(id: 3, name: "Julie", allowedIps: ["10.0.0.0/8"], persistentKeepalive: 25)
+        try expectEqual(WGEasyAPI.inverse(of: .setTunnel(id: 3, allowedIPs: nil, keepalive: 0), before: before),
+                        .setTunnel(id: 3, allowedIPs: ["10.0.0.0/8"], keepalive: 25), "retour arrière")
+        let decoded = try WGEasyAPI.decodeClient(Data(#"{"id":3,"name":"J","allowedIps":["1.2.3.0/24"],"persistentKeepalive":25}"#.utf8))
+        try expectEqual(decoded.allowedIps, ["1.2.3.0/24"], "IP autorisées lues")
+        try expectEqual(decoded.persistentKeepalive, 25, "keepalive lu")
+        try expectEqual(WGEasyAPI.decodeCreatedClientID(Data(#"{"success":true,"clientId":12}"#.utf8)), 12, "identifiant du nouveau client")
+        try expect(WGEasyAPI.decodeCreatedClientID(Data(#"{"success":true}"#.utf8)) == nil, "sans identifiant")
+    }
+
+    suite.add("WireGuard : courriel au client") {
+        try expectEqual(WireGuardClientMail.fileName(for: "Portable de Julie"), "Portable-de-Jul.conf", "15 caractères au plus")
+        try expectEqual(WireGuardClientMail.fileName(for: "Écran n° 2 — été"), "Ecran-n-2-ete.conf", "sans accent ni symbole")
+        try expectEqual(WireGuardClientMail.fileName(for: "«»"), "vpn.conf", "nom vide : valeur de repli")
+        try expect(WireGuardClientMail.isValidRecipient(" julie@exemple.ca "), "adresse valide")
+        for bad in ["julie", "julie@exemple", "a@b.ca, c@d.ca", "a b@c.ca", "@c.ca", "a@.ca", "", "julie@\u{202E}moc.liame.ca", "ju\u{200B}lie@exemple.ca", "a\u{0001}@b.ca", "<a@b.ca>"] {
+            try expect(!WireGuardClientMail.isValidRecipient(bad), "adresse refusée : \(bad)")
+        }
+        try expectEqual(WireGuardClientMail.qrFileName(for: "Julie.conf"), "Julie-QR.png", "image du code QR")
+        try expect(!WireGuardClientMail.body(client: "Julie", fileName: "Julie.conf").contains("code QR"), "sans image : pas de mention")
+        let body = WireGuardClientMail.body(client: "Julie", fileName: "Julie.conf", qrFile: "Julie-QR.png")
+        try expect(body.contains("Julie-QR.png"), "code QR nommé")
+        try expect(body.contains("\n\n3. Activez le tunnel."), "étape 3 sans retrait")
+        for download in WireGuardClientMail.downloads { try expect(body.contains(download.url), "lien \(download.platform)") }
+        try expect(body.contains("Julie.conf"), "fichier nommé")
+        try expect(body.contains("clé personnelle"), "mise en garde")
+    }
+
     suite.add("WireGuard : routes de l'API, fiche de modification et retour arrière") {
         try expectEqual(WGEasyAPI.route(for: .setEnabled(id: 4, false))?.path, "/api/client/4/disable", "désactiver")
         try expectEqual(WGEasyAPI.route(for: .setEnabled(id: 4, true))?.path, "/api/client/4/enable", "activer")

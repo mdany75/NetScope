@@ -28,11 +28,6 @@ struct RapportFollowUpPanel: View {
                 SectionHeader(title: "Suivi", subtitle: siteName) {
                     if model.config.includes(.suivi) {
                         Chip(text: "Dans le rapport", tone: .accent)
-                    } else {
-                        Button("Ajouter au rapport") { model.toggle(.suivi) }
-                            .buttonStyle(.link)
-                            .font(.system(size: 12, weight: .medium))
-                            .help("Coche la section «\u{00A0}Depuis le dernier rapport\u{00A0}»")
                     }
                 }
                 .padding(.bottom, 8)
@@ -41,6 +36,14 @@ struct RapportFollowUpPanel: View {
                     .padding(.top, 10)
                 Rectangle().fill(Theme.border).frame(height: 1).padding(.vertical, 10)
                 pastReports(snapshots)
+                if !model.config.includes(.suivi) {
+                    ActionRow {
+                        Button("Ajouter au rapport") { model.toggle(.suivi) }
+                            .buttonStyle(.secondary)
+                            .help("Coche la section «\u{00A0}Depuis le dernier rapport\u{00A0}»")
+                    }
+                    .padding(.top, 10)
+                }
             }
         }
         .confirmationDialog("Supprimer ce rapport\u{00A0}?", isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
@@ -176,10 +179,11 @@ struct RapportFollowUpPanel: View {
             row(snapshot, isBase: snapshot.id == baseID)
         }
         if snapshots.count > Self.collapsed {
-            Button(showAll ? "Afficher moins" : "Afficher les \(snapshots.count) rapports") { showAll.toggle() }
-                .buttonStyle(.link)
-                .font(Theme.small)
-                .padding(.top, 6)
+            ActionRow {
+                Button(showAll ? "Afficher moins" : "Afficher les \(snapshots.count) rapports") { showAll.toggle() }
+                    .buttonStyle(.secondary)
+            }
+            .padding(.top, 6)
         }
     }
 

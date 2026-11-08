@@ -496,17 +496,13 @@ struct NeighborCaptureView: View {
                         headline(neighbor, size: 16).fixedSize()
                         headline(neighbor, size: 16).fixedSize(horizontal: false, vertical: true)
                     }
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text(receivedText(neighbor, now: context.date, isCurrent: isCurrent))
-                            .font(Theme.small).foregroundStyle(Color(light: 0x166534, dark: 0x9AE9B8))
-                        Spacer(minLength: 8)
-                        Button { openSwitch(neighbor) } label: {
-                            Text("Ouvrir le switch →").font(Theme.bodySemibold)
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(Theme.accent)
-                        .fixedSize()
+                    Text(receivedText(neighbor, now: context.date, isCurrent: isCurrent))
+                        .font(Theme.small).foregroundStyle(Color(light: 0x166534, dark: 0x9AE9B8))
+                    ActionRow {
+                        Button("Ouvrir le switch") { openSwitch(neighbor) }
+                            .buttonStyle(.secondary)
                     }
+                    .padding(.top, 6)
                 }
             }
             .padding(16)

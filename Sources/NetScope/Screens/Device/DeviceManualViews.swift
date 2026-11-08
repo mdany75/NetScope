@@ -69,35 +69,37 @@ struct DeviceManualForm: View {
                 }
 
                 if let scanned {
-                    HStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 8) {
                         Label("\(scanned.ip.description) est déjà dans le Scanner\u{00A0}: «\u{00A0}\(scanned.displayName)\u{00A0}».", systemImage: "info.circle")
                             .font(Theme.small).foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
-                        Spacer(minLength: 8)
-                        Button("Ouvrir sa fiche") {
-                            model.formShown = false
-                            model.query = ""
-                            state.showDevice(scanned.id)
+                        ActionRow {
+                            Button("Ouvrir sa fiche") {
+                                model.formShown = false
+                                model.query = ""
+                                state.showDevice(scanned.id)
+                            }
+                            .buttonStyle(.secondary)
                         }
-                        .buttonStyle(.secondary)
                     }
                 }
 
-                HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Rien n’est envoyé sur le réseau tant que vous ne lancez pas un outil de la fiche.")
                         .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 8)
-                    Button("Annuler") { model.formShown = false }
-                        .buttonStyle(.secondary)
-                        .keyboardShortcut(.cancelAction)
-                        .help("Fermer le formulaire (Échap)")
-                    // ⌘↩ : fonctionne aussi depuis les notes et le type (↩ seul y est pris).
-                    Button { submit() } label: { Label("Ouvrir la fiche", systemImage: Screen.appareil.symbol) }
-                        .buttonStyle(.primary)
-                        .keyboardShortcut(.return, modifiers: .command)
-                        .disabled(!canOpen)
-                        .help("Ouvrir la fiche (↩ dans un champ, ⌘↩ partout)")
+                    ActionRow {
+                        Button("Annuler") { model.formShown = false }
+                            .buttonStyle(.secondary)
+                            .keyboardShortcut(.cancelAction)
+                            .help("Fermer le formulaire (Échap)")
+                        // ⌘↩ : fonctionne aussi depuis les notes et le type (↩ seul y est pris).
+                        Button { submit() } label: { Label("Ouvrir la fiche", systemImage: Screen.appareil.symbol) }
+                            .buttonStyle(.primary)
+                            .keyboardShortcut(.return, modifiers: .command)
+                            .disabled(!canOpen)
+                            .help("Ouvrir la fiche (↩ dans un champ, ⌘↩ partout)")
+                    }
                 }
             }
         }

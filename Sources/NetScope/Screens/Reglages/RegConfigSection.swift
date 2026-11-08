@@ -11,16 +11,9 @@ struct RegConfigSection: View {
                  subtitle: "Exporter toute la configuration dans un seul fichier et l’importer sur un autre Mac, en un clic.") {
             VStack(alignment: .leading, spacing: 12) {
                 snapshotSheet
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .center, spacing: 12) {
-                        summary
-                        Spacer(minLength: 8)
-                        buttons
-                    }
-                    VStack(alignment: .leading, spacing: 10) {
-                        summary
-                        buttons
-                    }
+                VStack(alignment: .leading, spacing: 10) {
+                    summary
+                    ActionRow { buttons }
                 }
                 .padding(.horizontal, 12).padding(.vertical, 10)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -56,13 +49,10 @@ struct RegConfigSection: View {
         }
     }
 
-    /// Petite fenêtre (barre de défilement verticale comprise) : les deux boutons passent l'un sous
-    /// l'autre au lieu de faire défiler la page de côté.
-    private var buttons: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) { exportButton; importButton }.fixedSize()
-            VStack(alignment: .leading, spacing: 8) { exportButton; importButton }.fixedSize()
-        }
+    /// Dans un `ActionRow` : en petite fenêtre, le second bouton passe à la ligne.
+    @ViewBuilder private var buttons: some View {
+        exportButton
+        importButton
     }
 
     private var exportButton: some View {

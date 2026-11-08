@@ -201,7 +201,7 @@ struct SpeedHistoryView: View {
                     .standardTableHeight(rows: rows.count, rowHeight: Self.rowHeight, maxRows: Self.visibleRows)
             }
 
-            HStack(spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
                 let schedule = SpeedScheduleStore.shared.schedule(for: SiteModel.shared.activeID)
                 Image(systemName: "calendar.badge.clock").font(.system(size: 16)).foregroundStyle(Theme.accent)
                 VStack(alignment: .leading, spacing: 2) {
@@ -209,14 +209,12 @@ struct SpeedHistoryView: View {
                         .font(Theme.bodySemibold)
                     Text("Un test par jour et par site, avec seuil d’alerte et courbe sur 30 jours (onglet Planifié).")
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    ActionRow {
+                        Button("Régler la planification") { model.tab = .planifie }
+                            .buttonStyle(.secondary)
+                    }
+                    .padding(.top, 6)
                 }
-                Spacer()
-                Button {
-                    model.tab = .planifie
-                } label: {
-                    Label("Régler la planification", systemImage: "arrow.right").labelStyle(SpeedTrailingIconLabelStyle())
-                }
-                .buttonStyle(.ghost)
             }
             .padding(12)
             .background(Theme.panelMuted)

@@ -56,10 +56,11 @@ struct WifiChannelAdvicePanel: View {
             Text(advice.summary).font(Theme.caption).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             if advice.best != nil, store.band != advice.band {
-                Button("Voir la bande \(advice.band.label)") { store.band = advice.band }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .help("Montre cette bande dans l’occupation des canaux")
+                ActionRow {
+                    Button("Voir la bande \(advice.band.label)") { store.band = advice.band }
+                        .buttonStyle(.secondary)
+                        .help("Montre cette bande dans l’occupation des canaux")
+                }
             }
         }
         .padding(.vertical, 7)

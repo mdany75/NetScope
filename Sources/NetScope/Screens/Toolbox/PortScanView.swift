@@ -285,7 +285,7 @@ struct PortScanView: View {
             HStack(spacing: 0) {
                 Text("Hôte\u{00A0}: ").foregroundStyle(Theme.textSecondary)
                 Button(device.ip.description) { state.showDevice(device.id) }
-                    .buttonStyle(.plain).font(Theme.mono(12)).foregroundStyle(Theme.accent)
+                    .buttonStyle(.secondary).controlSize(.small)
                 Text(" · " + [device.displayName, device.mac?.formatted(.upperColon), device.switchLocation, device.vlan.map { "VLAN \($0)" }]
                     .compactMap { $0 }.joined(separator: " · "))
                     .foregroundStyle(Theme.textSecondary)

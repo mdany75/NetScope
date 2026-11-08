@@ -253,10 +253,7 @@ struct RegSitesSection: View {
                         nameField.frame(maxWidth: .infinity)
                         vlanField.frame(width: 90)
                     }
-                    HStack(spacing: 8) {
-                        Spacer(minLength: 0)
-                        addButtons(site)
-                    }
+                    ActionRow { addButtons(site) }
                 }
             }
             Text(preview).font(Theme.small).foregroundStyle(Theme.textSecondary)

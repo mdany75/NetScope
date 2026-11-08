@@ -247,9 +247,8 @@ struct InvToast: View {
                 .help(text)
             if let undo {
                 Button("Annuler", action: undo)
-                    .buttonStyle(.plain)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.accentStrong)
+                    .buttonStyle(.secondary)
+                    .controlSize(.small)
                     .help("Annuler (⌘Z)")
             }
         }
@@ -326,9 +325,9 @@ struct InvExcludedButton: View {
             open.toggle()
         } label: {
             Label("\(rows.count) exclu\(rows.count > 1 ? "s" : "")", systemImage: "eye.slash")
-                .font(Theme.small)
         }
-        .buttonStyle(.ghost)
+        .buttonStyle(.secondary)
+        .controlSize(.small)
         .fixedSize()
         .help("Liste d’exclusion\u{00A0}: appareils retirés avec «\u{00A0}Ne plus réajouter\u{00A0}»\u{00A0}; un scan ne les remet pas dans l’inventaire (aussi dans Réglages › Sites et plages)")
         .popover(isPresented: $open, arrowEdge: .bottom) {

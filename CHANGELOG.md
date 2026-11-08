@@ -1,5 +1,19 @@
 # Changements
 
+## 1.5.0 — 2026-11-08
+
+### Ajouté
+- **Serveur WireGuard** (note 106), à l’ajout d’un client et depuis son menu : réglage du tunnel
+  (tout le trafic, réglage du serveur ou seulement certains réseaux) et du keepalive ; brouillon
+  de courriel au client, avec les liens de téléchargement de WireGuard, le fichier du tunnel et
+  son code QR. Rien ne part sans un clic sur Envoyer dans Mail ; les pièces jointes, qui
+  contiennent la clé privée du client, sont effacées du Mac après dix minutes ou à la fermeture.
+
+### Changé
+- **Tous les menus** (note 107) : les actions sont de vrais boutons, alignés à gauche à la fin de
+  leur panneau, à la place des liens en texte et des boutons à droite. Les barres d’outils, les
+  barres de tableaux et les feuilles de dialogue gardent leur disposition.
+
 ## 1.4.0 — 2026-11-08
 
 ### Ajouté

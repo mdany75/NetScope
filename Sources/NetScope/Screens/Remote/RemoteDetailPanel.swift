@@ -239,22 +239,22 @@ struct RemoteDetailPanel: View {
                     Button("Modifier") { model.startEditing() }.buttonStyle(RemoteSmallButtonStyle())
                     Button("Dupliquer") { model.duplicateSelected() }.buttonStyle(RemoteSmallButtonStyle())
                 }
-                HStack(spacing: 6) {
+                ActionRow(spacing: 6) {
                     if !connection.isRustDeskByID {
                         Button {
                             model.checkReachability(only: connection.id)
                         } label: {
                             Label("Vérifier", systemImage: "dot.radiowaves.left.and.right").labelStyle(RemoteCompactLabelStyle())
                         }
-                        .buttonStyle(.ghost)
+                        .buttonStyle(.secondary)
                     }
-                    Spacer()
-                    Button {
+                    // Rôle destructif : le rouge de l'ancien lien d'action est gardé par le système.
+                    Button(role: .destructive) {
                         model.pendingDeletion = connection
                     } label: {
                         Label("Supprimer", systemImage: "trash").labelStyle(RemoteCompactLabelStyle())
                     }
-                    .buttonStyle(GhostButtonStyle(color: Theme.critical))
+                    .buttonStyle(.secondary)
                 }
                 VStack(alignment: .leading, spacing: 6) {
                     let inTab = RemoteSessionStore.opensInTab(connection.proto)

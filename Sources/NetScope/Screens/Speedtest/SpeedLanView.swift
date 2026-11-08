@@ -323,10 +323,13 @@ struct SpeedLanView: View {
                     HStack(spacing: 6) {
                         Text("Windows").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textSecondary)
                             .frame(width: 58, alignment: .leading)
-                        Link(destination: IperfServerHelp.windowsURL) {
-                            Label("Versions officielles (ESnet)", systemImage: "arrow.up.right.square")
+                        ActionRow {
+                            Link(destination: IperfServerHelp.windowsURL) {
+                                Label("Versions officielles (ESnet)", systemImage: "arrow.up.right.square")
+                            }
+                            .buttonStyle(.secondary)
+                            .controlSize(.small)
                         }
-                        .font(Theme.small)
                     }
                 }
                 .padding(.top, 2)
@@ -381,14 +384,10 @@ struct SpeedLanView: View {
                         .font(Theme.small).foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Button {
-                    state.open(.wifi)
-                } label: {
-                    Label("Analyser le Wi-Fi", systemImage: "arrow.right")
-                        .labelStyle(SpeedTrailingIconLabelStyle())
+                ActionRow {
+                    Button("Analyser le Wi-Fi") { state.open(.wifi) }
+                        .buttonStyle(.secondary)
                 }
-                .buttonStyle(.ghost)
-                .padding(.leading, -8)
             }
         }
     }
@@ -463,16 +462,6 @@ struct SpeedLanView: View {
         return isRouted
             ? "La cible est hors du réseau local : le trafic traverse la passerelle, dont l’inspection peut limiter le débit."
             : "La cible est sur le même réseau : aucun routeur n’intervient dans la mesure."
-    }
-}
-
-/// Étiquette avec l'icône après le texte (lien « Analyser le Wi-Fi → »).
-struct SpeedTrailingIconLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: 6) {
-            configuration.title
-            configuration.icon.font(.system(size: 11, weight: .semibold))
-        }
     }
 }
 

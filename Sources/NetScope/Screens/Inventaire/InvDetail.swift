@@ -149,17 +149,10 @@ struct InvDetail: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(RoundedRectangle(cornerRadius: Theme.buttonRadius).fill(Theme.warningSoft))
                 }
-                // « Fiche complète » sur la ligne de l'adresse : le nom garde toute la largeur.
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) {
-                        addressLine.fixedSize()
-                        Spacer(minLength: 0)
-                        fullSheetButton
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        addressLine
-                        fullSheetButton.padding(.leading, -8)
-                    }
+                // Actions de la fiche sous l'adresse, à gauche (à la ligne en colonne étroite).
+                VStack(alignment: .leading, spacing: 8) {
+                    addressLine
+                    ActionRow { fullSheetButton }
                 }
                 .padding(.top, -6)
 
@@ -301,22 +294,20 @@ struct InvDetail: View {
 
     @ViewBuilder
     private var fullSheetButton: some View {
-        HStack(spacing: 0) {
-            if record.isManual {
-                Button("Modifier…") { editing = .edit(site: site, key: record.key) }.buttonStyle(.ghost)
-                    .help("Modifier l’appareil ajouté à la main (IP, MAC, switch et port tant qu’aucun scan ne l’a vu)")
-            }
-            Button("Dupliquer") {
-                guard let copy = model.duplicate(record.key, site: site) else { return }
-                model.show("Copie créée\u{00A0}: \(model.inventory(for: site).record(copy)?.displayName ?? "")")
-                onCreated(site, copy)
-            }
-            .buttonStyle(.ghost)
-            .help("Créer une fiche «\u{00A0}Ajouté à la main\u{00A0}» avec les mêmes champs, sans IP ni MAC")
-            // Fiche complète : appareils du scan du site actif seulement (la même IP d'un autre site n'est pas lui).
-            if record.hasAddress, (siteKey ?? model.siteKey) == model.siteKey, state.device(withID: record.ip.description) != nil {
-                Button("Fiche complète") { state.showDevice(record.ip.description) }.buttonStyle(.ghost)
-            }
+        if record.isManual {
+            Button("Modifier…") { editing = .edit(site: site, key: record.key) }.buttonStyle(.secondary)
+                .help("Modifier l’appareil ajouté à la main (IP, MAC, switch et port tant qu’aucun scan ne l’a vu)")
+        }
+        Button("Dupliquer") {
+            guard let copy = model.duplicate(record.key, site: site) else { return }
+            model.show("Copie créée\u{00A0}: \(model.inventory(for: site).record(copy)?.displayName ?? "")")
+            onCreated(site, copy)
+        }
+        .buttonStyle(.secondary)
+        .help("Créer une fiche «\u{00A0}Ajouté à la main\u{00A0}» avec les mêmes champs, sans IP ni MAC")
+        // Fiche complète : appareils du scan du site actif seulement (la même IP d'un autre site n'est pas lui).
+        if record.hasAddress, (siteKey ?? model.siteKey) == model.siteKey, state.device(withID: record.ip.description) != nil {
+            Button("Fiche complète") { state.showDevice(record.ip.description) }.buttonStyle(.secondary)
         }
     }
 
@@ -467,13 +458,12 @@ struct InvDetail: View {
                                           from: span.from, until: untilDate(span.to), untilLabel: until(span.to))
                     })
                 }
-                HStack(spacing: 4) {
-                    Button("Voir le port actuel") { state.showSwitchPort(switchName: record.switchName, port: record.switchPort) }.buttonStyle(.ghost)
+                ActionRow {
+                    Button("Voir le port actuel") { state.showSwitchPort(switchName: record.switchName, port: record.switchPort) }.buttonStyle(.secondary)
                     if record.hasAddress {
-                        Button("Ping continu") { state.sendToPing(record.ip.description) }.buttonStyle(.ghost)
+                        Button("Ping continu") { state.sendToPing(record.ip.description) }.buttonStyle(.secondary)
                     }
                 }
-                .padding(.leading, -8)
             }
         }
     }

@@ -114,6 +114,7 @@ struct AnaNextFreePanel: View {
                     if dhcpReadAt == nil, canReadDHCP {
                         Button { onReadDHCP() } label: { Label("Lire le DHCP de la FortiGate", systemImage: "arrow.clockwise") }
                             .buttonStyle(.secondary)
+                            .controlSize(.small)
                     }
                     StandardColumnsMenu(model: table)
                 }

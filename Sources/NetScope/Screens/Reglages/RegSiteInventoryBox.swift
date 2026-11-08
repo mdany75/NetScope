@@ -86,7 +86,7 @@ struct RegSiteInventoryBox: View {
                     inventory.requestedArchives = true
                     state.open(.inventaire)
                 }
-                .buttonStyle(.ghost)
+                .buttonStyle(.secondary)
             }
         }
     }

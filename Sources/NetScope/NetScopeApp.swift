@@ -45,6 +45,8 @@ enum Launcher {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Note 106 : brouillons WireGuard d'une session fermée brutalement (clé privée), hors captures.
+        if !RegEnvironment.isSnapshot, !Launcher.isDemo { WireGuardServerModel.sweepMailFiles(all: true) }
         // Exécutable SwiftPM lancé hors paquet : il faut le déclarer comme application ordinaire.
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)

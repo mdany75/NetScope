@@ -71,7 +71,7 @@ struct SwitchSiteBanner: View {
                 RegNavigation.shared.section = .switchs
                 state.open(.reglages)
             }
-            .buttonStyle(.ghost)
+            .buttonStyle(.secondary)
             .fixedSize()
             .help("Associer un switch SNMP à un site (Réglages › Switchs)")
         }

@@ -31,22 +31,25 @@ struct RegSurveillanceSection: View {
     private var schedulesPanel: some View {
         RegPanel(title: "Scans planifiés",
                  subtitle: "Chaque site à ses jours et à son heure, avec son profil. Ils alimentent l’historique, l’adressage, l’alerte «\u{00A0}nouvel appareil\u{00A0}» et les rapports planifiés\u{00A0}; jamais pendant un autre scan.") {
-            Button {
-                store.newDraft()
-            } label: {
-                Label("Ajouter", systemImage: "plus")
-            }
-            .buttonStyle(RegSmallButtonStyle())
-            .regDisabled(sites.sites.isEmpty)
-            .help(sites.sites.isEmpty ? "Enregistrez d’abord un site (Réglages › Sites et plages)." : "Nouveau scan planifié")
-        } content: {
-            if store.schedules.isEmpty {
-                RegNotice("Aucun scan planifié. Ajoutez-en un pour scanner un site chaque nuit, par exemple.", tone: .neutral)
-            } else {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(store.schedules) { schedule in
-                        scheduleRow(schedule)
+            VStack(alignment: .leading, spacing: 10) {
+                if store.schedules.isEmpty {
+                    RegNotice("Aucun scan planifié. Ajoutez-en un pour scanner un site chaque nuit, par exemple.", tone: .neutral)
+                } else {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(store.schedules) { schedule in
+                            scheduleRow(schedule)
+                        }
                     }
+                }
+                ActionRow {
+                    Button {
+                        store.newDraft()
+                    } label: {
+                        Label("Ajouter", systemImage: "plus")
+                    }
+                    .buttonStyle(.secondary)
+                    .regDisabled(sites.sites.isEmpty)
+                    .help(sites.sites.isEmpty ? "Enregistrez d’abord un site (Réglages › Sites et plages)." : "Nouveau scan planifié")
                 }
             }
         }
@@ -120,30 +123,33 @@ struct RegSurveillanceSection: View {
     private var runsPanel: some View {
         RegPanel(title: "Journal des scans planifiés",
                  subtitle: "Les dernières exécutions, par l’app ou par l’agent. Une échéance manquée de plus de 6\u{00A0}h n’est pas rattrapée.") {
-            Button("Effacer") { store.clearRuns() }
-                .buttonStyle(RegSmallButtonStyle())
-                .regDisabled(store.book.runs.isEmpty)
-        } content: {
-            if store.book.runs.isEmpty {
-                RegNotice("Aucune exécution pour l’instant.", tone: .neutral)
-            } else {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(store.book.runs.prefix(8)) { run in
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack(spacing: 8) {
-                                RegPill(text: run.outcome.label, tone: Self.tone(run.outcome))
-                                Text(run.siteName).font(Theme.bodySemibold).foregroundStyle(Theme.text).lineLimit(1)
-                                Text(ScanScheduler.dateLabel(run.date, now: store.now, calendar: store.calendar))
-                                    .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                                Chip(text: run.host.label, tone: .neutral)
+            VStack(alignment: .leading, spacing: 10) {
+                if store.book.runs.isEmpty {
+                    RegNotice("Aucune exécution pour l’instant.", tone: .neutral)
+                } else {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(store.book.runs.prefix(8)) { run in
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(spacing: 8) {
+                                    RegPill(text: run.outcome.label, tone: Self.tone(run.outcome))
+                                    Text(run.siteName).font(Theme.bodySemibold).foregroundStyle(Theme.text).lineLimit(1)
+                                    Text(ScanScheduler.dateLabel(run.date, now: store.now, calendar: store.calendar))
+                                        .font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                                    Chip(text: run.host.label, tone: .neutral)
+                                }
+                                Text(run.message).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
-                            Text(run.message).font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(2)
-                                .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 7)
+                            .overlay(alignment: .top) { Rectangle().fill(Theme.neutralSoft).frame(height: 1) }
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 7)
-                        .overlay(alignment: .top) { Rectangle().fill(Theme.neutralSoft).frame(height: 1) }
                     }
+                }
+                ActionRow {
+                    Button("Effacer") { store.clearRuns() }
+                        .buttonStyle(.secondary)
+                        .regDisabled(store.book.runs.isEmpty)
                 }
             }
         }

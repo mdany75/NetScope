@@ -250,9 +250,10 @@ struct DeviceOverviewTab: View {
                         }
                     }
                     .opacity(status.isCurrent ? 1 : 0.55)
-                    Button("Voir le port dans Switchs et ports →") { state.showSwitchPort(switchName: device.switchName, port: device.switchPort) }
-                        .buttonStyle(.ghost)
-                        .padding(.leading, -8)
+                    ActionRow {
+                        Button("Voir le port dans Switchs et ports") { state.showSwitchPort(switchName: device.switchName, port: device.switchPort) }
+                            .buttonStyle(.secondary)
+                    }
                     // Note 73 : cycle PoE et redémarrage du port de l'appareil (si autorisés).
                     if status.isCurrent { PortActionDeviceRow(device: device) }
                 }
@@ -353,7 +354,7 @@ struct DeviceOverviewTab: View {
                     // Note 6 : serveur RustDesk (rôle des ports, test) ou poste à accès IP direct.
                     RustDeskDeviceFinding(device: device)
                 }
-                HStack(spacing: 8) {
+                ActionRow {
                     Button("Scanner les ports", action: onScanPorts).buttonStyle(.secondary)
                     if device.openPorts.contains(where: { PortScanner.webScheme(for: $0) != nil }) {
                         ForEach(DeviceSession.webURLs(for: device).prefix(2), id: \.self) { text in
@@ -361,7 +362,7 @@ struct DeviceOverviewTab: View {
                             Button("Ouvrir " + (url?.scheme ?? "web") + (url?.port.map { " :\($0)" } ?? "")) {
                                 ToolActions.open(text)
                             }
-                            .buttonStyle(.ghost)
+                            .buttonStyle(.secondary)
                         }
                     }
                 }

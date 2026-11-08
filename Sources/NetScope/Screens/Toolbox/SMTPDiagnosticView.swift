@@ -182,10 +182,12 @@ struct SMTPDiagnosticView: View {
             extensions(result)
         }
         if !result.transcript.isEmpty {
-            ToolSectionHeader(title: "Échange avec le serveur") {
-                Button("Copier l’échange") { ToolActions.copy(result.transcriptText) }.buttonStyle(.ghost)
-            }
+            ToolSectionHeader("Échange avec le serveur")
             SMTPTranscriptView(lines: result.transcript)
+            ActionRow {
+                Button("Copier l’échange") { ToolActions.copy(result.transcriptText) }
+                    .buttonStyle(.secondary)
+            }
         }
     }
 

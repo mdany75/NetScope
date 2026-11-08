@@ -56,6 +56,16 @@ struct WireGuardServerDashboard: View {
         }
         .sheet(isPresented: $wg.showSettings) { WireGuardSettingsSheet() }
         .sheet(isPresented: $wg.addingClient) { WireGuardAddSheet() }
+        .sheet(item: $wg.tunnelTarget) { WireGuardTunnelSheet(target: $0) }
+        .sheet(item: $wg.mailTarget) { WireGuardMailSheet(target: $0) }
+        .overlay(alignment: .top) {
+            // Captures : NETSCOPE_REMOTE_VIEW=wireguard-serveur-ajout montre le formulaire rempli.
+            if RegEnvironment.isSnapshot, ProcessInfo.processInfo.environment["NETSCOPE_REMOTE_VIEW"] == "wireguard-serveur-ajout" {
+                WireGuardAddSheet(filled: true)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panel).shadow(radius: 18))
+                    .padding(.top, 30)
+            }
+        }
         .overlay(alignment: .top) {
             // Captures : une vraie feuille ne se capture pas hors écran ; elle est dessinée par-dessus.
             if RegEnvironment.isSnapshot, let action = wg.pending {
@@ -413,6 +423,8 @@ struct WireGuardServerDashboard: View {
             if let id = row.apiID, wg.canManage {
                 Button("Fichier .conf et code QR…") { wg.showConfiguration(id) }
                 Button("Copier un lien à usage unique") { wg.copyOneTimeLink(id) }
+                Button("Préparer le courriel…") { wg.mailTarget = WireGuardClientTarget(id: id, name: row.name) }
+                Button("Tunnel et keepalive…") { wg.editTunnel(id, name: row.name) }
                 Divider()
                 Button(row.enabled ? "Désactiver…" : "Activer…") { wg.askToggle(id, name: row.name, enable: !row.enabled) }
                 Menu("Expiration") {
@@ -474,23 +486,25 @@ struct WireGuardServerDashboard: View {
     private func updatePanel(_ status: WireGuardServerStatus) -> some View {
         Panel {
             VStack(alignment: .leading, spacing: 6) {
-                SectionHeader(title: "Mise à jour de wg-easy", subtitle: "image du conteneur, avec retour arrière") {
-                    Button { wg.askUpdateImage() } label: {
-                        if wg.running {
-                            HStack(spacing: 5) { ProgressView().controlSize(.mini); Text("Mise à jour…") }
-                        } else {
-                            Label("Mettre à jour l’image", systemImage: "arrow.down.circle").labelStyle(RemoteCompactLabelStyle())
-                        }
-                    }
-                    .buttonStyle(RemoteSmallButtonStyle(primary: wg.apiInfo?.updateAvailable == true))
-                    .disabled(wg.running || status.container == nil || status.edition == .v14)
-                    .help(status.edition == .v14 ? "wg-easy 14\u{00A0}: migrer d’abord vers la 15 (guide officiel)" : "Sauvegarde, étiquette de l’image d’avant, pull, up -d, vérification")
-                }
+                SectionHeader("Mise à jour de wg-easy", subtitle: "image du conteneur, avec retour arrière")
                 KeyValueRow(key: "Image", value: status.container?.image ?? "—", mono: true)
                 KeyValueRow(key: "Version", value: wg.apiInfo.map { info in
                     (info.currentRelease ?? "?") + (info.latestRelease.map { info.updateAvailable ? " · \($0) publiée" : " · à jour (\($0))" } ?? "")
                 } ?? versionValue(status))
                 KeyValueRow(key: "Système", value: "Mises à jour du système\u{00A0}: onglet «\u{00A0}Serveur RustDesk\u{00A0}» (même serveur)")
+                ActionRow {
+                    Button { wg.askUpdateImage() } label: {
+                        if wg.running {
+                            HStack(spacing: 5) { ProgressView().controlSize(.mini); Text("Mise à jour…") }
+                        } else {
+                            Label("Mettre à jour l’image", systemImage: "arrow.down.circle")
+                        }
+                    }
+                    .buttonStyle(wg.apiInfo?.updateAvailable == true ? AnyPrimitiveButtonStyle(.primary) : AnyPrimitiveButtonStyle(.secondary))
+                    .disabled(wg.running || status.container == nil || status.edition == .v14)
+                    .help(status.edition == .v14 ? "wg-easy 14\u{00A0}: migrer d’abord vers la 15 (guide officiel)" : "Sauvegarde, étiquette de l’image d’avant, pull, up -d, vérification")
+                }
+                .padding(.top, 4)
             }
         }
     }
@@ -623,7 +637,7 @@ struct WireGuardConfirmSheet: View {
                     }
                 }
             }
-            if case .api = action.kind {
+            if action.kind != .updateImage {
                 Text(wg.apiInsecure ? "Envoyé par l’API de wg-easy en HTTP simple (mot de passe en clair sur le réseau local)." : "Envoyé par l’API de wg-easy.")
                     .font(Theme.caption).foregroundStyle(wg.apiInsecure ? Theme.warning : Theme.textSecondary)
             } else {
@@ -667,11 +681,89 @@ struct WireGuardRenamePopover: View {
     }
 }
 
+/// Note 106 : réseaux passant dans le tunnel et keepalive d'un client.
+struct WireGuardTunnelFields: View {
+    enum Mode: Hashable { case server, full, custom }
+    @Binding var mode: Mode
+    @Binding var networks: String
+    @Binding var keepalive: String
+    /// Vide : réglage de wg-easy (à l'ajout) ; 0 : désactivé.
+    var keepalivePrompt = "Réglage de wg-easy"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Picker("Trafic dans le tunnel", selection: $mode) {
+                Text("Réglage du serveur").tag(Mode.server)
+                Text("Tout le trafic").tag(Mode.full)
+                Text("Seulement ces réseaux").tag(Mode.custom)
+            }
+            if mode == .custom {
+                LabeledContent("IP autorisées") {
+                    TextField("IP autorisées", text: $networks, prompt: Text("10.182.122.0/23, 192.168.1.0/24"))
+                        .labelsHidden()
+                }
+                if !parsed.invalid.isEmpty {
+                    Text("Illisible\u{00A0}: " + parsed.invalid.joined(separator: ", "))
+                        .font(Theme.caption).foregroundStyle(Theme.critical)
+                }
+            }
+            LabeledContent("Keepalive (secondes, 0\u{00A0}: désactivé)") {
+                TextField("Keepalive", text: $keepalive, prompt: Text(keepalivePrompt))
+                    .labelsHidden()
+                    .frame(width: 140)
+            }
+            if !WireGuardTunnel.parseKeepalive(keepalive).valid {
+                Text("Keepalive\u{00A0}: un nombre de 0 à 65535.").font(Theme.caption).foregroundStyle(Theme.critical)
+            }
+        }
+    }
+
+    private var parsed: (addresses: [String], invalid: [String]) { WireGuardTunnel.parse(networks) }
+
+    static func isValid(mode: Mode, networks: String, keepalive: String) -> Bool {
+        guard WireGuardTunnel.parseKeepalive(keepalive).valid else { return false }
+        guard mode == .custom else { return true }
+        let parsed = WireGuardTunnel.parse(networks)
+        return parsed.invalid.isEmpty && !parsed.addresses.isEmpty
+    }
+
+    /// Valeur envoyée à wg-easy (nil : réglage du serveur).
+    static func allowedIPs(mode: Mode, networks: String) -> [String]? {
+        switch mode {
+        case .server: return nil
+        case .full: return WireGuardTunnel.fullTunnel
+        case .custom: return WireGuardTunnel.parse(networks).addresses
+        }
+    }
+}
+
 struct WireGuardAddSheet: View {
     @ObservedObject private var wg = WireGuardServerModel.shared
     @State private var name = ""
     @State private var expires = false
     @State private var date = Date().addingTimeInterval(30 * 86_400)
+    @State private var mode = WireGuardTunnelFields.Mode.server
+    @State private var networks = ""
+    @State private var keepalive = ""
+    @State private var sendsMail = false
+    @State private var recipient = ""
+
+    /// Captures : formulaire rempli avec des valeurs fictives.
+    init(filled: Bool = false) {
+        guard filled else { return }
+        _name = State(initialValue: "Portable de Julie")
+        _mode = State(initialValue: .custom)
+        _networks = State(initialValue: "10.182.122.0/23, 192.168.50.0/24")
+        _keepalive = State(initialValue: "25")
+        _sendsMail = State(initialValue: true)
+        _recipient = State(initialValue: "julie@exemple.ca")
+    }
+
+    private var canContinue: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty
+            && WireGuardTunnelFields.isValid(mode: mode, networks: networks, keepalive: keepalive)
+            && (!sendsMail || WireGuardClientMail.isValidRecipient(recipient))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -680,6 +772,17 @@ struct WireGuardAddSheet: View {
             Toggle("Date d’expiration", isOn: $expires)
             if expires {
                 DatePicker("Expire le", selection: $date, in: Date()..., displayedComponents: .date)
+            }
+            Divider()
+            WireGuardTunnelFields(mode: $mode, networks: $networks, keepalive: $keepalive)
+            Divider()
+            Toggle("Préparer un courriel pour le client", isOn: $sendsMail)
+            if sendsMail {
+                LabeledContent("Courriel du client") {
+                    TextField("Courriel du client", text: $recipient, prompt: Text("nom@exemple.ca"))
+                        .labelsHidden()
+                }
+                WireGuardMailNotice()
             }
             Text("wg-easy choisit la prochaine adresse libre et crée les clés. Le .conf et le code QR se montrent ensuite, sans être gardés.")
                 .font(Theme.caption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
@@ -690,10 +793,92 @@ struct WireGuardAddSheet: View {
                     wg.addingClient = false
                     let chosen = expires ? date : nil
                     let text = name
-                    DispatchQueue.main.async { wg.askCreate(name: text, expiresAt: chosen) }
+                    let allowed = WireGuardTunnelFields.allowedIPs(mode: mode, networks: networks)
+                    let seconds = WireGuardTunnel.parseKeepalive(keepalive).seconds
+                    let to = sendsMail ? recipient.trimmingCharacters(in: .whitespaces) : nil
+                    DispatchQueue.main.async { wg.askCreate(name: text, expiresAt: chosen, allowedIPs: allowed, keepalive: seconds, mailTo: to) }
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(!canContinue)
+            }
+        }
+        .padding(20)
+        .frame(width: 460)
+    }
+}
+
+/// Ce que contient le courriel, et le risque de la pièce jointe.
+struct WireGuardMailNotice: View {
+    var body: some View {
+        Text("Un brouillon s’ouvre dans Mail avec les liens de WireGuard, le fichier du tunnel et son code QR. Ces pièces jointes contiennent la clé privée du client\u{00A0}: rien ne part sans votre clic sur Envoyer.")
+            .font(Theme.caption).foregroundStyle(Theme.warning).fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// « Tunnel et keepalive… » d'un client existant.
+struct WireGuardTunnelSheet: View {
+    @ObservedObject private var wg = WireGuardServerModel.shared
+    let target: WireGuardClientTarget
+    @State private var mode: WireGuardTunnelFields.Mode
+    @State private var networks: String
+    @State private var keepalive: String
+
+    init(target: WireGuardClientTarget) {
+        self.target = target
+        let allowed = target.allowedIPs
+        let label = WireGuardTunnel.label(allowed)
+        _mode = State(initialValue: allowed == nil ? .server : (label == "Tout le trafic" ? .full : .custom))
+        _networks = State(initialValue: label == "Tout le trafic" ? "" : (allowed ?? []).joined(separator: ", "))
+        _keepalive = State(initialValue: target.keepalive.map(String.init) ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Tunnel de «\u{00A0}\(target.name)\u{00A0}»").font(Theme.panelTitle)
+            WireGuardTunnelFields(mode: $mode, networks: $networks, keepalive: $keepalive, keepalivePrompt: "Inchangé")
+            HStack {
+                Spacer()
+                Button("Annuler") { wg.tunnelTarget = nil }.keyboardShortcut(.cancelAction)
+                Button("Continuer…") {
+                    wg.tunnelTarget = nil
+                    let allowed = WireGuardTunnelFields.allowedIPs(mode: mode, networks: networks)
+                    let seconds = WireGuardTunnel.parseKeepalive(keepalive).seconds
+                    let id = target.id
+                    let name = target.name
+                    DispatchQueue.main.async { wg.askTunnel(id, name: name, allowedIPs: allowed, keepalive: seconds) }
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!WireGuardTunnelFields.isValid(mode: mode, networks: networks, keepalive: keepalive))
+            }
+        }
+        .padding(20)
+        .frame(width: 460)
+    }
+}
+
+/// « Préparer le courriel… » d'un client existant.
+struct WireGuardMailSheet: View {
+    @ObservedObject private var wg = WireGuardServerModel.shared
+    let target: WireGuardClientTarget
+    @State private var recipient = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Courriel pour «\u{00A0}\(target.name)\u{00A0}»").font(Theme.panelTitle)
+            LabeledContent("Courriel du client") {
+                TextField("Courriel du client", text: $recipient, prompt: Text("nom@exemple.ca"))
+                    .labelsHidden()
+            }
+            WireGuardMailNotice()
+            HStack {
+                Spacer()
+                Button("Annuler") { wg.mailTarget = nil }.keyboardShortcut(.cancelAction)
+                Button("Préparer le brouillon") {
+                    wg.mailTarget = nil
+                    wg.prepareMail(target, to: recipient)
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!WireGuardClientMail.isValidRecipient(recipient))
             }
         }
         .padding(20)
@@ -741,6 +926,16 @@ struct WireGuardConfigSheet: View {
         let image = NSImage(size: rep.size)
         image.addRepresentation(rep)
         return image
+    }
+
+    /// Note 106 : le même code QR, en PNG net (pièce jointe du brouillon de courriel).
+    static func qrPNG(_ text: String) -> Data? {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(text.utf8)
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 10, y: 10)),
+              let picture = CIContext().createCGImage(output, from: output.extent) else { return nil }
+        return NSBitmapImageRep(cgImage: picture).representation(using: .png, properties: [:])
     }
 }
 

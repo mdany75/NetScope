@@ -78,14 +78,15 @@ struct RustDeskDetailSection: View {
                         .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                     // Correctif 0.27.3 : historique complet et autres postes dans l'onglet d'assistance.
-                    Button {
-                        rustdesk.showAssistance()
-                    } label: {
-                        Label("Toutes les sessions", systemImage: "clock.arrow.circlepath").labelStyle(RemoteCompactLabelStyle())
+                    ActionRow {
+                        Button {
+                            rustdesk.showAssistance()
+                        } label: {
+                            Label("Toutes les sessions", systemImage: "clock.arrow.circlepath").labelStyle(RemoteCompactLabelStyle())
+                        }
+                        .buttonStyle(.secondary)
+                        .help("Onglet «\u{00A0}Assistance RustDesk\u{00A0}»\u{00A0}: historique complet, reconnexion, autre ID")
                     }
-                    .buttonStyle(.ghost)
-                    .padding(.leading, -8)
-                    .help("Onglet «\u{00A0}Assistance RustDesk\u{00A0}»\u{00A0}: historique complet, reconnexion, autre ID")
                 }
                 .padding(.top, 8)
                 .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }

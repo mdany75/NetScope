@@ -70,11 +70,11 @@ struct WhoisView: View {
                 }
                 .frame(minHeight: 160, maxHeight: 340)
                 .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.console))
-                HStack {
-                    Text("Réponse en \(ToolFormat.milliseconds(result.durationMs)) · \(result.raw.split(separator: "\n").count) lignes")
-                        .font(Theme.small).foregroundStyle(Theme.textSecondary)
-                    Spacer()
-                    Button("Copier la réponse") { ToolActions.copy(result.raw) }.buttonStyle(.ghost)
+                Text("Réponse en \(ToolFormat.milliseconds(result.durationMs)) · \(result.raw.split(separator: "\n").count) lignes")
+                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                ActionRow {
+                    Button("Copier la réponse") { ToolActions.copy(result.raw) }
+                        .buttonStyle(.secondary)
                 }
             } else if model.error == nil {
                 Text("La requête part du Mac vers les serveurs Whois publics (IANA, puis le registre régional ou le bureau d’enregistrement).")

@@ -41,11 +41,7 @@ struct RegMethodsPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 10) {
-                header
-                Spacer(minLength: 8)
-                resetButton
-            }
+            header
             RegSegmented(selection: $profile, options: ScanProfile.allCases.map { .init(value: $0, label: $0.label) })
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 230), spacing: 8, alignment: .top)], alignment: .leading, spacing: 8) {
                 ForEach(Self.list) { method in
@@ -71,6 +67,7 @@ struct RegMethodsPanel: View {
                 }
             }
             notes
+            ActionRow { resetButton }
         }
         .padding(14)
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
@@ -91,7 +88,7 @@ struct RegMethodsPanel: View {
             prefs.setMethods(ScanMethods.defaults(for: profile), for: profile)
             syncPorts()
         }
-        .buttonStyle(RegSmallButtonStyle())
+        .buttonStyle(.secondary)
         .regDisabled(methods == ScanMethods.defaults(for: profile))
         .help("Rétablir les méthodes d’origine de ce profil (comportement des versions précédentes)")
         .fixedSize()

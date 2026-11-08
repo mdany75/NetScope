@@ -389,16 +389,10 @@ struct TopoAside: View {
                         selectedID = "sw:?"
                     }
                 }
-                Button { state.open(.analyse) } label: {
-                    HStack {
-                        Text("Ouvrir l’historique et les alertes").font(.system(size: 12, weight: .semibold))
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold))
-                    }
-                    .foregroundStyle(Theme.accentStrong)
-                    .contentShape(Rectangle())
+                ActionRow {
+                    Button("Ouvrir l’historique et les alertes") { state.open(.analyse) }
+                        .buttonStyle(.secondary)
                 }
-                .buttonStyle(.plain)
                 .padding(.top, 4)
             }
         }

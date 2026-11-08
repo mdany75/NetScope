@@ -55,17 +55,10 @@ struct RegCredentialsSection: View {
                          v3Box
                      }
                      .padding(.top, 14)
-                     // État et boutons sur une ligne s'ils tiennent, sinon l'état au-dessus.
-                     ViewThatFits(in: .horizontal) {
-                         HStack(spacing: 8) {
-                             status
-                             Spacer(minLength: 8)
-                             actions
-                         }
-                         VStack(alignment: .trailing, spacing: 8) {
-                             status.frame(maxWidth: .infinity, alignment: .leading)
-                             actions
-                         }
+                     // L'état au-dessus, les boutons à gauche en dessous.
+                     VStack(alignment: .leading, spacing: 8) {
+                         status
+                         ActionRow { actions }
                      }
                      .padding(.top, 14)
                  })
@@ -108,7 +101,12 @@ struct RegCredentialsSection: View {
     private func testFooter(_ result: RegTestResult?, enabled: Bool, action: @escaping () -> Void) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Rectangle().fill(Theme.neutralSoft).frame(height: 1)
-            HStack(alignment: .top, spacing: 8) {
+            Text(result?.text ?? "Pas encore testé dans cette session.")
+                .font(.system(size: 12, weight: result == nil ? .regular : .semibold))
+                .foregroundStyle(result.map { $0.tone.foreground } ?? Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            ActionRow {
                 Button(action: action) {
                     if result?.status == .running {
                         HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Test…") }
@@ -116,14 +114,8 @@ struct RegCredentialsSection: View {
                         Label("Tester", systemImage: "play.fill")
                     }
                 }
-                .buttonStyle(RegSmallButtonStyle())
+                .buttonStyle(.secondary)
                 .regDisabled(!enabled || result?.status == .running)
-                Text(result?.text ?? "Pas encore testé dans cette session.")
-                    .font(.system(size: 12, weight: result == nil ? .regular : .semibold))
-                    .foregroundStyle(result.map { $0.tone.foreground } ?? Theme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 4)
             }
         }
     }

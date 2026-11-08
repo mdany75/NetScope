@@ -59,17 +59,9 @@ struct RegSwitchesSection: View {
             HStack(spacing: 8) {
                 Text("Communautés à essayer").font(Theme.bodySemibold)
                 Chip(text: "SNMP v2c", tone: .warning)
-                Spacer()
-                Button("Identifiants…") { navigation.section = .identifiants }
-                    .buttonStyle(.secondary)
             }
             VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    RegLabel("Communautés, dans l’ordre d’essai (une par ligne)")
-                    Spacer()
-                    Button(reveal ? "Masquer" : "Afficher") { reveal.toggle() }
-                        .buttonStyle(.secondary)
-                }
+                RegLabel("Communautés, dans l’ordre d’essai (une par ligne)")
                 ForEach(rows.indices, id: \.self) { index in
                     HStack(spacing: 6) {
                         RegTextField(placeholder: "public", text: Binding(get: { index < rows.count ? rows[index] : "" },
@@ -81,22 +73,23 @@ struct RegSwitchesSection: View {
                             .help("Retirer cette communauté")
                     }
                 }
-                Button { rows.append("") } label: { Label("Ajouter une communauté", systemImage: "plus") }
-                    .buttonStyle(.secondary)
+                ActionRow {
+                    Button { rows.append("") } label: { Label("Ajouter une communauté", systemImage: "plus") }
+                        .buttonStyle(.secondary)
+                    Button(reveal ? "Masquer" : "Afficher") { reveal.toggle() }
+                        .buttonStyle(.secondary)
+                }
             }
             Text("Ordre d’essai\u{00A0}: communauté enregistrée dans Réglages › Identifiants, puis cette liste («\u{00A0}public\u{00A0}» par défaut). La liste et la communauté qui a répondu pour chaque switch sont gardées dans le Trousseau macOS, jamais dans les préférences. Attention\u{00A0}: en v2c, la communauté circule en clair sur le réseau.")
                 .font(Theme.small).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            // État et boutons sur une ligne s'ils tiennent, sinon l'état au-dessus.
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
-                    saveStatus
-                    Spacer(minLength: 8)
+            // L'état au-dessus, les boutons à gauche en dessous.
+            VStack(alignment: .leading, spacing: 8) {
+                saveStatus
+                ActionRow {
                     saveButtons
-                }
-                VStack(alignment: .trailing, spacing: 8) {
-                    saveStatus.frame(maxWidth: .infinity, alignment: .leading)
-                    saveButtons
+                    Button("Identifiants…") { navigation.section = .identifiants }
+                        .buttonStyle(.secondary)
                 }
             }
         }
@@ -149,18 +142,10 @@ struct RegSwitchesSection: View {
                 }
             }
             if store.rememberedCommunities > 0 {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) {
-                        rememberedText.lineLimit(1)
-                        Spacer(minLength: 8)
-                        forgetButton
-                    }
-                    VStack(alignment: .trailing, spacing: 6) {
-                        rememberedText
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        forgetButton
-                    }
+                VStack(alignment: .leading, spacing: 6) {
+                    rememberedText
+                        .fixedSize(horizontal: false, vertical: true)
+                    ActionRow { forgetButton }
                 }
             }
             if store.hosts.isEmpty {
