@@ -1102,7 +1102,12 @@ public struct ConfigSyncEngine: Sendable {
             + [siteName, appVersion, deviceName])
             .joined(separator: "\n").utf8))
         let url = scope.isSite ? bundleURL(site: id, device: deviceID) : globalBundleURL(device: deviceID)
-        if siteState.published != signature || !FileManager.default.fileExists(atPath: url.path) {
+        // Avec un mot de passe, un fichier encore non signé (ou signé par l'ancien mot de passe) est
+        // réécrit même sans changement : sinon il resterait refusé par les autres Mac.
+        let needsSigning = password != nil && ((try? Data(contentsOf: url))
+            .flatMap { try? BackupEngine.decoder().decode(ConfigSyncBundle.self, from: $0) }
+            .map { !hasValidSignature($0, keys: signing) } ?? false)
+        if siteState.published != signature || !FileManager.default.fileExists(atPath: url.path) || needsSigning {
             let sealed = try sealSecrets(finalSecrets, now: now)
             let bundle = ConfigSyncBundle(siteID: id, siteName: siteName, deviceID: deviceID, deviceName: deviceName, updated: now,
                                           items: items, secrets: sealed, secretCount: sealed == nil ? 0 : finalSecrets.count,

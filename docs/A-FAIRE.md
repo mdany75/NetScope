@@ -2037,3 +2037,9 @@ Liste des écartés prioritaire sur les listes de switchs, au lancement et à la
 synchronisation. Cause d'origine probable : les listes synchronisées séparément entre les Mac (non
 prouvée). Une carte sans relevé est normale après un redémarrage : les relevés SNMP restent en
 mémoire, et un switch sans site associé n'est relu qu'après un scan de son site.
+
+## 113. Synchronisation : fichiers non signés et jetons reçus — livrée dans la 1.6.2 (demande de Dany, 8 novembre 2026)
+
+Avec un mot de passe, un fichier de ce Mac sans signature valide est réécrit à chaque passage, même
+sans changement (cas du site « Maison »). Les jetons FortiGate reçus sont relus au Trousseau sans
+redémarrer, même si la liste des FortiGate n'a pas changé.

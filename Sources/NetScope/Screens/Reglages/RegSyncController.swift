@@ -510,6 +510,8 @@ final class RegSyncController: ObservableObject {
                 olderDevices = state.devices.filter(engine.isOlder)
                 self.counts = counts
                 let applied = applyReceived(report.plan)
+                // Note 113 : jetons reçus sans changement de la liste des FortiGate.
+                if report.plan.secrets.contains(where: { $0.service.hasSuffix(".fortigate") }) { FortiGateStore.shared.reloadTokens() }
                 if applied.failed {
                     // Écriture d'un changement reçu impossible : l'état ne doit pas le croire
                     // appliqué, sinon l'ancienne version restée ici serait republiée par-dessus.

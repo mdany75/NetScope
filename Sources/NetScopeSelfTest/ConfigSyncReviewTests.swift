@@ -96,6 +96,14 @@ func registerConfigSyncReviewTests(_ suite: TestSuite) {
         _ = try a.sync(sites: [], global: true, snapshot: F.snapshot(), state: &stateA, now: F.t0)
         let signed = try BackupEngine.decoder().decode(ConfigSyncBundle.self, from: Data(contentsOf: a.globalBundleURL(device: "A")))
         try expect(signed.signature != nil, "fichier signé avec le mot de passe de synchronisation")
+        // Écrit avant le mot de passe et sans changement depuis : signé au passage suivant.
+        var unsigned = signed
+        unsigned.signature = nil
+        unsigned.signatureIterations = nil
+        try BackupEngine.encoder().encode(unsigned).write(to: a.globalBundleURL(device: "A"), options: .atomic)
+        _ = try a.sync(sites: [], global: true, snapshot: F.snapshot(), state: &stateA, now: F.t0)
+        let resigned = try BackupEngine.decoder().decode(ConfigSyncBundle.self, from: Data(contentsOf: a.globalBundleURL(device: "A")))
+        try expect(resigned.signature != nil, "fichier resté sans signature : réécrit même sans changement")
         // Un fichier déposé par un tiers (sans le mot de passe) : refusé, signalé.
         var forged = signed
         forged.deviceID = "Z"

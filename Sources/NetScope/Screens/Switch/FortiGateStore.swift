@@ -204,6 +204,14 @@ final class FortiGateStore: ObservableObject {
         UserDefaults.standard.set(data, forKey: Self.listKey)
     }
 
+    /// Note 113 : jetons reçus d'un autre Mac (déjà remis au Trousseau) : relus sans redémarrer, même
+    /// si la liste des FortiGate n'a pas changé.
+    func reloadTokens() {
+        guard !isDemo else { return }
+        tokensLoaded = false
+        Task { await loadTokens() }
+    }
+
     /// Lit les jetons au Trousseau, hors du fil principal (une seule fois), après avoir déplacé
     /// celui de la 0.9.0 vers le compte du contrôleur migré. Un appel pendant la lecture attend
     /// qu'elle finisse : personne ne voit la liste des jetons encore vide.

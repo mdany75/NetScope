@@ -1,5 +1,14 @@
 # Changements
 
+## 1.6.2 — 2026-11-08
+
+### Corrigé
+- **Synchronisation** (note 113) : un fichier écrit avant le mot de passe de synchronisation, ou
+  signé par un ancien mot de passe, est réécrit même sans changement. Le message « Fichiers de …
+  refusés : signature absente ou invalide » ne reste plus affiché pour rien.
+- **Synchronisation** : les jetons FortiGate reçus d’un autre Mac apparaissent sans relancer
+  NetScope.
+
 ## 1.6.1 — 2026-11-08
 
 ### Corrigé
