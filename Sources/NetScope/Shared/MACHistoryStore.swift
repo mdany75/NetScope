@@ -124,6 +124,63 @@ final class MACHistoryStore: ObservableObject {
         scheduleSave()
     }
 
+    // MARK: Relecture d'un appareil (note 109)
+
+    /// Appareil en cours de relecture, ou dernière relecture et son résultat.
+    @Published private(set) var isReadingDevice = false
+    @Published private(set) var deviceReadAt: Date?
+    @Published private(set) var deviceReadMessage: String?
+
+    /// FortiGate du site actif prêtes à être lues (seul ce site : une IP ne vaut que chez lui).
+    private var readyControllerIDs: [UUID] {
+        let fortigate = FortiGateStore.shared
+        guard fortigate.isEnabled else { return [] }
+        return TrafficStore.shared.controllerIDs(forKey: SiteModel.shared.activeKey).filter { id in
+            fortigate.controller(id).map { $0.isEnabled && fortigate.isReady($0) } ?? false
+        }
+    }
+
+    var canReadDevice: Bool { !isDemo && !isReadingDevice && !readyControllerIDs.isEmpty }
+
+    /// Relit cet appareil sur les FortiGate du site actif et range ce qui est vu dans son historique.
+    func readDevice(_ target: FortiDeviceTarget) {
+        guard canReadDevice, !target.isEmpty else { return }
+        let siteKey = SiteModel.shared.activeKey
+        let fortigate = FortiGateStore.shared
+        let ids = readyControllerIDs
+        isReadingDevice = true
+        deviceReadMessage = nil
+        Task { [weak self] in
+            let picks = ids.map { id in
+                FortiControllerSelection.Pick(controllerID: id, site: fortigate.controller(id)?.displayName ?? "FortiGate", reason: .activeSite)
+            }
+            let targets = await fortigate.wifiTargets(for: FortiControllerSelection(picks: picks))
+            let jobs = targets.ready.map { (config: $0.0.config, token: $0.1) }
+            let results = await FortiMulti.parallel(jobs, limit: FortiMulti.concurrentReads) { job -> Result<[MACObservation], FortiGateError> in
+                let reader = FortiGateReader(transport: FortiURLSessionTransport(config: job.config, token: job.token), tokenForRedaction: job.token)
+                do { return .success(try await reader.readDeviceSighting(target)) } catch let error as FortiGateError {
+                    return .failure(error)
+                } catch { return .failure(.cannotConnect("")) }
+            }
+            guard let self else { return }
+            let now = Date()
+            var found: [MACObservation] = []
+            var failed: String?
+            for result in results {
+                switch result {
+                case .success(let list): found += list
+                case .failure(let error): failed = error.errorDescription ?? "Lecture impossible."
+                }
+            }
+            self.record(found, siteKey: siteKey, at: now)
+            self.isReadingDevice = false
+            self.deviceReadAt = now
+            if found.isEmpty {
+                self.deviceReadMessage = failed ?? targets.blocked.values.first ?? "La FortiGate ne voit pas cet appareil pour l’instant."
+            }
+        }
+    }
+
     private func prune(_ siteKey: String) {
         guard var history = histories[siteKey] else { return }
         if history.prune(retentionDays: retentionDays, now: Date()) > 0 {

@@ -34,7 +34,9 @@ struct MACHistoryView: View {
                 Toggle("Ce jour-là", isOn: $useDate).toggleStyle(.checkbox).fixedSize()
                 DatePicker("", selection: $day, displayedComponents: .date)
                     .labelsHidden().disabled(!useDate).fixedSize()
-                Spacer(minLength: 8)
+                Spacer(minLength: 0)
+            }
+            ActionRow {
                 Picker("Conserver", selection: $store.retentionDays) {
                     ForEach(MACHistory.retentionChoices, id: \.self) { days in
                         Text(Self.retentionLabel(days)).tag(days)
@@ -42,14 +44,25 @@ struct MACHistoryView: View {
                 }
                 .fixedSize()
                 .help("Les valeurs plus vues depuis cette durée sont retirées de l’historique (tous les sites)")
+                let target = isBlank ? nil : FortiDeviceTarget.of(query: query, found: matches.map(\.mac))
+                Button { if let target { store.readDevice(target) } } label: {
+                    Label("Relire cet appareil", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.secondary)
+                .fixedSize()
+                .disabled(target == nil || !store.canReadDevice)
+                .help(readHelp(target))
                 Button("Exporter en CSV") {
                     toast = store.exportCSV(matches.flatMap(\.sightings), suggestedName: "historique-mac")
                 }
                 .fixedSize()
                 .disabled(matches.isEmpty)
             }
-            Text("Site «\u{00A0}\(SiteModel.shared.activeName)\u{00A0}» · scans, relevés des switchs et clients Wi-Fi de la FortiGate déjà faits, rien n’est envoyé.")
-                .font(Theme.small).foregroundStyle(Theme.textSecondary)
+            HStack(spacing: 6) {
+                Text("Site «\u{00A0}\(SiteModel.shared.activeName)\u{00A0}» · scans, relevés des switchs et clients Wi-Fi de la FortiGate\u{00A0}· \(readStatus)")
+                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                if store.isReadingDevice { ProgressView().controlSize(.small) }
+            }
             if let toast { Text(toast).font(Theme.small).foregroundStyle(Theme.textSecondary) }
             if history.isEmpty {
                 Text("Aucun relevé pour l’instant\u{00A0}: l’historique se remplit à chaque scan, relevé de switch et lecture des FortiAP.")
@@ -74,11 +87,33 @@ struct MACHistoryView: View {
             let blank = text.trimmingCharacters(in: .whitespaces).isEmpty
             if blank || !store.activeHistory.search(text, on: nil).isEmpty { store.rememberQuery(text) }
         }
+        // Dernière recherche rouverte : seul cet appareil est relu.
+        .onAppear {
+            let found = store.activeHistory.search(query, on: nil).map(\.mac)
+            if !query.trimmingCharacters(in: .whitespaces).isEmpty, let target = FortiDeviceTarget.of(query: query, found: found) {
+                store.readDevice(target)
+            }
+        }
         .onChange(of: sites.activeKey) { _, _ in
             query = store.lastQuery
             useDate = false
         }
     }
+
+    private var readStatus: String {
+        if store.isReadingDevice { return "relecture de cet appareil" }
+        if let message = store.deviceReadMessage { return message }
+        return store.deviceReadAt.map { "appareil relu \(ToolText.relative($0))" } ?? "historique enregistré"
+    }
+
+    private func readHelp(_ target: FortiDeviceTarget?) -> String {
+        if isBlankHelp { return "Cherchez d’abord une MAC, une IP ou un nom." }
+        if target == nil { return "Trop d’appareils trouvés\u{00A0}: précisez la recherche." }
+        return store.canReadDevice ? "Relit seulement cet appareil sur la FortiGate de ce site (lecture seule)"
+            : "Il faut une FortiGate prête sur ce site, ou attendre la fin de la lecture en cours."
+    }
+
+    private var isBlankHelp: Bool { query.trimmingCharacters(in: .whitespaces).isEmpty && !useDate }
 
     static func retentionLabel(_ days: Int) -> String {
         switch days {

@@ -1,5 +1,16 @@
 # Changements
 
+## 1.5.2 — 2026-11-08
+
+### Ajouté
+- **Outils, « Où était cet appareil ? »** (note 109) : bouton « Relire cet appareil » pour la MAC,
+  l’IP ou le nom cherchés, et relecture à la réouverture d’une recherche. Seules les listes utiles
+  de la FortiGate du site sont lues, et seul cet appareil est gardé.
+
+### Changé
+- **Outils, « Où était cet appareil ? »** : la recherche et les actions sont sur deux lignes, pour
+  rester entières en petite fenêtre.
+
 ## 1.5.1 — 2026-11-08
 
 ### Changé

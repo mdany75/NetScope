@@ -2007,3 +2007,11 @@ de dialogue, bannières, icônes seules, cellules de tableau.
 
 L'outil ne liste plus tous les appareils à l'ouverture : fiche vierge la première fois, puis la
 dernière recherche ayant donné un résultat, retenue par site. Vider le champ repart à vierge.
+
+## 109. « Où était cet appareil ? » : relire seulement l'appareil cherché — livrée dans la 1.5.2 (demande de Dany, 8 novembre 2026)
+
+Bouton « Relire cet appareil » et relecture à la réouverture d'une recherche. La cible vient de la
+recherche (MAC trouvées, ou MAC ou IP tapée entière ; cinq appareils au plus). Lectures : ARP,
+appareils détectés, inventaire d'appareils et clients Wi-Fi de la FortiGate du site actif, plus le
+nom des switchs si un port est trouvé. FortiOS rend des listes, filtrées sur le Mac. Pas de
+relecture ciblée par SNMP pour un site sans FortiGate. Pas encore essayé sur une vraie FortiGate.
