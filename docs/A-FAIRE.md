@@ -1971,3 +1971,10 @@ une recherche rouvre tout.
 
 Cliquer et tenir sur le fond de la carte la déplace dans les quatre sens, avec le curseur en main.
 Sans effet quand la carte entre entière dans le cadre.
+
+## 104. Trafic : le « Temps réel » se relit — livrée dans la 1.3.2 (demande de Dany, 8 novembre 2026)
+
+La période « Temps réel » ne lisait la FortiGate qu’une fois, à l’ouverture ou sur « Relire ».
+Elle la relit toutes les 5 s tant que l’écran Trafic est affiché et qu’une fenêtre est visible ;
+une FortiGate en erreur n’est retentée que toutes les 30 s. À confirmer sur une vraie FortiGate :
+le mode capture n’exécute pas cette boucle. Si la charge monte sur un petit modèle, passer à 10 s.
