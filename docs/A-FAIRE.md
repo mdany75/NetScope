@@ -2002,3 +2002,8 @@ pièces jointes. Ces fichiers contiennent la clé privée : dossier temporaire 0
 Actions en texte remplacées par de vrais boutons, alignés à gauche à la fin du panneau
 (`ActionRow`). La règle est dans CLAUDE.md. Exceptions : barres d'outils et de tableaux, feuilles
 de dialogue, bannières, icônes seules, cellules de tableau.
+
+## 108. « Où était cet appareil ? » : fiche vierge ou dernière recherche — livrée dans la 1.5.1 (demande de Dany, 8 novembre 2026)
+
+L'outil ne liste plus tous les appareils à l'ouverture : fiche vierge la première fois, puis la
+dernière recherche ayant donné un résultat, retenue par site. Vider le champ repart à vierge.

@@ -8,7 +8,8 @@ import SwiftUI
 struct MACHistoryView: View {
     @ObservedObject private var store = MACHistoryStore.shared
     @State private var query = (Launcher.isDemo || RegEnvironment.isSnapshot)
-        ? (ProcessInfo.processInfo.environment["NETSCOPE_MAC_RECHERCHE"] ?? MACHistoryDemo.defaultQuery) : ""
+        ? (ProcessInfo.processInfo.environment["NETSCOPE_MAC_RECHERCHE"] ?? MACHistoryDemo.defaultQuery) : MACHistoryStore.shared.lastQuery
+    @ObservedObject private var sites = SiteModel.shared
     @State private var useDate = false
     @State private var day = Date()
     @State private var toast: String?
@@ -16,13 +17,15 @@ struct MACHistoryView: View {
     var body: some View {
         let _ = store.revision
         let history = store.activeHistory
-        let matches = history.search(query, on: useDate ? day : nil)
+        // Fiche vierge à la première ouverture, puis la dernière recherche : jamais toute la liste.
+        let isBlank = query.trimmingCharacters(in: .whitespaces).isEmpty && !useDate
+        let matches = isBlank ? [] : history.search(query, on: useDate ? day : nil)
         let shown = Array(matches.prefix(50))
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 ToolStatTile(label: "Adresses MAC", value: "\(history.macCount)", detail: "suivies sur ce site")
                 ToolStatTile(label: "Observations", value: "\(history.sightings.count)", detail: "IP, noms, ports, VLAN, bornes")
-                ToolStatTile(label: "Résultats", value: "\(matches.count)", detail: query.isEmpty ? "tous les appareils" : "pour «\u{00A0}\(query)\u{00A0}»")
+                ToolStatTile(label: "Résultats", value: "\(matches.count)", detail: isBlank ? "aucune recherche" : (query.isEmpty ? "ce jour-là" : "pour «\u{00A0}\(query)\u{00A0}»"))
             }
             HStack(spacing: 10) {
                 TextField("MAC, adresse IP ou nom", text: $query)
@@ -51,6 +54,9 @@ struct MACHistoryView: View {
             if history.isEmpty {
                 Text("Aucun relevé pour l’instant\u{00A0}: l’historique se remplit à chaque scan, relevé de switch et lecture des FortiAP.")
                     .font(Theme.body).foregroundStyle(Theme.textSecondary).frame(maxWidth: .infinity).padding(24)
+            } else if isBlank {
+                Text("Entrez une adresse MAC, une adresse IP ou un nom pour retrouver où cet appareil a été vu.")
+                    .font(Theme.body).foregroundStyle(Theme.textSecondary).frame(maxWidth: .infinity).padding(24)
             } else if matches.isEmpty {
                 Text("Aucun appareil trouvé" + (useDate ? " ce jour-là." : "."))
                     .font(Theme.body).foregroundStyle(Theme.textSecondary).frame(maxWidth: .infinity).padding(24)
@@ -62,6 +68,15 @@ struct MACHistoryView: View {
                 }
             }
             Spacer(minLength: 0)
+        }
+        // Une faute de frappe sans résultat ne remplace pas la dernière recherche utile.
+        .onChange(of: query) { _, text in
+            let blank = text.trimmingCharacters(in: .whitespaces).isEmpty
+            if blank || !store.activeHistory.search(text, on: nil).isEmpty { store.rememberQuery(text) }
+        }
+        .onChange(of: sites.activeKey) { _, _ in
+            query = store.lastQuery
+            useDate = false
         }
     }
 

@@ -31,6 +31,21 @@ final class MACHistoryStore: ObservableObject {
     static let fileName = "historique-mac.json"
     private static let retentionKey = "macHistoryRetentionDays"
 
+    /// Dernière recherche de « Où était cet appareil ? », propre au site (une même IP peut exister
+    /// sur deux sites) ; vide : l'outil s'ouvre sur une fiche vierge.
+    private static func lastQueryKey(_ site: String) -> String { "macHistoryLastQuery.\(site)" }
+
+    var lastQuery: String {
+        guard !Launcher.isDemo, !RegEnvironment.isSnapshot else { return "" }
+        return UserDefaults.standard.string(forKey: Self.lastQueryKey(SiteModel.shared.activeKey)) ?? ""
+    }
+
+    func rememberQuery(_ text: String) {
+        guard !Launcher.isDemo, !RegEnvironment.isSnapshot else { return }
+        let clean = text.trimmingCharacters(in: .whitespaces)
+        UserDefaults.standard.set(clean, forKey: Self.lastQueryKey(SiteModel.shared.activeKey))
+    }
+
     init(demo: Bool = Launcher.isDemo || RegEnvironment.isSnapshot, files: SiteFiles = .standard) {
         isDemo = demo
         self.files = files

@@ -1,5 +1,11 @@
 # Changements
 
+## 1.5.1 — 2026-11-08
+
+### Changé
+- **Outils, « Où était cet appareil ? »** (note 108) : l’outil s’ouvre sur une fiche vierge, puis
+  sur la dernière recherche de ce site, au lieu de lister tous les appareils.
+
 ## 1.5.0 — 2026-11-08
 
 ### Ajouté
