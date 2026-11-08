@@ -2043,3 +2043,12 @@ mémoire, et un switch sans site associé n'est relu qu'après un scan de son si
 Avec un mot de passe, un fichier de ce Mac sans signature valide est réécrit à chaque passage, même
 sans changement (cas du site « Maison »). Les jetons FortiGate reçus sont relus au Trousseau sans
 redémarrer, même si la liste des FortiGate n'a pas changé.
+
+## 114. Synchronisation : un Mac en retard n'annule plus une modification — livrée dans la 1.6.3 (demande de Dany, 8 novembre 2026)
+
+Le switch ajouté disparaissait quelques secondes plus tard. Après un premier passage, la version
+modifiée devenait la base commune ; au passage suivant, l'ancienne publication de l'autre Mac,
+différente de cette base, passait pour un changement venu de là-bas et remplaçait la modification.
+Désormais, si ma version n'a pas changé depuis la base et que celle de l'autre Mac est plus ancienne
+que la mienne, je garde la mienne (éléments et secrets). À confirmer en réel : ajouter une fois
+`10.182.122.124` sur le Mac Studio après l'installation de la 1.6.3.

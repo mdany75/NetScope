@@ -1,5 +1,13 @@
 # Changements
 
+## 1.6.3 — 2026-11-08
+
+### Corrigé
+- **Synchronisation** (note 114) : une modification faite sur un Mac n’est plus annulée quand
+  l’autre Mac n’a pas encore republié. Sa version périmée était prise pour un changement venu de
+  là-bas ; c’est ce qui faisait disparaître un switch tout juste ajouté. La règle vaut aussi pour
+  les jetons.
+
 ## 1.6.2 — 2026-11-08
 
 ### Corrigé

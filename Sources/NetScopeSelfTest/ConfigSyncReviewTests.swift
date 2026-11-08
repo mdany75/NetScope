@@ -11,6 +11,55 @@ func registerConfigSyncReviewTests(_ suite: TestSuite) {
     typealias C = ConfigFixtures
     let c2 = "element:connexions.json#connections#C2"
 
+    suite.add("Synchronisation (relecture) : l’autre Mac en retard n’annule pas une modification déjà publiée") {
+        let root = try C.temporaryFolder("synchro-retard")
+        defer { try? FileManager.default.removeItem(at: root) }
+        var stateA = ConfigSyncState(), stateB = ConfigSyncState()
+        let a = F.engine(root, device: "A"), b = F.engine(root, device: "B")
+        let key = "NetScope.switchs.ignores"
+        var old = F.snapshot()
+        old.preferences[key] = ConfigPlist.encode(["10.0.0.9"])
+        var new = F.snapshot()
+        new.preferences[key] = ConfigPlist.encode([String]())
+        func item(_ state: ConfigSyncState) -> ConfigSyncState.Item? { state.sites[ConfigSyncPolicy.globalFolder]?.items["preference:" + key] }
+        _ = try a.sync(sites: [], global: true, snapshot: old, state: &stateA, now: F.t0)
+        _ = try b.sync(sites: [], global: true, snapshot: old, state: &stateB, now: F.t0.addingTimeInterval(10))
+        let oldHash = item(stateA)?.hash
+
+        // A modifie : deux passages de suite, B n'ayant toujours pas republié entre les deux.
+        let t1 = F.t0.addingTimeInterval(100)
+        _ = try a.sync(sites: [], global: true, snapshot: new, state: &stateA, now: t1)
+        let second = try a.sync(sites: [], global: true, snapshot: new, state: &stateA, now: t1.addingTimeInterval(8))
+        try expect(!second.plan.preferences.contains { $0.key == key }, "la version périmée de B n’est pas appliquée")
+        try expect(item(stateA)?.hash != oldHash, "A garde sa modification")
+
+        // B finit par la recevoir, et le changement suivant de B repart bien vers A.
+        let got = try b.sync(sites: [], global: true, snapshot: old, state: &stateB, now: t1.addingTimeInterval(20))
+        try expect(got.plan.preferences.contains { $0.key == key }, "B reçoit la modification de A")
+        _ = try b.sync(sites: [], global: true, snapshot: new, state: &stateB, now: t1.addingTimeInterval(25))
+        let t2 = t1.addingTimeInterval(100)
+        var later = F.snapshot()
+        later.preferences[key] = ConfigPlist.encode(["10.0.0.7"])
+        _ = try b.sync(sites: [], global: true, snapshot: later, state: &stateB, now: t2)
+        let back = try a.sync(sites: [], global: true, snapshot: new, state: &stateA, now: t2.addingTimeInterval(10))
+        try expect(back.plan.preferences.contains { $0.key == key }, "une vraie modification ultérieure de B arrive bien sur A")
+
+        // Même règle pour les jetons.
+        let siteRoot = try C.temporaryFolder("synchro-retard-jeton")
+        defer { try? FileManager.default.removeItem(at: siteRoot) }
+        var jetonA = ConfigSyncState(), jetonB = ConfigSyncState()
+        let ja = C.engine(siteRoot, device: "A"), jb = C.engine(siteRoot, device: "B")
+        let secret = { (value: String) in [BackupSecret(service: C.fortiService, account: C.fgtID.uuidString, value: Data(value.utf8), usage: "Jeton FortiGate · Siège")] }
+        _ = try ja.sync(sites: [C.siegeID], snapshot: C.snapshot(secrets: secret("FICTIF-ancien")), state: &jetonA, now: F.t0)
+        _ = try jb.sync(sites: [C.siegeID], snapshot: C.snapshot(secrets: secret("FICTIF-ancien")), state: &jetonB, now: F.t0.addingTimeInterval(10))
+        _ = try ja.sync(sites: [C.siegeID], snapshot: C.snapshot(secrets: secret("FICTIF-nouveau")), state: &jetonA, now: t1)
+        let jeton = try ja.sync(sites: [C.siegeID], snapshot: C.snapshot(secrets: secret("FICTIF-nouveau")), state: &jetonA, now: t1.addingTimeInterval(8))
+        try expect(jeton.plan.secrets.isEmpty, "l’ancien jeton de B n’écrase pas le nouveau")
+        try expect(jeton.conflicts.isEmpty, "aucun conflit annoncé à tort")
+        let recu = try jb.sync(sites: [C.siegeID], snapshot: C.snapshot(secrets: secret("FICTIF-ancien")), state: &jetonB, now: t1.addingTimeInterval(20))
+        try expect(recu.plan.secrets.contains { $0.value == Data("FICTIF-nouveau".utf8) }, "B reçoit le nouveau jeton")
+    }
+
     suite.add("Synchronisation (relecture) : préférences des mises à jour propres à ce Mac") {
         try expect(!ConfigSyncPolicy.isGlobalPreference("reglages.majs.preferences"), "dernière vérification et versions installées : jamais envoyées")
         try expect(!ConfigSyncPolicy.isGlobalPreference("reglages.majs.versionSignalee"), "version signalée : propre à ce Mac")

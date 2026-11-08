@@ -959,7 +959,13 @@ public struct ConfigSyncEngine: Sendable {
                 continue
             }
             if !localChanged {
-                final[key] = take(remote, from: remoteBundle) ? remote : mineItem(key, mine)
+                // Ma version, déjà publiée, est plus récente : l'autre Mac ne l'a simplement pas
+                // encore reçue. Sa version périmée n'est pas un changement venu de là-bas.
+                if remote.modified < mine.modified {
+                    final[key] = mineItem(key, mine)
+                } else {
+                    final[key] = take(remote, from: remoteBundle) ? remote : mineItem(key, mine)
+                }
             } else if !remoteChanged {
                 final[key] = mineItem(key, mine)
                 report.sent.append(ConfigSyncEvent(siteID: id, siteName: siteName, label: mine.item.label, device: deviceName, category: category))
@@ -1062,6 +1068,12 @@ public struct ConfigSyncEngine: Sendable {
                     continue
                 }
                 let localChanged = mine.hash != base, remoteChanged = remoteHash != base
+                // Comme pour les éléments : une version périmée de l'autre Mac n'annule pas la mienne.
+                if !localChanged, newest.item.modified < mine.modified {
+                    finalSecrets.append(ConfigSyncSecretItem(service: mine.secret.service, account: mine.secret.account, usage: mine.secret.usage,
+                                                             value: mine.secret.value, modified: mine.modified))
+                    continue
+                }
                 if !localChanged || (remoteChanged && newest.item.modified > mine.modified) || (base == nil && firstJoin && mine.modified == .distantPast) {
                     if localChanged {
                         report.conflicts.append(ConfigSyncConflict(date: now, siteID: id, siteName: scopeLabel("secret:" + key), key: "secret:" + key, label: label,
