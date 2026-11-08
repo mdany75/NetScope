@@ -17,6 +17,8 @@ func registerDeviceSightingTests(_ suite: TestSuite) {
     suite.add("Où était cet appareil : cible d’une recherche") {
         try expectEqual(FortiDeviceTarget.of(query: "Julie", found: [mac])?.macs, [mac], "MAC trouvée par le nom")
         try expectEqual(FortiDeviceTarget.of(query: "10.182.122.117", found: [])?.ip, IPv4Address("10.182.122.117"), "IP encore inconnue")
+        let previous = FortiDeviceTarget.of(query: "10.182.122.117", found: [mac])
+        try expect(previous?.macs.isEmpty == true, "une IP tapée ne relit pas ceux qui l’ont déjà eue")
         try expectEqual(FortiDeviceTarget.of(query: "b0:7b:25:44:a1:6c", found: [])?.macs, [mac], "MAC encore inconnue")
         try expect(FortiDeviceTarget.of(query: "Julie", found: []) == nil, "nom inconnu : rien à relire")
         let many = (0..<6).map { MACAddress("00:00:00:00:00:0\($0)")! }
@@ -29,11 +31,12 @@ func registerDeviceSightingTests(_ suite: TestSuite) {
             MACObservation(mac: mac, kind: .vlan, value: "10", source: .fortigate),
             MACObservation(mac: second, kind: .ip, value: "10.0.0.9", source: .fortigate),
             MACObservation(mac: mac, kind: .ip, value: "10.0.0.5", source: .fortigate),
-            MACObservation(mac: mac, kind: .ip, value: "10.0.0.5", source: .wifi),
+            MACObservation(mac: mac, kind: .ip, value: "10.0.0.6", source: .wifi),
             MACObservation(mac: mac, kind: .name, value: "BDC2", source: .fortigate),
         ])
         try expectEqual(views.map(\.mac), [mac, second], "MAC dans l’ordre de lecture")
-        try expectEqual(views[0].items.map(\.kind), [.ip, .name, .vlan], "IP, nom, puis VLAN, sans doublon")
+        try expectEqual(views[0].items.map(\.kind), [.ip, .name, .vlan], "IP, nom, puis VLAN, une seule valeur chacun")
+        try expectEqual(views[0].items[0].value, "10.0.0.5", "première IP lue gardée")
         try expectEqual(views[0].name, "BDC2", "nom de l’appareil")
         try expect(MACCurrentView.group([]).isEmpty, "rien de lu")
     }
@@ -47,6 +50,25 @@ func registerDeviceSightingTests(_ suite: TestSuite) {
         try expectEqual(list.first { $0.kind == .switchPort }?.value, "SW-ETG2 · port12", "port écrit comme les relevés complets")
         try expect(transport.requested.count <= 5, "lecture légère")
         try expect(!transport.requested.contains(FortiPaths.portStats) && !transport.requested.contains(FortiPaths.poe), "pas de compteurs ni de PoE")
+    }
+
+    suite.add("Où était cet appareil : seulement la dernière valeur") {
+        let second = "04:c1:03:ba:93:17"
+        let arpOld = #"{"status":"success","results":[{"ip":"10.182.122.130","mac":"b0:7b:25:44:a1:6c"},{"ip":"10.182.122.116","mac":"\#(second)"}]}"#
+        let wifi = #"{"status":"success","results":[{"mac":"b0:7b:25:44:a1:6c","ip":"10.182.122.116","wtp_name":"FP231-A","ssid":"Bureau","vlan_id":10}]}"#
+        // Fiche d'inventaire d'il y a deux heures, avec son ancienne IP.
+        let oldUser = #"{"status":"success","results":[{"mac":"b0:7b:25:44:a1:6c","ipv4_address":"10.182.122.200","hostname":"Ancien nom","last_seen":7200}]}"#
+        let responses: [String: (Int, String)] = [FortiPaths.arp: (200, arpOld), FortiWifiPaths.client: (200, wifi), FortiPaths.userDevices: (200, oldUser)]
+
+        let (byIP, _) = reader(responses)
+        let list = try await byIP.readDeviceSighting(FortiDeviceTarget(ip: IPv4Address("10.182.122.116")))
+        try expect(list.allSatisfy { $0.mac == mac }, "le client Wi-Fi associé a cette IP, pas l’ancienne entrée ARP")
+        try expectEqual(list.filter { $0.kind == .ip }.map(\.value), ["10.182.122.116"], "une seule IP : celle du client Wi-Fi")
+        try expect(!list.contains { $0.value == "Ancien nom" }, "fiche d’inventaire périmée ignorée")
+
+        let (byMAC, _) = reader([FortiPaths.arp: (200, arpOld)])
+        let onlyARP = try await byMAC.readDeviceSighting(FortiDeviceTarget(macs: [mac]))
+        try expectEqual(onlyARP.filter { $0.kind == .ip }.map(\.value), ["10.182.122.130"], "sans autre liste : ARP")
     }
 
     suite.add("Où était cet appareil : appareil absent, listes refusées") {

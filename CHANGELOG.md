@@ -1,5 +1,12 @@
 # Changements
 
+## 1.5.5 — 2026-11-08
+
+### Corrigé
+- **Outils, « Où était cet appareil ? », Dernière relecture** : une seule valeur par appareil
+  (IP, nom, port, VLAN, borne), la plus récente. Une IP tapée donne seulement l’appareil qui l’a
+  maintenant, plus ceux qui l’ont déjà eue, et les fiches de plus de 15 minutes sont ignorées.
+
 ## 1.5.4 — 2026-11-08
 
 ### Ajouté

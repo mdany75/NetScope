@@ -2021,3 +2021,4 @@ relecture ciblée par SNMP pour un site sans FortiGate. Pas encore essayé sur u
 
 Sélecteur « Historique | Dernière relecture ». Le second mode montre seulement ce que la FortiGate
 voit maintenant pour la recherche en cours, sans dates ; l'historique continue d'être alimenté.
+1.5.5 : une seule valeur par nature, IP du client Wi-Fi en priorité, puis la plus récente, puis ARP ; une IP tapée vise seulement son détenteur actuel ; fiches de plus de 15 minutes ignorées.

@@ -16,14 +16,15 @@ public struct FortiDeviceTarget: Hashable, Sendable {
 
     public var isEmpty: Bool { macs.isEmpty && ip == nil }
 
-    /// Cible d'une recherche : les MAC trouvées, ou une MAC ou une IP tapée entière (appareil pas
-    /// encore dans l'historique). nil : trop d'appareils, ou rien de précis.
+    /// Cible d'une recherche : une IP ou une MAC tapée entière, sinon les MAC trouvées par le nom.
+    /// nil : trop d'appareils, ou rien de précis.
     public static func of(query: String, found: [MACAddress], limit: Int = 5) -> FortiDeviceTarget? {
-        guard found.count <= limit else { return nil }
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        var target = FortiDeviceTarget(macs: Set(found), ip: IPv4Address(text))
-        if found.isEmpty, target.ip == nil, let mac = MACAddress(text) { target.macs = [mac] }
-        return target.isEmpty ? nil : target
+        // Une IP entière désigne l'appareil qui l'a maintenant, pas ceux qui l'ont déjà eue.
+        if let ip = IPv4Address(text) { return FortiDeviceTarget(ip: ip) }
+        if let mac = MACAddress(text) { return FortiDeviceTarget(macs: [mac]) }
+        guard found.count <= limit, !found.isEmpty else { return nil }
+        return FortiDeviceTarget(macs: Set(found))
     }
 }
 
@@ -35,15 +36,15 @@ public struct MACCurrentView: Hashable, Sendable, Identifiable {
 
     public var name: String? { items.first { $0.kind == .name }?.value }
 
-    /// Regroupe par MAC, dans l'ordre de lecture. Une même valeur vue par plusieurs listes n'apparaît
-    /// qu'une fois ; IP, nom, port, VLAN, puis borne.
+    /// Regroupe par MAC, dans l'ordre de lecture : une seule valeur par nature (la dernière lecture,
+    /// pas un historique) ; IP, nom, port, VLAN, puis borne.
     public static func group(_ observations: [MACObservation]) -> [MACCurrentView] {
         let order = Dictionary(uniqueKeysWithValues: MACSightingKind.allCases.enumerated().map { ($0.element, $0.offset) })
         var macs: [MACAddress] = []
         var byMAC: [MACAddress: [MACObservation]] = [:]
         for item in observations {
             if byMAC[item.mac] == nil { macs.append(item.mac) }
-            if byMAC[item.mac]?.contains(where: { $0.kind == item.kind && $0.value == item.value }) != true {
+            if byMAC[item.mac]?.contains(where: { $0.kind == item.kind }) != true {
                 byMAC[item.mac, default: []].append(item)
             }
         }
@@ -57,6 +58,9 @@ public struct MACCurrentView: Hashable, Sendable, Identifiable {
 }
 
 extension FortiGateReader {
+    /// Au-delà (secondes), une fiche des listes d'appareils ne dit plus où l'appareil est maintenant.
+    static let sightingFreshness: TimeInterval = 900
+
     /// Observations de cet appareil, ou vide si la FortiGate ne le voit pas. Erreur levée si le
     /// jeton est refusé, si la FortiGate est injoignable ou si aucune liste n'a pu être lue.
     public func readDeviceSighting(_ target: FortiDeviceTarget, now: Date = Date()) async throws -> [MACObservation] {
@@ -71,49 +75,67 @@ extension FortiGateReader {
             return fetched.response?.body
         }
 
-        // ARP en premier : c'est lui qui relie l'IP tapée à sa MAC.
         let arp = try await body(FortiPaths.arp).flatMap { FortiParsers.arp($0) } ?? []
-        var macs = target.macs
-        if let ip = target.ip { macs.formUnion(arp.filter { $0.ip == ip }.map(\.mac)) }
-
-        let detected = try await body(FortiPaths.detectedDevice).flatMap { FortiParsers.detectedDevices($0, now: now) } ?? []
-        let users = try await body(FortiPaths.userDevices).flatMap { FortiParsers.userDevices($0, now: now) } ?? []
+        // Listes qui gardent d'anciennes fiches : seules les entrées récentes disent l'état actuel.
+        func isFresh(_ date: Date?) -> Bool { date.map { now.timeIntervalSince($0) <= Self.sightingFreshness } ?? true }
+        let detected = (try await body(FortiPaths.detectedDevice).flatMap { FortiParsers.detectedDevices($0, now: now) } ?? []).filter { isFresh($0.lastSeen) }
+        let users = (try await body(FortiPaths.userDevices).flatMap { FortiParsers.userDevices($0, now: now) } ?? []).filter { isFresh($0.lastSeen) }
         let clients = try await body(FortiWifiPaths.client).flatMap { FortiWifiParsers.clients($0, now: now) } ?? []
-        if let ip = target.ip {
-            macs.formUnion(users.filter { $0.ip == ip }.map(\.mac))
-            macs.formUnion(detected.filter { $0.ip == ip }.map(\.mac))
-            macs.formUnion(clients.filter { $0.ip == ip }.map(\.mac))
-        }
         if failures.count == 4, let failure = failures.first { throw failure }
+
+        func latest<T>(_ items: [T], _ date: (T) -> Date?) -> T? {
+            items.max { (date($0) ?? .distantPast) < (date($1) ?? .distantPast) }
+        }
+
+        var macs = target.macs
+        if let ip = target.ip {
+            // Une seule machine a cette IP : client Wi-Fi associé, sinon vu le plus récemment, sinon ARP.
+            let seen: [(mac: MACAddress, at: Date?)] = detected.filter { $0.ip == ip }.map { ($0.mac, $0.lastSeen) }
+                + users.filter { $0.ip == ip }.map { ($0.mac, $0.lastSeen) }
+            if let holder = clients.first(where: { $0.ip == ip })?.mac ?? latest(seen, { $0.at })?.mac ?? arp.first(where: { $0.ip == ip })?.mac {
+                macs.insert(holder)
+            }
+        }
         guard !macs.isEmpty else { return [] }
 
-        let wantedDetected = detected.filter { macs.contains($0.mac) }
-        let wantedUsers = users.filter { macs.contains($0.mac) }
-        let hasPort = !wantedDetected.isEmpty || wantedUsers.contains { $0.switchID != nil && $0.portName != nil }
+        // Une seule valeur par nature et par MAC : la plus récente.
+        struct Current {
+            var mac: MACAddress
+            var client: FortiWifiClient?
+            var detected: FortiDetectedDevice?
+            var user: FortiUserDevice?
+            var arp: FortiARPEntry?
+        }
+        let current = macs.sorted { $0.description < $1.description }.map { mac in
+            let entries = arp.filter { $0.mac == mac }
+            return Current(mac: mac, client: clients.first { $0.mac == mac },
+                           detected: latest(detected.filter { $0.mac == mac }, { $0.lastSeen }),
+                           user: latest(users.filter { $0.mac == mac }, { $0.lastSeen }),
+                           arp: entries.first { $0.ip == target.ip } ?? entries.first)
+        }
+        let hasPort = current.contains { $0.detected != nil || ($0.user?.switchID != nil && $0.user?.portName != nil) }
         let names = hasPort ? try await switchNames() : [:]
         func portValue(_ id: String, _ port: String) -> String { "\(names[id] ?? id) · \(port)" }
 
         var list: [MACObservation] = []
-        var seen = Set<MACObservation>()
-        func add(_ mac: MACAddress, _ kind: MACSightingKind, _ value: String, _ source: MACSightingSource) {
-            let item = MACObservation(mac: mac, kind: kind, value: value, source: source)
-            if seen.insert(item).inserted { list.append(item) }
-        }
-        for entry in arp where macs.contains(entry.mac) { add(entry.mac, .ip, entry.ip.description, .fortigate) }
-        for device in wantedDetected {
-            add(device.mac, .switchPort, portValue(device.switchID, device.portName), .fortigate)
-            if let vlan = device.vlan { add(device.mac, .vlan, String(vlan), .fortigate) }
-            if let ip = device.ip { add(device.mac, .ip, ip.description, .fortigate) }
-            if let name = device.name, !name.isEmpty { add(device.mac, .name, name, .fortigate) }
-        }
-        for user in wantedUsers {
-            if let ip = user.ip { add(user.mac, .ip, ip.description, .fortigate) }
-            if let name = user.hostname, !name.isEmpty { add(user.mac, .name, name, .fortigate) }
-            if let id = user.switchID, let port = user.portName { add(user.mac, .switchPort, portValue(id, port), .fortigate) }
-            if let vlan = user.vlan { add(user.mac, .vlan, String(vlan), .fortigate) }
-        }
-        for item in MACHistory.observations(wifiClients: clients.filter { macs.contains($0.mac) }) where seen.insert(item).inserted {
-            list.append(item)
+        for item in current {
+            func add(_ kind: MACSightingKind, _ value: String?, _ source: MACSightingSource = .fortigate) {
+                guard let value, !value.isEmpty else { return }
+                list.append(MACObservation(mac: item.mac, kind: kind, value: value, source: source))
+            }
+            let detectedIsNewer = (item.detected?.lastSeen ?? .distantPast) >= (item.user?.lastSeen ?? .distantPast)
+            let listed = detectedIsNewer ? (item.detected?.ip ?? item.user?.ip) : (item.user?.ip ?? item.detected?.ip)
+            add(.ip, (item.client?.ip ?? listed ?? item.arp?.ip)?.description)
+            add(.name, item.user?.hostname ?? item.detected?.name ?? item.client?.hostname)
+            if let device = item.detected {
+                add(.switchPort, portValue(device.switchID, device.portName))
+            } else if let id = item.user?.switchID, let port = item.user?.portName {
+                add(.switchPort, portValue(id, port))
+            }
+            add(.vlan, (item.client?.vlan ?? item.detected?.vlan ?? item.user?.vlan).map(String.init))
+            if let client = item.client {
+                list += MACHistory.observations(wifiClients: [client]).filter { $0.kind == .accessPoint }
+            }
         }
         return list
     }
