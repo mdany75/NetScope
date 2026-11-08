@@ -1,5 +1,15 @@
 # Changements
 
+## 1.6.0 — 2026-11-08
+
+### Ajouté
+- **CLI des FortiGate** (note 111), facultative : compte SSH choisi par FortiGate dans Switchs et
+  ports › Configurations, « Ouvrir la CLI » et « Tester la CLI ». Extraits du terminal
+  `execute dhcp lease-list` et `diagnose ip arp list`.
+- **Outils, « Où était cet appareil ? »** : quand l’API laisse un doute sur l’appareil qui a une
+  IP, « Relire cet appareil » lance ces deux commandes de lecture, et seulement celles-là. Aucune
+  connexion SSH sans doute ni sans clic ; le mot de passe reste au Trousseau.
+
 ## 1.5.5 — 2026-11-08
 
 ### Corrigé

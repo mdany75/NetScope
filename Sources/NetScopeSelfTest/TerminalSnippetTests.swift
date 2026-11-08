@@ -55,7 +55,7 @@ func registerTerminalSnippetTests(_ suite: TestSuite) {
         try expectEqual(TerminalSnippetBrand.detect(description: "HPE Aruba 2930F", isSSH: false), .aruba, "Aruba en Telnet")
         try expectEqual(TerminalSnippetBrand.detect(description: "NAS-SYNO", isSSH: true), .linux, "SSH sans marque")
         try expect(TerminalSnippetBrand.detect(description: "Switch inconnu", isSSH: false) == nil, "Telnet sans marque")
-        try expectEqual(TerminalSnippetBrand.fortinet.builtInCommands.first, "diagnose sys top", "triés")
+        try expectEqual(TerminalSnippetBrand.fortinet.builtInCommands.first, "diagnose ip arp list", "triés")
         try expectEqual(TerminalSnippetBrand.ordered.map(\.label), ["Aruba et HPE", "Cisco", "FortiGate", "Linux (SSH)"], "marques triées")
     }
 

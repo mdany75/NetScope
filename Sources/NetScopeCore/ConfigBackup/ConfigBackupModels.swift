@@ -131,6 +131,23 @@ public struct ConfigBackupSettings: Codable, Equatable, Sendable {
         }
     }
 
+    /// Association d'un compte à une FortiGate : l'adresse y est retenue, un changement d'adresse
+    /// demande un nouveau choix (un mot de passe ne suit pas tout seul vers un autre équipement).
+    public struct CLIAccount: Codable, Equatable, Sendable {
+        public var credentialID: UUID
+        public var host: String
+        public init(credentialID: UUID, host: String) {
+            self.credentialID = credentialID
+            self.host = host
+        }
+    }
+
+    /// Compte retenu pour cette FortiGate, seulement à cette adresse.
+    public func cliCredentialID(controllerID: UUID, host: String) -> UUID? {
+        guard let account = cliAccounts[controllerID.uuidString], account.host == host else { return nil }
+        return account.credentialID
+    }
+
     public static let defaultKeep = 30
     public static let keepRange = 1...500
 
@@ -138,15 +155,18 @@ public struct ConfigBackupSettings: Codable, Equatable, Sendable {
     public var keep: Int
     /// Type et identifiant SSH choisis, par équipement (clé : nom du dossier).
     public var equipment: [String: Equipment]
+    /// Note 111 : compte SSH de la CLI de chaque FortiGate (clé : identifiant du contrôleur).
+    public var cliAccounts: [String: CLIAccount]
     /// Dernière vérification (même sans changement), par équipement.
     public var lastChecked: [String: Date]
     /// Changements signalés et pas encore vus : date de la version qui diffère, par équipement.
     public var pendingChanges: [String: Date]
 
     public init(keep: Int = ConfigBackupSettings.defaultKeep, equipment: [String: Equipment] = [:],
-                lastChecked: [String: Date] = [:], pendingChanges: [String: Date] = [:]) {
+                lastChecked: [String: Date] = [:], pendingChanges: [String: Date] = [:], cliAccounts: [String: CLIAccount] = [:]) {
         self.keep = Self.clampedKeep(keep)
         self.equipment = equipment
+        self.cliAccounts = cliAccounts
         self.lastChecked = lastChecked
         self.pendingChanges = pendingChanges
     }
@@ -155,6 +175,7 @@ public struct ConfigBackupSettings: Codable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         keep = Self.clampedKeep(try c.decodeIfPresent(Int.self, forKey: .keep) ?? Self.defaultKeep)
         equipment = try c.decodeIfPresent([String: Equipment].self, forKey: .equipment) ?? [:]
+        cliAccounts = try c.decodeIfPresent([String: CLIAccount].self, forKey: .cliAccounts) ?? [:]
         lastChecked = try c.decodeIfPresent([String: Date].self, forKey: .lastChecked) ?? [:]
         pendingChanges = try c.decodeIfPresent([String: Date].self, forKey: .pendingChanges) ?? [:]
     }

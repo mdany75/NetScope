@@ -2022,3 +2022,11 @@ relecture ciblée par SNMP pour un site sans FortiGate. Pas encore essayé sur u
 Sélecteur « Historique | Dernière relecture ». Le second mode montre seulement ce que la FortiGate
 voit maintenant pour la recherche en cours, sans dates ; l'historique continue d'être alimenté.
 1.5.5 : une seule valeur par nature, IP du client Wi-Fi en priorité, puis la plus récente, puis ARP ; une IP tapée vise seulement son détenteur actuel ; fiches de plus de 15 minutes ignorées.
+
+## 111. CLI des FortiGate — livrée dans la 1.6.0 (demande de Dany, 8 novembre 2026)
+
+Compte SSH choisi explicitement par FortiGate et lié à son adresse (`cliAccounts`). Deux commandes
+seulement, `execute dhcp lease-list` et `diagnose ip arp list`, avec `sudo <vdom>` au besoin ;
+jamais `config vdom / edit`, qui peut créer un VDOM. Utilisées seulement si l'API laisse un doute,
+après un clic. Formats de sortie et `sudo <vdom>` pas encore essayés sur une vraie FortiGate.
+Reste : préremplir « Ouvrir la CLI » avec le compte associé au lieu du premier compte SSH.

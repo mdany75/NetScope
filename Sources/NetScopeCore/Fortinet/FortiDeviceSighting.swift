@@ -28,6 +28,18 @@ public struct FortiDeviceTarget: Hashable, Sendable {
     }
 }
 
+/// Résultat d'une relecture : ce qui est vu, et ce qu'a donné la CLI quand elle a servi.
+public struct FortiDeviceSightingReport: Sendable {
+    public var observations: [MACObservation] = []
+    /// La CLI a fourni le détenteur ou l'IP retenus.
+    public var usedCLI = false
+    /// La CLI a répondu, sans rien apporter sur cet appareil.
+    public var cliHadNothing = false
+    public var cliError: ConfigBackupError?
+
+    public init() {}
+}
+
 /// Note 110 : ce que la dernière relecture voit d'une MAC, sans historique ni dates.
 public struct MACCurrentView: Hashable, Sendable, Identifiable {
     public var mac: MACAddress
@@ -64,6 +76,13 @@ extension FortiGateReader {
     /// Observations de cet appareil, ou vide si la FortiGate ne le voit pas. Erreur levée si le
     /// jeton est refusé, si la FortiGate est injoignable ou si aucune liste n'a pu être lue.
     public func readDeviceSighting(_ target: FortiDeviceTarget, now: Date = Date()) async throws -> [MACObservation] {
+        try await readDeviceSightingReport(target, now: now).observations
+    }
+
+    /// Note 111 : `cli` n'est appelée que si l'API laisse un doute sur l'IP (aucun client Wi-Fi associé
+    /// à l'adresse cherchée, ou plusieurs adresses pour la MAC).
+    public func readDeviceSightingReport(_ target: FortiDeviceTarget, now: Date = Date(),
+                                         cli: (@Sendable () async -> Result<FortiCLISnapshot, ConfigBackupError>)? = nil) async throws -> FortiDeviceSightingReport {
         var failures: [FortiGateError] = []
 
         func body(_ path: String) async throws -> Data? {
@@ -87,16 +106,35 @@ extension FortiGateReader {
             items.max { (date($0) ?? .distantPast) < (date($1) ?? .distantPast) }
         }
 
+        // La CLI tranche seulement quand l'API ne le peut pas.
+        var report = FortiDeviceSightingReport()
+        var snapshot: FortiCLISnapshot?
+        if let cli, Self.needsCLI(target, arp: arp, detected: detected, users: users, clients: clients) {
+            switch await cli() {
+            case .success(let value):
+                snapshot = value
+                report.cliError = value.partialError
+            case .failure(let error):
+                report.cliError = error
+            }
+        }
+
         var macs = target.macs
         if let ip = target.ip {
-            // Une seule machine a cette IP : client Wi-Fi associé, sinon vu le plus récemment, sinon ARP.
+            // Une seule machine a cette IP : client Wi-Fi associé, bail DHCP, vu le plus récemment, puis ARP.
             let seen: [(mac: MACAddress, at: Date?)] = detected.filter { $0.ip == ip }.map { ($0.mac, $0.lastSeen) }
                 + users.filter { $0.ip == ip }.map { ($0.mac, $0.lastSeen) }
-            if let holder = clients.first(where: { $0.ip == ip })?.mac ?? latest(seen, { $0.at })?.mac ?? arp.first(where: { $0.ip == ip })?.mac {
+            let wifiHolder = clients.first { $0.ip == ip }?.mac
+            let cliHolder = wifiHolder == nil ? snapshot?.holder(of: ip) : nil
+            if cliHolder != nil { report.usedCLI = true }
+            if let holder = wifiHolder ?? cliHolder ?? latest(seen, { $0.at })?.mac ?? arp.first(where: { $0.ip == ip })?.mac {
                 macs.insert(holder)
             }
         }
-        guard !macs.isEmpty else { return [] }
+        guard !macs.isEmpty else {
+            report.cliHadNothing = snapshot != nil
+            return report
+        }
 
         // Une seule valeur par nature et par MAC : la plus récente.
         struct Current {
@@ -125,7 +163,9 @@ extension FortiGateReader {
             }
             let detectedIsNewer = (item.detected?.lastSeen ?? .distantPast) >= (item.user?.lastSeen ?? .distantPast)
             let listed = detectedIsNewer ? (item.detected?.ip ?? item.user?.ip) : (item.user?.ip ?? item.detected?.ip)
-            add(.ip, (item.client?.ip ?? listed ?? item.arp?.ip)?.description)
+            let cliIP = item.client?.ip == nil ? snapshot?.currentIP(of: item.mac, preferring: target.ip) : nil
+            if cliIP != nil { report.usedCLI = true }
+            add(.ip, (item.client?.ip ?? cliIP ?? listed ?? item.arp?.ip)?.description)
             add(.name, item.user?.hostname ?? item.detected?.name ?? item.client?.hostname)
             if let device = item.detected {
                 add(.switchPort, portValue(device.switchID, device.portName))
@@ -137,7 +177,27 @@ extension FortiGateReader {
                 list += MACHistory.observations(wifiClients: [client]).filter { $0.kind == .accessPoint }
             }
         }
-        return list
+        report.observations = list
+        report.cliHadNothing = snapshot != nil && !report.usedCLI
+        return report
+    }
+
+    /// Doute : les sources de l'API ne désignent pas exactement un appareil pour cette IP (et aucun
+    /// client Wi-Fi ne la porte), ou la MAC cherchée a plusieurs adresses.
+    private static func needsCLI(_ target: FortiDeviceTarget, arp: [FortiARPEntry], detected: [FortiDetectedDevice],
+                                 users: [FortiUserDevice], clients: [FortiWifiClient]) -> Bool {
+        if let ip = target.ip {
+            if clients.contains(where: { $0.ip == ip }) { return false }
+            let holders = Set(arp.filter { $0.ip == ip }.map(\.mac) + detected.filter { $0.ip == ip }.map(\.mac) + users.filter { $0.ip == ip }.map(\.mac))
+            return holders.count != 1
+        }
+        return target.macs.contains { mac in
+            if clients.first(where: { $0.mac == mac })?.ip != nil { return false }
+            let ips = Set(arp.filter { $0.mac == mac }.map(\.ip)
+                          + detected.filter { $0.mac == mac }.compactMap(\.ip)
+                          + users.filter { $0.mac == mac }.compactMap(\.ip))
+            return ips.count > 1
+        }
     }
 
     /// Noms des FortiSwitch, pour écrire le port comme les relevés complets.

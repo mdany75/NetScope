@@ -39,7 +39,8 @@ public enum TerminalSnippetBrand: String, Codable, CaseIterable, Sendable {
             commands = ["show interfaces status", "show vlan brief", "show mac address-table", "show lldp neighbors",
                         "show version", "show running-config"]
         case .fortinet:
-            commands = ["get system status", "get router info routing-table all", "diagnose sys top", "show system interface"]
+            commands = ["get system status", "get router info routing-table all", "diagnose sys top", "show system interface",
+                        "execute dhcp lease-list", "diagnose ip arp list"]
         case .aruba:
             commands = ["show interfaces brief", "show vlans", "show lldp info remote-device", "show running-config"]
         case .linux:

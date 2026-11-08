@@ -120,7 +120,7 @@ struct MACHistoryView: View {
             tokensLoaded = true
             let found = store.activeHistory.search(query, on: nil).map(\.mac)
             if !query.trimmingCharacters(in: .whitespaces).isEmpty, let target = FortiDeviceTarget.of(query: query, found: found) {
-                store.readDevice(target, query: query)
+                store.readDevice(target, query: query, allowCLI: false)
             }
         }
         .onAppear { if currentOnly, !query.isEmpty { store.loadDemoDeviceRead(query: query) } }
@@ -188,7 +188,10 @@ struct MACHistoryView: View {
     private var readStatus: String {
         if store.isReadingDevice { return "relecture de cet appareil" }
         if let message = store.deviceReadMessage { return message }
-        return store.deviceReadAt.map { "appareil relu \(ToolText.relative($0))" } ?? "historique enregistré"
+        let read = store.deviceReadAt.map { "appareil relu \(ToolText.relative($0))" } ?? "historique enregistré"
+        // La note ne vaut que pour la recherche relue, sur ce site.
+        guard store.hasDeviceRead(for: query), let note = store.deviceReadNote else { return read }
+        return read + " · " + note
     }
 
     /// Pourquoi « Relire cet appareil » est grisé ; nil s'il est actif ou si la lecture est en cours.

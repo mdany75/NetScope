@@ -220,7 +220,10 @@ struct SwitchConfigTab: View {
 
     @ViewBuilder private func accessCell(_ equipment: ConfigEquipment) -> some View {
         if equipment.controllerID != nil {
-            Text("API REST · jeton du site").font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("API REST · jeton du site").font(Theme.small).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                cliPicker(equipment)
+            }
         } else {
             let ssh = credentials.credentials.filter { $0.kind == .ssh }
             if ssh.isEmpty {
@@ -242,6 +245,22 @@ struct SwitchConfigTab: View {
         }
     }
 
+    /// Note 111 : identifiant SSH de la CLI d'une FortiGate ; aucun par défaut.
+    private func cliPicker(_ equipment: ConfigEquipment) -> some View {
+        Picker("CLI", selection: Binding(get: { model.cliCredential(of: equipment)?.id },
+                                         set: { model.setCLICredential($0, for: equipment) })) {
+            Text("CLI\u{00A0}: aucune").tag(UUID?.none)
+            ForEach(credentials.credentials.filter { $0.kind == .ssh }) { credential in
+                Text("CLI\u{00A0}: \(credential.name) (\(credential.user))").tag(Optional(credential.id))
+            }
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .controlSize(.small)
+        .frame(maxWidth: 150, alignment: .leading)
+        .help("Facultatif. Compte SSH en lecture pour trancher les doutes de «\u{00A0}Où était cet appareil\u{00A0}?\u{00A0}» (execute dhcp lease-list, diagnose ip arp list). Mot de passe lu au Trousseau.")
+    }
+
     private func errorView(_ error: ConfigBackupError, equipment: ConfigEquipment) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
@@ -251,7 +270,7 @@ struct SwitchConfigTab: View {
             }
             Text(error.advice).font(Theme.caption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
             if error.kind == .unknownHostKey {
-                Button("Accepter l’empreinte et sauvegarder") { model.acceptHostKey(for: equipment) }
+                Button(equipment.controllerID != nil ? "Accepter l’empreinte et tester la CLI" : "Accepter l’empreinte et sauvegarder") { model.acceptHostKey(for: equipment) }
                     .buttonStyle(.secondary)
                     .controlSize(.small)
             }
@@ -277,6 +296,19 @@ struct SwitchConfigTab: View {
                         }
                         .buttonStyle(.secondary)
                         .disabled(model.running.contains(equipment.id))
+                        if equipment.controllerID != nil {
+                            // Session interactive dans Accès distant : l'utilisateur est demandé, puis retenu.
+                            QuickLoginSSHButton(target: QuickLoginTarget(name: equipment.name, device: QuickLoginDevice(host: equipment.host, siteID: SiteModel.shared.list.activeID))) { _ in
+                                Label("Ouvrir la CLI", systemImage: "apple.terminal")
+                            }
+                            .buttonStyle(.secondary)
+                            Button { Task { await model.testCLI(equipment) } } label: {
+                                Label("Tester la CLI", systemImage: "terminal")
+                            }
+                            .buttonStyle(.secondary)
+                            .disabled(model.running.contains(equipment.id) || model.cliCredential(of: equipment) == nil)
+                            .help(model.cliCredential(of: equipment) == nil ? "Choisissez d’abord un identifiant dans la colonne Accès." : "Lance les deux commandes de lecture sur cette FortiGate")
+                        }
                         if !model.isDemo, let first = list.first {
                             Button {
                                 NSWorkspace.shared.activateFileViewerSelecting([first.url])

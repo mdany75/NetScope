@@ -126,6 +126,63 @@ final class ConfigBackupModel: ObservableObject {
         return (named ?? ssh.first)?.id
     }
 
+    // MARK: CLI des FortiGate (note 111)
+
+    /// Identifiant SSH choisi pour la CLI de cette FortiGate, à cette adresse. Aucun repli sur un
+    /// autre compte : un mot de passe ne part jamais vers une FortiGate qui ne lui a pas été associée.
+    func cliCredential(of equipment: ConfigEquipment) -> RemoteCredential? {
+        guard let controllerID = equipment.controllerID else { return nil }
+        return credential(settings.cliCredentialID(controllerID: controllerID, host: equipment.host))
+    }
+
+    /// Même chose pour un site donné : ses réglages sont relus, l'onglet Configurations peut montrer
+    /// un autre site ou ne pas avoir été ouvert.
+    func cliCredential(of controller: FortiGateController, siteKey key: String) -> RemoteCredential? {
+        let values = key == siteKey ? settings : ConfigBackupArchive(siteFolder: SiteFiles.standard.folder(for: key)).loadSettings()
+        return credential(values.cliCredentialID(controllerID: controller.id, host: controller.config.cleanHost))
+    }
+
+    private func credential(_ id: UUID?) -> RemoteCredential? {
+        guard let id else { return nil }
+        return RegRemoteCredentialStore.shared.credentials.first { $0.id == id && $0.kind == .ssh }
+    }
+
+    func setCLICredential(_ credentialID: UUID?, for equipment: ConfigEquipment) {
+        guard let controllerID = equipment.controllerID else { return }
+        settings.cliAccounts[controllerID.uuidString] = credentialID.map { .init(credentialID: $0, host: equipment.host) }
+        persist()
+    }
+
+    /// Essaie les deux commandes de lecture et dit ce qui a été lu.
+    func testCLI(_ equipment: ConfigEquipment) async {
+        guard !running.contains(equipment.id) else { return }
+        errors[equipment.id] = nil
+        notices[equipment.id] = nil
+        if isDemo {
+            notices[equipment.id] = "CLI lue (démonstration)\u{00A0}: rien n’est envoyé."
+            return
+        }
+        guard let credential = cliCredential(of: equipment) else {
+            errors[equipment.id] = ConfigBackupError(kind: .account, detail: "Aucun identifiant CLI pour \(equipment.name).")
+            return
+        }
+        let vdom = equipment.controllerID.flatMap { FortiGateStore.shared.controller($0)?.config.vdom } ?? ""
+        let target = ConfigSSHTarget(credential: credential, host: equipment.host)
+        let service = RemoteCredential.keychainService(.ssh), account = credential.keychainAccount
+        running.insert(equipment.id)
+        let result = await Task.detached(priority: .userInitiated) {
+            await FortiCLISSH.read(target, vdom: vdom, secret: UpdKeychain(service: service).string(for: account))
+        }.value
+        running.remove(equipment.id)
+        switch result {
+        case .success(let snapshot):
+            let partial = snapshot.partialError.map { " Une commande refusée\u{00A0}: \($0.detail)" } ?? ""
+            notices[equipment.id] = "CLI lue\u{00A0}: \(snapshot.leases.count) bail(s) DHCP, \(snapshot.arp.count) entrée(s) ARP." + partial
+        case .failure(let error):
+            errors[equipment.id] = error
+        }
+    }
+
     func setKind(_ kind: ConfigDeviceKind?, for id: String) {
         var entry = settings.equipment[id] ?? .init()
         entry.kind = kind
@@ -196,8 +253,10 @@ final class ConfigBackupModel: ObservableObject {
             Task { await backup(equipment) }
             return
         }
-        guard let credentialID = credentialID(of: equipment),
-              let credential = RegRemoteCredentialStore.shared.credentials.first(where: { $0.id == credentialID }) else {
+        // FortiGate : seulement son identifiant CLI, jamais un autre compte par défaut.
+        let chosen = equipment.controllerID != nil ? cliCredential(of: equipment)
+            : credentialID(of: equipment).flatMap { id in RegRemoteCredentialStore.shared.credentials.first { $0.id == id } }
+        guard let credential = chosen else {
             errors[equipment.id] = ConfigBackupError(kind: .account, detail: "Aucun identifiant SSH pour \(equipment.name).")
             return
         }
@@ -208,7 +267,8 @@ final class ConfigBackupModel: ObservableObject {
             running.remove(equipment.id)
             switch trusted {
             case .failure(let error): errors[equipment.id] = error
-            case .success: await backup(equipment)
+            case .success:
+                if equipment.controllerID != nil { await testCLI(equipment) } else { await backup(equipment) }
             }
         }
     }

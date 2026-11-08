@@ -130,6 +130,8 @@ final class MACHistoryStore: ObservableObject {
     @Published private(set) var isReadingDevice = false
     @Published private(set) var deviceReadAt: Date?
     @Published private(set) var deviceReadMessage: String?
+    /// Note 111 : ce que la CLI a apporté à cette relecture.
+    @Published private(set) var deviceReadNote: String?
     /// Note 110 : ce que la dernière relecture a vu, avec la recherche et le site qu'elle concerne.
     @Published private(set) var deviceReadResult: [MACCurrentView] = []
     private var deviceReadScope: (query: String, site: String)?
@@ -188,7 +190,8 @@ final class MACHistoryStore: ObservableObject {
     }
 
     /// Relit cet appareil sur les FortiGate du site actif et range ce qui est vu dans son historique.
-    func readDevice(_ target: FortiDeviceTarget, query: String) {
+    /// `allowCLI` : faux pour la relecture automatique à l'ouverture (aucune connexion SSH sans clic).
+    func readDevice(_ target: FortiDeviceTarget, query: String, allowCLI: Bool = true) {
         guard canReadDevice, !target.isEmpty else { return }
         deviceReadResult = []
         deviceReadScope = (query.trimmingCharacters(in: .whitespaces), SiteModel.shared.activeKey)
@@ -197,15 +200,25 @@ final class MACHistoryStore: ObservableObject {
         let ids = readyControllerIDs
         isReadingDevice = true
         deviceReadMessage = nil
+        deviceReadNote = nil
+        let backups = ConfigBackupModel.shared
+        let cliAccounts = Dictionary(uniqueKeysWithValues: ids.compactMap { id -> (UUID, DeviceCLIAccount)? in
+            guard allowCLI, let controller = fortigate.controller(id), let credential = backups.cliCredential(of: controller, siteKey: siteKey) else { return nil }
+            return (id, DeviceCLIAccount(target: ConfigSSHTarget(credential: credential, host: controller.config.cleanHost), vdom: controller.config.vdom,
+                                         service: RemoteCredential.keychainService(.ssh), account: credential.keychainAccount))
+        })
         Task { [weak self] in
             let picks = ids.map { id in
                 FortiControllerSelection.Pick(controllerID: id, site: fortigate.controller(id)?.displayName ?? "FortiGate", reason: .activeSite)
             }
             let targets = await fortigate.wifiTargets(for: FortiControllerSelection(picks: picks))
-            let jobs = targets.ready.map { (config: $0.0.config, token: $0.1) }
-            let results = await FortiMulti.parallel(jobs, limit: FortiMulti.concurrentReads) { job -> Result<[MACObservation], FortiGateError> in
+            let jobs = targets.ready.map { (config: $0.0.config, token: $0.1, cli: cliAccounts[$0.0.id], name: $0.0.displayName) }
+            let results = await FortiMulti.parallel(jobs, limit: FortiMulti.concurrentReads) { job -> Result<FortiDeviceSightingReport, FortiGateError> in
                 let reader = FortiGateReader(transport: FortiURLSessionTransport(config: job.config, token: job.token), tokenForRedaction: job.token)
-                do { return .success(try await reader.readDeviceSighting(target)) } catch let error as FortiGateError {
+                let cli: (@Sendable () async -> Result<FortiCLISnapshot, ConfigBackupError>)? = job.cli.map { account in
+                    { await FortiCLISSH.read(account.target, vdom: account.vdom, secret: UpdKeychain(service: account.service).string(for: account.account)) }
+                }
+                do { return .success(try await reader.readDeviceSightingReport(target, cli: cli)) } catch let error as FortiGateError {
                     return .failure(error)
                 } catch { return .failure(.cannotConnect("")) }
             }
@@ -213,20 +226,38 @@ final class MACHistoryStore: ObservableObject {
             let now = Date()
             var found: [MACObservation] = []
             var failed: String?
-            for result in results {
+            var usedCLI = false
+            var cliHadNothing = false
+            var cliFailure: String?
+            for (job, result) in zip(jobs, results) {
                 switch result {
-                case .success(let list): found += list
+                case .success(let report):
+                    found += report.observations
+                    usedCLI = usedCLI || report.usedCLI
+                    cliHadNothing = cliHadNothing || report.cliHadNothing
+                    if let error = report.cliError, cliFailure == nil { cliFailure = "\(job.name)\u{00A0}: \(error.title)" }
                 case .failure(let error): failed = error.errorDescription ?? "Lecture impossible."
                 }
             }
             self.record(found, siteKey: siteKey, at: now)
             self.deviceReadResult = MACCurrentView.group(found)
+            let note = usedCLI ? "IP confirmée par la CLI" : (cliFailure.map { "CLI non lue (\($0))" } ?? (cliHadNothing ? "CLI lue, rien sur cet appareil" : nil))
+            self.deviceReadNote = note
             self.isReadingDevice = false
             self.deviceReadAt = now
             if found.isEmpty {
-                self.deviceReadMessage = failed ?? targets.blocked.values.first ?? "La FortiGate ne voit pas cet appareil pour l’instant."
+                let message = failed ?? targets.blocked.values.first ?? "La FortiGate ne voit pas cet appareil pour l’instant."
+                self.deviceReadMessage = note.map { message + " · " + $0 } ?? message
             }
         }
+    }
+
+    /// Compte SSH de la CLI d'une FortiGate (le mot de passe reste au Trousseau jusqu'à l'envoi).
+    private struct DeviceCLIAccount: Sendable {
+        var target: ConfigSSHTarget
+        var vdom: String
+        var service: String
+        var account: String
     }
 
     private func prune(_ siteKey: String) {
