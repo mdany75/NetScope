@@ -1,5 +1,19 @@
 # Changements
 
+## 1.4.0 — 2026-11-08
+
+### Ajouté
+- **Appareil, onglet « Trafic »** (note 105) : ce que l’écran Trafic sait de cette adresse, en
+  direct (relu toutes les 5 s) : débit, envoyé, reçu, sessions, destinations, applications et
+  menaces, avec les mêmes tableaux. Les volumes sont vus de l’appareil, même pour une connexion
+  entrante. Seules les FortiGate du site de la fiche sont interrogées.
+- **Appareil, Aperçu** : carte « Trafic en direct » (relue toutes les 15 s), absente si le site
+  n’a pas de FortiGate prête.
+
+### Corrigé
+- **Trafic** : le temps réel se met bien en pause quand l’app est masquée, même si l’icône de la
+  barre des menus est présente.
+
 ## 1.3.2 — 2026-11-08
 
 ### Corrigé

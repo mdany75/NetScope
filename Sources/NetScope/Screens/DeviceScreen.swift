@@ -56,6 +56,9 @@ private struct DeviceDetailView: View {
                     DeviceWebTab(device: device, model: session.webModel(for: device), store: store)
                 case .ressources:
                     DeviceResourcesTab(device: device)
+                case .trafic:
+                    // Note 105 : le trafic de cette adresse, en direct.
+                    DeviceTrafficTab(device: device)
                 case .historique:
                     DeviceHistoryTab(device: device, store: store)
                 case .notes:

@@ -1978,3 +1978,13 @@ La période « Temps réel » ne lisait la FortiGate qu’une fois, à l’ouver
 Elle la relit toutes les 5 s tant que l’écran Trafic est affiché et qu’une fenêtre est visible ;
 une FortiGate en erreur n’est retentée que toutes les 30 s. À confirmer sur une vraie FortiGate :
 le mode capture n’exécute pas cette boucle. Si la charge monte sur un petit modèle, passer à 10 s.
+
+## 105. Appareil : le trafic de cette adresse, en direct — livrée dans la 1.4.0 (demande de Dany, 8 novembre 2026)
+
+« Les informations pertinentes à cette IP que je retrouve dans Trafic, mais dans Appareil. »
+Onglet « Trafic » de la fiche (relu toutes les 5 s) et carte « Trafic en direct » dans l'Aperçu
+(15 s). Destinations et applications sont recalculées d'après les sessions de l'adresse
+(`/monitor/firewall/session`, filtres `srcaddr` puis `dstaddr`), le débit total vient de sa ligne
+Sources (FortiView, jusqu'à 1 000 lignes). Le filtre de sessions et les débits par sens sont à
+confirmer sur une vraie FortiGate ; si FortiOS ignore le filtre, une remarque le dit dans l'onglet.
+Seul le trafic qui traverse la FortiGate est visible (rien du trafic local à un VLAN).

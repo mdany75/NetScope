@@ -210,6 +210,12 @@ final class TrafficStore: ObservableObject {
         read(shownControllerIDs)
     }
 
+    /// Une vraie fenêtre est-elle à l'écran ? L'icône de la barre des menus (fenêtre système,
+    /// toujours visible) ne compte pas : sans ce filtre, rien ne s'arrêterait quand l'app est masquée.
+    static var isMainWindowVisible: Bool {
+        NSApp.windows.contains { $0.canBecomeMain && $0.isVisible && $0.occlusionState.contains(.visible) }
+    }
+
     /// « Temps réel » : relit toutes les 5 s tant que la tâche vit (écran Trafic, période Temps réel),
     /// en pause si aucune fenêtre n'est visible. Une FortiGate en erreur n'est retentée que toutes
     /// les 30 s, pour ne pas insister.
@@ -221,7 +227,7 @@ final class TrafficStore: ObservableObject {
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: Self.liveInterval)
             guard !Task.isCancelled, period == .realtime, canRefresh,
-                  NSApp.windows.contains(where: { $0.isVisible && $0.occlusionState.contains(.visible) }) else { continue }
+                  Self.isMainWindowVisible else { continue }
             tick += 1
             read(shownControllerIDs.filter { errors[$0] == nil || tick % 6 == 0 }, live: true)
         }
@@ -397,6 +403,14 @@ final class TrafficStore: ObservableObject {
     func deviceRef(ip: IPv4Address?, mac: MACAddress?, name: String, site: String, state: AppState) -> NavDeviceRef? {
         guard ip != nil || mac != nil else { return nil }
         let key = siteKey(forLabel: site)
+        if let known = knownDeviceRef(ip: ip, mac: mac, siteKey: key, state: state) { return known }
+        guard let ip else { return nil }
+        return NavDeviceRef(ip: ip.description, mac: mac?.formatted(.upperColon), name: name, siteKey: key)
+    }
+
+    /// Appareil du Scanner ou fiche d'inventaire de CE site ; nil si NetScope ne le connaît pas.
+    func knownDeviceRef(ip: IPv4Address?, mac: MACAddress? = nil, siteKey key: String, state: AppState) -> NavDeviceRef? {
+        guard ip != nil || mac != nil else { return nil }
         if key == SiteModel.shared.activeKey,
            let device = state.devices.first(where: { (ip != nil && $0.ip == ip) || (mac != nil && $0.mac == mac) }) {
             return NavDeviceRef(device, siteKey: key)
@@ -405,8 +419,7 @@ final class TrafficStore: ObservableObject {
         if let record = records.first(where: { (mac != nil && $0.mac == mac) || (ip != nil && $0.ip == ip) }) {
             return NavDeviceRef(record, siteKey: key)
         }
-        guard let ip else { return nil }
-        return NavDeviceRef(ip: ip.description, mac: mac?.formatted(.upperColon), name: name, siteKey: key)
+        return nil
     }
 
     /// Nom connu de NetScope (nom saisi, nom du Scanner), sinon celui de FortiView.

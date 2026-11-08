@@ -85,6 +85,8 @@ struct DeviceOverviewTab: View {
                 }
                 availabilityCard
                 servicesCard
+                // Note 105 : résumé du trafic de cette adresse, si le site a une FortiGate prête.
+                DeviceTrafficCard(device: device)
                 // Note 99 : chronologie de la MAC (IP, noms, ports, VLAN, bornes Wi-Fi).
                 DeviceMACHistoryCard(device: device)
                 // Note 68 : empreinte légère (système, confiance, versions, indices).
@@ -95,6 +97,8 @@ struct DeviceOverviewTab: View {
                 DeviceWifiSection(device: device, client: client)
             }
         }
+        // Note 105 : les jetons, pour savoir si la carte « Trafic en direct » peut lire ce site.
+        .task { await FortiGateStore.shared.loadTokens() }
     }
 
     // MARK: Réseau

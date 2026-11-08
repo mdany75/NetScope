@@ -4,7 +4,7 @@
 sur plusieurs plages, dit sur quel switch et quel port chacun est branché, puis diagnostique,
 surveille, documente et ouvre une session à distance, site par site, dans une seule fenêtre.
 
-[![Version](https://img.shields.io/badge/version-1.3.2-blue)](https://github.com/mdany75/NetScope/releases/latest)
+[![Version](https://img.shields.io/badge/version-1.4.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-lightgrey?logo=apple)](#installation)
 [![Licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
@@ -66,7 +66,9 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   (min, moyenne, max, gigue, perte, P95), journal des coupures, vue façon Terminal, traceroute et MTR.
 - **Fiche Appareil** : réseau, matériel, emplacement physique, ports et bannières, sonde web,
   notes, **partages SMB** d’un NAS ou d’un poste Windows (par `smbutil`, sur clic), et onglet
-  **Ressources** (processeur, mémoire, disques et trafic par SNMP).
+  **Ressources** (processeur, mémoire, disques et trafic par SNMP). Onglet **Trafic** : en direct,
+  le débit, les destinations, les applications, les sessions et les menaces de cette adresse, lus
+  sur la FortiGate de son site, avec un résumé dans l’Aperçu.
   Sans appareil choisi, une fiche s’ouvre par IP, nom ou MAC, et un appareil absent du
   Scanner se saisit à la main.
 - **Bilan de raccordement** en un clic sur une prise : lien, switch et port, VLAN, PoE, DHCP,

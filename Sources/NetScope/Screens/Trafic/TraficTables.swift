@@ -117,7 +117,9 @@ struct TrafficSessionRow: Identifiable {
     let session: TrafficSession
     let sourceName: String
     let ref: NavDeviceRef?
-    var id: String { session.id }
+    /// Fiche Appareil : deux listes réunies, dont les numéros d'ordre se répètent.
+    var rowID: String? = nil
+    var id: String { rowID ?? session.id }
 
     var sortSource: UInt32 { session.source?.value ?? .max }
     var sortDestination: UInt32 { session.destination?.value ?? .max }
@@ -154,14 +156,17 @@ struct TrafficEntryTable<Tools: View>: View {
     let view: TrafficView
     let rows: [TrafficRow]
     let multiSite: Bool
+    /// Texte du tableau vide quand la période de l'écran Trafic ne s'applique pas (fiche Appareil).
+    let emptyOverride: String?
     let tools: Tools
     @StateObject private var table: StandardTableModel<TrafficRow>
     @State private var selection: Set<String> = []
 
-    init(view: TrafficView, rows: [TrafficRow], multiSite: Bool, @ViewBuilder tools: () -> Tools) {
+    init(view: TrafficView, rows: [TrafficRow], multiSite: Bool, emptyOverride: String? = nil, @ViewBuilder tools: () -> Tools) {
         self.view = view
         self.rows = rows
         self.multiSite = multiSite
+        self.emptyOverride = emptyOverride
         self.tools = tools()
         _table = StateObject(wrappedValue: StandardTableModel(id: "trafic.\(view.rawValue)", columns: TrafficRow.columns(view),
                                                               sortKeys: TrafficRow.sortKeys, defaultSort: TrafficRow.defaultSort(view)))
@@ -174,7 +179,7 @@ struct TrafficEntryTable<Tools: View>: View {
                 tools
                 ToolColumnsMenu(model: table)
             }
-            ToolStandardTableFrame(rowCount: sorted.count, maxRows: 16, emptyText: emptyText) {
+            ToolStandardTableFrame(rowCount: sorted.count, maxRows: 16, emptyText: emptyOverride ?? emptyText) {
                 tableView(sorted)
                 .standardRowActions(selection: sorted.map(\.id).filter(selection.contains), object: { id in
                     sorted.first { $0.id == id }?.ref.map { NavObject.device($0) }
@@ -198,7 +203,9 @@ struct TrafficEntryTable<Tools: View>: View {
     }
 
     private func applySort() {
-        table.setSort(TrafficRow.sortColumn(store.sort, view: view, period: store.period), ascending: false)
+        // Fiche Appareil : toujours en temps réel, quel que soit le réglage de l'écran Trafic.
+        let live = emptyOverride != nil
+        table.setSort(TrafficRow.sortColumn(live ? .bandwidth : store.sort, view: view, period: live ? .realtime : store.period), ascending: false)
     }
 
     @ViewBuilder private func menu(_ row: TrafficRow) -> some View {
@@ -540,6 +547,8 @@ struct TrafficSessionTable<Tools: View>: View {
     @ObservedObject private var store = TrafficStore.shared
     let rows: [TrafficSessionRow]
     let multiSite: Bool
+    /// Texte du tableau vide quand la période de l'écran Trafic ne s'applique pas (fiche Appareil).
+    var emptyOverride: String? = nil
     @ViewBuilder let tools: () -> Tools
     @StateObject private var table = StandardTableModel<TrafficSessionRow>(id: "trafic.sessions", columns: TrafficSessionRow.columns,
                                                                            sortKeys: TrafficSessionRow.sortKeys, defaultSort: "octets")
@@ -553,7 +562,7 @@ struct TrafficSessionTable<Tools: View>: View {
                 ToolColumnsMenu(model: table)
             }
             ToolStandardTableFrame(rowCount: sorted.count, maxRows: 16,
-                                   emptyText: store.period.isRealtime ? "Aucune session lue." : "Sessions\u{00A0}: seulement en temps réel.") {
+                                   emptyText: emptyOverride ?? (store.period.isRealtime ? "Aucune session lue." : "Sessions\u{00A0}: seulement en temps réel.")) {
                 Table(sorted, selection: $selection, sortOrder: $table.sortOrder, columnCustomization: $table.customization) {
                     Group {
                         TableColumn("SOURCE", sortUsing: table.sort("source")) { row in
