@@ -1947,7 +1947,7 @@ l’interface, historique des changements gardé sur disque (aujourd’hui en m�
 HTTPS avec certificat auto-signé (refusé), sonde de l’agent sans sudo par mot de passe. Les
 routes et champs de l’API de wg-easy 15 n’ont pas encore été essayés contre un vrai serveur.
 
-## 101. Serveur WireGuard : gestion désactivée expliquée — 1.3.1 (demande de Dany, 7 novembre 2026, à faire après la remise à zéro de l’usage du 8 novembre)
+## 101. Serveur WireGuard : gestion désactivée expliquée — livrée dans la 1.3.1 (demande de Dany, 7 novembre 2026)
 
 Retour de Dany sur la 1.3.0 : les clients s’affichent « Pair pvPMc2cu… » (« ça me dit rien ») et
 « Ajouter un client » reste grisé sans explication (« ça fonctionne pas »). Cause : l’API de
@@ -1960,3 +1960,14 @@ wg-easy n’est pas branchée (lecture seule) et sqlite3 manque sur le serveur.
    rappel dans le tableau que les noms viennent de l’API.
 3. Lien vers l’interface web toujours accessible : adresse des réglages, sinon déduite de
    l’hôte SSH et du port 51821 (`http://<hôte>:51821`), en ouvrant seulement le navigateur.
+
+## 102. Outils : catégories réductibles — livrée dans la 1.3.1 (demande de Dany, 8 novembre 2026)
+
+« Dans le menu principal, je peux réduire en cliquant sur la catégorie, je veux faire pareil une
+fois entré dans le menu. » Clic sur Adressage, Diagnostic, Performance, Services… ; choix retenu ;
+une recherche rouvre tout.
+
+## 103. Carte du réseau : déplacer à la main — livrée dans la 1.3.1 (demande de Dany, 8 novembre 2026)
+
+Cliquer et tenir sur le fond de la carte la déplace dans les quatre sens, avec le curseur en main.
+Sans effet quand la carte entre entière dans le cadre.

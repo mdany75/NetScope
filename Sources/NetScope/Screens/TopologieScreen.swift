@@ -36,6 +36,8 @@ struct TopologieScreen: View {
     @State private var searchZoomed = false
     /// Demande de défilement jusqu'au résultat (change à chaque nouveau résultat montré).
     @State private var scrollRequest = 0
+    /// Main : déplacer la carte en tenant le clic sur le fond.
+    @State private var pan = TopoPan()
     /// Note 61 : hauteur des piles de la disposition affichée (l'export reprend le même dessin).
     @State private var shownStack = 4
     /// Note 61 : résultat du dernier export (bandeau sous la barre de la carte).
@@ -637,7 +639,8 @@ struct TopologieScreen: View {
                                                             nodeSize: CGSize(width: TopoStyle.nodeWidth, height: TopoStyle.nodeHeight),
                                                             margin: TopoStyle.margin, stack: fitted.stack)
                                        },
-                                       onRestore: { layoutStore.restore($0, siteKey: siteKey) })
+                                       onRestore: { layoutStore.restore($0, siteKey: siteKey) }, pan: pan)
+                                .background(TopoPanAnchor(pan: pan))
                                 .frame(width: layout.width, height: layout.height)
                                 .scaleEffect(scale, anchor: .topLeading)
                                 .frame(width: layout.width * scale, height: layout.height * scale, alignment: .topLeading)
@@ -645,6 +648,7 @@ struct TopologieScreen: View {
                 }
                 .defaultScrollAnchor(anchor ?? .topLeading)
                 .id(anchor == nil ? "carte" : "carte-\(scrollRequest)-\(scale)")
+                .onDisappear { pan.reset() }
                 .onAppear {
                     fitScale = fit
                     movedShown = layout.moved.count

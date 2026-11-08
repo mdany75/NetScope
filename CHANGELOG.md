@@ -1,5 +1,21 @@
 # Changements
 
+## 1.3.1 — 2026-11-08
+
+### Ajouté
+- **Carte du réseau** : la main. Cliquer et tenir sur le fond déplace la carte à gauche, à droite,
+  en haut et en bas quand elle dépasse du cadre (les nœuds se déplacent toujours un à un).
+- **Outils** : les catégories de la liste se réduisent d’un clic, comme dans la barre latérale ;
+  le choix est retenu, et une recherche les rouvre toutes.
+- **Serveur WireGuard** : lien vers l’interface web toujours accessible. L’adresse est celle des
+  Réglages, sinon elle est déduite du serveur SSH, et elle préremplit les Réglages.
+
+### Changé
+- **Serveur WireGuard** : quand l’API n’est pas branchée ou est refusée, un bandeau « Gestion
+  désactivée » l’explique, avec les boutons « Réglages » et « Ouvrir l’interface web ». Les
+  clients sans fiche s’affichent « Client sans nom » avec le début de leur clé, au lieu de
+  « Pair … », et passent après les clients nommés.
+
 ## 1.3.0 — 2026-11-07
 
 ### Ajouté

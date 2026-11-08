@@ -1,3 +1,4 @@
+import AppKit
 import NetScopeCore
 import SwiftUI
 
@@ -58,6 +59,9 @@ struct TopoCanvas: View {
     var onMove: ((String, CGPoint) -> Void)?
     /// Rend un nœud déplacé à la disposition automatique.
     var onRestore: ((String) -> Void)?
+    /// Main : le fond de la carte, cliqué et tenu, la déplace dans les quatre sens ; nil : fond fixe
+    /// (exports).
+    var pan: TopoPan?
 
     /// Nœud en cours de glisser : décalage entre le pointeur et le centre, et centre actuel.
     private struct DragState {
@@ -78,6 +82,14 @@ struct TopoCanvas: View {
 
         ZStack(alignment: .topLeading) {
             Color.clear.contentShape(Rectangle()).onTapGesture { selectedID = nil }
+                .gesture(panGesture, including: pan == nil ? .subviews : .all)
+                .onContinuousHover { phase in
+                    guard let pan else { return }
+                    switch phase {
+                    case .active: pan.hovering()
+                    case .ended: pan.leftBackground()
+                    }
+                }
             // Liens redondants (deuxième câble, anneau) : courbes en tirets, sous les nœuds.
             ForEach(redundant) { link in
                 redundantPath(link)
@@ -149,6 +161,13 @@ struct TopoCanvas: View {
             .background(RoundedRectangle(cornerRadius: 4).fill(Theme.panel))
             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Theme.border))
             .fixedSize()
+    }
+
+    /// Fond saisi : la carte suit la main (coordonnées de la fenêtre, qui ne bougent pas avec la carte).
+    private var panGesture: some Gesture {
+        DragGesture(minimumDistance: 2, coordinateSpace: .global)
+            .onChanged { value in pan?.drag(value.translation) }
+            .onEnded { _ in pan?.end() }
     }
 
     /// Glisser un nœud : il suit le pointeur (gardé dans la marge du dessin) ; lâché, sa position
@@ -412,4 +431,82 @@ struct TopoSearchHighlight {
         let onPath = Set(path)
         return Set(links.filter { onPath.contains($0.parent.id) && onPath.contains($0.child.id) }.map(\.child.id))
     }
+}
+
+
+// MARK: - Main (déplacer la carte)
+
+/// Déplace le défilement de la carte d'après la main : curseur ouvert sur le fond quand la carte
+/// dépasse du cadre, fermé pendant le glisser. Aucun effet si la carte entre entière.
+@MainActor
+final class TopoPan {
+    /// Vue placée dans la carte, pour retrouver son NSScrollView.
+    weak var anchor: NSView?
+    private var origin: NSPoint?
+    private var cursor: NSCursor?
+
+    private var scrollView: NSScrollView? { anchor?.enclosingScrollView }
+
+    private var canScroll: Bool {
+        guard let scroll = scrollView, let document = scroll.documentView else { return false }
+        let visible = scroll.contentView.bounds.size
+        return document.frame.width > visible.width + 0.5 || document.frame.height > visible.height + 0.5
+    }
+
+    func hovering() {
+        guard origin == nil else { return }
+        show(canScroll ? .openHand : nil)
+    }
+
+    func leftBackground() {
+        guard origin == nil else { return }
+        show(nil)
+    }
+
+    func drag(_ translation: CGSize) {
+        guard let scroll = scrollView, let document = scroll.documentView else { return }
+        let clip = scroll.contentView
+        if origin == nil {
+            guard canScroll else { return }
+            origin = clip.bounds.origin
+            show(.closedHand)
+        }
+        guard let origin else { return }
+        let y = origin.y + (clip.isFlipped ? -translation.height : translation.height)
+        let target = NSPoint(x: min(max(origin.x - translation.width, 0), max(document.frame.width - clip.bounds.width, 0)),
+                             y: min(max(y, 0), max(document.frame.height - clip.bounds.height, 0)))
+        clip.setBoundsOrigin(target)
+        scroll.reflectScrolledClipView(clip)
+    }
+
+    func end() {
+        guard origin != nil else { return }
+        origin = nil
+        show(canScroll ? .openHand : nil)
+    }
+
+    func reset() {
+        origin = nil
+        show(nil)
+    }
+
+    private func show(_ next: NSCursor?) {
+        guard next !== cursor else { return }
+        if cursor != nil { NSCursor.pop() }
+        next?.push()
+        cursor = next
+    }
+}
+
+/// Repère invisible dans la carte : donne à `TopoPan` l'accès au NSScrollView de SwiftUI.
+struct TopoPanAnchor: NSViewRepresentable {
+    let pan: TopoPan
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        pan.anchor = view
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) { pan.anchor = view }
 }

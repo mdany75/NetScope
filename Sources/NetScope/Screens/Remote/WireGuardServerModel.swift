@@ -111,6 +111,15 @@ final class WireGuardServerModel: ObservableObject {
             switch ProcessInfo.processInfo.environment["NETSCOPE_REMOTE_VIEW"] {
             case "wireguard-serveur"?:
                 isShown = true
+            case "wireguard-serveur-sans-api"?:
+                isShown = true
+                settings.apiURL = ""
+                hasAPIPassword = false
+                apiClients = nil
+                apiInfo = nil
+                history = []
+                status?.databaseClients = nil
+                status?.sqliteMissing = true
             case "wireguard-serveur-2fa"?:
                 isShown = true
                 apiClients = nil
@@ -155,6 +164,12 @@ final class WireGuardServerModel: ObservableObject {
     var accountLabel: String? { server.accountLabel }
 
     var apiBase: URL? { try? WGEasyAPI.baseURL(settings.apiURL) }
+    /// Interface web : l'adresse réglée, sinon celle déduite du serveur SSH.
+    var webURL: URL? {
+        if let apiBase { return apiBase }
+        guard let account = try? server.resolvedAccount().get() else { return nil }
+        return WGEasyAPI.webInterfaceURL(host: account.host, port: status?.environment["PORT"])
+    }
     var apiInsecure: Bool { apiBase.map(WGEasyAPI.isInsecure) ?? false }
 
     /// Gestion possible : l'API a répondu avec la liste des clients.
@@ -644,8 +659,8 @@ final class WireGuardServerModel: ObservableObject {
     }
 
     func openWebInterface() {
-        guard let base = apiBase, !RegEnvironment.isDemo else { return }
-        NSWorkspace.shared.open(base)
+        guard let url = webURL, !RegEnvironment.isDemo else { return }
+        NSWorkspace.shared.open(url)
     }
 
     func copyCommand() {

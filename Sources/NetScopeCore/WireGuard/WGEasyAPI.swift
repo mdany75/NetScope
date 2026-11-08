@@ -157,7 +157,7 @@ public struct WGEasyAPIError: Error, Equatable, Sendable {
     public var advice: String {
         switch kind {
         case .twoFactor:
-            return "L’API n’accepte pas l’authentification Basic avec le 2FA\u{00A0}: NetScope lit le serveur par SSH en lecture seule. Les changements se font dans wg-easy («\u{00A0}Ouvrir wg-easy\u{00A0}»)."
+            return "L’API n’accepte pas l’authentification Basic avec le 2FA\u{00A0}: NetScope lit le serveur par SSH en lecture seule. Les changements se font dans wg-easy («\u{00A0}Interface web\u{00A0}»)."
         case .unauthorized, .missingPassword:
             return "Vérifiez le compte administrateur de wg-easy et son mot de passe (gardé au Trousseau). En attendant, lecture seule par SSH."
         case .notVersion15:
@@ -263,6 +263,16 @@ public enum WGEasyAPI {
     }
 
     // MARK: Adresse et requêtes
+
+    /// Adresse de l'interface web déduite de l'hôte SSH : `http://hôte:port`, 51821 si le port du
+    /// conteneur (variable PORT) est absent ou invalide. nil si l'hôte n'est pas utilisable.
+    public static func webInterfaceURL(host: String, port: String?) -> URL? {
+        let clean = host.trimmingCharacters(in: .whitespaces)
+        guard !clean.isEmpty else { return nil }
+        let number = port.flatMap { Int($0.trimmingCharacters(in: .whitespaces)) }.flatMap { (1...65_535).contains($0) ? $0 : nil } ?? 51_821
+        let authority = clean.contains(":") && !clean.hasPrefix("[") ? "[\(clean)]" : clean
+        return try? baseURL("http://\(authority):\(number)")
+    }
 
     /// « http://wg.exemple.ca:51821 » validée : http ou https, hôte, port ; aucun chemin, aucun identifiant.
     public static func baseURL(_ text: String) throws -> URL {

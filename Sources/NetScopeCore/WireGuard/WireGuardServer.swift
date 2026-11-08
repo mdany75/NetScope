@@ -263,13 +263,20 @@ public struct WireGuardClientRow: Equatable, Identifiable, Sendable {
     public var apiID: Int?
     public var dns: [String]?
 
+    private static let unnamedPrefix = "Client sans nom · "
+
+    /// « clé abcd1234… » pour un pair sans fiche (ni API, ni base) ; nil pour un client nommé.
+    public var unnamedKey: String? {
+        name.hasPrefix(Self.unnamedPrefix) ? String(name.dropFirst(Self.unnamedPrefix.count)) : nil
+    }
+
     public func isConnected(now: Date) -> Bool {
         guard let latestHandshake else { return false }
         return now.timeIntervalSince(latestHandshake) < WireGuardDump.connectedWindow
     }
 
     /// Fusion par clé publique. Ordre de préférence des fiches : API, base, wg0.json ; un pair
-    /// sans fiche s'affiche sous un nom tiré de sa clé (« Pair abcd1234… »).
+    /// sans fiche s'affiche sous un nom tiré de sa clé (« Client sans nom · clé abcd1234… »).
     public static func rows(status: WireGuardServerStatus?, api: [WGEasyClient]?) -> [WireGuardClientRow] {
         var peers: [String: WireGuardPeer] = [:]
         for peer in status?.dump.peers ?? [] { peers[peer.publicKey] = peer }
@@ -304,12 +311,15 @@ public struct WireGuardClientRow: Equatable, Identifiable, Sendable {
             rows.append(row)
         }
         for peer in status?.dump.peers ?? [] where !seen.contains(peer.publicKey) {
-            rows.append(WireGuardClientRow(publicKey: peer.publicKey, name: "Pair " + String(peer.publicKey.prefix(8)) + "…",
+            rows.append(WireGuardClientRow(publicKey: peer.publicKey, name: unnamedPrefix + "clé " + String(peer.publicKey.prefix(8)) + "…",
                                            ipv4: peer.allowedIPs.first ?? "", ipv6: "", enabled: true, expiresAt: nil,
                                            endpoint: peer.endpoint, endpointAddress: peer.endpointAddress, latestHandshake: peer.latestHandshake,
                                            receivedBytes: peer.receivedBytes, sentBytes: peer.sentBytes, apiID: nil, dns: nil))
         }
-        return rows.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        return rows.sorted { left, right in
+            if (left.unnamedKey == nil) != (right.unnamedKey == nil) { return left.unnamedKey == nil }
+            return left.name.localizedStandardCompare(right.name) == .orderedAscending
+        }
     }
 }
 

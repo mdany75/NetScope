@@ -106,6 +106,20 @@ private struct ToolCompactMenu: View {
 private struct ToolListPanel: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var store: ToolStore
+    /// Catégories réduites, séparées par « | » (retenues d'une ouverture à l'autre).
+    @AppStorage("outils.categoriesReduites") private var collapsedText = ""
+
+    private var collapsed: Set<String> { Set(collapsedText.split(separator: "|").map(String.init)) }
+    private func isCollapsed(_ group: ToolKind.Group) -> Bool { collapsed.contains(group.rawValue) }
+    private var searching: Bool {
+        !store.toolFilter.isEmpty || !state.searchQuery(for: .outils).restricted(to: .outilsListe).isEmpty
+    }
+
+    private func toggle(_ group: ToolKind.Group) {
+        var names = collapsed
+        if names.remove(group.rawValue) == nil { names.insert(group.rawValue) }
+        withAnimation(.easeInOut(duration: 0.15)) { collapsedText = names.sorted().joined(separator: "|") }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -123,12 +137,27 @@ private struct ToolListPanel: View {
             .filter { !$0.1.isEmpty }
             ForEach(groups, id: \.0) { group, tools in
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(group.rawValue.uppercased())
-                        .font(Theme.captionSemibold).kerning(0.5)
-                        .foregroundStyle(Theme.textTertiary)
+                    // Catégorie réductible d'un clic, comme dans la barre latérale ; une recherche les rouvre toutes.
+                    let shown = searching || !isCollapsed(group)
+                    Button { toggle(group) } label: {
+                        HStack(spacing: 4) {
+                            Text(group.rawValue.uppercased())
+                                .font(Theme.captionSemibold).kerning(0.5)
+                                .foregroundStyle(Theme.textTertiary)
+                            Spacer(minLength: 4)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(Theme.textTertiary)
+                                .rotationEffect(.degrees(shown ? 90 : 0))
+                        }
                         .padding(.horizontal, 8)
                         .padding(.bottom, 3)
-                    ForEach(tools) { tool in row(tool) }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(searching)
+                    .help(shown ? "Réduire la catégorie" : "Développer la catégorie")
+                    if shown { ForEach(tools) { tool in row(tool) } }
                 }
             }
             if groups.isEmpty {

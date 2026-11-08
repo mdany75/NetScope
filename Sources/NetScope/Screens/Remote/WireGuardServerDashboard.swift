@@ -142,11 +142,11 @@ struct WireGuardServerDashboard: View {
             .buttonStyle(RemoteSmallButtonStyle())
             .help("Adresse et compte de wg-easy, conteneur, clients surveillés")
             Button { wg.openWebInterface() } label: {
-                Label("Ouvrir wg-easy", systemImage: "safari").labelStyle(RemoteCompactLabelStyle())
+                Label("Interface web", systemImage: "safari").labelStyle(RemoteCompactLabelStyle())
             }
             .buttonStyle(RemoteSmallButtonStyle())
-            .disabled(wg.apiBase == nil)
-            .help("Ouvre l’interface web de wg-easy dans le navigateur")
+            .disabled(wg.webURL == nil)
+            .help(wg.webURL.map { "Ouvre \($0.absoluteString) dans le navigateur" } ?? "Compte SSH du serveur à choisir d’abord")
             Button { wg.copyCommand() } label: {
                 Label("Copier la commande", systemImage: "doc.on.doc").labelStyle(RemoteCompactLabelStyle())
             }
@@ -169,12 +169,18 @@ struct WireGuardServerDashboard: View {
     // MARK: Bandeaux
 
     private func banner(_ tone: Tone, _ symbol: String, _ title: String, _ detail: String) -> some View {
+        banner(tone, symbol, title, detail) { EmptyView() }
+    }
+
+    private func banner<Actions: View>(_ tone: Tone, _ symbol: String, _ title: String, _ detail: String,
+                                       @ViewBuilder actions: () -> Actions) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: symbol).font(.system(size: 14, weight: .semibold)).foregroundStyle(tone.foreground)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(Theme.bodySemibold).foregroundStyle(Theme.text)
                 Text(detail).font(Theme.small).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                actions().padding(.top, 4)
             }
             Spacer(minLength: 0)
         }
@@ -185,14 +191,29 @@ struct WireGuardServerDashboard: View {
 
     @ViewBuilder private var apiBanner: some View {
         if let error = wg.apiError {
-            banner(.warning, error.kind == .twoFactor ? "lock.fill" : "exclamationmark.triangle", error.title + " — lecture seule par SSH", error.advice)
+            banner(.warning, error.kind == .twoFactor ? "lock.fill" : "exclamationmark.triangle", "Gestion désactivée\u{00A0}: " + error.title, error.advice) { managementActions }
         } else if wg.apiBase == nil, wg.status != nil {
-            banner(.neutral, "info.circle", "Lecture seule par SSH",
-                   "Indiquez l’adresse de wg-easy 15 et son compte administrateur (Réglages de l’onglet) pour ajouter, désactiver ou supprimer des clients.")
+            banner(.warning, "lock.slash", "Gestion désactivée\u{00A0}: API de wg-easy non branchée",
+                   "Entrez l’adresse et le mot de passe de l’API dans Réglages pour voir le nom des clients et pouvoir en ajouter, désactiver ou supprimer. En attendant, l’onglet lit le serveur par SSH.") { managementActions }
         }
         if wg.apiInsecure, wg.apiBase != nil {
             banner(.warning, "lock.open", "API en HTTP simple\u{00A0}: mot de passe en clair sur le réseau local",
                    "Chaque appel envoie le mot de passe administrateur sans chiffrement. HTTPS conseillé\u{00A0}; ne jamais exposer l’interface de wg-easy par une VIP de la FortiGate.")
+        }
+    }
+
+    private var managementActions: some View {
+        HStack(spacing: 6) {
+            Button { wg.showSettings = true } label: {
+                Label("Réglages", systemImage: "gearshape").labelStyle(RemoteCompactLabelStyle())
+            }
+            .buttonStyle(RemoteSmallButtonStyle(primary: true))
+            Button { wg.openWebInterface() } label: {
+                Label("Ouvrir l’interface web", systemImage: "safari").labelStyle(RemoteCompactLabelStyle())
+            }
+            .buttonStyle(RemoteSmallButtonStyle())
+            .disabled(wg.webURL == nil)
+            .help(wg.webURL?.absoluteString ?? "Compte SSH du serveur à choisir d’abord")
         }
     }
 
@@ -269,7 +290,7 @@ struct WireGuardServerDashboard: View {
     @ViewBuilder private func clientsTable(_ rows: [WireGuardClientRow], now: Date) -> some View {
         let wide = width >= 860
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Clients", subtitle: wg.canManage ? "gestion par l’API de wg-easy" : "lecture seule") {
+            SectionHeader(title: "Clients", subtitle: wg.canManage ? "gestion par l’API de wg-easy" : "lecture seule, gestion désactivée") {
                 HStack(spacing: 6) {
                     if wg.canManage, !wg.selectedIDs.isEmpty {
                         Text("\(wg.selectedIDs.count) choisi\(wg.selectedIDs.count > 1 ? "s" : "")").font(Theme.caption).foregroundStyle(Theme.textSecondary)
@@ -289,7 +310,7 @@ struct WireGuardServerDashboard: View {
                     }
                     .buttonStyle(RemoteSmallButtonStyle(primary: true))
                     .disabled(!wg.canManage)
-                    .help(wg.canManage ? "Nouveau client wg-easy (nom, expiration)" : "Gestion indisponible\u{00A0}: API de wg-easy non joignable ou refusée")
+                    .help(wg.canManage ? "Nouveau client wg-easy (nom, expiration)" : "Gestion désactivée\u{00A0}: entrez l’adresse et le mot de passe de l’API dans Réglages")
                 }
             }
             HStack(spacing: 8) {
@@ -310,6 +331,10 @@ struct WireGuardServerDashboard: View {
                 clientRow(row, now: now, wide: wide)
                 Divider().opacity(0.5)
             }
+            if rows.contains(where: { $0.unnamedKey != nil }) {
+                Text("WireGuard ne connaît que les clés\u{00A0}: les noms viennent de l’API de wg-easy (Réglages) ou de la base (sqlite3 sur le serveur).")
+                    .font(Theme.caption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -329,7 +354,15 @@ struct WireGuardServerDashboard: View {
                 if wg.isImportant(row) {
                     Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(Theme.warning).help("Client surveillé")
                 }
-                Text(row.name).font(Theme.bodySemibold).foregroundStyle(row.enabled ? Theme.text : Theme.textTertiary).lineLimit(1).truncationMode(.tail)
+                if let key = row.unnamedKey {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Client sans nom").font(Theme.bodySemibold).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                        Text(key).font(Theme.mono(11)).foregroundStyle(Theme.textTertiary).lineLimit(1)
+                    }
+                    .help("Clé publique\u{00A0}: " + row.publicKey)
+                } else {
+                    Text(row.name).font(Theme.bodySemibold).foregroundStyle(row.enabled ? Theme.text : Theme.textTertiary).lineLimit(1).truncationMode(.tail)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Text(row.ipv4.isEmpty ? "—" : row.ipv4).font(Theme.mono(11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
@@ -506,6 +539,7 @@ struct WireGuardServerDashboard: View {
                 KeyValueRow(key: "Édition", value: status.edition == .v15 ? "wg-easy 15 (base wg-easy.db)" : status.edition == .v14 ? "wg-easy 14 (wg0.json)" : "inconnue")
                 KeyValueRow(key: "Base", value: status.databaseClients != nil ? "copiée puis lue en lecture seule (sqlite3)"
                             : status.sqliteMissing ? "non lue\u{00A0}: sqlite3 absent du serveur" : "non lue")
+                KeyValueRow(key: "Adresse web", value: wg.webURL?.absoluteString ?? "—", mono: true)
                 KeyValueRow(key: "Interface web", value: status.insecure == true ? "HTTP simple (INSECURE=true)" : status.insecure == false ? "HTTPS attendu" : "—")
                 KeyValueRow(key: "Accès", value: status.access == "docker" ? "groupe docker" : status.access == "root" ? "root" : status.access == "ok" ? "sudo" : "sudo\u{00A0}: \(status.access)")
             }
@@ -771,7 +805,7 @@ struct WireGuardSettingsSheet: View {
         .padding(20)
         .frame(width: 480)
         .onAppear {
-            url = wg.settings.apiURL
+            url = wg.settings.apiURL.isEmpty ? (wg.webURL?.absoluteString ?? "") : wg.settings.apiURL
             user = wg.settings.apiUser
             container = wg.settings.container
             hours = wg.settings.watch.disconnectedHours
