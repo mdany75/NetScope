@@ -27,6 +27,35 @@ public struct FortiDeviceTarget: Hashable, Sendable {
     }
 }
 
+/// Note 110 : ce que la dernière relecture voit d'une MAC, sans historique ni dates.
+public struct MACCurrentView: Hashable, Sendable, Identifiable {
+    public var mac: MACAddress
+    public var items: [MACObservation]
+    public var id: MACAddress { mac }
+
+    public var name: String? { items.first { $0.kind == .name }?.value }
+
+    /// Regroupe par MAC, dans l'ordre de lecture. Une même valeur vue par plusieurs listes n'apparaît
+    /// qu'une fois ; IP, nom, port, VLAN, puis borne.
+    public static func group(_ observations: [MACObservation]) -> [MACCurrentView] {
+        let order = Dictionary(uniqueKeysWithValues: MACSightingKind.allCases.enumerated().map { ($0.element, $0.offset) })
+        var macs: [MACAddress] = []
+        var byMAC: [MACAddress: [MACObservation]] = [:]
+        for item in observations {
+            if byMAC[item.mac] == nil { macs.append(item.mac) }
+            if byMAC[item.mac]?.contains(where: { $0.kind == item.kind && $0.value == item.value }) != true {
+                byMAC[item.mac, default: []].append(item)
+            }
+        }
+        return macs.map { mac in
+            let items = (byMAC[mac] ?? []).enumerated()
+                .sorted { (order[$0.element.kind] ?? 0, $0.offset) < (order[$1.element.kind] ?? 0, $1.offset) }
+                .map(\.element)
+            return MACCurrentView(mac: mac, items: items)
+        }
+    }
+}
+
 extension FortiGateReader {
     /// Observations de cet appareil, ou vide si la FortiGate ne le voit pas. Erreur levée si le
     /// jeton est refusé, si la FortiGate est injoignable ou si aucune liste n'a pu être lue.

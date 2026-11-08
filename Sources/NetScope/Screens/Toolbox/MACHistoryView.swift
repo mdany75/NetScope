@@ -14,6 +14,10 @@ struct MACHistoryView: View {
     @ObservedObject private var fortigate = FortiGateStore.shared
     /// Jetons lus : avant, « jeton absent » serait faux.
     @State private var tokensLoaded = false
+    /// Note 110 : montrer seulement ce que la dernière relecture a vu, sans l'historique.
+    @State private var currentOnly = (Launcher.isDemo || RegEnvironment.isSnapshot)
+        ? ProcessInfo.processInfo.environment["NETSCOPE_MAC_VUE"] == "relecture"
+        : UserDefaults.standard.bool(forKey: "macHistoryCurrentOnly")
     @State private var useDate = false
     @State private var day = Date()
     @State private var toast: String?
@@ -37,12 +41,22 @@ struct MACHistoryView: View {
                 TextField("MAC, adresse IP ou nom", text: $query)
                     .textFieldStyle(.roundedBorder)
                     .frame(minWidth: 140, maxWidth: 320)
+                    // Entrée : relit l'appareil cherché quand seule la relecture est montrée.
+                    .onSubmit { if currentOnly, let target { store.readDevice(target, query: query) } }
                 Toggle("Ce jour-là", isOn: $useDate).toggleStyle(.checkbox).fixedSize()
                 DatePicker("", selection: $day, displayedComponents: .date)
                     .labelsHidden().disabled(!useDate).fixedSize()
                 Spacer(minLength: 0)
             }
             ActionRow {
+                Picker("Afficher", selection: $currentOnly) {
+                    Text("Historique").tag(false)
+                    Text("Dernière relecture").tag(true)
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .fixedSize()
+                .help("Historique\u{00A0}: tout ce qui a été vu, avec les dates. Dernière relecture\u{00A0}: seulement ce que la FortiGate voit maintenant.")
                 Picker("Conserver", selection: $store.retentionDays) {
                     ForEach(MACHistory.retentionChoices, id: \.self) { days in
                         Text(Self.retentionLabel(days)).tag(days)
@@ -50,7 +64,7 @@ struct MACHistoryView: View {
                 }
                 .fixedSize()
                 .help("Les valeurs plus vues depuis cette durée sont retirées de l’historique (tous les sites)")
-                Button { if let target { store.readDevice(target) } } label: {
+                Button { if let target { store.readDevice(target, query: query) } } label: {
                     Label("Relire cet appareil", systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.secondary)
@@ -61,7 +75,7 @@ struct MACHistoryView: View {
                     toast = store.exportCSV(matches.flatMap(\.sightings), suggestedName: "historique-mac")
                 }
                 .fixedSize()
-                .disabled(matches.isEmpty)
+                .disabled(matches.isEmpty || currentOnly)
             }
             // La raison est écrite, pas seulement dans la bulle du bouton grisé.
             if !isBlank, let reason {
@@ -75,7 +89,9 @@ struct MACHistoryView: View {
                 if store.isReadingDevice { ProgressView().controlSize(.small) }
             }
             if let toast { Text(toast).font(Theme.small).foregroundStyle(Theme.textSecondary) }
-            if history.isEmpty {
+            if currentOnly {
+                currentSection(isBlank: isBlank)
+            } else if history.isEmpty {
                 Text("Aucun relevé pour l’instant\u{00A0}: l’historique se remplit à chaque scan, relevé de switch et lecture des FortiAP.")
                     .font(Theme.body).foregroundStyle(Theme.textSecondary).frame(maxWidth: .infinity).padding(24)
             } else if isBlank {
@@ -104,13 +120,69 @@ struct MACHistoryView: View {
             tokensLoaded = true
             let found = store.activeHistory.search(query, on: nil).map(\.mac)
             if !query.trimmingCharacters(in: .whitespaces).isEmpty, let target = FortiDeviceTarget.of(query: query, found: found) {
-                store.readDevice(target)
+                store.readDevice(target, query: query)
             }
+        }
+        .onAppear { if currentOnly, !query.isEmpty { store.loadDemoDeviceRead(query: query) } }
+        .onChange(of: currentOnly) { _, on in
+            if !store.isDemo { UserDefaults.standard.set(on, forKey: "macHistoryCurrentOnly") }
+            if on, !query.isEmpty { store.loadDemoDeviceRead(query: query) }
         }
         .onChange(of: sites.activeKey) { _, _ in
             query = store.lastQuery
             useDate = false
         }
+    }
+
+    // MARK: Dernière relecture (note 110)
+
+    @ViewBuilder private func currentSection(isBlank: Bool) -> some View {
+        let current = store.currentDeviceRead(for: query)
+        if isBlank {
+            emptyMessage("Entrez une adresse MAC, une adresse IP ou un nom, puis relisez cet appareil.")
+        } else if !current.isEmpty {
+            ForEach(current) { currentPanel($0) }
+        } else if store.isReadingDevice {
+            emptyMessage("Relecture de cet appareil…")
+        } else if store.hasDeviceRead(for: query), let message = store.deviceReadMessage {
+            emptyMessage(message)
+        } else {
+            emptyMessage("Cliquez sur «\u{00A0}Relire cet appareil\u{00A0}» pour voir ce que la FortiGate voit maintenant.")
+        }
+    }
+
+    private func emptyMessage(_ text: String) -> some View {
+        Text(text).font(Theme.body).foregroundStyle(Theme.textSecondary).frame(maxWidth: .infinity).padding(24)
+    }
+
+    private func currentPanel(_ view: MACCurrentView) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Text(view.mac.formatted(.upperColon)).font(Theme.mono(13, weight: .semibold)).foregroundStyle(Theme.text)
+                if let name = view.name { Text(name).font(Theme.body).foregroundStyle(Theme.textSecondary).lineLimit(1) }
+                if let vendor = PirateStore.vendor(view.mac) {
+                    Text(vendor).font(Theme.small).foregroundStyle(Theme.textTertiary).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 9)
+            ForEach(view.items, id: \.self) { item in
+                Rectangle().fill(Theme.border).frame(height: 1)
+                HStack(spacing: 10) {
+                    Image(systemName: MACSightingRow.symbol(item.kind)).font(.system(size: 12)).foregroundStyle(Theme.accent).frame(width: 16)
+                    Text(item.kind.label).font(Theme.small).foregroundStyle(Theme.textSecondary)
+                        .frame(width: 104, alignment: .leading)
+                    Text(item.value)
+                        .font(item.kind == .ip ? Theme.mono(12) : Theme.small)
+                        .foregroundStyle(Theme.text).lineLimit(1).textSelection(.enabled)
+                    Spacer(minLength: 8)
+                    Text(item.source.label).font(Theme.caption).foregroundStyle(Theme.textTertiary).lineLimit(1)
+                }
+                .padding(.horizontal, 12).padding(.vertical, 6)
+            }
+        }
+        .background(RoundedRectangle(cornerRadius: Theme.panelRadius).fill(Theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius).strokeBorder(Theme.border))
     }
 
     private var readStatus: String {
@@ -167,7 +239,7 @@ struct MACSightingRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: symbol).font(.system(size: 12)).foregroundStyle(Theme.accent).frame(width: 16)
+            Image(systemName: Self.symbol(sighting.kind)).font(.system(size: 12)).foregroundStyle(Theme.accent).frame(width: 16)
             Text(sighting.kind.label).font(Theme.small).foregroundStyle(Theme.textSecondary)
                 .frame(width: 104, alignment: .leading)
             Text(sighting.value)
@@ -182,8 +254,8 @@ struct MACSightingRow: View {
         .padding(.horizontal, 12).padding(.vertical, 6)
     }
 
-    private var symbol: String {
-        switch sighting.kind {
+    static func symbol(_ kind: MACSightingKind) -> String {
+        switch kind {
         case .ip: return "number"
         case .name: return "tag"
         case .switchPort: return "rectangle.connected.to.line.below"

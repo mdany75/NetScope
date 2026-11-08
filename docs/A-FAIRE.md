@@ -2016,3 +2016,8 @@ appareils détectés, inventaire d'appareils et clients Wi-Fi de la FortiGate du
 nom des switchs si un port est trouvé. FortiOS rend des listes, filtrées sur le Mac. Pas de
 relecture ciblée par SNMP pour un site sans FortiGate. Pas encore essayé sur une vraie FortiGate.
 1.5.3 : la raison du bouton grisé est écrite à l'écran ; le bouton et la relecture à l'ouverture attendent les jetons de la FortiGate.
+
+## 110. « Où était cet appareil ? » : seulement la dernière relecture — livrée dans la 1.5.4 (demande de Dany, 8 novembre 2026)
+
+Sélecteur « Historique | Dernière relecture ». Le second mode montre seulement ce que la FortiGate
+voit maintenant pour la recherche en cours, sans dates ; l'historique continue d'être alimenté.

@@ -23,6 +23,21 @@ func registerDeviceSightingTests(_ suite: TestSuite) {
         try expect(FortiDeviceTarget.of(query: "poste", found: many) == nil, "trop d’appareils")
     }
 
+    suite.add("Où était cet appareil : dernière relecture regroupée") {
+        let second = MACAddress("3C:22:FB:10:20:30")!
+        let views = MACCurrentView.group([
+            MACObservation(mac: mac, kind: .vlan, value: "10", source: .fortigate),
+            MACObservation(mac: second, kind: .ip, value: "10.0.0.9", source: .fortigate),
+            MACObservation(mac: mac, kind: .ip, value: "10.0.0.5", source: .fortigate),
+            MACObservation(mac: mac, kind: .ip, value: "10.0.0.5", source: .wifi),
+            MACObservation(mac: mac, kind: .name, value: "BDC2", source: .fortigate),
+        ])
+        try expectEqual(views.map(\.mac), [mac, second], "MAC dans l’ordre de lecture")
+        try expectEqual(views[0].items.map(\.kind), [.ip, .name, .vlan], "IP, nom, puis VLAN, sans doublon")
+        try expectEqual(views[0].name, "BDC2", "nom de l’appareil")
+        try expect(MACCurrentView.group([]).isEmpty, "rien de lu")
+    }
+
     suite.add("Où était cet appareil : seul l’appareil cherché est gardé") {
         let (r, transport) = reader([FortiPaths.arp: (200, arp), FortiPaths.detectedDevice: (200, detected), FortiPaths.switchStatus: (200, switches)])
         let list = try await r.readDeviceSighting(FortiDeviceTarget(ip: IPv4Address("10.182.122.117")))

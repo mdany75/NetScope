@@ -1,5 +1,12 @@
 # Changements
 
+## 1.5.4 — 2026-11-08
+
+### Ajouté
+- **Outils, « Où était cet appareil ? »** (note 110) : choix d’affichage « Historique » ou
+  « Dernière relecture », qui montre seulement ce que la FortiGate voit maintenant, sans dates ni
+  anciennes valeurs. La touche Entrée relit l’appareil dans ce mode ; le choix est retenu.
+
 ## 1.5.3 — 2026-11-08
 
 ### Corrigé

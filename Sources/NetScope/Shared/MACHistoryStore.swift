@@ -130,6 +130,37 @@ final class MACHistoryStore: ObservableObject {
     @Published private(set) var isReadingDevice = false
     @Published private(set) var deviceReadAt: Date?
     @Published private(set) var deviceReadMessage: String?
+    /// Note 110 : ce que la dernière relecture a vu, avec la recherche et le site qu'elle concerne.
+    @Published private(set) var deviceReadResult: [MACCurrentView] = []
+    private var deviceReadScope: (query: String, site: String)?
+
+    /// Résultat de la dernière relecture, s'il concerne cette recherche sur le site actif.
+    func currentDeviceRead(for query: String) -> [MACCurrentView] {
+        guard let scope = deviceReadScope, scope.site == SiteModel.shared.activeKey,
+              scope.query == query.trimmingCharacters(in: .whitespaces) else { return [] }
+        return deviceReadResult
+    }
+
+    /// La relecture montrée porte-t-elle sur cette recherche ?
+    func hasDeviceRead(for query: String) -> Bool {
+        guard let scope = deviceReadScope else { return false }
+        return scope.site == SiteModel.shared.activeKey && scope.query == query.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Démonstration et captures : la valeur la plus récente de chaque nature, rien n'est lu.
+    func loadDemoDeviceRead(query: String) {
+        guard isDemo else { return }
+        let observations = activeHistory.search(query, on: nil).flatMap { match in
+            MACSightingKind.allCases.compactMap { kind -> MACObservation? in
+                match.sightings.filter { $0.kind == kind }.max { $0.lastSeen < $1.lastSeen }.map {
+                    MACObservation(mac: $0.mac, kind: $0.kind, value: $0.value, source: $0.sources.first ?? .fortigate)
+                }
+            }
+        }
+        deviceReadResult = MACCurrentView.group(observations)
+        deviceReadScope = (query.trimmingCharacters(in: .whitespaces), SiteModel.shared.activeKey)
+        deviceReadAt = Date()
+    }
 
     /// FortiGate du site actif prêtes à être lues (seul ce site : une IP ne vaut que chez lui).
     private var readyControllerIDs: [UUID] {
@@ -157,8 +188,10 @@ final class MACHistoryStore: ObservableObject {
     }
 
     /// Relit cet appareil sur les FortiGate du site actif et range ce qui est vu dans son historique.
-    func readDevice(_ target: FortiDeviceTarget) {
+    func readDevice(_ target: FortiDeviceTarget, query: String) {
         guard canReadDevice, !target.isEmpty else { return }
+        deviceReadResult = []
+        deviceReadScope = (query.trimmingCharacters(in: .whitespaces), SiteModel.shared.activeKey)
         let siteKey = SiteModel.shared.activeKey
         let fortigate = FortiGateStore.shared
         let ids = readyControllerIDs
@@ -187,6 +220,7 @@ final class MACHistoryStore: ObservableObject {
                 }
             }
             self.record(found, siteKey: siteKey, at: now)
+            self.deviceReadResult = MACCurrentView.group(found)
             self.isReadingDevice = false
             self.deviceReadAt = now
             if found.isEmpty {
