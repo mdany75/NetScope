@@ -48,6 +48,11 @@ final class TrafficStore: ObservableObject {
     @Published private(set) var calls: [UUID: [FortiCallRecord]] = [:]
     @Published private(set) var reading: Set<UUID> = []
     @Published private(set) var lastRefresh: Date?
+    /// Relecture continue en cours (« Temps réel »).
+    @Published private(set) var isLive = false
+    /// FortiGate relues en fond par le temps réel : sans sablier ni bouton « Relire » grisé.
+    private var liveReads = Set<UUID>()
+    private static let liveInterval: UInt64 = 5_000_000_000
     /// Trafic des sites montrés, réunis.
     @Published private(set) var overview = TrafficOverview()
     /// Sites montrés par l'écran (clés `SiteFiles.key`).
@@ -170,7 +175,7 @@ final class TrafficStore: ObservableObject {
     /// Libellé des sites lus (« Siège », « Siège, Entrepôt Laval »).
     var sitesLabel: String { overview.sites.joined(separator: ", ") }
 
-    var isBusy: Bool { !reading.isEmpty }
+    var isBusy: Bool { !reading.subtracting(liveReads).isEmpty }
 
     /// Erreurs des FortiGate montrées (messages distincts).
     var shownErrors: [String] {
@@ -205,16 +210,35 @@ final class TrafficStore: ObservableObject {
         read(shownControllerIDs)
     }
 
-    private func read(_ ids: [UUID]) {
+    /// « Temps réel » : relit toutes les 5 s tant que la tâche vit (écran Trafic, période Temps réel),
+    /// en pause si aucune fenêtre n'est visible. Une FortiGate en erreur n'est retentée que toutes
+    /// les 30 s, pour ne pas insister.
+    func runLive() async {
+        guard !isDemo else { return }
+        isLive = true
+        defer { isLive = false }
+        var tick = 0
+        while !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: Self.liveInterval)
+            guard !Task.isCancelled, period == .realtime, canRefresh,
+                  NSApp.windows.contains(where: { $0.isVisible && $0.occlusionState.contains(.visible) }) else { continue }
+            tick += 1
+            read(shownControllerIDs.filter { errors[$0] == nil || tick % 6 == 0 }, live: true)
+        }
+    }
+
+    private func read(_ ids: [UUID], live: Bool = false) {
         let wanted = ids.filter { !reading.contains($0) }
         guard !wanted.isEmpty else { return }
         reading.formUnion(wanted)
+        if live { liveReads.formUnion(wanted) }
         let chosenPeriod = period
         let options = TrafficReadOptions(period: chosenPeriod, sort: sort)
         Task { [weak self] in
             guard let self else { return }
             defer {
                 self.reading.subtract(wanted)
+                if live { self.liveReads.subtract(wanted) }
                 self.recompute()
                 // Période changée pendant la lecture : la nouvelle lecture de ces FortiGate a été
                 // écartée (elles étaient en cours) ; on les relit pour la période choisie.

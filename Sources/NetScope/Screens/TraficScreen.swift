@@ -180,6 +180,9 @@ struct TraficScreen: View {
             store.setScope(scope.keys(for: .trafic))
             preloadPortHistory()
         }
+        .task(id: isLiveView) {
+            if isLiveView { await store.runLive() }
+        }
         .fileExporter(isPresented: $exporting, document: exportDocument, contentType: .commaSeparatedText,
                       defaultFilename: exportName) { result in
             if case .success(let url) = result { store.toast = "CSV enregistré\u{00A0}: \(url.lastPathComponent)" }
@@ -194,6 +197,10 @@ struct TraficScreen: View {
 
     /// Note 75 : la source « Flux » est montrée (partie Trafic).
     private var showsFlows: Bool { screen.part == .trafic && screen.source == .flows }
+    /// Vue qui se relit d'elle-même : FortiView en temps réel, écran Trafic affiché.
+    private var isLiveView: Bool {
+        state.screen == .trafic && screen.part == .trafic && !showsFlows && !showsFallback && store.period == .realtime
+    }
 
     /// Trafic de la source montrée (FortiView ou flux).
     private var activeOverview: TrafficOverview { showsFlows ? flows.overview : store.overview }
@@ -347,12 +354,14 @@ struct TraficScreen: View {
         }
         if showsFallback { return "Compteurs des ports des switchs · \(store.sitesLabel)" }
         guard !overview.sites.isEmpty else { return "Aucune FortiGate lue" }
+        if store.isLive { return "FortiView · \(store.sitesLabel) · en direct, relu toutes les 5\u{00A0}s" }
         return "FortiView · \(store.sitesLabel)" + (overview.readAt.map { " · lu \(ToolText.relative($0))" } ?? "")
     }
 
     private func shortSourceText(_ overview: TrafficOverview) -> String {
         if showsFlows { return "\(flows.overview.sites.count) exportateur\(flows.overview.sites.count > 1 ? "s" : "")" }
         if showsFallback { return "Compteurs des switchs" }
+        if store.isLive { return "En direct" }
         return overview.readAt.map { "Lu \(ToolText.relative($0))" } ?? ""
     }
 

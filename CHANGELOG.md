@@ -1,5 +1,12 @@
 # Changements
 
+## 1.3.2 — 2026-11-08
+
+### Corrigé
+- **Trafic** : la période « Temps réel » ne lisait la FortiGate qu’une seule fois. Elle la relit
+  maintenant toutes les 5 s tant que l’écran est affiché et qu’une fenêtre est visible, sans
+  griser « Relire ». Une FortiGate en erreur n’est retentée que toutes les 30 s.
+
 ## 1.3.1 — 2026-11-08
 
 ### Ajouté
