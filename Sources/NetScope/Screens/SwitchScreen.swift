@@ -214,7 +214,7 @@ struct SwitchScreen: View {
             if let addError {
                 Text(addError).font(Theme.small).foregroundStyle(Theme.critical)
             }
-            Text("SNMP v2c, port UDP 161. SNMP v3\u{00A0}: bientôt.").font(Theme.small).foregroundStyle(Theme.textSecondary)
+            Text("Port UDP 161. SNMP v3 du site (Réglages › Identifiants), sinon communauté v2c.").font(Theme.small).foregroundStyle(Theme.textSecondary)
             HStack {
                 Spacer()
                 Button("Annuler") { showAdd = false }.buttonStyle(.secondary)

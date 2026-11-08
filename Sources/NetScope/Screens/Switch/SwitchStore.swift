@@ -142,9 +142,16 @@ final class SwitchStore: ObservableObject {
             ignoredHosts = []
             loadDemo()
         } else {
-            hosts = UserDefaults.standard.stringArray(forKey: Self.hostsKey) ?? []
-            autoHosts = Set(UserDefaults.standard.stringArray(forKey: Self.autoHostsKey) ?? [])
-            ignoredHosts = Set(UserDefaults.standard.stringArray(forKey: Self.ignoredKey) ?? [])
+            let defaults = UserDefaults.standard
+            let ignored = Set(defaults.stringArray(forKey: Self.ignoredKey) ?? [])
+            let savedHosts = defaults.stringArray(forKey: Self.hostsKey) ?? []
+            let savedAuto = Set(defaults.stringArray(forKey: Self.autoHostsKey) ?? [])
+            // Un switch écarté reste écarté, même si une synchronisation l'a remis dans la liste.
+            hosts = savedHosts.filter { !ignored.contains($0) }
+            autoHosts = savedAuto.subtracting(ignored)
+            ignoredHosts = ignored
+            if hosts != savedHosts { defaults.set(hosts, forKey: Self.hostsKey) }
+            if autoHosts != savedAuto { defaults.set(Array(autoHosts).sorted(), forKey: Self.autoHostsKey) }
             knownControllerSwitches = UserDefaults.standard.dictionary(forKey: Self.controllerSwitchesKey) as? [String: String] ?? [:]
         }
     }
@@ -153,12 +160,15 @@ final class SwitchStore: ObservableObject {
     func reloadFromDisk() {
         guard !isDemo else { return }
         let defaults = UserDefaults.standard
-        let saved = defaults.stringArray(forKey: Self.hostsKey) ?? []
-        if saved != hosts { hosts = saved }
-        let auto = Set(defaults.stringArray(forKey: Self.autoHostsKey) ?? [])
-        if auto != autoHosts { autoHosts = auto }
+        // Écartés d'abord : un switch écarté ne revient pas par les listes reçues d'un autre Mac.
         let ignored = Set(defaults.stringArray(forKey: Self.ignoredKey) ?? [])
         if ignored != ignoredHosts { ignoredHosts = ignored }
+        let saved = (defaults.stringArray(forKey: Self.hostsKey) ?? []).filter { !ignored.contains($0) }
+        if saved != hosts { hosts = saved }
+        let auto = Set(defaults.stringArray(forKey: Self.autoHostsKey) ?? []).subtracting(ignored)
+        if auto != autoHosts { autoHosts = auto }
+        for host in ignored { snapshots[host] = nil }
+        if let selected = selectedHost, ignored.contains(selected) { selectedHost = hosts.first }
     }
 
     /// Lit au Trousseau (une seule fois, hors du fil principal) la communauté des Identifiants et

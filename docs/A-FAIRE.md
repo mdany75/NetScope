@@ -2030,3 +2030,10 @@ seulement, `execute dhcp lease-list` et `diagnose ip arp list`, avec `sudo <vdom
 jamais `config vdom / edit`, qui peut créer un VDOM. Utilisées seulement si l'API laisse un doute,
 après un clic. Formats de sortie et `sudo <vdom>` pas encore essayés sur une vraie FortiGate.
 Reste : préremplir « Ouvrir la CLI » avec le compte associé au lieu du premier compte SSH.
+
+## 112. Switchs écartés qui reviennent — livrée dans la 1.6.1 (demande de Dany, 8 novembre 2026)
+
+Liste des écartés prioritaire sur les listes de switchs, au lancement et à la réception d'une
+synchronisation. Cause d'origine probable : les listes synchronisées séparément entre les Mac (non
+prouvée). Une carte sans relevé est normale après un redémarrage : les relevés SNMP restent en
+mémoire, et un switch sans site associé n'est relu qu'après un scan de son site.

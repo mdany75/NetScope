@@ -112,16 +112,10 @@ struct SwitchSourcesPanel: View {
                     HStack(alignment: .bottom, spacing: 10) {
                         VStack(alignment: .leading, spacing: 4) {
                             SwitchFieldLabel("Version")
-                            // Menu natif : seul SNMP v2c est disponible, v3 est affiché grisé (bientôt).
-                            Picker("Version SNMP", selection: Binding(get: { "v2c" }, set: { _ in })) {
-                                Text("SNMP v2c").tag("v2c")
-                                Text("SNMP v3 (bientôt)").tag("v3").disabled(true)
-                            }
-                            .labelsHidden()
-                            .pickerStyle(.menu)
-                            .controlSize(.large)
-                            .frame(width: 168)
-                            .help("SNMP v3 (authPriv) n’est pas encore implémenté dans cette version.")
+                            Text("SNMP v3, sinon v2c")
+                                .font(Theme.body).foregroundStyle(Theme.textSecondary)
+                                .frame(width: 168, height: Theme.controlHeight, alignment: .leading)
+                                .help("L’utilisateur SNMP v3 du site (Réglages › Identifiants) est essayé d’abord\u{00A0}; la communauté v2c ci-contre sert de repli.")
                         }
                         VStack(alignment: .leading, spacing: 4) {
                             SwitchFieldLabel("Communauté (lecture)")
@@ -323,7 +317,8 @@ struct SwitchCard: View {
                             } else if let snapshot {
                                 Text("\(SwitchText.model(snapshot)) · ") + Text(host).font(Theme.mono(12)) + Text(" · \(SwitchText.portsSummary(snapshot))")
                             } else {
-                                Text(store.errors[host] ?? "Pas encore interrogé · ") + Text(host).font(Theme.mono(12))
+                                // Les relevés SNMP restent en mémoire : un switch connu n'est relu qu'après un scan de son site.
+                                Text(store.errors[host] ?? "Pas encore relu depuis l’ouverture de NetScope · ") + Text(host).font(Theme.mono(12))
                             }
                         }
                         .font(Theme.small)

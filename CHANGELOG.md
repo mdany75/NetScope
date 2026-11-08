@@ -1,5 +1,14 @@
 # Changements
 
+## 1.6.1 — 2026-11-08
+
+### Corrigé
+- **Switchs et ports** : un switch écarté reste écarté, même si une autre liste, reçue par la
+  synchronisation, le remet parmi les switchs connus.
+- **Switchs et ports** : une carte sans relevé dit « Pas encore relu depuis l’ouverture de
+  NetScope », et les mentions périmées « SNMP v3 bientôt » sont retirées (le SNMP v3 est offert
+  depuis la 0.25.0).
+
 ## 1.6.0 — 2026-11-08
 
 ### Ajouté
