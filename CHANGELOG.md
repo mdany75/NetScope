@@ -1,5 +1,12 @@
 # Changements
 
+## 1.5.3 — 2026-11-08
+
+### Corrigé
+- **Outils, « Où était cet appareil ? »** : « Relire cet appareil » écrit à l’écran pourquoi il est
+  grisé, s’active dès que les jetons de la FortiGate sont lus, et la relecture à l’ouverture
+  attend ces jetons au lieu d’être sautée juste après le lancement.
+
 ## 1.5.2 — 2026-11-08
 
 ### Ajouté

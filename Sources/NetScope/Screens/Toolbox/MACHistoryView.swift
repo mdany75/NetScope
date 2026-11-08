@@ -10,6 +10,10 @@ struct MACHistoryView: View {
     @State private var query = (Launcher.isDemo || RegEnvironment.isSnapshot)
         ? (ProcessInfo.processInfo.environment["NETSCOPE_MAC_RECHERCHE"] ?? MACHistoryDemo.defaultQuery) : MACHistoryStore.shared.lastQuery
     @ObservedObject private var sites = SiteModel.shared
+    /// Observé : le bouton s'active dès que les jetons de la FortiGate sont lus au Trousseau.
+    @ObservedObject private var fortigate = FortiGateStore.shared
+    /// Jetons lus : avant, « jeton absent » serait faux.
+    @State private var tokensLoaded = false
     @State private var useDate = false
     @State private var day = Date()
     @State private var toast: String?
@@ -21,6 +25,8 @@ struct MACHistoryView: View {
         let isBlank = query.trimmingCharacters(in: .whitespaces).isEmpty && !useDate
         let matches = isBlank ? [] : history.search(query, on: useDate ? day : nil)
         let shown = Array(matches.prefix(50))
+        let target = isBlank ? nil : FortiDeviceTarget.of(query: query, found: matches.map(\.mac))
+        let reason = readBlocked(target, isBlank: isBlank, found: matches.count)
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 ToolStatTile(label: "Adresses MAC", value: "\(history.macCount)", detail: "suivies sur ce site")
@@ -44,19 +50,24 @@ struct MACHistoryView: View {
                 }
                 .fixedSize()
                 .help("Les valeurs plus vues depuis cette durée sont retirées de l’historique (tous les sites)")
-                let target = isBlank ? nil : FortiDeviceTarget.of(query: query, found: matches.map(\.mac))
                 Button { if let target { store.readDevice(target) } } label: {
                     Label("Relire cet appareil", systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.secondary)
                 .fixedSize()
                 .disabled(target == nil || !store.canReadDevice)
-                .help(readHelp(target))
+                .help(reason ?? "Relit seulement cet appareil sur la FortiGate de ce site (lecture seule)")
                 Button("Exporter en CSV") {
                     toast = store.exportCSV(matches.flatMap(\.sightings), suggestedName: "historique-mac")
                 }
                 .fixedSize()
                 .disabled(matches.isEmpty)
+            }
+            // La raison est écrite, pas seulement dans la bulle du bouton grisé.
+            if !isBlank, let reason {
+                Label(reason, systemImage: "info.circle")
+                    .font(Theme.small).foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             HStack(spacing: 6) {
                 Text("Site «\u{00A0}\(SiteModel.shared.activeName)\u{00A0}» · scans, relevés des switchs et clients Wi-Fi de la FortiGate\u{00A0}· \(readStatus)")
@@ -87,8 +98,10 @@ struct MACHistoryView: View {
             let blank = text.trimmingCharacters(in: .whitespaces).isEmpty
             if blank || !store.activeHistory.search(text, on: nil).isEmpty { store.rememberQuery(text) }
         }
-        // Dernière recherche rouverte : seul cet appareil est relu.
-        .onAppear {
+        // Dernière recherche rouverte : seul cet appareil est relu, une fois les jetons lus.
+        .task {
+            await FortiGateStore.shared.loadTokens()
+            tokensLoaded = true
             let found = store.activeHistory.search(query, on: nil).map(\.mac)
             if !query.trimmingCharacters(in: .whitespaces).isEmpty, let target = FortiDeviceTarget.of(query: query, found: found) {
                 store.readDevice(target)
@@ -106,14 +119,16 @@ struct MACHistoryView: View {
         return store.deviceReadAt.map { "appareil relu \(ToolText.relative($0))" } ?? "historique enregistré"
     }
 
-    private func readHelp(_ target: FortiDeviceTarget?) -> String {
-        if isBlankHelp { return "Cherchez d’abord une MAC, une IP ou un nom." }
-        if target == nil { return "Trop d’appareils trouvés\u{00A0}: précisez la recherche." }
-        return store.canReadDevice ? "Relit seulement cet appareil sur la FortiGate de ce site (lecture seule)"
-            : "Il faut une FortiGate prête sur ce site, ou attendre la fin de la lecture en cours."
+    /// Pourquoi « Relire cet appareil » est grisé ; nil s'il est actif ou si la lecture est en cours.
+    private func readBlocked(_ target: FortiDeviceTarget?, isBlank: Bool, found: Int) -> String? {
+        if isBlank { return "Cherchez d’abord une MAC, une IP ou un nom." }
+        if target == nil {
+            return found == 0 ? "Appareil absent de l’historique\u{00A0}: tapez son IP ou sa MAC au complet pour le relire."
+                : "Trop d’appareils trouvés (\(found))\u{00A0}: précisez la recherche pour en relire un."
+        }
+        guard tokensLoaded else { return nil }
+        return store.deviceReadBlocker
     }
-
-    private var isBlankHelp: Bool { query.trimmingCharacters(in: .whitespaces).isEmpty && !useDate }
 
     static func retentionLabel(_ days: Int) -> String {
         switch days {

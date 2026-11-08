@@ -142,6 +142,20 @@ final class MACHistoryStore: ObservableObject {
 
     var canReadDevice: Bool { !isDemo && !isReadingDevice && !readyControllerIDs.isEmpty }
 
+    /// Pourquoi aucune FortiGate du site actif ne peut être lue ; nil si au moins une est prête.
+    var deviceReadBlocker: String? {
+        guard !isDemo else { return nil }
+        let fortigate = FortiGateStore.shared
+        let ids = TrafficStore.shared.controllerIDs(forKey: SiteModel.shared.activeKey)
+        guard !ids.isEmpty else { return "Aucune FortiGate sur ce site\u{00A0}: Réglages › Switchs › Contrôleurs FortiGate." }
+        let enabled = ids.compactMap(fortigate.controller).filter(\.isEnabled)
+        guard fortigate.isEnabled, let first = enabled.first else {
+            return "La FortiGate de ce site est désactivée\u{00A0}: Réglages › Switchs › Contrôleurs FortiGate."
+        }
+        if enabled.contains(where: fortigate.isReady) { return nil }
+        return fortigate.notReadyReason(first) ?? "La FortiGate de ce site n’est pas prête\u{00A0}: Réglages › Switchs › Contrôleurs FortiGate."
+    }
+
     /// Relit cet appareil sur les FortiGate du site actif et range ce qui est vu dans son historique.
     func readDevice(_ target: FortiDeviceTarget) {
         guard canReadDevice, !target.isEmpty else { return }
