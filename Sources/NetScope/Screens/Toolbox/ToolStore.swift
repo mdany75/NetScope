@@ -38,6 +38,16 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
     case conflits
     /// Note 99 : « Où était cet appareil ? » : historique des adresses MAC (IP, noms, ports, VLAN, bornes).
     case historiqueMAC
+    /// Note 115 : décalage de l'horloge par rapport à un ou plusieurs serveurs NTP.
+    case ntp
+    /// Note 116 : requête HTTP ou API composée à la main (méthode, en-têtes, corps) et sa réponse.
+    case http
+    /// Note 117 : essai d'authentification PAP auprès d'un serveur RADIUS.
+    case radius
+    /// Note 118 : services annoncés en Bonjour sur le réseau local, par appareil ou par type.
+    case bonjour
+    /// Note 119 : routes IPv4 et IPv6 de ce Mac, en consultation seule.
+    case routes
 
     var id: String { rawValue }
 
@@ -56,10 +66,10 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
 
     var group: Group {
         switch self {
-        case .subnet, .mac, .ipv6, .conflits, .historiqueMAC: return .adressage
+        case .subnet, .mac, .ipv6, .conflits, .historiqueMAC, .routes: return .adressage
         case .ports, .dns, .whois, .mtu, .capture, .snmp: return .diagnostic
         case .bilan, .ressources: return .diagnostic
-        case .tls: return .diagnostic
+        case .tls, .ntp, .http, .radius, .bonjour: return .diagnostic
         case .iperf, .speedtest: return .performance
         case .disques: return .performance
         case .wol, .dhcp, .lldp, .dhcpScopes: return .services
@@ -106,6 +116,11 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .ipv6: return "IPv6"
         case .conflits: return "Conflits d’adresses IP"
         case .historiqueMAC: return "Où était cet appareil\u{00A0}?"
+        case .ntp: return "Test NTP"
+        case .http: return "Testeur HTTP ou API"
+        case .radius: return "Test RADIUS"
+        case .bonjour: return "Navigateur Bonjour"
+        case .routes: return "Table de routage"
         }
     }
 
@@ -142,6 +157,11 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .ipv6: return "Adresses IPv6 de ce Mac, voisins de la table NDP rattachés aux appareils, ping ff02::1, ping et traceroute IPv6."
         case .historiqueMAC: return "Historique d’une adresse MAC\u{00A0}: IP, noms, ports de switch, VLAN et bornes Wi-Fi, avec la première et la dernière vue\u{00A0}; recherche par MAC, IP, nom ou date, export CSV."
         case .conflits: return "Même IP pour deux MAC, réponses ARP contradictoires (usurpation possible) et MAC qui change souvent d’IP\u{00A0}: table ARP, scans et FortiGate, sans rien envoyer."
+        case .ntp: return "Décalage de l’horloge de ce Mac, délai, strate et référence d’un ou plusieurs serveurs de temps, avec ce que ça veut dire."
+        case .http: return "Compose une requête HTTP ou HTTPS (méthode, en-têtes, corps) et montre le code, les en-têtes, le corps, les redirections et les minutages."
+        case .radius: return "Essai de connexion en PAP auprès d’un serveur RADIUS\u{00A0}: accepté, refusé, mauvais secret ou silence, avec les attributs reçus."
+        case .bonjour: return "Imprimantes, partages, AirPlay, accessoires…\u{00A0}: tout ce qui s’annonce en Bonjour sur le réseau local, par appareil ou par type, avec le détail TXT."
+        case .routes: return "Routes IPv4 et IPv6 de ce Mac, en consultation seule\u{00A0}: route par défaut en tête, passerelle, interface et drapeaux en clair."
         case .bilan: return "En un clic sur cette prise\u{00A0}: lien, switch et port, VLAN, PoE, DHCP, passerelle, DNS et Internet\u{00A0}; comparaison avant/après."
         }
     }
@@ -180,6 +200,11 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
         case .ipv6: return "6.circle"
         case .conflits: return "exclamationmark.2"
         case .historiqueMAC: return "clock.arrow.circlepath"
+        case .ntp: return "clock.badge.checkmark"
+        case .http: return "arrow.left.arrow.right.square"
+        case .radius: return "person.badge.key"
+        case .bonjour: return "bonjour"
+        case .routes: return "arrow.triangle.branch"
         }
     }
 
@@ -189,7 +214,7 @@ enum ToolKind: String, CaseIterable, Identifiable, Codable {
 
     /// Outils qui prennent toute la largeur (sans le panneau des favoris et de l'historique).
     var usesFullWidth: Bool { self == .bilan || self == .ressources || self == .capture || self == .snmp || self == .dhcpScopes || self == .wan || self == .firmware || self == .tftp || self == .speedtest || self == .iperf
-        || self == .tls || self == .ipv6 || self == .conflits || self == .historiqueMAC }
+        || self == .tls || self == .ipv6 || self == .conflits || self == .historiqueMAC || self == .ntp || self == .http || self == .radius || self == .bonjour || self == .routes }
 
     /// Recherche multiple (note 26) : `nom:dns`, `groupe:courriel` ; un mot seul lit le nom, la
     /// clé et le résumé, comme avant.
@@ -412,9 +437,15 @@ final class ToolStore: ObservableObject {
     }
 
     /// Résultats concernant une cible (IP, MAC ou nom), pour la fiche de l'appareil.
+    /// Ces cibles sont souvent une IP nue : après une réattribution DHCP, leur résultat irait à
+    /// l'appareil qui a repris l'adresse.
+    private static let notTiedToDevice: Set<ToolKind> = [.ntp, .http, .radius]
+
     func recents(matching keys: [String]) -> [ToolRecent] {
-        let lowered = keys.map { $0.lowercased() }.filter { !$0.isEmpty }
-        return recents.filter { recent in lowered.contains { recent.target.lowercased().contains($0) } }
+        let wanted = keys.filter { !$0.isEmpty }
+        return recents.filter { recent in
+            !Self.notTiedToDevice.contains(recent.tool) && wanted.contains { ToolFormat.mentions($0, in: recent.target) }
+        }
     }
 
     // MARK: Navigation

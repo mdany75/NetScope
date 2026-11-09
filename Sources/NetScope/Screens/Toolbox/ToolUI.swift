@@ -20,6 +20,23 @@ struct ToolFieldLabel: View {
     }
 }
 
+/// Remplace le bouton de lancement au même endroit : le second clic d'un double clic ne doit pas
+/// annuler ce qui vient de partir.
+struct ToolStopButton: View {
+    let action: () -> Void
+    @State private var shownAt = Date()
+
+    var body: some View {
+        Button {
+            if Date().timeIntervalSince(shownAt) >= NSEvent.doubleClickInterval { action() }
+        } label: {
+            Label("Arrêter", systemImage: "stop.fill")
+        }
+        .buttonStyle(.secondary)
+        .fixedSize()
+    }
+}
+
 /// Champ de saisie du système (bordure arrondie de macOS, suit le mode sombre), cadre rouge si la
 /// saisie est invalide. `height` choisit la taille du contrôle : 28 pt et plus, grande taille (même
 /// hauteur que les boutons `.primary` et `.secondary`) ; en dessous, taille normale.

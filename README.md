@@ -4,7 +4,7 @@
 sur plusieurs plages, dit sur quel switch et quel port chacun est branché, puis diagnostique,
 surveille, documente et ouvre une session à distance, site par site, dans une seule fenêtre.
 
-[![Version](https://img.shields.io/badge/version-1.6.3-blue)](https://github.com/mdany75/NetScope/releases/latest)
+[![Version](https://img.shields.io/badge/version-1.7.0-blue)](https://github.com/mdany75/NetScope/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-lightgrey?logo=apple)](#installation)
 [![Licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
@@ -177,6 +177,9 @@ surveille, documente et ouvre une session à distance, site par site, dans une s
   ligne (Microsoft 365, Apple, AWS, Google…).
 - **Capture de paquets** (filtres, détail par couche, suivi de flux, .pcap), serveur et client
   **TFTP**, **Vitesse des disques** (local, NAS, partage réseau).
+- **Test NTP** (décalage de l’horloge, strate), **Testeur HTTP ou API** (requête libre, corps,
+  redirections, minutages), **Test RADIUS** (essai PAP, secret au Trousseau), **Navigateur
+  Bonjour** et **Table de routage** de ce Mac.
 
 ## Captures
 

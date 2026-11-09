@@ -22,6 +22,21 @@ public enum ToolError: Error, LocalizedError, Equatable, Sendable {
 
 /// Mise en forme des nombres à la française (virgule décimale, espace insécable).
 public enum ToolFormat {
+    /// Vrai si `key` figure dans `target` comme nom entier : « 10.0.0.2 » n'est pas dans « 10.0.0.20 ».
+    public static func mentions(_ key: String, in target: String) -> Bool {
+        func extendsName(_ character: Character) -> Bool {
+            character.isLetter || character.isNumber || character == "." || character == "-" || character == "_"
+        }
+        var search = target.startIndex..<target.endIndex
+        while let found = target.range(of: key, options: .caseInsensitive, range: search) {
+            let opensName = found.lowerBound > target.startIndex && extendsName(target[target.index(before: found.lowerBound)])
+            let continuesName = found.upperBound < target.endIndex && extendsName(target[found.upperBound])
+            if !opensName && !continuesName { return true }
+            search = target.index(after: found.lowerBound)..<target.endIndex
+        }
+        return false
+    }
+
     public static func decimal(_ value: Double, digits: Int = 1) -> String {
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "fr_CA")

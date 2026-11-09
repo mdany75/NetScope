@@ -170,6 +170,16 @@ registerPirateTests(suite)
 registerUPSMACHistoryTests(suite)
 // Note 100 (1.3.0) : serveur WireGuard (wg-easy) : wg show, API de wg-easy 15, alertes.
 registerWireGuardTests(suite)
+// Note 115 : Test NTP (valeurs connues, faux serveur sur 127.0.0.1).
+registerNTPTests(suite)
+// Note 116 : Testeur HTTP ou API (validation, masquage, vrai aller-retour sur 127.0.0.1).
+registerHTTPTesterTests(suite)
+// Note 117 : Test RADIUS (vecteurs de la RFC 2865, faux serveur sur 127.0.0.1).
+registerRADIUSTests(suite)
+// Note 118 : Navigateur Bonjour (TXT, libellés, regroupement ; jamais de furetage réel).
+registerBonjourTests(suite)
+// Note 119 : Table de routage (sorties netstat fixes, adresses fictives).
+registerRouteTableTests(suite)
 
 let failures = await suite.run()
 exit(failures == 0 ? 0 : 1)

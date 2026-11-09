@@ -2050,5 +2050,35 @@ Le switch ajouté disparaissait quelques secondes plus tard. Après un premier p
 modifiée devenait la base commune ; au passage suivant, l'ancienne publication de l'autre Mac,
 différente de cette base, passait pour un changement venu de là-bas et remplaçait la modification.
 Désormais, si ma version n'a pas changé depuis la base et que celle de l'autre Mac est plus ancienne
-que la mienne, je garde la mienne (éléments et secrets). À confirmer en réel : ajouter une fois
-`10.182.122.124` sur le Mac Studio après l'installation de la 1.6.3.
+que la mienne, je garde la mienne (éléments et secrets). Confirmé sur le Mac Studio en 1.6.3 :
+`10.182.122.124` reste ajouté. La réception par le Mac mini reste à voir à sa prochaine synchro.
+
+## 115. Test NTP — livrée dans la 1.7.0
+
+Livrée dans la 1.7.0 (9 novembre 2026), Boîte à outils › Diagnostic, moteur `NetScopeCore/NTP/`. Testée sur faux serveur 127.0.0.1 et valeurs connues. À confirmer sur un vrai serveur : limitation de débit (intervalle de 2 s entre requêtes) et réponses d’une FortiGate. IPv4 seulement.
+
+Demande d’origine : Interroger un serveur NTP et afficher le décalage de l’horloge et la strate. Aujourd’hui, NTP est seulement détecté au scan UDP et décodé en capture. Effort estimé : petit.
+
+## 116. Testeur HTTP ou API — livrée dans la 1.7.0
+
+Livrée dans la 1.7.0 (9 novembre 2026), Boîte à outils › Diagnostic, moteur `Tools/HTTPTester.swift` et `Tools/HTTPRequestSpec.swift`. Testée sur 127.0.0.1. À confirmer sur un vrai serveur : HTTPS (certificat non vérifié, minutages TLS), HTTP/2, et le repli par connexion directe quand macOS refuse un http:// public (ATS). Une redirection 307 ou 308 vers une autre origine n’est pas suivie, pour ne pas emporter le corps : l’écran le dit.
+
+Demande d’origine : Requête libre, en-têtes, code de réponse et durée. Le moteur `HTTPProbe` existe et sert au Bilan de raccordement et à la fiche Appareil, sans outil à lui. Effort estimé : petit.
+
+## 117. Test d’authentification RADIUS — livrée dans la 1.7.0
+
+Livrée dans la 1.7.0 (9 novembre 2026), Boîte à outils › Diagnostic, moteur `NetScopeCore/RADIUS/`. Testée avec les vecteurs de la RFC 2865 et un faux serveur 127.0.0.1. À confirmer sur un vrai serveur (NPS, FreeRADIUS), notamment l’acceptation de PAP. PAP seulement, pas EAP ni PEAP. Le secret mémorisé reste propre à chaque Mac : ni sauvegarde ni synchronisation.
+
+Demande d’origine : Essai de connexion réel, à faire si le 802.1X est utilisé ; secret partagé au Trousseau uniquement. Aujourd’hui, le port est sondé et les paquets décodés, sans aucun essai de connexion. Effort estimé : moyen.
+
+## 118. Navigateur Bonjour — livrée dans la 1.7.0
+
+Livrée dans la 1.7.0 (9 novembre 2026), Boîte à outils › Diagnostic, moteur `NetScopeCore/Bonjour/`, 43 types de service déclarés dans `Info.plist`. Découverte réelle jamais exécutée (interdite aux tests et captures) : à essayer une première fois, y compris l’invite Réseau local de macOS. Un type appris hors du catalogue pourrait être refusé par macOS.
+
+Demande d’origine : Liste des services mDNS d’un réseau ; utile, pas urgent. mDNS sert déjà au scan, sans liste à consulter. Effort estimé : petit.
+
+## 119. Table de routage de ce Mac — livrée dans la 1.7.0
+
+Livrée dans la 1.7.0 (9 novembre 2026), Boîte à outils › Adressage, analyseur `System/RouteTable.swift`. Analyseur essayé sur la vraie sortie de `netstat -rn` de ce Mac : 104 routes sur 104. Pas d’export CSV ; le menu contextuel Copier en tient lieu.
+
+Demande d’origine : Écran de consultation ; utile, pas urgent. Aucun écran ne la montre aujourd’hui. Effort estimé : petit.

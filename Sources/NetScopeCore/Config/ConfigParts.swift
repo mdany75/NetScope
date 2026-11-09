@@ -189,8 +189,9 @@ public enum ConfigSecrets {
     /// Mot de passe de la synchronisation par iCloud Drive (Trousseau de chaque Mac).
     public static let syncService = BackupKeychainScan.servicePrefix + ".synchro"
     public static let syncAccount = "mot-de-passe"
-    /// Ni le mot de passe des sauvegardes ni celui de la synchronisation ne voyagent.
-    public static let neverCopied: Set<String> = [BackupPasswordKeychain.service, syncService]
+    /// Ni le mot de passe des sauvegardes ni celui de la synchronisation ne voyagent, pas plus que
+    /// les secrets RADIUS mémorisés (note 117) : le fourre-tout « * » les emporterait sinon.
+    public static let neverCopied: Set<String> = [BackupPasswordKeychain.service, syncService, RADIUSClient.keychainService]
 
     /// « fortigate » pour « com.danymenard.netscope.fortigate ».
     public static func shortService(_ service: String) -> String {

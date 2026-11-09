@@ -49,6 +49,7 @@ public enum BackupKeychainScan {
         case "acces": return "Mots de passe SSH et Telnet (Accès distant)"
         case "vnc": return "Mots de passe VNC (Accès distant)"
         case "synchro": return "Mot de passe de synchronisation (iCloud Drive)"
+        case "radius": return "Secrets partagés RADIUS (propres à ce Mac)"
         default: return suffix
         }
     }

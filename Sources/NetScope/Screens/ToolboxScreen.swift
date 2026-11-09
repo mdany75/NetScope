@@ -235,6 +235,16 @@ private struct ToolMainPanel: View {
     @ObservedObject private var iperfServer = IperfServerModel.shared
     /// Note 70 : vérificateur de certificat TLS.
     @ObservedObject private var tls = TLSCheckModel.shared
+    /// Note 115 : Test NTP.
+    @ObservedObject private var ntp = NTPCheckModel.shared
+    /// Note 116 : Testeur HTTP ou API.
+    @ObservedObject private var http = HTTPTesterModel.shared
+    /// Note 117 : Test RADIUS.
+    @ObservedObject private var radius = RADIUSTestModel.shared
+    /// Note 118 : Navigateur Bonjour.
+    @ObservedObject private var bonjour = BonjourModel.shared
+    /// Note 119 : Table de routage.
+    @ObservedObject private var routes = RouteTableModel.shared
     /// Ressources d'un poste : la commande de l'en-tête suit le poste ouvert.
     @ObservedObject private var hostResources = HostResourcesModel.shared
 
@@ -351,6 +361,11 @@ private struct ToolMainPanel: View {
         case .ipv6: IPv6ToolView(store: store)
         case .conflits: IPConflictsView()
         case .historiqueMAC: MACHistoryView()
+        case .ntp: NTPCheckView(model: ntp, store: store)
+        case .http: HTTPTesterView(model: http, store: store)
+        case .radius: RADIUSTestView(model: radius, store: store)
+        case .bonjour: BonjourView(model: bonjour, store: store)
+        case .routes: RouteTableView(model: routes)
         }
     }
 
@@ -393,6 +408,11 @@ private struct ToolMainPanel: View {
         case .snmp: return snmp.command
         case .bilan: return linkCheck.command
         case .tls: return tls.command
+        case .ntp: return ntp.command
+        case .http: return http.command
+        case .radius: return radius.command
+        case .bonjour: return BonjourModel.command
+        case .routes: return "netstat -rn"
         case .ressources: return hostResources.command
         }
     }

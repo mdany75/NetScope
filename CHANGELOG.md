@@ -1,5 +1,28 @@
 # Changements
 
+## 1.7.0 — 2026-11-09
+
+### Ajouté
+- **Test NTP** (note 115, Boîte à outils › Diagnostic) : décalage de l’horloge de ce Mac, délai,
+  strate et référence pour un à huit serveurs, verdict en clair (synchronisé, décalage notable,
+  non synchronisé, refus, muet). Chaque test envoie quatre requêtes, seulement au clic.
+- **Testeur HTTP ou API** (note 116) : méthode, URL, en-têtes et corps libres ; code, en-têtes,
+  corps (JSON présenté ou brut), redirections et minutages DNS, TCP, TLS et premier octet.
+  Commande équivalente et historique masqués : l’historique ne garde que la méthode et l’URL
+  sans ses secrets. Une redirection qui changerait d’origine retire les en-têtes sensibles et
+  n’emporte jamais le corps.
+- **Test RADIUS** (note 117) : essai PAP avec Message-Authenticator ; accepté, refusé, défi, réponse
+  invalide ou silence, attributs reçus. Une seule authentification par clic, mot de passe jamais
+  conservé, secret partagé au Trousseau seulement si la case est cochée et propre à chaque Mac.
+- **Navigateur Bonjour** (note 118) : services annoncés sur le réseau local, par appareil ou par
+  type, avec adresses et enregistrement TXT. Découverte de 30 s, seulement au clic.
+- **Table de routage** (note 119, Boîte à outils › Adressage) : routes IPv4 et IPv6 de ce Mac, route
+  par défaut en tête, drapeaux en clair, filtre. Consultation seule.
+
+### Modifié
+- L’historique d’un outil dans la fiche Appareil compare le nom entier : 10.0.0.2 ne ramasse plus
+  ce qui concerne 10.0.0.20.
+
 ## 1.6.3 — 2026-11-08
 
 ### Corrigé

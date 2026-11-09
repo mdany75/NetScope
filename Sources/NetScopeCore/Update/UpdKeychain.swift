@@ -36,6 +36,15 @@ public struct UpdKeychain: Sendable {
         return (String(data: data, encoding: .utf8), status)
     }
 
+    /// Présence seule, attributs sans la valeur : macOS ne demande aucune autorisation.
+    public func contains(_ account: String) -> Bool {
+        var query = baseQuery(account)
+        query[kSecReturnAttributes as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var item: CFTypeRef?
+        return SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess
+    }
+
     /// Enregistre (ou remplace) la valeur ; une valeur vide efface l'élément.
     public func set(_ value: String?, for account: String) throws {
         guard let value, !value.isEmpty else {
