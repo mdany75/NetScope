@@ -8,9 +8,10 @@
   non synchronisé, refus, muet). Chaque test envoie quatre requêtes, seulement au clic.
 - **Testeur HTTP ou API** (note 116) : méthode, URL, en-têtes et corps libres ; code, en-têtes,
   corps (JSON présenté ou brut), redirections et minutages DNS, TCP, TLS et premier octet.
-  Commande équivalente et historique masqués : l’historique ne garde que la méthode et l’URL
-  sans ses secrets. Une redirection qui changerait d’origine retire les en-têtes sensibles et
-  n’emporte jamais le corps.
+  Commande équivalente et historique masqués : l’historique ne garde que la méthode et l’URL,
+  dont les secrets reconnus sont masqués (paramètres sensibles, webhooks, segments en forme de
+  jeton). Une redirection qui changerait d’origine retire les en-têtes sensibles et n’emporte
+  jamais le corps.
 - **Test RADIUS** (note 117) : essai PAP avec Message-Authenticator ; accepté, refusé, défi, réponse
   invalide ou silence, attributs reçus. Une seule authentification par clic, mot de passe jamais
   conservé, secret partagé au Trousseau seulement si la case est cochée et propre à chaque Mac.
@@ -22,6 +23,10 @@
 ### Modifié
 - L’historique d’un outil dans la fiche Appareil compare le nom entier : 10.0.0.2 ne ramasse plus
   ce qui concerne 10.0.0.20.
+
+### À savoir
+- Ces cinq outils sont testés en démonstration et contre de faux serveurs sur 127.0.0.1. Ils n’ont
+  pas encore été essayés sur un vrai serveur NTP, HTTP ou RADIUS, ni sur un vrai réseau Bonjour.
 
 ## 1.6.3 — 2026-11-08
 
