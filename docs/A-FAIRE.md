@@ -2082,3 +2082,9 @@ Demande d’origine : Liste des services mDNS d’un réseau ; utile, pas urgent
 Livrée dans la 1.7.0 (9 novembre 2026), Boîte à outils › Adressage, analyseur `System/RouteTable.swift`. Analyseur essayé sur la vraie sortie de `netstat -rn` de ce Mac : 104 routes sur 104. Pas d’export CSV ; le menu contextuel Copier en tient lieu. Format des réseaux IPv4 raccourcis déduit de la sortie locale et de mémoire (pas de réseau en classe A avec /24 sur ce Mac) ; sens du « ! » d’expiration affiché prudemment (« écoulée »).
 
 Demande d’origine : Écran de consultation ; utile, pas urgent. Aucun écran ne la montre aujourd’hui. Effort estimé : petit.
+
+## 120. Sites triés, Scanner vide sans site, tuiles lisibles — livrée dans la 1.7.1
+
+Livrée dans la 1.7.1 (9 novembre 2026). Sans site actif, les plages du Scanner sont vides (`SiteModel.switchSite` et `remove`). Les grilles de tuiles chiffrées utilisent `Theme.tileMinWidth` (180 points). Les listes de sites passent par `sortedSites`. Vérifié par captures de démo (`NETSCOPE_SITE=aucun`, 3440 × 1440 et 1000 × 650) et tests du tri. Le sélecteur de sites et le tableau des Réglages étaient déjà triés dans la 1.7.0 : si Dany voit encore un désordre, demander à quel endroit. Les résultats d’un ancien scan sans site restent affichés. Choix de site, suppression du site actif et menus jamais essayés par clic.
+
+Demande d’origine : avoir la liste des sites en ordre alphabétique ; sans site sélectionné, les plages à scanner doivent être vides ; dans le Wi-Fi, les boîtes sont trop petites et coupent l’adresse MAC ; corriger aussi ailleurs.

@@ -553,7 +553,7 @@ struct DiskSpeedView: View {
     // MARK: Tuiles
 
     private var tiles: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 132), spacing: 8)], alignment: .leading, spacing: 8) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: Theme.tileMinWidth), spacing: 8, alignment: .top)], alignment: .leading, spacing: 8) {
             if isCloud {
                 ToolStatTile(label: "Écriture locale", value: model.displayedWrite.map(DiskFormat.rateWithUnit) ?? "—",
                              detail: "copie dans le dossier")

@@ -50,7 +50,7 @@ struct ControllerWifiView: View {
         let shownBands = [WifiBand.ghz24, .ghz5, .ghz6].filter { $0 != .ghz6 || summary.byBand[.ghz6] != nil }
         let offline = store.readings.flatMap(\.report.aps).filter { $0.online == false }
         let hasSignal = store.readings.flatMap(\.report.wirelessClients).contains { $0.rssi != nil }
-        return LazyVGrid(columns: [GridItem(.adaptive(minimum: 128), spacing: 10)], spacing: 10) {
+        return LazyVGrid(columns: [GridItem(.adaptive(minimum: Theme.tileMinWidth), spacing: 10, alignment: .top)], spacing: 10) {
             tile("Bornes en ligne", "\(summary.apsOnline) / \(summary.aps)",
                  sub: offline.isEmpty ? "aucune hors ligne" : "hors ligne\u{00A0}: \(offline.map(\.name).joined(separator: ", "))",
                  color: offline.isEmpty ? Theme.success : Theme.warning)
@@ -67,7 +67,7 @@ struct ControllerWifiView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
             Text(value).font(Theme.mono(18, weight: .bold)).foregroundStyle(color).lineLimit(1)
-            Text(sub).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            Text(sub).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(2)
         }
         .modifier(WifiTileStyle())
         .help(sub)

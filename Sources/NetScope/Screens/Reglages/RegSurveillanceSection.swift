@@ -243,7 +243,7 @@ struct ScanScheduleEditor: View {
                     .font(Theme.panelTitle).foregroundStyle(Theme.text)
                 RegField(label: "Site") {
                     Picker("", selection: binding(\.siteKey)) {
-                        ForEach(sites.sites) { site in Text(site.displayName).tag(SiteFiles.key(for: site.id)) }
+                        ForEach(sites.sortedSites) { site in Text(site.displayName).tag(SiteFiles.key(for: site.id)) }
                     }
                     .labelsHidden()
                     .frame(maxWidth: 320)

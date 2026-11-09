@@ -82,7 +82,18 @@ func registerSiteTests(_ suite: TestSuite) {
         let partial = Site(name: "Bureau Québec", ranges: [range("10.30.0.0/24"), range("192.168.1.0/24", "Invités")], created: now)
         let three = SiteList(sites: [one, two, partial])
         try expectEqual(three.sharingRanges(with: one.id).map(\.id), [two.id], "mêmes plages exactement")
-        try expectEqual(three.sharingAddresses(with: one.id).map(\.id), [two.id, partial.id], "une plage en commun suffit")
+        try expectEqual(three.sharingAddresses(with: one.id).map(\.id), [partial.id, two.id], "une plage en commun suffit, noms en ordre alphabétique")
+    }
+
+    suite.add("Sites : ordre alphabétique, jamais l'ordre de création") {
+        let shared = [range("192.168.1.0/24")]
+        let names = ["Zénith Centre", "atelier Nord", "Égide Sud", "Eden Est", "Ouest 12"]
+        let list = SiteList(sites: names.map { Site(name: $0, ranges: shared, switchHosts: ["10.0.0.2"], created: now) })
+        let sorted = ["atelier Nord", "Eden Est", "Égide Sud", "Ouest 12", "Zénith Centre"]
+        try expectEqual(list.sortedByName.map(\.displayName), sorted, "accents et majuscules ne dérangent pas le tri")
+        try expectEqual(list.sites(forSwitch: "10.0.0.2").map(\.displayName), sorted, "sites d'un switch triés")
+        let first = try siteRequire(list.sites.first, "premier site")
+        try expectEqual(list.sharingAddresses(with: first.id).map(\.displayName), sorted.filter { $0 != first.displayName }, "sites aux adresses communes triés")
     }
 
     suite.add("Sites : détection par la passerelle, jamais par la seule IP") {

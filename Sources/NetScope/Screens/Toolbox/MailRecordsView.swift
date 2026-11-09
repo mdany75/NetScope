@@ -192,7 +192,7 @@ struct MailRecordsView: View {
     @ViewBuilder private func spfDetail(_ report: SPFReport) -> some View {
         if let record = report.record {
             MailRawRecord(text: record.text)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 10, alignment: .top)], spacing: 8) { spfTiles(report) }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: Theme.tileMinWidth), spacing: 10, alignment: .top)], spacing: 8) { spfTiles(report) }
             HStack {
                 ToolFieldLabel("Arbre des include et redirect")
                 Spacer()

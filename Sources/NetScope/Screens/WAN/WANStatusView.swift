@@ -252,12 +252,12 @@ struct WANStatusView: View {
             ("VPN SSL", "\(overview.sslUsers.count)", overview.sslUsers.count > 1 ? "utilisateurs connectés" : "utilisateur connecté", Theme.text),
         ]
         return ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
                 ForEach(items, id: \.0) { item in
                     ToolStatTile(label: item.0, value: item.1, detail: item.2, valueColor: item.3).frame(minWidth: 124)
                 }
             }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 124), spacing: 8)], alignment: .leading, spacing: 8) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: Theme.tileMinWidth), spacing: 8, alignment: .top)], alignment: .leading, spacing: 8) {
                 ForEach(items, id: \.0) { item in
                     ToolStatTile(label: item.0, value: item.1, detail: item.2, valueColor: item.3)
                 }

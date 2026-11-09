@@ -32,7 +32,7 @@ struct MACHistoryView: View {
         let target = isBlank ? nil : FortiDeviceTarget.of(query: query, found: matches.map(\.mac))
         let reason = readBlocked(target, isBlank: isBlank, found: matches.count)
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
                 ToolStatTile(label: "Adresses MAC", value: "\(history.macCount)", detail: "suivies sur ce site")
                 ToolStatTile(label: "Observations", value: "\(history.sightings.count)", detail: "IP, noms, ports, VLAN, bornes")
                 ToolStatTile(label: "Résultats", value: "\(matches.count)", detail: isBlank ? "aucune recherche" : (query.isEmpty ? "ce jour-là" : "pour «\u{00A0}\(query)\u{00A0}»"))

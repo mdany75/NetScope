@@ -17,7 +17,7 @@ struct ScanRangesPanel: View {
         let exclusions = SiteModel.shared.activeExclusions
         let total = exclusions.isEmpty ? parsed.reduce(0) { $0 + $1.count } : exclusions.probeCount(in: parsed)
         let count = checkedRanges.count
-        return "\(count) \(count > 1 ? "plages actives" : "plage active") · \(total) adresses"
+        return "\(count) \(count > 1 ? "plages actives" : "plage active") · \(total) adresse\(total > 1 ? "s" : "")"
     }
 
     var body: some View {

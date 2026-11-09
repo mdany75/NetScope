@@ -127,6 +127,8 @@ enum Theme {
 
     static let panelRadius: CGFloat = 10
     static let buttonRadius: CGFloat = 6
+    /// Largeur minimale d'une tuile de grille : une adresse MAC et sa légende y tiennent entières.
+    static let tileMinWidth: CGFloat = 180
     static let chipRadius: CGFloat = 4
     static let controlHeight: CGFloat = 28
     static let contentPadding: CGFloat = 16

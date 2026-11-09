@@ -15,7 +15,7 @@ struct IPConflictsView: View {
         let critical = conflicts.filter(\.isCritical)
         let usurp = conflicts.filter { $0.kind == .arpContradictoire }.count
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
                 ToolStatTile(label: "Conflits", value: "\(critical.count)", detail: "IP avec plusieurs MAC",
                              valueColor: critical.isEmpty ? Theme.text : Theme.critical)
                 ToolStatTile(label: "Usurpation possible", value: "\(usurp)", detail: "Réponses ARP contradictoires",

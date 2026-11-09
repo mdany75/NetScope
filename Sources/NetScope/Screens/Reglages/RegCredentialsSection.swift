@@ -265,7 +265,7 @@ struct RegCredentialsSection: View {
             Picker("", selection: $scope) {
                 Text("Tous les sites (par défaut)").tag(UUID?.none)
                 if !sites.sites.isEmpty { Divider() }
-                ForEach(sites.sites) { site in
+                ForEach(sites.sortedSites) { site in
                     Text(vault.perSite[site.id] == nil ? site.displayName : "\(site.displayName) · utilisateur propre")
                         .tag(UUID?.some(site.id))
                 }
@@ -280,7 +280,7 @@ struct RegCredentialsSection: View {
 
     /// Sites qui ont leur propre utilisateur v3.
     @ViewBuilder private var sitesNote: some View {
-        let own = sites.sites.compactMap { site in vault.perSite[site.id].map { (site, $0) } }
+        let own = sites.sortedSites.compactMap { site in vault.perSite[site.id].map { (site, $0) } }
         if !own.isEmpty || scope != nil {
             VStack(alignment: .leading, spacing: 4) {
                 if let scope, let site = sites.site(scope) {

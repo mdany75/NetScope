@@ -224,7 +224,10 @@ final class SiteModel: ObservableObject {
         guard Launcher.isDemo, !attached else { return }
         attached = true
         for (key, results) in SitesDemo.results() { shelf.preload(results, for: key) }
-        if let wanted = ProcessInfo.processInfo.environment["NETSCOPE_SITE"]?.lowercased(),
+        let wanted = ProcessInfo.processInfo.environment["NETSCOPE_SITE"]?.lowercased()
+        if wanted == "aucun" {
+            activate(nil, state: state, confirm: false, announce: false)
+        } else if let wanted,
            let site = list.sites.first(where: { $0.displayName.lowercased() == wanted }) ?? list.sites.first(where: { $0.displayName.lowercased().contains(wanted) }),
            site.id != list.activeID {
             activate(site.id, state: state, confirm: false, announce: false)
@@ -304,7 +307,7 @@ final class SiteModel: ObservableObject {
         list.activeID = id
         save()
         if !adoptCurrent {
-            if let site = activeSite { state.ranges = site.ranges }
+            state.ranges = activeSite?.ranges ?? []
             apply(shelf.take(newKey), to: state)
         }
         FortiGateStore.shared.siteChanged(state: state)
@@ -529,6 +532,7 @@ final class SiteModel: ObservableObject {
             }
             InvModel.shared.switchSite(to: SiteFiles.noSiteKey, url: files?.inventoryURL(for: SiteFiles.noSiteKey), demoStore: nil, discardCurrent: true)
             list.activeID = nil
+            state.ranges = []
             apply(shelf.take(SiteFiles.noSiteKey), to: state)
             FortiGateStore.shared.siteChanged(state: state)
             RapportModel.shared.siteChanged(nil)
@@ -560,7 +564,7 @@ final class SiteModel: ObservableObject {
         if let removedSite { SiteControllerStore.shared.forgetSecrets(of: removedSite) }
         save()
         if wasActive {
-            ScanController.shared.show("Site supprimé\u{00A0}: aucun site actif. Les plages du Scanner restent celles du site supprimé, sans être enregistrées.", tone: .neutral)
+            ScanController.shared.show("Site supprimé\u{00A0}: aucun site actif, plages du Scanner vidées.", tone: .neutral)
         }
     }
 

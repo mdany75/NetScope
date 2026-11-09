@@ -423,7 +423,7 @@ struct ToolStatTile: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label).font(Theme.caption).foregroundStyle(Theme.textSecondary)
             Text(value).font(Theme.mono(14, weight: .semibold)).foregroundStyle(valueColor).lineLimit(1).minimumScaleFactor(0.75)
-            if let detail { Text(detail).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1) }
+            if let detail { Text(detail).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(2) }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)

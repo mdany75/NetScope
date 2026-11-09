@@ -148,7 +148,7 @@ struct BlacklistView: View {
         let listed = report.listed.count
         let major = report.majorListings.count
         let undetermined = report.undetermined
-        return LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 10, alignment: .top)], spacing: 8) {
+        return LazyVGrid(columns: [GridItem(.adaptive(minimum: Theme.tileMinWidth), spacing: 10, alignment: .top)], spacing: 8) {
             ToolStatTile(label: "Inscriptions", value: "\(listed)",
                          detail: major > 0 ? "\(major) liste\(major > 1 ? "s" : "") majeure\(major > 1 ? "s" : "")" : (listed > 0 ? "mineures seulement" : "aucune"),
                          valueColor: major > 0 ? Theme.critical : (listed > 0 ? Theme.warning : Theme.success))

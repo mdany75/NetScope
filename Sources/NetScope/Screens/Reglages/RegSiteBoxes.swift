@@ -38,7 +38,7 @@ struct RegSiteFortiGateBox: View {
                         HStack(spacing: 6) {
                             Text(controller.displayName).font(Theme.small)
                             Text(controller.addressLabel).font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
-                            let others = sites.sites.filter { $0.id != site.id && $0.fortiGateIDs.contains(controller.id) }
+                            let others = sites.sortedSites.filter { $0.id != site.id && $0.fortiGateIDs.contains(controller.id) }
                             if !others.isEmpty {
                                 Text("site\u{00A0}: \(others.map(\.displayName).joined(separator: ", "))")
                                     .font(Theme.caption).foregroundStyle(Theme.textTertiary).lineLimit(1)

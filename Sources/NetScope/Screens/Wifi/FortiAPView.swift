@@ -169,7 +169,7 @@ struct FortiAPView: View {
         let o = store.shownOverview
         let d = store.shownDiagnosis
         let critical = d.advice.filter { $0.severity == .critique }.count
-        return LazyVGrid(columns: [GridItem(.adaptive(minimum: 128), spacing: 10)], spacing: 10) {
+        return LazyVGrid(columns: [GridItem(.adaptive(minimum: Theme.tileMinWidth), spacing: 10, alignment: .top)], spacing: 10) {
             tile("Bornes en ligne", "\(o.onlineAPs.count) / \(o.aps.count)",
                  sub: o.isMultiSite ? "\(o.sites.count) sites" : (o.sites.first ?? ""), color: Theme.success, tab: .bornes)
             tile("Hors ligne", "\(o.offlineAPs.count)", sub: o.offlineAPs.first.map { $0.name + (o.offlineAPs.count > 1 ? "…" : "") } ?? "aucune",
@@ -191,7 +191,7 @@ struct FortiAPView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 Text(value).font(Theme.mono(18, weight: .bold)).foregroundStyle(color).lineLimit(1)
-                Text(sub).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                Text(sub).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(2)
             }
             .modifier(WifiTileStyle())
             .contentShape(Rectangle())

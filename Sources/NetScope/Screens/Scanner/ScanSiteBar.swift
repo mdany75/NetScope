@@ -384,7 +384,7 @@ struct SiteChooseSheet: View {
             Text("Quel site\u{00A0}?").font(Theme.panelTitle)
             Text(reason).font(Theme.small).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
             Picker("Site", selection: $selection) {
-                ForEach(candidates.compactMap { sites.site($0) }) { site in
+                ForEach(sites.sortedSites.filter { candidates.contains($0.id) }) { site in
                     HStack(spacing: 8) {
                         VStack(alignment: .leading, spacing: 1) {
                             Text(site.displayName).font(Theme.bodySemibold).foregroundStyle(Theme.text)

@@ -1,5 +1,18 @@
 # Changements
 
+## 1.7.1 — 2026-11-09
+
+### Corrigé
+- **Scanner sans site** : choisir « Aucun site » ou supprimer le site actif vide les plages à
+  scanner, au lieu de garder celles de l’ancien site.
+- **Tuiles trop étroites** : le BSSID et les légendes du Wi-Fi se lisent au complet, même sur un très
+  grand écran. La même largeur minimale vaut pour les tuiles de FortiAP, des contrôleurs Wi-Fi, de
+  Firmware et licences, de WAN et VPN, des Étendues DHCP, de Vitesse disque, des Listes noires et des
+  Enregistrements courriel. Une légende trop longue passe sur deux lignes.
+- **Sites en ordre alphabétique** là où ils restaient en ordre de création : scan planifié,
+  identifiants SNMP v3, sites d’un switch, FortiGate partagée, plages en commun et question de
+  « Détecter mon site ».
+
 ## 1.7.0 — 2026-11-09
 
 ### Ajouté

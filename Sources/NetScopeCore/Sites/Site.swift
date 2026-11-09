@@ -284,7 +284,7 @@ public struct SiteList: Codable, Hashable, Sendable {
 
     /// Sites associés à ce switch SNMP.
     public func sites(forSwitch host: String) -> [Site] {
-        sites.filter { $0.switchHosts.contains(host) }
+        sortedByName.filter { $0.switchHosts.contains(host) }
     }
 
     /// Associe un switch SNMP exactement aux sites donnés.
@@ -308,7 +308,7 @@ public struct SiteList: Codable, Hashable, Sendable {
         guard let site = site(id) else { return [] }
         let mine = site.parsedRanges
         guard !mine.isEmpty else { return [] }
-        return sites.filter { other in
+        return sortedByName.filter { other in
             other.id != id && other.parsedRanges.contains { theirs in mine.contains { ScanRelevance.overlaps($0, theirs) } }
         }
     }

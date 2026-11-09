@@ -208,7 +208,7 @@ struct WifiConnectionPanel: View {
         let ap = accessPoint(for: network)
         let colors = WifiText.qualityColor(network.rssi)
         let block = WifiText.block(network).map { " (\($0))" } ?? ""
-        return LazyVGrid(columns: [GridItem(.adaptive(minimum: 138), spacing: 8)], spacing: 8) {
+        return LazyVGrid(columns: [GridItem(.adaptive(minimum: Theme.tileMinWidth), spacing: 8, alignment: .top)], spacing: 8) {
             tile("BSSID", network.bssid?.formatted(.upperColon) ?? "masqué", mono: true)
             tile("Point d’accès", ap?.displayName ?? WifiText.vendor(network), sub: ap?.id ?? (network.bssid == nil ? nil : "fabricant d’après le BSSID"))
             if let ap, let switchName = ap.switchName {
@@ -267,9 +267,9 @@ struct WifiConnectionPanel: View {
             }
             .font(mono ? Theme.mono(12, weight: .semibold) : .system(size: 12, weight: .semibold))
             .foregroundStyle(accent ? Theme.accent : Theme.text)
-            .lineLimit(1)
+            .lineLimit(2)
             if let sub {
-                Text(sub).font(subMono ?? mono ? Theme.mono(11) : Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                Text(sub).font(subMono ?? mono ? Theme.mono(11) : Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(2)
             }
         }
         .modifier(WifiTileStyle())
@@ -278,8 +278,8 @@ struct WifiConnectionPanel: View {
     private func tileColored(_ title: String, _ value: String, color: Color, sub: String?, mono: Bool = true) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).font(Theme.caption).foregroundStyle(Theme.textSecondary)
-            Text(value).font(mono ? Theme.mono(12, weight: .bold) : .system(size: 12, weight: .semibold)).foregroundStyle(color).lineLimit(1)
-            if let sub { Text(sub).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1) }
+            Text(value).font(mono ? Theme.mono(12, weight: .bold) : .system(size: 12, weight: .semibold)).foregroundStyle(color).lineLimit(2)
+            if let sub { Text(sub).font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(2) }
         }
         .modifier(WifiTileStyle())
     }
