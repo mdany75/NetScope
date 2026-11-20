@@ -1,5 +1,13 @@
 # Changements
 
+## 1.7.2 — 2026-11-20
+
+### Corrigé
+- **FortiGate : « connexion annulée » au test** : certains ports d’administration (par exemple 8444)
+  demandent un certificat client pendant la négociation TLS sans l’exiger. NetScope annulait cette
+  demande et coupait la connexion avant d’envoyer le jeton. Il n’en présente plus et continue ; les
+  autres demandes inattendues restent refusées et la vérification par empreinte est inchangée.
+
 ## 1.7.1 — 2026-11-09
 
 ### Corrigé
