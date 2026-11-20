@@ -62,9 +62,16 @@ final class FortiSessionDelegate: NSObject, URLSessionTaskDelegate, @unchecked S
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge,
                     completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        // Certains ports d'administration (ex. 8444) demandent un certificat client pendant la
+        // négociation TLS, sans l'exiger : on n'en présente pas, mais on ne coupe pas la connexion
+        // (l'API reste protégée par le jeton). Annuler ici donnait « connexion annulée ».
+        if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodClientCertificate {
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
         guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
               let trust = challenge.protectionSpace.serverTrust else {
-            // Aucune autre authentification (certificat client, mot de passe) n'est fournie.
+            // Aucune autre authentification (mot de passe) n'est fournie.
             completionHandler(.cancelAuthenticationChallenge, nil)
             return
         }
